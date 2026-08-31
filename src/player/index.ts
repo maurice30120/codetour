@@ -266,9 +266,8 @@ async function renderCurrentStep() {
   }
 
   if (line === undefined) {
-    // The step doesn't have a discoverable line number and so
-    // stick the step at the end of the file. Unfortunately, there
-    // isn't a way to say EOF, so 2000 is a temporary hack.
+    // Sans ligne ni motif retrouvable, l'étape décrit le fichier dans son
+    // ensemble ; son commentaire est donc placé visuellement en fin de fichier.
     line = 2000;
   }
 
@@ -368,9 +367,8 @@ async function renderCurrentStep() {
 
   let selection;
   if (step.selection) {
-    // Adjust the 1-based positions
-    // to the 0-based positions that
-    // VS Code's editor uses.
+    // Les fichiers .tour utilisent des positions lisibles commençant à 1,
+    // tandis que VS Code attend des positions commençant à 0.
     selection = new Selection(
       step.selection.start.line - 1,
       step.selection.start.character - 1,
@@ -448,8 +446,8 @@ export function registerPlayerModule(context: ExtensionContext) {
 
   initializeStorage(context);
 
-  // Watch for changes to the active tour property,
-  // and automatically re-render the current step in response.
+  // Toute navigation ou modification de la visite rafraîchit automatiquement
+  // l'étape visible, pour que le commentaire reste synchronisé avec le fichier.
   reaction(
     () => [
       store.activeTour

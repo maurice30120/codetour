@@ -104,8 +104,8 @@ class CodeTourTreeProvider implements TreeDataProvider<TreeItem>, Disposable {
     }
   }
 
-  // This is called whenever a tree item is hovered over, and we're
-  // using it to generate preview tooltips for tour steps on-demand.
+  // Au survol d'une étape, affiche un aperçu de son explication sans obliger
+  // l'utilisateur à quitter la vue d'ensemble de la visite.
   async resolveTreeItem(element: TreeItem): Promise<TreeItem> {
     if (element instanceof CodeTourStepNode) {
       const content = generatePreviewContent(

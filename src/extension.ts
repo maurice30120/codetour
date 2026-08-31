@@ -16,9 +16,9 @@ import {
 import { discoverTours as _discoverTours } from "./store/provider";
 
 /**
- * In order to check whether the URI handler was called on activation,
- * we must do this dance around `discoverTours`. The same call to
- * `discoverTours` is shared between `activate` and the URI handler.
+ * Partage la découverte des visites entre l'ouverture normale du projet et
+ * l'ouverture via un lien CodeTour. Une seule lecture des fichiers est ainsi
+ * nécessaire avant d'afficher la visite demandée à l'utilisateur.
  */
 let cachedDiscoverTours: Promise<void> | undefined;
 function discoverTours(): Promise<void> {
@@ -31,8 +31,8 @@ function startTour(params: URLSearchParams) {
 
   let stepNumber;
   if (step) {
-    // Allow the step number to be
-    // provided as 1-based vs. 0-based
+    // Dans les liens publics, la première étape porte le numéro 1 ; le lecteur
+    // interne utilise un index qui commence à 0.
     stepNumber = Number(step) - 1;
   }
 
