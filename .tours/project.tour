@@ -1,0 +1,97 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Découvrir CodeTour et son serveur MCP",
+  "description": "Project Tour complet du dépôt CodeTour. Il présente les deux livrables — l’extension Visual Studio Code et le serveur MCP local — puis suit leurs principaux flux : activation et découverte, lecture et navigation, enregistrement et synchronisation, enfin validation et persistance sûre des Tours générés par IA.",
+  "steps": [
+    {
+      "title": "Deux livrables autour d’un même format",
+      "description": "CodeTour permet d’attacher une suite ordonnée d’explications Markdown à des emplacements du code afin d’accélérer l’onboarding et les revues. Ce dépôt produit d’une part une extension Visual Studio Code exécutable sous Node ou dans un web worker, et d’autre part `codetour-mcp`, un serveur local autonome qui permet à un agent IA de générer des Tours déterministes. Le format JSON commun est décrit par `schema.json`.",
+      "file": "package.json",
+      "pattern": "\"name\": \"codetour\""
+    },
+    {
+      "title": "Point d’entrée de l’extension",
+      "description": "Visual Studio Code appelle `activate` après le démarrage. Cette fonction câble le lecteur, l’enregistreur et Live Share, enregistre le gestionnaire d’URI, découvre les Tours du workspace, propose éventuellement le Tour principal, initialise Git puis expose l’API publique. C’est le nœud de composition de toute l’extension.",
+      "file": "src/extension.ts",
+      "pattern": "export async function activate\\(context: vscode\\.ExtensionContext\\)"
+    },
+    {
+      "title": "Découverte des fichiers .tour",
+      "description": "La découverte cherche les Tours principaux puis parcourt récursivement les répertoires conventionnels comme `.tours`. Les objets JSON sont triés, filtrés selon leur condition de plateforme, puis placés dans le store. Un watcher relance ce flux quand un fichier de Tour apparaît, change ou disparaît ; un Tour actif est mis à jour en place ou arrêté s’il a été supprimé.",
+      "file": "src/store/provider.ts",
+      "pattern": "export async function discoverTours\\(\\): Promise<void>"
+    },
+    {
+      "title": "Modèle partagé et état observable",
+      "description": "Ces interfaces constituent le vocabulaire central de l’extension : un `CodeTourStep` porte l’explication et un seul type de localisation, un `CodeTour` ordonne les étapes, et `ActiveTour` ajoute la position de lecture et le contexte du workspace. Le store MobX observable relie découverte, arbre, lecteur, enregistreur et barre d’état.",
+      "file": "src/store/index.ts",
+      "pattern": "export interface CodeTourStep \\{"
+    },
+    {
+      "title": "Démarrage d’un Tour",
+      "description": "`startCodeTour` démarre le lecteur, résout la racine du workspace, choisit l’étape initiale et installe l’état actif. Il met aussi à jour les clés de contexte Visual Studio Code qui pilotent menus et commandes. En mode édition, le même flux active l’enregistrement ; en lecture, il publie l’événement de démarrage consommé notamment par le rendu et Live Share.",
+      "file": "src/store/actions.ts",
+      "pattern": "export function startCodeTour\\("
+    },
+    {
+      "title": "Résolution et rendu d’une étape",
+      "description": "À chaque changement d’étape, le lecteur résout le fichier ciblé, puis préfère la ligne explicite ou la fin de sélection. Sinon il recherche le `pattern`, ce qui rend le Tour Anchor résistant aux insertions de lignes. Il crée ensuite un thread de commentaire Visual Studio Code, transforme le Markdown interactif, ajoute la navigation précédente/suivante et révèle l’emplacement.",
+      "file": "src/player/index.ts",
+      "pattern": "async function renderCurrentStep\\(\\)"
+    },
+    {
+      "title": "Persistance pendant l’enregistrement",
+      "description": "Le flux d’enregistrement crée un fichier sous `.tours`, démarre immédiatement ce Tour en mode édition, puis les commandes ajoutent, déplacent ou modifient ses étapes. `saveTour` retire les champs internes, ajoute la référence au schéma et réécrit le JSON via l’abstraction de système de fichiers de Visual Studio Code, ce qui conserve la compatibilité desktop/web.",
+      "file": "src/recorder/commands.ts",
+      "pattern": "export async function saveTour\\(tour: CodeTour\\)"
+    },
+    {
+      "title": "Maintenance automatique des ancres",
+      "description": "Quand l’utilisateur modifie une ligne qui sert de motif à une étape visible, ce watcher recalcule un motif échappé à partir du nouveau texte et sauvegarde le Tour avec un délai anti-rebond. Ce flux maintient les Tour Anchors de type `pattern` alignés sur le code pendant l’édition ordinaire.",
+      "file": "src/recorder/watcher.ts",
+      "pattern": "const changeWatcher = async"
+    },
+    {
+      "title": "Synchronisation Live Share",
+      "description": "Le service Live Share relaie les événements de démarrage et de fin entre participants. L’hôte convertit les URI locales en URI partagées et l’invité effectue la conversion inverse ; le numéro du pair évite de retraiter son propre message. Les notifications sont retransmises afin que tous les participants suivent la même étape.",
+      "file": "src/liveShare/service.ts",
+      "pattern": "export default function \\("
+    },
+    {
+      "title": "Point d’entrée du serveur MCP",
+      "description": "Le binaire `codetour-mcp` exige une unique racine de workspace, la résout avant le démarrage, construit le serveur puis le connecte au transport standard input/output. Ce processus local sans transport réseau constitue le second point d’entrée majeur du dépôt et isole chaque instance à un workspace.",
+      "file": "packages/mcp-server/src/cli.ts",
+      "pattern": "async function main\\(\\): Promise<void>"
+    },
+    {
+      "title": "Deux outils MCP spécialisés",
+      "description": "`createServer` enregistre exactement deux outils : `create_project_tour` pour expliquer le codebase sans référence Git, et `create_changes_tour` pour expliquer un diff reproductible depuis une base. Les schémas MCP restent volontairement permissifs afin que la validation métier puisse agréger toutes les erreurs en une seule réponse.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "export function createServer\\(workspaceRoot: string\\): McpServer"
+    },
+    {
+      "title": "Flux de création d’un Project Tour",
+      "description": "Le handler extrait les étapes, valide ensemble les paramètres et leurs Tour Anchors, ajoute un avertissement au-delà de quinze étapes, construit le document CodeTour sans `ref`, puis délègue sa persistance. Le serveur ne rédige pas le contenu : l’agent fournit les explications et le serveur garantit un résultat conforme et déterministe.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleCreateProjectTour\\("
+    },
+    {
+      "title": "Validation déterministe des étapes",
+      "description": "`validateSteps` parcourt toute la proposition et accumule les problèmes au lieu d’échouer au premier. Chaque étape est limitée aux champs V1 sûrs ; fichier et répertoire sont exclusifs, ligne et motif ne peuvent coexister, les sélections sont bornées et tout motif doit être une expression régulière valide avec une occurrence unique.",
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "export function validateSteps\\("
+    },
+    {
+      "title": "Confinement des Tour Anchors",
+      "description": "Avant toute lecture, `checkAnchor` refuse les chemins absolus, résout le chemin réel et vérifie qu’il reste sous la racine réelle du workspace. Il rejette ainsi les liens symboliques qui s’échappent du projet, puis confirme que la cible est bien du type demandé. Ce contrôle matérialise la frontière de sécurité décrite par les ADR.",
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "function checkAnchor\\("
+    },
+    {
+      "title": "Écriture atomique du résultat",
+      "description": "Après validation finale contre le schéma CodeTour, le fichier réservé est écrit dans un temporaire du même répertoire, synchronisé sur disque puis renommé sur la destination. La résolution réelle du répertoire empêche une sortie hors workspace et un échec de renommage nettoie le temporaire, de sorte qu’un ancien Tour valide n’est jamais remplacé par un fichier partiel.",
+      "file": "packages/mcp-server/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic\\("
+    }
+  ]
+}

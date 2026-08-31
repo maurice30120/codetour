@@ -25,27 +25,45 @@ locations only. CodeTour `commands`, root-level `when` expressions, external
 - Node.js >= 18
 - Git (only for `create_changes_tour`)
 
-## Installation and local validation
+## Démarrage rapide
+
+Depuis la racine du dépôt, installez les dépendances du serveur MCP et vérifiez
+le package :
 
 ```bash
+cd packages/mcp-server
 npm install
-npm run build
 npm test
 ```
 
-Run the server locally:
+`npm test` compile le package et exécute toute la suite de tests. Vous pouvez
+ensuite démarrer le serveur pour un workspace :
 
 ```bash
 node dist/src/cli.js --workspace-root /path/to/workspace
 ```
 
-The `--workspace-root` argument is required. One server instance handles
-exactly one workspace root, and every operation is confined to it: real paths
-are resolved before any read or write, symlinks that escape the root are
-rejected, and the server performs no network access.
+Le processus utilise MCP sur `stdio`. Il attend donc silencieusement les
+requêtes d'un client MCP. Utilisez `Ctrl+C` pour l'arrêter lorsqu'il est lancé
+manuellement.
 
-The package exposes the `codetour-mcp` binary (available after `npm install`
-or `npm link`).
+L'argument `--workspace-root` est obligatoire. Une instance du serveur traite
+exactement un workspace et toutes les opérations y sont confinées : les chemins
+réels sont résolus avant toute lecture ou écriture, les liens symboliques qui
+sortent de la racine sont refusés et le serveur n'effectue aucun accès réseau.
+
+Le package expose le binaire `codetour-mcp`, disponible après `npm install` ou
+`npm link`. Pour rendre ce binaire accessible globalement pendant le
+développement local :
+
+```bash
+npm link
+codetour-mcp --workspace-root /path/to/workspace
+```
+
+Configurez enfin votre client MCP avec la commande et le workspace à utiliser,
+comme dans l'exemple ci-dessous. Une fois connecté, le client découvre
+automatiquement `create_project_tour` et `create_changes_tour`.
 
 ## MCP client configuration
 
@@ -61,6 +79,50 @@ or `npm link`).
 ```
 
 The transport is `stdio` only.
+
+### Configuration dans Codex
+
+Après le build, enregistrez le serveur auprès de Codex en remplaçant les deux
+chemins par des chemins absolus :
+
+```bash
+codex mcp add codetour -- \
+  node /path/to/codetour/packages/mcp-server/dist/src/cli.js \
+  --workspace-root /path/to/workspace
+```
+
+Il n'est pas nécessaire de conserver un processus lancé manuellement : Codex
+démarre le serveur `stdio` automatiquement. Vérifiez la configuration avec :
+
+```bash
+codex mcp get codetour
+```
+
+Redémarrez ensuite l'application Codex ou son extension IDE pour qu'elle charge
+le nouveau serveur. Dans une session Codex, `/mcp` permet de vérifier que le
+serveur est connecté.
+
+Pour générer le tour général du projet, demandez par exemple :
+
+```text
+Analyse ce dépôt, puis utilise l'outil MCP codetour.create_project_tour pour
+générer un Project Tour. Présente le but du projet, ses points d'entrée, ses
+composants importants et ses principaux flux d'exécution. Utilise des ancres
+stables dans les fichiers lorsque c'est possible.
+```
+
+Le résultat est écrit dans `.tours/project.tour`.
+
+Pour documenter les changements de la branche courante :
+
+```text
+Analyse les changements commités de cette branche depuis sa branche de base,
+puis utilise codetour.create_changes_tour pour créer un Changes Tour. Détermine
+la référence de base et utilise le SHA complet du HEAD actuel. N'inclus pas les
+modifications non commitées.
+```
+
+Le résultat est écrit dans `.tours/changes.tour`.
 
 ## Tools
 
@@ -154,11 +216,74 @@ generation does not warn about itself.
 
 ## Development
 
+Install the package dependencies once:
+
 ```bash
-npm run typecheck   # type-check only
-npm run build       # compile to dist/
-npm test            # build + integration tests over the stdio MCP seam
+cd packages/mcp-server
+npm install
 ```
 
-Integration tests launch the server as an MCP client would, over `stdio`,
-against temporary workspaces and temporary Git repositories.
+### Run all tests
+
+From `packages/mcp-server/`:
+
+```bash
+npm test
+```
+
+The test command first compiles the package, then runs the complete Node.js
+test suite from `dist/test/`. A successful run currently reports 69 passing
+tests.
+
+The same suite can be launched from the repository root without changing
+directory:
+
+```bash
+npm test --prefix packages/mcp-server
+```
+
+### Run the type checker or build only
+
+```bash
+npm run typecheck   # validate TypeScript without producing files
+npm run build       # compile sources and tests into dist/
+```
+
+From the repository root, append `--prefix packages/mcp-server` to either
+command.
+
+### Run one test file
+
+Individual tests run from the compiled `dist/test/` tree, so build the package
+first. For example:
+
+```bash
+npm run build
+node --test dist/test/integration/changes-tour.test.js
+node --test dist/test/integration/project-tour.test.js
+node --test dist/test/integration/security.test.js
+node --test dist/test/integration/cli.test.js
+node --test dist/test/integration/packaged-binary.test.js
+node --test dist/test/unit/validation.test.js
+```
+
+You can also filter tests in a file by name:
+
+```bash
+node --test --test-name-pattern="STALE_HEAD" \
+  dist/test/integration/changes-tour.test.js
+```
+
+### What the tests exercise
+
+- Project Tour and Changes Tour calls through the public MCP `stdio` seam;
+- Tour Anchor, schema and V1 security validation;
+- Git merge-base, stale `HEAD`, dirty-workspace and deletion-only scenarios;
+- atomic replacement and preservation of an existing Tour after failures;
+- CLI argument validation;
+- `npm pack`, local installation of the archive, execution of the installed
+  `codetour-mcp` binary, and invocation of both public MCP tools.
+
+Integration tests create isolated temporary workspaces and Git repositories
+and remove them after each scenario. The packaging smoke test stays local and
+does not publish anything to npm.
