@@ -34,12 +34,6 @@
       "pattern": "export function startCodeTour\\("
     },
     {
-      "title": "Résolution et rendu d’une étape",
-      "description": "À chaque changement d’étape, le lecteur résout le fichier ciblé, puis préfère la ligne explicite ou la fin de sélection. Sinon il recherche le `pattern`, ce qui rend le Tour Anchor résistant aux insertions de lignes. Il crée ensuite un thread de commentaire Visual Studio Code, transforme le Markdown interactif, ajoute la navigation précédente/suivante et révèle l’emplacement.",
-      "file": "src/player/index.ts",
-      "pattern": "async function renderCurrentStep\\(\\)"
-    },
-    {
       "title": "Persistance pendant l’enregistrement",
       "description": "Le flux d’enregistrement crée un fichier sous `.tours`, démarre immédiatement ce Tour en mode édition, puis les commandes ajoutent, déplacent ou modifient ses étapes. `saveTour` retire les champs internes, ajoute la référence au schéma et réécrit le JSON via l’abstraction de système de fichiers de Visual Studio Code, ce qui conserve la compatibilité desktop/web.",
       "file": "src/recorder/commands.ts",
@@ -50,6 +44,12 @@
       "description": "Quand l’utilisateur modifie une ligne qui sert de motif à une étape visible, ce watcher recalcule un motif échappé à partir du nouveau texte et sauvegarde le Tour avec un délai anti-rebond. Ce flux maintient les Tour Anchors de type `pattern` alignés sur le code pendant l’édition ordinaire.",
       "file": "src/recorder/watcher.ts",
       "pattern": "const changeWatcher = async"
+    },
+    {
+      "title": "Résolution et rendu d’une étape",
+      "description": "À chaque changement d’étape, le lecteur résout le fichier ciblé, puis préfère la ligne explicite ou la fin de sélection. Sinon il recherche le `pattern`, ce qui rend le Tour Anchor résistant aux insertions de lignes. Il crée ensuite un thread de commentaire Visual Studio Code, transforme le Markdown interactif, ajoute la navigation précédente/suivante et révèle l’emplacement.",
+      "file": "src/player/index.ts",
+      "pattern": "async function renderCurrentStep\\(\\)"
     },
     {
       "title": "Synchronisation Live Share",
