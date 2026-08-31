@@ -10,6 +10,15 @@ import {
   WorkspaceContext,
 } from "./types";
 
+// Moteur de validation déterministe des propositions de Tours.
+//
+// Toute erreur détectée est agrégée dans une liste d'`Issue` (chemin + message)
+// avant de répondre, afin que l'agent corrige la proposition en un seul cycle.
+// Une étape peut être purement explicative (sans Tour Anchor) ; lorsqu'elle
+// possède un localisateur, celui-ci est validé contre l'état réel du workspace
+// (existence, bornes de lignes/sélections, unicité du motif, confinement des
+// liens symboliques à la racine configurée).
+
 export const STEP_FIELDS = [
   "title",
   "description",
@@ -22,6 +31,8 @@ export const STEP_FIELDS = [
 
 export const MAX_RECOMMENDED_STEPS = 15;
 
+// Schémas d'URI actifs refusés dans le Markdown : une description générée ne
+// doit pas pouvoir déclencher une action dans l'éditeur ou le terminal.
 const FORBIDDEN_URI_SCHEME =
   /(?:command|file|vscode|vscode-insiders|javascript):/i;
 
@@ -89,6 +100,8 @@ export function validateProjectParams(
     issues.push({ path: "$", message: "the arguments must be an object" });
     return { issues };
   }
+  // Le schéma d'entrée V1 est strict : tout champ inconnu est refusé, ce qui
+  // exclut notamment `when`, `commands`, `uri` et les capacités de V2.
   reportUnknownFields(raw, PROJECT_PARAM_FIELDS, "$", issues);
   const params = validateCommonParams(raw, issues);
   return { params, issues };
@@ -126,6 +139,8 @@ export function validateChangesParams(
   return { params, issues };
 }
 
+// Champs communs aux deux outils : titre optionnel, description optionnelle
+// (avec filtrage des schémas d'URI actifs) et liste d'étapes obligatoire.
 function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
   const params: ProjectParams = {};
   const title = isOptionalString(raw, "title", "title", issues);
@@ -172,6 +187,12 @@ export function validateSteps(
   return { steps, issues: [] };
 }
 
+// Valide chaque étape contre les règles de Tour Anchor :
+// - au plus un localisateur principal (fichier ou répertoire) ;
+// - ligne, motif et sélection ne sont valides qu'avec un fichier ;
+// - ligne et motif sont mutuellement exclusifs ;
+// - le motif doit identifier une occurrence unique dans le fichier ;
+// - les bornes de ligne et de sélection sont vérifiées contre le contenu réel.
 function validateStep(
   raw: unknown,
   index: number,
@@ -235,6 +256,8 @@ function validateStep(
     }
   }
 
+  // Le Markdown d'une étape ne peut contenir que des liens et images HTTPS
+  // ordinaires ; les schémas actifs sont refusés.
   if (description !== undefined && FORBIDDEN_URI_SCHEME.test(description)) {
     issues.push({
       path: `${base}.description`,
@@ -243,6 +266,8 @@ function validateStep(
     });
   }
 
+  // Résolution du chemin réel de l'ancre : une lecture n'a lieu qu'après
+  // vérification du confinement au workspace.
   let fileContent: string | undefined;
   let fileAnchorOk = true;
   if (file !== undefined) {
@@ -420,6 +445,9 @@ interface AnchorResult {
   realPath?: string;
 }
 
+// Vérifie qu'une ancre (fichier ou répertoire) existe réellement et reste
+// confinée au workspace : le chemin réel est résolu avant toute lecture, et un
+// lien symbolique qui sort de la racine configurée est refusé.
 function checkAnchor(
   ctx: WorkspaceContext,
   value: string,

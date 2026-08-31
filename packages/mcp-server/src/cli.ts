@@ -4,6 +4,10 @@ import { createContext } from "./context";
 import { createServer } from "./server";
 import packageJson from "../package.json";
 
+// Point d'entrée du binaire `codetour-mcp`.
+// Le serveur ne traite qu'un seul workspace, imposé via `--workspace-root`,
+// et ne communique que par le transport `stdio` (aucun accès réseau).
+
 interface ParsedArgs {
   workspaceRoot?: string;
   help: boolean;
@@ -24,6 +28,8 @@ function usage(): string {
   ].join("\n");
 }
 
+// Analyse les arguments de la ligne de commande.
+// Accepte `--workspace-root <chemin>` et `--workspace-root=<chemin>`.
 function parseArgs(argv: string[]): ParsedArgs {
   const result: ParsedArgs = { help: false, version: false };
   for (let index = 0; index < argv.length; index++) {
@@ -54,10 +60,12 @@ async function main(): Promise<void> {
     console.log(packageJson.version);
     return;
   }
+  // La racine du workspace est obligatoire : toutes les opérations y sont confinées.
   if (!args.workspaceRoot) {
     console.error(`Error: --workspace-root is required.\n\n${usage()}`);
     process.exit(1);
   }
+  // Vérifie que la racine existe avant de démarrer, pour échouer clairement.
   try {
     createContext(args.workspaceRoot);
   } catch {

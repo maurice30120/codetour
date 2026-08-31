@@ -3,6 +3,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { WorkspaceContext } from "./types";
 
+// Toutes les opérations Git du serveur passent par `git` en ligne de commande,
+// exécuté dans le workspace configuré. Le Changes Tour dépend de cet
+// historique : merge-base, vérification du SHA de tête, liste des fichiers
+// modifiés et détection des changements non committés.
+
 export interface GitResult {
   stdout: string;
   stderr: string;
@@ -103,6 +108,9 @@ export function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, "/");
 }
 
+// Changements staged, unstaged et untracked du workspace, à l'exception des
+// deux fichiers de Tour réservés : une génération précédente ne doit pas
+// provoquer son propre avertissement de workspace sale.
 export async function uncommittedChanges(
   ctx: WorkspaceContext
 ): Promise<UncommittedEntry[]> {
@@ -142,6 +150,9 @@ export async function uncommittedChanges(
   return entries;
 }
 
+// Un répertoire `.tours` non suivi apparaît sous la forme d'une seule entrée
+// `?? .tours/` en mode « normal » : on l'ignore uniquement si son contenu se
+// limite aux fichiers de Tour réservés.
 function toursDirectoryOnlyContainsReserved(
   ctx: WorkspaceContext,
   directory: string

@@ -31,10 +31,24 @@ import {
 } from "./validation";
 import packageJson from "../package.json";
 
+// Serveur MCP V1 : expose exactement deux outils, `create_project_tour` et
+// `create_changes_tour`. L'agent IA rédige le contenu ; le serveur ne fait que
+// valider la proposition, appliquer les règles Git et de sécurité, puis écrire
+// de façon atomique le fichier de Tour réservé correspondant.
+//
+// Les schémas d'entrée des outils restent volontairement permissifs
+// (`z.unknown()` + `.passthrough()`) : le SDK MCP rejette lui-même les arguments
+// qui ne correspondent pas à un schéma strict, ce qui casserait l'exigence
+// d'agréger toutes les erreurs de validation dans une seule réponse. La
+// validation complète, champ par champ, est donc effectuée dans validation.ts.
+
 const CODETOUR_SCHEMA_URI = "https://aka.ms/codetour-schema";
 const SERVER_NAME = "codetour-mcp";
 const SERVER_VERSION = packageJson.version;
 
+// Destinations fixes et réservées aux Tours générés. Elles sont toujours
+// remplacées après une validation complète, et ignorées lors de la détection
+// d'un workspace sale (voir git.ts).
 const PROJECT_TOUR_PATH = ".tours/project.tour";
 const CHANGES_TOUR_PATH = ".tours/changes.tour";
 
@@ -137,6 +151,9 @@ export function createServer(workspaceRoot: string): McpServer {
   return server;
 }
 
+// Crée un Project Tour : aucun accès Git n'est nécessaire, la visite fonctionne
+// dans n'importe quel workspace et n'est jamais attachée à un `ref`, afin de
+// rester consultable pendant l'évolution normale du projet.
 async function handleCreateProjectTour(
   ctx: WorkspaceContext,
   args: unknown
@@ -146,6 +163,8 @@ async function handleCreateProjectTour(
     return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
   }
 
+  // La validation agrège toutes les erreurs (paramètres puis étapes) avant de
+  // répondre, pour permettre à l'agent de corriger la proposition en un cycle.
   const { params, issues: paramIssues } = validateProjectParams(args);
   const allIssues = [...paramIssues];
   let steps: TourStep[] | undefined;
@@ -185,6 +204,11 @@ async function handleCreateProjectTour(
   );
 }
 
+// Crée un Changes Tour : l'analyse porte sur les changements committés depuis
+// le merge-base de `base` jusqu'à `head`. `head` doit être le SHA complet du
+// HEAD courant, sinon la génération échoue avec STALE_HEAD pour éviter une
+// explication obsolète. Par défaut, seuls les changements committés sont pris
+// en compte ; `includeUncommitted` permet d'expliquer un travail local.
 async function handleCreateChangesTour(
   ctx: WorkspaceContext,
   args: unknown
@@ -194,6 +218,8 @@ async function handleCreateChangesTour(
     return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
   }
 
+  // Même stratégie d'agrégation que pour le Project Tour : toutes les erreurs
+  // de validation sont collectées avant de répondre.
   const { params, issues: paramIssues } = validateChangesParams(args);
   const allIssues = [...paramIssues];
   let steps: TourStep[] | undefined;
@@ -214,6 +240,7 @@ async function handleCreateChangesTour(
   const head = params.head as string;
   const includeUncommitted = params.includeUncommitted === true;
 
+  // Le Changes Tour dépend de l'historique Git : hors dépôt, l'outil échoue.
   if (!(await isGitRepository(ctx))) {
     return errorResponse(
       "GIT_REPOSITORY_REQUIRED",
@@ -221,6 +248,8 @@ async function handleCreateChangesTour(
     );
   }
 
+  // Le SHA analysé doit correspondre exactement au HEAD courant : sinon
+  // l'explication risquerait de ne pas correspondre au snapshot relu.
   const currentHead = await currentHeadSha(ctx);
   if (currentHead === null) {
     return errorResponse(
@@ -245,6 +274,9 @@ async function handleCreateChangesTour(
     );
   }
 
+  // Sans aucun changement committé (et sans travail local inclus), l'outil
+  // répond NO_CHANGES et conserve l'ancien Changes Tour : une visite vide ne
+  // remplace jamais une visite utile.
   const uncommitted = await uncommittedChanges(ctx);
   if (
     (await committedDiffIsEmpty(ctx, mergeBaseSha, head)) &&
@@ -256,6 +288,9 @@ async function handleCreateChangesTour(
     );
   }
 
+  // Les changements non committés sont exclus par défaut (avertissement),
+  // ou inclus explicitement : le Tour n'a alors pas de `ref` et signale que
+  // le résultat décrit un état local non reproductible.
   const warnings: Warning[] = [];
   if (includeUncommitted) {
     warnings.push({
@@ -274,6 +309,9 @@ async function handleCreateChangesTour(
   const warningsFromStepLimit = stepLimitWarnings(finalSteps);
   warnings.push(...warningsFromStepLimit);
 
+  // Ensemble des fichiers modifiés (committés, plus les fichiers non committés
+  // lorsque includeUncommitted est actif), utilisé pour l'avertissement
+  // NO_CHANGED_FILE_ANCHOR.
   const changedInWorkspace = await changedFilesInWorkspace(ctx, mergeBaseSha, head);
   if (includeUncommitted) {
     for (const entry of uncommitted) {
@@ -298,6 +336,8 @@ async function handleCreateChangesTour(
   }
 
   const title = params.title ?? (await defaultChangesTitle(ctx, head));
+  // La description est enrichie automatiquement avec la provenance, la base et
+  // la tête, afin que le périmètre analysé soit toujours connu du lecteur.
   const provenance = includeUncommitted
     ? `Generated from the merge-base of \`${base}\` (\`${mergeBaseSha}\`) to \`${head}\`, including uncommitted changes (non-reproducible local state).`
     : `Generated from the merge-base of \`${base}\` (\`${mergeBaseSha}\`) to \`${head}\`.`;
@@ -327,6 +367,7 @@ async function handleCreateChangesTour(
   );
 }
 
+// Avertissement non bloquant lorsqu'un Tour dépasse quinze étapes.
 function stepLimitWarnings(steps: TourStep[]): Warning[] {
   if (steps.length <= MAX_RECOMMENDED_STEPS) {
     return [];
@@ -339,6 +380,8 @@ function stepLimitWarnings(steps: TourStep[]): Warning[] {
   ];
 }
 
+// Valide le Tour produit contre le schéma CodeTour général, puis l'écrit de
+// façon atomique. En cas d'échec, l'ancien fichier reste intact.
 async function persistTour(
   ctx: WorkspaceContext,
   relativePath: string,
@@ -370,6 +413,8 @@ function extractSteps(args: unknown): unknown {
   return (args as Record<string, unknown>).steps;
 }
 
+// Fichiers modifiés par le diff committé, convertis en chemins relatifs au
+// workspace (le workspace peut être un sous-répertoire du dépôt).
 async function changedFilesInWorkspace(
   ctx: WorkspaceContext,
   mergeBaseSha: string,
@@ -383,6 +428,8 @@ async function changedFilesInWorkspace(
     .map((file) => file.slice(prefix.length));
 }
 
+// Titre par défaut du Changes Tour : « Changes on <branche> », avec un
+// repli sur le SHA court lorsque HEAD est détaché.
 async function defaultChangesTitle(
   ctx: WorkspaceContext,
   head: string
