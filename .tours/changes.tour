@@ -1,0 +1,60 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Clarification des commentaires de la branche feature/commentaire",
+  "description": "Ce Changes Tour présente le commit qui réécrit des commentaires dans sept fichiers sans modifier le comportement exécutable. Il montre l'intention de rendre les explications plus accessibles, les principaux parcours concernés, ainsi que le point de vigilance sur le vocabulaire canonique défini par le domaine.\n\nGenerated from the merge-base of `main` (`dbf557cb15a2d894e3e0bd65497c9e576417dcb3`) to `42c719c7cb4913b099a096b6e23bda29d3b47b5d`.",
+  "ref": "42c719c7cb4913b099a096b6e23bda29d3b47b5d",
+  "steps": [
+    {
+      "title": "Intention générale : expliquer le rôle du serveur MCP",
+      "description": "Le commentaire d'ouverture ne décrit plus seulement l'inventaire technique des deux outils. Il présente le serveur comme la frontière entre l'agent, qui rédige le contenu, et le serveur, qui garantit qu'un Tour peut être ouvert en sécurité. Le code, les schémas et les handlers restent inchangés : cette branche modifie uniquement la manière de raconter leur responsabilité.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "Point de passage entre l'agent IA et CodeTour"
+    },
+    {
+      "title": "Deux destinations stables et deux usages",
+      "description": "Les commentaires mettent désormais l'accent sur l'expérience : retrouver toujours la dernière génération au même emplacement et distinguer la découverte globale du projet de l'explication des changements. Les constantes `.tours/project.tour` et `.tours/changes.tour` ne changent pas, pas plus que la persistance atomique.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "Chaque type de visite possède une destination stable"
+    },
+    {
+      "title": "Activation et ouverture par lien",
+      "description": "La mise en cache de `discoverTours()` est maintenant expliquée par son résultat visible : l'activation normale et l'ouverture par URI partagent la même découverte, ce qui évite une seconde lecture avant d'afficher le Tour demandé. La conversion d'une étape publique numérotée à partir de 1 vers l'index interne à partir de 0 est également explicitée.",
+      "file": "src/extension.ts",
+      "pattern": "Partage la découverte des visites"
+    },
+    {
+      "title": "Commandes du lecteur décrites par leur effet",
+      "description": "Les anciens libellés génériques comme `Purpose: Command link` sont remplacés par l'effet de chaque commande : ouvrir un Tour depuis un marqueur, suivre un lien Markdown, naviguer vers une étape ou envoyer le texte d'une étape au terminal. Les enregistrements de commandes et leurs callbacks ne sont pas modifiés.",
+      "file": "src/player/commands.ts",
+      "pattern": "Permet à l'aperçu d'un marqueur"
+    },
+    {
+      "title": "Rendu des étapes dans l'éditeur",
+      "description": "Trois détails du lecteur sont reformulés : le placement d'une étape sans ligne identifiable, la conversion des coordonnées 1-based en coordonnées VS Code 0-based et le rafraîchissement réactif du commentaire affiché. Attention : la nouvelle formulation masque le caractère approximatif de `line = 2000`, que l'ancien commentaire qualifiait explicitement de solution temporaire.",
+      "file": "src/player/index.ts",
+      "pattern": "Sans ligne ni motif retrouvable"
+    },
+    {
+      "title": "Modèle d'une étape et état actif",
+      "description": "Les commentaires des types décrivent maintenant les invariants du modèle : une seule destination par étape, une position réservée aux étapes fichier, un Tour actif éventuellement sans commentaire pendant l'enregistrement, et le rôle de la racine et des Tours associés. Aucun type TypeScript n'a changé.",
+      "file": "src/store/index.ts",
+      "pattern": "Une étape guide le lecteur vers un seul type de destination"
+    },
+    {
+      "title": "Rechargement d'un Tour actif",
+      "description": "La mise à jour en place d'un Tour observé et la fermeture d'un Tour supprimé sont expliquées du point de vue de la continuité de lecture. Les appels `set(...)` et `endCurrentCodeTour()` sont inchangés.",
+      "file": "src/store/provider.ts",
+      "pattern": "Recharge la visite sans interrompre la lecture"
+    },
+    {
+      "title": "Point de vigilance : vocabulaire du domaine",
+      "description": "Le glossaire exige les termes canoniques **Project Tour**, **Changes Tour**, **Tour** et **Tour Anchor**. Plusieurs nouveaux commentaires utilisent plutôt « visite d'accueil du projet » ou « visite de revue de branche ». Cette dernière formulation se rapproche même du terme déconseillé « branch tour ». La clarification est donc cohérente dans son intention, mais devrait conserver les noms du domaine dans les phrases françaises.",
+      "file": "CONTEXT.md",
+      "pattern": "\\*\\*Project Tour\\*\\*"
+    },
+    {
+      "title": "Validation",
+      "description": "La branche contient un seul commit (`42c719c`) et touche uniquement des commentaires : 45 insertions et 57 suppressions dans sept fichiers. `npm run build` compile les bundles Node et Web avec succès. `npm --prefix packages/mcp-server test` exécute 69 tests, tous réussis. Aucun ticket ou document de spécification d'origine n'est référencé par le commit ; la conformité fonctionnelle ne peut donc être comparée qu'à son intention déclarée de clarifier et harmoniser les commentaires."
+    }
+  ]
+}

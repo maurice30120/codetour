@@ -678,7 +678,10 @@
     "build": "webpack --mode production",
     "vscode:prepublish": "npm run build",
     "watch": "webpack --mode development --watch",
-    "package": "vsce package"
+    "package": "vsce package",
+    "test": "npm run test:plugin && npm run test:mcp",
+    "test:plugin": "npm run build",
+    "test:mcp": "npm --prefix packages/mcp-server test"
   },
   "prettier": {
     "arrowParens": "avoid",
