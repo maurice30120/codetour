@@ -17,6 +17,8 @@
   "main": "dist/src/server.js",
   "files": [
     "dist/src",
+    "dist/package.json",
+    "dist/schema.json",
     "schema.json",
     "README.md",
     "LICENSE.txt"

@@ -87,9 +87,9 @@ const CHANGES_PARAM_FIELDS = [
   "title",
   "description",
   "steps",
-  "base",
-  "head",
-  "includeUncommitted",
+  "baseRef",
+  "headRef",
+  "includeUncommittedChanges",
 ] as const;
 
 export function validateProjectParams(
@@ -117,23 +117,23 @@ export function validateChangesParams(
   }
   reportUnknownFields(raw, CHANGES_PARAM_FIELDS, "$", issues);
   const params = validateCommonParams(raw, issues) as ChangesParams;
-  if (typeof raw.base !== "string" || raw.base.trim() === "") {
-    issues.push({ path: "base", message: "is required and must be a non-empty string" });
+  if (typeof raw.baseRef !== "string" || raw.baseRef.trim() === "") {
+    issues.push({ path: "baseRef", message: "is required and must be a non-empty string" });
   } else {
-    params.base = raw.base;
+    params.baseRef = raw.baseRef;
   }
-  if (typeof raw.head !== "string") {
-    issues.push({ path: "head", message: "is required and must be the full 40-character commit SHA" });
-  } else if (!FULL_SHA_PATTERN.test(raw.head)) {
-    issues.push({ path: "head", message: "must be the full 40-character commit SHA" });
+  if (typeof raw.headRef !== "string") {
+    issues.push({ path: "headRef", message: "is required and must be the full 40-character commit SHA" });
+  } else if (!FULL_SHA_PATTERN.test(raw.headRef)) {
+    issues.push({ path: "headRef", message: "must be the full 40-character commit SHA" });
   } else {
-    params.head = raw.head;
+    params.headRef = raw.headRef;
   }
-  if (raw.includeUncommitted !== undefined) {
-    if (typeof raw.includeUncommitted !== "boolean") {
-      issues.push({ path: "includeUncommitted", message: "must be a boolean" });
+  if (raw.includeUncommittedChanges !== undefined) {
+    if (typeof raw.includeUncommittedChanges !== "boolean") {
+      issues.push({ path: "includeUncommittedChanges", message: "must be a boolean" });
     } else {
-      params.includeUncommitted = raw.includeUncommitted;
+      params.includeUncommittedChanges = raw.includeUncommittedChanges;
     }
   }
   return { params, issues };

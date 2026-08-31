@@ -32,30 +32,45 @@ test("validateProjectParams requires a string title and description", () => {
   assert.ok(paths.includes("description"));
 });
 
-test("validateChangesParams requires base and a full head SHA", () => {
+test("validateChangesParams requires baseRef and a full headRef SHA", () => {
   const { issues } = validateChangesParams({ steps: [] });
   const paths = issues.map((issue) => issue.path);
-  assert.ok(paths.includes("base"));
-  assert.ok(paths.includes("head"));
+  assert.ok(paths.includes("baseRef"));
+  assert.ok(paths.includes("headRef"));
+});
+
+test("validateChangesParams accepts the public Changes Tour contract", () => {
+  const headRef = "a".repeat(40);
+  const { params, issues } = validateChangesParams({
+    baseRef: "main",
+    headRef,
+    includeUncommittedChanges: true,
+    steps: [{ description: "Explain the change." }],
+  });
+
+  assert.deepEqual(issues, []);
+  assert.equal(params?.baseRef, "main");
+  assert.equal(params?.headRef, headRef);
+  assert.equal(params?.includeUncommittedChanges, true);
 });
 
 test("validateChangesParams rejects a short head SHA", () => {
   const { issues } = validateChangesParams({
-    base: "main",
-    head: "deadbeef",
+    baseRef: "main",
+    headRef: "deadbeef",
     steps: [],
   });
-  assert.ok(issues.some((issue) => issue.path === "head"));
+  assert.ok(issues.some((issue) => issue.path === "headRef"));
 });
 
-test("validateChangesParams rejects a non-boolean includeUncommitted", () => {
+test("validateChangesParams rejects a non-boolean includeUncommittedChanges", () => {
   const { issues } = validateChangesParams({
-    base: "main",
-    head: "a".repeat(40),
-    includeUncommitted: "yes",
+    baseRef: "main",
+    headRef: "a".repeat(40),
+    includeUncommittedChanges: "yes",
     steps: [],
   });
-  assert.ok(issues.some((issue) => issue.path === "includeUncommitted"));
+  assert.ok(issues.some((issue) => issue.path === "includeUncommittedChanges"));
 });
 
 function workspaceWithFiles(files: Record<string, string>): string {

@@ -16,7 +16,10 @@ export interface ToolResponse {
   structured: Record<string, unknown>;
 }
 
-export async function startServer(workspaceRoot: string): Promise<Client> {
+export async function startServer(
+  workspaceRoot: string,
+  envOverrides: Record<string, string> = {}
+): Promise<Client> {
   const client = new Client(
     { name: "codetour-mcp-test-client", version: "0.0.0" },
     { capabilities: {} }
@@ -24,6 +27,14 @@ export async function startServer(workspaceRoot: string): Promise<Client> {
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [CLI_PATH, "--workspace-root", workspaceRoot],
+    env: {
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(
+          (entry): entry is [string, string] => entry[1] !== undefined
+        )
+      ),
+      ...envOverrides,
+    },
   });
   await client.connect(transport);
   return client;
@@ -31,9 +42,10 @@ export async function startServer(workspaceRoot: string): Promise<Client> {
 
 export async function withServer<T>(
   root: string,
-  run: (client: Client) => Promise<T>
+  run: (client: Client) => Promise<T>,
+  envOverrides: Record<string, string> = {}
 ): Promise<T> {
-  const client = await startServer(root);
+  const client = await startServer(root, envOverrides);
   try {
     return await run(client);
   } finally {

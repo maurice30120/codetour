@@ -74,13 +74,13 @@ const CHANGES_TOUR_DESCRIPTION =
   "of the same kind). You provide the fully written content; the server only validates and persists it " +
   "deterministically. A good Changes Tour ideally covers: the intent of the changes, the major " +
   "modifications, their impact, and the relevant tests. " +
-  "Arguments: base (required Git ref), head (required full 40-character SHA of the analyzed commit, " +
-  "which must equal the current HEAD), includeUncommitted (optional boolean, default false), an optional " +
+  "Arguments: baseRef (required Git ref), headRef (required full 40-character SHA of the analyzed commit, " +
+  "which must equal the current HEAD), includeUncommittedChanges (optional boolean, default false), an optional " +
   "title (defaults to \"Changes on <branch>\"), an optional description, and a required non-empty steps " +
   "array. Steps follow the same rules as the Project Tour (prefer a unique stable pattern over a line " +
   "number); steps may anchor unchanged files when they " +
   "provide essential context, and deleted files must be explained with steps that have no locator. " +
-  "Uncommitted changes are excluded by default and reported as a warning; pass includeUncommitted to " +
+  "Uncommitted changes are excluded by default and reported as a warning; pass includeUncommittedChanges to " +
   "include them explicitly. The description is automatically enriched with the base, merge-base and " +
   "head. On failure, the previous tour file is preserved.";
 
@@ -115,9 +115,9 @@ const changesToolInputSchema = z
     title: z.unknown().optional(),
     description: z.unknown().optional(),
     steps: z.unknown().optional(),
-    base: z.unknown().optional(),
-    head: z.unknown().optional(),
-    includeUncommitted: z.unknown().optional(),
+    baseRef: z.unknown().optional(),
+    headRef: z.unknown().optional(),
+    includeUncommittedChanges: z.unknown().optional(),
   })
   .passthrough();
 
@@ -205,10 +205,10 @@ async function handleCreateProjectTour(
 }
 
 // Crée un Changes Tour : l'analyse porte sur les changements committés depuis
-// le merge-base de `base` jusqu'à `head`. `head` doit être le SHA complet du
+// le merge-base de `baseRef` jusqu'à `headRef`. `headRef` doit être le SHA complet du
 // HEAD courant, sinon la génération échoue avec STALE_HEAD pour éviter une
 // explication obsolète. Par défaut, seuls les changements committés sont pris
-// en compte ; `includeUncommitted` permet d'expliquer un travail local.
+// en compte ; `includeUncommittedChanges` permet d'expliquer un travail local.
 async function handleCreateChangesTour(
   ctx: WorkspaceContext,
   args: unknown
@@ -236,9 +236,9 @@ async function handleCreateChangesTour(
     );
   }
 
-  const base = params.base as string;
-  const head = params.head as string;
-  const includeUncommitted = params.includeUncommitted === true;
+  const baseRef = params.baseRef as string;
+  const headRef = params.headRef as string;
+  const includeUncommittedChanges = params.includeUncommittedChanges === true;
 
   // Le Changes Tour dépend de l'historique Git : hors dépôt, l'outil échoue.
   if (!(await isGitRepository(ctx))) {
@@ -257,20 +257,20 @@ async function handleCreateChangesTour(
       "The repository has no commits, so there is no HEAD to analyze."
     );
   }
-  if (head !== currentHead) {
+  if (headRef !== currentHead) {
     return errorResponse(
       "STALE_HEAD",
-      `The provided head ${head} does not match the current HEAD (${currentHead}). The analysis is stale; re-run it against the current HEAD.`
+      `The provided headRef ${headRef} does not match the current HEAD (${currentHead}). The analysis is stale; re-run it against the current HEAD.`
     );
   }
 
   let mergeBaseSha: string;
   try {
-    mergeBaseSha = await mergeBase(ctx, base, head);
+    mergeBaseSha = await mergeBase(ctx, baseRef, headRef);
   } catch (error) {
     return errorResponse(
       "INVALID_BASE_REF",
-      `Unable to compute the merge-base between ${base} and ${head}: ${(error as Error).message}`
+      `Unable to compute the merge-base between ${baseRef} and ${headRef}: ${(error as Error).message}`
     );
   }
 
@@ -279,12 +279,12 @@ async function handleCreateChangesTour(
   // remplace jamais une visite utile.
   const uncommitted = await uncommittedChanges(ctx);
   if (
-    (await committedDiffIsEmpty(ctx, mergeBaseSha, head)) &&
-    (!includeUncommitted || uncommitted.length === 0)
+    (await committedDiffIsEmpty(ctx, mergeBaseSha, headRef)) &&
+    (!includeUncommittedChanges || uncommitted.length === 0)
   ) {
     return errorResponse(
       "NO_CHANGES",
-      `No committed changes between the merge-base of ${base} (${mergeBaseSha}) and ${head}. The previous tour file was preserved.`
+      `No committed changes between the merge-base of ${baseRef} (${mergeBaseSha}) and ${headRef}. The previous tour file was preserved.`
     );
   }
 
@@ -292,7 +292,7 @@ async function handleCreateChangesTour(
   // ou inclus explicitement : le Tour n'a alors pas de `ref` et signale que
   // le résultat décrit un état local non reproductible.
   const warnings: Warning[] = [];
-  if (includeUncommitted) {
+  if (includeUncommittedChanges) {
     warnings.push({
       code: "UNCOMMITTED_CHANGES_INCLUDED",
       message:
@@ -310,10 +310,10 @@ async function handleCreateChangesTour(
   warnings.push(...warningsFromStepLimit);
 
   // Ensemble des fichiers modifiés (committés, plus les fichiers non committés
-  // lorsque includeUncommitted est actif), utilisé pour l'avertissement
+  // lorsque includeUncommittedChanges est actif), utilisé pour l'avertissement
   // NO_CHANGED_FILE_ANCHOR.
-  const changedInWorkspace = await changedFilesInWorkspace(ctx, mergeBaseSha, head);
-  if (includeUncommitted) {
+  const changedInWorkspace = await changedFilesInWorkspace(ctx, mergeBaseSha, headRef);
+  if (includeUncommittedChanges) {
     for (const entry of uncommitted) {
       if (!changedInWorkspace.includes(entry.path)) {
         changedInWorkspace.push(entry.path);
@@ -335,12 +335,12 @@ async function handleCreateChangesTour(
     });
   }
 
-  const title = params.title ?? (await defaultChangesTitle(ctx, head));
+  const title = params.title ?? (await defaultChangesTitle(ctx, headRef));
   // La description est enrichie automatiquement avec la provenance, la base et
   // la tête, afin que le périmètre analysé soit toujours connu du lecteur.
-  const provenance = includeUncommitted
-    ? `Generated from the merge-base of \`${base}\` (\`${mergeBaseSha}\`) to \`${head}\`, including uncommitted changes (non-reproducible local state).`
-    : `Generated from the merge-base of \`${base}\` (\`${mergeBaseSha}\`) to \`${head}\`.`;
+  const provenance = includeUncommittedChanges
+    ? `Generated from the merge-base of \`${baseRef}\` (\`${mergeBaseSha}\`) to \`${headRef}\`, including uncommitted changes (non-reproducible local state).`
+    : `Generated from the merge-base of \`${baseRef}\` (\`${mergeBaseSha}\`) to \`${headRef}\`.`;
   const description =
     params.description !== undefined
       ? `${params.description}\n\n${provenance}`
@@ -350,9 +350,22 @@ async function handleCreateChangesTour(
     $schema: CODETOUR_SCHEMA_URI,
     title,
     description,
-    ...(!includeUncommitted ? { ref: head } : {}),
+    ...(!includeUncommittedChanges ? { ref: headRef } : {}),
     steps: finalSteps,
   };
+
+  // HEAD peut avancer pendant les lectures Git effectuées ci-dessus. Le relire
+  // au dernier moment empêche une analyse devenue obsolète de remplacer le
+  // Changes Tour précédent.
+  const headImmediatelyBeforePersistence = await currentHeadSha(ctx);
+  if (headImmediatelyBeforePersistence !== headRef) {
+    return errorResponse(
+      "STALE_HEAD",
+      headImmediatelyBeforePersistence === null
+        ? "The repository no longer has a HEAD to persist this analysis against. The previous tour file was preserved."
+        : `The provided head ${headRef} no longer matches the current HEAD (${headImmediatelyBeforePersistence}). The analysis became stale before persistence; re-run it against the current HEAD.`
+    );
+  }
 
   const writeFailure = await persistTour(ctx, CHANGES_TOUR_PATH, tour);
   if (writeFailure) {
@@ -363,7 +376,7 @@ async function handleCreateChangesTour(
     CHANGES_TOUR_PATH,
     finalSteps.length,
     warnings,
-    `Created Changes Tour at ${CHANGES_TOUR_PATH} with ${finalSteps.length} step(s) for head ${head} (base ${base}).`
+    `Created Changes Tour at ${CHANGES_TOUR_PATH} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`
   );
 }
 
@@ -418,9 +431,9 @@ function extractSteps(args: unknown): unknown {
 async function changedFilesInWorkspace(
   ctx: WorkspaceContext,
   mergeBaseSha: string,
-  head: string
+  headRef: string
 ): Promise<string[]> {
-  const files = await changedFiles(ctx, mergeBaseSha, head);
+  const files = await changedFiles(ctx, mergeBaseSha, headRef);
   const prefix = normalizeSlashes(await workspacePrefix(ctx));
   return files
     .map(normalizeSlashes)
@@ -432,13 +445,13 @@ async function changedFilesInWorkspace(
 // repli sur le SHA court lorsque HEAD est détaché.
 async function defaultChangesTitle(
   ctx: WorkspaceContext,
-  head: string
+  headRef: string
 ): Promise<string> {
   const branch = await currentBranchName(ctx);
   if (branch && branch !== "HEAD") {
     return `Changes on ${branch}`;
   }
-  return `Changes at ${head.slice(0, 7)}`;
+  return `Changes at ${headRef.slice(0, 7)}`;
 }
 
 function serializeTour(tour: TourFile): string {
