@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   callTool,
   commitFile,
@@ -32,8 +34,8 @@ test("creates a changes tour with the exact head SHA as ref", async () => {
   try {
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         description: "Explains the feature branch.",
         steps: [
           { description: "Intent of the change." },
@@ -64,8 +66,8 @@ test("uses the provided title when given", async () => {
   try {
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         title: "Custom Title",
         steps: [{ description: "d", file: "feature.txt" }],
       });
@@ -83,8 +85,8 @@ test("fails with STALE_HEAD when HEAD moved since the analysis", async () => {
     await commitFile(root, "extra.txt", "extra\n", "extra commit");
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [{ description: "d" }],
       });
       assert.equal(response.isError, true);
@@ -95,14 +97,69 @@ test("fails with STALE_HEAD when HEAD moved since the analysis", async () => {
   }
 });
 
-test("fails with STALE_HEAD when the head argument is not the current HEAD", async () => {
+test("preserves the previous tour when HEAD moves immediately before persistence", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  const shimDir = tempDir("codetour-git-shim-");
+  const reachedFinalCheck = path.join(shimDir, "reached-final-check");
+  const continueRequest = path.join(shimDir, "continue-request");
+  const realGit = (process.env.PATH ?? "")
+    .split(path.delimiter)
+    .map((directory) => path.join(directory, "git"))
+    .find((candidate) => fs.existsSync(candidate));
+  assert.ok(realGit, "git must be available on PATH");
+  const gitShim = path.join(shimDir, "git");
+  writeFile(
+    shimDir,
+    "git",
+    `#!/bin/sh
+if [ "$*" = "rev-parse --abbrev-ref HEAD" ]; then
+  : > "${reachedFinalCheck}"
+  while [ ! -e "${continueRequest}" ]; do sleep 0.01; done
+fi
+exec "${realGit}" "$@"
+`
+  );
+  fs.chmodSync(gitShim, 0o755);
+
+  try {
+    writeFile(root, ".tours/changes.tour", JSON.stringify({ title: "Previous tour" }));
+    const before = readTourFile(root, ".tours/changes.tour");
+
+    await withServer(
+      root,
+      async (client) => {
+        const request = callTool(client, "create_changes_tour", {
+          baseRef: baseSha,
+          headRef: head,
+          steps: [{ description: "Should not land.", file: "feature.txt" }],
+        });
+        while (!fs.existsSync(reachedFinalCheck)) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        await commitFile(root, "late.txt", "late change\n", "move HEAD during request");
+        writeFile(shimDir, "continue-request", "continue\n");
+
+        const response = await request;
+        assert.equal(response.isError, true);
+        assert.equal(structuredCode(response), "STALE_HEAD");
+      },
+      { PATH: `${shimDir}:${process.env.PATH ?? ""}` }
+    );
+    assert.deepEqual(readTourFile(root, ".tours/changes.tour"), before);
+  } finally {
+    rmrf(root);
+    rmrf(shimDir);
+  }
+});
+
+test("fails with STALE_HEAD when headRef is not the current HEAD", async () => {
   const { root, baseSha } = await setupRepo();
   try {
     const other = baseSha;
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head: other,
+        baseRef: baseSha,
+        headRef: other,
         steps: [{ description: "d" }],
       });
       assert.equal(response.isError, true);
@@ -118,8 +175,8 @@ test("fails with GIT_REPOSITORY_REQUIRED outside a git repository", async () => 
   try {
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: "main",
-        head: "a".repeat(40),
+        baseRef: "main",
+        headRef: "a".repeat(40),
         steps: [{ description: "d" }],
       });
       assert.equal(response.isError, true);
@@ -135,8 +192,8 @@ test("fails with NO_CHANGES when the range has no committed changes", async () =
   try {
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: head,
-        head,
+        baseRef: head,
+        headRef: head,
         steps: [{ description: "d" }],
       });
       assert.equal(response.isError, true);
@@ -152,8 +209,8 @@ test("fails with INVALID_BASE_REF when the merge-base cannot be computed", async
   try {
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: "no-such-branch",
-        head,
+        baseRef: "no-such-branch",
+        headRef: head,
         steps: [{ description: "d" }],
       });
       assert.equal(response.isError, true);
@@ -169,14 +226,14 @@ test("keeps the previous tour when NO_CHANGES occurs", async () => {
   try {
     await withServer(root, async (client) => {
       const first = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [{ description: "Original.", file: "feature.txt" }],
       });
       assert.equal(first.isError, false);
       const second = await callTool(client, "create_changes_tour", {
-        base: head,
-        head,
+        baseRef: head,
+        headRef: head,
         steps: [{ description: "Should not replace." }],
       });
       assert.equal(second.isError, true);
@@ -198,8 +255,8 @@ test("warns when uncommitted changes are excluded", async () => {
     writeFile(root, "untracked.txt", "new local file\n");
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [{ description: "d", file: "feature.txt" }],
       });
       assert.equal(response.isError, false);
@@ -217,8 +274,8 @@ test("ignores the reserved tour files when detecting a dirty workspace", async (
     writeFile(root, ".tours/project.tour", "{ generated earlier }");
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [{ description: "d", file: "feature.txt" }],
       });
       assert.equal(response.isError, false);
@@ -235,9 +292,9 @@ test("includes uncommitted changes explicitly and drops the ref", async () => {
     writeFile(root, "work-in-progress.txt", "local work\n");
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
-        includeUncommitted: true,
+        baseRef: baseSha,
+        headRef: head,
+        includeUncommittedChanges: true,
         steps: [
           { description: "Local work.", file: "work-in-progress.txt" },
         ],
@@ -259,8 +316,8 @@ test("warns with NO_CHANGED_FILE_ANCHOR when no step anchors a changed file", as
   try {
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [{ description: "Only context, no anchors." }],
       });
       assert.equal(response.isError, false);
@@ -276,8 +333,8 @@ test("does not warn when a step anchors a changed file", async () => {
   try {
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [{ description: "The new file.", file: "feature.txt" }],
       });
       assert.equal(response.isError, false);
@@ -300,8 +357,8 @@ test("allows deletion-only branches with content-only steps", async () => {
   try {
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [{ description: "We removed victim.txt entirely." }],
       });
       assert.equal(response.isError, false);
@@ -319,8 +376,8 @@ test("allows anchoring unchanged files for essential context", async () => {
   try {
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [
           { description: "Context from the base file.", file: "base.txt" },
           { description: "The new file.", file: "feature.txt" },
@@ -339,8 +396,8 @@ test("aggregates step validation errors for a changes tour", async () => {
   try {
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [
           { description: "d", file: "missing.txt" },
           { description: "d", file: "feature.txt", line: 99 },
@@ -370,8 +427,8 @@ test("works when the workspace root is a subdirectory of the repository", async 
   try {
     await withServer(subRoot, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [{ description: "The new file.", file: "new.ts" }],
       });
       assert.equal(response.isError, false);
@@ -391,8 +448,8 @@ test("warns when the tour exceeds fifteen steps for a changes tour", async () =>
     }));
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps,
       });
       assert.equal(response.isError, false);
@@ -411,9 +468,45 @@ test("warns when only staged changes are excluded", async () => {
     await git(["add", "staged.txt"], root);
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false);
+      assert.ok(warningCodes(response).includes("UNCOMMITTED_CHANGES_EXCLUDED"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("warns when only unstaged changes are excluded", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    writeFile(root, "feature.txt", "committed feature\nlocal edit\n");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [{ description: "The committed feature.", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false);
+      assert.ok(warningCodes(response).includes("UNCOMMITTED_CHANGES_EXCLUDED"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("warns when only untracked changes are excluded", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    writeFile(root, "untracked.txt", "not committed\n");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [{ description: "The committed feature.", file: "feature.txt" }],
       });
       assert.equal(response.isError, false);
       assert.ok(warningCodes(response).includes("UNCOMMITTED_CHANGES_EXCLUDED"));
@@ -429,9 +522,9 @@ test("explains local work when only uncommitted changes exist", async () => {
     writeFile(root, "work-in-progress.txt", "local work\n");
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: head,
-        head,
-        includeUncommitted: true,
+        baseRef: head,
+        headRef: head,
+        includeUncommittedChanges: true,
         steps: [{ description: "Local work.", file: "work-in-progress.txt" }],
       });
       assert.equal(response.isError, false);
@@ -452,9 +545,9 @@ test("counts uncommitted files as changed for NO_CHANGED_FILE_ANCHOR", async () 
     writeFile(root, "local-only.txt", "local work\n");
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
-        includeUncommitted: true,
+        baseRef: baseSha,
+        headRef: head,
+        includeUncommittedChanges: true,
         steps: [{ description: "Local work.", file: "local-only.txt" }],
       });
       assert.equal(response.isError, false);
@@ -470,8 +563,8 @@ test("preserves the previous tour when the write fails", async () => {
   try {
     await withServer(root, async (client) => {
       const first = await callTool(client, "create_changes_tour", {
-        base: baseSha,
-        head,
+        baseRef: baseSha,
+        headRef: head,
         steps: [{ description: "Original.", file: "feature.txt" }],
       });
       assert.equal(first.isError, false);
@@ -483,8 +576,8 @@ test("preserves the previous tour when the write fails", async () => {
     try {
       await withServer(root, async (client) => {
         const second = await callTool(client, "create_changes_tour", {
-          base: baseSha,
-          head,
+          baseRef: baseSha,
+          headRef: head,
           steps: [{ description: "Should not land.", file: "feature.txt" }],
         });
         assert.equal(second.isError, true);

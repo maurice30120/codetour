@@ -25,9 +25,9 @@ export interface ProjectParams {
 }
 
 export interface ChangesParams extends ProjectParams {
-  base?: string;
-  head?: string;
-  includeUncommitted?: boolean;
+  baseRef?: string;
+  headRef?: string;
+  includeUncommittedChanges?: boolean;
 }
 
 export interface TourFile {

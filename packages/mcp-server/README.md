@@ -79,9 +79,9 @@ important components, and its main execution flows.
 
 | Argument             | Type     | Required | Description                                                   |
 | -------------------- | -------- | -------- | ------------------------------------------------------------- |
-| `base`               | string   | yes      | Git ref the branch diverged from.                             |
-| `head`               | string   | yes      | Full 40-character SHA of the analyzed commit; must equal the current `HEAD`. |
-| `includeUncommitted` | boolean  | no       | Include uncommitted changes explicitly (default `false`).     |
+| `baseRef`             | string   | yes      | Git ref the branch diverged from.                             |
+| `headRef`             | string   | yes      | Full 40-character SHA of the analyzed commit; must equal the current `HEAD`. |
+| `includeUncommittedChanges` | boolean  | no       | Include uncommitted changes explicitly (default `false`).     |
 | `title`              | string   | no       | Defaults to `Changes on <branch>`.                            |
 | `description`        | string   | no       | Optional description; provenance is always appended.          |
 | `steps`              | object[] | yes      | Non-empty list of steps (see below).                          |
@@ -122,9 +122,9 @@ of these codes:
 | `TOUR_STEPS_REQUIRED`      | The steps list is missing or empty.                            |
 | `INVALID_PROPOSAL`         | The proposal has validation issues (all listed in `issues`).   |
 | `GIT_REPOSITORY_REQUIRED`  | `create_changes_tour` was called outside a Git repository.     |
-| `STALE_HEAD`               | `head` does not match the current `HEAD`.                      |
-| `INVALID_BASE_REF`         | The merge-base between `base` and `head` cannot be computed.   |
-| `NO_CHANGES`               | No committed changes between the merge-base and the head; the previous tour file is preserved. |
+| `STALE_HEAD`               | `headRef` does not match the current `HEAD`.                      |
+| `INVALID_BASE_REF`         | The merge-base between `baseRef` and `headRef` cannot be computed. |
+| `NO_CHANGES`               | No committed changes between the merge-base and `headRef`; the previous tour file is preserved. |
 | `SCHEMA_VALIDATION_FAILED` | Internal: the generated tour did not validate against the CodeTour schema. |
 | `OUTPUT_PATH_ESCAPES_WORKSPACE` | The output directory resolves outside the workspace root. |
 
@@ -144,7 +144,7 @@ Non-blocking warnings:
 - A reproducible Changes Tour records the exact analyzed head SHA as its
   `ref`, and generation fails with `STALE_HEAD` if `HEAD` changed since the
   analysis. Uncommitted changes are excluded by default (with a warning).
-- With `includeUncommitted: true`, the Changes Tour has no `ref` and warns
+- With `includeUncommittedChanges: true`, the Changes Tour has no `ref` and warns
   that it describes a non-reproducible local state.
 
 The reserved tour files (`.tours/project.tour` and `.tours/changes.tour`) are

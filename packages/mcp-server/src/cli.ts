@@ -33,8 +33,20 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (argument === "--version" || argument === "-v") {
       result.version = true;
     } else if (argument === "--workspace-root") {
+      if (result.workspaceRoot !== undefined) {
+        console.error(
+          `Error: --workspace-root must be provided exactly once.\n\n${usage()}`
+        );
+        process.exit(1);
+      }
       result.workspaceRoot = argv[++index];
     } else if (argument.startsWith("--workspace-root=")) {
+      if (result.workspaceRoot !== undefined) {
+        console.error(
+          `Error: --workspace-root must be provided exactly once.\n\n${usage()}`
+        );
+        process.exit(1);
+      }
       result.workspaceRoot = argument.slice("--workspace-root=".length);
     } else {
       console.error(`Unknown argument: ${argument}\n\n${usage()}`);
