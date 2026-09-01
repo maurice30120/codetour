@@ -152,21 +152,43 @@ test("fails with STALE_HEAD when HEAD moved since the analysis", async () => {
   }
 });
 
-test("preserves the previous tour when HEAD moves immediately before persistence", async () => {
+test(
+  "preserves the previous tour when HEAD moves immediately before persistence",
+  {
+    skip:
+      process.platform === "win32" &&
+      "the deterministic Git interception uses POSIX process semantics",
+  },
+  async () => {
   const { root, baseSha, head } = await setupRepo();
   const shimDir = tempDir("codetour-git-shim-");
   const reachedFinalCheck = path.join(shimDir, "reached-final-check");
   const continueRequest = path.join(shimDir, "continue-request");
+  const gitExecutable = process.platform === "win32" ? "git.exe" : "git";
   const realGit = (process.env.PATH ?? "")
     .split(path.delimiter)
-    .map((directory) => path.join(directory, "git"))
+    .map((directory) => path.join(directory, gitExecutable))
     .find((candidate) => fs.existsSync(candidate));
   assert.ok(realGit, "git must be available on PATH");
-  const gitShim = path.join(shimDir, "git");
+  const gitShim = path.join(
+    shimDir,
+    process.platform === "win32" ? "git.cmd" : "git"
+  );
   writeFile(
     shimDir,
-    "git",
-    `#!/bin/sh
+    path.basename(gitShim),
+    process.platform === "win32"
+      ? `@echo off
+if not "%*" == "rev-parse --abbrev-ref HEAD" goto run
+type nul > "${reachedFinalCheck}"
+:wait
+if exist "${continueRequest}" goto run
+ping -n 1 -w 10 127.0.0.1 > nul
+goto wait
+:run
+"${realGit}" %*
+`
+      : `#!/bin/sh
 if [ "$*" = "rev-parse --abbrev-ref HEAD" ]; then
   : > "${reachedFinalCheck}"
   while [ ! -e "${continueRequest}" ]; do sleep 0.01; done
@@ -174,7 +196,9 @@ fi
 exec "${realGit}" "$@"
 `
   );
-  fs.chmodSync(gitShim, 0o755);
+  if (process.platform !== "win32") {
+    fs.chmodSync(gitShim, 0o755);
+  }
 
   try {
     writeFile(root, ".tours/changes.tour", JSON.stringify({ title: "Previous tour" }));
@@ -205,7 +229,8 @@ exec "${realGit}" "$@"
     rmrf(root);
     rmrf(shimDir);
   }
-});
+  }
+);
 
 test("fails with STALE_HEAD when headRef is not the current HEAD", async () => {
   const { root, baseSha } = await setupRepo();
@@ -613,9 +638,16 @@ test("counts uncommitted files as changed for NO_CHANGED_FILE_ANCHOR", async () 
   }
 });
 
-test("preserves the previous tour when the write fails", async () => {
-  const { root, baseSha, head } = await setupRepo();
-  try {
+test(
+  "preserves the previous tour when the write fails",
+  {
+    skip:
+      process.platform === "win32" &&
+      "POSIX directory permissions are unavailable",
+  },
+  async () => {
+    const { root, baseSha, head } = await setupRepo();
+    try {
     await withServer(root, async (client) => {
       const first = await callTool(client, "create_changes_tour", {
         baseRef: baseSha,
@@ -645,7 +677,8 @@ test("preserves the previous tour when the write fails", async () => {
     } finally {
       fs.chmodSync(toursDir, 0o755);
     }
-  } finally {
-    rmrf(root);
+    } finally {
+      rmrf(root);
+    }
   }
-});
+);
