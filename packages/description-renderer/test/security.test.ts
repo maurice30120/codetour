@@ -82,6 +82,39 @@ test("sanitizeSvg removes scripts, handlers, foreign content and anchors", () =>
   assert.ok(sanitized.includes("<rect"));
 });
 
+test("sanitizeSvg removes remote resource elements and external references", () => {
+  const hostile = [
+    '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10">',
+    '<image x="0" y="0" width="4" height="4" xlink:href="https://evil.example/logo.png"/>',
+    '<img x="5" y="5" width="2" height="2" href="https://evil.example/pixel.gif"/>',
+    '<image x="0" y="6" width="2" height="2" href="data:text/html,hello"/>',
+    '<rect x="8" y="8" width="1" height="1" href="https://evil.example/styled"/>',
+    "</svg>"
+  ].join("");
+
+  const sanitized = sanitizeSvg(hostile);
+
+  assert.ok(!sanitized.includes("<image"));
+  assert.ok(!sanitized.includes("<img"));
+  assert.ok(!sanitized.includes("evil.example"));
+  assert.ok(!sanitized.includes("data:text/html"));
+  assert.ok(sanitized.includes("<rect"));
+});
+
+test("sanitizeSvg keeps internal fragment references", () => {
+  const ordinary = [
+    '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10">',
+    '<defs><path id="label-path" d="M0,0 H10"/></defs>',
+    '<text><textPath xlink:href="#label-path">Label</textPath></text>',
+    "</svg>"
+  ].join("");
+
+  const sanitized = sanitizeSvg(ordinary);
+
+  assert.ok(sanitized.includes('xlink:href="#label-path"'));
+  assert.ok(sanitized.includes("<textPath"));
+});
+
 test("sanitizeSvg preserves ordinary diagram markup", () => {
   const ordinary = [
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">',
