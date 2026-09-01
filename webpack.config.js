@@ -1,6 +1,8 @@
 const path = require("path");
 const webpack = require("webpack");
 
+const RESVG_EXTERNAL = "commonjs ./resvg-runtime/resvg-js";
+
 const config = {
   entry: "./src/extension.ts",
   devtool: "source-map",
@@ -8,7 +10,7 @@ const config = {
     vscode: "commonjs vscode",
     child_process: "commonjs child_process",
     util: "commonjs util",
-    "@resvg/resvg-js": "commonjs @resvg/resvg-js"
+    "@resvg/resvg-js": RESVG_EXTERNAL
   },
   resolve: {
     extensions: [".ts", ".js", ".json"],
@@ -65,6 +67,9 @@ const mcpConfig = {
   mode: "production",
   target: "node18",
   entry: "./packages/mcp-server/dist/src/cli.js",
+  externals: {
+    "@resvg/resvg-js": RESVG_EXTERNAL
+  },
   devtool: "source-map",
   output: {
     path: path.resolve(__dirname, "dist"),

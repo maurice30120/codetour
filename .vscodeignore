@@ -4,6 +4,12 @@ node_modules/**
 packages/mcp-server/**
 packages/description-renderer/**
 src/**
+scripts/**
+.agents/**
+.codex/**
+AGENTS.md
+CONTEXT.md
+docs/**
 .gitignore
 .space
 package.lock.json
