@@ -210,6 +210,46 @@ test("rejects a missing steps array with TOUR_STEPS_REQUIRED", async () => {
   }
 });
 
+test("aggregates top-level Mermaid errors even when steps are missing", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        description: captionedDiagram("Broken", INVALID_FLOWCHART_SOURCE),
+        steps: [],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.ok(issuePaths(response).includes("description.mermaid[0].source"));
+      assert.ok(issuePaths(response).includes("steps"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("rejects an unterminated Mermaid fence", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        description: [
+          "**Diagram — Unterminated**",
+          "",
+          "```mermaid",
+          ALLOWED_DIAGRAM_SOURCES.flowchart,
+        ].join("\n"),
+        steps: [{ description: "A valid step." }],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.ok(issuePaths(response).includes("description.mermaid[0].source"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("aggregates all step validation errors in one response", async () => {
   const root = tempDir();
   try {

@@ -17,6 +17,7 @@
   "main": "dist/src/server.js",
   "files": [
     "dist/src",
+    "dist/node_modules/codetour-description-renderer",
     "dist/package.json",
     "dist/schema.json",
     "schema.json",
@@ -27,19 +28,23 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node ../../scripts/stage-mcp-renderer.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "node ../../scripts/stage-mcp-renderer.js",
     "test": "npm run build && node ../../scripts/run-compiled-tests.js dist/test",
     "start": "node dist/src/cli.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "ajv": "^6.12.6",
-    "codetour-description-renderer": "file:../description-renderer",
+    "@resvg/resvg-js": "2.6.2",
+    "jsdom": "26.1.0",
+    "mermaid": "11.12.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "codetour-description-renderer": "file:../description-renderer",
     "typescript": "^5.8.0"
   }
 }

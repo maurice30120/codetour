@@ -40,6 +40,8 @@ export async function renderDescription(
 
     if (index >= MAX_DIAGRAMS_PER_DESCRIPTION) {
       replacement = RENDER_FAILURE_NOTICES.count;
+    } else if (!fence.closed) {
+      replacement = RENDER_FAILURE_NOTICES.render;
     } else {
       const evaluation = evaluateDiagramFence(fence);
       if (!evaluation.allowed) {

@@ -168,15 +168,26 @@ async function handleCreateProjectTour(
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
-  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
-  }
-
   // La validation agrège toutes les erreurs (paramètres puis étapes) avant de
   // répondre, pour permettre à l'agent de corriger la proposition en un cycle.
   const { params, issues: paramIssues } = validateProjectParams(args);
-  const allIssues = [...paramIssues];
-  allIssues.push(...(await validateMermaidDescriptions(args)));
+  const mermaidIssues = await validateMermaidDescriptions(args);
+  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
+    if (mermaidIssues.length === 0) {
+      return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
+    }
+
+    return errorResponse(
+      "INVALID_PROPOSAL",
+      "The create_project_tour arguments are invalid.",
+      [
+        ...mermaidIssues,
+        { path: "steps", message: "is required and must contain at least one step" }
+      ]
+    );
+  }
+
+  const allIssues = [...paramIssues, ...mermaidIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);
@@ -223,15 +234,26 @@ async function handleCreateChangesTour(
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
-  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
-  }
-
   // Même stratégie d'agrégation que pour le Project Tour : toutes les erreurs
   // de validation sont collectées avant de répondre.
   const { params, issues: paramIssues } = validateChangesParams(args);
-  const allIssues = [...paramIssues];
-  allIssues.push(...(await validateMermaidDescriptions(args)));
+  const mermaidIssues = await validateMermaidDescriptions(args);
+  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
+    if (mermaidIssues.length === 0) {
+      return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
+    }
+
+    return errorResponse(
+      "INVALID_PROPOSAL",
+      "The create_changes_tour arguments are invalid.",
+      [
+        ...mermaidIssues,
+        { path: "steps", message: "is required and must contain at least one step" }
+      ]
+    );
+  }
+
+  const allIssues = [...paramIssues, ...mermaidIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);

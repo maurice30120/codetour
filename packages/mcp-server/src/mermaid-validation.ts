@@ -11,7 +11,7 @@ import {
 import { Issue } from "./types";
 
 const MERMAID_TOOL_GUIDANCE =
-  `Use Mermaid sparingly: add a diagram only when it materially clarifies a relationship or flow. ` +
+  `Use Mermaid sparingly: add a diagram only when it materially clarifies a relationship, flow, state, sequence, class, or entity. ` +
   "If you use one, put the nearest non-blank line before a bare ```mermaid fence in the form " +
   "**Diagram — …**; keep that caption visible and descriptive. " +
   `Only these Mermaid kinds are allowed: ${ALLOWED_DIAGRAM_KINDS.join(", ")}. ` +
@@ -71,6 +71,14 @@ async function validateDescription(
         message:
           `the Mermaid fence at ${location} exceeds the limit of ${MAX_DIAGRAMS_PER_DESCRIPTION} ` +
           "fences per description",
+      });
+      continue;
+    }
+
+    if (!fence.closed) {
+      issues.push({
+        path: fencePath(descriptionPath, index, "source"),
+        message: `the Mermaid fence at ${location} is not closed`
       });
       continue;
     }
