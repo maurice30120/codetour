@@ -1,10 +1,11 @@
-const MERMAID_FENCE_PATTERN = /^(\s*)```mermaid[ \t]*$/;
+import { isMermaidFenceInfo, matchDiagramCaption } from "./rules";
+
+const FENCE_INFO_PATTERN = /^\s*```(.*)$/;
 const FENCE_CLOSE_PATTERN = /^\s*```[ \t]*$/;
 const FENCE_OPEN_PATTERN = /^\s*```/;
-const CAPTION_PATTERN = /^\s*\*\*(Diagram — .+?)\*\*[ \t]*$/;
 
 export interface DiagramFence {
-  caption: string;
+  caption?: string;
   source: string;
   start: number;
   end: number;
@@ -16,8 +17,7 @@ function findCaption(lines: string[], fenceIndex: number): string | undefined {
     if (line.trim() === "") {
       continue;
     }
-    const match = line.match(CAPTION_PATTERN);
-    return match ? match[1].trim() : undefined;
+    return matchDiagramCaption(line);
   }
   return undefined;
 }
@@ -52,16 +52,14 @@ export function findDiagramFences(description: string): DiagramFence[] {
       break;
     }
 
-    if (MERMAID_FENCE_PATTERN.test(lines[index])) {
-      const caption = findCaption(lines, index);
-      if (caption) {
-        fences.push({
-          caption,
-          source: lines.slice(index + 1, closeIndex).join("\n"),
-          start: lineOffsets[index],
-          end: lineOffsets[closeIndex] + lines[closeIndex].length
-        });
-      }
+    const infoMatch = lines[index].match(FENCE_INFO_PATTERN);
+    if (infoMatch && isMermaidFenceInfo(infoMatch[1])) {
+      fences.push({
+        caption: findCaption(lines, index),
+        source: lines.slice(index + 1, closeIndex).join("\n"),
+        start: lineOffsets[index],
+        end: lineOffsets[closeIndex] + lines[closeIndex].length
+      });
     }
 
     index = closeIndex + 1;

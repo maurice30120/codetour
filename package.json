@@ -696,7 +696,7 @@
     "watch": "webpack --mode development --watch",
     "package": "vsce package",
     "test": "npm run test:plugin && npm run test:renderer && npm run test:mcp",
-    "test:plugin": "npm run build",
+    "test:plugin": "npm run build && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test",
     "test:renderer": "npm --prefix packages/description-renderer test",
     "test:mcp": "npm --prefix packages/mcp-server test"
   },

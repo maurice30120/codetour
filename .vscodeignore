@@ -8,9 +8,11 @@ src/**
 .space
 package.lock.json
 tsconfig.json
+tsconfig.test.json
 webpack.config.js
 **/*.vsix
 .git/**
 .github/**
 **/*.svg
 dist/extension-web.js*
+dist/test/**
