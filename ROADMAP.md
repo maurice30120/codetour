@@ -2,28 +2,9 @@
 
 L'objectif est de proposer des Tours générés par une IA pour expliquer un projet ou les changements apportés à son code.
 
-## Priorité immédiate — Diagrammes Mermaid
+## Bugs connus
 
-Permettre à l'IA de générer des diagrammes Mermaid afin de rendre les Tours plus visuels. Ils pourraient notamment expliquer l'architecture d'un projet, un parcours d'exécution, les dépendances entre modules ou l'enchaînement des changements d'une branche.
-
-- [ ] Identifier les types de diagrammes les plus utiles pour chaque Tour : flux, séquence, classes, états et dépendances.
-- [ ] Définir quand un diagramme apporte plus de clarté qu'une explication textuelle afin d'éviter d'en générer systématiquement.
-- [ ] Étudier les possibilités d'affichage de Mermaid dans VS Code : rendu Markdown natif, Webview dédiée ou conversion en image locale.
-- [ ] Concevoir une interface simple qui accepte une source Mermaid et masque les détails du moteur de rendu aux générateurs de Tours.
-- [ ] Autoriser les blocs de code `mermaid` dans le contenu généré tout en conservant un format `.tour` compatible avec CodeTour.
-- [ ] Valider la syntaxe Mermaid avant d'enregistrer le Tour et retourner une erreur actionnable en cas de diagramme invalide.
-- [ ] Encadrer la génération par des limites de taille, de complexité et de fonctionnalités pour préserver la lisibilité et la sécurité.
-- [ ] Prévoir un rendu de secours lisible, sous forme de code Mermaid ou de texte, lorsque le diagramme ne peut pas être affiché.
-- [ ] Ajouter des tests couvrant la génération, le rendu, les erreurs de syntaxe et l'ouverture d'un Tour contenant plusieurs diagrammes.
-- [ ] Créer un prototype avec un diagramme d'architecture dans un Project Tour et un diagramme de séquence dans un Changes Tour.
-- [ ] Documenter la syntaxe supportée et ajouter des exemples de bons diagrammes dans les instructions de génération.
-
-### Critères de réussite
-
-- Le lecteur peut comprendre une relation complexe sans quitter le Tour.
-- Un diagramme invalide ne rend pas le reste du Tour inutilisable.
-- Le Tour reste lisible dans un environnement ne prenant pas en charge Mermaid.
-- La génération et l'affichage ne nécessitent aucun accès réseau.
+- [ ] Redimensionner automatiquement l'image d'un diagramme Mermaid en fonction de l'espace disponible dans le commentaire ou la surface de prévisualisation, sans provoquer de débordement ni rendre le texte illisible.
 
 ## Priorité 1 — Modes de génération
 

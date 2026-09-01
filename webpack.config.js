@@ -3,6 +3,15 @@ const webpack = require("webpack");
 
 const RESVG_EXTERNAL = "commonjs ./resvg-runtime/resvg-js";
 
+// Optional native accelerators of ws/jsdom. They are always required inside
+// try/catch, so the runtime require fails cleanly when they are not installed
+// (VSIX ships no node_modules) and the JS fallbacks take over.
+const OPTIONAL_NATIVE_EXTERNALS = {
+  canvas: "commonjs canvas",
+  bufferutil: "commonjs bufferutil",
+  "utf-8-validate": "commonjs utf-8-validate"
+};
+
 const config = {
   entry: "./src/extension.ts",
   devtool: "source-map",
@@ -10,7 +19,8 @@ const config = {
     vscode: "commonjs vscode",
     child_process: "commonjs child_process",
     util: "commonjs util",
-    "@resvg/resvg-js": RESVG_EXTERNAL
+    "@resvg/resvg-js": RESVG_EXTERNAL,
+    ...OPTIONAL_NATIVE_EXTERNALS
   },
   resolve: {
     extensions: [".ts", ".js", ".json"],
@@ -68,7 +78,8 @@ const mcpConfig = {
   target: "node18",
   entry: "./packages/mcp-server/dist/src/cli.js",
   externals: {
-    "@resvg/resvg-js": RESVG_EXTERNAL
+    "@resvg/resvg-js": RESVG_EXTERNAL,
+    ...OPTIONAL_NATIVE_EXTERNALS
   },
   devtool: "source-map",
   output: {
