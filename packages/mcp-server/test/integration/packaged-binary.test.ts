@@ -55,8 +55,11 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
     assert.ok(filename, "npm pack should create a package archive");
     const archivePath = path.join(archiveDir, filename);
 
-    // Seed the consumer with the already-installed dependency tree. This keeps
-    // the package-install smoke test deterministic and fully offline.
+    // Seed the consumer with the already-installed dependency tree, then pass
+    // every registry dependency exposed by the packed manifest as a local
+    // source. npm still resolves direct dependencies during an install even
+    // when their directories already exist; without the local sources, a cold
+    // platform-specific cache (notably macOS ARM) fails in --offline mode.
     fs.mkdirSync(installationRoot, { recursive: true });
     fs.cpSync(
       path.join(packageRoot, "node_modules"),
@@ -76,6 +79,9 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
         archivePath,
         path.join(packageRoot, "node_modules", "@modelcontextprotocol", "sdk"),
         path.join(packageRoot, "node_modules", "ajv"),
+        path.join(packageRoot, "node_modules", "@resvg", "resvg-js"),
+        path.join(packageRoot, "node_modules", "jsdom"),
+        path.join(packageRoot, "node_modules", "mermaid"),
         path.join(packageRoot, "node_modules", "zod"),
       ],
       sandbox,

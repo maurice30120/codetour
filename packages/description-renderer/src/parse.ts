@@ -7,6 +7,7 @@ const FENCE_OPEN_PATTERN = /^\s*```/;
 export interface DiagramFence {
   caption?: string;
   source: string;
+  closed: boolean;
   start: number;
   end: number;
 }
@@ -49,6 +50,16 @@ export function findDiagramFences(description: string): DiagramFence[] {
     }
 
     if (closeIndex === -1) {
+      const infoMatch = lines[index].match(FENCE_INFO_PATTERN);
+      if (infoMatch && isMermaidFenceInfo(infoMatch[1])) {
+        fences.push({
+          caption: findCaption(lines, index),
+          source: lines.slice(index + 1).join("\n"),
+          closed: false,
+          start: lineOffsets[index],
+          end: description.length
+        });
+      }
       break;
     }
 
@@ -57,6 +68,7 @@ export function findDiagramFences(description: string): DiagramFence[] {
       fences.push({
         caption: findCaption(lines, index),
         source: lines.slice(index + 1, closeIndex).join("\n"),
+        closed: true,
         start: lineOffsets[index],
         end: lineOffsets[closeIndex] + lines[closeIndex].length
       });

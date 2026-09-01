@@ -29,6 +29,10 @@ import {
   validateProjectParams,
   validateSteps,
 } from "./validation";
+import {
+  MERMAID_TOOL_GUIDANCE,
+  validateMermaidDescriptions,
+} from "./mermaid-validation";
 import packageJson from "../package.json";
 
 // Point de passage entre l'agent IA et CodeTour : l'agent propose une visite
@@ -69,7 +73,8 @@ const PROJECT_TOUR_DESCRIPTION =
   "evolution, and use a line only as a fallback. Steps without any locator are allowed for general " +
   "context. Every anchor is " +
   "validated against the real workspace state, and all validation errors are reported in a single " +
-  "response. On failure, the previous tour file is preserved.";
+  "response. On failure, the previous tour file is preserved. " +
+  MERMAID_TOOL_GUIDANCE;
 
 const CHANGES_TOUR_DESCRIPTION =
   "Creates a CodeTour Changes Tour that explains the committed changes on the current branch since it " +
@@ -85,7 +90,8 @@ const CHANGES_TOUR_DESCRIPTION =
   "provide essential context, and deleted files must be explained with steps that have no locator. " +
   "Uncommitted changes are excluded by default and reported as a warning; pass includeUncommittedChanges to " +
   "include them explicitly. The description is automatically enriched with the base, merge-base and " +
-  "head. On failure, the previous tour file is preserved.";
+  "head. On failure, the previous tour file is preserved. " +
+  MERMAID_TOOL_GUIDANCE;
 
 const warningSchema = z.object({
   code: z.string(),
@@ -162,14 +168,26 @@ async function handleCreateProjectTour(
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
-  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
-  }
-
   // La validation agrège toutes les erreurs (paramètres puis étapes) avant de
   // répondre, pour permettre à l'agent de corriger la proposition en un cycle.
   const { params, issues: paramIssues } = validateProjectParams(args);
-  const allIssues = [...paramIssues];
+  const mermaidIssues = await validateMermaidDescriptions(args);
+  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
+    if (mermaidIssues.length === 0) {
+      return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
+    }
+
+    return errorResponse(
+      "INVALID_PROPOSAL",
+      "The create_project_tour arguments are invalid.",
+      [
+        ...mermaidIssues,
+        { path: "steps", message: "is required and must contain at least one step" }
+      ]
+    );
+  }
+
+  const allIssues = [...paramIssues, ...mermaidIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);
@@ -216,14 +234,26 @@ async function handleCreateChangesTour(
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
-  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
-  }
-
   // Même stratégie d'agrégation que pour le Project Tour : toutes les erreurs
   // de validation sont collectées avant de répondre.
   const { params, issues: paramIssues } = validateChangesParams(args);
-  const allIssues = [...paramIssues];
+  const mermaidIssues = await validateMermaidDescriptions(args);
+  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
+    if (mermaidIssues.length === 0) {
+      return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
+    }
+
+    return errorResponse(
+      "INVALID_PROPOSAL",
+      "The create_changes_tour arguments are invalid.",
+      [
+        ...mermaidIssues,
+        { path: "steps", message: "is required and must contain at least one step" }
+      ]
+    );
+  }
+
+  const allIssues = [...paramIssues, ...mermaidIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);
