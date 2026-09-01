@@ -21,7 +21,8 @@ const vsce = path.join(
 );
 const result = spawnSync(vsce, ["publish", "--packagePath", artifacts[0]], {
   cwd: root,
-  stdio: "inherit"
+  stdio: "inherit",
+  shell: process.platform === "win32"
 });
 if (result.error) {
   throw result.error;

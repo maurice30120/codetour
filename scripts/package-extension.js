@@ -11,6 +11,7 @@ function run(command, args, options = {}) {
     cwd: root,
     env: { ...process.env, CODETOUR_TARGET: target },
     stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    shell: process.platform === "win32",
     encoding: "utf8"
   });
   if (result.error) {
