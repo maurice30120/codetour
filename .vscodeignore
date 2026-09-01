@@ -12,3 +12,4 @@ webpack.config.js
 .git/**
 .github/**
 **/*.svg
+dist/extension-web.js*

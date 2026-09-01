@@ -10,10 +10,6 @@ const config = {
     util: "commonjs util"
   },
   resolve: {
-    fallback: {
-      os: require.resolve("os-browserify/browser"),
-      path: require.resolve("path-browserify")
-    },
     extensions: [".ts", ".js", ".json"]
   },
   node: {
@@ -54,26 +50,6 @@ const nodeConfig = {
   }
 };
 
-const webConfig = {
-  ...config,
-  target: 'webworker',
-  resolve: {
-    ...config.resolve,
-    alias: {
-      "./desktopIntegration": path.resolve(
-        __dirname,
-        "src/desktopIntegration.web.ts"
-      )
-    }
-  },
-  output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'extension-web.js',
-    libraryTarget: "commonjs2",
-    devtoolModuleFilenameTemplate: "../[resource-path]",
-  }
-};
-
 const mcpConfig = {
   mode: "production",
   target: "node18",
@@ -85,4 +61,4 @@ const mcpConfig = {
   }
 };
 
-module.exports = [nodeConfig, webConfig, mcpConfig];
+module.exports = [nodeConfig, mcpConfig];

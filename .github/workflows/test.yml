@@ -27,3 +27,6 @@ jobs:
       - name: Verify the VSIX contains the compiled MCP server
         shell: bash
         run: unzip -l codetour-*.vsix | grep 'extension/dist/mcp-server.js'
+      - name: Verify the VSIX contains no web extension artifact
+        shell: bash
+        run: "! unzip -l codetour-*.vsix | grep 'extension-web'"
