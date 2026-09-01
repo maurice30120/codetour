@@ -414,7 +414,7 @@ export function registerPlayerModule(context: ExtensionContext) {
   context.subscriptions.push(
     registerTreeProvider(context.extensionPath, () => {
       clearMermaidRenderCache();
-      if (store.activeTour) {
+      if (store.activeTour && !store.isEditing) {
         renderCurrentStep();
       }
     })
