@@ -29,6 +29,10 @@ import {
   validateProjectParams,
   validateSteps,
 } from "./validation";
+import {
+  MERMAID_TOOL_GUIDANCE,
+  validateMermaidDescriptions,
+} from "./mermaid-validation";
 import packageJson from "../package.json";
 
 // Point de passage entre l'agent IA et CodeTour : l'agent propose une visite
@@ -69,7 +73,8 @@ const PROJECT_TOUR_DESCRIPTION =
   "evolution, and use a line only as a fallback. Steps without any locator are allowed for general " +
   "context. Every anchor is " +
   "validated against the real workspace state, and all validation errors are reported in a single " +
-  "response. On failure, the previous tour file is preserved.";
+  "response. On failure, the previous tour file is preserved. " +
+  MERMAID_TOOL_GUIDANCE;
 
 const CHANGES_TOUR_DESCRIPTION =
   "Creates a CodeTour Changes Tour that explains the committed changes on the current branch since it " +
@@ -85,7 +90,8 @@ const CHANGES_TOUR_DESCRIPTION =
   "provide essential context, and deleted files must be explained with steps that have no locator. " +
   "Uncommitted changes are excluded by default and reported as a warning; pass includeUncommittedChanges to " +
   "include them explicitly. The description is automatically enriched with the base, merge-base and " +
-  "head. On failure, the previous tour file is preserved.";
+  "head. On failure, the previous tour file is preserved. " +
+  MERMAID_TOOL_GUIDANCE;
 
 const warningSchema = z.object({
   code: z.string(),
@@ -170,6 +176,7 @@ async function handleCreateProjectTour(
   // répondre, pour permettre à l'agent de corriger la proposition en un cycle.
   const { params, issues: paramIssues } = validateProjectParams(args);
   const allIssues = [...paramIssues];
+  allIssues.push(...(await validateMermaidDescriptions(args)));
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);
@@ -224,6 +231,7 @@ async function handleCreateChangesTour(
   // de validation sont collectées avant de répondre.
   const { params, issues: paramIssues } = validateChangesParams(args);
   const allIssues = [...paramIssues];
+  allIssues.push(...(await validateMermaidDescriptions(args)));
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);

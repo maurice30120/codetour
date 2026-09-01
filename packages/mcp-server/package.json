@@ -35,6 +35,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "ajv": "^6.12.6",
+    "codetour-description-renderer": "file:../description-renderer",
     "zod": "^3.25.76"
   },
   "devDependencies": {

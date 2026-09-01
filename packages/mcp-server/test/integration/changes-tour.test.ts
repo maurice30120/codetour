@@ -17,6 +17,11 @@ import {
   withServer,
   writeFile,
 } from "../helpers/test-utils";
+import {
+  ALLOWED_DIAGRAM_SOURCES,
+  INVALID_FLOWCHART_SOURCE,
+  captionedDiagram,
+} from "../helpers/mermaid-fixtures";
 
 async function setupRepo(): Promise<{ root: string; baseSha: string; head: string }> {
   const root = tempDir();
@@ -28,6 +33,56 @@ async function setupRepo(): Promise<{ root: string; baseSha: string; head: strin
   const head = await headSha(root);
   return { root, baseSha, head };
 }
+
+test("accepts all five allowed Mermaid kinds in a Changes Tour", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: Object.entries(ALLOWED_DIAGRAM_SOURCES).map(([kind, source]) => ({
+          description: captionedDiagram(`${kind} change`, source),
+        })),
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.equal(response.structured.stepCount, 5);
+    });
+    assert.ok(tourFileValidAgainstSchema(root, ".tours/changes.tour"));
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("preserves the previous Changes Tour when Mermaid syntax is invalid", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const first = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [{ description: "Original.", file: "feature.txt" }],
+      });
+      assert.equal(first.isError, false);
+      const before = readTourFile(root, ".tours/changes.tour");
+
+      const second = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [
+          {
+            description: captionedDiagram("Broken", INVALID_FLOWCHART_SOURCE),
+          },
+        ],
+      });
+      assert.equal(second.isError, true);
+      assert.equal(structuredCode(second), "INVALID_PROPOSAL");
+      assert.deepEqual(readTourFile(root, ".tours/changes.tour"), before);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
 
 test("creates a changes tour with the exact head SHA as ref", async () => {
   const { root, baseSha, head } = await setupRepo();

@@ -691,7 +691,7 @@
   "scripts": {
     "build:mcp": "npm --prefix packages/mcp-server run build",
     "build:renderer": "npm --prefix packages/description-renderer run build",
-    "build": "npm run build:mcp && npm run build:renderer && webpack --mode production",
+    "build": "npm run build:renderer && npm run build:mcp && webpack --mode production",
     "vscode:prepublish": "npm run build",
     "watch": "webpack --mode development --watch",
     "package": "vsce package",

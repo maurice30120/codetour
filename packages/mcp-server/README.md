@@ -20,6 +20,11 @@ locations only. CodeTour `commands`, root-level `when` expressions, external
 `uri` steps, and active Markdown schemes (`command:`, `file:`, `vscode:`,
 `vscode-insiders:`, `javascript:`) are rejected.
 
+Mermaid diagrams are optional and validated before either tool writes a Tour.
+The MCP server reuses the exact fence rules and locked Mermaid implementation
+from `codetour-description-renderer`, so the Tour Generator and playback apply
+the same contract. Validation is local and offline.
+
 ## Requirements
 
 - Node.js >= 18
@@ -27,11 +32,14 @@ locations only. CodeTour `commands`, root-level `when` expressions, external
 
 ## Démarrage rapide
 
-Depuis la racine du dépôt, installez les dépendances du serveur MCP et vérifiez
-le package :
+Depuis la racine du dépôt, installez d'abord le renderer partagé, puis les
+dépendances du serveur MCP et vérifiez les deux packages :
 
 ```bash
-cd packages/mcp-server
+cd packages/description-renderer
+npm install
+npm run build
+cd ../mcp-server
 npm install
 npm test
 ```
@@ -183,6 +191,29 @@ Every anchor is validated against the real workspace state. All validation
 errors are aggregated and reported in a single response; the previous tour
 file is preserved on failure.
 
+### Mermaid diagrams
+
+Use Mermaid sparingly: include a diagram only when it materially clarifies a
+relationship or flow. A diagram must use a bare fence with `mermaid` as its
+info string. The nearest non-blank line before that fence must be a visible caption matching
+`**Diagram — …**` (an em dash, with one or more descriptive characters). Blank
+lines between the caption and fence are allowed; other Markdown content breaks
+the caption association.
+
+The exact allowlist is `flowchart`, `sequenceDiagram`, `stateDiagram-v2`,
+`classDiagram`, and `erDiagram`. Each individual description (the Tour
+description and each step description are separate descriptions) accepts at
+most three Mermaid fences, and each source is at most 20 KiB measured as UTF-8
+bytes. Mermaid syntax is parsed locally using the same locked version as
+playback. A malformed caption, unsupported kind, oversized source, invalid
+syntax, or fourth-and-later fence rejects the complete tool call.
+
+Diagram issues use paths such as
+`steps[1].description.mermaid[0].source`; the path identifies the description,
+fence index, and failing field. Every issue also reports the fence's starting
+line and column. All descriptions are checked in one call, and no Tour file is
+written when any diagram or ordinary Tour validation fails.
+
 ### Result
 
 Each successful tool call returns a human-readable message and a structure:
@@ -234,7 +265,10 @@ generation does not warn about itself.
 Install the package dependencies once:
 
 ```bash
-cd packages/mcp-server
+cd packages/description-renderer
+npm install
+npm run build
+cd ../mcp-server
 npm install
 ```
 
@@ -246,9 +280,10 @@ From `packages/mcp-server/`:
 npm test
 ```
 
-The test command first compiles the package, then runs the complete Node.js
-test suite from `dist/test/`. A successful run currently reports 69 passing
-tests.
+The renderer must be built before the MCP package because the MCP server uses
+its public shared-rule surface as a local package dependency. The MCP test
+command then compiles the package and runs the complete Node.js test suite from
+`dist/test/`.
 
 The same suite can be launched from the repository root without changing
 directory:
