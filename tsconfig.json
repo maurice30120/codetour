@@ -7,7 +7,13 @@
     "sourceMap": true,
     "rootDir": "src",
     "strict": true,
-    "noUnusedLocals": true
+    "noUnusedLocals": true,
+    "baseUrl": ".",
+    "paths": {
+      "codetour-description-renderer": [
+        "packages/description-renderer/dist/src/index"
+      ]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules"]

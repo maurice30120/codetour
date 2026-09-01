@@ -4,6 +4,7 @@
 import { reaction } from "mobx";
 import {
   commands,
+  ColorThemeKind,
   Comment,
   CommentAuthorInformation,
   CommentController,
@@ -21,6 +22,10 @@ import {
   window,
   workspace
 } from "vscode";
+import {
+  DescriptionTheme,
+  renderDescription
+} from "codetour-description-renderer";
 import { SMALL_ICON_URL } from "../constants";
 import { CodeTour, store } from "../store";
 import { initializeStorage } from "../store/storage";
@@ -108,6 +113,13 @@ export function generatePreviewContent(content: string) {
       return `${_}
 ↪ [Insert Code](command:codetour.insertCodeSnippet?${params} "Insert Code")`;
     });
+}
+
+function getDescriptionTheme(): DescriptionTheme {
+  const kind = window.activeColorTheme.kind;
+  return kind === ColorThemeKind.Dark || kind === ColorThemeKind.HighContrast
+    ? "dark"
+    : "light";
 }
 
 export class CodeTourComment implements Comment {
@@ -286,6 +298,9 @@ async function renderCurrentStep() {
       ? CommentMode.Editing
       : CommentMode.Preview;
   let content = step.description;
+  if (mode === CommentMode.Preview) {
+    content = await renderDescription(content, getDescriptionTheme());
+  }
 
   let hasPreviousStep = currentStep > 0;
   const hasNextStep = currentStep < currentTour.steps.length - 1;
