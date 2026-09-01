@@ -1,5 +1,8 @@
 export { renderDescription } from "./description";
 export {
+  clearMermaidRenderCache,
+  DESCRIPTION_RENDERER_VERSION,
+  invalidateMermaidRenderCache,
   renderMermaidDiagram
 } from "./render";
 export type { DescriptionTheme, RenderedDiagram } from "./render";

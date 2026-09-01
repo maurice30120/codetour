@@ -21,6 +21,22 @@ import { CodeTourNode } from "./tree/nodes";
 
 let terminal: vscode.Terminal | null;
 export function registerPlayerCommands() {
+  // Internal inspection seam used by the development-host smoke test. It
+  // reads the comment owned by the active player, not a renderer-side value.
+  vscode.commands.registerCommand(
+    `${EXTENSION_NAME}._getActiveCommentBody`,
+    () => {
+      const comment = store.activeTour?.thread?.comments[0];
+      if (!comment) {
+        return undefined;
+      }
+
+      return comment.body instanceof vscode.MarkdownString
+        ? comment.body.value
+        : comment.body;
+    }
+  );
+
   // Permet à l'aperçu d'un marqueur d'ouvrir directement la visite et l'étape
   // correspondantes ; cette commande n'est pas destinée à la palette publique.
   vscode.commands.registerCommand(
