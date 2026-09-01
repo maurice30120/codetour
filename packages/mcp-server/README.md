@@ -37,18 +37,19 @@ npm test
 ```
 
 `npm test` compile le package et exécute toute la suite de tests. Vous pouvez
-ensuite démarrer le serveur pour un workspace :
+ensuite démarrer le serveur depuis un workspace :
 
 ```bash
-node dist/src/cli.js --workspace-root /path/to/workspace
+cd /path/to/workspace
+node /path/to/codetour/packages/mcp-server/dist/src/cli.js
 ```
 
 Le processus utilise MCP sur `stdio`. Il attend donc silencieusement les
 requêtes d'un client MCP. Utilisez `Ctrl+C` pour l'arrêter lorsqu'il est lancé
 manuellement.
 
-L'argument `--workspace-root` est obligatoire. Une instance du serveur traite
-exactement un workspace et toutes les opérations y sont confinées : les chemins
+Le répertoire de travail du processus est le workspace. Une instance du serveur
+traite exactement ce workspace et toutes les opérations y sont confinées : les chemins
 réels sont résolus avant toute lecture ou écriture, les liens symboliques qui
 sortent de la racine sont refusés et le serveur n'effectue aucun accès réseau.
 
@@ -58,10 +59,11 @@ développement local :
 
 ```bash
 npm link
-codetour-mcp --workspace-root /path/to/workspace
+cd /path/to/workspace
+codetour-mcp
 ```
 
-Configurez enfin votre client MCP avec la commande et le workspace à utiliser,
+Configurez enfin votre client MCP avec la commande et son répertoire de travail,
 comme dans l'exemple ci-dessous. Une fois connecté, le client découvre
 automatiquement `create_project_tour` et `create_changes_tour`.
 
@@ -72,7 +74,8 @@ automatiquement `create_project_tour` et `create_changes_tour`.
   "mcpServers": {
     "codetour": {
       "command": "node",
-      "args": ["/path/to/codetour/packages/mcp-server/dist/src/cli.js", "--workspace-root", "/path/to/workspace"]
+      "args": ["/path/to/codetour/packages/mcp-server/dist/src/cli.js"],
+      "cwd": "/path/to/workspace"
     }
   }
 }
@@ -82,13 +85,16 @@ The transport is `stdio` only.
 
 ### Configuration dans Codex
 
-Après le build, enregistrez le serveur auprès de Codex en remplaçant les deux
-chemins par des chemins absolus :
+L'extension VS Code fournit les commandes `CodeTour: Configure MCP for Codex`
+et `CodeTour: Repair MCP Configuration for Codex`. La première installe la
+configuration globale lorsqu'elle manque ; la seconde remplace une
+configuration obsolète, notamment après une mise à jour de l'extension.
+
+Pour un build de développement non installé en VSIX, l'équivalent manuel est :
 
 ```bash
 codex mcp add codetour -- \
-  node /path/to/codetour/packages/mcp-server/dist/src/cli.js \
-  --workspace-root /path/to/workspace
+  node /path/to/codetour/dist/mcp-server.js
 ```
 
 Il n'est pas nécessaire de conserver un processus lancé manuellement : Codex
@@ -98,18 +104,23 @@ démarre le serveur `stdio` automatiquement. Vérifiez la configuration avec :
 codex mcp get codetour
 ```
 
-Redémarrez ensuite l'application Codex ou son extension IDE pour qu'elle charge
-le nouveau serveur. Dans une session Codex, `/mcp` permet de vérifier que le
-serveur est connecté.
+Les nouvelles tâches Codex démarrent le serveur dans leur propre répertoire de
+travail ; une seule configuration globale couvre donc tous les projets.
 
 Pour générer le tour général du projet, demandez par exemple :
 
 ```text
 Analyse ce dépôt, puis utilise l'outil MCP codetour.create_project_tour pour
 générer un Project Tour. Présente le but du projet, ses points d'entrée, ses
-composants importants et ses principaux flux d'exécution. Utilise des ancres
-stables dans les fichiers lorsque c'est possible.
+composants importants et ses principaux flux d'exécution. Commence par une
+étape ancrée sur le dossier racine pour en expliquer l'organisation, puis
+présente les dossiers importants avant de détailler les fichiers. Utilise des
+ancres stables dans les fichiers lorsque c'est possible.
 ```
+
+Pour limiter le Project Tour à un sous-dossier, nommez-le explicitement dans la
+demande. La première étape doit alors utiliser ce chemin dans son champ
+`directory`, relativement à la racine du workspace.
 
 Le résultat est écrit dans `.tours/project.tour`.
 
@@ -135,7 +146,11 @@ Le résultat est écrit dans `.tours/changes.tour`.
 | `steps`       | object[] | yes      | Non-empty list of steps (see below).                    |
 
 A good Project Tour covers the project's purpose, its main entry points, its
-important components, and its main execution flows.
+important components, and its main execution flows. When the project has a
+meaningful directory structure, it begins with a directory-anchored overview.
+For a Project Tour scoped to a subdirectory, the first step anchors that exact
+workspace-relative directory. Other important directories should be introduced
+before their individual files.
 
 ### `create_changes_tour`
 
@@ -158,7 +173,7 @@ modifications, their impact, and the relevant tests.
 | `title`       | string | Optional step title.                                                         |
 | `description` | string | Required Markdown explanation.                                               |
 | `file`        | string | Workspace-relative path; at most one of `file`/`directory` per step.         |
-| `directory`   | string | Workspace-relative path; at most one of `file`/`directory` per step.         |
+| `directory`   | string | Workspace-relative path; use for structural overview steps and at most one of `file`/`directory` per step. |
 | `line`        | number | 1-based line; only valid with `file`, mutually exclusive with `pattern`.     |
 | `pattern`     | string | Regular expression matching exactly one occurrence; only valid with `file`.  |
 | `selection`   | object | `{ start: {line, character}, end: {line, character} }`, 1-based; only valid with `file`. |

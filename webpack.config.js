@@ -5,7 +5,9 @@ const config = {
   entry: "./src/extension.ts",
   devtool: "source-map",
   externals: {
-    vscode: "commonjs vscode"
+    vscode: "commonjs vscode",
+    child_process: "commonjs child_process",
+    util: "commonjs util"
   },
   resolve: {
     fallback: {
@@ -55,6 +57,15 @@ const nodeConfig = {
 const webConfig = {
   ...config,
   target: 'webworker',
+  resolve: {
+    ...config.resolve,
+    alias: {
+      "./desktopIntegration": path.resolve(
+        __dirname,
+        "src/desktopIntegration.web.ts"
+      )
+    }
+  },
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'extension-web.js',
@@ -63,4 +74,15 @@ const webConfig = {
   }
 };
 
-module.exports = [nodeConfig, webConfig];
+const mcpConfig = {
+  mode: "production",
+  target: "node18",
+  entry: "./packages/mcp-server/dist/src/cli.js",
+  devtool: "source-map",
+  output: {
+    path: path.resolve(__dirname, "dist"),
+    filename: "mcp-server.js"
+  }
+};
+
+module.exports = [nodeConfig, webConfig, mcpConfig];

@@ -84,6 +84,10 @@ test("exposes exactly two tools", async () => {
       const project = tools.tools.find((tool) => tool.name === "create_project_tour");
       assert.ok(project);
       assert.ok(project!.description!.includes("Project Tour"));
+      assert.ok(
+        project!.description!.includes("Begin with a directory-anchored overview step")
+      );
+      assert.ok(project!.description!.includes("tour is scoped to a subdirectory"));
       const changes = tools.tools.find((tool) => tool.name === "create_changes_tour");
       assert.ok(changes);
       assert.ok(changes!.description!.includes("Changes Tour"));

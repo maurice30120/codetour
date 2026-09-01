@@ -57,7 +57,10 @@ const PROJECT_TOUR_DESCRIPTION =
   ".tours/project.tour (replacing any previously generated tour of the same kind). " +
   "You provide the fully written content; the server only validates and persists it deterministically. " +
   "A good Project Tour ideally covers: the project's purpose, its main entry points, its important " +
-  "components, and its main execution flows. " +
+  "components, and its main execution flows. Begin with a directory-anchored overview step whenever " +
+  "the project has a meaningful directory structure. If the tour is scoped to a subdirectory, anchor " +
+  "that first step to the exact workspace-relative directory. Use additional directory-anchored steps " +
+  "to introduce major components before moving into detailed file anchors. " +
   "Arguments: an optional title (defaults to \"Project Overview\"), an optional description, and a " +
   "required non-empty steps array. Each step takes an optional title, a required Markdown description, " +
   "and at most one locator: a file or a directory (workspace-relative paths). A step may also target a " +

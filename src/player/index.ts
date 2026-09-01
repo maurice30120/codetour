@@ -137,7 +137,7 @@ let controller: CommentController | null;
 
 export async function focusPlayer() {
   const currentThread = store.activeTour?.thread;
-  if (!currentThread) {
+  if (!currentThread?.range) {
     return;
   }
 

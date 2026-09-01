@@ -103,7 +103,7 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
     );
     const transport = new StdioClientTransport({
       command: binaryPath,
-      args: ["--workspace-root", workspaceRoot],
+      cwd: workspaceRoot,
     });
     await client.connect(transport);
     try {

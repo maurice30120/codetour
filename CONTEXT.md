@@ -19,3 +19,15 @@ _Avoid_: Walkthrough file, generated documentation
 **Tour Anchor**:
 A stable location in the codebase that associates a Tour step with the code or directory it explains.
 _Avoid_: Pointer, target
+
+**Tour Generator**:
+An AI agent that analyzes a workspace and proposes a Project Tour or Changes Tour through CodeTour's MCP tools.
+_Avoid_: MCP client, tour writer
+
+**Mermaid Diagram**:
+A visual explanation whose Mermaid source is embedded in a Tour's explanatory Markdown and rendered by CodeTour for the reader.
+_Avoid_: Schema, generated image
+
+**Tour Workspace**:
+The single project directory that a Tour Generator is allowed to inspect and in which generated Tours are persisted.
+_Avoid_: Workspace root argument, current folder

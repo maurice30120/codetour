@@ -14,6 +14,7 @@ import {
   startDefaultTour
 } from "./store/actions";
 import { discoverTours as _discoverTours } from "./store/provider";
+import { registerDesktopIntegrations } from "./desktopIntegration";
 
 /**
  * Partage la découverte des visites entre l'ouverture normale du projet et
@@ -75,6 +76,7 @@ class URIHandler implements vscode.UriHandler {
 }
 
 export async function activate(context: vscode.ExtensionContext) {
+  registerDesktopIntegrations(context);
   registerPlayerModule(context);
   registerRecorderModule();
   registerLiveShareModule();
