@@ -6,8 +6,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { renderDescription } from "../src/description";
 import {
+  ALLOWED_KIND_CAPTIONS,
+  ALLOWED_KIND_SOURCES,
   CAPTIONED_FLOWCHART_DESCRIPTION,
   assertValidPng,
+  captionedDiagram,
   extractPngDataUri
 } from "./helpers/fixtures";
 
@@ -82,17 +85,48 @@ test("renderDescription renders a flowchart with network access blocked", async 
   }
 });
 
+test("renderDescription renders the other allowed kinds with network access blocked", async () => {
+  const network = blockNetwork();
+
+  try {
+    for (const kind of [
+      "sequenceDiagram",
+      "stateDiagram-v2",
+      "classDiagram",
+      "erDiagram"
+    ]) {
+      const caption = ALLOWED_KIND_CAPTIONS[kind];
+      const content = await renderDescription(
+        captionedDiagram(caption, ALLOWED_KIND_SOURCES[kind]),
+        "light"
+      );
+      assertValidPng(extractPngDataUri(content, caption));
+    }
+    assert.equal(network.attempts(), 0);
+  } finally {
+    network.restore();
+  }
+});
+
 test("renderDescription creates no generated SVG or PNG file", async () => {
   const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "codetour-renderer-"));
   const previousCwd = process.cwd();
 
   try {
     process.chdir(sandbox);
-    const content = await renderDescription(
+    const description = [
       CAPTIONED_FLOWCHART_DESCRIPTION,
-      "dark"
-    );
+      "",
+      captionedDiagram(
+        ALLOWED_KIND_CAPTIONS["stateDiagram-v2"],
+        ALLOWED_KIND_SOURCES["stateDiagram-v2"]
+      )
+    ].join("\n");
+    const content = await renderDescription(description, "dark");
     assertValidPng(extractPngDataUri(content, "Diagram — Request lifecycle"));
+    assertValidPng(
+      extractPngDataUri(content, ALLOWED_KIND_CAPTIONS["stateDiagram-v2"])
+    );
 
     const files = listFilesRecursive(sandbox);
     assert.deepEqual(

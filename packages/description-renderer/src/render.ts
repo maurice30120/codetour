@@ -1,6 +1,7 @@
 import { ensureDomEnvironment, measureContentBounds } from "./dom";
 import { rasterizeSvg } from "./rasterize";
 import { sanitizeSvg } from "./sanitize";
+import { diagramKindOf, isAllowedDiagramKind } from "./rules";
 
 export type DescriptionTheme = "light" | "dark";
 
@@ -102,6 +103,13 @@ export async function renderMermaidDiagram(
   source: string,
   theme: DescriptionTheme
 ): Promise<RenderedDiagram> {
+  const kind = diagramKindOf(source);
+  if (!kind || !isAllowedDiagramKind(kind)) {
+    throw new Error(
+      `Unsupported Mermaid diagram kind: ${kind ?? "(none detected)"}`
+    );
+  }
+
   ensureDomEnvironment();
 
   if (!mermaid) {

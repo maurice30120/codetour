@@ -5,9 +5,22 @@ import { renderMermaidDiagram } from "../src/render";
 import { sanitizeSvg } from "../src/sanitize";
 import {
   CAPTIONED_FLOWCHART_DESCRIPTION,
+  HOSTILE_INTERACTION_SOURCE,
+  HOSTILE_LABEL_SOURCES,
+  HOSTILE_MARKDOWN_LABEL_SOURCE,
   assertValidPng,
-  extractPngDataUri
+  captionedDiagram,
+  extractPngDataUri,
+  findImageLine
 } from "./helpers/fixtures";
+
+const IMAGE_LINE_PATTERN = /^!\[[^\n]*\]\(data:image\/png;base64,[A-Za-z0-9+/=]+\)$/;
+
+function assertStaticImageLine(content: string, caption: string): void {
+  const line = findImageLine(content, caption);
+  assert.match(line, IMAGE_LINE_PATTERN);
+  assert.ok(!line.includes("<"));
+}
 
 test("strict security encodes hostile labels instead of embedding HTML", async () => {
   const source = [
@@ -20,6 +33,7 @@ test("strict security encodes hostile labels instead of embedding HTML", async (
   assert.ok(!svg.includes("<img"));
   assert.ok(!svg.includes("onerror"));
   assert.ok(!svg.includes("<script"));
+  assert.ok(!svg.includes("<foreignObject"));
 });
 
 test("strict security renders click interactions without anchors or handlers", async () => {
@@ -46,16 +60,82 @@ test("strict security keeps labels as SVG text, not embedded HTML", async () => 
   assert.ok(svg.includes("<tspan"));
 });
 
+test("hostile labels in every allowed kind render as a static image only", async () => {
+  for (const [kind, source] of Object.entries(HOSTILE_LABEL_SOURCES)) {
+    const caption = `Diagram — Hostile ${kind}`;
+    const content = await renderDescription(captionedDiagram(caption, source), "light");
+
+    assertStaticImageLine(content, caption);
+    assertValidPng(extractPngDataUri(content, caption));
+    assert.ok(!content.includes("<script"), kind);
+    assert.ok(!content.includes("```mermaid"), kind);
+  }
+});
+
+test("hostile labels that fail to parse fall back to a warning, not the source", async () => {
+  const caption = "Diagram — Hostile parse failure";
+  const content = await renderDescription(
+    captionedDiagram(
+      caption,
+      'flowchart TD\n    A["<script>alert(1)</script>"] is totally broken ((('
+    ),
+    "light"
+  );
+
+  assert.ok(content.includes("could not be rendered"));
+  assert.ok(!content.includes("<script"));
+  assert.ok(!content.includes("<img"));
+  assert.ok(!content.includes("```mermaid"));
+});
+
+test("click callbacks, hrefs and link styles cannot become active output", async () => {
+  const caption = "Diagram — Hostile interactions";
+  const content = await renderDescription(
+    captionedDiagram(caption, HOSTILE_INTERACTION_SOURCE),
+    "light"
+  );
+
+  assertStaticImageLine(content, caption);
+  assertValidPng(extractPngDataUri(content, caption));
+  assert.ok(!content.includes("<a "));
+  assert.ok(!content.includes("](https://"));
+  assert.ok(!content.includes("command:codetour.nextTourStep"));
+  assert.ok(!content.includes("```mermaid"));
+});
+
+test("markdown links inside labels cannot become active output", async () => {
+  const caption = "Diagram — Hostile markdown label";
+  const content = await renderDescription(
+    captionedDiagram(caption, HOSTILE_MARKDOWN_LABEL_SOURCE),
+    "light"
+  );
+
+  assertStaticImageLine(content, caption);
+  assertValidPng(extractPngDataUri(content, caption));
+  assert.ok(!content.includes("](https://evil.example)"));
+  assert.ok(!content.includes("](command:"));
+});
+
+test("a caption containing brackets cannot break out of the image markdown", async () => {
+  const caption = "Diagram — Reads [docs](https://example.com) and [run](command:x)";
+  const content = await renderDescription(
+    captionedDiagram(caption, "flowchart TD\n    A --> B"),
+    "light"
+  );
+
+  assertStaticImageLine(content, caption);
+  const line = findImageLine(content, caption);
+  assert.equal(line.match(/!\[/g)!.length, 1);
+  assert.equal(line.match(/\]\(data:image\/png;base64,/g)!.length, 1);
+});
+
 test("the final comment content contains no diagram HTML or commands", async () => {
   const content = await renderDescription(
     CAPTIONED_FLOWCHART_DESCRIPTION,
     "light"
   );
 
-  const imageLine = content
-    .split("\n")
-    .find(line => line.startsWith("![Diagram — Request lifecycle"));
-  assert.ok(imageLine);
+  const imageLine = findImageLine(content, "Diagram — Request lifecycle");
   assert.ok(!imageLine.includes("<"));
   assert.ok(!imageLine.includes("command:"));
   assertValidPng(extractPngDataUri(content, "Diagram — Request lifecycle"));
