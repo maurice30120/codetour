@@ -20,8 +20,10 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             packages/mcp-server/package-lock.json
+            packages/description-renderer/package-lock.json
       - run: npm ci
       - run: npm ci --prefix packages/mcp-server
+      - run: npm ci --prefix packages/description-renderer
       - run: npm test
       - run: npm run package
       - name: Verify the VSIX contains the compiled MCP server

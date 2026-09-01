@@ -7,10 +7,17 @@ const config = {
   externals: {
     vscode: "commonjs vscode",
     child_process: "commonjs child_process",
-    util: "commonjs util"
+    util: "commonjs util",
+    "@resvg/resvg-js": "commonjs @resvg/resvg-js"
   },
   resolve: {
-    extensions: [".ts", ".js", ".json"]
+    extensions: [".ts", ".js", ".json"],
+    alias: {
+      "codetour-description-renderer": path.resolve(
+        __dirname,
+        "packages/description-renderer/dist/src/index.js"
+      )
+    }
   },
   node: {
     __filename: false,
@@ -47,7 +54,11 @@ const nodeConfig = {
     filename: 'extension-node.js',
     libraryTarget: "commonjs2",
     devtoolModuleFilenameTemplate: "../[resource-path]",
-  }
+  },
+  plugins: [
+    ...config.plugins,
+    new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 })
+  ]
 };
 
 const mcpConfig = {

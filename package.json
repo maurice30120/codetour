@@ -667,6 +667,7 @@
     ]
   },
   "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "@types/jexl": "^2.2.0",
     "axios": "^0.21.4",
     "jexl": "^2.3.0",
@@ -689,12 +690,14 @@
   },
   "scripts": {
     "build:mcp": "npm --prefix packages/mcp-server run build",
-    "build": "npm run build:mcp && webpack --mode production",
+    "build:renderer": "npm --prefix packages/description-renderer run build",
+    "build": "npm run build:mcp && npm run build:renderer && webpack --mode production",
     "vscode:prepublish": "npm run build",
     "watch": "webpack --mode development --watch",
     "package": "vsce package",
-    "test": "npm run test:plugin && npm run test:mcp",
+    "test": "npm run test:plugin && npm run test:renderer && npm run test:mcp",
     "test:plugin": "npm run build",
+    "test:renderer": "npm --prefix packages/description-renderer test",
     "test:mcp": "npm --prefix packages/mcp-server test"
   },
   "prettier": {
