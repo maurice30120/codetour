@@ -88,6 +88,39 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
       npmCache
     );
 
+    // The shared renderer is a local monorepo package, so npm pack cannot
+    // carry its sibling path dependency into the isolated consumer. Seed the
+    // consumer with the already-built package and its already-installed
+    // dependency tree, preserving the test's fully offline contract.
+    const rendererRoot = path.join(packageRoot, "..", "description-renderer");
+    const rendererTarget = path.join(
+      installationRoot,
+      "node_modules",
+      "codetour-description-renderer"
+    );
+    let rendererIsAlreadyLinked = false;
+    try {
+      rendererIsAlreadyLinked = fs.lstatSync(rendererTarget).isSymbolicLink();
+    } catch {
+      // The package installer may not have created the local dependency.
+    }
+    if (rendererIsAlreadyLinked) {
+      fs.unlinkSync(rendererTarget);
+    }
+    if (!rendererIsAlreadyLinked || !fs.existsSync(rendererTarget)) {
+      fs.cpSync(rendererRoot, rendererTarget, {
+        recursive: true,
+        filter: (source) =>
+          path.basename(source) !== "node_modules" &&
+          !source.includes(`${path.sep}node_modules${path.sep}`),
+      });
+      fs.cpSync(
+        path.join(rendererRoot, "node_modules"),
+        path.join(installationRoot, "node_modules"),
+        { recursive: true }
+      );
+    }
+
     fs.mkdirSync(workspaceRoot, { recursive: true });
     await initGitRepo(workspaceRoot);
     await commitFile(workspaceRoot, "base.txt", "base\n", "add base");

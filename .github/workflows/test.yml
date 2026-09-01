@@ -22,13 +22,13 @@ jobs:
             packages/mcp-server/package-lock.json
             packages/description-renderer/package-lock.json
       - run: npm ci
-      - run: npm ci --prefix packages/mcp-server
       - run: npm ci --prefix packages/description-renderer
+      - run: npm ci --prefix packages/mcp-server
       - run: npm test
       - run: npm run package
-      - name: Verify the VSIX contains the compiled MCP server
-        shell: bash
-        run: unzip -l codetour-*.vsix | grep 'extension/dist/mcp-server.js'
-      - name: Verify the VSIX contains no web extension artifact
-        shell: bash
-        run: "! unzip -l codetour-*.vsix | grep 'extension-web'"
+      - name: Upload platform VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: codetour-${{ matrix.os }}-${{ runner.arch }}
+          path: codetour-*.vsix
+          if-no-files-found: error

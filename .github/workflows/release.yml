@@ -7,7 +7,11 @@ on:
 
 jobs:
   Release:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,8 +20,11 @@ jobs:
         with:
           node-version: 20.x
       - run: npm ci
+      - run: npm ci --prefix packages/description-renderer
       - run: npm ci --prefix packages/mcp-server
+      - name: Package platform VSIX
+        run: npm run package
       - name: Publish to VS Marketplace
-        run: npx vsce publish
+        run: npm run publish:vsix
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}

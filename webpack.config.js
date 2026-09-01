@@ -1,7 +1,7 @@
 const path = require("path");
 const webpack = require("webpack");
 
-const RESVG_EXTERNAL = "commonjs @resvg/resvg-js";
+const RESVG_EXTERNAL = "commonjs ./resvg-runtime/resvg-js";
 
 const config = {
   entry: "./src/extension.ts",
