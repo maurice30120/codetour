@@ -42,6 +42,7 @@ import { registerPlayerCommands } from "./commands";
 import { registerDecorators } from "./decorator";
 import { registerFileSystemProvider } from "./fileSystem";
 import { registerTextDocumentContentProvider } from "./fileSystem/documentProvider";
+import { appendInsertCodeLinks } from "./insertCode";
 import { registerStatusBar } from "./status";
 import { registerTreeProvider } from "./tree";
 
@@ -58,10 +59,9 @@ const COMMAND_PATTERN =
 const TOUR_REFERENCE_PATTERN =
   /(?:\[(?<linkTitle>[^\]]+)\])?\[(?=\s*[^\]\s])(?<tourTitle>[^\]#]+)?(?:#(?<stepNumber>\d+))?\](?!\()/gm;
 const FILE_REFERENCE_PATTERN = /(\!)?(\[[^\]]+\]\()(\.[^\)]+)(?=\))/gm;
-const CODE_FENCE_PATTERN = /```[^\n]+\n(.+)\n```/gms;
 
 export function generatePreviewContent(content: string) {
-  return content
+  const transformed = content
     .replace(SHELL_SCRIPT_PATTERN, (_, script) => {
       const args = encodeURIComponent(JSON.stringify([script]));
       const s = `> [${script}](command:codetour.sendTextToTerminal?${args} "Run \\"${script.replace(
@@ -107,12 +107,9 @@ export function generatePreviewContent(content: string) {
       }
 
       return _;
-    })
-    .replace(CODE_FENCE_PATTERN, (_, codeBlock) => {
-      const params = encodeURIComponent(JSON.stringify([codeBlock]));
-      return `${_}
-↪ [Insert Code](command:codetour.insertCodeSnippet?${params} "Insert Code")`;
     });
+
+  return appendInsertCodeLinks(transformed);
 }
 
 function getDescriptionTheme(): DescriptionTheme {
