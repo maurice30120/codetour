@@ -8,6 +8,7 @@ import { workspace } from "vscode";
 import { EXTENSION_NAME, FS_SCHEME_CONTENT } from "../constants";
 import { api, RefType } from "../git";
 import { CodeTourComment } from "../player";
+import { renderPreviewDescription } from "../player/description";
 import { CodeTourNode, CodeTourStepNode } from "../player/tree/nodes";
 import { CodeTour, CodeTourStep, store } from "../store";
 import {
@@ -445,9 +446,14 @@ export function registerRecorderCommands() {
       }
 
       thread!.contextValue = contextValues.join(".");
+      const content = await renderPreviewDescription(reply.text, undefined, {
+        tour,
+        tours: store.activeTour?.tours,
+        workspaceRoot: store.activeTour?.workspaceRoot
+      });
       thread!.comments = [
         new CodeTourComment(
-          reply.text,
+          content,
           label,
           thread!,
           vscode.CommentMode.Preview

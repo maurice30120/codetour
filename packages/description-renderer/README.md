@@ -20,8 +20,12 @@ Design constraints:
   native comments. No generated SVG or PNG file is ever written.
 - **No generated assets** — the Mermaid source stays in the tour file; nothing
   is committed or persisted.
-- **Reuse** — the MCP server (`packages/mcp-server`) will validate Mermaid with
-  the same exact, locked Mermaid version and diagram rules through this package.
+- **Reuse** — rendered diagrams are reused only in memory when their exact
+  source, effective theme, renderer version and rendering options match. A
+  theme change can call `clearMermaidRenderCache()` to discard all entries;
+  failures are never kept in the cache. The MCP server (`packages/mcp-server`)
+  will validate Mermaid with the same exact, locked Mermaid version and diagram
+  rules through this package.
 
 ## Diagram rules
 
@@ -65,8 +69,16 @@ type DescriptionTheme = "light" | "dark";
 
 renderDescription(description: string, theme: DescriptionTheme): Promise<string>;
 renderMermaidDiagram(source: string, theme: DescriptionTheme): Promise<{ svg: string; png: Buffer }>;
+clearMermaidRenderCache(): void;
+invalidateMermaidRenderCache(): void; // alias used by theme-change callers
 sanitizeSvg(svg: string): string;
 ```
+
+`renderDescription` is the shared Markdown transformation used by playback
+surfaces. Its diagram work is backed by the in-memory cache; no cache entry or
+generated image is written to the workspace or persisted in VS Code state.
+`DESCRIPTION_RENDERER_VERSION` identifies the output contract represented by
+the cache.
 
 Shared rule surface (for playback and MCP validation):
 
