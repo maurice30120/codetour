@@ -78,15 +78,21 @@ function verify(artifact, target) {
       fail(`The VSIX is missing its native rasterizer: ${manifest.binary}.`);
     }
 
-    const { Resvg } = require(
-      path.join(extensionRoot, "dist", "resvg-runtime", "resvg-js")
+    const resvg = spawnSync(
+      process.execPath,
+      [
+        path.join(__dirname, "verify-resvg-runtime.js"),
+        path.join(extensionRoot, "dist", "resvg-runtime", "resvg-js")
+      ],
+      { encoding: "utf8" }
     );
-    const png = new Resvg(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="red"/></svg>',
-      {}
-    ).render().asPng();
-    if (png.readUInt32BE(0) !== 0x89504e47) {
-      fail("The unpacked VSIX rasterizer did not produce a PNG.");
+    if (resvg.error) {
+      throw resvg.error;
+    }
+    if (resvg.status !== 0) {
+      fail(
+        `The unpacked VSIX rasterizer did not produce a PNG: ${resvg.stderr || resvg.stdout}`
+      );
     }
 
     const mcp = spawnSync(
