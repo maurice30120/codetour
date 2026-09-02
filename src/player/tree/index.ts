@@ -130,6 +130,7 @@ class CodeTourTreeProvider implements TreeDataProvider<TreeItem>, Disposable {
 
       const tooltip = new MarkdownString(content);
       tooltip.isTrusted = true;
+      tooltip.supportHtml = true;
 
       // @ts-ignore
       element.tooltip = tooltip;
@@ -152,6 +153,7 @@ class CodeTourTreeProvider implements TreeDataProvider<TreeItem>, Disposable {
 
       const tooltip = new MarkdownString(content);
       tooltip.isTrusted = true;
+      tooltip.supportHtml = true;
 
       // @ts-ignore
       element.tooltip = tooltip;

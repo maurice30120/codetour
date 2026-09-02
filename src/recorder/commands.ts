@@ -19,6 +19,7 @@ import {
   startCodeTour
 } from "../store/actions";
 import { getActiveWorkspacePath, getRelativePath } from "../utils";
+import { planSaveStep } from "./saveStep";
 
 export async function saveTour(tour: CodeTour) {
   const uri = vscode.Uri.parse(tour.id);
@@ -567,9 +568,42 @@ export function registerRecorderCommands() {
         }
       });
 
+      // The Markdown source is saved before leaving edit mode. On failure the
+      // editor and its content are kept untouched so nothing is lost, and the
+      // preview is not regenerated.
+      let saved: boolean;
+      try {
+        await saveTour(store.activeTour!.tour);
+        saved = true;
+      } catch (error) {
+        vscode.window.showErrorMessage(`Could not save the tour step: ${error}`);
+        saved = false;
+      }
+
+      const plan = planSaveStep({ saved });
+      if (!plan.relaunchPreview) {
+        return;
+      }
+
       store.isEditing = false;
       vscode.commands.executeCommand("setContext", EDITING_KEY, false);
-      await saveTour(store.activeTour!.tour);
+
+      // Mermaid is only rendered into an image in preview mode. Re-launch the
+      // tour on the same step — without re-entering edit mode — so the comment
+      // is recreated through the normal start/preview path and the new Mermaid
+      // source becomes an image. The tour, its workspace, the tour list and the
+      // active step index are all preserved.
+      const activeTour = store.activeTour;
+      if (activeTour) {
+        startCodeTour(
+          activeTour.tour,
+          activeTour.step,
+          activeTour.workspaceRoot,
+          false,
+          true,
+          activeTour.tours
+        );
+      }
     }
   );
 

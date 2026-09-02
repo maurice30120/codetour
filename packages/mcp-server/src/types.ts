@@ -18,23 +18,22 @@ export interface TourStep {
   selection?: Selection;
 }
 
-export interface ProjectParams {
-  title?: string;
+// Contrat public de l'unique outil `create_tour`. Le Tour Generator choisit le
+// sujet du Tour, analyse lui-même l'état du workspace (Git ou autre) et fournit
+// le nom du fichier de sortie. Le serveur ne connaît ni mode, ni référence Git.
+export interface TourParams {
+  fileName: string;
+  title: string;
   description?: string;
   steps?: unknown[];
 }
 
-export interface ChangesParams extends ProjectParams {
-  baseRef?: string;
-  headRef?: string;
-  includeUncommittedChanges?: boolean;
-}
-
+// Fichier Tour produit. Le serveur n'écrit jamais de propriété `ref` : les
+// stratégies de référencement Git relèvent désormais du Tour Generator.
 export interface TourFile {
   $schema?: string;
   title: string;
   description?: string;
-  ref?: string;
   steps: TourStep[];
 }
 

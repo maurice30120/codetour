@@ -1,11 +1,10 @@
 import * as fs from "fs";
 import * as path from "path";
 import {
-  ChangesParams,
   Issue,
   Position,
-  ProjectParams,
   Selection,
+  TourParams,
   TourStep,
   WorkspaceContext,
 } from "./types";
@@ -35,8 +34,6 @@ export const MAX_RECOMMENDED_STEPS = 15;
 // doit pas pouvoir déclencher une action dans l'éditeur ou le terminal.
 const FORBIDDEN_URI_SCHEME =
   /(?:command|file|vscode|vscode-insiders|javascript):/i;
-
-const FULL_SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 type RawObject = Record<string, unknown>;
 
@@ -82,71 +79,36 @@ function reportUnknownFields(
   }
 }
 
-const PROJECT_PARAM_FIELDS = ["title", "description", "steps"] as const;
-const CHANGES_PARAM_FIELDS = [
-  "title",
-  "description",
-  "steps",
-  "baseRef",
-  "headRef",
-  "includeUncommittedChanges",
-] as const;
+const TOUR_PARAM_FIELDS = ["fileName", "title", "description", "steps"] as const;
 
-export function validateProjectParams(
+export function validateTourParams(
   raw: unknown
-): { params?: ProjectParams; issues: Issue[] } {
+): { params?: TourParams; issues: Issue[] } {
   const issues: Issue[] = [];
   if (!isPlainObject(raw)) {
     issues.push({ path: "$", message: "the arguments must be an object" });
     return { issues };
   }
-  // Le schéma d'entrée V1 est strict : tout champ inconnu est refusé, ce qui
-  // exclut notamment `when`, `commands`, `uri` et les capacités de V2.
-  reportUnknownFields(raw, PROJECT_PARAM_FIELDS, "$", issues);
-  const params = validateCommonParams(raw, issues);
-  return { params, issues };
-}
+  // Le contrat public est strict : tout champ inconnu est refusé, ce qui exclut
+  // notamment `ref`, `baseRef`, `headRef`, `includeUncommittedChanges`, `mode`
+  // et les capacités CodeTour V2 (`when`, `commands`, `uri`).
+  reportUnknownFields(raw, TOUR_PARAM_FIELDS, "$", issues);
 
-export function validateChangesParams(
-  raw: unknown
-): { params?: ChangesParams; issues: Issue[] } {
-  const issues: Issue[] = [];
-  if (!isPlainObject(raw)) {
-    issues.push({ path: "$", message: "the arguments must be an object" });
-    return { issues };
-  }
-  reportUnknownFields(raw, CHANGES_PARAM_FIELDS, "$", issues);
-  const params = validateCommonParams(raw, issues) as ChangesParams;
-  if (typeof raw.baseRef !== "string" || raw.baseRef.trim() === "") {
-    issues.push({ path: "baseRef", message: "is required and must be a non-empty string" });
-  } else {
-    params.baseRef = raw.baseRef;
-  }
-  if (typeof raw.headRef !== "string") {
-    issues.push({ path: "headRef", message: "is required and must be the full 40-character commit SHA" });
-  } else if (!FULL_SHA_PATTERN.test(raw.headRef)) {
-    issues.push({ path: "headRef", message: "must be the full 40-character commit SHA" });
-  } else {
-    params.headRef = raw.headRef;
-  }
-  if (raw.includeUncommittedChanges !== undefined) {
-    if (typeof raw.includeUncommittedChanges !== "boolean") {
-      issues.push({ path: "includeUncommittedChanges", message: "must be a boolean" });
-    } else {
-      params.includeUncommittedChanges = raw.includeUncommittedChanges;
-    }
-  }
-  return { params, issues };
-}
+  const params: TourParams = { fileName: "", title: "" };
 
-// Champs communs aux deux outils : titre optionnel, description optionnelle
-// (avec filtrage des schémas d'URI actifs) et liste d'étapes obligatoire.
-function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
-  const params: ProjectParams = {};
-  const title = isOptionalString(raw, "title", "title", issues);
-  if (title !== undefined) {
-    params.title = title;
+  const fileName = validateFileName(raw.fileName, issues);
+  if (fileName !== undefined) {
+    params.fileName = fileName;
   }
+
+  if (raw.title === undefined) {
+    issues.push({ path: "title", message: "is required and must be a non-empty string" });
+  } else if (typeof raw.title !== "string" || raw.title.trim() === "") {
+    issues.push({ path: "title", message: "must be a non-empty string" });
+  } else {
+    params.title = raw.title;
+  }
+
   const description = isOptionalString(raw, "description", "description", issues);
   if (description !== undefined) {
     if (FORBIDDEN_URI_SCHEME.test(description)) {
@@ -158,6 +120,7 @@ function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
     }
     params.description = description;
   }
+
   if (raw.steps === undefined) {
     issues.push({ path: "steps", message: "is required" });
   } else if (!Array.isArray(raw.steps)) {
@@ -165,7 +128,44 @@ function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
   } else {
     params.steps = raw.steps;
   }
-  return params;
+
+  return { params, issues };
+}
+
+// Valide le nom du fichier de sortie. Il doit être un nom de base non vide
+// terminé par `.tour`, sans séparateur de chemin, sans `.` / `..` et sans
+// chemin absolu. Le serveur ne normalise ni ne renomme silencieusement cette
+// valeur : elle est utilisée telle quelle sous `.tours/<fileName>`.
+function validateFileName(value: unknown, issues: Issue[]): string | undefined {
+  if (value === undefined) {
+    issues.push({ path: "fileName", message: "is required" });
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    issues.push({ path: "fileName", message: "must be a string" });
+    return undefined;
+  }
+  if (value.length === 0) {
+    issues.push({ path: "fileName", message: "must not be empty" });
+    return undefined;
+  }
+  if (path.isAbsolute(value)) {
+    issues.push({ path: "fileName", message: "must be a bare file name, not an absolute path" });
+    return undefined;
+  }
+  if (value.includes("/") || value.includes("\\")) {
+    issues.push({ path: "fileName", message: "must be a bare file name without path separators" });
+    return undefined;
+  }
+  if (value === "." || value === "..") {
+    issues.push({ path: "fileName", message: "must not be '.' or '..'" });
+    return undefined;
+  }
+  if (!value.endsWith(".tour")) {
+    issues.push({ path: "fileName", message: "must end with '.tour'" });
+    return undefined;
+  }
+  return value;
 }
 
 export function validateSteps(

@@ -1,66 +1,86 @@
 {
   "$schema": "https://aka.ms/codetour-schema",
-  "title": "Comprendre CodeTour et la génération Mermaid",
-  "description": "Tour guidé du dépôt CodeTour, centré sur le parcours complet d'une visite et sur la manière dont un agent génère des diagrammes Mermaid, dont le serveur MCP les valide, puis dont l'extension les rend pendant la lecture.",
+  "title": "Comprendre l'extension CodeTour",
+  "description": "Tour guidé de l'application CodeTour : activation de l'extension, découverte et modèle des tours, lecture dans l'éditeur, enregistrement, intégrations VS Code/MCP et persistance sécurisée. Suivez les étapes dans l'ordre pour comprendre comment une visite passe d'un fichier JSON à un commentaire interactif dans VS Code.",
   "steps": [
     {
-      "title": "Le dépôt en un coup d'oeil",
-      "description": "CodeTour associe des explications Markdown à des emplacements du code dans un fichier `.tour`. Le dépôt contient deux produits : l'extension VS Code, qui découvre et lit les visites, et `codetour-mcp`, qui permet à un agent de générer des Project Tours ou des Changes Tours. Le renderer Mermaid est un package partagé entre validation et lecture.",
-      "directory": "packages"
+      "title": "Vue d'ensemble de l'extension",
+      "description": "Le dossier `src/` contient l'extension VS Code principale.\nLe code est organisé autour de quelques responsabilités : `extension.ts` assemble les modules, `store/` porte l'état et les actions, `player/` lit et affiche un tour, `recorder/` le crée ou le modifie, tandis que `git.ts`, `liveShare/`, `notebook/` et `desktopIntegration.ts` branchent les intégrations de l'éditeur. \n\nLe projet contient aussi un serveur MCP séparé dans `packages/mcp-server/`.",
+      "directory": "src"
     },
     {
-      "title": "L'extension compose l'expérience",
-      "description": "`activate` est le point d'entrée appelé par VS Code. Il enregistre le player, le recorder, Live Share et le provider de notebooks, puis découvre les Tours du workspace avant d'initialiser l'intégration Git. La génération MCP est séparée de cette activation : elle écrit un fichier que cette extension saura ensuite découvrir.",
+      "title": "Contrat VS Code et activation",
+      "description": "Ce fichier est le manifeste de l'extension. Il déclare le point d'entrée compilé (`dist/extension-node.js`), les événements d'activation, les commandes, les réglages (`recordMode`, `showMarkers`, répertoire personnalisé) et le fournisseur MCP. Pour comprendre ce que l'utilisateur peut déclencher, commencez par la section `contributes.commands`; pour comprendre quand le code démarre, regardez `activationEvents`.",
+      "file": "package.json"
+    },
+    {
+      "title": "Le bootstrap de l'application",
+      "description": "`activate()` est le composition root de l'extension. Il enregistre les intégrations desktop, le provider de notebooks, le lecteur, l'enregistreur et Live Share, puis installe un gestionnaire d'URI pour les liens CodeTour. Dans un workspace, il découvre les tours, affiche éventuellement une invite et initialise Git. Le résultat de `initializeApi(context)` expose ensuite l'API publique de l'extension.",
       "file": "src/extension.ts",
-      "pattern": "export async function activate\\(context: vscode\\.ExtensionContext\\)"
+      "pattern": "export async function activate"
     },
     {
-      "title": "Le lecteur navigue vers une étape",
-      "description": "Quand une visite démarre, le player résout le fichier et l'ancre de l'étape courante. Une ligne ou une sélection peut être explicite ; sinon un `pattern` retrouve le texte dans le document. Le Markdown de la description passe ensuite par les transformations de preview avant d'être affiché dans le commentaire VS Code.",
+      "title": "Le modèle d'état partagé",
+      "description": "Le store MobX est la source de vérité runtime. `tours` contient les tours découverts, `activeTour` contient le tour courant et son index d'étape, et les drapeaux `isRecording`/`isEditing` distinguent lecture et édition. Une étape peut pointer vers un fichier, un dossier, du contenu virtuel, une URI ou une vue VS Code; `line`, `selection` et `pattern` précisent l'ancrage dans un fichier.",
+      "file": "src/store/index.ts",
+      "pattern": "export interface Store"
+    },
+    {
+      "title": "Découvrir et recharger les tours",
+      "description": "`discoverTours()` lit les tours dans les emplacements conventionnels : `.tour`, `.vscode/main.tour`, `main.tour`, `.vscode/tours`, `.github/tours` et `.tours` (ou le répertoire configuré). Chaque JSON reçoit un identifiant basé sur son URI, puis les tours sont triés et filtrés par `when`. Un watcher relance la découverte à la création, modification ou suppression d'un fichier `.tour`, ce qui rend les changements visibles sans redémarrer l'extension.",
+      "file": "src/store/provider.ts",
+      "pattern": "export async function discoverTours"
+    },
+    {
+      "title": "Démarrer et parcourir un tour",
+      "description": "`startCodeTour()` initialise le lecteur et remplit `store.activeTour` avec le tour, l'étape de départ et la racine du workspace. Les commandes `startDefaultTour`, `selectTour`, `moveCurrentCodeTourForward` et `moveCurrentCodeTourBackward` pilotent la navigation. Le tour primaire est choisi via `isPrimary`, ou par convention avec un titre commençant par `1 -`; sinon l'utilisateur choisit dans une Quick Pick.",
+      "file": "src/store/actions.ts",
+      "pattern": "export function startCodeTour"
+    },
+    {
+      "title": "Rendu dans l'éditeur VS Code",
+      "description": "Le lecteur transforme une étape JSON en expérience VS Code. Il résout d'abord le fichier avec `getStepFileUri`, convertit une ligne ou une sélection en positions VS Code, et peut retrouver une ligne par expression régulière `pattern`. Il crée ensuite un `CommentThread` avec la description rendue, révèle le code et exécute éventuellement les commandes ou focalise une vue. La réaction MobX relance le rendu lorsque l'étape ou son contenu change.",
       "file": "src/player/index.ts",
-      "pattern": "async function renderCurrentStep\\(\\)"
+      "pattern": "async function renderCurrentStep"
     },
     {
-      "title": "Deux portes d'entrée pour générer",
-      "description": "Le serveur MCP local expose deux outils spécialisés : `create_project_tour` explique le codebase dans son état courant, tandis que `create_changes_tour` explique les changements depuis une référence Git. L'agent rédige les titres, descriptions, ancres et éventuels blocs Mermaid ; le serveur ne complète pas le contenu, il le contrôle et le persiste.",
+      "title": "Descriptions, navigation et contenu riche",
+      "description": "`CodeTourComment` encapsule le commentaire affiché par VS Code. En mode aperçu, la description passe par le renderer pour traiter le Markdown et le contenu enrichi, puis des liens de navigation internes permettent d'aller à l'étape précédente, suivante ou au tour suivant. Le garde-fou `isCurrentRequest()` évite qu'un rendu asynchrone ancien écrase l'étape actuellement sélectionnée.",
+      "file": "src/player/index.ts",
+      "pattern": "new CodeTourComment"
+    },
+    {
+      "title": "Enregistrer et modifier un tour",
+      "description": "L'enregistreur expose les commandes qui créent un fichier `.tour`, ajoutent des étapes et sauvegardent les modifications. Le nom du fichier est dérivé du titre, le répertoire est `.tours` ou celui de `codetour.customTourDirectory`, et un `ref` Git peut être stocké pour relire le code à une référence donnée. Le mode d'ancrage est configurable : numéro de ligne ou motif stable. `saveTour()` réécrit le JSON sans les champs runtime comme `id` et `markerTitle`.",
+      "file": "src/recorder/commands.ts",
+      "pattern": "export function registerRecorderCommands"
+    },
+    {
+      "title": "Le pont MCP côté extension",
+      "description": "Sur VS Code Desktop, `desktopIntegration.ts` appelle `registerMcpProvider()`. Celui-ci déclare un serveur MCP stdio par workspace, lance le bundle `dist/mcp-server.js` avec Node/Electron en mode Node, et fixe le répertoire courant à la racine du workspace. L'extension ne délègue donc pas son état MobX au serveur : le serveur produit simplement des fichiers `.tour` que la découverte de `store/provider.ts` pourra ensuite charger.",
+      "file": "src/mcp.ts",
+      "pattern": "export function registerMcpProvider"
+    },
+    {
+      "title": "Créer un tour via le serveur MCP",
+      "description": "Le serveur MCP expose un outil unique `create_tour`. Le Tour Generator choisit le sujet, analyse le workspace et fournit une proposition complète; le serveur reste déterministe et se limite à valider puis persister. `handleCreateTour()` agrège les erreurs de paramètres, d'étapes et de Mermaid, valide les ancres contre le workspace, vérifie le schéma CodeTour et renvoie soit les problèmes, soit le chemin et le nombre d'étapes créées.",
       "file": "packages/mcp-server/src/server.ts",
-      "pattern": "export function createServer\\(workspaceRoot: string\\)"
+      "pattern": "function createServer"
     },
     {
-      "title": "La génération Mermaid est proposée par l'agent",
-      "description": "Un diagramme Mermaid n'est pas une image envoyée par l'agent : sa source est incluse dans la description Markdown d'une étape. Le bloc doit être précédé par une ligne non vide servant de légende et de texte alternatif, par exemple `**Diagram — Flux de génération et de lecture**`. Les cinq familles acceptées sont `flowchart`, `sequenceDiagram`, `stateDiagram-v2`, `classDiagram` et `erDiagram`.",
-      "file": "packages/mcp-server/src/mermaid-validation.ts",
-      "pattern": "const MERMAID_TOOL_GUIDANCE ="
-    },
-    {
-      "title": "Le serveur valide avant d'écrire",
-      "description": "Avant de remplacer `.tours/project.tour` ou `.tours/changes.tour`, le serveur inspecte chaque description et chaque étape. Il vérifie la légende, le type Mermaid, la taille maximale de 20 KB, la limite de trois diagrammes par description, puis parse la source avec le même moteur verrouillé que celui utilisé pendant la lecture. Toutes les erreurs sont agrégées et l'ancien fichier est conservé si la proposition est invalide.\n\n**Diagram — Contrat de génération Mermaid**\n\n```mermaid\nflowchart LR\n    Agent[Agent IA] -->|Markdown + source Mermaid| Tool[Outil MCP]\n    Tool --> Rules[Règles Mermaid]\n    Rules --> Engine[Parser Mermaid verrouillé]\n    Engine -->|valide| Persist[Écriture du Tour]\n    Engine -->|invalide| Errors[Erreurs agrégées]\n    Errors --> Preserve[Ancien Tour préservé]\n```\n",
-      "file": "packages/mcp-server/src/mermaid-validation.ts",
-      "pattern": "export async function validateMermaidDescriptions\\(raw: unknown\\): Promise<Issue\\[\\]>"
-    },
-    {
-      "title": "La persistance reste déterministe",
-      "description": "Une fois les étapes, les ancres, Mermaid et le schéma validés, l'écriture passe par un fichier temporaire dans le workspace puis un renommage atomique. Les destinations sont stables : `.tours/project.tour` et `.tours/changes.tour`. Cela rend la commande répétable et évite de laisser un Tour partiellement écrit.",
+      "title": "Persistance atomique et confinement",
+      "description": "La persistance est conçue pour éviter deux classes de problèmes. Le chemin de sortie est résolu puis comparé à la racine réelle du workspace afin d'empêcher une écriture hors projet, notamment via des liens symboliques. Le contenu est écrit dans un fichier temporaire du même répertoire, synchronisé, puis renommé : une erreur ne laisse pas de fichier partiellement écrit et conserve l'ancien tour.",
       "file": "packages/mcp-server/src/persistence.ts",
-      "pattern": "export async function writeTourAtomic\\("
+      "pattern": "export async function writeTourAtomic"
     },
     {
-      "title": "Le renderer transforme la source",
-      "description": "Pendant la lecture, `renderDescription` retrouve les fences Mermaid et les remplace dans le Markdown. Pour chaque diagramme autorisé, il demande un rendu au moteur Mermaid, rasterise le résultat en PNG et l'encode en `data:image/png;base64`. La source Mermaid disparaît donc de la description affichée ; en cas d'échec, l'utilisateur voit un avertissement compact plutôt que le code du diagramme.",
-      "file": "packages/description-renderer/src/description.ts",
-      "pattern": "export async function renderDescription\\("
+      "title": "Le contrat de données à retenir",
+      "description": "`schema.json` formalise le format `.tour` partagé entre les tours écrits à la main, l'enregistreur et le serveur MCP. Retenez la séparation entre les métadonnées du tour (`title`, `description`, `ref`) et les étapes (`description` plus un type d'ancre). Le champ `id` utilisé en mémoire par l'extension est ajouté à la lecture et n'est pas un champ de persistance utilisateur.",
+      "file": "schema.json"
     },
     {
-      "title": "Validation et lecture partagent le même moteur",
-      "description": "`renderMermaidDiagram` centralise le rendu offline, le niveau de sécurité strict, le thème clair ou sombre, le cache mémoire et la rasterisation. Le serveur MCP l'appelle pour valider sans conserver le PNG ; l'extension l'appelle pour afficher le PNG. Ce partage évite qu'un diagramme accepté à la génération échoue systématiquement à la lecture.",
-      "file": "packages/description-renderer/src/render.ts",
-      "pattern": "export function renderMermaidDiagram\\("
-    },
-    {
-      "title": "Le parcours complet",
-      "description": "Pour retenir le fonctionnement global, suivez cette chaîne : l'agent choisit une étape et rédige éventuellement Mermaid ; MCP valide la structure, les ancres et la syntaxe ; la persistance écrit le `.tour` ; l'extension découvre la visite ; le player rend chaque description selon le thème actif.\n\n**Diagram — De l'agent au commentaire VS Code**\n\n```mermaid\nsequenceDiagram\n    participant A as Agent IA\n    participant M as Serveur MCP\n    participant F as Fichier .tour\n    participant E as Extension VS Code\n    participant R as Renderer Mermaid\n    A->>M: create_project_tour\n    M->>R: valider chaque source\n    R-->>M: syntaxe valide ou erreur\n    M->>F: écrire atomiquement\n    E->>F: découvrir et charger\n    E->>R: rendre la description\n    R-->>E: PNG en mémoire\n    E-->>A: commentaire navigable pour le développeur\n```\n",
-      "file": "packages/mcp-server/src/server.ts",
-      "pattern": "async function handleCreateProjectTour\\("
+      "title": "Chemin complet d'une visite",
+      "description": "Voici le flux mental à garder : un fichier `.tour` est découvert par le provider, parsé dans `store.tours`, sélectionné par `store/actions`, puis rendu par `player/index.ts` sous forme de commentaire VS Code. L'utilisateur navigue; l'index d'étape change dans MobX et le lecteur rerend la cible. En création, le recorder ou le serveur MCP écrit un nouveau JSON, le watcher redécouvre le fichier et le même flux de lecture devient disponible."
     }
   ]
 }

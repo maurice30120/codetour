@@ -8,9 +8,6 @@ import { promisify } from "node:util";
 import { test } from "node:test";
 import {
   callTool,
-  commitFile,
-  headSha,
-  initGitRepo,
   readTourFile,
   rmrf,
   tempDir,
@@ -35,7 +32,7 @@ async function npm(args: string[], cwd: string, cache: string): Promise<string> 
   return result.stdout;
 }
 
-test("the installed codetour-mcp binary serves both public MCP tools", async () => {
+test("the installed codetour-mcp binary serves the create_tour MCP tool without a ref", async () => {
   const sandbox = tempDir("codetour-mcp-package-test-");
   const archiveDir = path.join(sandbox, "archive");
   const installationRoot = path.join(sandbox, "consumer");
@@ -122,13 +119,7 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
     }
 
     fs.mkdirSync(workspaceRoot, { recursive: true });
-    await initGitRepo(workspaceRoot);
-    await commitFile(workspaceRoot, "base.txt", "base\n", "add base");
-    const baseRef = await headSha(workspaceRoot);
-    await commitFile(workspaceRoot, "feature.txt", "feature\n", "add feature");
-    const headRef = await headSha(workspaceRoot);
-    assert.match(baseRef, /^[0-9a-f]{40}$/);
-    assert.match(headRef, /^[0-9a-f]{40}$/);
+    fs.writeFileSync(path.join(workspaceRoot, "base.txt"), "base\n");
 
     const binaryPath = path.join(
       installationRoot,
@@ -147,32 +138,31 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
     await client.connect(transport);
     try {
       const tools = await client.listTools();
-      const changesTool = tools.tools.find((tool) => tool.name === "create_changes_tour");
-      assert.ok(changesTool);
-      assert.ok(
-        Object.prototype.hasOwnProperty.call(
-          (changesTool.inputSchema.properties ?? {}) as object,
-          "headRef"
-        ),
-        JSON.stringify(changesTool.inputSchema)
+      const tool = tools.tools.find((entry) => entry.name === "create_tour");
+      assert.ok(tool, "create_tour should be exposed");
+      const properties = (tool.inputSchema.properties ?? {}) as Record<string, unknown>;
+      assert.deepEqual(
+        Object.keys(properties).sort(),
+        ["description", "fileName", "steps", "title"]
       );
-      const changesTour = await callTool(client, "create_changes_tour", {
-        baseRef,
-        headRef,
-        steps: [{ description: "The feature.", file: "feature.txt" }],
-      });
-      assert.equal(changesTour.isError, false, changesTour.text);
+      assert.ok(
+        !Object.prototype.hasOwnProperty.call(properties, "baseRef"),
+        "create_tour must not expose Git parameters"
+      );
 
-      const projectTour = await callTool(client, "create_project_tour", {
-        steps: [{ description: "The project base.", file: "base.txt" }],
+      const tour = await callTool(client, "create_tour", {
+        fileName: "overview.tour",
+        title: "Overview",
+        steps: [{ description: "The base file.", file: "base.txt" }],
       });
-      assert.equal(projectTour.isError, false);
+      assert.equal(tour.isError, false, tour.text);
     } finally {
       await client.close();
     }
 
-    assert.equal(readTourFile(workspaceRoot, ".tours/project.tour").title, "Project Overview");
-    assert.equal(readTourFile(workspaceRoot, ".tours/changes.tour").ref, headRef);
+    const written = readTourFile(workspaceRoot, ".tours/overview.tour");
+    assert.equal(written.title, "Overview");
+    assert.equal(written.ref, undefined);
   } finally {
     rmrf(sandbox);
   }
