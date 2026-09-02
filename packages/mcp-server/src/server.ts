@@ -40,6 +40,15 @@ const SERVER_VERSION = packageJson.version;
 
 const TOURS_DIRECTORY = ".tours";
 
+const MARKDOWN_WRITING_GUIDANCE =
+  "Write the Tour-level description and every step description as readable Markdown. " +
+  "Split distinct ideas into short paragraphs separated by blank lines. Use a short " +
+  "heading when a description covers multiple topics, and use bullet or numbered lists " +
+  "for collections, alternatives, or sequences. Use **bold** sparingly for important " +
+  "concepts and backticks for code identifiers. Avoid dense monolithic paragraphs, and " +
+  "keep each explanation concise and tied to the current Tour Anchor. Do not add " +
+  "structure mechanically: a short, single-purpose description may remain one paragraph. ";
+
 const CREATE_TOUR_DESCRIPTION =
   "Creates a CodeTour Tour from a fully written proposal and persists it under " +
   "`.tours/<fileName>`, atomically replacing any existing file with that name. " +
@@ -58,6 +67,7 @@ const CREATE_TOUR_DESCRIPTION =
   "are allowed for general context. Every anchor is validated against the real " +
   "workspace state, and all validation errors are reported in a single response. On " +
   "failure, the previous tour file is preserved. " +
+  MARKDOWN_WRITING_GUIDANCE +
   MERMAID_TOOL_GUIDANCE;
 
 const warningSchema = z.object({
@@ -82,8 +92,18 @@ const tourToolInputSchema = z
   .object({
     fileName: z.unknown().optional(),
     title: z.unknown().optional(),
-    description: z.unknown().optional(),
-    steps: z.unknown().optional(),
+    description: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional readable Markdown overview; follow the Markdown writing guidance in the tool description."
+      ),
+    steps: z
+      .unknown()
+      .optional()
+      .describe(
+        "Non-empty array whose descriptions are concise, structured Markdown tied to their Tour Anchors."
+      ),
   })
   .passthrough();
 
