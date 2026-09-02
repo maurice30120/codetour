@@ -17,7 +17,7 @@ interface ParsedArgs {
 function usage(): string {
   return [
     `codetour-mcp v${packageJson.version}`,
-    "Local MCP server for AI-generated CodeTour Project Tours and Changes Tours.",
+    "Local MCP server that deterministically validates and persists AI-generated CodeTour Tours.",
     "",
     "Usage: codetour-mcp",
     "",

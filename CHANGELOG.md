@@ -1,5 +1,16 @@
 ## Upcoming
 
+- **Breaking (MCP):** the MCP server now exposes a single generic `create_tour`
+  tool. The specialized `create_project_tour` and `create_changes_tour` tools
+  are removed without aliases. `create_tour` requires a `fileName` (bare `.tour`
+  name written under `.tours/`), a required `title`, an optional `description`,
+  and a non-empty `steps` array; unknown fields — including `ref`, `baseRef`,
+  `headRef` and `includeUncommittedChanges` — are rejected. The server no longer
+  performs any Git access and never writes a CodeTour `ref`; the subject, the
+  Git analysis, and any reference policy are now the Tour Generator's
+  responsibility. See ADR-0010. The previously generated `.tours/project.tour`,
+  `.tours/changes.tour`, `.tours/intro.tour` and `.tours/mcp-server.tour` files
+  were removed.
 - Automatically updating a tour file as the associated code changes
 - Automatically set the "pattern" record mode when you create a new tour, and select `None` for the git ref
 - Added support for opening a `*.tour` file in the VS Code notebook editor (Insiders only)

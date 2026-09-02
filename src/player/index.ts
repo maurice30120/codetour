@@ -39,6 +39,7 @@ import { registerDecorators } from "./decorator";
 import { registerFileSystemProvider } from "./fileSystem";
 import { registerTextDocumentContentProvider } from "./fileSystem/documentProvider";
 import { renderPreviewDescription } from "./description";
+import { appendCommentNavigation } from "./navigation";
 import { registerStatusBar } from "./status";
 import { registerTreeProvider } from "./tree";
 
@@ -67,6 +68,9 @@ export class CodeTourComment implements Comment {
   ) {
     this.body = new MarkdownString(content);
     this.body.isTrusted = true;
+    // Tour description images are emitted as responsive HTML. VS Code only
+    // renders those safe HTML tags when this flag is enabled.
+    this.body.supportHtml = mode === CommentMode.Preview;
   }
 }
 
@@ -262,7 +266,7 @@ async function renderCurrentStep() {
 
   const showNavigation = hasPreviousStep || hasNextStep || isFinalStep;
   if (!store.isEditing && showNavigation) {
-    content += "\n\n---\n";
+    const navigationLinks: string[] = [];
 
     if (hasPreviousStep) {
       const stepLabel = getStepLabel(
@@ -272,7 +276,9 @@ async function renderCurrentStep() {
         false
       );
       const suffix = stepLabel ? ` (${stepLabel})` : "";
-      content += `← [Previous${suffix}](command:codetour.previousTourStep "Navigate to previous step")`;
+      navigationLinks.push(
+        `← [Previous${suffix}](command:codetour.previousTourStep "Navigate to previous step")`
+      );
     } else {
       const previousTour = getPreviousTour();
       if (previousTour) {
@@ -282,11 +288,12 @@ async function renderCurrentStep() {
         const argsContent = encodeURIComponent(
           JSON.stringify([previousTour.title])
         );
-        content += `← [Previous Tour (${tourTitle})](command:codetour.startTourByTitle?${argsContent} "Navigate to previous tour")`;
+        navigationLinks.push(
+          `← [Previous Tour (${tourTitle})](command:codetour.startTourByTitle?${argsContent} "Navigate to previous tour")`
+        );
       }
     }
 
-    const prefix = hasPreviousStep ? " | " : "";
     if (hasNextStep) {
       const stepLabel = getStepLabel(
         currentTour,
@@ -295,7 +302,9 @@ async function renderCurrentStep() {
         false
       );
       const suffix = stepLabel ? ` (${stepLabel})` : "";
-      content += `${prefix}[Next${suffix}](command:codetour.nextTourStep "Navigate to next step") →`;
+      navigationLinks.push(
+        `[Next${suffix}](command:codetour.nextTourStep "Navigate to next step") →`
+      );
     } else if (isFinalStep) {
       const nextTour = getNextTour();
       if (nextTour) {
@@ -303,11 +312,17 @@ async function renderCurrentStep() {
         const argsContent = encodeURIComponent(
           JSON.stringify([nextTour.title])
         );
-        content += `${prefix}[Next Tour (${tourTitle})](command:codetour.finishTour?${argsContent} "Start next tour")`;
+        navigationLinks.push(
+          `[Next Tour (${tourTitle})](command:codetour.finishTour?${argsContent} "Start next tour")`
+        );
       } else {
-        content += `${prefix}[Finish Tour](command:codetour.finishTour "Finish the tour")`;
+        navigationLinks.push(
+          `[Finish Tour](command:codetour.finishTour "Finish the tour")`
+        );
       }
     }
+
+    content = appendCommentNavigation(content, navigationLinks);
   }
 
   const comment = new CodeTourComment(

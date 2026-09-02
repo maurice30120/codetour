@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
-import { renderDescription } from "../src/description";
+import {
+  makeRenderedImagesResponsive,
+  renderDescription
+} from "../src/description";
 import { renderMermaidDiagram } from "../src/render";
 import {
   ALLOWED_KIND_CAPTIONS,
@@ -71,6 +74,54 @@ test("renderDescription returns descriptions without Mermaid unchanged", async (
 
   assert.equal(await renderDescription(description, "light"), description);
   assert.equal(await renderDescription(description, "dark"), description);
+});
+
+test("makeRenderedImagesResponsive scales rendered PNGs to their container", () => {
+  const content =
+    "![Diagram — Reads \\[docs\\]](data:image/png;base64,iVBORw0KGgo=)";
+
+  assert.equal(
+    makeRenderedImagesResponsive(content),
+    '<img alt="Diagram — Reads [docs]" src="data:image/png;base64,iVBORw0KGgo=" width="100%">'
+  );
+});
+
+test("makeRenderedImagesResponsive escapes HTML-sensitive alt text", () => {
+  const content =
+    '![Diagram — A & "quoted"](data:image/png;base64,iVBORw0KGgo=)';
+
+  assert.equal(
+    makeRenderedImagesResponsive(content),
+    '<img alt="Diagram — A &amp; &quot;quoted&quot;" src="data:image/png;base64,iVBORw0KGgo=" width="100%">'
+  );
+});
+
+test("makeRenderedImagesResponsive scales ordinary image links too", () => {
+  const content = "![Screenshot](https://example.com/screenshot.png)";
+
+  assert.equal(
+    makeRenderedImagesResponsive(content),
+    '<img alt="Screenshot" src="https://example.com/screenshot.png" width="100%">'
+  );
+});
+
+test("makeRenderedImagesResponsive preserves image titles", () => {
+  const content = '![Screenshot](https://example.com/screenshot.png "Full size")';
+
+  assert.equal(
+    makeRenderedImagesResponsive(content),
+    '<img alt="Screenshot" src="https://example.com/screenshot.png" title="Full size" width="100%">'
+  );
+});
+
+test("makeRenderedImagesResponsive does not rewrite PNGs inside code fences", () => {
+  const content = [
+    "```markdown",
+    "![Screenshot](data:image/png;base64,iVBORw0KGgo=)",
+    "```"
+  ].join("\n");
+
+  assert.equal(makeRenderedImagesResponsive(content), content);
 });
 
 test("renderDescription renders every allowed diagram kind through the seam", async () => {

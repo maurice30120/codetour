@@ -5,24 +5,79 @@ import * as path from "node:path";
 import { createContext } from "../../src/context";
 import {
   MAX_RECOMMENDED_STEPS,
-  validateChangesParams,
-  validateProjectParams,
   validateSteps,
+  validateTourParams,
 } from "../../src/validation";
 import { rmrf, tempDir, writeFile } from "../helpers/test-utils";
 
-test("validateProjectParams rejects non-object arguments", () => {
-  const { issues } = validateProjectParams("not-an-object");
+test("validateTourParams rejects non-object arguments", () => {
+  const { issues } = validateTourParams("not-an-object");
   assert.ok(issues.some((issue) => issue.path === "$"));
 });
 
-test("validateProjectParams rejects unknown root fields", () => {
-  const { issues } = validateProjectParams({ when: "true", steps: [] });
-  assert.ok(issues.some((issue) => issue.path === "when"));
+test("validateTourParams rejects unknown root fields including ref and Git parameters", () => {
+  const { issues } = validateTourParams({
+    fileName: "intro.tour",
+    title: "T",
+    steps: [],
+    ref: "abc",
+    baseRef: "main",
+    headRef: "a".repeat(40),
+    includeUncommittedChanges: true,
+    when: "true",
+  });
+  const paths = issues.map((issue) => issue.path);
+  assert.ok(paths.includes("ref"));
+  assert.ok(paths.includes("baseRef"));
+  assert.ok(paths.includes("headRef"));
+  assert.ok(paths.includes("includeUncommittedChanges"));
+  assert.ok(paths.includes("when"));
 });
 
-test("validateProjectParams requires a string title and description", () => {
-  const { issues } = validateProjectParams({
+test("validateTourParams requires fileName, title and steps", () => {
+  const { issues } = validateTourParams({});
+  const paths = issues.map((issue) => issue.path);
+  assert.ok(paths.includes("fileName"));
+  assert.ok(paths.includes("title"));
+  assert.ok(paths.includes("steps"));
+});
+
+test("validateTourParams requires a non-empty title", () => {
+  const { issues } = validateTourParams({
+    fileName: "intro.tour",
+    title: "  ",
+    steps: [],
+  });
+  assert.ok(issues.some((issue) => issue.path === "title"));
+});
+
+test("validateTourParams rejects each invalid fileName form", () => {
+  const invalid = [
+    "intro.txt",
+    "",
+    "sub/intro.tour",
+    "sub\\intro.tour",
+    ".",
+    "..",
+    "/tmp/intro.tour",
+    "intro",
+  ];
+  for (const fileName of invalid) {
+    const { issues } = validateTourParams({
+      fileName,
+      title: "T",
+      steps: [],
+    });
+    assert.ok(
+      issues.some((issue) => issue.path === "fileName"),
+      `expected fileName "${fileName}" to be rejected`
+    );
+  }
+});
+
+test("validateTourParams requires a string title and description", () => {
+  const { issues } = validateTourParams({
+    fileName: "intro.tour",
     title: 5,
     description: false,
     steps: [],
@@ -32,45 +87,18 @@ test("validateProjectParams requires a string title and description", () => {
   assert.ok(paths.includes("description"));
 });
 
-test("validateChangesParams requires baseRef and a full headRef SHA", () => {
-  const { issues } = validateChangesParams({ steps: [] });
-  const paths = issues.map((issue) => issue.path);
-  assert.ok(paths.includes("baseRef"));
-  assert.ok(paths.includes("headRef"));
-});
-
-test("validateChangesParams accepts the public Changes Tour contract", () => {
-  const headRef = "a".repeat(40);
-  const { params, issues } = validateChangesParams({
-    baseRef: "main",
-    headRef,
-    includeUncommittedChanges: true,
+test("validateTourParams accepts the public create_tour contract", () => {
+  const { params, issues } = validateTourParams({
+    fileName: "intro.tour",
+    title: "My Tour",
+    description: "An overview.",
     steps: [{ description: "Explain the change." }],
   });
-
   assert.deepEqual(issues, []);
-  assert.equal(params?.baseRef, "main");
-  assert.equal(params?.headRef, headRef);
-  assert.equal(params?.includeUncommittedChanges, true);
-});
-
-test("validateChangesParams rejects a short head SHA", () => {
-  const { issues } = validateChangesParams({
-    baseRef: "main",
-    headRef: "deadbeef",
-    steps: [],
-  });
-  assert.ok(issues.some((issue) => issue.path === "headRef"));
-});
-
-test("validateChangesParams rejects a non-boolean includeUncommittedChanges", () => {
-  const { issues } = validateChangesParams({
-    baseRef: "main",
-    headRef: "a".repeat(40),
-    includeUncommittedChanges: "yes",
-    steps: [],
-  });
-  assert.ok(issues.some((issue) => issue.path === "includeUncommittedChanges"));
+  assert.equal(params?.fileName, "intro.tour");
+  assert.equal(params?.title, "My Tour");
+  assert.equal(params?.description, "An overview.");
+  assert.ok(Array.isArray(params?.steps));
 });
 
 function workspaceWithFiles(files: Record<string, string>): string {

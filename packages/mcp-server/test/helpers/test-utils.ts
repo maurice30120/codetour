@@ -4,9 +4,6 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { validateCodetourTour } from "../../src/codetour-schema";
-import { git } from "../../src/git";
-
-export { git };
 
 export const CLI_PATH = path.join(__dirname, "..", "..", "src", "cli.js");
 
@@ -94,32 +91,6 @@ export function writeFile(workspaceRoot: string, relativePath: string, content: 
   const target = path.join(workspaceRoot, relativePath);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, content);
-}
-
-export async function initGitRepo(dir: string, branch = "main"): Promise<void> {
-  await git(["init", "-b", branch], dir);
-  await git(["config", "user.email", "test@example.com"], dir);
-  await git(["config", "user.name", "Test User"], dir);
-  await git(["config", "commit.gpgsign", "false"], dir);
-  await git(["config", "tag.gpgsign", "false"], dir);
-}
-
-export async function commitFile(
-  dir: string,
-  relativePath: string,
-  content: string,
-  message: string
-): Promise<void> {
-  const target = path.join(dir, relativePath);
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.writeFileSync(target, content);
-  await git(["add", "-A"], dir);
-  await git(["commit", "-m", message], dir);
-}
-
-export async function headSha(dir: string): Promise<string> {
-  const result = await git(["rev-parse", "HEAD"], dir);
-  return result.stdout.trim();
 }
 
 export function readTourFile(
