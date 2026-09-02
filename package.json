@@ -4,6 +4,11 @@
   "description": "VS Code extension that allows you to record and playback guided tours of codebases, directly within the editor",
   "publisher": "vsls-contrib",
   "version": "0.0.59",
+  "packageManager": "npm@12.0.1",
+  "volta": {
+    "node": "24.18.0",
+    "npm": "12.0.1"
+  },
   "author": {
     "name": "Microsoft Corporation"
   },
