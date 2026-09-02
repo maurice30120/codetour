@@ -20,6 +20,11 @@ locations only. CodeTour `commands`, root-level `when` expressions, external
 `uri` steps, and active Markdown schemes (`command:`, `file:`, `vscode:`,
 `vscode-insiders:`, `javascript:`) are rejected.
 
+Mermaid diagrams are optional and validated before either tool writes a Tour.
+The MCP server reuses the exact fence rules and locked Mermaid implementation
+from `codetour-description-renderer`, so the Tour Generator and playback apply
+the same contract. Validation is local and offline.
+
 ## Requirements
 
 - Node.js >= 18
@@ -27,28 +32,32 @@ locations only. CodeTour `commands`, root-level `when` expressions, external
 
 ## Démarrage rapide
 
-Depuis la racine du dépôt, installez les dépendances du serveur MCP et vérifiez
-le package :
+Depuis la racine du dépôt, installez d'abord le renderer partagé, puis les
+dépendances du serveur MCP et vérifiez les deux packages :
 
 ```bash
-cd packages/mcp-server
+cd packages/description-renderer
+npm install
+npm run build
+cd ../mcp-server
 npm install
 npm test
 ```
 
 `npm test` compile le package et exécute toute la suite de tests. Vous pouvez
-ensuite démarrer le serveur pour un workspace :
+ensuite démarrer le serveur depuis un workspace :
 
 ```bash
-node dist/src/cli.js --workspace-root /path/to/workspace
+cd /path/to/workspace
+node /path/to/codetour/packages/mcp-server/dist/src/cli.js
 ```
 
 Le processus utilise MCP sur `stdio`. Il attend donc silencieusement les
 requêtes d'un client MCP. Utilisez `Ctrl+C` pour l'arrêter lorsqu'il est lancé
 manuellement.
 
-L'argument `--workspace-root` est obligatoire. Une instance du serveur traite
-exactement un workspace et toutes les opérations y sont confinées : les chemins
+Le répertoire de travail du processus est le workspace. Une instance du serveur
+traite exactement ce workspace et toutes les opérations y sont confinées : les chemins
 réels sont résolus avant toute lecture ou écriture, les liens symboliques qui
 sortent de la racine sont refusés et le serveur n'effectue aucun accès réseau.
 
@@ -58,10 +67,11 @@ développement local :
 
 ```bash
 npm link
-codetour-mcp --workspace-root /path/to/workspace
+cd /path/to/workspace
+codetour-mcp
 ```
 
-Configurez enfin votre client MCP avec la commande et le workspace à utiliser,
+Configurez enfin votre client MCP avec la commande et son répertoire de travail,
 comme dans l'exemple ci-dessous. Une fois connecté, le client découvre
 automatiquement `create_project_tour` et `create_changes_tour`.
 
@@ -72,7 +82,8 @@ automatiquement `create_project_tour` et `create_changes_tour`.
   "mcpServers": {
     "codetour": {
       "command": "node",
-      "args": ["/path/to/codetour/packages/mcp-server/dist/src/cli.js", "--workspace-root", "/path/to/workspace"]
+      "args": ["/path/to/codetour/packages/mcp-server/dist/src/cli.js"],
+      "cwd": "/path/to/workspace"
     }
   }
 }
@@ -82,13 +93,16 @@ The transport is `stdio` only.
 
 ### Configuration dans Codex
 
-Après le build, enregistrez le serveur auprès de Codex en remplaçant les deux
-chemins par des chemins absolus :
+L'extension VS Code fournit les commandes `CodeTour: Configure MCP for Codex`
+et `CodeTour: Repair MCP Configuration for Codex`. La première installe la
+configuration globale lorsqu'elle manque ; la seconde remplace une
+configuration obsolète, notamment après une mise à jour de l'extension.
+
+Pour un build de développement non installé en VSIX, l'équivalent manuel est :
 
 ```bash
 codex mcp add codetour -- \
-  node /path/to/codetour/packages/mcp-server/dist/src/cli.js \
-  --workspace-root /path/to/workspace
+  node /path/to/codetour/dist/mcp-server.js
 ```
 
 Il n'est pas nécessaire de conserver un processus lancé manuellement : Codex
@@ -98,18 +112,23 @@ démarre le serveur `stdio` automatiquement. Vérifiez la configuration avec :
 codex mcp get codetour
 ```
 
-Redémarrez ensuite l'application Codex ou son extension IDE pour qu'elle charge
-le nouveau serveur. Dans une session Codex, `/mcp` permet de vérifier que le
-serveur est connecté.
+Les nouvelles tâches Codex démarrent le serveur dans leur propre répertoire de
+travail ; une seule configuration globale couvre donc tous les projets.
 
 Pour générer le tour général du projet, demandez par exemple :
 
 ```text
 Analyse ce dépôt, puis utilise l'outil MCP codetour.create_project_tour pour
 générer un Project Tour. Présente le but du projet, ses points d'entrée, ses
-composants importants et ses principaux flux d'exécution. Utilise des ancres
-stables dans les fichiers lorsque c'est possible.
+composants importants et ses principaux flux d'exécution. Commence par une
+étape ancrée sur le dossier racine pour en expliquer l'organisation, puis
+présente les dossiers importants avant de détailler les fichiers. Utilise des
+ancres stables dans les fichiers lorsque c'est possible.
 ```
+
+Pour limiter le Project Tour à un sous-dossier, nommez-le explicitement dans la
+demande. La première étape doit alors utiliser ce chemin dans son champ
+`directory`, relativement à la racine du workspace.
 
 Le résultat est écrit dans `.tours/project.tour`.
 
@@ -135,7 +154,11 @@ Le résultat est écrit dans `.tours/changes.tour`.
 | `steps`       | object[] | yes      | Non-empty list of steps (see below).                    |
 
 A good Project Tour covers the project's purpose, its main entry points, its
-important components, and its main execution flows.
+important components, and its main execution flows. When the project has a
+meaningful directory structure, it begins with a directory-anchored overview.
+For a Project Tour scoped to a subdirectory, the first step anchors that exact
+workspace-relative directory. Other important directories should be introduced
+before their individual files.
 
 ### `create_changes_tour`
 
@@ -158,7 +181,7 @@ modifications, their impact, and the relevant tests.
 | `title`       | string | Optional step title.                                                         |
 | `description` | string | Required Markdown explanation.                                               |
 | `file`        | string | Workspace-relative path; at most one of `file`/`directory` per step.         |
-| `directory`   | string | Workspace-relative path; at most one of `file`/`directory` per step.         |
+| `directory`   | string | Workspace-relative path; use for structural overview steps and at most one of `file`/`directory` per step. |
 | `line`        | number | 1-based line; only valid with `file`, mutually exclusive with `pattern`.     |
 | `pattern`     | string | Regular expression matching exactly one occurrence; only valid with `file`.  |
 | `selection`   | object | `{ start: {line, character}, end: {line, character} }`, 1-based; only valid with `file`. |
@@ -167,6 +190,29 @@ Steps without any locator are allowed (general context, deleted files).
 Every anchor is validated against the real workspace state. All validation
 errors are aggregated and reported in a single response; the previous tour
 file is preserved on failure.
+
+### Mermaid diagrams
+
+Use Mermaid sparingly: include a diagram only when it materially clarifies a
+relationship or flow. A diagram must use a bare fence with `mermaid` as its
+info string. The nearest non-blank line before that fence must be a visible caption matching
+`**Diagram — …**` (an em dash, with one or more descriptive characters). Blank
+lines between the caption and fence are allowed; other Markdown content breaks
+the caption association.
+
+The exact allowlist is `flowchart`, `sequenceDiagram`, `stateDiagram-v2`,
+`classDiagram`, and `erDiagram`. Each individual description (the Tour
+description and each step description are separate descriptions) accepts at
+most three Mermaid fences, and each source is at most 20 KiB measured as UTF-8
+bytes. Mermaid syntax is parsed locally using the same locked version as
+playback. A malformed caption, unsupported kind, oversized source, invalid
+syntax, or fourth-and-later fence rejects the complete tool call.
+
+Diagram issues use paths such as
+`steps[1].description.mermaid[0].source`; the path identifies the description,
+fence index, and failing field. Every issue also reports the fence's starting
+line and column. All descriptions are checked in one call, and no Tour file is
+written when any diagram or ordinary Tour validation fails.
 
 ### Result
 
@@ -219,7 +265,10 @@ generation does not warn about itself.
 Install the package dependencies once:
 
 ```bash
-cd packages/mcp-server
+cd packages/description-renderer
+npm install
+npm run build
+cd ../mcp-server
 npm install
 ```
 
@@ -231,9 +280,10 @@ From `packages/mcp-server/`:
 npm test
 ```
 
-The test command first compiles the package, then runs the complete Node.js
-test suite from `dist/test/`. A successful run currently reports 69 passing
-tests.
+The renderer must be built before the MCP package because the MCP server uses
+its public shared-rule surface as a local package dependency. The MCP test
+command then compiles the package and runs the complete Node.js test suite from
+`dist/test/`.
 
 The same suite can be launched from the repository root without changing
 directory:

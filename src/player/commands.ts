@@ -21,8 +21,24 @@ import { CodeTourNode } from "./tree/nodes";
 
 let terminal: vscode.Terminal | null;
 export function registerPlayerCommands() {
-  // This is a "private" command that's used exclusively
-  // by the hover description for tour markers.
+  // Internal inspection seam used by the development-host smoke test. It
+  // reads the comment owned by the active player, not a renderer-side value.
+  vscode.commands.registerCommand(
+    `${EXTENSION_NAME}._getActiveCommentBody`,
+    () => {
+      const comment = store.activeTour?.thread?.comments[0];
+      if (!comment) {
+        return undefined;
+      }
+
+      return comment.body instanceof vscode.MarkdownString
+        ? comment.body.value
+        : comment.body;
+    }
+  );
+
+  // Permet à l'aperçu d'un marqueur d'ouvrir directement la visite et l'étape
+  // correspondantes ; cette commande n'est pas destinée à la palette publique.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}._startTourById`,
     async (id: string, stepNumber: number) => {
@@ -33,7 +49,7 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Purpose: Command link
+  // Ouvre une visite liée depuis le contenu Markdown d'une autre visite.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.startTourByTitle`,
     async (title: string, stepNumber?: number) => {
@@ -68,7 +84,7 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Purpose: Command link
+  // Amène le lecteur à l'étape ciblée par un lien Markdown.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.navigateToStep`,
     async (stepNumber: number) => {
@@ -83,7 +99,7 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Purpose: Command link and the ">>" syntax
+  // Exécute dans le terminal CodeTour le texte proposé par une étape.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.sendTextToTerminal`,
     async (text: string) => {

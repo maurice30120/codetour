@@ -4,6 +4,11 @@
   "description": "VS Code extension that allows you to record and playback guided tours of codebases, directly within the editor",
   "publisher": "vsls-contrib",
   "version": "0.0.59",
+  "packageManager": "npm@12.0.1",
+  "volta": {
+    "node": "24.18.0",
+    "npm": "12.0.1"
+  },
   "author": {
     "name": "Microsoft Corporation"
   },
@@ -18,7 +23,7 @@
   "license": "MIT",
   "icon": "images/icon.png",
   "engines": {
-    "vscode": "^1.60.0"
+    "vscode": "^1.101.0"
   },
   "categories": [
     "Other"
@@ -35,8 +40,13 @@
     "onNotebookEditor:codetour"
   ],
   "main": "./dist/extension-node.js",
-  "browser": "./dist/extension-web.js",
   "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "codetour.tour-generator",
+        "label": "CodeTour Tour Generator"
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "CodeTour",
@@ -68,6 +78,16 @@
       }
     },
     "commands": [
+      {
+        "command": "codetour.configureCodexMcp",
+        "title": "Configure MCP for Codex",
+        "category": "CodeTour"
+      },
+      {
+        "command": "codetour.repairCodexMcp",
+        "title": "Repair MCP Configuration for Codex",
+        "category": "CodeTour"
+      },
       {
         "command": "codetour.addContentStep",
         "title": "Add Tour Step",
@@ -652,33 +672,40 @@
     ]
   },
   "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "@types/jexl": "^2.2.0",
     "axios": "^0.21.4",
     "jexl": "^2.3.0",
     "mobx": "^5.14.2",
-    "os-browserify": "0.3.0",
-    "path-browserify": "1.0.1",
     "throttle-debounce": "^3.0.1",
     "vsls": "^1.0.2532"
   },
   "devDependencies": {
     "@types/node": "^18.14.0",
     "@types/throttle-debounce": "^5.0.0",
-    "@types/vscode": "^1.60",
+    "@types/vscode": "1.101.0",
     "@vscode/vsce": "^2.17.0",
     "debug": "^4.3.4",
     "eslint": "^8.34.0",
     "ts-loader": "^9.4.2",
-    "typescript": "^4.9.5",
+    "typescript": "4.9.5",
     "webpack": "^5.75.0",
     "webpack-cli": "^5.0.1",
     "webpack-merge": "^5.8.0"
   },
   "scripts": {
-    "build": "webpack --mode production",
+    "build:mcp": "npm --prefix packages/mcp-server run build",
+    "build:renderer": "npm --prefix packages/description-renderer run build",
+    "build": "npm run build:renderer && npm run build:mcp && webpack --mode production && npm run prepare:resvg",
+    "prepare:resvg": "node scripts/prepare-resvg-runtime.js",
+    "publish:vsix": "node scripts/publish-vsix.js",
     "vscode:prepublish": "npm run build",
     "watch": "webpack --mode development --watch",
-    "package": "vsce package"
+    "package": "node scripts/package-extension.js",
+    "test": "npm run test:plugin && npm run test:renderer && npm run test:mcp",
+    "test:plugin": "npm run build && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test",
+    "test:renderer": "npm --prefix packages/description-renderer test",
+    "test:mcp": "npm --prefix packages/mcp-server test"
   },
   "prettier": {
     "arrowParens": "avoid",

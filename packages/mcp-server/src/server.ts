@@ -29,12 +29,16 @@ import {
   validateProjectParams,
   validateSteps,
 } from "./validation";
+import {
+  MERMAID_TOOL_GUIDANCE,
+  validateMermaidDescriptions,
+} from "./mermaid-validation";
 import packageJson from "../package.json";
 
-// Serveur MCP V1 : expose exactement deux outils, `create_project_tour` et
-// `create_changes_tour`. L'agent IA rédige le contenu ; le serveur ne fait que
-// valider la proposition, appliquer les règles Git et de sécurité, puis écrire
-// de façon atomique le fichier de Tour réservé correspondant.
+// Point de passage entre l'agent IA et CodeTour : l'agent propose une visite
+// complète, puis le serveur garantit qu'elle peut être ouverte sans risque dans
+// le projet. Deux usages sont proposés : découvrir le projet dans son ensemble
+// ou expliquer les changements de la branche courante.
 //
 // Les schémas d'entrée des outils restent volontairement permissifs
 // (`z.unknown()` + `.passthrough()`) : le SDK MCP rejette lui-même les arguments
@@ -46,9 +50,9 @@ const CODETOUR_SCHEMA_URI = "https://aka.ms/codetour-schema";
 const SERVER_NAME = "codetour-mcp";
 const SERVER_VERSION = packageJson.version;
 
-// Destinations fixes et réservées aux Tours générés. Elles sont toujours
-// remplacées après une validation complète, et ignorées lors de la détection
-// d'un workspace sale (voir git.ts).
+// Chaque type de visite possède une destination stable. L'utilisateur retrouve
+// ainsi toujours la dernière visite générée au même endroit, sans que ces
+// fichiers soient eux-mêmes considérés comme des changements à expliquer.
 const PROJECT_TOUR_PATH = ".tours/project.tour";
 const CHANGES_TOUR_PATH = ".tours/changes.tour";
 
@@ -57,7 +61,10 @@ const PROJECT_TOUR_DESCRIPTION =
   ".tours/project.tour (replacing any previously generated tour of the same kind). " +
   "You provide the fully written content; the server only validates and persists it deterministically. " +
   "A good Project Tour ideally covers: the project's purpose, its main entry points, its important " +
-  "components, and its main execution flows. " +
+  "components, and its main execution flows. Begin with a directory-anchored overview step whenever " +
+  "the project has a meaningful directory structure. If the tour is scoped to a subdirectory, anchor " +
+  "that first step to the exact workspace-relative directory. Use additional directory-anchored steps " +
+  "to introduce major components before moving into detailed file anchors. " +
   "Arguments: an optional title (defaults to \"Project Overview\"), an optional description, and a " +
   "required non-empty steps array. Each step takes an optional title, a required Markdown description, " +
   "and at most one locator: a file or a directory (workspace-relative paths). A step may also target a " +
@@ -66,7 +73,8 @@ const PROJECT_TOUR_DESCRIPTION =
   "evolution, and use a line only as a fallback. Steps without any locator are allowed for general " +
   "context. Every anchor is " +
   "validated against the real workspace state, and all validation errors are reported in a single " +
-  "response. On failure, the previous tour file is preserved.";
+  "response. On failure, the previous tour file is preserved. " +
+  MERMAID_TOOL_GUIDANCE;
 
 const CHANGES_TOUR_DESCRIPTION =
   "Creates a CodeTour Changes Tour that explains the committed changes on the current branch since it " +
@@ -82,7 +90,8 @@ const CHANGES_TOUR_DESCRIPTION =
   "provide essential context, and deleted files must be explained with steps that have no locator. " +
   "Uncommitted changes are excluded by default and reported as a warning; pass includeUncommittedChanges to " +
   "include them explicitly. The description is automatically enriched with the base, merge-base and " +
-  "head. On failure, the previous tour file is preserved.";
+  "head. On failure, the previous tour file is preserved. " +
+  MERMAID_TOOL_GUIDANCE;
 
 const warningSchema = z.object({
   code: z.string(),
@@ -151,22 +160,34 @@ export function createServer(workspaceRoot: string): McpServer {
   return server;
 }
 
-// Crée un Project Tour : aucun accès Git n'est nécessaire, la visite fonctionne
-// dans n'importe quel workspace et n'est jamais attachée à un `ref`, afin de
-// rester consultable pendant l'évolution normale du projet.
+// Produit la visite d'accueil du projet. Elle reste disponible quelle que soit
+// la branche ouverte, car elle présente le fonctionnement global du code et non
+// un instant particulier de son historique Git.
 async function handleCreateProjectTour(
   ctx: WorkspaceContext,
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
-  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
-  }
-
   // La validation agrège toutes les erreurs (paramètres puis étapes) avant de
   // répondre, pour permettre à l'agent de corriger la proposition en un cycle.
   const { params, issues: paramIssues } = validateProjectParams(args);
-  const allIssues = [...paramIssues];
+  const mermaidIssues = await validateMermaidDescriptions(args);
+  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
+    if (mermaidIssues.length === 0) {
+      return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
+    }
+
+    return errorResponse(
+      "INVALID_PROPOSAL",
+      "The create_project_tour arguments are invalid.",
+      [
+        ...mermaidIssues,
+        { path: "steps", message: "is required and must contain at least one step" }
+      ]
+    );
+  }
+
+  const allIssues = [...paramIssues, ...mermaidIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);
@@ -204,24 +225,35 @@ async function handleCreateProjectTour(
   );
 }
 
-// Crée un Changes Tour : l'analyse porte sur les changements committés depuis
-// le merge-base de `baseRef` jusqu'à `headRef`. `headRef` doit être le SHA complet du
-// HEAD courant, sinon la génération échoue avec STALE_HEAD pour éviter une
-// explication obsolète. Par défaut, seuls les changements committés sont pris
-// en compte ; `includeUncommittedChanges` permet d'expliquer un travail local.
+// Produit une visite de revue de branche. Le lecteur voit ce qui a changé
+// depuis la branche de référence ; si le code avance pendant la génération, la
+// visite est refusée pour ne jamais présenter une explication déjà obsolète.
+// Le travail local n'est inclus que lorsque l'appelant le demande explicitement.
 async function handleCreateChangesTour(
   ctx: WorkspaceContext,
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
-  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
-  }
-
   // Même stratégie d'agrégation que pour le Project Tour : toutes les erreurs
   // de validation sont collectées avant de répondre.
   const { params, issues: paramIssues } = validateChangesParams(args);
-  const allIssues = [...paramIssues];
+  const mermaidIssues = await validateMermaidDescriptions(args);
+  if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
+    if (mermaidIssues.length === 0) {
+      return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
+    }
+
+    return errorResponse(
+      "INVALID_PROPOSAL",
+      "The create_changes_tour arguments are invalid.",
+      [
+        ...mermaidIssues,
+        { path: "steps", message: "is required and must contain at least one step" }
+      ]
+    );
+  }
+
+  const allIssues = [...paramIssues, ...mermaidIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);
