@@ -43,7 +43,21 @@ test("exposes exactly one tool named create_tour with the public schema", async 
       assert.ok(tool!.description!.includes("CodeTour Tour"));
       assert.ok(tool!.description!.includes("fileName"));
       assert.ok(tool!.description!.includes("never writes a CodeTour `ref`"));
-      assert.ok(tool!.description!.includes("Use Mermaid sparingly"));
+      assert.ok(tool!.description!.includes("readable Markdown"));
+      assert.ok(tool!.description!.includes("short paragraphs separated by blank lines"));
+      assert.ok(tool!.description!.includes("bullet or numbered lists"));
+      assert.ok(tool!.description!.includes("Avoid dense monolithic paragraphs"));
+      assert.ok(tool!.description!.includes("Use Mermaid when it materially clarifies"));
+      assert.ok(
+        tool!.description!.includes(
+          "For architecture, workflow, lifecycle, or multi-module Tours, include at least one Mermaid diagram"
+        )
+      );
+      assert.ok(
+        tool!.description!.includes(
+          "Omit diagrams only when the Tour has no meaningful relationship"
+        )
+      );
       assert.ok(tool!.description!.includes("flowchart, sequenceDiagram"));
       assert.ok(tool!.description!.includes("at most 3 Mermaid fences"));
       assert.ok(tool!.description!.includes("20 KB"));
@@ -51,6 +65,14 @@ test("exposes exactly one tool named create_tour with the public schema", async 
       assert.deepEqual(
         Object.keys(properties).sort(),
         ["description", "fileName", "steps", "title"]
+      );
+      assert.match(
+        (properties.description as { description?: string }).description ?? "",
+        /readable Markdown overview/
+      );
+      assert.match(
+        (properties.steps as { description?: string }).description ?? "",
+        /structured Markdown tied to their Tour Anchors/
       );
     });
   } finally {

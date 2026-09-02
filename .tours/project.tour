@@ -1,86 +1,61 @@
 {
   "$schema": "https://aka.ms/codetour-schema",
-  "title": "Comprendre l'extension CodeTour",
-  "description": "Tour guidé de l'application CodeTour : activation de l'extension, découverte et modèle des tours, lecture dans l'éditeur, enregistrement, intégrations VS Code/MCP et persistance sécurisée. Suivez les étapes dans l'ordre pour comprendre comment une visite passe d'un fichier JSON à un commentaire interactif dans VS Code.",
+  "title": "Comprendre le plugin CodeTour",
+  "description": "Tour guidé de l'extension VS Code CodeTour : démarrage, découverte des fichiers .tour, état MobX, lecture des étapes, enregistrement, rendu des descriptions et API publique.",
   "steps": [
     {
-      "title": "Vue d'ensemble de l'extension",
-      "description": "Le dossier `src/` contient l'extension VS Code principale.\nLe code est organisé autour de quelques responsabilités : `extension.ts` assemble les modules, `store/` porte l'état et les actions, `player/` lit et affiche un tour, `recorder/` le crée ou le modifie, tandis que `git.ts`, `liveShare/`, `notebook/` et `desktopIntegration.ts` branchent les intégrations de l'éditeur. \n\nLe projet contient aussi un serveur MCP séparé dans `packages/mcp-server/`.",
+      "title": "Vue d'ensemble du projet",
+      "description": "Le projet est une extension VS Code écrite en TypeScript. Le code est organisé autour de trois responsabilités : charger et conserver les tours, lire une étape dans l'éditeur, et enregistrer ou modifier des tours. Les dossiers `src/player`, `src/recorder` et `src/store` sont les trois zones à suivre en priorité.\n\n**Diagram — parcours général d'un tour**\n```mermaid\nflowchart TD\n  A[Activation VS Code] --> B[extension.ts]\n  B --> C[provider découvre les tours lol]\n  C --> D[store.tours]\n  D --> E[actions démarre le tour]\n  E --> F[player rend l'étape]\n  F --> G[Commentaire et éditeur]\n  H[recorder] --> I[écrit un fichier tour]\n  I --> C\n```",
       "directory": "src"
     },
     {
-      "title": "Contrat VS Code et activation",
-      "description": "Ce fichier est le manifeste de l'extension. Il déclare le point d'entrée compilé (`dist/extension-node.js`), les événements d'activation, les commandes, les réglages (`recordMode`, `showMarkers`, répertoire personnalisé) et le fournisseur MCP. Pour comprendre ce que l'utilisateur peut déclencher, commencez par la section `contributes.commands`; pour comprendre quand le code démarre, regardez `activationEvents`.",
-      "file": "package.json"
+      "title": "Activation de l'extension",
+      "description": "`activate()` est le point d'entrée exécuté par VS Code. Il branche les intégrations desktop et notebook, puis enregistre le player, le recorder et Live Share. Ensuite, il installe un gestionnaire d'URI pour les liens qui ouvrent directement un tour ou une étape. Enfin, dans un workspace, il découvre les tours, peut proposer le tour par défaut, initialise Git et expose l'API publique.",
+      "file": "src/extension.ts"
     },
     {
-      "title": "Le bootstrap de l'application",
-      "description": "`activate()` est le composition root de l'extension. Il enregistre les intégrations desktop, le provider de notebooks, le lecteur, l'enregistreur et Live Share, puis installe un gestionnaire d'URI pour les liens CodeTour. Dans un workspace, il découvre les tours, affiche éventuellement une invite et initialise Git. Le résultat de `initializeApi(context)` expose ensuite l'API publique de l'extension.",
-      "file": "src/extension.ts",
-      "pattern": "export async function activate"
+      "title": "Modèle d'état central",
+      "description": "Le singleton `store` est l'état partagé de l'extension et il est observable par MobX. `tours` contient les tours découverts; `activeTour` contient le tour courant, l'index de l'étape, le thread de commentaire et la racine du workspace; `isRecording` et `isEditing` distinguent lecture et édition. Comprendre ces champs permet de suivre presque toutes les transitions de l'application.",
+      "file": "src/store/index.ts"
     },
     {
-      "title": "Le modèle d'état partagé",
-      "description": "Le store MobX est la source de vérité runtime. `tours` contient les tours découverts, `activeTour` contient le tour courant et son index d'étape, et les drapeaux `isRecording`/`isEditing` distinguent lecture et édition. Une étape peut pointer vers un fichier, un dossier, du contenu virtuel, une URI ou une vue VS Code; `line`, `selection` et `pattern` précisent l'ancrage dans un fichier.",
-      "file": "src/store/index.ts",
-      "pattern": "export interface Store"
+      "title": "Découverte et rechargement des tours",
+      "description": "`discoverTours()` lit les fichiers principaux (`.tour`, `.vscode/main.tour`, `main.tour`) ainsi que les sous-tours dans `.vscode/tours`, `.github/tours` et `.tours`. Les fichiers sont parsés en JSON, filtrés par la condition `when`, triés par titre, puis placés dans `store.tours`. Un watcher relance cette découverte quand un fichier `.tour` est créé, modifié ou supprimé; un tour actif est donc rechargé sans redémarrer l'extension.",
+      "file": "src/store/provider.ts"
     },
     {
-      "title": "Découvrir et recharger les tours",
-      "description": "`discoverTours()` lit les tours dans les emplacements conventionnels : `.tour`, `.vscode/main.tour`, `main.tour`, `.vscode/tours`, `.github/tours` et `.tours` (ou le répertoire configuré). Chaque JSON reçoit un identifiant basé sur son URI, puis les tours sont triés et filtrés par `when`. Un watcher relance la découverte à la création, modification ou suppression d'un fichier `.tour`, ce qui rend les changements visibles sans redémarrer l'extension.",
-      "file": "src/store/provider.ts",
-      "pattern": "export async function discoverTours"
+      "title": "Démarrer, changer et terminer un tour",
+      "description": "Les actions de `store/actions.ts` forment le contrôleur du cycle de vie. `startCodeTour()` démarre le player, calcule la racine du workspace et crée `store.activeTour`; `startDefaultTour()` choisit `isPrimary` ou le premier titre numéroté, sinon affiche une sélection. Les actions de navigation incrémentent ou décrémentent l'étape. `endCurrentCodeTour()` arrête le player, nettoie les contextes VS Code et ferme les documents virtuels.",
+      "file": "src/store/actions.ts"
     },
     {
-      "title": "Démarrer et parcourir un tour",
-      "description": "`startCodeTour()` initialise le lecteur et remplit `store.activeTour` avec le tour, l'étape de départ et la racine du workspace. Les commandes `startDefaultTour`, `selectTour`, `moveCurrentCodeTourForward` et `moveCurrentCodeTourBackward` pilotent la navigation. Le tour primaire est choisi via `isPrimary`, ou par convention avec un titre commençant par `1 -`; sinon l'utilisateur choisit dans une Quick Pick.",
-      "file": "src/store/actions.ts",
-      "pattern": "export function startCodeTour"
+      "title": "Le player rend l'étape dans VS Code",
+      "description": "Le player utilise l'API de commentaires de VS Code. Pour chaque étape, il résout une destination (`file`, `directory`, `contents`, `uri` ou `view`), calcule une ligne ou une sélection, puis crée un commentaire associé à la zone affichée. Il protège les opérations asynchrones avec un numéro de requête afin qu'une ancienne résolution de fichier ne puisse pas écraser une étape plus récente.",
+      "file": "src/player/index.ts"
     },
     {
-      "title": "Rendu dans l'éditeur VS Code",
-      "description": "Le lecteur transforme une étape JSON en expérience VS Code. Il résout d'abord le fichier avec `getStepFileUri`, convertit une ligne ou une sélection en positions VS Code, et peut retrouver une ligne par expression régulière `pattern`. Il crée ensuite un `CommentThread` avec la description rendue, révèle le code et exécute éventuellement les commandes ou focalise une vue. La réaction MobX relance le rendu lorsque l'étape ou son contenu change.",
-      "file": "src/player/index.ts",
-      "pattern": "async function renderCurrentStep"
+      "title": "Commandes de lecture et interactions",
+      "description": "`player/commands.ts` enregistre les commandes publiques et internes : commencer, terminer, avancer, revenir, reprendre, ouvrir un fichier de tour, lancer une commande dans un terminal, insérer un extrait et naviguer vers une autre étape. Les liens Markdown générés par une description déclenchent ces commandes via le protocole de commandes de VS Code; c'est le pont entre le texte de l'étape et les actions dans l'éditeur.",
+      "file": "src/player/commands.ts"
     },
     {
-      "title": "Descriptions, navigation et contenu riche",
-      "description": "`CodeTourComment` encapsule le commentaire affiché par VS Code. En mode aperçu, la description passe par le renderer pour traiter le Markdown et le contenu enrichi, puis des liens de navigation internes permettent d'aller à l'étape précédente, suivante ou au tour suivant. Le garde-fou `isCurrentRequest()` évite qu'un rendu asynchrone ancien écrase l'étape actuellement sélectionnée.",
-      "file": "src/player/index.ts",
-      "pattern": "new CodeTourComment"
+      "title": "Descriptions Markdown, images et Mermaid",
+      "description": "`renderPreviewDescription()` est la chaîne de rendu des descriptions. Elle rend d'abord Mermaid, transforme les lignes de script en liens vers le terminal, convertit les chemins de fichiers en liens VS Code ou images, puis transforme les références à des étapes et à d'autres tours. Le renderer adapte les images aux surfaces d'affichage; `CodeTourComment` active le HTML sûr pour les commentaires de prévisualisation.",
+      "file": "src/player/description.ts"
     },
     {
-      "title": "Enregistrer et modifier un tour",
-      "description": "L'enregistreur expose les commandes qui créent un fichier `.tour`, ajoutent des étapes et sauvegardent les modifications. Le nom du fichier est dérivé du titre, le répertoire est `.tours` ou celui de `codetour.customTourDirectory`, et un `ref` Git peut être stocké pour relire le code à une référence donnée. Le mode d'ancrage est configurable : numéro de ligne ou motif stable. `saveTour()` réécrit le JSON sans les champs runtime comme `id` et `markerTitle`.",
-      "file": "src/recorder/commands.ts",
-      "pattern": "export function registerRecorderCommands"
+      "title": "Enregistrer un nouveau tour",
+      "description": "Le recorder fournit le flux inverse. Une commande demande un titre ou un emplacement, crée un fichier `.tour` vide avec `$schema` et `steps`, puis démarre `startCodeTour` en mode édition. L'utilisateur ajoute une étape depuis la marge d'une ligne et saisit son commentaire; les commandes du recorder calculent la position ou la sélection et sauvegardent le JSON.",
+      "file": "src/recorder/commands.ts"
     },
     {
-      "title": "Le pont MCP côté extension",
-      "description": "Sur VS Code Desktop, `desktopIntegration.ts` appelle `registerMcpProvider()`. Celui-ci déclare un serveur MCP stdio par workspace, lance le bundle `dist/mcp-server.js` avec Node/Electron en mode Node, et fixe le répertoire courant à la racine du workspace. L'extension ne délègue donc pas son état MobX au serveur : le serveur produit simplement des fichiers `.tour` que la découverte de `store/provider.ts` pourra ensuite charger.",
-      "file": "src/mcp.ts",
-      "pattern": "export function registerMcpProvider"
+      "title": "API d'intégration",
+      "description": "`initializeApi()` expose la surface destinée aux autres extensions : démarrer ou terminer un tour, démarrer depuis une URI, sélectionner un tour, enregistrer un tour, exporter son contenu et écouter les événements de début et de fin. C'est le contrat public à consulter avant de modifier le comportement d'intégration.",
+      "file": "src/api.ts"
     },
     {
-      "title": "Créer un tour via le serveur MCP",
-      "description": "Le serveur MCP expose un outil unique `create_tour`. Le Tour Generator choisit le sujet, analyse le workspace et fournit une proposition complète; le serveur reste déterministe et se limite à valider puis persister. `handleCreateTour()` agrège les erreurs de paramètres, d'étapes et de Mermaid, valide les ancres contre le workspace, vérifie le schéma CodeTour et renvoie soit les problèmes, soit le chemin et le nombre d'étapes créées.",
-      "file": "packages/mcp-server/src/server.ts",
-      "pattern": "function createServer"
-    },
-    {
-      "title": "Persistance atomique et confinement",
-      "description": "La persistance est conçue pour éviter deux classes de problèmes. Le chemin de sortie est résolu puis comparé à la racine réelle du workspace afin d'empêcher une écriture hors projet, notamment via des liens symboliques. Le contenu est écrit dans un fichier temporaire du même répertoire, synchronisé, puis renommé : une erreur ne laisse pas de fichier partiellement écrit et conserve l'ancien tour.",
-      "file": "packages/mcp-server/src/persistence.ts",
-      "pattern": "export async function writeTourAtomic"
-    },
-    {
-      "title": "Le contrat de données à retenir",
-      "description": "`schema.json` formalise le format `.tour` partagé entre les tours écrits à la main, l'enregistreur et le serveur MCP. Retenez la séparation entre les métadonnées du tour (`title`, `description`, `ref`) et les étapes (`description` plus un type d'ancre). Le champ `id` utilisé en mémoire par l'extension est ajouté à la lecture et n'est pas un champ de persistance utilisateur.",
-      "file": "schema.json"
-    },
-    {
-      "title": "Chemin complet d'une visite",
-      "description": "Voici le flux mental à garder : un fichier `.tour` est découvert par le provider, parsé dans `store.tours`, sélectionné par `store/actions`, puis rendu par `player/index.ts` sous forme de commentaire VS Code. L'utilisateur navigue; l'index d'étape change dans MobX et le lecteur rerend la cible. En création, le recorder ou le serveur MCP écrit un nouveau JSON, le watcher redécouvre le fichier et le même flux de lecture devient disponible."
+      "title": "À retenir pour naviguer dans le code",
+      "description": "Pour suivre un scénario, partez de la commande ou du lien déclencheur, puis regardez `store/actions.ts` pour la transition d'état. Ensuite suivez `player/index.ts` pour la résolution et le rendu, et `player/commands.ts` pour les interactions. Pour les données, remontez vers `store/provider.ts`; pour la création ou la persistance, descendez dans `recorder/commands.ts`. Le contrat des étapes est l'interface `CodeTourStep` dans `src/store/index.ts`."
     }
   ]
 }
