@@ -19,7 +19,7 @@ import {
 const execFileAsync = promisify(execFile);
 const packageRoot = path.join(__dirname, "..", "..", "..");
 
-async function npm(args: string[], cwd: string): Promise<string> {
+async function npm(args: string[], cwd: string, cache: string): Promise<string> {
   const npmCli = process.env.npm_execpath;
   const command = npmCli ? process.execPath : "npm";
   const commandArgs = npmCli ? [npmCli, ...args] : args;
@@ -28,26 +28,11 @@ async function npm(args: string[], cwd: string): Promise<string> {
     encoding: "utf8",
     env: {
       ...process.env,
+      npm_config_cache: cache,
       npm_config_update_notifier: "false",
     },
   });
   return result.stdout;
-}
-
-async function pack(
-  source: string,
-  destination: string
-): Promise<string> {
-  const existingArchives = new Set(fs.readdirSync(destination));
-  await npm(
-    ["pack", "--json", "--ignore-scripts", "--pack-destination", destination],
-    source
-  );
-  const filename = fs
-    .readdirSync(destination)
-    .find((entry) => entry.endsWith(".tgz") && !existingArchives.has(entry));
-  assert.ok(filename, `npm pack should create an archive for ${source}`);
-  return path.join(destination, filename);
 }
 
 test("the installed codetour-mcp binary serves both public MCP tools", async () => {
@@ -55,15 +40,32 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
   const archiveDir = path.join(sandbox, "archive");
   const installationRoot = path.join(sandbox, "consumer");
   const workspaceRoot = path.join(sandbox, "workspace");
+  const npmCache = path.join(sandbox, "npm-cache");
 
   try {
     fs.mkdirSync(archiveDir, { recursive: true });
-    const archivePath = await pack(packageRoot, archiveDir);
+    await npm(
+      ["pack", "--json", "--pack-destination", archiveDir],
+      packageRoot,
+      npmCache
+    );
+    const filename = fs
+      .readdirSync(archiveDir)
+      .find((entry) => entry.endsWith(".tgz"));
+    assert.ok(filename, "npm pack should create a package archive");
+    const archivePath = path.join(archiveDir, filename);
 
-    // npm ci has already populated npm's cache. Keeping this install offline
-    // verifies the packed artifact without treating installed dependency
-    // directories as source packages (which makes npm 10 run their prepare scripts).
+    // Seed the consumer with the already-installed dependency tree, then pass
+    // every registry dependency exposed by the packed manifest as a local
+    // source. npm still resolves direct dependencies during an install even
+    // when their directories already exist; without the local sources, a cold
+    // platform-specific cache (notably macOS ARM) fails in --offline mode.
     fs.mkdirSync(installationRoot, { recursive: true });
+    fs.cpSync(
+      path.join(packageRoot, "node_modules"),
+      path.join(installationRoot, "node_modules"),
+      { recursive: true }
+    );
     await npm(
       [
         "install",
@@ -75,8 +77,15 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
         "--no-audit",
         "--no-fund",
         archivePath,
+        path.join(packageRoot, "node_modules", "@modelcontextprotocol", "sdk"),
+        path.join(packageRoot, "node_modules", "ajv"),
+        path.join(packageRoot, "node_modules", "@resvg", "resvg-js"),
+        path.join(packageRoot, "node_modules", "jsdom"),
+        path.join(packageRoot, "node_modules", "mermaid"),
+        path.join(packageRoot, "node_modules", "zod"),
       ],
-      sandbox
+      sandbox,
+      npmCache
     );
 
     // The shared renderer is a local monorepo package, so npm pack cannot
