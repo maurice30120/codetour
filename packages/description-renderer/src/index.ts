@@ -1,4 +1,7 @@
-export { renderDescription } from "./description";
+export {
+  makeRenderedImagesResponsive,
+  renderDescription
+} from "./description";
 export {
   clearMermaidRenderCache,
   DESCRIPTION_RENDERER_VERSION,

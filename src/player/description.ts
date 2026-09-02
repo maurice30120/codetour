@@ -4,6 +4,7 @@
 import { ColorThemeKind, Uri, window, workspace } from "vscode";
 import {
   DescriptionTheme,
+  makeRenderedImagesResponsive,
   renderDescription
 } from "codetour-description-renderer";
 import { CodeTour, store } from "../store";
@@ -92,7 +93,7 @@ export function generatePreviewContent(
       return _;
     });
 
-  return appendInsertCodeLinks(transformed);
+  return makeRenderedImagesResponsive(appendInsertCodeLinks(transformed));
 }
 
 /**

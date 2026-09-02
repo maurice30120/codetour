@@ -8,13 +8,24 @@ import {
   withServer,
 } from "../helpers/test-utils";
 
+const TOUR = "intro.tour";
+
+function validArgs(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    fileName: TOUR,
+    title: "My Tour",
+    steps: [{ description: "Hello." }],
+    ...overrides,
+  };
+}
+
 test("rejects a file: scheme in a step description", async () => {
   const root = tempDir();
   try {
     await withServer(root, async (client) => {
-      const response = await callTool(client, "create_project_tour", {
+      const response = await callTool(client, "create_tour", validArgs({
         steps: [{ description: "Open [the file](file:///etc/passwd)." }],
-      });
+      }));
       assert.equal(response.isError, true);
       assert.equal(structuredCode(response), "INVALID_PROPOSAL");
     });
@@ -27,12 +38,12 @@ test("rejects vscode: and javascript: schemes in a step description", async () =
   const root = tempDir();
   try {
     await withServer(root, async (client) => {
-      const response = await callTool(client, "create_project_tour", {
+      const response = await callTool(client, "create_tour", validArgs({
         steps: [
           { description: "Click [here](vscode://file/x)." },
           { description: "Execute [this](javascript:alert(1))." },
         ],
-      });
+      }));
       assert.equal(response.isError, true);
       assert.equal(structuredCode(response), "INVALID_PROPOSAL");
     });
@@ -41,13 +52,13 @@ test("rejects vscode: and javascript: schemes in a step description", async () =
   }
 });
 
-test("rejects a command scheme in a changes tour description", async () => {
+test("rejects a command scheme in a tour description", async () => {
   const root = tempDir();
   try {
     await withServer(root, async (client) => {
-      const response = await callTool(client, "create_project_tour", {
+      const response = await callTool(client, "create_tour", validArgs({
         steps: [{ description: "Run [this](command:workbench.action.quit)." }],
-      });
+      }));
       assert.equal(response.isError, true);
       assert.equal(structuredCode(response), "INVALID_PROPOSAL");
     });
@@ -60,10 +71,10 @@ test("rejects an active scheme in the tour-level description", async () => {
   const root = tempDir();
   try {
     await withServer(root, async (client) => {
-      const response = await callTool(client, "create_project_tour", {
+      const response = await callTool(client, "create_tour", validArgs({
         description: "See [the launch command](command:workbench.action.quit).",
         steps: [{ description: "Fine step." }],
-      });
+      }));
       assert.equal(response.isError, true);
       assert.equal(structuredCode(response), "INVALID_PROPOSAL");
       const issues = (response.structured.issues ?? []) as Array<{ path: string }>;
@@ -74,28 +85,12 @@ test("rejects an active scheme in the tour-level description", async () => {
   }
 });
 
-test("exposes exactly two tools", async () => {
+test("exposes exactly one tool named create_tour", async () => {
   const root = tempDir();
   try {
     await withServer(root, async (client) => {
       const tools = await client.listTools();
-      const names = tools.tools.map((tool) => tool.name).sort();
-      assert.deepEqual(names, ["create_changes_tour", "create_project_tour"]);
-      const project = tools.tools.find((tool) => tool.name === "create_project_tour");
-      assert.ok(project);
-      assert.ok(project!.description!.includes("Project Tour"));
-      assert.ok(
-        project!.description!.includes("Begin with a directory-anchored overview step")
-      );
-      assert.ok(project!.description!.includes("tour is scoped to a subdirectory"));
-      assert.ok(project!.description!.includes("Use Mermaid sparingly"));
-      assert.ok(project!.description!.includes("flowchart, sequenceDiagram"));
-      assert.ok(project!.description!.includes("at most 3 Mermaid fences"));
-      assert.ok(project!.description!.includes("20 KB"));
-      const changes = tools.tools.find((tool) => tool.name === "create_changes_tour");
-      assert.ok(changes);
-      assert.ok(changes!.description!.includes("Changes Tour"));
-      assert.ok(changes!.description!.includes("**Diagram — …**"));
+      assert.deepEqual(tools.tools.map((tool) => tool.name), ["create_tour"]);
     });
   } finally {
     rmrf(root);
@@ -106,13 +101,11 @@ test("returns a human-readable message and a structured result", async () => {
   const root = tempDir();
   try {
     await withServer(root, async (client) => {
-      const response = await callTool(client, "create_project_tour", {
-        steps: [{ description: "Hello." }],
-      });
+      const response = await callTool(client, "create_tour", validArgs());
       assert.equal(response.isError, false);
-      assert.ok(response.text.includes(".tours/project.tour"));
+      assert.ok(response.text.includes(`.tours/${TOUR}`));
       assert.equal(response.structured.status, "created");
-      assert.equal(response.structured.path, ".tours/project.tour");
+      assert.equal(response.structured.path, `.tours/${TOUR}`);
       assert.equal(response.structured.stepCount, 1);
       assert.ok(Array.isArray(response.structured.warnings));
     });

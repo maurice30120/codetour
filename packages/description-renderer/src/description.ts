@@ -20,8 +20,88 @@ const RENDER_FAILURE_NOTICES: Record<DiagramRuleReason | "render" | "count", str
   render: "> ⚠️ The Mermaid diagram could not be rendered."
 };
 
+const MARKDOWN_IMAGE_PATTERN =
+  /!\[((?:\\.|[^\]])*)\]\(((?:\\.|[^\s)])+)(?:\s+((?:"(?:\\.|[^"])*")|'(?:\\.|[^'])*'))?\)/g;
+const MARKDOWN_ALT_ESCAPE_PATTERN = /\\([[\]])/g;
+
 function escapeAltText(caption: string): string {
   return caption.replace(/([[\]])/g, "\\$1");
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value.replace(/[&<>"']/g, character => {
+    switch (character) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      default:
+        return "&#39;";
+    }
+  });
+}
+
+/**
+ * VS Code's native Markdown renderer supports a safe HTML subset, including
+ * percentage image widths. Convert Markdown images to that subset so they
+ * use the available width of comments and preview surfaces.
+ */
+export function makeRenderedImagesResponsive(markdown: string): string {
+  const replaceImages = (content: string): string =>
+    content.replace(
+      MARKDOWN_IMAGE_PATTERN,
+      (
+        _,
+        escapedAltText: string,
+        escapedDestination: string,
+        quotedTitle: string | undefined
+      ) => {
+        const altText = escapedAltText.replace(
+          MARKDOWN_ALT_ESCAPE_PATTERN,
+          "$1"
+        );
+        const destination = escapedDestination.replace(/\\([()\\])/g, "$1");
+        const title = quotedTitle
+          ? quotedTitle
+              .slice(1, -1)
+              .replace(/\\([\\"'])/g, "$1")
+          : undefined;
+        return (
+          '<img alt="' +
+          escapeHtmlAttribute(altText) +
+          '" src="' +
+          escapeHtmlAttribute(destination) +
+          (title ? '" title="' + escapeHtmlAttribute(title) + '"' : '"') +
+          ' width="100%">'
+        );
+      }
+    );
+
+  let fence: { character: string; length: number } | undefined;
+  return markdown
+    .split("\n")
+    .map(line => {
+      const marker = line.match(/^\s*([\x60]{3,}|~{3,})/);
+      if (marker) {
+        const character = marker[1][0];
+        if (!fence) {
+          fence = { character, length: marker[1].length };
+        } else if (
+          fence.character === character &&
+          marker[1].length >= fence.length
+        ) {
+          fence = undefined;
+        }
+        return line;
+      }
+
+      return fence ? line : replaceImages(line);
+    })
+    .join("\n");
 }
 
 export async function renderDescription(

@@ -68,6 +68,7 @@ syntactic and dependency-free so both sides evaluate them identically.
 type DescriptionTheme = "light" | "dark";
 
 renderDescription(description: string, theme: DescriptionTheme): Promise<string>;
+makeRenderedImagesResponsive(markdown: string): string;
 renderMermaidDiagram(source: string, theme: DescriptionTheme): Promise<{ svg: string; png: Buffer }>;
 clearMermaidRenderCache(): void;
 invalidateMermaidRenderCache(): void; // alias used by theme-change callers
@@ -77,6 +78,12 @@ sanitizeSvg(svg: string): string;
 `renderDescription` is the shared Markdown transformation used by playback
 surfaces. Its diagram work is backed by the in-memory cache; no cache entry or
 generated image is written to the workspace or persisted in VS Code state.
+`makeRenderedImagesResponsive` can then convert Markdown images into safe HTML
+images with `width="100%"`, which lets native VS Code comments and preview
+surfaces adapt them to their available width. Markdown image titles are
+preserved as HTML `title` attributes.
+Preview callers that create a `MarkdownString` must set `supportHtml = true`
+for this HTML subset to be rendered; edit-mode comments should keep it off.
 `DESCRIPTION_RENDERER_VERSION` identifies the output contract represented by
 the cache.
 

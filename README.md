@@ -2,10 +2,14 @@
 
 ## AI-generated tours
 
-The desktop extension includes a local MCP server with tools for generating a
-Project Tour or a Changes Tour. VS Code and GitHub Copilot discover one confined
-server per workspace folder automatically; no `.vscode/mcp.json` file is
-required. The server is bundled in the VSIX and never accesses the network.
+The desktop extension includes a local MCP server with a single `create_tour`
+tool for generating Tours. The Tour Generator chooses the subject, analyzes the
+relevant workspace state itself (Git or otherwise), and provides the output file
+name; the server only validates and persists the proposal, performs no Git
+access, and never writes a CodeTour `ref`. VS Code and GitHub Copilot discover
+one confined server per workspace folder automatically; no `.vscode/mcp.json`
+file is required. The server is bundled in the VSIX and never accesses the
+network.
 
 To use the same tools in Codex, run `CodeTour: Configure MCP for Codex` from the
 Command Palette. If the extension was moved or updated and Codex still points
