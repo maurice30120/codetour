@@ -11,6 +11,7 @@ package.lock.json
 tsconfig.json
 webpack.config.js
 dist/test/**
+dist/extension-web.js*
 **/*.vsix
 .git/**
 .github/**
