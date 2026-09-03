@@ -136,7 +136,10 @@ export class CodeTourComment implements Comment {
 let controller: CommentController | null;
 
 export async function focusPlayer() {
-  const currentThread = store.activeTour!.thread!;
+  const currentThread = store.activeTour?.thread;
+  if (!currentThread?.range) {
+    return;
+  }
   showDocument(currentThread.uri, currentThread.range);
 }
 

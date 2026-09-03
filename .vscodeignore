@@ -1,12 +1,15 @@
 .tours/**
 .vscode/**
 node_modules/**
+packages/mcp-server/**
 src/**
+scripts/**
 .gitignore
 .space
 package.lock.json
 tsconfig.json
 webpack.config.js
+dist/test/**
 **/*.vsix
 .git/**
 .github/**

@@ -63,4 +63,15 @@ const webConfig = {
   }
 };
 
-module.exports = [nodeConfig, webConfig];
+const mcpConfig = {
+  mode: "production",
+  target: "node18",
+  entry: "./packages/mcp-server/dist/src/cli.js",
+  devtool: "source-map",
+  output: {
+    path: path.resolve(__dirname, "dist"),
+    filename: "mcp-server.js"
+  }
+};
+
+module.exports = [nodeConfig, webConfig, mcpConfig];
