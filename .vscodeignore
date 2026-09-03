@@ -1,9 +1,10 @@
 .tours/**
 .vscode/**
 node_modules/**
-packages/mcp-server/**
+packages/**
 src/**
 scripts/**
+docs/**
 .gitignore
 .space
 package.lock.json
