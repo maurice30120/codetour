@@ -6,6 +6,7 @@ import { initializeApi } from "./api";
 import { initializeGitApi } from "./git";
 import { registerLiveShareModule } from "./liveShare";
 import { registerMcpProvider } from "./mcp";
+import { registerNotebookProvider } from "./notebook";
 import { registerPlayerModule } from "./player";
 import { registerRecorderModule } from "./recorder";
 import { store } from "./store";
@@ -78,6 +79,10 @@ class URIHandler implements vscode.UriHandler {
 export async function activate(context: vscode.ExtensionContext) {
   if (vscode.env.uiKind === vscode.UIKind.Desktop) {
     registerMcpProvider(context);
+  }
+  const notebookProvider = registerNotebookProvider();
+  if (notebookProvider) {
+    context.subscriptions.push(notebookProvider);
   }
   registerPlayerModule(context);
   registerRecorderModule();

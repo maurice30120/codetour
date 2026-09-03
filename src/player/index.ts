@@ -21,6 +21,7 @@ import {
   window,
   workspace
 } from "vscode";
+import { clearMermaidRenderCache } from "codetour-description-renderer";
 import { SMALL_ICON_URL } from "../constants";
 import { CodeTour, store } from "../store";
 import { initializeStorage } from "../store/storage";
@@ -37,6 +38,8 @@ import { registerPlayerCommands } from "./commands";
 import { registerDecorators } from "./decorator";
 import { registerFileSystemProvider } from "./fileSystem";
 import { registerTextDocumentContentProvider } from "./fileSystem/documentProvider";
+import { renderPreviewDescription } from "./description";
+import { appendCommentNavigation } from "./navigation";
 import { registerStatusBar } from "./status";
 import { registerTreeProvider } from "./tree";
 
@@ -44,71 +47,9 @@ const CONTROLLER_ID = "codetour";
 const CONTROLLER_LABEL = "CodeTour";
 
 let id = 0;
+let renderRequest = 0;
 
-const SHELL_SCRIPT_PATTERN = /^>>\s+(?<script>.*)$/gm;
-
-const COMMAND_PATTERN =
-  /(?<commandPrefix>\(command:[\w+\.]+\?)(?<params>\[[^\]\)]+\])/gm;
-
-const TOUR_REFERENCE_PATTERN =
-  /(?:\[(?<linkTitle>[^\]]+)\])?\[(?=\s*[^\]\s])(?<tourTitle>[^\]#]+)?(?:#(?<stepNumber>\d+))?\](?!\()/gm;
-const FILE_REFERENCE_PATTERN = /(\!)?(\[[^\]]+\]\()(\.[^\)]+)(?=\))/gm;
-const CODE_FENCE_PATTERN = /```[^\n]+\n(.+)\n```/gms;
-
-export function generatePreviewContent(content: string) {
-  return content
-    .replace(SHELL_SCRIPT_PATTERN, (_, script) => {
-      const args = encodeURIComponent(JSON.stringify([script]));
-      const s = `> [${script}](command:codetour.sendTextToTerminal?${args} "Run \\"${script.replace(
-        /"/g,
-        "'"
-      )}\\" in a terminal")`;
-      return s;
-    })
-    .replace(COMMAND_PATTERN, (_, commandPrefix, params) => {
-      const args = encodeURIComponent(JSON.stringify(JSON.parse(params)));
-      return `${commandPrefix}${args}`;
-    })
-    .replace(FILE_REFERENCE_PATTERN, (_, isImage, prefix, filePath) => {
-      const workspaceUri = workspace.getWorkspaceFolder(
-        Uri.parse(store.activeTour!.tour.id)
-      )!.uri;
-      const fileUri = Uri.joinPath(workspaceUri, filePath);
-
-      if (isImage) {
-        return `!${prefix}${fileUri.toString()}`;
-      } else {
-        const args = encodeURIComponent(JSON.stringify([fileUri]));
-        return `${prefix}command:vscode.open?${args} "Open ${filePath}"`;
-      }
-    })
-    .replace(TOUR_REFERENCE_PATTERN, (_, linkTitle, tourTitle, stepNumber) => {
-      if (!tourTitle) {
-        const title = linkTitle || `#${stepNumber}`;
-        return `[${title}](command:codetour.navigateToStep?${stepNumber} "Navigate to step #${stepNumber}")`;
-      }
-
-      const tours = store.activeTour?.tours || store.tours;
-      const tour = tours.find(tour => getTourTitle(tour) === tourTitle);
-      if (tour) {
-        const args: [string, number?] = [tour.title];
-
-        if (stepNumber) {
-          args.push(Number(stepNumber));
-        }
-        const argsContent = encodeURIComponent(JSON.stringify(args));
-        const title = linkTitle || tour.title;
-        return `[${title}](command:codetour.startTourByTitle?${argsContent} "Start \\"${tour.title}\\" tour")`;
-      }
-
-      return _;
-    })
-    .replace(CODE_FENCE_PATTERN, (_, codeBlock) => {
-      const params = encodeURIComponent(JSON.stringify([codeBlock]));
-      return `${_}
-↪ [Insert Code](command:codetour.insertCodeSnippet?${params} "Insert Code")`;
-    });
-}
+export { generatePreviewContent } from "./description";
 
 export class CodeTourComment implements Comment {
   public id: string = (++id).toString();
@@ -125,11 +66,9 @@ export class CodeTourComment implements Comment {
     public parent: CommentThread,
     public mode: CommentMode
   ) {
-    const body =
-      mode === CommentMode.Preview ? generatePreviewContent(content) : content;
-
-    this.body = new MarkdownString(body);
+    this.body = new MarkdownString(content);
     this.body.isTrusted = true;
+    this.body.supportHtml = mode === CommentMode.Preview;
   }
 }
 
@@ -140,6 +79,7 @@ export async function focusPlayer() {
   if (!currentThread?.range) {
     return;
   }
+
   showDocument(currentThread.uri, currentThread.range);
 }
 
@@ -153,8 +93,6 @@ export async function startPlayer() {
     CONTROLLER_LABEL
   );
 
-  // TODO: Correctly limit the commenting ranges
-  // to files within the workspace root
   controller.commentingRangeProvider = {
     provideCommentingRanges: (document: TextDocument) => {
       if (store.isRecording) {
@@ -232,12 +170,22 @@ function getNextTour(): CodeTour | undefined {
 }
 
 async function renderCurrentStep() {
-  if (store.activeTour!.thread) {
-    store.activeTour!.thread.dispose();
+  const request = ++renderRequest;
+  const activeTour = store.activeTour;
+  if (!activeTour) {
+    return;
   }
 
-  const currentTour = store.activeTour!.tour;
-  const currentStep = store.activeTour!.step;
+  if (activeTour.thread) {
+    activeTour.thread.dispose();
+  }
+
+  const currentTour = activeTour.tour;
+  const currentStep = activeTour.step;
+  const isCurrentRequest = () =>
+    request === renderRequest &&
+    store.activeTour === activeTour &&
+    activeTour.step === currentStep;
 
   const step = currentTour!.steps[currentStep];
   if (!step) {
@@ -246,6 +194,9 @@ async function renderCurrentStep() {
 
   const workspaceRoot = store.activeTour?.workspaceRoot;
   const uri = await getStepFileUri(step, workspaceRoot, currentTour.ref);
+  if (!isCurrentRequest()) {
+    return;
+  }
 
   let line = step.line
     ? step.line - 1
@@ -257,6 +208,9 @@ async function renderCurrentStep() {
     const stepPattern = step.pattern || getActiveStepMarker();
     if (stepPattern) {
       const document = await workspace.openTextDocument(uri);
+      if (!isCurrentRequest()) {
+        return;
+      }
       const match = document.getText().match(new RegExp(stepPattern, "m"));
       if (match) {
         line = document.positionAt(match.index!).line;
@@ -265,9 +219,6 @@ async function renderCurrentStep() {
   }
 
   if (line === undefined) {
-    // The step doesn't have a discoverable line number and so
-    // stick the step at the end of the file. Unfortunately, there
-    // isn't a way to say EOF, so 2000 is a temporary hack.
     line = 2000;
   }
 
@@ -279,13 +230,29 @@ async function renderCurrentStep() {
     label += ` (${title})`;
   }
 
-  store.activeTour!.thread = controller!.createCommentThread(uri, range, []);
+  if (!isCurrentRequest()) {
+    return;
+  }
+
+  const thread = controller!.createCommentThread(uri, range, []);
+  activeTour.thread = thread;
 
   const mode =
     store.isRecording && store.isEditing
       ? CommentMode.Editing
       : CommentMode.Preview;
   let content = step.description;
+  if (mode === CommentMode.Preview) {
+    content = await renderPreviewDescription(content, undefined, {
+      tour: currentTour,
+      tours: activeTour.tours,
+      workspaceRoot
+    });
+  }
+  if (!isCurrentRequest()) {
+    thread.dispose();
+    return;
+  }
 
   let hasPreviousStep = currentStep > 0;
   const hasNextStep = currentStep < currentTour.steps.length - 1;
@@ -293,7 +260,7 @@ async function renderCurrentStep() {
 
   const showNavigation = hasPreviousStep || hasNextStep || isFinalStep;
   if (!store.isEditing && showNavigation) {
-    content += "\n\n---\n";
+    const navigationLinks: string[] = [];
 
     if (hasPreviousStep) {
       const stepLabel = getStepLabel(
@@ -303,7 +270,9 @@ async function renderCurrentStep() {
         false
       );
       const suffix = stepLabel ? ` (${stepLabel})` : "";
-      content += `← [Previous${suffix}](command:codetour.previousTourStep "Navigate to previous step")`;
+      navigationLinks.push(
+        `← [Previous${suffix}](command:codetour.previousTourStep "Navigate to previous step")`
+      );
     } else {
       const previousTour = getPreviousTour();
       if (previousTour) {
@@ -313,11 +282,12 @@ async function renderCurrentStep() {
         const argsContent = encodeURIComponent(
           JSON.stringify([previousTour.title])
         );
-        content += `← [Previous Tour (${tourTitle})](command:codetour.startTourByTitle?${argsContent} "Navigate to previous tour")`;
+        navigationLinks.push(
+          `← [Previous Tour (${tourTitle})](command:codetour.startTourByTitle?${argsContent} "Navigate to previous tour")`
+        );
       }
     }
 
-    const prefix = hasPreviousStep ? " | " : "";
     if (hasNextStep) {
       const stepLabel = getStepLabel(
         currentTour,
@@ -326,7 +296,9 @@ async function renderCurrentStep() {
         false
       );
       const suffix = stepLabel ? ` (${stepLabel})` : "";
-      content += `${prefix}[Next${suffix}](command:codetour.nextTourStep "Navigate to next step") →`;
+      navigationLinks.push(
+        `[Next${suffix}](command:codetour.nextTourStep "Navigate to next step") →`
+      );
     } else if (isFinalStep) {
       const nextTour = getNextTour();
       if (nextTour) {
@@ -334,23 +306,33 @@ async function renderCurrentStep() {
         const argsContent = encodeURIComponent(
           JSON.stringify([nextTour.title])
         );
-        content += `${prefix}[Next Tour (${tourTitle})](command:codetour.finishTour?${argsContent} "Start next tour")`;
+        navigationLinks.push(
+          `[Next Tour (${tourTitle})](command:codetour.finishTour?${argsContent} "Start next tour")`
+        );
       } else {
-        content += `${prefix}[Finish Tour](command:codetour.finishTour "Finish the tour")`;
+        navigationLinks.push(
+          `[Finish Tour](command:codetour.finishTour "Finish the tour")`
+        );
       }
     }
+
+    content = appendCommentNavigation(content, navigationLinks);
   }
 
   const comment = new CodeTourComment(
     content,
     label,
-    store.activeTour!.thread!,
+    thread,
     mode
   );
 
-  // @ts-ignore
-  store.activeTour!.thread.canReply = false;
-  store.activeTour!.thread.comments = [comment];
+  if (!isCurrentRequest()) {
+    thread.dispose();
+    return;
+  }
+
+  thread.canReply = false;
+  thread.comments = [comment];
 
   const contextValues = [];
   if (hasPreviousStep) {
@@ -361,15 +343,12 @@ async function renderCurrentStep() {
     contextValues.push("hasNext");
   }
 
-  store.activeTour!.thread.contextValue = contextValues.join(".");
-  store.activeTour!.thread.collapsibleState =
+  thread.contextValue = contextValues.join(".");
+  thread.collapsibleState =
     CommentThreadCollapsibleState.Expanded;
 
   let selection;
   if (step.selection) {
-    // Adjust the 1-based positions
-    // to the 0-based positions that
-    // VS Code's editor uses.
     selection = new Selection(
       step.selection.start.line - 1,
       step.selection.start.character - 1,
@@ -426,8 +405,6 @@ async function showDocument(uri: Uri, range: Range, selection?: Selection) {
       editor => editor.document.uri.toString() === uri.toString()
     ) || (await window.showTextDocument(uri, { preserveFocus: true }));
 
-  // TODO: Figure out how to force focus when navigating
-  // to documents which are already open.
 
   if (selection) {
     document.selection = selection;
@@ -438,7 +415,14 @@ async function showDocument(uri: Uri, range: Range, selection?: Selection) {
 
 export function registerPlayerModule(context: ExtensionContext) {
   registerPlayerCommands();
-  registerTreeProvider(context.extensionPath);
+  context.subscriptions.push(
+    registerTreeProvider(context.extensionPath, () => {
+      clearMermaidRenderCache();
+      if (store.activeTour && !store.isEditing) {
+        renderCurrentStep();
+      }
+    })
+  );
   registerFileSystemProvider();
   registerTextDocumentContentProvider();
   registerStatusBar();
@@ -447,8 +431,6 @@ export function registerPlayerModule(context: ExtensionContext) {
 
   initializeStorage(context);
 
-  // Watch for changes to the active tour property,
-  // and automatically re-render the current step in response.
   reaction(
     () => [
       store.activeTour

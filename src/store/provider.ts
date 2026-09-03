@@ -67,14 +67,9 @@ export async function discoverTours(): Promise<void> {
 
       if (tour) {
         if (!comparer.structural(store.activeTour.tour, tour)) {
-          // Since the active tour could be already observed,
-          // we want to update it in place with the new properties.
           set(store.activeTour.tour, tour);
         }
       } else {
-        // The user deleted the tour
-        // file that's associated with
-        // the active tour, so end it
         endCurrentCodeTour();
       }
     }
@@ -101,7 +96,7 @@ async function discoverMainTours(
     })
   );
 
-  return tours.filter(tour => tour);
+  return tours.filter((tour): tour is CodeTour => tour !== undefined);
 }
 
 async function readTourDirectory(uri: vscode.Uri): Promise<CodeTour[]> {
@@ -113,15 +108,14 @@ async function readTourDirectory(uri: vscode.Uri): Promise<CodeTour[]> {
         if (type === vscode.FileType.File) {
           return readTourFile(fileUri);
         } else if (type === vscode.FileType.SymbolicLink) {
-          return readTourFile(fileUri)
+          return readTourFile(fileUri);
         } else {
           return readTourDirectory(fileUri);
         }
       })
     );
 
-    // @ts-ignore
-    return tours.flat().filter(tour => tour);
+    return tours.flat().filter((tour): tour is CodeTour => tour !== undefined);
   } catch {
     return [];
   }

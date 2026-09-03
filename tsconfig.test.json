@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist/test",
+    "types": ["node"]
+  },
+  "include": [
+    "src/player/insertCode.ts",
+    "src/player/insertCode.test.ts",
+    "src/player/navigation.ts",
+    "src/player/navigation.test.ts",
+    "src/recorder/saveStep.ts",
+    "src/recorder/saveStep.test.ts"
+  ]
+}

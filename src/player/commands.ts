@@ -21,8 +21,20 @@ import { CodeTourNode } from "./tree/nodes";
 
 let terminal: vscode.Terminal | null;
 export function registerPlayerCommands() {
-  // This is a "private" command that's used exclusively
-  // by the hover description for tour markers.
+  vscode.commands.registerCommand(
+    `${EXTENSION_NAME}._getActiveCommentBody`,
+    () => {
+      const comment = store.activeTour?.thread?.comments[0];
+      if (!comment) {
+        return undefined;
+      }
+
+      return comment.body instanceof vscode.MarkdownString
+        ? comment.body.value
+        : comment.body;
+    }
+  );
+
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}._startTourById`,
     async (id: string, stepNumber: number) => {
@@ -33,7 +45,6 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Purpose: Command link
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.startTourByTitle`,
     async (title: string, stepNumber?: number) => {
@@ -68,7 +79,6 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Purpose: Command link
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.navigateToStep`,
     async (stepNumber: number) => {
@@ -83,7 +93,6 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Purpose: Command link and the ">>" syntax
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.sendTextToTerminal`,
     async (text: string) => {
