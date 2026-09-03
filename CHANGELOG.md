@@ -2,6 +2,8 @@
 
 - Added a bundled, workspace-confined MCP server for generating Project Tours
   and Changes Tours from VS Code and GitHub Copilot.
+- Added secure, theme-aware Mermaid diagrams to Tour descriptions and MCP
+  validation.
 
 - Automatically updating a tour file as the associated code changes
 - Automatically set the "pattern" record mode when you create a new tour, and select `None` for the git ref
