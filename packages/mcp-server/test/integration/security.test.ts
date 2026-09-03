@@ -84,9 +84,18 @@ test("exposes exactly two tools", async () => {
       const project = tools.tools.find((tool) => tool.name === "create_project_tour");
       assert.ok(project);
       assert.ok(project!.description!.includes("Project Tour"));
+      assert.ok(
+        project!.description!.includes("Begin with a directory-anchored overview step")
+      );
+      assert.ok(project!.description!.includes("tour is scoped to a subdirectory"));
+      assert.ok(project!.description!.includes("Use Mermaid sparingly"));
+      assert.ok(project!.description!.includes("flowchart, sequenceDiagram"));
+      assert.ok(project!.description!.includes("at most 3 Mermaid fences"));
+      assert.ok(project!.description!.includes("20 KB"));
       const changes = tools.tools.find((tool) => tool.name === "create_changes_tour");
       assert.ok(changes);
       assert.ok(changes!.description!.includes("Changes Tour"));
+      assert.ok(changes!.description!.includes("**Diagram — …**"));
     });
   } finally {
     rmrf(root);

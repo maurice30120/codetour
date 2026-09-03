@@ -29,6 +29,10 @@ import {
   validateProjectParams,
   validateSteps,
 } from "./validation";
+import {
+  MERMAID_TOOL_GUIDANCE,
+  validateMermaidDescriptions,
+} from "./mermaid-validation";
 import packageJson from "../package.json";
 
 
@@ -44,7 +48,10 @@ const PROJECT_TOUR_DESCRIPTION =
   ".tours/project.tour (replacing any previously generated tour of the same kind). " +
   "You provide the fully written content; the server only validates and persists it deterministically. " +
   "A good Project Tour ideally covers: the project's purpose, its main entry points, its important " +
-  "components, and its main execution flows. " +
+  "components, and its main execution flows. Begin with a directory-anchored overview step whenever " +
+  "the project has a meaningful directory structure. If the tour is scoped to a subdirectory, anchor " +
+  "that first step to the exact workspace-relative directory. Use additional directory-anchored steps " +
+  "to introduce major components before moving into detailed file anchors. " +
   "Arguments: an optional title (defaults to \"Project Overview\"), an optional description, and a " +
   "required non-empty steps array. Each step takes an optional title, a required Markdown description, " +
   "and at most one locator: a file or a directory (workspace-relative paths). A step may also target a " +
@@ -53,7 +60,8 @@ const PROJECT_TOUR_DESCRIPTION =
   "evolution, and use a line only as a fallback. Steps without any locator are allowed for general " +
   "context. Every anchor is " +
   "validated against the real workspace state, and all validation errors are reported in a single " +
-  "response. On failure, the previous tour file is preserved.";
+  "response. On failure, the previous tour file is preserved. " +
+  MERMAID_TOOL_GUIDANCE;
 
 const CHANGES_TOUR_DESCRIPTION =
   "Creates a CodeTour Changes Tour that explains the committed changes on the current branch since it " +
@@ -69,7 +77,8 @@ const CHANGES_TOUR_DESCRIPTION =
   "provide essential context, and deleted files must be explained with steps that have no locator. " +
   "Uncommitted changes are excluded by default and reported as a warning; pass includeUncommittedChanges to " +
   "include them explicitly. The description is automatically enriched with the base, merge-base and " +
-  "head. On failure, the previous tour file is preserved.";
+  "head. On failure, the previous tour file is preserved. " +
+  MERMAID_TOOL_GUIDANCE;
 
 const warningSchema = z.object({
   code: z.string(),
@@ -143,12 +152,24 @@ async function handleCreateProjectTour(
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
+  const { params, issues: paramIssues } = validateProjectParams(args);
+  const mermaidIssues = await validateMermaidDescriptions(args);
   if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
+    if (mermaidIssues.length === 0) {
+      return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
+    }
+
+    return errorResponse(
+      "INVALID_PROPOSAL",
+      "The create_project_tour arguments are invalid.",
+      [
+        ...mermaidIssues,
+        { path: "steps", message: "is required and must contain at least one step" }
+      ]
+    );
   }
 
-  const { params, issues: paramIssues } = validateProjectParams(args);
-  const allIssues = [...paramIssues];
+  const allIssues = [...paramIssues, ...mermaidIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);
@@ -191,12 +212,24 @@ async function handleCreateChangesTour(
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
+  const { params, issues: paramIssues } = validateChangesParams(args);
+  const mermaidIssues = await validateMermaidDescriptions(args);
   if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
+    if (mermaidIssues.length === 0) {
+      return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
+    }
+
+    return errorResponse(
+      "INVALID_PROPOSAL",
+      "The create_changes_tour arguments are invalid.",
+      [
+        ...mermaidIssues,
+        { path: "steps", message: "is required and must contain at least one step" }
+      ]
+    );
   }
 
-  const { params, issues: paramIssues } = validateChangesParams(args);
-  const allIssues = [...paramIssues];
+  const allIssues = [...paramIssues, ...mermaidIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);
