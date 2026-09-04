@@ -17,10 +17,16 @@ import {
 } from "../store/actions";
 import { progress } from "../store/storage";
 import { readUriContents } from "../utils";
+import { showStepDescription } from "./descriptionWebview";
 import { CodeTourNode } from "./tree/nodes";
 
 let terminal: vscode.Terminal | null;
 export function registerPlayerCommands() {
+  vscode.commands.registerCommand(
+    `${EXTENSION_NAME}.showStepDescription`,
+    showStepDescription
+  );
+
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}._getActiveCommentBody`,
     () => {
