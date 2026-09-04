@@ -4,5 +4,15 @@
     "outDir": "dist/test",
     "types": ["node"]
   },
-  "include": ["src/player/insertCode.ts", "src/player/insertCode.test.ts"]
+  "include": [
+    "src/player/insertCode.ts",
+    "src/player/insertCode.test.ts",
+    "src/player/commentMenu.test.ts",
+    "src/player/navigation.ts",
+    "src/player/navigation.test.ts",
+    "src/player/descriptionWebview.test.ts",
+    "src/player/markdown.ts",
+    "src/recorder/saveStep.ts",
+    "src/recorder/saveStep.test.ts"
+  ]
 }
