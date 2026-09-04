@@ -56,6 +56,16 @@ const SERVER_VERSION = packageJson.version;
 const PROJECT_TOUR_PATH = ".tours/project.tour";
 const CHANGES_TOUR_PATH = ".tours/changes.tour";
 
+const MARKDOWN_WRITING_GUIDANCE =
+  "Write the Tour-level description and every step description as readable Markdown. " +
+  "Split distinct ideas into short paragraphs separated by blank lines (`\\n\\n`), because " +
+  "a single newline (`\\n`) is a Markdown soft break and may render as a space. Use a short " +
+  "heading when a description covers multiple topics, and use bullet or numbered lists " +
+  "for collections, alternatives, or sequences. Use **bold** sparingly for important " +
+  "concepts and backticks for code identifiers. Avoid dense monolithic paragraphs, and " +
+  "keep each explanation concise and tied to the current Tour Anchor. Do not add " +
+  "structure mechanically: a short, single-purpose description may remain one paragraph. ";
+
 const PROJECT_TOUR_DESCRIPTION =
   "Creates a CodeTour Project Tour that explains a codebase as a whole, persisted at " +
   ".tours/project.tour (replacing any previously generated tour of the same kind). " +
@@ -74,6 +84,7 @@ const PROJECT_TOUR_DESCRIPTION =
   "context. Every anchor is " +
   "validated against the real workspace state, and all validation errors are reported in a single " +
   "response. On failure, the previous tour file is preserved. " +
+  MARKDOWN_WRITING_GUIDANCE +
   MERMAID_TOOL_GUIDANCE;
 
 const CHANGES_TOUR_DESCRIPTION =
@@ -91,6 +102,7 @@ const CHANGES_TOUR_DESCRIPTION =
   "Uncommitted changes are excluded by default and reported as a warning; pass includeUncommittedChanges to " +
   "include them explicitly. The description is automatically enriched with the base, merge-base and " +
   "head. On failure, the previous tour file is preserved. " +
+  MARKDOWN_WRITING_GUIDANCE +
   MERMAID_TOOL_GUIDANCE;
 
 const warningSchema = z.object({
@@ -114,16 +126,36 @@ const toolResultSchema = z.object({
 const projectToolInputSchema = z
   .object({
     title: z.unknown().optional(),
-    description: z.unknown().optional(),
-    steps: z.unknown().optional(),
+    description: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional readable Markdown overview; separate distinct ideas with blank lines between paragraphs."
+      ),
+    steps: z
+      .unknown()
+      .optional()
+      .describe(
+        "Non-empty array whose descriptions use concise Markdown with blank lines between paragraphs."
+      ),
   })
   .passthrough();
 
 const changesToolInputSchema = z
   .object({
     title: z.unknown().optional(),
-    description: z.unknown().optional(),
-    steps: z.unknown().optional(),
+    description: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional readable Markdown overview; separate distinct ideas with blank lines between paragraphs."
+      ),
+    steps: z
+      .unknown()
+      .optional()
+      .describe(
+        "Non-empty array whose descriptions use concise Markdown with blank lines between paragraphs."
+      ),
     baseRef: z.unknown().optional(),
     headRef: z.unknown().optional(),
     includeUncommittedChanges: z.unknown().optional(),
