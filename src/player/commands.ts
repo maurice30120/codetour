@@ -17,12 +17,18 @@ import {
 } from "../store/actions";
 import { progress } from "../store/storage";
 import { readUriContents } from "../utils";
+import { showStepDescription } from "./descriptionWebview";
 import { CodeTourNode } from "./tree/nodes";
 
 let terminal: vscode.Terminal | null;
 export function registerPlayerCommands() {
   // Internal inspection seam used by the development-host smoke test. It
   // reads the comment owned by the active player, not a renderer-side value.
+  vscode.commands.registerCommand(
+    `${EXTENSION_NAME}.showStepDescription`,
+    showStepDescription
+  );
+
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}._getActiveCommentBody`,
     () => {

@@ -11,7 +11,10 @@ import {
 import { Issue } from "./types";
 
 const MERMAID_TOOL_GUIDANCE =
-  `Use Mermaid sparingly: add a diagram only when it materially clarifies a relationship, flow, state, sequence, class, or entity. ` +
+  `Use Mermaid when it materially clarifies a relationship, flow, state, sequence, class, or entity. ` +
+  `For architecture, workflow, lifecycle, or multi-module Tours, include at least one Mermaid diagram ` +
+  `when it can summarize relationships spanning several steps. Omit diagrams only when the Tour has ` +
+  `no meaningful relationship, flow, state transition, or sequence to visualize. ` +
   "If you use one, put the nearest non-blank line before a bare ```mermaid fence in the form " +
   "**Diagram — …**; keep that caption visible and descriptive. " +
   `Only these Mermaid kinds are allowed: ${ALLOWED_DIAGRAM_KINDS.join(", ")}. ` +

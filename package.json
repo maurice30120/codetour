@@ -235,6 +235,12 @@
         "icon": "$(eye)"
       },
       {
+        "command": "codetour.showStepDescription",
+        "title": "Show Expanded Description",
+        "category": "CodeTour",
+        "icon": "$(preview)"
+      },
+      {
         "command": "codetour.startTour",
         "title": "Start Tour",
         "category": "CodeTour",
@@ -365,6 +371,10 @@
           "when": "false"
         },
         {
+          "command": "codetour.showStepDescription",
+          "when": "false"
+        },
+        {
           "command": "codetour.unmakeTourPrimary",
           "when": "false"
         },
@@ -374,6 +384,11 @@
         }
       ],
       "comments/commentThread/title": [
+        {
+          "command": "codetour.showStepDescription",
+          "group": "inline@0",
+          "when": "commentController == codetour"
+        },
         {
           "command": "codetour.previousTourStep",
           "group": "inline@1",
@@ -676,12 +691,16 @@
     "@types/jexl": "^2.2.0",
     "axios": "^0.21.4",
     "jexl": "^2.3.0",
+    "markdown-it": "^12.3.2",
     "mobx": "^5.14.2",
+    "sanitize-html": "^2.13.1",
     "throttle-debounce": "^3.0.1",
     "vsls": "^1.0.2532"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^18.14.0",
+    "@types/sanitize-html": "^2.11.0",
     "@types/throttle-debounce": "^5.0.0",
     "@types/vscode": "1.101.0",
     "@vscode/vsce": "^2.17.0",
