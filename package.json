@@ -236,7 +236,7 @@
       },
       {
         "command": "codetour.showStepDescription",
-        "title": "Afficher la description en grand",
+        "title": "Show Expanded Description",
         "category": "CodeTour",
         "icon": "$(preview)"
       },

@@ -21,7 +21,10 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
-const result = spawnSync(process.execPath, ["--test", ...testFiles], {
+// Some integration tests package the MCP server, whose prepack hook refreshes
+// its staged renderer. Run test files serially so that refresh cannot race
+// with another test process loading the staged package.
+const result = spawnSync(process.execPath, ["--test", "--test-concurrency=1", ...testFiles], {
   stdio: "inherit"
 });
 

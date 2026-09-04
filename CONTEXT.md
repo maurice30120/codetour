@@ -16,6 +16,10 @@ _Avoid_: Change mode, diff tour, branch tour
 An ordered sequence of contextual explanations attached to relevant locations in a codebase.
 _Avoid_: Walkthrough file, generated documentation
 
+**Tour Step**:
+One contextual stop in a Tour, anchored to a code location or content surface and carrying a description.
+_Avoid_: Comment, slide
+
 **Tour Anchor**:
 A stable location in the codebase that associates a Tour step with the code or directory it explains.
 _Avoid_: Pointer, target
@@ -31,3 +35,7 @@ _Avoid_: Schema, generated image
 **Tour Workspace**:
 The single project directory that a Tour Generator is allowed to inspect and in which generated Tours are persisted.
 _Avoid_: Workspace root argument, current folder
+
+**Playback Surface**:
+A user-visible place where a Tour or Tour Step description is presented while reading a Tour.
+_Avoid_: Component, container
