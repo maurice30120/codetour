@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-package:
+    name: Test and package plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/description-renderer/package-lock.json
+            packages/mcp-server/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install description renderer dependencies
+        run: npm ci --prefix packages/description-renderer
+
+      - name: Install MCP server dependencies
+        run: npm ci --prefix packages/mcp-server
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build VSIX artifact
+        run: npm run package
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codetour-linux-x64-${{ github.sha }}
+          path: codetour-linux-x64-*.vsix
+          if-no-files-found: error
+          retention-days: 14

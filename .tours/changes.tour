@@ -1,0 +1,54 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Descriptions de tour cliquables dans un webview",
+  "description": "Cette branche ajoute une vue agrandie pour lire la description de l'étape CodeTour active. Depuis la barre d'actions du commentaire, l'utilisateur ouvre un panneau latéral qui rend le Markdown, conserve les liens CodeTour et protège le webview contre le HTML ou les URI dangereux.\n\nElle complète aussi les consignes du serveur MCP afin que les tours générés restent lisibles et utilisent Mermaid lorsqu'un diagramme apporte une vraie vue d'ensemble.\n\nGenerated from `feature/mermaid-tour-support` (`ba7f55f65b262af892aca94fb8cb2582c0757f9b`) to `feature/clickable-tour-description-webview` (`591effd`). Les modifications locales non commitées sont exclues.",
+  "ref": "591effd",
+  "steps": [
+    {
+      "title": "Point d'entrée dans l'interface",
+      "description": "La nouvelle commande `codetour.showStepDescription` est déclarée dans le manifeste et ajoutée à la barre d'actions du commentaire CodeTour. L'icône d'aperçu apparaît en première position, tandis que les commandes de navigation et de fin de tour conservent leurs rôles.\n\nLa commande est également disponible dans la palette et dans les menus associés au contexte de lecture.",
+      "file": "package.json",
+      "pattern": "codetour.showStepDescription"
+    },
+    {
+      "title": "Enregistrement de la commande",
+      "description": "Le player relie la contribution du manifeste à `showStepDescription`. Cette petite couture garde le manifeste déclaratif et délègue toute la logique de présentation au module du webview.",
+      "file": "src/player/commands.ts",
+      "pattern": "showStepDescription"
+    },
+    {
+      "title": "Ouverture de la description active",
+      "description": "`showStepDescription` récupère le tour et l'étape actifs, ignore proprement les cas sans description, puis passe le contenu dans le pipeline de prévisualisation existant. Les liens de fichiers, références de tours, commandes et images Mermaid bénéficient ainsi des mêmes transformations que les autres surfaces de lecture.\n\nUn seul panneau est réutilisé au fil des étapes. Son titre et son contenu sont actualisés, et les références globales sont nettoyées à sa fermeture.",
+      "file": "src/player/descriptionWebview.ts",
+      "pattern": "export async function showStepDescription"
+    },
+    {
+      "title": "Liens réellement cliquables",
+      "description": "Le webview renvoie les clics au processus de l'extension. Les commandes sont limitées à `codetour.*` et `vscode.open`, les liens HTTP, HTTPS et mailto sont ouverts à l'extérieur, et les chemins relatifs sont résolus dans le workspace.\n\nLes objets URI encodés dans les arguments de commande sont reconstruits avant l'appel à VS Code, ce qui permet aux liens enrichis produits par CodeTour de continuer à fonctionner.",
+      "file": "src/player/descriptionWebview.ts",
+      "pattern": "async function openLink"
+    },
+    {
+      "title": "Rendu Markdown centralisé et sécurisé",
+      "description": "Le nouveau module convertit le Markdown avec `markdown-it`, puis nettoie systématiquement le HTML avec `sanitize-html`. L'allowlist conserve le balisage de présentation, les liens, le code et les images nécessaires au renderer Mermaid, tout en supprimant scripts, attributs et protocoles non autorisés.\n\nLe document final ajoute une Content Security Policy avec nonce, reprend les couleurs du thème VS Code et intercepte les liens non locaux pour les transmettre à l'extension.\n\n**Diagram — Flux d'une description jusqu'à l'action utilisateur**\n```mermaid\nflowchart LR\n  A[Description de l'étape] --> B[Pipeline CodeTour]\n  B --> C[Markdown-it]\n  C --> D[Sanitization HTML]\n  D --> E[Webview sécurisé]\n  E -->|clic| F[Validation du lien]\n  F --> G[Commande VS Code ou navigateur]\n```",
+      "file": "src/player/markdown.ts",
+      "pattern": "export function renderMarkdownToHtml"
+    },
+    {
+      "title": "Décision d'architecture",
+      "description": "L'ADR formalise la séparation entre les surfaces natives de VS Code, qui continuent de recevoir du Markdown préparé, et les surfaces HTML possédées par l'extension, qui doivent toutes passer par le renderer et le sanitizer partagés.\n\n`markdown-it` et `sanitize-html` deviennent donc des dépendances directes: leur version et leur politique de sécurité font partie du contrat de CodeTour au lieu de dépendre d'une dépendance transitive.",
+      "file": "docs/adr/0009-centralize-markdown-rendering-and-sanitization.md"
+    },
+    {
+      "title": "Couverture du comportement et de la sécurité",
+      "description": "Les tests du webview vérifient le rendu d'un titre Markdown, la transmission des clics, la Content Security Policy, l'échappement du titre du panneau et la suppression des scripts ou liens `javascript:`.\n\nUn test séparé contrôle la contribution de menu pour garantir que le nouveau bouton ne remplace pas l'action `End Tour`.",
+      "file": "src/player/descriptionWebview.test.ts"
+    },
+    {
+      "title": "Des tours MCP plus lisibles",
+      "description": "Le second commit enrichit les instructions exposées par `create_project_tour` et `create_changes_tour`. Les descriptions doivent utiliser des paragraphes courts séparés par des lignes vides, des listes lorsque cela clarifie une collection ou une séquence, et éviter les gros blocs de texte.\n\nLes tours d'architecture, de workflow, de cycle de vie ou multi-modules sont désormais encouragés à inclure un diagramme Mermaid quand il synthétise des relations réparties sur plusieurs étapes. Le schéma d'entrée et les tests d'intégration rendent ces attentes visibles et vérifiables.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "MARKDOWN_WRITING_GUIDANCE"
+    }
+  ]
+}

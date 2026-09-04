@@ -698,6 +698,7 @@
     "webpack-merge": "^5.8.0"
   },
   "scripts": {
+    "prototype:mermaid-height": "python3 -m http.server 4173 --directory src/player",
     "build:mcp": "npm --prefix packages/mcp-server run build",
     "build:renderer": "npm --prefix packages/description-renderer run build",
     "build": "npm run build:renderer && npm run build:mcp && webpack --mode production && npm run prepare:resvg",
