@@ -1,5 +1,16 @@
 # CodeTour 🗺️
 
+## AI-generated tours
+
+The desktop extension includes a local MCP server with tools for generating a
+Project Tour or a Changes Tour. VS Code and GitHub Copilot discover one confined
+server per workspace folder automatically; no `.vscode/mcp.json` file is
+required. The server is bundled in the VSIX and never accesses the network.
+
+To use the same tools in Codex, run `CodeTour: Configure MCP for Codex` from the
+Command Palette. If the extension was moved or updated and Codex still points
+to an older bundle, run `CodeTour: Repair MCP Configuration for Codex`.
+
 CodeTour is a Visual Studio Code extension, which allows you to record and play back guided walkthroughs of your codebases. It's like a table of contents, that can make it easier to onboard (or re-board!) to a new project/feature area, visualize bug reports, or understand the context of a code review/PR change. A "code tour" is simply a series of interactive steps, each of which are associated with a specific directory, or file/line, and include a description of the respective code. This allows developers to clone a repo, and then immediately start **learning it**, without needing to refer to a `CONTRIBUTING.md` file and/or rely on help from others. Tours can either be checked into a repo, to enable sharing with other contributors, or [exported](#exporting-tours) to a "tour file", which allows anyone to replay the same tour, without having to clone any code to do it!
 
 <img width="800px" src="https://user-images.githubusercontent.com/116461/76165260-c6c00500-6112-11ea-9cda-0a6cb9b72e8f.gif" />

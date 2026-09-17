@@ -8,10 +8,6 @@ const config = {
     vscode: "commonjs vscode"
   },
   resolve: {
-    fallback: {
-      os: require.resolve("os-browserify/browser"),
-      path: require.resolve("path-browserify")
-    },
     extensions: [".ts", ".js", ".json"]
   },
   node: {
@@ -52,15 +48,17 @@ const nodeConfig = {
   }
 };
 
-const webConfig = {
+const mcpConfig = {
   ...config,
-  target: 'webworker',
+  target: "node18",
+  entry: "./packages/mcp-server/dist/src/cli.js",
+  externals: {},
   output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'extension-web.js',
+    path: path.resolve(__dirname, "dist"),
+    filename: "mcp-server.js",
     libraryTarget: "commonjs2",
-    devtoolModuleFilenameTemplate: "../[resource-path]",
+    devtoolModuleFilenameTemplate: "../[resource-path]"
   }
 };
 
-module.exports = [nodeConfig, webConfig];
+module.exports = [nodeConfig, mcpConfig];
