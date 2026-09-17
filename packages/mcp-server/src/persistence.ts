@@ -5,8 +5,8 @@ import { WorkspaceContext } from "./types";
 // Atomically write generated Tours: write the content to a temporary file in
 // the same directory, sync it, then rename it over the destination. A failure
 // never leaves a partial file and preserves the previous version. The output
-// directory must remain confined to the workspace (real path resolved before
-// writing).
+// directory must remain confined to the workspace, whose real path is resolved
+// before writing.
 
 export class OutputPathError extends Error {}
 

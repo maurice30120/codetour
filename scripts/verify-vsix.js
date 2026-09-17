@@ -44,16 +44,15 @@ function listFiles(directory, prefix = "") {
   return files;
 }
 
-function verify(artifact, target) {
+function verify(artifact) {
   const extractionRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codetour-vsix-"));
   try {
     extract(artifact, extractionRoot);
     const extensionRoot = path.join(extractionRoot, "extension");
-    const files = listFiles(extensionRoot).map((file) => file.split(path.sep).join("/"));
-    if (files.some((file) => file.includes("extension-web"))) {
+    const files = listFiles(extensionRoot).map(file => file.split(path.sep).join("/"));
+    if (files.some(file => file.includes("extension-web"))) {
       fail("The VSIX contains the removed extension-web artifact.");
     }
-
     const packageJson = JSON.parse(
       fs.readFileSync(path.join(extensionRoot, "package.json"), "utf8")
     );
@@ -61,59 +60,27 @@ function verify(artifact, target) {
       fail("The VSIX package manifest is not Node-extension-only.");
     }
 
-    const manifest = JSON.parse(
-      fs.readFileSync(path.join(extensionRoot, "dist", "resvg-runtime", "manifest.json"), "utf8")
-    );
-    if (manifest.target !== target) {
-      fail(`The VSIX runtime target is ${manifest.target}, expected ${target}.`);
+    const mcpPath = path.join(extensionRoot, "dist", "mcp-server.js");
+    if (!fs.existsSync(mcpPath)) {
+      fail("The VSIX is missing the bundled MCP server.");
     }
-    const binary = path.join(
-      extensionRoot,
-      "dist",
-      "resvg-runtime",
-      "resvg-js",
-      manifest.binary
-    );
-    if (!fs.existsSync(binary)) {
-      fail(`The VSIX is missing its native rasterizer: ${manifest.binary}.`);
-    }
-
-    const resvg = spawnSync(
-      process.execPath,
-      [
-        path.join(__dirname, "verify-resvg-runtime.js"),
-        path.join(extensionRoot, "dist", "resvg-runtime", "resvg-js")
-      ],
-      { encoding: "utf8" }
-    );
-    if (resvg.error) {
-      throw resvg.error;
-    }
-    if (resvg.status !== 0) {
-      fail(
-        `The unpacked VSIX rasterizer did not produce a PNG: ${resvg.stderr || resvg.stdout}`
-      );
-    }
-
-    const mcp = spawnSync(
-      process.execPath,
-      [path.join(extensionRoot, "dist", "mcp-server.js"), "--version"],
-      { cwd: extensionRoot, encoding: "utf8" }
-    );
+    const mcp = spawnSync(process.execPath, [mcpPath, "--version"], {
+      cwd: extensionRoot,
+      encoding: "utf8"
+    });
     if (mcp.status !== 0 || !/^\d+\.\d+\.\d+/u.test((mcp.stdout || "").trim())) {
       fail(`The unpacked MCP server did not start: ${mcp.stderr || mcp.stdout}`);
     }
 
     const size = fs.statSync(artifact).size;
-    console.log(`Verified unpacked ${path.basename(artifact)}: ${files.length} files, ${size} bytes, PNG OK.`);
+    console.log(`Verified unpacked ${path.basename(artifact)}: ${files.length} files, ${size} bytes.`);
   } finally {
     fs.rmSync(extractionRoot, { recursive: true, force: true });
   }
 }
 
 const artifact = process.argv[2];
-const target = process.argv[3];
-if (!artifact || !target) {
-  fail("Usage: node scripts/verify-vsix.js <artifact.vsix> <target>");
+if (!artifact) {
+  fail("Usage: node scripts/verify-vsix.js <artifact.vsix>");
 }
-verify(path.resolve(artifact), target);
+verify(path.resolve(artifact));

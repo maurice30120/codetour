@@ -5,7 +5,7 @@ import * as vscode from "vscode";
 import { initializeApi } from "./api";
 import { initializeGitApi } from "./git";
 import { registerLiveShareModule } from "./liveShare";
-import { registerNotebookProvider } from "./notebook";
+import { registerDesktopIntegrations } from "./desktopIntegration";
 import { registerPlayerModule } from "./player";
 import { registerRecorderModule } from "./recorder";
 import { store } from "./store";
@@ -15,12 +15,11 @@ import {
   startDefaultTour
 } from "./store/actions";
 import { discoverTours as _discoverTours } from "./store/provider";
-import { registerDesktopIntegrations } from "./desktopIntegration";
 
 /**
- * Shares tour discovery between normal project opening and opening through a
- * CodeTour link. This ensures the files are read only once before the
- * requested tour is shown to the user.
+ * In order to check whether the URI handler was called on activation,
+ * we must do this dance around `discoverTours`. The same call to
+ * `discoverTours` is shared between `activate` and the URI handler.
  */
 let cachedDiscoverTours: Promise<void> | undefined;
 function discoverTours(): Promise<void> {
@@ -33,8 +32,8 @@ function startTour(params: URLSearchParams) {
 
   let stepNumber;
   if (step) {
-    // Public links number the first step as 1, while the player uses a
-    // zero-based index internally.
+    // Allow the step number to be
+    // provided as 1-based vs. 0-based
     stepNumber = Number(step) - 1;
   }
 
@@ -78,10 +77,6 @@ class URIHandler implements vscode.UriHandler {
 
 export async function activate(context: vscode.ExtensionContext) {
   registerDesktopIntegrations(context);
-  const notebookProvider = registerNotebookProvider();
-  if (notebookProvider) {
-    context.subscriptions.push(notebookProvider);
-  }
   registerPlayerModule(context);
   registerRecorderModule();
   registerLiveShareModule();

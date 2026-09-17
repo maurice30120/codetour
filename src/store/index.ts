@@ -14,16 +14,19 @@ export interface CodeTourStep {
   description: string;
   icon?: string;
 
-  // A step guides the player to one destination type: a file, directory,
-  // virtual content, resource, or VS Code view.
+  // If any of the following are set, then only
+  // one of them can be, since these properties
+  // indicate the "type" of step.
   file?: string;
   directory?: string;
   contents?: string;
   uri?: string;
   view?: string;
 
-  // The line and selection identify the area to show in a file. Without a
-  // position, the step is presented as an explanation of the entire file.
+  // A line number and selection is only relevant for file-based
+  // steps. And even then, they're optional. If a file-based step
+  // doesn't have a line number, then the description is attached
+  // to the last line in the file, assuming it's describing the file itself
   line?: number;
   selection?: { start: CodeTourStepPosition; end: CodeTourStepPosition };
 
@@ -49,15 +52,20 @@ export interface ActiveTour {
   tour: CodeTour;
   step: number;
 
-  // During recording, a tour can be active before its first comment is placed
-  // in the editor.
+  // When recording, a tour can be active, without
+  // having created an actual comment yet.
   thread: CommentThread | null | undefined;
 
-  // The root identifies the project in which the tour's relative paths open.
+  // In order to resolve relative file
+  // paths, we need to know the workspace root
   workspaceRoot?: Uri;
 
-  // Related tours allow links to open another tour, including when the group
-  // comes from a source outside the project.
+  // In order to resolve inter-tour
+  // links, the active tour might need
+  // the context of its sibling tours, if
+  // they're coming from somewhere other
+  // then the active workspace (e.g. a
+  // GistPad-managed repo).
   tours?: CodeTour[];
 }
 

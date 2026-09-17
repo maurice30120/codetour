@@ -12,9 +12,9 @@ import {
   window
 } from "vscode";
 import { EXTENSION_NAME } from "../../constants";
+import { generatePreviewContent } from "..";
 import { store } from "../../store";
 import { CodeTourNode, CodeTourStepNode } from "./nodes";
-import { renderPreviewDescription } from "../description";
 
 class CodeTourTreeProvider implements TreeDataProvider<TreeItem>, Disposable {
   private _disposables: Disposable[] = [];
@@ -52,10 +52,6 @@ class CodeTourTreeProvider implements TreeDataProvider<TreeItem>, Disposable {
   }
 
   getTreeItem = (node: TreeItem) => node;
-
-  refresh() {
-    this._onDidChangeTreeData.fire(undefined);
-  }
 
   async getChildren(element?: TreeItem): Promise<TreeItem[] | undefined> {
     if (!element) {
@@ -108,46 +104,12 @@ class CodeTourTreeProvider implements TreeDataProvider<TreeItem>, Disposable {
     }
   }
 
-  // When a step is hovered, show a preview of its explanation without making
-  // the user leave the tour overview.
+  // This is called whenever a tree item is hovered over, and we're
+  // using it to generate preview tooltips for tour steps on-demand.
   async resolveTreeItem(element: TreeItem): Promise<TreeItem> {
-    if (element instanceof CodeTourNode && element.tour.description) {
-      const content = await renderPreviewDescription(
-        element.tour.description,
-        undefined,
-        {
-          tour: element.tour,
-          tours:
-            element.tour === store.activeTour?.tour
-              ? store.activeTour.tours
-              : undefined,
-          workspaceRoot:
-            element.tour === store.activeTour?.tour
-              ? store.activeTour.workspaceRoot
-              : undefined
-        }
-      );
-
-      const tooltip = new MarkdownString(content);
-      tooltip.isTrusted = true;
-
-      // @ts-ignore
-      element.tooltip = tooltip;
-    } else if (element instanceof CodeTourStepNode) {
-      const content = await renderPreviewDescription(
-        element.tour.steps[element.stepNumber].description,
-        undefined,
-        {
-          tour: element.tour,
-          tours:
-            element.tour === store.activeTour?.tour
-              ? store.activeTour.tours
-              : undefined,
-          workspaceRoot:
-            element.tour === store.activeTour?.tour
-              ? store.activeTour.workspaceRoot
-              : undefined
-        }
+    if (element instanceof CodeTourStepNode) {
+      const content = generatePreviewContent(
+        element.tour.steps[element.stepNumber].description
       );
 
       const tooltip = new MarkdownString(content);
@@ -165,20 +127,12 @@ class CodeTourTreeProvider implements TreeDataProvider<TreeItem>, Disposable {
   }
 }
 
-export function registerTreeProvider(
-  extensionPath: string,
-  onThemeChanged: () => void
-): Disposable {
+export function registerTreeProvider(extensionPath: string) {
   const treeDataProvider = new CodeTourTreeProvider(extensionPath);
   const treeView = window.createTreeView(`${EXTENSION_NAME}.tours`, {
     showCollapseAll: true,
     treeDataProvider,
     canSelectMany: true
-  });
-
-  const themeChange = window.onDidChangeActiveColorTheme(() => {
-    onThemeChanged();
-    treeDataProvider.refresh();
   });
 
   let isRevealPending = false;
@@ -225,12 +179,4 @@ export function registerTreeProvider(
       }
     }
   );
-
-  return {
-    dispose() {
-      themeChange.dispose();
-      treeView.dispose();
-      treeDataProvider.dispose();
-    }
-  };
 }

@@ -1,19 +1,13 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "target": "ES2019",
+    "target": "es6",
     "outDir": "out",
     "lib": ["ES2019", "DOM"],
     "sourceMap": true,
     "rootDir": "src",
     "strict": true,
-    "noUnusedLocals": true,
-    "baseUrl": ".",
-    "paths": {
-      "codetour-description-renderer": [
-        "packages/description-renderer/dist/src/index"
-      ]
-    }
+    "noUnusedLocals": true
   },
   "include": ["src"],
   "exclude": ["node_modules"]

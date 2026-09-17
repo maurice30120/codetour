@@ -12,11 +12,12 @@ import {
 
 // Deterministic validation engine for Tour proposals.
 //
-// Every detected error is aggregated into an `Issue` list (path plus message)
-// before responding so the agent can fix the proposal in one cycle. A step can
-// be explanatory only (without a Tour Anchor); when it has a locator, validate
-// it against the real workspace state (existence, line/selection bounds,
-// pattern uniqueness, and symbolic-link confinement to the configured root).
+// Every detected error is aggregated in an `Issue` list (path plus message)
+// before responding, so the agent can correct the proposal in one cycle. A
+// step may be purely explanatory (without a Tour Anchor); when it has a
+// locator, that locator is validated against the real workspace state
+// (existence, line and selection bounds, pattern uniqueness, and symlink
+// confinement to the configured root).
 
 export const STEP_FIELDS = [
   "title",
@@ -30,8 +31,8 @@ export const STEP_FIELDS = [
 
 export const MAX_RECOMMENDED_STEPS = 15;
 
-// Active URI schemes forbidden in Markdown: a generated description must not be
-// able to trigger an editor or terminal action.
+// Reject active URI schemes in Markdown: a generated description must not be
+// able to trigger an action in the editor or terminal.
 const FORBIDDEN_URI_SCHEME =
   /(?:command|file|vscode|vscode-insiders|javascript):/i;
 
@@ -99,7 +100,7 @@ export function validateProjectParams(
     issues.push({ path: "$", message: "the arguments must be an object" });
     return { issues };
   }
-  // The V1 input schema is strict: reject every unknown field, including
+  // The V1 input schema is strict: unknown fields are rejected, including
   // `when`, `commands`, `uri`, and V2 capabilities.
   reportUnknownFields(raw, PROJECT_PARAM_FIELDS, "$", issues);
   const params = validateCommonParams(raw, issues);
@@ -191,7 +192,7 @@ export function validateSteps(
 // - line, pattern, and selection are valid only with a file;
 // - line and pattern are mutually exclusive;
 // - the pattern must identify exactly one occurrence in the file;
-// - line and selection bounds are checked against the real content.
+// - line and selection bounds are checked against the actual content.
 function validateStep(
   raw: unknown,
   index: number,
@@ -255,8 +256,8 @@ function validateStep(
     }
   }
 
-  // Step Markdown may contain ordinary HTTPS links and images; active schemes
-  // are forbidden.
+  // Step Markdown may contain only ordinary HTTPS links and images; active
+  // schemes are rejected.
   if (description !== undefined && FORBIDDEN_URI_SCHEME.test(description)) {
     issues.push({
       path: `${base}.description`,
@@ -265,8 +266,8 @@ function validateStep(
     });
   }
 
-  // Resolve the anchor's real path: read only after workspace confinement has
-  // been verified.
+  // Resolve the anchor's real path: read only after checking confinement to the
+  // workspace.
   let fileContent: string | undefined;
   let fileAnchorOk = true;
   if (file !== undefined) {
@@ -445,8 +446,8 @@ interface AnchorResult {
 }
 
 // Verify that a file or directory anchor exists and remains confined to the
-// workspace. Resolve the real path before reading and reject symbolic links
-// that leave the configured root.
+// workspace: resolve its real path before reading, and reject symlinks that
+// escape the configured root.
 function checkAnchor(
   ctx: WorkspaceContext,
   value: string,

@@ -36,6 +36,7 @@ export class CodeTourNode extends TreeItem {
         : TreeItemCollapsibleState.Collapsed
     );
 
+    this.tooltip = tour.description;
     this.description = `${tour.steps.length} steps`;
 
     const contextValues = ["codetour.tour"];

@@ -1,35 +1,14 @@
 const path = require("path");
 const webpack = require("webpack");
 
-const RESVG_EXTERNAL = "commonjs ./resvg-runtime/resvg-js";
-
-// Optional native accelerators of ws/jsdom. They are always required inside
-// try/catch, so the runtime require fails cleanly when they are not installed
-// (VSIX ships no node_modules) and the JS fallbacks take over.
-const OPTIONAL_NATIVE_EXTERNALS = {
-  canvas: "commonjs canvas",
-  bufferutil: "commonjs bufferutil",
-  "utf-8-validate": "commonjs utf-8-validate"
-};
-
 const config = {
   entry: "./src/extension.ts",
   devtool: "source-map",
   externals: {
-    vscode: "commonjs vscode",
-    child_process: "commonjs child_process",
-    util: "commonjs util",
-    "@resvg/resvg-js": RESVG_EXTERNAL,
-    ...OPTIONAL_NATIVE_EXTERNALS
+    vscode: "commonjs vscode"
   },
   resolve: {
-    extensions: [".ts", ".js", ".json"],
-    alias: {
-      "codetour-description-renderer": path.resolve(
-        __dirname,
-        "packages/description-renderer/dist/src/index.js"
-      )
-    }
+    extensions: [".ts", ".js", ".json"]
   },
   node: {
     __filename: false,
@@ -66,25 +45,19 @@ const nodeConfig = {
     filename: 'extension-node.js',
     libraryTarget: "commonjs2",
     devtoolModuleFilenameTemplate: "../[resource-path]",
-  },
-  plugins: [
-    ...config.plugins,
-    new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 })
-  ]
+  }
 };
 
 const mcpConfig = {
-  mode: "production",
+  ...config,
   target: "node18",
   entry: "./packages/mcp-server/dist/src/cli.js",
-  externals: {
-    "@resvg/resvg-js": RESVG_EXTERNAL,
-    ...OPTIONAL_NATIVE_EXTERNALS
-  },
-  devtool: "source-map",
+  externals: {},
   output: {
     path: path.resolve(__dirname, "dist"),
-    filename: "mcp-server.js"
+    filename: "mcp-server.js",
+    libraryTarget: "commonjs2",
+    devtoolModuleFilenameTemplate: "../[resource-path]"
   }
 };
 

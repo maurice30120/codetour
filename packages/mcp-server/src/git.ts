@@ -3,9 +3,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { WorkspaceContext } from "./types";
 
-// All server Git operations run through the `git` command line in the
-// configured workspace. The Changes Tour relies on this history for its
-// merge-base, HEAD SHA, changed-file list, and uncommitted-change detection.
+// All server Git operations invoke the `git` command line in the configured
+// workspace. The Changes Tour depends on this history for merge-base lookup,
+// HEAD SHA verification, changed-file listing, and uncommitted-change
+// detection.
 
 export interface GitResult {
   stdout: string;
@@ -107,8 +108,9 @@ export function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, "/");
 }
 
-// Staged, unstaged, and untracked workspace changes, excluding the two
-// reserved Tour files so a previous generation does not warn about itself.
+// Staged, unstaged, and untracked workspace changes, except for the two
+// reserved Tour files: a previous generation must not trigger its own dirty
+// workspace warning.
 export async function uncommittedChanges(
   ctx: WorkspaceContext
 ): Promise<UncommittedEntry[]> {
@@ -149,7 +151,7 @@ export async function uncommittedChanges(
 }
 
 // An untracked `.tours` directory appears as one `?? .tours/` entry in normal
-// status mode. Ignore it only when its contents are limited to reserved Tour
+// mode. Ignore it only when its contents are limited to the reserved Tour
 // files.
 function toursDirectoryOnlyContainsReserved(
   ctx: WorkspaceContext,

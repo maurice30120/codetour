@@ -29,52 +29,35 @@ import {
   validateProjectParams,
   validateSteps,
 } from "./validation";
-import {
-  MERMAID_TOOL_GUIDANCE,
-  validateMermaidDescriptions,
-} from "./mermaid-validation";
 import packageJson from "../package.json";
 
-// Boundary between the AI agent and CodeTour: the agent proposes a complete
-// Tour, and the server guarantees that it can be opened safely in the project.
-// Two uses are supported: explaining the project as a whole or explaining the
-// current branch's changes.
+// MCP V1 exposes exactly two tools: `create_project_tour` and
+// `create_changes_tour`. The AI agent writes the content; the server only
+// validates the proposal, applies Git and security rules, and atomically writes
+// the corresponding reserved Tour file.
 //
-// Tool input schemas remain deliberately permissive (`z.unknown()` plus
+// Tool input schemas remain intentionally permissive (`z.unknown()` plus
 // `.passthrough()`): the MCP SDK would reject arguments that do not match a
-// strict schema, preventing all validation errors from being aggregated into a
-// single response. Complete field-by-field validation is therefore performed
-// in validation.ts.
+// strict schema itself, which would break the requirement to aggregate all
+// validation errors into one response. Full field-by-field validation is
+// therefore performed in validation.ts.
 
 const CODETOUR_SCHEMA_URI = "https://aka.ms/codetour-schema";
 const SERVER_NAME = "codetour-mcp";
 const SERVER_VERSION = packageJson.version;
 
-// Each Tour type has a stable destination. Users can always find the latest
-// generated Tour in the same location, and those files are not treated as
-// changes to explain.
+// Fixed destinations reserved for generated Tours. They are replaced only
+// after complete validation and ignored while detecting a dirty workspace (see
+// git.ts).
 const PROJECT_TOUR_PATH = ".tours/project.tour";
 const CHANGES_TOUR_PATH = ".tours/changes.tour";
-
-const MARKDOWN_WRITING_GUIDANCE =
-  "Write the Tour-level description and every step description as readable Markdown. " +
-  "Split distinct ideas into short paragraphs separated by blank lines (`\\n\\n`), because " +
-  "a single newline (`\\n`) is a Markdown soft break and may render as a space. Use a short " +
-  "heading when a description covers multiple topics, and use bullet or numbered lists " +
-  "for collections, alternatives, or sequences. Use **bold** sparingly for important " +
-  "concepts and backticks for code identifiers. Avoid dense monolithic paragraphs, and " +
-  "keep each explanation concise and tied to the current Tour Anchor. Do not add " +
-  "structure mechanically: a short, single-purpose description may remain one paragraph. ";
 
 const PROJECT_TOUR_DESCRIPTION =
   "Creates a CodeTour Project Tour that explains a codebase as a whole, persisted at " +
   ".tours/project.tour (replacing any previously generated tour of the same kind). " +
   "You provide the fully written content; the server only validates and persists it deterministically. " +
   "A good Project Tour ideally covers: the project's purpose, its main entry points, its important " +
-  "components, and its main execution flows. Begin with a directory-anchored overview step whenever " +
-  "the project has a meaningful directory structure. If the tour is scoped to a subdirectory, anchor " +
-  "that first step to the exact workspace-relative directory. Use additional directory-anchored steps " +
-  "to introduce major components before moving into detailed file anchors. " +
+  "components, and its main execution flows. " +
   "Arguments: an optional title (defaults to \"Project Overview\"), an optional description, and a " +
   "required non-empty steps array. Each step takes an optional title, a required Markdown description, " +
   "and at most one locator: a file or a directory (workspace-relative paths). A step may also target a " +
@@ -83,9 +66,7 @@ const PROJECT_TOUR_DESCRIPTION =
   "evolution, and use a line only as a fallback. Steps without any locator are allowed for general " +
   "context. Every anchor is " +
   "validated against the real workspace state, and all validation errors are reported in a single " +
-  "response. On failure, the previous tour file is preserved. " +
-  MARKDOWN_WRITING_GUIDANCE +
-  MERMAID_TOOL_GUIDANCE;
+  "response. On failure, the previous tour file is preserved.";
 
 const CHANGES_TOUR_DESCRIPTION =
   "Creates a CodeTour Changes Tour that explains the committed changes on the current branch since it " +
@@ -101,9 +82,7 @@ const CHANGES_TOUR_DESCRIPTION =
   "provide essential context, and deleted files must be explained with steps that have no locator. " +
   "Uncommitted changes are excluded by default and reported as a warning; pass includeUncommittedChanges to " +
   "include them explicitly. The description is automatically enriched with the base, merge-base and " +
-  "head. On failure, the previous tour file is preserved. " +
-  MARKDOWN_WRITING_GUIDANCE +
-  MERMAID_TOOL_GUIDANCE;
+  "head. On failure, the previous tour file is preserved.";
 
 const warningSchema = z.object({
   code: z.string(),
@@ -126,36 +105,16 @@ const toolResultSchema = z.object({
 const projectToolInputSchema = z
   .object({
     title: z.unknown().optional(),
-    description: z
-      .unknown()
-      .optional()
-      .describe(
-        "Optional readable Markdown overview; separate distinct ideas with blank lines between paragraphs."
-      ),
-    steps: z
-      .unknown()
-      .optional()
-      .describe(
-        "Non-empty array whose descriptions use concise Markdown with blank lines between paragraphs."
-      ),
+    description: z.unknown().optional(),
+    steps: z.unknown().optional(),
   })
   .passthrough();
 
 const changesToolInputSchema = z
   .object({
     title: z.unknown().optional(),
-    description: z
-      .unknown()
-      .optional()
-      .describe(
-        "Optional readable Markdown overview; separate distinct ideas with blank lines between paragraphs."
-      ),
-    steps: z
-      .unknown()
-      .optional()
-      .describe(
-        "Non-empty array whose descriptions use concise Markdown with blank lines between paragraphs."
-      ),
+    description: z.unknown().optional(),
+    steps: z.unknown().optional(),
     baseRef: z.unknown().optional(),
     headRef: z.unknown().optional(),
     includeUncommittedChanges: z.unknown().optional(),
@@ -192,33 +151,22 @@ export function createServer(workspaceRoot: string): McpServer {
   return server;
 }
 
-// Produce the project Tour. It remains valid on every branch because it
-// describes the codebase as a whole rather than one point in Git history.
+// Create a Project Tour: no Git access is required, the tour works in any
+// workspace, and it is never attached to a `ref` so it remains viewable as the
+// project evolves.
 async function handleCreateProjectTour(
   ctx: WorkspaceContext,
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
-  // Aggregate parameter and step errors before responding so the agent can fix
-  // the proposal in one cycle.
-  const { params, issues: paramIssues } = validateProjectParams(args);
-  const mermaidIssues = await validateMermaidDescriptions(args);
   if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    if (mermaidIssues.length === 0) {
-      return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
-    }
-
-    return errorResponse(
-      "INVALID_PROPOSAL",
-      "The create_project_tour arguments are invalid.",
-      [
-        ...mermaidIssues,
-        { path: "steps", message: "is required and must contain at least one step" }
-      ]
-    );
+    return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
   }
 
-  const allIssues = [...paramIssues, ...mermaidIssues];
+  // Aggregate all validation errors (parameters and then steps) before
+  // responding so the agent can correct the proposal in one cycle.
+  const { params, issues: paramIssues } = validateProjectParams(args);
+  const allIssues = [...paramIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);
@@ -256,35 +204,24 @@ async function handleCreateProjectTour(
   );
 }
 
-// Produce a Changes Tour. The reader sees what changed since the base ref; if
-// the code advances during generation, reject the Tour rather than presenting
-// an explanation of an outdated snapshot. Local work is included only when the
-// caller explicitly requests it.
+// Create a Changes Tour: analyze committed changes from the merge-base of
+// `baseRef` to `headRef`. `headRef` must be the full SHA of the current HEAD;
+// otherwise generation fails with STALE_HEAD to avoid a stale explanation. By
+// default only committed changes are included; `includeUncommittedChanges`
+// enables explaining local work.
 async function handleCreateChangesTour(
   ctx: WorkspaceContext,
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
-  // Use the same aggregation strategy as the Project Tour: collect every
-  // validation error before responding.
-  const { params, issues: paramIssues } = validateChangesParams(args);
-  const mermaidIssues = await validateMermaidDescriptions(args);
   if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    if (mermaidIssues.length === 0) {
-      return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
-    }
-
-    return errorResponse(
-      "INVALID_PROPOSAL",
-      "The create_changes_tour arguments are invalid.",
-      [
-        ...mermaidIssues,
-        { path: "steps", message: "is required and must contain at least one step" }
-      ]
-    );
+    return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
   }
 
-  const allIssues = [...paramIssues, ...mermaidIssues];
+  // Use the same aggregation strategy as the Project Tour: collect all
+  // validation errors before responding.
+  const { params, issues: paramIssues } = validateChangesParams(args);
+  const allIssues = [...paramIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx);
@@ -312,7 +249,7 @@ async function handleCreateChangesTour(
   }
 
   // The analyzed SHA must exactly match the current HEAD; otherwise the
-  // explanation could describe a different snapshot from the one reread.
+  // explanation might not correspond to the snapshot read again.
   const currentHead = await currentHeadSha(ctx);
   if (currentHead === null) {
     return errorResponse(
@@ -337,9 +274,9 @@ async function handleCreateChangesTour(
     );
   }
 
-  // With no committed changes and no included local work, return NO_CHANGES and
-  // preserve the previous Changes Tour. An empty Tour never replaces a useful
-  // one.
+  // Without committed changes (and without included local work), return
+  // NO_CHANGES and preserve the previous Changes Tour: an empty tour never
+  // replaces a useful one.
   const uncommitted = await uncommittedChanges(ctx);
   if (
     (await committedDiffIsEmpty(ctx, mergeBaseSha, headRef)) &&
@@ -351,8 +288,8 @@ async function handleCreateChangesTour(
     );
   }
 
-  // Exclude uncommitted changes by default with a warning, or include them
-  // explicitly. In the latter case the Tour has no `ref` and reports that it
+  // Uncommitted changes are excluded by default with a warning, or explicitly
+  // included; in that case the Tour has no `ref` and reports that the result
   // describes a non-reproducible local state.
   const warnings: Warning[] = [];
   if (includeUncommittedChanges) {
@@ -372,7 +309,7 @@ async function handleCreateChangesTour(
   const warningsFromStepLimit = stepLimitWarnings(finalSteps);
   warnings.push(...warningsFromStepLimit);
 
-  // Set of changed files (committed files plus uncommitted files when
+  // Set of changed files (committed, plus uncommitted files when
   // includeUncommittedChanges is active), used for the NO_CHANGED_FILE_ANCHOR
   // warning.
   const changedInWorkspace = await changedFilesInWorkspace(ctx, mergeBaseSha, headRef);
@@ -399,8 +336,8 @@ async function handleCreateChangesTour(
   }
 
   const title = params.title ?? (await defaultChangesTitle(ctx, headRef));
-  // Enrich the description with provenance, the base, and the
-  // head so the reader always knows the analyzed scope.
+  // Enrich the description automatically with the provenance, base, and head
+  // so the reader always knows the analyzed scope.
   const provenance = includeUncommittedChanges
     ? `Generated from the merge-base of \`${baseRef}\` (\`${mergeBaseSha}\`) to \`${headRef}\`, including uncommitted changes (non-reproducible local state).`
     : `Generated from the merge-base of \`${baseRef}\` (\`${mergeBaseSha}\`) to \`${headRef}\`.`;
@@ -417,9 +354,8 @@ async function handleCreateChangesTour(
     steps: finalSteps,
   };
 
-  // HEAD can advance during the Git reads above. Read it once more immediately
-  // before persistence so an outdated analysis cannot replace the previous
-  // Changes Tour.
+  // HEAD may advance during the Git reads above. Reading it again at the last
+  // moment prevents stale analysis from replacing the previous Changes Tour.
   const headImmediatelyBeforePersistence = await currentHeadSha(ctx);
   if (headImmediatelyBeforePersistence !== headRef) {
     return errorResponse(
@@ -457,7 +393,7 @@ function stepLimitWarnings(steps: TourStep[]): Warning[] {
 }
 
 // Validate the generated Tour against the general CodeTour schema, then write
-// it atomically. On failure, leave the previous file intact.
+// it atomically. If validation fails, the previous file remains intact.
 async function persistTour(
   ctx: WorkspaceContext,
   relativePath: string,
@@ -489,8 +425,8 @@ function extractSteps(args: unknown): unknown {
   return (args as Record<string, unknown>).steps;
 }
 
-// Committed diff files converted to paths relative to the workspace (the
-// workspace may be a repository subdirectory).
+// Files modified by the committed diff, converted to paths relative to the
+// workspace (the workspace may be a repository subdirectory).
 async function changedFilesInWorkspace(
   ctx: WorkspaceContext,
   mergeBaseSha: string,

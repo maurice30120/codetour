@@ -67,13 +67,14 @@ export async function discoverTours(): Promise<void> {
 
       if (tour) {
         if (!comparer.structural(store.activeTour.tour, tour)) {
-          // Update the observed tour in place so file changes become visible in
-          // the displayed step without interrupting playback.
+          // Since the active tour could be already observed,
+          // we want to update it in place with the new properties.
           set(store.activeTour.tour, tour);
         }
       } else {
-        // A deleted tour cannot continue: close the player instead of keeping
-        // content that can no longer be found.
+        // The user deleted the tour
+        // file that's associated with
+        // the active tour, so end it
         endCurrentCodeTour();
       }
     }

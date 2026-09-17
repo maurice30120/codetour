@@ -26,8 +26,7 @@ export async function startServer(
   );
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [CLI_PATH],
-    cwd: workspaceRoot,
+    args: [CLI_PATH, "--workspace-root", workspaceRoot],
     env: {
       ...Object.fromEntries(
         Object.entries(process.env).filter(
