@@ -1,0 +1,66 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Understanding CodeTour and Mermaid generation",
+  "description": "A guided Tour of the CodeTour repository, focused on the complete Tour flow and on how an agent generates Mermaid diagrams, how the MCP server validates them, and how the extension renders them during playback.",
+  "steps": [
+    {
+      "title": "The repository at a glance",
+      "description": "CodeTour associates Markdown explanations with code locations in a `.tour` file. The repository contains two products: the VS Code extension, which discovers and reads Tours, and `codetour-mcp`, which lets an agent generate Project Tours or Changes Tours. The Mermaid renderer is a package shared by validation and playback.",
+      "directory": "packages"
+    },
+    {
+      "title": "The extension composes the experience",
+      "description": "`activate` is the entry point called by VS Code. It registers the player, recorder, Live Share, and notebook provider, then discovers workspace Tours before initializing Git integration. MCP generation is separate from activation: it writes a file that this extension can later discover.",
+      "file": "src/extension.ts",
+      "pattern": "export async function activate\\(context: vscode\\.ExtensionContext\\)"
+    },
+    {
+      "title": "The player navigates to a step",
+      "description": "When a Tour starts, the player resolves the current step's file and anchor. A line or selection can be explicit; otherwise a `pattern` finds the text in the document. The description Markdown then passes through the preview transformations before it is shown in the VS Code comment.",
+      "file": "src/player/index.ts",
+      "pattern": "async function renderCurrentStep\\(\\)"
+    },
+    {
+      "title": "Two generation entry points",
+      "description": "The local MCP server exposes two specialized tools: `create_project_tour` explains the current codebase, while `create_changes_tour` explains changes from a Git ref. The agent writes titles, descriptions, anchors, and optional Mermaid blocks; the server does not complete the content, it checks and persists it.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "export function createServer\\(workspaceRoot: string\\)"
+    },
+    {
+      "title": "The agent proposes Mermaid generation",
+      "description": "A Mermaid diagram is not an image sent by the agent: its source is embedded in the step's Markdown description. The block must be preceded by a non-blank line used as its caption and alternative text, for example `**Diagram — Generation and playback flow**`. The five accepted families are `flowchart`, `sequenceDiagram`, `stateDiagram-v2`, `classDiagram`, and `erDiagram`.",
+      "file": "packages/mcp-server/src/mermaid-validation.ts",
+      "pattern": "const MERMAID_TOOL_GUIDANCE ="
+    },
+    {
+      "title": "The server validates before writing",
+      "description": "Before replacing `.tours/project.tour` or `.tours/changes.tour`, the server inspects every description and step. It checks the caption, Mermaid kind, 20 KB maximum source size, and limit of three diagrams per description, then parses the source with the same locked engine used during playback. All errors are aggregated and the previous file is preserved when the proposal is invalid.\n\n**Diagram — Mermaid generation contract**\n\n```mermaid\nflowchart LR\n    Agent[AI agent] -->|Markdown + Mermaid source| Tool[MCP tool]\n    Tool --> Rules[Mermaid rules]\n    Rules --> Engine[Locked Mermaid parser]\n    Engine -->|valid| Persist[Tour write]\n    Engine -->|invalid| Errors[Aggregated errors]\n    Errors --> Preserve[Previous Tour preserved]\n```\n",
+      "file": "packages/mcp-server/src/mermaid-validation.ts",
+      "pattern": "export async function validateMermaidDescriptions\\(raw: unknown\\): Promise<Issue\\[\\]>"
+    },
+    {
+      "title": "Persistence remains deterministic",
+      "description": "Once steps, anchors, Mermaid, and the schema are validated, writing uses a temporary file in the workspace and an atomic rename. The destinations are stable: `.tours/project.tour` and `.tours/changes.tour`. This makes the command repeatable and avoids leaving a partially written Tour.",
+      "file": "packages/mcp-server/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic\\("
+    },
+    {
+      "title": "The renderer transforms the source",
+      "description": "During playback, `renderDescription` finds Mermaid fences and replaces them in the Markdown. For each allowed diagram, it asks the Mermaid engine for a render, rasterizes it as a PNG, and encodes it as `data:image/png;base64`. The Mermaid source therefore disappears from the displayed description; on failure, the user sees a compact warning instead of the diagram code.",
+      "file": "packages/description-renderer/src/description.ts",
+      "pattern": "export async function renderDescription\\("
+    },
+    {
+      "title": "Validation and playback share one engine",
+      "description": "`renderMermaidDiagram` centralizes offline rendering, strict security, light and dark themes, the in-memory cache, and rasterization. The MCP server calls it for validation without keeping the PNG; the extension calls it to display the PNG. Sharing the implementation prevents a diagram accepted during generation from systematically failing during playback.",
+      "file": "packages/description-renderer/src/render.ts",
+      "pattern": "export function renderMermaidDiagram\\("
+    },
+    {
+      "title": "The complete flow",
+      "description": "To understand the overall behavior, follow this chain: the agent chooses a step and may write Mermaid; MCP validates the structure, anchors, and syntax; persistence writes the `.tour`; the extension discovers the Tour; and the player renders each description according to the active theme.\n\n**Diagram — From agent to VS Code comment**\n\n```mermaid\nsequenceDiagram\n    participant A as AI agent\n    participant M as MCP server\n    participant F as .tour file\n    participant E as VS Code extension\n    participant R as Mermaid renderer\n    A->>M: create_project_tour\n    M->>R: validate each source\n    R-->>M: valid syntax or error\n    M->>F: atomic write\n    E->>F: discover and load\n    E->>R: render description\n    R-->>E: in-memory PNG\n    E-->>A: navigable comment for the developer\n```\n",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleCreateProjectTour\\("
+    }
+  ]
+}

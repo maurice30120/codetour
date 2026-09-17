@@ -1,0 +1,90 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Understanding the CodeTour MCP server",
+  "description": "A focused Tour that follows a request from Visual Studio Code server discovery through validation and atomic writing of a `.tour` file. It also covers Changes Tour processing and the main security boundaries.",
+  "steps": [
+    {
+      "title": "MCP package overview",
+      "description": "The server is isolated in `packages/mcp-server`. Its entry point starts the MCP transport, `server.ts` exposes the tools, `validation.ts` checks proposals, `git.ts` reconstructs branch context, and `persistence.ts` publishes the result. Integration tests start a real MCP client against this package to verify the complete path.",
+      "directory": "packages/mcp-server"
+    },
+    {
+      "title": "The MCP server's role",
+      "description": "The MCP server is the bridge between an AI agent and CodeTour. The agent analyzes the repository and writes the explanations; the server does not generate prose. It provides two deterministic operations, checks each proposal against the real workspace, and persists it under `.tours`. This separation keeps creativity on the agent side and safety on the server side.",
+      "file": "packages/mcp-server/package.json",
+      "pattern": "\"description\": \"Local MCP server"
+    },
+    {
+      "title": "The extension publishes one instance per workspace",
+      "description": "On VS Code Desktop, the extension declares the bundled MCP binary with the editor. It creates one `stdio` definition per workspace folder and sets its working directory with `definition.cwd`. Each process therefore receives its single workspace root implicitly, without an owner-specific argument added to the MCP protocol.",
+      "file": "src/mcp.ts",
+      "pattern": "export function registerMcpProvider\\(context: vscode\\.ExtensionContext\\)"
+    },
+    {
+      "title": "The process starts over stdio",
+      "description": "The binary uses `process.cwd()` as its root, checks that it is accessible immediately, creates the server, and connects it to `StdioServerTransport`. MCP messages travel through standard input and output: there is no HTTP port or network access to configure. Command-line options are intentionally limited to help and version.",
+      "file": "packages/mcp-server/src/cli.ts",
+      "pattern": "async function main\\(\\): Promise<void>"
+    },
+    {
+      "title": "A boundary based on real paths",
+      "description": "The context stores both the syntactically resolved root and its real path from `realpathSync`. Later validation compares real paths to `realRoot`, preventing a symbolic link inside the project from granting access to a file outside it.",
+      "file": "packages/mcp-server/src/context.ts",
+      "pattern": "export function createContext\\(workspaceRoot: string\\)"
+    },
+    {
+      "title": "Two tools, two intentions",
+      "description": "`createServer` builds a server named `codetour-mcp` and registers two tools. `create_project_tour` provides a durable explanation of the repository's overall architecture. `create_changes_tour` explains a branch's changes from a Git ref. Their contracts can evolve independently while reusing the same validation and persistence engine.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "export function createServer\\(workspaceRoot: string\\): McpServer"
+    },
+    {
+      "title": "Why MCP schemas remain permissive",
+      "description": "The tool inputs use `z.unknown()` and `.passthrough()`. This is intentional: if the SDK rejected a request at the first invalid field, the agent would need to correct errors one at a time. The server therefore passes the raw shape to domain validation, which can return the complete list of problems in one response.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "const projectToolInputSchema = z"
+    },
+    {
+      "title": "The simple Project Tour flow",
+      "description": "The handler requires at least one step, validates parameters and every anchor, then builds the CodeTour JSON. The title has a default and a warning is added above fifteen steps. Finally, `persistTour` validates the complete document and writes it to the stable `.tours/project.tour` location, replacing only the previous Tour of the same type.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleCreateProjectTour\\("
+    },
+    {
+      "title": "Validation accumulates every problem",
+      "description": "`validateSteps` walks the complete proposal and concatenates errors from every step. A step requires a description and can use only the allowed V1 fields. Locators are consistent: file and directory are mutually exclusive, while line and pattern require a file and cannot be used together.",
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "export function validateSteps\\("
+    },
+    {
+      "title": "Anchors are checked against disk",
+      "description": "The check is not limited to JSON shape. For a file or directory anchor, the server rejects absolute paths and paths outside the workspace, resolves symbolic links, checks the target type and line or selection bounds, and requires a pattern to be a valid regular expression matching exactly once. A Tour therefore cannot silently point to an ambiguous or missing location.",
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "function checkAnchor\\("
+    },
+    {
+      "title": "The Changes Tour freezes Git context",
+      "description": "The second handler requires a Git base ref and the full SHA being analyzed. It confirms that the SHA is still the current `HEAD`, computes the merge-base, and rejects an empty diff. Local changes are excluded by default with a warning, or included explicitly with a note that the result is not reproducible. A final `HEAD` read immediately before writing prevents publishing an analysis that became stale during processing.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleCreateChangesTour\\("
+    },
+    {
+      "title": "The final barrier is the CodeTour schema",
+      "description": "Even after domain checks, `persistTour` validates the final object against the general CodeTour schema. It converts expected errors into structured MCP responses: success with a path, step count, and warnings, or failure with a code, message, and issue list. The agent can therefore understand exactly what to correct.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function persistTour\\("
+    },
+    {
+      "title": "Writing is atomic",
+      "description": "Validated content is written to a temporary file in the destination directory, synced to disk, closed, and renamed. The real directory is checked again before writing. If the rename fails, the temporary file is cleaned up; the previous Tour remains intact and no partial file is shown to the user.",
+      "file": "packages/mcp-server/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic\\("
+    },
+    {
+      "title": "The complete request path",
+      "description": "In summary: the editor or Codex starts the process in the workspace; the client discovers both tools through MCP; the agent sends a Tour it has already written; the handler validates parameters, anchors, and Git context; the CodeTour schema checks the final document; and atomic writing publishes `.tours/project.tour` or `.tours/changes.tour`. This architecture makes the server a small, predictable, testable local trust boundary.",
+      "file": "packages/mcp-server/test/helpers/test-utils.ts",
+      "pattern": "export async function withServer<T>\\("
+    }
+  ]
+}

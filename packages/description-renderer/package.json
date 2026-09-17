@@ -1,0 +1,39 @@
+{
+  "name": "codetour-description-renderer",
+  "version": "0.1.0",
+  "description": "Offline, strict-security Mermaid rendering that turns CodeTour Markdown descriptions into native comment content",
+  "license": "MIT",
+  "author": {
+    "name": "Microsoft Corporation"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/codetour",
+    "directory": "packages/description-renderer"
+  },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "files": [
+    "dist/src",
+    "README.md",
+    "LICENSE.txt"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node ../../scripts/run-compiled-tests.js dist/test"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "jsdom": "26.1.0",
+    "mermaid": "11.12.2"
+  },
+  "devDependencies": {
+    "@types/jsdom": "27.0.0",
+    "@types/node": "24.13.3",
+    "typescript": "5.9.3"
+  }
+}

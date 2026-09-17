@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist/test",
+    "types": ["node"]
+  },
+  "include": [
+    "src/player/insertCode.ts",
+    "src/player/insertCode.test.ts",
+    "src/player/commentMenu.test.ts",
+    "src/player/descriptionWebview.test.ts",
+    "src/player/markdown.ts"
+  ]
+}

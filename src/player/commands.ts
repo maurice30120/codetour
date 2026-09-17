@@ -17,12 +17,34 @@ import {
 } from "../store/actions";
 import { progress } from "../store/storage";
 import { readUriContents } from "../utils";
+import { showStepDescription } from "./descriptionWebview";
 import { CodeTourNode } from "./tree/nodes";
 
 let terminal: vscode.Terminal | null;
 export function registerPlayerCommands() {
-  // This is a "private" command that's used exclusively
-  // by the hover description for tour markers.
+  // Internal inspection seam used by the development-host smoke test. It
+  // reads the comment owned by the active player, not a renderer-side value.
+  vscode.commands.registerCommand(
+    `${EXTENSION_NAME}.showStepDescription`,
+    showStepDescription
+  );
+
+  vscode.commands.registerCommand(
+    `${EXTENSION_NAME}._getActiveCommentBody`,
+    () => {
+      const comment = store.activeTour?.thread?.comments[0];
+      if (!comment) {
+        return undefined;
+      }
+
+      return comment.body instanceof vscode.MarkdownString
+        ? comment.body.value
+        : comment.body;
+    }
+  );
+
+  // Lets a marker preview open its corresponding tour and step directly; this
+  // command is not intended for the public command palette.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}._startTourById`,
     async (id: string, stepNumber: number) => {
@@ -33,7 +55,7 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Purpose: Command link
+  // Opens a tour linked from another tour's Markdown content.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.startTourByTitle`,
     async (title: string, stepNumber?: number) => {
@@ -68,7 +90,7 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Purpose: Command link
+  // Moves the player to the step targeted by a Markdown link.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.navigateToStep`,
     async (stepNumber: number) => {
@@ -83,7 +105,7 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Purpose: Command link and the ">>" syntax
+  // Runs the text proposed by a step in the CodeTour terminal.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.sendTextToTerminal`,
     async (text: string) => {

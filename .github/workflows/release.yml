@@ -7,16 +7,29 @@ on:
 
 jobs:
   Release:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
-          node-version: 14.x
-      - run: npm install
+          node-version-file: .nvmrc
+      - name: Install pinned npm
+        run: npm install --global npm@12.0.1
+        working-directory: ${{ runner.temp }}
+      - name: Verify toolchain
+        run: node --version && npm --version
+      - run: npm ci
+      - run: npm ci --prefix packages/description-renderer
+      - run: npm ci --prefix packages/mcp-server
+      - name: Package platform VSIX
+        run: npm run package
       - name: Publish to VS Marketplace
-        run: npx vsce publish
+        run: npm run publish:vsix
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
