@@ -1,0 +1,3 @@
+# Limit V1 tours to safe content
+
+The first MCP version accepts only explanatory Markdown and locations inside the workspace; it rejects CodeTour `commands`, root-level `when` expressions, and external `uri` steps. Markdown may contain ordinary HTTPS links and images, but active schemes such as `command:`, `file:`, `vscode:`, and `javascript:` are rejected. The excluded CodeTour capabilities can be valuable for interactive tutorials and conditional tours, so they remain candidates for V2, but enabling them requires explicit security rules because generated tours could otherwise execute editor or terminal actions, evaluate dynamic conditions, or open external resources.
