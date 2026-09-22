@@ -144,6 +144,7 @@ export async function focusPlayer() {
   if (!currentThread?.range) {
     return;
   }
+
   showDocument(currentThread.uri, currentThread.range);
 }
 
@@ -415,7 +416,6 @@ async function renderCurrentStep() {
       }
 
       try {
-        console.log("Executing command", name, JSON.stringify(args));
         await commands.executeCommand(name, ...args);
       } catch (e) {
         window.showErrorMessage(`An error has occurred: ${e}`);
