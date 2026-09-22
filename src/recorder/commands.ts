@@ -19,6 +19,9 @@ import {
 } from "../store/actions";
 import { getActiveWorkspacePath, getRelativePath } from "../utils";
 
+// Serializes the given tour back to its underlying .tour file, stripping
+// the runtime-only properties (id, step markers) that are not part of the
+// persisted CodeTour schema.
 export async function saveTour(tour: CodeTour) {
   const uri = vscode.Uri.parse(tour.id);
   const newTour = {
@@ -38,7 +41,12 @@ export async function saveTour(tour: CodeTour) {
   await vscode.workspace.fs.writeFile(uri, bytes);
 }
 
+// Registers every VS Code command used to record and edit tours: creating a
+// new tour, adding/moving/deleting steps, and editing tour metadata. Each
+// command operates on the active tour tracked in the store.
 export function registerRecorderCommands() {
+  // Computes the file URI where a tour with the given title would be saved,
+  // based on the configured tour directory (defaults to .tours).
   function getTourFileUri(workspaceRoot: vscode.Uri, title: string) {
     const file = title
       .toLocaleLowerCase()
@@ -59,6 +67,8 @@ export function registerRecorderCommands() {
     });
   }
 
+  // Returns whether a tour file with the given title already exists in the
+  // workspace, so recording can warn before overwriting it.
   async function checkIfTourExists(workspaceRoot: vscode.Uri, title: string) {
     const uri = getTourFileUri(workspaceRoot, title);
 
@@ -70,6 +80,8 @@ export function registerRecorderCommands() {
     }
   }
 
+  // Creates the initial, empty tour file on disk and returns the
+  // corresponding tour object, ready to be started and filled with steps.
   async function writeTourFile(
     workspaceRoot: vscode.Uri,
     title: string | vscode.Uri,
@@ -108,6 +120,10 @@ export function registerRecorderCommands() {
   }
 
   const REENTER_TITLE_RESPONSE = "Re-enter title";
+  // Starts a recording session for a new tour: resolves the workspace (and
+  // asks which one, if there are several), prevents accidental overwrites of
+  // an existing tour, optionally asks for the Git ref to bind the tour to,
+  // then writes the empty tour file and enters recording mode.
   async function recordTourInternal(
     tourTitle: string | vscode.Uri,
     workspaceRoot?: vscode.Uri
@@ -239,6 +255,9 @@ export function registerRecorderCommands() {
     }
   );
 
+  // Captures the end-user's current text selection, converted to 1-based
+  // coordinates so the tour file is easy to edit by hand. Returns undefined
+  // when there is no useful selection to record for this step.
   function getStepSelection() {
     const activeEditor = vscode.window.activeTextEditor;
     if (
@@ -373,6 +392,9 @@ export function registerRecorderCommands() {
 
       const tour = store.activeTour!.tour;
       const thread = store.activeTour!.thread;
+      // A file Tour step must be anchored to a line in a file. If the
+      // comment thread carries no source range, there is no location to
+      // record, so fail instead of writing a broken step.
       const range = thread.range;
       if (!range) {
         throw new Error("A file Tour step requires a source range.");
@@ -567,6 +589,8 @@ export function registerRecorderCommands() {
     }
   );
 
+  // Prompts the end-user for a new value of the given tour property
+  // (e.g. title or description), updates the tour and persists it.
   async function updateTourProperty(tour: CodeTour, property: string) {
     const propertyValue = await vscode.window.showInputBox({
       prompt: `Enter the ${property} for this tour`,
@@ -585,6 +609,9 @@ export function registerRecorderCommands() {
     return propertyValue;
   }
 
+  // Moves a tour step up or down by the given offset within its tour, and
+  // keeps the playback position in sync when the moved step is the one
+  // currently being played.
   function moveStep(
     movement: number,
     node: CodeTourStepNode | CodeTourComment
@@ -842,6 +869,10 @@ export function registerRecorderCommands() {
     ref?: string;
   }
 
+  // Asks the end-user which Git ref (if any) to associate the tour with, so
+  // the recorded steps stay anchored to the right version of the code.
+  // Returns undefined when the workspace is not a Git repository or the Git
+  // extension is unavailable.
   async function promptForTourRef(
     workspaceRoot: vscode.Uri
   ): Promise<string | undefined> {

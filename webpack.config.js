@@ -48,9 +48,29 @@ const nodeConfig = {
   }
 };
 
+const webConfig = {
+  ...config,
+  target: 'webworker',
+  resolve: {
+    ...config.resolve,
+    fallback: {
+      os: require.resolve("os-browserify/browser"),
+      path: require.resolve("path-browserify"),
+      child_process: false,
+      util: false
+    }
+  },
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'extension-web.js',
+    libraryTarget: "commonjs2",
+    devtoolModuleFilenameTemplate: "../[resource-path]",
+  }
+};
+
 const mcpConfig = {
   ...config,
-  target: "node18",
+  target: "node",
   entry: "./packages/mcp-server/dist/src/cli.js",
   externals: {},
   output: {
@@ -61,4 +81,4 @@ const mcpConfig = {
   }
 };
 
-module.exports = [nodeConfig, mcpConfig];
+module.exports = [nodeConfig, webConfig, mcpConfig];

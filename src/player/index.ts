@@ -137,6 +137,10 @@ let controller: CommentController | null;
 
 export async function focusPlayer() {
   const currentThread = store.activeTour?.thread;
+  // A tour step that targets the workspace root has no thread range to
+  // reveal, and there may not be an active tour at all. In those cases
+  // there is nothing to focus, so bail out instead of dereferencing an
+  // invalid range.
   if (!currentThread?.range) {
     return;
   }
