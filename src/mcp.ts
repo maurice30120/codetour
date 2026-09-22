@@ -22,7 +22,7 @@ export function registerMcpProvider(context: vscode.ExtensionContext): void {
           const definition = new vscode.McpStdioServerDefinition(
             `CodeTour (${folder.name})`,
             process.execPath,
-            [serverPath],
+            [serverPath, "--workspace-root", folder.uri.fsPath],
             { ELECTRON_RUN_AS_NODE: "1" },
             extensionVersion
           );

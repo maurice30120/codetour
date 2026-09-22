@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createContext } from "../../src/context";
 import {
+  MAX_PATTERN_LENGTH,
   MAX_RECOMMENDED_STEPS,
   validateChangesParams,
   validateProjectParams,
@@ -71,6 +72,19 @@ test("validateChangesParams rejects a non-boolean includeUncommittedChanges", ()
     steps: [],
   });
   assert.ok(issues.some((issue) => issue.path === "includeUncommittedChanges"));
+});
+
+test("validateChangesParams rejects a baseRef that could be parsed as a Git option", () => {
+  const { issues } = validateChangesParams({
+    baseRef: "--output=/tmp/pwned",
+    headRef: "a".repeat(40),
+    steps: [],
+  });
+  assert.ok(
+    issues.some(
+      (issue) => issue.path === "baseRef" && issue.message.includes("must not start with '-'")
+    )
+  );
 });
 
 function workspaceWithFiles(files: Record<string, string>): string {
@@ -156,6 +170,17 @@ test("an invalid regular expression is rejected", () => {
     root
   );
   assert.equal(issues.length, 1);
+  rmrf(root);
+});
+
+test("an overly long pattern is rejected", () => {
+  const root = workspaceWithFiles({ "a.ts": "one\n" });
+  const { issues } = validate(
+    [{ description: "d", file: "a.ts", pattern: "a".repeat(MAX_PATTERN_LENGTH + 1) }],
+    root
+  );
+  assert.equal(issues.length, 1);
+  assert.ok(issues[0].path.endsWith(".pattern"));
   rmrf(root);
 });
 

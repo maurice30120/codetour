@@ -52,6 +52,24 @@ export async function currentBranchName(
   return result.code === 0 ? result.stdout.trim() : null;
 }
 
+// Resolve an agent-supplied Git reference to a full commit SHA before it is
+// used in any Git invocation: a raw string passed as a positional argument
+// could otherwise be parsed as a Git option (e.g. `--output=...`) and alter
+// the command's behavior. The validation layer rejects references starting
+// with `-`, so the compound argument below can only ever be parsed as a rev.
+export async function resolveCommit(
+  ctx: WorkspaceContext,
+  ref: string
+): Promise<string | null> {
+  const result = await git(
+    ["rev-parse", "--verify", `${ref}^{commit}`],
+    ctx.root
+  );
+  return result.code === 0 && result.stdout.trim().length > 0
+    ? result.stdout.trim()
+    : null;
+}
+
 export async function mergeBase(
   ctx: WorkspaceContext,
   a: string,

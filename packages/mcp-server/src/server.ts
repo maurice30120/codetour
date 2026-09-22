@@ -9,6 +9,7 @@ import {
   isGitRepository,
   mergeBase,
   normalizeSlashes,
+  resolveCommit,
   uncommittedChanges,
   workspacePrefix,
 } from "./git";
@@ -264,9 +265,20 @@ async function handleCreateChangesTour(
     );
   }
 
+  // Resolve the base reference to a full commit SHA up front: only a verified
+  // SHA is ever passed as a positional Git argument, so an agent-supplied
+  // string can never be interpreted as a Git option.
+  const resolvedBaseSha = await resolveCommit(ctx, baseRef);
+  if (resolvedBaseSha === null) {
+    return errorResponse(
+      "INVALID_BASE_REF",
+      `Unable to resolve the base ref ${baseRef} to a commit in this repository.`
+    );
+  }
+
   let mergeBaseSha: string;
   try {
-    mergeBaseSha = await mergeBase(ctx, baseRef, headRef);
+    mergeBaseSha = await mergeBase(ctx, resolvedBaseSha, headRef);
   } catch (error) {
     return errorResponse(
       "INVALID_BASE_REF",

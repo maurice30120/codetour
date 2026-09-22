@@ -39,24 +39,46 @@ async function currentConfiguration(): Promise<CodexServerConfiguration | undefi
 
 function isExpectedConfiguration(
   configuration: CodexServerConfiguration | undefined,
-  serverPath: string
+  serverPath: string,
+  workspaceRoot: string
 ): boolean {
   return (
     configuration?.transport?.type === "stdio" &&
     configuration.transport.command === "node" &&
-    configuration.transport.args?.length === 1 &&
-    configuration.transport.args[0] === serverPath
+    configuration.transport.args?.length === 3 &&
+    configuration.transport.args[0] === serverPath &&
+    configuration.transport.args[1] === "--workspace-root" &&
+    configuration.transport.args[2] === workspaceRoot
   );
 }
 
-async function addConfiguration(serverPath: string): Promise<void> {
-  await runCodex(["mcp", "add", SERVER_NAME, "--", "node", serverPath]);
+async function addConfiguration(
+  serverPath: string,
+  workspaceRoot: string
+): Promise<void> {
+  await runCodex([
+    "mcp",
+    "add",
+    SERVER_NAME,
+    "--",
+    "node",
+    serverPath,
+    "--workspace-root",
+    workspaceRoot
+  ]);
 }
 
 async function configureCodex(context: vscode.ExtensionContext): Promise<void> {
   const serverPath = bundledMcpServerPath(context);
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    void vscode.window.showErrorMessage(
+      "Unable to configure CodeTour for Codex: open a workspace folder first."
+    );
+    return;
+  }
   const current = await currentConfiguration();
-  if (isExpectedConfiguration(current, serverPath)) {
+  if (isExpectedConfiguration(current, serverPath, workspaceRoot)) {
     void vscode.window.showInformationMessage("CodeTour is already configured for Codex.");
     return;
   }
@@ -71,17 +93,24 @@ async function configureCodex(context: vscode.ExtensionContext): Promise<void> {
     }
     return;
   }
-  await addConfiguration(serverPath);
+  await addConfiguration(serverPath, workspaceRoot);
   void vscode.window.showInformationMessage("CodeTour MCP was configured for Codex.");
 }
 
 async function repairCodex(context: vscode.ExtensionContext): Promise<void> {
   const serverPath = bundledMcpServerPath(context);
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    void vscode.window.showErrorMessage(
+      "Unable to configure CodeTour for Codex: open a workspace folder first."
+    );
+    return;
+  }
   const current = await currentConfiguration();
   if (current) {
     await runCodex(["mcp", "remove", SERVER_NAME]);
   }
-  await addConfiguration(serverPath);
+  await addConfiguration(serverPath, workspaceRoot);
   void vscode.window.showInformationMessage("CodeTour MCP configuration for Codex was repaired.");
 }
 

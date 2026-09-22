@@ -31,6 +31,12 @@ export const STEP_FIELDS = [
 
 export const MAX_RECOMMENDED_STEPS = 15;
 
+// Cap the length of agent-supplied anchor patterns: a hand-crafted regular
+// expression can hang the server process through catastrophic backtracking
+// when matched against an entire file, so only short, focused patterns are
+// accepted.
+export const MAX_PATTERN_LENGTH = 200;
+
 // Reject active URI schemes in Markdown: a generated description must not be
 // able to trigger an action in the editor or terminal.
 const FORBIDDEN_URI_SCHEME =
@@ -119,6 +125,11 @@ export function validateChangesParams(
   const params = validateCommonParams(raw, issues) as ChangesParams;
   if (typeof raw.baseRef !== "string" || raw.baseRef.trim() === "") {
     issues.push({ path: "baseRef", message: "is required and must be a non-empty string" });
+  } else if (raw.baseRef.startsWith("-")) {
+    issues.push({
+      path: "baseRef",
+      message: "must be a branch, tag, or commit SHA and must not start with '-'",
+    });
   } else {
     params.baseRef = raw.baseRef;
   }
@@ -236,6 +247,11 @@ function validateStep(
   if (raw.pattern !== undefined) {
     if (typeof raw.pattern !== "string") {
       issues.push({ path: `${base}.pattern`, message: "must be a string" });
+    } else if (raw.pattern.length > MAX_PATTERN_LENGTH) {
+      issues.push({
+        path: `${base}.pattern`,
+        message: `must be at most ${MAX_PATTERN_LENGTH} characters long (concise patterns are also more resistant to accidental edits in the anchored file)`,
+      });
     } else {
       pattern = raw.pattern;
     }
