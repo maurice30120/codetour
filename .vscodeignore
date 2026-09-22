@@ -1,6 +1,8 @@
 .tours/**
 .vscode/**
 node_modules/**
+packages/mcp-server/**
+scripts/**
 src/**
 .gitignore
 .space
