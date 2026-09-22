@@ -74,7 +74,9 @@ const CHANGES_TOUR_DESCRIPTION =
   "diverged from a base ref, persisted at .tours/changes.tour (replacing any previously generated tour " +
   "of the same kind). You provide the fully written content; the server only validates and persists it " +
   "deterministically. A good Changes Tour ideally covers: the intent of the changes, the major " +
-  "modifications, their impact, and the relevant tests. " +
+  "modifications, their impact, and the relevant tests. An introductory step explaining the overall " +
+  "intent should anchor the main directory of the changes (a step takes at most one locator: a file or " +
+  "a directory, workspace-relative), so the reader sees where the work happened. " +
   "Arguments: baseRef (required Git ref), headRef (required full 40-character SHA of the analyzed commit, " +
   "which must equal the current HEAD), includeUncommittedChanges (optional boolean, default false), an optional " +
   "title (defaults to \"Changes on <branch>\"), an optional description, and a required non-empty steps " +

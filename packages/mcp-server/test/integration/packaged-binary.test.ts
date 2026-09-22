@@ -76,6 +76,7 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
         archivePath,
         path.join(packageRoot, "node_modules", "@modelcontextprotocol", "sdk"),
         path.join(packageRoot, "node_modules", "ajv"),
+        path.join(packageRoot, "node_modules", "safe-regex2"),
         path.join(packageRoot, "node_modules", "zod"),
       ],
       sandbox,

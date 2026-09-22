@@ -8,7 +8,7 @@ import { WorkspaceContext } from "./types";
 // directory must remain confined to the workspace, whose real path is resolved
 // before writing.
 
-export class OutputPathError extends Error {}
+export class OutputPathError extends Error { }
 
 export async function writeTourAtomic(
   ctx: WorkspaceContext,
@@ -34,8 +34,9 @@ export async function writeTourAtomic(
     );
   }
 
+  const realTarget = path.join(realDirectory, path.basename(target));
   const tempFile = path.join(
-    directory,
+    realDirectory,
     `.${path.basename(target)}.tmp-${process.pid}-${Date.now()}`
   );
   const handle = await fs.promises.open(tempFile, "w");
@@ -46,7 +47,7 @@ export async function writeTourAtomic(
     await handle.close();
   }
   try {
-    await fs.promises.rename(tempFile, target);
+    await fs.promises.rename(tempFile, realTarget);
   } catch (error) {
     await fs.promises.unlink(tempFile).catch(() => undefined);
     throw error;

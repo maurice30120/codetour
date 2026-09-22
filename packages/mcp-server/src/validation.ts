@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import safeRegex from "safe-regex2";
 import {
   ChangesParams,
   Issue,
@@ -334,12 +335,19 @@ function validateStep(
       regex = undefined as unknown as RegExp;
     }
     if (regex) {
-      const matches = fileContent.match(new RegExp(regex.source, "g")) ?? [];
-      if (matches.length !== 1) {
+      if (!safeRegex(regex)) {
         issues.push({
           path: `${base}.pattern`,
-          message: `must match exactly one occurrence in the file (matched ${matches.length})`,
+          message: "may cause excessive backtracking and is not allowed",
         });
+      } else {
+        const matches = fileContent.match(new RegExp(regex.source, "g")) ?? [];
+        if (matches.length !== 1) {
+          issues.push({
+            path: `${base}.pattern`,
+            message: `must match exactly one occurrence in the file (matched ${matches.length})`,
+          });
+        }
       }
     }
   }

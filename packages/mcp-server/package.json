@@ -35,6 +35,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "ajv": "^6.12.6",
+    "safe-regex2": "^5.1.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {

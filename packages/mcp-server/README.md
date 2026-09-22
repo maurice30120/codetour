@@ -64,7 +64,11 @@ The `--workspace-root` argument is required. The package exposes the
   "mcpServers": {
     "codetour": {
       "command": "node",
-      "args": ["/path/to/codetour/packages/mcp-server/dist/src/cli.js", "--workspace-root", "/path/to/workspace"]
+      "args": [
+        "/path/to/codetour/packages/mcp-server/dist/src/cli.js",
+        "--workspace-root",
+        "/path/to/workspace"
+      ]
     }
   }
 }
@@ -82,4 +86,3 @@ npm test            # build + integration tests over the stdio MCP seam
 
 Integration tests launch the server as an MCP client would, over `stdio`,
 against temporary workspaces and temporary Git repositories.
-

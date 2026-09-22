@@ -1,7 +1,7 @@
-import { test } from "node:test";
 import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { test } from "node:test";
 import { createContext } from "../../src/context";
 import {
   MAX_PATTERN_LENGTH,
@@ -170,6 +170,17 @@ test("an invalid regular expression is rejected", () => {
     root
   );
   assert.equal(issues.length, 1);
+  rmrf(root);
+});
+
+test("a potentially catastrophic regular expression is rejected", () => {
+  const root = workspaceWithFiles({ "a.ts": "a".repeat(100) });
+  const { issues } = validate(
+    [{ description: "d", file: "a.ts", pattern: "(a+)+$" }],
+    root
+  );
+  assert.equal(issues.length, 1);
+  assert.match(issues[0].message, /excessive backtracking/);
   rmrf(root);
 });
 
