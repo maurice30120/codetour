@@ -23,6 +23,8 @@ export interface RepositoryState {
 
 export interface Repository {
   readonly state: RepositoryState;
+  getCommit(ref: string): Promise<{ hash: string }>;
+  getObjectDetails(ref: string, path: string): Promise<{ mode: string; object: string; size: number }>;
 }
 
 interface GitAPI {

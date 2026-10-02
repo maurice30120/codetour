@@ -12,6 +12,7 @@ import {
 import { CodeTour, store } from ".";
 import { EXTENSION_NAME, FS_SCHEME, FS_SCHEME_CONTENT } from "../constants";
 import { startPlayer, stopPlayer } from "../player";
+import { getStepSnapshotUri } from "../player/diff";
 import {
   getStepFileUri,
   getWorkspaceKey,
@@ -216,26 +217,25 @@ export async function exportTour(tour: CodeTour) {
   if (newTour.steps) {
     newTour.steps = await Promise.all(
       newTour.steps.map(async step => {
-        if (step.contents || step.uri || !step.file) {
-          return step;
+        const exported = { ...step };
+        if (step.contents === undefined && !step.uri && step.file) {
+          const workspaceRoot = getWorkspaceUri(tour);
+          const stepFileUri = step.display === "diff" && tour.ref && /^[0-9a-f]{40}$/.test(tour.ref)
+            ? await getStepSnapshotUri(step, workspaceRoot, tour.ref)
+            : await getStepFileUri(step, workspaceRoot, tour.ref);
+          exported.contents = await readUriContents(stepFileUri);
         }
-
-        const workspaceRoot = getWorkspaceUri(tour);
-        const stepFileUri = await getStepFileUri(step, workspaceRoot, tour.ref);
-        const contents = await readUriContents(stepFileUri);
-
-        delete step.markerTitle;
-
-        return {
-          ...step,
-          contents
-        };
+        delete exported.markerTitle;
+        delete exported.display;
+        delete exported.baseFile;
+        return exported;
       })
     );
   }
 
   delete newTour.id;
   delete newTour.ref;
+  delete newTour.baseRef;
 
   return JSON.stringify(newTour, null, 2);
 }

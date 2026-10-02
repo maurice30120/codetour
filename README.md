@@ -224,12 +224,15 @@ Within the `.tours` (or `.vscode/tours`) directory, you can organize your tour f
 - `title` _(Required)_ - The display name of the tour, which will be shown in the `CodeTour` tree view, quick pick, etc.
 - `description` - An optional description for the tour, which will be shown as the tooltip for the tour in the `CodeTour` tree view
 - `ref` - An optional "git ref" (branch/tag/commit) that this tour applies to. See [versioning tours](#versioning-tours) for more details.
+- `baseRef` - The full SHA of the resolved merge-base for a Changes Tour comparison. When paired with a full commit SHA in `ref`, file steps with `display: "diff"` open VS Code's native Git diff editor.
 - `isPrimary` - Indicates that this tour is the primary tour within the workspace that an end-user should be guided through.
 - `nextTour` - The title of the tour that this tour is [meant to precede](#linking-tours).
 - `when` - Specifies the condition that must be met before this tour is shown. The value of this property is a string that is evaluated as JavaScript.
 - `steps` _(Required)_ - An array of tour steps
   - `description` _(Required)_ - The text which explains the current file/line number, and can include plain text and markdown syntax
   - `file` - The file path (relative to the workspace root) that this step is associated with
+  - `display` - Set to `"diff"` to compare the file at `baseRef` and `ref`. The reader uses immutable Git snapshots, including when `ref` is the current HEAD. Unavailable comparisons fall back to the current file.
+  - `baseFile` - The file path at `baseRef` for a renamed file; `file` is its path at `ref`. Added files have an empty left side.
   - `directory` - The path of a directory (relative to the workspace root) that this step is associated with. _Note: This property takes precedence over the `file` property, and so will "win" if both are present._
   - `uri` - An absolute URI that this step is associated with. Note that `uri` and `file` are mutually exclusive, so only set one per step
   - `line` - The 1-based line number that this step is associated with

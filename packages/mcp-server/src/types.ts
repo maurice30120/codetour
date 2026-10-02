@@ -12,6 +12,8 @@ export interface TourStep {
   title?: string;
   description: string;
   file?: string;
+  baseFile?: string;
+  display?: "diff";
   directory?: string;
   line?: number;
   pattern?: string;
@@ -35,6 +37,7 @@ export interface TourFile {
   title: string;
   description?: string;
   ref?: string;
+  baseRef?: string;
   steps: TourStep[];
 }
 

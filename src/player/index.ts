@@ -21,7 +21,7 @@ import {
   window,
   workspace
 } from "vscode";
-import { SMALL_ICON_URL } from "../constants";
+import { CONTENT_URI, SMALL_ICON_URL } from "../constants";
 import { CodeTour, store } from "../store";
 import { initializeStorage } from "../store/storage";
 import {
@@ -33,6 +33,7 @@ import {
   getTourTitle
 } from "../utils";
 import { registerCodeStatusModule } from "./codeStatus";
+import { getStepDiff, StepDiff } from "./diff";
 import { registerPlayerCommands } from "./commands";
 import { registerDecorators } from "./decorator";
 import { registerFileSystemProvider } from "./fileSystem";
@@ -134,6 +135,9 @@ export class CodeTourComment implements Comment {
 }
 
 let controller: CommentController | null;
+let currentDiff: StepDiff | undefined;
+let currentSelection: Selection | undefined;
+let renderVersion = 0;
 
 export async function focusPlayer() {
   const currentThread = store.activeTour?.thread;
@@ -145,7 +149,11 @@ export async function focusPlayer() {
     return;
   }
 
-  showDocument(currentThread.uri, currentThread.range);
+  if (store.activeTour?.tour.steps[store.activeTour.step]?.display === "diff") {
+    await renderCurrentStep();
+  } else {
+    await showDocument(currentThread.uri, currentThread.range, currentSelection);
+  }
 }
 
 export async function startPlayer() {
@@ -172,6 +180,9 @@ export async function startPlayer() {
 }
 
 export async function stopPlayer() {
+  ++renderVersion;
+  currentDiff = undefined;
+  currentSelection = undefined;
   if (store.activeTour?.thread) {
     store.activeTour!.thread.dispose();
     store.activeTour!.thread = null;
@@ -236,9 +247,11 @@ function getNextTour(): CodeTour | undefined {
   }
 }
 
-async function renderCurrentStep() {
+async function renderCurrentStep(forceCurrentFile = false) {
+  const version = ++renderVersion;
   if (store.activeTour!.thread) {
     store.activeTour!.thread.dispose();
+    store.activeTour!.thread = null;
   }
 
   const currentTour = store.activeTour!.tour;
@@ -250,7 +263,30 @@ async function renderCurrentStep() {
   }
 
   const workspaceRoot = store.activeTour?.workspaceRoot;
-  const uri = await getStepFileUri(step, workspaceRoot, currentTour.ref);
+  let diff = forceCurrentFile ? undefined : await getStepDiff(step, currentTour, workspaceRoot);
+  let uri = diff?.modified || await getStepFileUri(
+    step, workspaceRoot, step.display === "diff" ? undefined : currentTour.ref
+  );
+  let unavailableFile = false;
+  let document: TextDocument | undefined;
+  if (step.display === "diff" && step.file) {
+    try {
+      document = await workspace.openTextDocument(uri);
+    } catch {
+      diff = undefined;
+      uri = await getStepFileUri(step, workspaceRoot);
+      try {
+        document = await workspace.openTextDocument(uri);
+      } catch {
+        uri = CONTENT_URI;
+        unavailableFile = true;
+        if (version === renderVersion) {
+          window.showWarningMessage(`CodeTour: file unavailable: ${step.file}. You can continue the tour.`);
+        }
+      }
+    }
+  }
+  if (version !== renderVersion || !store.activeTour || !controller) return;
 
   let line = step.line
     ? step.line - 1
@@ -258,10 +294,11 @@ async function renderCurrentStep() {
     ? step.selection.end.line - 1
     : undefined;
 
-  if (step.file && line === undefined) {
+  if (unavailableFile) line = 0;
+  if (step.file && !unavailableFile && line === undefined) {
     const stepPattern = step.pattern || getActiveStepMarker();
     if (stepPattern) {
-      const document = await workspace.openTextDocument(uri);
+      document = document || await workspace.openTextDocument(uri);
       const match = document.getText().match(new RegExp(stepPattern, "m"));
       if (match) {
         line = document.positionAt(match.index!).line;
@@ -273,8 +310,11 @@ async function renderCurrentStep() {
     // The step doesn't have a discoverable line number and so
     // stick the step at the end of the file. Unfortunately, there
     // isn't a way to say EOF, so 2000 is a temporary hack.
-    line = 2000;
+    line = document ? document.lineCount - 1 : 2000;
   }
+  if (document) line = Math.min(line, document.lineCount - 1);
+  if (version !== renderVersion || !store.activeTour || !controller) return;
+  currentDiff = diff;
 
   const range = new Range(line!, 0, line!, 0);
   let label = `Step #${currentStep + 1} of ${currentTour!.steps.length}`;
@@ -371,7 +411,7 @@ async function renderCurrentStep() {
     CommentThreadCollapsibleState.Expanded;
 
   let selection;
-  if (step.selection) {
+  if (step.selection && !unavailableFile) {
     // Adjust the 1-based positions
     // to the 0-based positions that
     // VS Code's editor uses.
@@ -385,7 +425,18 @@ async function renderCurrentStep() {
     selection = new Selection(range.start, range.end);
   }
 
-  await showDocument(uri, range, selection);
+  currentSelection = selection;
+  if (currentDiff) {
+    try {
+      await showDiff(currentDiff, range, selection, version);
+    } catch {
+      if (version === renderVersion) await renderCurrentStep(true);
+      return;
+    }
+  } else {
+    await showDocument(uri, range, selection);
+  }
+  if (version !== renderVersion || !store.activeTour) return;
 
   if (step.directory) {
     const directoryUri = getFileUri(step.directory, workspaceRoot);
@@ -424,6 +475,24 @@ async function renderCurrentStep() {
   }
 }
 
+async function showDiff(diff: StepDiff, range: Range, selection: Selection, version: number) {
+  await commands.executeCommand("vscode.diff", diff.original, diff.modified, diff.title, {
+    preserveFocus: false,
+    preview: true,
+    selection: selection || range
+  });
+  if (version !== renderVersion || !store.activeTour) return;
+  // Never use showTextDocument here: it would replace the diff with a plain
+  // editor. vscode.diff reveals the modified side and its selection itself.
+  const editor = window.visibleTextEditors.find(editor =>
+    editor.document.uri.toString() === diff.modified.toString()
+  );
+  if (editor) {
+    if (selection) editor.selection = selection;
+    editor.revealRange(range, TextEditorRevealType.InCenter);
+  }
+}
+
 async function showDocument(uri: Uri, range: Range, selection?: Selection) {
   const document =
     window.visibleTextEditors.find(
@@ -459,10 +528,15 @@ export function registerPlayerModule(context: ExtensionContext) {
         ? [
             store.activeTour.step,
             store.activeTour.tour.title,
+            store.activeTour.tour.ref,
+            store.activeTour.tour.baseRef,
             store.activeTour.tour.steps.map(step => [
               step.title,
               step.description,
               step.line,
+              step.file,
+              step.baseFile,
+              step.display,
               step.directory,
               step.view
             ])

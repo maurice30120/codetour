@@ -18,6 +18,8 @@ export interface CodeTourStep {
   // one of them can be, since these properties
   // indicate the "type" of step.
   file?: string;
+  baseFile?: string;
+  display?: "diff";
   directory?: string;
   contents?: string;
   uri?: string;
@@ -42,6 +44,7 @@ export interface CodeTour {
   description?: string;
   steps: CodeTourStep[];
   ref?: string;
+  baseRef?: string;
   isPrimary?: boolean;
   nextTour?: string;
   stepMarker?: string;

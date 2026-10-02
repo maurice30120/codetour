@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import * as path from "path";
 import { createContext } from "./context";
 import {
   changedFiles,
@@ -9,6 +10,8 @@ import {
   isGitRepository,
   mergeBase,
   normalizeSlashes,
+  readCommitAnchors,
+  renamedFiles,
   resolveCommit,
   uncommittedChanges,
   workspacePrefix,
@@ -54,38 +57,69 @@ const PROJECT_TOUR_PATH = ".tours/project.tour";
 const CHANGES_TOUR_PATH = ".tours/changes.tour";
 
 const PROJECT_TOUR_DESCRIPTION =
-  "Creates a CodeTour Project Tour that explains a codebase as a whole, persisted at " +
-  ".tours/project.tour (replacing any previously generated tour of the same kind). " +
-  "You provide the fully written content; the server only validates and persists it deterministically. " +
-  "A good Project Tour ideally covers: the project's purpose, its main entry points, its important " +
-  "components, and its main execution flows. " +
-  "Arguments: an optional title (defaults to \"Project Overview\"), an optional description, and a " +
-  "required non-empty steps array. Each step takes an optional title, a required Markdown description, " +
-  "and at most one locator: a file or a directory (workspace-relative paths). A step may also target a " +
-  "line, a unique stable pattern, or a selection, but only together with a file; line and pattern are " +
-  "mutually exclusive. Prefer a unique stable pattern over a line number so the anchor resists file " +
-  "evolution, and use a line only as a fallback. Steps without any locator are allowed for general " +
-  "context. Every anchor is " +
-  "validated against the real workspace state, and all validation errors are reported in a single " +
-  "response. On failure, the previous tour file is preserved.";
+  "Create a CodeTour guided walkthrough for understanding a codebase. Use this tool for onboarding " +
+  "or explaining the project's architecture and execution flows. Read the relevant source before " +
+  "writing the tour; every explanation and anchor must be supported by the code. " +
+  "Build a coherent route from the project's purpose and entry points through its key components " +
+  "and how they collaborate. Choose representative files rather than listing every module. " +
+  "Each step should explain the anchored code's role, why it matters, and its connection to the " +
+  "surrounding flow; avoid merely restating names or syntax. Adapt the depth and step count to the " +
+  "requested audience and scope. " +
+  "Input: a required non-empty steps array, an optional title (default: \"Project Overview\"), and " +
+  "an optional description summarizing the tour. Each step requires a Markdown description and may " +
+  "have a title. Use at most one locator per step: file or directory, relative to the workspace root. " +
+  "Anchor code explanations to the relevant file and location; use a directory for structural " +
+  "orientation, or no locator for general context. File steps may use line (1-based), pattern " +
+  "(a regular expression matching exactly once in the file), or selection (start/end positions " +
+  "with 1-based line and character). line and pattern are mutually exclusive. Prefer a short, " +
+  "stable pattern when it identifies the intended code reliably; otherwise use a verified line. " +
+  "Project Tours use ordinary file navigation and anchors are checked against the current workspace. " +
+  "You author the complete content; the server validates it and atomically writes .tours/project.tour, " +
+  "replacing the previous Project Tour only on success. Validation issues are returned together; " +
+  "correct the reported issues before retrying. Failure preserves the previous tour.";
 
 const CHANGES_TOUR_DESCRIPTION =
-  "Creates a CodeTour Changes Tour that explains the committed changes on the current branch since it " +
-  "diverged from a base ref, persisted at .tours/changes.tour (replacing any previously generated tour " +
-  "of the same kind). You provide the fully written content; the server only validates and persists it " +
-  "deterministically. A good Changes Tour ideally covers: the intent of the changes, the major " +
-  "modifications, their impact, and the relevant tests. An introductory step explaining the overall " +
-  "intent should anchor the main directory of the changes (a step takes at most one locator: a file or " +
-  "a directory, workspace-relative), so the reader sees where the work happened. " +
-  "Arguments: baseRef (required Git ref), headRef (required full 40-character SHA of the analyzed commit, " +
-  "which must equal the current HEAD), includeUncommittedChanges (optional boolean, default false), an optional " +
-  "title (defaults to \"Changes on <branch>\"), an optional description, and a required non-empty steps " +
-  "array. Steps follow the same rules as the Project Tour (prefer a unique stable pattern over a line " +
-  "number); steps may anchor unchanged files when they " +
-  "provide essential context, and deleted files must be explained with steps that have no locator. " +
-  "Uncommitted changes are excluded by default and reported as a warning; pass includeUncommittedChanges to " +
-  "include them explicitly. The description is automatically enriched with the base, merge-base and " +
-  "head. On failure, the previous tour file is preserved.";
+  "Create a CodeTour guided review of the current branch's changes from the merge-base of a base " +
+  "reference to an analyzed commit. Present the major changes, their implementation, observable " +
+  "behavioral effects, and relevant tests factually. Describe intent only when supported by source " +
+  "or supplied context. Do not give opinions on the changes, judge their quality, recommend " +
+  "alternatives, or approve or reject them. Inspect the Git comparison and the affected source before " +
+  "writing; explain the actual changes rather than inferring them from filenames or commit messages. " +
+  "Organize steps into a coherent review path, grouping related changes and focusing on decisions " +
+  "and behavior that help the reader understand the change set. Let review value determine the " +
+  "step count: add steps when they clarify distinct changes, design decisions, behavioral impacts, " +
+  "or test coverage, including multiple steps in the same file at different relevant locations. " +
+  "Avoid redundant steps that repeat the same explanation. More than fifteen steps is allowed; " +
+  "the server's step-count warning is advisory, so do not compress useful review guidance merely " +
+  "to stay below it. An introductory directory step " +
+  "can orient the reader to where the work happened. Anchor each code discussion at the relevant " +
+  "changed lines in the analyzed head snapshot, so the tour comment appears beside the change. " +
+  "Use unchanged code only when it supplies essential context. Do not claim tests passed without " +
+  "verification; distinguish observed behavior from intended behavior. " +
+  "Input: baseRef (required Git reference), headRef (required full 40-character commit SHA equal to " +
+  "the current HEAD), a required non-empty steps array, optional title (default: \"Changes on <branch>\"), " +
+  "optional description, and includeUncommittedChanges (optional boolean, default false). " +
+  "Each step requires a Markdown description and may have a title. Use at most one workspace-relative " +
+  "locator: file or directory. File steps may use line (1-based), pattern (a regular expression " +
+  "matching exactly once), or selection (start/end positions with 1-based line and character). " +
+  "line and pattern are mutually exclusive. Prefer a short, stable pattern identifying the discussed " +
+  "change; otherwise use a verified line in headRef. Explain deleted files with no-locator steps. " +
+  "For committed-only tours, anchors are validated against headRef, the persisted baseRef is the " +
+  "resolved merge-base SHA, and ref is headRef. The server marks file steps with display: \"diff\"; " +
+  "directory and no-locator steps retain ordinary navigation. New files have an empty original side. " +
+  "For renames, file names the head path and the server supplies baseFile for the original path. " +
+  "Optional display accepts only \"diff\" and requires file; optional baseFile also requires file " +
+  "and must match the detected rename for a committed-only tour. " +
+  "Local changes are excluded by default and reported when present. Set includeUncommittedChanges " +
+  "to true only when the requested scope includes them; inspect the local changes as well. When " +
+  "local changes are actually included, anchors are checked against the workspace and the server " +
+  "omits the commit pair and diff metadata: file steps open current files. If the workspace is " +
+  "clean, the tour remains a committed comparison. If a saved diff's revisions or file become " +
+  "unavailable, the reader falls back to the current file. " +
+  "You author the complete content; the server validates it, adds comparison provenance to the " +
+  "description, and atomically writes .tours/changes.tour, replacing the previous Changes Tour only " +
+  "on success. Failure preserves it. Correct reported validation issues before retrying; if HEAD " +
+  "changed, re-analyze the comparison and submit the new SHA with matching content.";
 
 const warningSchema = z.object({
   code: z.string(),
@@ -227,7 +261,7 @@ async function handleCreateChangesTour(
   const allIssues = [...paramIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
-    const validated = validateSteps(rawSteps, ctx);
+    const validated = validateSteps(rawSteps, ctx, { kind: "structure" });
     steps = validated.steps;
     allIssues.push(...validated.issues);
   }
@@ -292,6 +326,28 @@ async function handleCreateChangesTour(
   // NO_CHANGES and preserve the previous Changes Tour: an empty tour never
   // replaces a useful one.
   const uncommitted = await uncommittedChanges(ctx);
+  const includesLocalChanges = includeUncommittedChanges && uncommitted.length > 0;
+  const proposedSteps = steps as TourStep[];
+  const anchors = includesLocalChanges ? undefined : await readCommitAnchors(
+    ctx, headRef, proposedSteps.flatMap((step) => step.file === undefined ? [] : [step.file])
+  );
+  const validated = validateSteps(rawSteps as unknown[], ctx,
+    anchors ? { kind: "commit", anchors } : { kind: "workspace" });
+  const renames = includesLocalChanges ? new Map<string, string>()
+    : await renamedFiles(ctx, mergeBaseSha, headRef);
+  for (const [index, step] of proposedSteps.entries()) {
+    if (!includesLocalChanges && step.baseFile !== undefined &&
+        path.posix.normalize(normalizeSlashes(step.baseFile)) !==
+          renames.get(path.posix.normalize(normalizeSlashes(step.file!)))) {
+      validated.issues.push({
+        path: `steps[${index}].baseFile`,
+        message: "must match the old path of the detected Git rename",
+      });
+    }
+  }
+  if (validated.issues.length > 0) {
+    return errorResponse("INVALID_PROPOSAL", "The create_changes_tour arguments are invalid.", validated.issues);
+  }
   if (
     (await committedDiffIsEmpty(ctx, mergeBaseSha, headRef)) &&
     (!includeUncommittedChanges || uncommitted.length === 0)
@@ -306,7 +362,7 @@ async function handleCreateChangesTour(
   // included; in that case the Tour has no `ref` and reports that the result
   // describes a non-reproducible local state.
   const warnings: Warning[] = [];
-  if (includeUncommittedChanges) {
+  if (includesLocalChanges) {
     warnings.push({
       code: "UNCOMMITTED_CHANGES_INCLUDED",
       message:
@@ -319,7 +375,12 @@ async function handleCreateChangesTour(
     });
   }
 
-  const finalSteps = steps as TourStep[];
+  const finalSteps = (validated.steps as TourStep[]).map((step) => {
+    const { display, baseFile, ...ordinaryStep } = step;
+    if (includesLocalChanges || step.file === undefined) return ordinaryStep;
+    const file = path.posix.normalize(normalizeSlashes(step.file));
+    return { ...ordinaryStep, file, display: "diff" as const, baseFile: renames.get(file) };
+  });
   const warningsFromStepLimit = stepLimitWarnings(finalSteps);
   warnings.push(...warningsFromStepLimit);
 
@@ -352,7 +413,7 @@ async function handleCreateChangesTour(
   const title = params.title ?? (await defaultChangesTitle(ctx, headRef));
   // Enrich the description automatically with the provenance, base, and head
   // so the reader always knows the analyzed scope.
-  const provenance = includeUncommittedChanges
+  const provenance = includesLocalChanges
     ? `Generated from the merge-base of \`${baseRef}\` (\`${mergeBaseSha}\`) to \`${headRef}\`, including uncommitted changes (non-reproducible local state).`
     : `Generated from the merge-base of \`${baseRef}\` (\`${mergeBaseSha}\`) to \`${headRef}\`.`;
   const description =
@@ -364,7 +425,7 @@ async function handleCreateChangesTour(
     $schema: CODETOUR_SCHEMA_URI,
     title,
     description,
-    ...(!includeUncommittedChanges ? { ref: headRef } : {}),
+    ...(!includesLocalChanges ? { ref: headRef, baseRef: mergeBaseSha } : {}),
     steps: finalSteps,
   };
 

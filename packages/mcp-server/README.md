@@ -15,15 +15,22 @@ reserved tour file.
 - **Changes Tour generation** — explain the committed changes on a branch
   since it diverged from a base ref: the intent of the changes, the major
   modifications, their impact, and the relevant tests. The tour is written to
-  `.tours/changes.tour` and records the exact analyzed head SHA as its Git
-  ref, so it is reproducible. Uncommitted changes are excluded by default and
-  reported as a warning.
+  `.tours/changes.tour` and records the resolved merge-base SHA in `baseRef`
+  and the exact analyzed head SHA in `ref`. File steps automatically use
+  `display: "diff"` to show removed and added lines in VS Code's native diff
+  editor. Added files have an empty left side; renamed files record the old
+  path in `baseFile`. Deleted files are explained by steps without a locator.
+  Uncommitted changes are excluded by default and reported as a warning.
+  When `includeUncommittedChanges: true` actually includes local changes, the
+  entire tour opens current files and omits the Git comparison metadata.
+  On a clean workspace, that option still produces a reproducible Git diff.
 - **Strict validation** — every proposal is checked against a deliberately
   stricter subset of the CodeTour schema: explanatory Markdown and
   workspace-internal locations only. CodeTour `commands`, root-level `when`
   expressions, external `uri` steps, and active Markdown schemes (`command:`,
   `file:`, `vscode:`, `vscode-insiders:`, `javascript:`) are rejected, and
-  every anchor is validated against the real workspace state. All validation
+  anchors are validated against the analyzed HEAD for committed-only Changes
+  Tours, or the real workspace state for Project Tours and included local work. All validation
   issues are aggregated into a single response, and the previous tour file is
   preserved on any failure.
 - **Workspace confinement** — one server instance handles exactly one
@@ -86,3 +93,18 @@ npm test            # build + integration tests over the stdio MCP seam
 
 Integration tests launch the server as an MCP client would, over `stdio`,
 against temporary workspaces and temporary Git repositories.
+
+## Reading a Changes Tour in GitHub Copilot / VS Code
+
+Ask Copilot to create a Changes Tour with a base Git reference and the full SHA
+of the current HEAD, then start `.tours/changes.tour` from the CodeTour view.
+File steps open the native diff editor with deletions on the left and additions
+on the right (red and green with the standard theme). Comments and selections
+target the right side, and **CodeTour: Resume Tour** reopens the comparison.
+
+Steps without `display` retain their existing behavior. `view` still focuses
+VS Code views and does not select a diff mode. If the commit pair or a required
+file cannot be resolved, a diff step opens the current file. If that file is
+also missing, its explanation remains available and the tour can continue.
+Exporting a diff tour embeds the HEAD snapshot and removes its Git diff
+metadata, so the exported tour can be read without the repository.

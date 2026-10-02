@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import safeRegex from "safe-regex2";
+import { CommitAnchor, normalizeSlashes } from "./git";
 import {
   ChangesParams,
   Issue,
@@ -24,6 +25,8 @@ export const STEP_FIELDS = [
   "title",
   "description",
   "file",
+  "baseFile",
+  "display",
   "directory",
   "line",
   "pattern",
@@ -46,6 +49,11 @@ const FORBIDDEN_URI_SCHEME =
 const FULL_SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 type RawObject = Record<string, unknown>;
+
+export type AnchorSource =
+  | { kind: "workspace" }
+  | { kind: "structure" }
+  | { kind: "commit"; anchors: ReadonlyMap<string, CommitAnchor> };
 
 function isPlainObject(value: unknown): value is RawObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -83,7 +91,7 @@ function reportUnknownFields(
       issues.push({
         path: errorPath === "$" ? key : `${errorPath}.${key}`,
         message:
-          "unknown field (V1 tours only allow title, description, file, directory, line, pattern and selection)",
+          `unknown field (allowed fields: ${allowed.join(", ")})`,
       });
     }
   }
@@ -182,12 +190,13 @@ function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
 
 export function validateSteps(
   rawSteps: unknown[],
-  ctx: WorkspaceContext
+  ctx: WorkspaceContext,
+  source: AnchorSource = { kind: "workspace" }
 ): { steps?: TourStep[]; issues: Issue[] } {
   const allIssues: Issue[] = [];
   const steps: TourStep[] = [];
   for (let index = 0; index < rawSteps.length; index++) {
-    const { step, issues } = validateStep(rawSteps[index], index, ctx);
+    const { step, issues } = validateStep(rawSteps[index], index, ctx, source);
     allIssues.push(...issues);
     if (step) {
       steps.push(step);
@@ -208,7 +217,8 @@ export function validateSteps(
 function validateStep(
   raw: unknown,
   index: number,
-  ctx: WorkspaceContext
+  ctx: WorkspaceContext,
+  source: AnchorSource
 ): { step?: TourStep; issues: Issue[] } {
   const issues: Issue[] = [];
   const base = `steps[${index}]`;
@@ -226,7 +236,26 @@ function validateStep(
   const title = isOptionalString(raw, "title", `${base}.title`, issues);
 
   const file = isOptionalString(raw, "file", `${base}.file`, issues);
+  const baseFile = isOptionalString(raw, "baseFile", `${base}.baseFile`, issues);
   const directory = isOptionalString(raw, "directory", `${base}.directory`, issues);
+
+  let display: "diff" | undefined;
+  if (raw.display !== undefined) {
+    if (raw.display !== "diff") {
+      issues.push({ path: `${base}.display`, message: 'must be "diff"' });
+    } else {
+      display = "diff";
+    }
+    if (file === undefined) {
+      issues.push({ path: `${base}.display`, message: "is only valid together with a file" });
+    }
+  }
+  if (baseFile !== undefined) {
+    checkRelativeAnchor(baseFile, `${base}.baseFile`, issues);
+    if (file === undefined) {
+      issues.push({ path: `${base}.baseFile`, message: "is only valid together with a file" });
+    }
+  }
 
   if (file !== undefined && directory !== undefined) {
     issues.push({ path: base, message: "a step cannot have both a file and a directory" });
@@ -288,8 +317,17 @@ function validateStep(
   let fileContent: string | undefined;
   let fileAnchorOk = true;
   if (file !== undefined) {
-    const anchor = checkAnchor(ctx, file, "file", `${base}.file`, issues);
-    if (anchor.ok && anchor.realPath !== undefined) {
+    const relativeOk = checkRelativeAnchor(file, `${base}.file`, issues);
+    const anchor: AnchorResult = !relativeOk ? { ok: false }
+      : source.kind === "structure" ? { ok: true }
+      : source.kind === "commit" ? checkCommitAnchor(source.anchors, file, "file", `${base}.file`, issues)
+      : checkAnchor(ctx, file, "file", `${base}.file`, issues);
+    if (anchor.ok && source.kind === "commit") {
+      fileContent = source.anchors.get(path.posix.normalize(normalizeSlashes(file)))?.contents;
+      if (fileContent === undefined) {
+        issues.push({ path: `${base}.file`, message: "could not be read from the commit" });
+      }
+    } else if (anchor.ok && anchor.realPath !== undefined) {
       try {
         fileContent = fs.readFileSync(anchor.realPath, "utf8");
       } catch {
@@ -299,7 +337,13 @@ function validateStep(
     fileAnchorOk = anchor.ok;
   }
   if (directory !== undefined) {
-    checkAnchor(ctx, directory, "directory", `${base}.directory`, issues);
+    if (checkRelativeAnchor(directory, `${base}.directory`, issues) && source.kind !== "structure") {
+      if (source.kind === "commit") {
+        checkCommitAnchor(source.anchors, directory, "directory", `${base}.directory`, issues);
+      } else {
+        checkAnchor(ctx, directory, "directory", `${base}.directory`, issues);
+      }
+    }
   }
 
   if (fileContent === undefined && !fileAnchorOk) {
@@ -364,6 +408,8 @@ function validateStep(
       title,
       description: description as string,
       file,
+      baseFile,
+      display,
       directory,
       line,
       pattern,
@@ -467,6 +513,38 @@ function validateSelectionBounds(
 interface AnchorResult {
   ok: boolean;
   realPath?: string;
+}
+
+function checkRelativeAnchor(value: string, errorPath: string, issues: Issue[]): boolean {
+  const normalized = path.posix.normalize(normalizeSlashes(value));
+  if (value.trim() === "" || value.includes("\0")) {
+    issues.push({ path: errorPath, message: "must be a non-empty path without NUL characters" });
+  } else if (path.isAbsolute(value) || path.win32.isAbsolute(value)) {
+    issues.push({ path: errorPath, message: "must be relative to the workspace root" });
+  } else if (normalized === ".." || normalized.startsWith("../")) {
+    issues.push({ path: errorPath, message: "resolves outside the workspace root" });
+  } else {
+    return true;
+  }
+  return false;
+}
+
+function checkCommitAnchor(
+  anchors: ReadonlyMap<string, CommitAnchor>,
+  value: string,
+  kind: "file" | "directory",
+  errorPath: string,
+  issues: Issue[]
+): AnchorResult {
+  const anchor = anchors.get(path.posix.normalize(normalizeSlashes(value)));
+  if (!anchor) {
+    issues.push({ path: errorPath, message: "does not exist in the analyzed commit" });
+  } else if (anchor.kind !== kind) {
+    issues.push({ path: errorPath, message: `is not a regular ${kind} in the analyzed commit` });
+  } else {
+    return { ok: true };
+  }
+  return { ok: false };
 }
 
 // Verify that a file or directory anchor exists and remains confined to the
