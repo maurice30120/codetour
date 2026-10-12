@@ -97,8 +97,9 @@ function reportUnknownFields(
   }
 }
 
-const PROJECT_PARAM_FIELDS = ["title", "description", "steps"] as const;
+const PROJECT_PARAM_FIELDS = ["workspacePath", "title", "description", "steps"] as const;
 const CHANGES_PARAM_FIELDS = [
+  "workspacePath",
   "title",
   "description",
   "steps",
@@ -163,6 +164,10 @@ export function validateChangesParams(
 // active URI scheme filtering), and a required step list.
 function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
   const params: ProjectParams = {};
+  const workspacePath = isOptionalString(raw, "workspacePath", "workspacePath", issues);
+  if (workspacePath !== undefined) {
+    params.workspacePath = workspacePath;
+  }
   const title = isOptionalString(raw, "title", "title", issues);
   if (title !== undefined) {
     params.title = title;

@@ -33,8 +33,9 @@ reserved tour file.
   Tours, or the real workspace state for Project Tours and included local work. All validation
   issues are aggregated into a single response, and the previous tour file is
   preserved on any failure.
-- **Workspace confinement** — one server instance handles exactly one
-  workspace root. Real paths are resolved before any read or write, symlinks
+- **Workspace confinement** — one server instance is confined to one
+  configured workspace root. Calls may select a directory below that root
+  with `workspacePath`. Real paths are resolved before any read or write, symlinks
   that escape the root are rejected, and the server performs no network
   access.
 - **Atomic persistence** — the reserved tour file is only replaced after a
@@ -82,6 +83,14 @@ The `--workspace-root` argument is required. The package exposes the
 ```
 
 The transport is `stdio` only.
+
+Both tools accept an optional `workspacePath`, relative to the configured
+`--workspace-root`. Use it when the workspace contains several projects or
+Git repositories, for example `"workspacePath": "my-project"`. Step anchors
+and the generated `.tours/` file are relative to the selected directory; the
+returned output path is relative to the configured root. The selection applies
+only to that call. Absolute paths, missing directories and paths or symlinks
+escaping the configured workspace are rejected without replacing a tour.
 
 ## Development
 

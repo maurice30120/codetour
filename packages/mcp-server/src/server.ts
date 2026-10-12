@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as path from "path";
-import { createContext } from "./context";
+import { createContext, selectContext } from "./context";
 import {
   changedFiles,
   committedDiffIsEmpty,
@@ -76,7 +76,9 @@ const PROJECT_TOUR_DESCRIPTION =
   "Project Tours use ordinary file navigation and anchors are checked against the current workspace. " +
   "You author the complete content; the server validates it and atomically writes .tours/project.tour, " +
   "replacing the previous Project Tour only on success. Validation issues are returned together; " +
-  "correct the reported issues before retrying. Failure preserves the previous tour.";
+  "correct the reported issues before retrying. Failure preserves the previous tour. " +
+  "Optional workspacePath selects a directory relative to the configured workspace root for this call. " +
+  "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace.";
 
 const CHANGES_TOUR_DESCRIPTION =
   "Create a CodeTour guided review of the current branch's changes from the merge-base of a base " +
@@ -119,7 +121,9 @@ const CHANGES_TOUR_DESCRIPTION =
   "You author the complete content; the server validates it, adds comparison provenance to the " +
   "description, and atomically writes .tours/changes.tour, replacing the previous Changes Tour only " +
   "on success. Failure preserves it. Correct reported validation issues before retrying; if HEAD " +
-  "changed, re-analyze the comparison and submit the new SHA with matching content.";
+  "changed, re-analyze the comparison and submit the new SHA with matching content. " +
+  "Optional workspacePath selects a repository or subdirectory relative to the configured workspace root for this call. " +
+  "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace.";
 
 const warningSchema = z.object({
   code: z.string(),
@@ -141,6 +145,7 @@ const toolResultSchema = z.object({
 
 const projectToolInputSchema = z
   .object({
+    workspacePath: z.unknown().optional(),
     title: z.unknown().optional(),
     description: z.unknown().optional(),
     steps: z.unknown().optional(),
@@ -149,6 +154,7 @@ const projectToolInputSchema = z
 
 const changesToolInputSchema = z
   .object({
+    workspacePath: z.unknown().optional(),
     title: z.unknown().optional(),
     description: z.unknown().optional(),
     steps: z.unknown().optional(),
@@ -192,7 +198,7 @@ export function createServer(workspaceRoot: string): McpServer {
 // workspace, and it is never attached to a `ref` so it remains viewable as the
 // project evolves.
 async function handleCreateProjectTour(
-  ctx: WorkspaceContext,
+  defaultContext: WorkspaceContext,
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
@@ -203,10 +209,13 @@ async function handleCreateProjectTour(
   // Aggregate all validation errors (parameters and then steps) before
   // responding so the agent can correct the proposal in one cycle.
   const { params, issues: paramIssues } = validateProjectParams(args);
-  const allIssues = [...paramIssues];
+  const selected = selectContext(defaultContext, params?.workspacePath);
+  const ctx = selected.context ?? defaultContext;
+  const allIssues = [...paramIssues, ...selected.issues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
-    const validated = validateSteps(rawSteps, ctx);
+    const validated = validateSteps(rawSteps, ctx,
+      selected.context ? { kind: "workspace" } : { kind: "structure" });
     steps = validated.steps;
     allIssues.push(...validated.issues);
   }
@@ -234,7 +243,7 @@ async function handleCreateProjectTour(
   }
 
   return successResponse(
-    PROJECT_TOUR_PATH,
+    normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, PROJECT_TOUR_PATH))),
     finalSteps.length,
     warnings,
     `Created Project Tour at ${PROJECT_TOUR_PATH} with ${finalSteps.length} step(s).`
@@ -247,7 +256,7 @@ async function handleCreateProjectTour(
 // default only committed changes are included; `includeUncommittedChanges`
 // enables explaining local work.
 async function handleCreateChangesTour(
-  ctx: WorkspaceContext,
+  defaultContext: WorkspaceContext,
   args: unknown
 ): Promise<ToolResponse> {
   const rawSteps = extractSteps(args);
@@ -258,7 +267,9 @@ async function handleCreateChangesTour(
   // Use the same aggregation strategy as the Project Tour: collect all
   // validation errors before responding.
   const { params, issues: paramIssues } = validateChangesParams(args);
-  const allIssues = [...paramIssues];
+  const selected = selectContext(defaultContext, params?.workspacePath);
+  const ctx = selected.context ?? defaultContext;
+  const allIssues = [...paramIssues, ...selected.issues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx, { kind: "structure" });
@@ -281,7 +292,8 @@ async function handleCreateChangesTour(
   if (!(await isGitRepository(ctx))) {
     return errorResponse(
       "GIT_REPOSITORY_REQUIRED",
-      "create_changes_tour requires a Git repository, but the workspace root is not inside one."
+      `create_changes_tour requires a Git repository, but the configured workspace root (${ctx.root}) is not inside one. ` +
+        "Select a repository with workspacePath, or restart codetour-mcp with --workspace-root pointing to the repository to analyze, rather than its parent directory."
     );
   }
 
@@ -447,7 +459,7 @@ async function handleCreateChangesTour(
   }
 
   return successResponse(
-    CHANGES_TOUR_PATH,
+    normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, CHANGES_TOUR_PATH))),
     finalSteps.length,
     warnings,
     `Created Changes Tour at ${CHANGES_TOUR_PATH} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`

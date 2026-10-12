@@ -181,6 +181,8 @@ test("fails with GIT_REPOSITORY_REQUIRED outside a git repository", async () => 
       });
       assert.equal(response.isError, true);
       assert.equal(structuredCode(response), "GIT_REPOSITORY_REQUIRED");
+      assert.ok(response.text.includes(root), "the error must identify the configured workspace");
+      assert.match(response.text, /--workspace-root/, "the error must explain how to select the repository");
     });
   } finally {
     rmrf(root);

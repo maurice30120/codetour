@@ -21,6 +21,7 @@ export interface TourStep {
 }
 
 export interface ProjectParams {
+  workspacePath?: string;
   title?: string;
   description?: string;
   steps?: unknown[];
