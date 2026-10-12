@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 import { initializeApi } from "./api";
 import { initializeGitApi } from "./git";
 import { registerLiveShareModule } from "./liveShare";
+import { registerDesktopIntegrations } from "./desktopIntegration";
 import { registerPlayerModule } from "./player";
 import { registerRecorderModule } from "./recorder";
 import { store } from "./store";
@@ -75,6 +76,7 @@ class URIHandler implements vscode.UriHandler {
 }
 
 export async function activate(context: vscode.ExtensionContext) {
+  registerDesktopIntegrations(context);
   registerPlayerModule(context);
   registerRecorderModule();
   registerLiveShareModule();
