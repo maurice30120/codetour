@@ -3,20 +3,32 @@ name: Release
 on:
   release:
     types:
-      - created
+      - published
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub release tag to build and attach VSIX files to
+        required: true
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   Release:
-    permissions:
-      contents: write
+    # Standard hosted runners are free only while the repository is public.
+    if: github.event.repository.private == false
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout
+      - name: Checkout release tag
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
@@ -31,7 +43,22 @@ jobs:
       - run: npm ci --prefix packages/mcp-server
       - name: Package platform VSIX
         run: npm run package
-      - name: Attach VSIX to the GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: codetour-*.vsix
+      - name: Attach platform VSIX to GitHub release
+        shell: bash
+        run: gh release upload --clobber -- "$RELEASE_TAG" codetour-*.vsix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      - name: Publish to VS Marketplace when configured
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          if [[ -n "$VSCE_PAT" ]]; then
+            vsix=(codetour-*.vsix)
+            npx --no-install vsce publish --packagePath "${vsix[0]}"
+          else
+            echo "VSCE_PAT is not configured; download the VSIX from the GitHub release."
+          fi
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}

@@ -4,8 +4,18 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    # Standard hosted runners are free only while the repository is public.
+    if: github.event.repository.private == false
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -16,11 +26,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            packages/mcp-server/package-lock.json
-            packages/description-renderer/package-lock.json
       - name: Install pinned npm
         run: npm install --global npm@12.0.1
         working-directory: ${{ runner.temp }}
@@ -31,9 +36,3 @@ jobs:
       - run: npm ci --prefix packages/mcp-server
       - run: npm test
       - run: npm run package
-      - name: Upload platform VSIX
-        uses: actions/upload-artifact@v4
-        with:
-          name: codetour-${{ matrix.os }}-${{ runner.arch }}
-          path: codetour-*.vsix
-          if-no-files-found: error
