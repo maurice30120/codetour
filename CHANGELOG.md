@@ -1,3 +1,46 @@
+# Changelog
+
+All notable changes to CodeTour IA are documented in this file. Entries below
+v0.1.0 document the original microsoft/codetour releases the fork builds on.
+
+## v0.1.0 (10/12/2026)
+
+First CodeTour IA release. CodeTour IA is the maintained fork of
+microsoft/codetour (unmaintained since August 2025).
+
+### Added
+
+- Local MCP server (codetour-mcp) exposing create_project_tour and
+  create_changes_tour for AI-generated tours: confined to one workspace,
+  fully offline, bundled into the VSIX.
+- Changes Tours open each file step in a reproducible Git diff between the
+  analyzed commits (display: "diff", baseFile for renames, baseRef set to
+  the resolved merge-base SHA, ref set to the analyzed head SHA).
+- Optional workspacePath argument on both tools, to target a sub-project or
+  repository inside a multi-project workspace.
+- Mermaid diagram support in tour descriptions, validated offline with the
+  same locked Mermaid engine as playback.
+- Shared codetour-description-renderer package for description rendering.
+- VS Code commands to configure and repair the Codex MCP integration.
+- Security hardening: ReDoS-safe pattern validation, symlink-race-free
+  atomic persistence, commit-tree anchor reads, and Git-option injection
+  prevention on baseRef.
+
+### Changed
+
+- Minimum VS Code version is now 1.101; the VS Code web extension build is
+  dropped (desktop only).
+- Generated tours are validated against a strict subset of the CodeTour
+  schema before any file is written.
+
+### Compatibility
+
+- The .tour file format and every command:codetour.* link remain fully
+  compatible with tours recorded with the original extension. See
+  MIGRATION.md.
+
+---
+
 ## Upcoming
 
 - Automatically updating a tour file as the associated code changes

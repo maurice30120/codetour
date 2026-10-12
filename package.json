@@ -1,9 +1,9 @@
 {
   "name": "codetour",
-  "displayName": "CodeTour",
-  "description": "VS Code extension that allows you to record and playback guided tours of codebases, directly within the editor",
-  "publisher": "vsls-contrib",
-  "version": "0.0.59",
+  "displayName": "CodeTour IA",
+  "description": "Record and playback guided tours of codebases, with AI-generated project and changes tours, directly within the editor",
+  "publisher": "maurice30120",
+  "version": "0.1.0",
   "packageManager": "npm@12.0.1",
   "volta": {
     "node": "24.18.0",
@@ -14,12 +14,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/microsoft/codetour"
+    "url": "https://github.com/maurice30120/codetour"
   },
   "bugs": {
-    "url": "https://github.com/microsoft/codetour/issues"
+    "url": "https://github.com/maurice30120/codetour/issues"
   },
-  "homepage": "https://github.com/microsoft/codetour#readme",
+  "homepage": "https://github.com/maurice30120/codetour#readme",
   "license": "MIT",
   "icon": "images/icon.png",
   "engines": {
@@ -81,17 +81,17 @@
       {
         "command": "codetour.configureCodexMcp",
         "title": "Configure MCP for Codex",
-        "category": "CodeTour"
+        "category": "CodeTour IA"
       },
       {
         "command": "codetour.repairCodexMcp",
         "title": "Repair MCP Configuration for Codex",
-        "category": "CodeTour"
+        "category": "CodeTour IA"
       },
       {
         "command": "codetour.addContentStep",
         "title": "Add Tour Step",
-        "category": "CodeTour"
+        "category": "CodeTour IA"
       },
       {
         "command": "codetour.addDirectoryStep",
@@ -132,7 +132,7 @@
       {
         "command": "codetour.resetProgress",
         "title": "Reset Progress",
-        "category": "CodeTour"
+        "category": "CodeTour IA"
       },
       {
         "command": "codetour.resetTourProgress",
@@ -153,13 +153,13 @@
       {
         "command": "codetour.editTour",
         "title": "Edit Tour",
-        "category": "CodeTour",
+        "category": "CodeTour IA",
         "icon": "$(edit)"
       },
       {
         "command": "codetour.endTour",
         "title": "End Tour",
-        "category": "CodeTour",
+        "category": "CodeTour IA",
         "icon": "$(primitive-square)"
       },
       {
@@ -169,7 +169,7 @@
       {
         "command": "codetour.hideMarkers",
         "title": "Hide Tour Markers",
-        "category": "CodeTour",
+        "category": "CodeTour IA",
         "icon": "$(eye-closed)"
       },
       {
@@ -195,12 +195,12 @@
         "command": "codetour.openTourFile",
         "title": "Open Tour File...",
         "icon": "$(folder-opened)",
-        "category": "CodeTour"
+        "category": "CodeTour IA"
       },
       {
         "command": "codetour.openTourUrl",
         "title": "Open Tour URL...",
-        "category": "CodeTour"
+        "category": "CodeTour IA"
       },
       {
         "command": "codetour.previewTour",
@@ -215,13 +215,13 @@
       {
         "command": "codetour.recordTour",
         "title": "Record Tour",
-        "category": "CodeTour",
+        "category": "CodeTour IA",
         "icon": "$(add)"
       },
       {
         "command": "codetour.resumeTour",
         "title": "Resume Tour",
-        "category": "CodeTour"
+        "category": "CodeTour IA"
       },
       {
         "command": "codetour.saveTourStep",
@@ -231,19 +231,19 @@
       {
         "command": "codetour.showMarkers",
         "title": "Show Tour Markers",
-        "category": "CodeTour",
+        "category": "CodeTour IA",
         "icon": "$(eye)"
       },
       {
         "command": "codetour.showStepDescription",
         "title": "Show Expanded Description",
-        "category": "CodeTour",
+        "category": "CodeTour IA",
         "icon": "$(preview)"
       },
       {
         "command": "codetour.startTour",
         "title": "Start Tour",
-        "category": "CodeTour",
+        "category": "CodeTour IA",
         "icon": "$(play)"
       },
       {
@@ -253,7 +253,7 @@
       {
         "command": "codetour.viewNotebook",
         "title": "View Notebook",
-        "category": "CodeTour"
+        "category": "CodeTour IA"
       }
     ],
     "menus": {
@@ -677,7 +677,7 @@
     "notebookProvider": [
       {
         "viewType": "codetour",
-        "displayName": "CodeTour",
+        "displayName": "CodeTour IA",
         "selector": [
           {
             "filenamePattern": "*.tour-notebook"
@@ -704,10 +704,11 @@
     "@types/throttle-debounce": "^5.0.0",
     "@types/vscode": "1.101.0",
     "@vscode/vsce": "^2.17.0",
+    "codetour-description-renderer": "file:packages/description-renderer",
     "debug": "^4.3.4",
     "eslint": "^8.34.0",
     "ts-loader": "^9.4.2",
-    "typescript": "4.9.5",
+    "typescript": "^5.9.3",
     "webpack": "^5.75.0",
     "webpack-cli": "^5.0.1",
     "webpack-merge": "^5.8.0"

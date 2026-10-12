@@ -1,3 +1,3 @@
-# Conserver les commits effectivement analysés dans un Changes Tour
+# Keep the commits actually analyzed in a Changes Tour
 
-Un Changes Tour limité aux commits conserve le SHA du merge-base résolu dans `baseRef` et celui de HEAD dans `ref`, plutôt qu’une référence de base mobile ou son commit de pointe : la lecture doit reproduire la comparaison qui a servi à l’analyse, même après déplacement des branches. Un tour incluant effectivement des changements locaux utilise le fichier courant pour toutes ses étapes de fichier, car une paire de commits ne représente pas l’intégralité de cette analyse ; demander leur inclusion sur un workspace propre conserve la comparaison Git.
+A committed-only Changes Tour stores the resolved merge-base SHA in `baseRef` and the HEAD SHA in `ref`, rather than a moving base reference or its tip commit: playback must reproduce the comparison that was analyzed, even after branches move. A tour that actually includes local changes uses the current file for all its file steps, because a commit pair does not represent that whole analysis; requesting their inclusion on a clean workspace keeps the Git comparison.

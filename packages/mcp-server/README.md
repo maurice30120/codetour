@@ -30,10 +30,10 @@ the same contract. Validation is local and offline.
 - Node.js >= 18
 - Git (only for `create_changes_tour`)
 
-## Démarrage rapide
+## Quick start
 
-Depuis la racine du dépôt, installez d'abord le renderer partagé, puis les
-dépendances du serveur MCP et vérifiez les deux packages :
+From the repository root, install the shared renderer first, then the MCP
+server dependencies, and verify both packages:
 
 ```bash
 cd packages/description-renderer
@@ -44,26 +44,25 @@ npm install
 npm test
 ```
 
-`npm test` compile le package et exécute toute la suite de tests. Vous pouvez
-ensuite démarrer le serveur depuis un workspace :
+`npm test` compiles the package and runs the full test suite. You can then
+start the server from a workspace:
 
 ```bash
 cd /path/to/workspace
 node /path/to/codetour/packages/mcp-server/dist/src/cli.js
 ```
 
-Le processus utilise MCP sur `stdio`. Il attend donc silencieusement les
-requêtes d'un client MCP. Utilisez `Ctrl+C` pour l'arrêter lorsqu'il est lancé
-manuellement.
+The process speaks MCP over `stdio` and silently waits for requests from an
+MCP client. Use `Ctrl+C` to stop it when started manually.
 
-Le répertoire de travail du processus est le workspace. Une instance du serveur
-traite exactement ce workspace et toutes les opérations y sont confinées : les chemins
-réels sont résolus avant toute lecture ou écriture, les liens symboliques qui
-sortent de la racine sont refusés et le serveur n'effectue aucun accès réseau.
+The process working directory is the workspace. One server instance handles
+exactly this workspace and every operation stays confined to it: real paths
+are resolved before any read or write, symlinks that escape the root are
+rejected, and the server performs no network access.
 
-Le package expose le binaire `codetour-mcp`, disponible après `npm install` ou
-`npm link`. Pour rendre ce binaire accessible globalement pendant le
-développement local :
+The package exposes the `codetour-mcp` binary, available after `npm install`
+or `npm link`. To make this binary globally available during local
+development:
 
 ```bash
 npm link
@@ -71,9 +70,9 @@ cd /path/to/workspace
 codetour-mcp
 ```
 
-Configurez enfin votre client MCP avec la commande et son répertoire de travail,
-comme dans l'exemple ci-dessous. Une fois connecté, le client découvre
-automatiquement `create_project_tour` et `create_changes_tour`.
+Finally, configure your MCP client with the command and its working directory,
+as in the example below. Once connected, the client automatically discovers
+`create_project_tour` and `create_changes_tour`.
 
 ## MCP client configuration
 
@@ -91,65 +90,65 @@ automatiquement `create_project_tour` et `create_changes_tour`.
 
 The transport is `stdio` only.
 
-Les deux outils acceptent un `workspacePath` optionnel, relatif à la racine du
-workspace (le répertoire de travail du processus). Utilisez-le quand le
-workspace contient plusieurs projets ou dépôts Git, par exemple
-`"workspacePath": "mon-projet"`. Les ancres des étapes et le fichier
-`.tours/` généré sont relatifs à ce répertoire pour cet appel ; le chemin
-retourné reste relatif à la racine configurée. Les chemins absolus, les
-répertoires manquants et les chemins qui sortent de la racine sont refusés.
+Both tools accept an optional `workspacePath`, relative to the workspace root
+(the process working directory). Use it when the workspace contains several
+projects or Git repositories, for example `"workspacePath": "my-project"`.
+Step anchors and the generated `.tours/` file are relative to that directory
+for this call; the returned path stays relative to the configured root.
+Absolute paths, missing directories, and paths escaping the root are
+rejected.
 
-### Configuration dans Codex
+### Codex configuration
 
-L'extension VS Code fournit les commandes `CodeTour: Configure MCP for Codex`
-et `CodeTour: Repair MCP Configuration for Codex`. La première installe la
-configuration globale lorsqu'elle manque ; la seconde remplace une
-configuration obsolète, notamment après une mise à jour de l'extension.
+The VS Code extension provides the `CodeTour IA: Configure MCP for Codex` and
+`CodeTour IA: Repair MCP Configuration for Codex` commands. The first one
+installs the global configuration when missing; the second replaces an
+outdated configuration, notably after an extension update.
 
-Pour un build de développement non installé en VSIX, l'équivalent manuel est :
+For a development build not installed from a VSIX, the manual equivalent is:
 
 ```bash
 codex mcp add codetour -- \
   node /path/to/codetour/dist/mcp-server.js
 ```
 
-Il n'est pas nécessaire de conserver un processus lancé manuellement : Codex
-démarre le serveur `stdio` automatiquement. Vérifiez la configuration avec :
+No manually started process needs to be kept around: Codex starts the `stdio`
+server automatically. Verify the configuration with:
 
 ```bash
 codex mcp get codetour
 ```
 
-Les nouvelles tâches Codex démarrent le serveur dans leur propre répertoire de
-travail ; une seule configuration globale couvre donc tous les projets.
+New Codex tasks start the server in their own working directory, so a single
+global configuration covers all projects.
 
-Pour générer le tour général du projet, demandez par exemple :
-
-```text
-Analyse ce dépôt, puis utilise l'outil MCP codetour.create_project_tour pour
-générer un Project Tour. Présente le but du projet, ses points d'entrée, ses
-composants importants et ses principaux flux d'exécution. Commence par une
-étape ancrée sur le dossier racine pour en expliquer l'organisation, puis
-présente les dossiers importants avant de détailler les fichiers. Utilise des
-ancres stables dans les fichiers lorsque c'est possible.
-```
-
-Pour limiter le Project Tour à un sous-dossier, nommez-le explicitement dans la
-demande. La première étape doit alors utiliser ce chemin dans son champ
-`directory`, relativement à la racine du workspace.
-
-Le résultat est écrit dans `.tours/project.tour`.
-
-Pour documenter les changements de la branche courante :
+To generate the general project tour, ask for example:
 
 ```text
-Analyse les changements commités de cette branche depuis sa branche de base,
-puis utilise codetour.create_changes_tour pour créer un Changes Tour. Détermine
-la référence de base et utilise le SHA complet du HEAD actuel. N'inclus pas les
-modifications non commitées.
+Analyze this repository, then use the codetour.create_project_tour MCP tool to
+generate a Project Tour. Present the project's purpose, its entry points, its
+important components and its main execution flows. Start with a step anchored
+on the root directory to explain its organization, then present the important
+directories before detailing the files. Use stable anchors in files whenever
+possible.
 ```
 
-Le résultat est écrit dans `.tours/changes.tour`.
+To scope the Project Tour to a subdirectory, name it explicitly in the request.
+The first step must then use that path in its `directory` field, relative to
+the workspace root.
+
+The result is written to `.tours/project.tour`.
+
+To document the changes of the current branch:
+
+```text
+Analyze the committed changes of this branch since its base branch, then use
+codetour.create_changes_tour to create a Changes Tour. Determine the base
+reference and use the full SHA of the current HEAD. Do not include uncommitted
+modifications.
+```
+
+The result is written to `.tours/changes.tour`.
 
 ## Tools
 

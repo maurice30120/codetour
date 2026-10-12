@@ -244,7 +244,7 @@ export function registerRecorderCommands() {
               )
             ) {
               const content = await exportTour(tour);
-              vscode.workspace.fs.writeFile(uri, Buffer.from(content));
+              vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(content));
             }
           }
         });
