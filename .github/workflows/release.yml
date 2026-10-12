@@ -55,7 +55,8 @@ jobs:
         shell: bash
         run: |
           if [[ -n "$VSCE_PAT" ]]; then
-            npm run publish:vsix
+            vsix=(codetour-*.vsix)
+            npx --no-install vsce publish --packagePath "${vsix[0]}"
           else
             echo "VSCE_PAT is not configured; download the VSIX from the GitHub release."
           fi

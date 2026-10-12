@@ -7,7 +7,11 @@ export {
 } from "./render";
 export type { DescriptionTheme, RenderedDiagram } from "./render";
 export { sanitizeSvg } from "./sanitize";
-export { findDiagramFences } from "./parse";
+export {
+  containsMermaidFenceMarker,
+  findDiagramFences,
+  isMermaidFenceLine
+} from "./parse";
 export type { DiagramFence } from "./parse";
 export {
   ALLOWED_DIAGRAM_KINDS,

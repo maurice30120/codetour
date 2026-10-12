@@ -3,10 +3,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { WorkspaceContext } from "./types";
 
-// Toutes les opérations Git du serveur passent par `git` en ligne de commande,
-// exécuté dans le workspace configuré. Le Changes Tour dépend de cet
-// historique : merge-base, vérification du SHA de tête, liste des fichiers
-// modifiés et détection des changements non committés.
+// All server Git operations invoke the `git` command line in the configured
+// workspace. The Changes Tour depends on this history for merge-base lookup,
+// HEAD SHA verification, changed-file listing, and uncommitted-change
+// detection.
 
 export interface GitResult {
   stdout: string;
@@ -52,6 +52,24 @@ export async function currentBranchName(
   return result.code === 0 ? result.stdout.trim() : null;
 }
 
+// Resolve an agent-supplied Git reference to a full commit SHA before it is
+// used in any Git invocation: a raw string passed as a positional argument
+// could otherwise be parsed as a Git option (e.g. `--output=...`) and alter
+// the command's behavior. The validation layer rejects references starting
+// with `-`, so the compound argument below can only ever be parsed as a rev.
+export async function resolveCommit(
+  ctx: WorkspaceContext,
+  ref: string
+): Promise<string | null> {
+  const result = await git(
+    ["rev-parse", "--verify", `${ref}^{commit}`],
+    ctx.root
+  );
+  return result.code === 0 && result.stdout.trim().length > 0
+    ? result.stdout.trim()
+    : null;
+}
+
 export async function mergeBase(
   ctx: WorkspaceContext,
   a: string,
@@ -89,6 +107,73 @@ export async function changedFiles(
   return result.stdout.split("\0").filter((entry) => entry.length > 0);
 }
 
+export interface CommitAnchor {
+  kind: "file" | "directory" | "other";
+  contents?: string;
+}
+
+// Read anchors from the commit tree, never through the checkout (which can
+// contain excluded edits, deletions, or symlinks). Only requested file blobs
+// are loaded; tree modes distinguish regular files from symlinks/submodules.
+export async function readCommitAnchors(
+  ctx: WorkspaceContext,
+  ref: string,
+  files: string[]
+): Promise<Map<string, CommitAnchor>> {
+  const prefix = normalizeSlashes(await workspacePrefix(ctx));
+  const result = await git(["ls-tree", "--full-tree", "-r", "-t", "-z", ref], ctx.root);
+  if (result.code !== 0) {
+    throw new Error(result.stderr.trim() || "Unable to read the commit tree.");
+  }
+  const requested = new Set(files.map((file) => path.posix.normalize(normalizeSlashes(file))));
+  const anchors = new Map<string, CommitAnchor>([[".", { kind: "directory" }]]);
+  for (const entry of result.stdout.split("\0")) {
+    const separator = entry.indexOf("\t");
+    if (separator < 0) continue;
+    const [mode, type, object] = entry.slice(0, separator).split(" ");
+    const repoPath = entry.slice(separator + 1);
+    if (!repoPath.startsWith(prefix)) continue;
+    const file = repoPath.slice(prefix.length);
+    const kind = type === "tree" ? "directory"
+      : mode === "100644" || mode === "100755" ? "file" : "other";
+    const anchor: CommitAnchor = { kind };
+    if (kind === "file" && requested.has(file)) {
+      const blob = await git(["cat-file", "blob", object], ctx.root);
+      if (blob.code !== 0) {
+        throw new Error(blob.stderr.trim() || `Unable to read ${file} at ${ref}.`);
+      }
+      anchor.contents = blob.stdout;
+    }
+    anchors.set(file, anchor);
+  }
+  return anchors;
+}
+
+export async function renamedFiles(
+  ctx: WorkspaceContext,
+  base: string,
+  head: string
+): Promise<Map<string, string>> {
+  const prefix = normalizeSlashes(await workspacePrefix(ctx));
+  const result = await git(["diff", "--name-status", "--find-renames", "-z", base, head], ctx.root);
+  if (result.code !== 0) {
+    throw new Error(result.stderr.trim() || "Unable to read file renames.");
+  }
+  const fields = result.stdout.split("\0");
+  const renames = new Map<string, string>();
+  for (let index = 0; index < fields.length && fields[index];) {
+    const status = fields[index++];
+    const oldPath = fields[index++];
+    if (status.startsWith("R") || status.startsWith("C")) {
+      const newPath = fields[index++];
+      if (status.startsWith("R") && oldPath.startsWith(prefix) && newPath.startsWith(prefix)) {
+        renames.set(newPath.slice(prefix.length), oldPath.slice(prefix.length));
+      }
+    }
+  }
+  return renames;
+}
+
 export async function workspacePrefix(ctx: WorkspaceContext): Promise<string> {
   const result = await git(["rev-parse", "--show-prefix"], ctx.root);
   return result.code === 0 ? result.stdout.trim() : "";
@@ -108,9 +193,9 @@ export function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, "/");
 }
 
-// Changements staged, unstaged et untracked du workspace, à l'exception des
-// deux fichiers de Tour réservés : une génération précédente ne doit pas
-// provoquer son propre avertissement de workspace sale.
+// Staged, unstaged, and untracked workspace changes, except for the two
+// reserved Tour files: a previous generation must not trigger its own dirty
+// workspace warning.
 export async function uncommittedChanges(
   ctx: WorkspaceContext
 ): Promise<UncommittedEntry[]> {
@@ -150,9 +235,9 @@ export async function uncommittedChanges(
   return entries;
 }
 
-// Un répertoire `.tours` non suivi apparaît sous la forme d'une seule entrée
-// `?? .tours/` en mode « normal » : on l'ignore uniquement si son contenu se
-// limite aux fichiers de Tour réservés.
+// An untracked `.tours` directory appears as one `?? .tours/` entry in normal
+// mode. Ignore it only when its contents are limited to the reserved Tour
+// files.
 function toursDirectoryOnlyContainsReserved(
   ctx: WorkspaceContext,
   directory: string

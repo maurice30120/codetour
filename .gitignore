@@ -3,3 +3,10 @@ node_modules
 .vscode-test/
 *.vsix
 .DS_Store
+.agents/
+skills-lock.json
+.tours
+.vscode
+AGENTS.md
+docs/agents/
+.vibe/skills

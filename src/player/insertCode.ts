@@ -5,10 +5,14 @@
 // Mermaid fences are bypassed, so diagram sources are never offered as
 // insertable code and never swallowed into another fence's payload.
 
+import {
+  containsMermaidFenceMarker,
+  isMermaidFenceLine
+} from "codetour-description-renderer";
+
 const CODE_FENCE_PATTERN = /```[^\n]+\n(.+)\n```/gms;
 const FENCE_OPEN_PATTERN = /^\s*```(.+)$/;
 const FENCE_CLOSE_PATTERN = /^\s*```[ \t]*$/;
-const MERMAID_FENCE_PATTERN = /^\s*```mermaid[ \t]*$/;
 
 interface FenceSpan {
   openIndex: number;
@@ -52,7 +56,7 @@ function findFenceSpans(lines: string[]): FenceSpan[] {
     spans.push({
       openIndex: index,
       closeIndex,
-      isMermaid: MERMAID_FENCE_PATTERN.test(lines[index])
+      isMermaid: isMermaidFenceLine(lines[index])
     });
     index = closeIndex + 1;
   }
@@ -92,7 +96,7 @@ function transformFenceRuns(content: string): string {
 }
 
 export function appendInsertCodeLinks(content: string): string {
-  if (!content.includes("```mermaid")) {
+  if (!containsMermaidFenceMarker(content)) {
     return transformLegacy(content);
   }
 

@@ -1,4 +1,10 @@
-# CodeTour 🗺️
+# CodeTour IA 🗺️
+
+> **CodeTour IA** is an actively maintained fork of
+> [microsoft/codetour](https://github.com/microsoft/codetour), which has been
+> unmaintained since August 2025. Every existing `.tour` file, tour and
+> `command:codetour.*` link remains fully compatible. See
+> [MIGRATION.md](MIGRATION.md) to switch over.
 
 ## AI-generated tours
 
@@ -6,10 +12,18 @@ The desktop extension includes a local MCP server with tools for generating a
 Project Tour or a Changes Tour. VS Code and GitHub Copilot discover one confined
 server per workspace folder automatically; no `.vscode/mcp.json` file is
 required. The server is bundled in the VSIX and never accesses the network.
+Changes Tours open each file step in a reproducible Git diff between the
+analyzed commits, and both tools accept an optional `workspacePath` for
+multi-project workspaces.
 
-To use the same tools in Codex, run `CodeTour: Configure MCP for Codex` from the
-Command Palette. If the extension was moved or updated and Codex still points
-to an older bundle, run `CodeTour: Repair MCP Configuration for Codex`.
+To use the same tools in Codex, run `CodeTour IA: Configure MCP for Codex`
+from the Command Palette. If the extension was moved or updated and Codex
+still points to an older bundle, run
+`CodeTour IA: Repair MCP Configuration for Codex`.
+
+The full tool contracts, validation rules, and a manual configuration example
+for other MCP clients are documented in
+[packages/mcp-server/README.md](packages/mcp-server/README.md).
 
 CodeTour is a Visual Studio Code extension, which allows you to record and play back guided walkthroughs of your codebases. It's like a table of contents, that can make it easier to onboard (or re-board!) to a new project/feature area, visualize bug reports, or understand the context of a code review/PR change. A "code tour" is simply a series of interactive steps, each of which are associated with a specific directory, or file/line, and include a description of the respective code. This allows developers to clone a repo, and then immediately start **learning it**, without needing to refer to a `CONTRIBUTING.md` file and/or rely on help from others. Tours can either be checked into a repo, to enable sharing with other contributors, or [exported](#exporting-tours) to a "tour file", which allows anyone to replay the same tour, without having to clone any code to do it!
 
@@ -17,7 +31,17 @@ CodeTour is a Visual Studio Code extension, which allows you to record and play 
 
 ## Getting Started
 
-In order to get started, install the [CodeTour extension](https://aka.ms/codetour), and then following one of the following guides, depending on whether you want to record or play back a tour:
+CodeTour IA is not published on the VS Code Marketplace yet. To install it,
+download the latest `.vsix` from the
+[GitHub Releases](https://github.com/maurice30120/codetour/releases) page and
+run:
+
+```bash
+code --install-extension codetour-*.vsix
+```
+
+Then follow one of the following guides, depending on whether you want to
+record or play back a tour:
 
 - [Recording Tours](#recording-tours)
 - [Exporting Tours](#exporting-tours)
@@ -222,12 +246,15 @@ Within the `.tours` (or `.vscode/tours`) directory, you can organize your tour f
 - `title` _(Required)_ - The display name of the tour, which will be shown in the `CodeTour` tree view, quick pick, etc.
 - `description` - An optional description for the tour, which will be shown as the tooltip for the tour in the `CodeTour` tree view
 - `ref` - An optional "git ref" (branch/tag/commit) that this tour applies to. See [versioning tours](#versioning-tours) for more details.
+- `baseRef` - The full SHA of the resolved merge-base for a Changes Tour comparison. When paired with a full commit SHA in `ref`, file steps with `display: "diff"` open VS Code's native Git diff editor.
 - `isPrimary` - Indicates that this tour is the primary tour within the workspace that an end-user should be guided through.
 - `nextTour` - The title of the tour that this tour is [meant to precede](#linking-tours).
 - `when` - Specifies the condition that must be met before this tour is shown. The value of this property is a string that is evaluated as JavaScript.
 - `steps` _(Required)_ - An array of tour steps
   - `description` _(Required)_ - The text which explains the current file/line number, and can include plain text and markdown syntax
   - `file` - The file path (relative to the workspace root) that this step is associated with
+  - `display` - Set to `"diff"` to compare the file at `baseRef` and `ref`. The reader uses immutable Git snapshots, including when `ref` is the current HEAD. Unavailable comparisons fall back to the current file.
+  - `baseFile` - The file path at `baseRef` for a renamed file; `file` is its path at `ref`. Added files have an empty left side.
   - `directory` - The path of a directory (relative to the workspace root) that this step is associated with. _Note: This property takes precedence over the `file` property, and so will "win" if both are present._
   - `uri` - An absolute URI that this step is associated with. Note that `uri` and `file` are mutually exclusive, so only set one per step
   - `line` - The 1-based line number that this step is associated with
@@ -412,9 +439,9 @@ In order to enable other extensions to contribute/manage their own code tours, t
 
 In addition to the aforementioned functions, the extension API also allows subscribing to the following tour events:
 
-- `onDidStartTour(([tour: CodeTour, stepNumber: number]) => void): Disposable` - Registers a callback function, that is triggered whenever a tour is started or navigated. The provided callback is passed a [`CodeTour`](https://github.com/microsoft/codetour/blob/main/src/store/index.ts#L38) instance as well as the step number that is visible.
+- `onDidStartTour(([tour: CodeTour, stepNumber: number]) => void): Disposable` - Registers a callback function, that is triggered whenever a tour is started or navigated. The provided callback is passed a [`CodeTour`](https://github.com/maurice30120/codetour/blob/main/src/store/index.ts#L38) instance as well as the step number that is visible.
 
-- `onDidEndTour((tour: CodeTour) => void): Disposable` - Registers a callback function, that is triggered whenever a tour is ended. The provided callback is passed a [`CodeTour`](https://github.com/microsoft/codetour/blob/main/src/store/index.ts#L38) instance, which represents the metadata of the tour that was ended.
+- `onDidEndTour((tour: CodeTour) => void): Disposable` - Registers a callback function, that is triggered whenever a tour is ended. The provided callback is passed a [`CodeTour`](https://github.com/maurice30120/codetour/blob/main/src/store/index.ts#L38) instance, which represents the metadata of the tour that was ended.
 
 ```javascript
 // Check if the end-user has the CodeTour extension installed.

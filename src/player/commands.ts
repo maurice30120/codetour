@@ -43,8 +43,8 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Permet à l'aperçu d'un marqueur d'ouvrir directement la visite et l'étape
-  // correspondantes ; cette commande n'est pas destinée à la palette publique.
+  // Lets a marker preview open the tour and its matching step directly;
+  // this command is not meant for the public command palette.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}._startTourById`,
     async (id: string, stepNumber: number) => {
@@ -55,7 +55,7 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Ouvre une visite liée depuis le contenu Markdown d'une autre visite.
+  // Opens a linked tour from the Markdown content of another tour.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.startTourByTitle`,
     async (title: string, stepNumber?: number) => {
@@ -90,7 +90,7 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Amène le lecteur à l'étape ciblée par un lien Markdown.
+  // Takes the reader to the step targeted by a Markdown link.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.navigateToStep`,
     async (stepNumber: number) => {
@@ -105,7 +105,7 @@ export function registerPlayerCommands() {
     }
   );
 
-  // Exécute dans le terminal CodeTour le texte proposé par une étape.
+  // Runs the text proposed by a step in the CodeTour terminal.
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.sendTextToTerminal`,
     async (text: string) => {
