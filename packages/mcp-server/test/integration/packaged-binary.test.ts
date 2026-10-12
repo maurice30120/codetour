@@ -82,6 +82,7 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
         path.join(packageRoot, "node_modules", "@resvg", "resvg-js"),
         path.join(packageRoot, "node_modules", "jsdom"),
         path.join(packageRoot, "node_modules", "mermaid"),
+        path.join(packageRoot, "node_modules", "safe-regex2"),
         path.join(packageRoot, "node_modules", "zod"),
       ],
       sandbox,

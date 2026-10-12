@@ -33,8 +33,8 @@ function startTour(params: URLSearchParams) {
 
   let stepNumber;
   if (step) {
-    // Dans les liens publics, la première étape porte le numéro 1 ; le lecteur
-    // interne utilise un index qui commence à 0.
+    // In public links, the first step is numbered 1; the internal player
+    // uses a zero-based index.
     stepNumber = Number(step) - 1;
   }
 

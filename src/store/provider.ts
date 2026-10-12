@@ -67,13 +67,13 @@ export async function discoverTours(): Promise<void> {
 
       if (tour) {
         if (!comparer.structural(store.activeTour.tour, tour)) {
-          // Recharge la visite sans interrompre la lecture en cours : les
-          // modifications du fichier deviennent visibles à l'étape affichée.
+          // Reloads the tour without interrupting the current reading: file
+          // changes become visible on the displayed step.
           set(store.activeTour.tour, tour);
         }
       } else {
-        // Une visite supprimée ne peut plus être poursuivie : le lecteur est
-        // fermé proprement au lieu de conserver un contenu devenu introuvable.
+        // A deleted tour can no longer be followed: the reader is closed
+        // cleanly instead of keeping content that has become unavailable.
         endCurrentCodeTour();
       }
     }

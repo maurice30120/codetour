@@ -16,6 +16,11 @@
       "type": "string",
       "description": "Indicates the git ref (branch/commit/tag) that this tour associate with."
     },
+    "baseRef": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Full commit SHA of the resolved merge-base used as the left side of a Changes Tour diff."
+    },
     "isPrimary": {
       "type": "boolean",
       "description": "Specifies whether the tour represents the primary tour for this codebase."
@@ -31,6 +36,16 @@
           "file": {
             "type": "string",
             "description": "File path (relative to the workspace root) that the step is associated with."
+          },
+          "baseFile": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Workspace-relative file path at baseRef when the file was renamed. file is the path at ref."
+          },
+          "display": {
+            "type": "string",
+            "enum": ["diff"],
+            "description": "Open a Git diff between baseRef and ref when two full commit SHAs are available; otherwise open the current file."
           },
           "directory": {
             "type": "string",

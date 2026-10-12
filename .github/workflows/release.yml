@@ -7,6 +7,8 @@ on:
 
 jobs:
   Release:
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -29,7 +31,7 @@ jobs:
       - run: npm ci --prefix packages/mcp-server
       - name: Package platform VSIX
         run: npm run package
-      - name: Publish to VS Marketplace
-        run: npm run publish:vsix
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      - name: Attach VSIX to the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: codetour-*.vsix

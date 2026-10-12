@@ -1,5 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
+import safeRegex from "safe-regex2";
+import { CommitAnchor, normalizeSlashes } from "./git";
 import {
   ChangesParams,
   Issue,
@@ -10,19 +12,21 @@ import {
   WorkspaceContext,
 } from "./types";
 
-// Moteur de validation déterministe des propositions de Tours.
+// Deterministic validation engine for Tour proposals.
 //
-// Toute erreur détectée est agrégée dans une liste d'`Issue` (chemin + message)
-// avant de répondre, afin que l'agent corrige la proposition en un seul cycle.
-// Une étape peut être purement explicative (sans Tour Anchor) ; lorsqu'elle
-// possède un localisateur, celui-ci est validé contre l'état réel du workspace
-// (existence, bornes de lignes/sélections, unicité du motif, confinement des
-// liens symboliques à la racine configurée).
+// Every detected error is aggregated in an `Issue` list (path plus message)
+// before responding, so the agent can correct the proposal in one cycle. A
+// step may be purely explanatory (without a Tour Anchor); when it has a
+// locator, that locator is validated against the real workspace state
+// (existence, line and selection bounds, pattern uniqueness, and symlink
+// confinement to the configured root).
 
 export const STEP_FIELDS = [
   "title",
   "description",
   "file",
+  "baseFile",
+  "display",
   "directory",
   "line",
   "pattern",
@@ -31,14 +35,25 @@ export const STEP_FIELDS = [
 
 export const MAX_RECOMMENDED_STEPS = 15;
 
-// Schémas d'URI actifs refusés dans le Markdown : une description générée ne
-// doit pas pouvoir déclencher une action dans l'éditeur ou le terminal.
+// Cap the length of agent-supplied anchor patterns: a hand-crafted regular
+// expression can hang the server process through catastrophic backtracking
+// when matched against an entire file, so only short, focused patterns are
+// accepted.
+export const MAX_PATTERN_LENGTH = 200;
+
+// Reject active URI schemes in Markdown: a generated description must not be
+// able to trigger an action in the editor or terminal.
 const FORBIDDEN_URI_SCHEME =
   /(?:command|file|vscode|vscode-insiders|javascript):/i;
 
 const FULL_SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 type RawObject = Record<string, unknown>;
+
+export type AnchorSource =
+  | { kind: "workspace" }
+  | { kind: "structure" }
+  | { kind: "commit"; anchors: ReadonlyMap<string, CommitAnchor> };
 
 function isPlainObject(value: unknown): value is RawObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -76,14 +91,15 @@ function reportUnknownFields(
       issues.push({
         path: errorPath === "$" ? key : `${errorPath}.${key}`,
         message:
-          "unknown field (V1 tours only allow title, description, file, directory, line, pattern and selection)",
+          `unknown field (allowed fields: ${allowed.join(", ")})`,
       });
     }
   }
 }
 
-const PROJECT_PARAM_FIELDS = ["title", "description", "steps"] as const;
+const PROJECT_PARAM_FIELDS = ["workspacePath", "title", "description", "steps"] as const;
 const CHANGES_PARAM_FIELDS = [
+  "workspacePath",
   "title",
   "description",
   "steps",
@@ -100,8 +116,8 @@ export function validateProjectParams(
     issues.push({ path: "$", message: "the arguments must be an object" });
     return { issues };
   }
-  // Le schéma d'entrée V1 est strict : tout champ inconnu est refusé, ce qui
-  // exclut notamment `when`, `commands`, `uri` et les capacités de V2.
+  // The V1 input schema is strict: unknown fields are rejected, including
+  // `when`, `commands`, `uri`, and V2 capabilities.
   reportUnknownFields(raw, PROJECT_PARAM_FIELDS, "$", issues);
   const params = validateCommonParams(raw, issues);
   return { params, issues };
@@ -119,6 +135,11 @@ export function validateChangesParams(
   const params = validateCommonParams(raw, issues) as ChangesParams;
   if (typeof raw.baseRef !== "string" || raw.baseRef.trim() === "") {
     issues.push({ path: "baseRef", message: "is required and must be a non-empty string" });
+  } else if (raw.baseRef.startsWith("-")) {
+    issues.push({
+      path: "baseRef",
+      message: "must be a branch, tag, or commit SHA and must not start with '-'",
+    });
   } else {
     params.baseRef = raw.baseRef;
   }
@@ -139,10 +160,14 @@ export function validateChangesParams(
   return { params, issues };
 }
 
-// Champs communs aux deux outils : titre optionnel, description optionnelle
-// (avec filtrage des schémas d'URI actifs) et liste d'étapes obligatoire.
+// Fields shared by both tools: optional title, optional description (with
+// active URI scheme filtering), and a required step list.
 function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
   const params: ProjectParams = {};
+  const workspacePath = isOptionalString(raw, "workspacePath", "workspacePath", issues);
+  if (workspacePath !== undefined) {
+    params.workspacePath = workspacePath;
+  }
   const title = isOptionalString(raw, "title", "title", issues);
   if (title !== undefined) {
     params.title = title;
@@ -170,12 +195,13 @@ function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
 
 export function validateSteps(
   rawSteps: unknown[],
-  ctx: WorkspaceContext
+  ctx: WorkspaceContext,
+  source: AnchorSource = { kind: "workspace" }
 ): { steps?: TourStep[]; issues: Issue[] } {
   const allIssues: Issue[] = [];
   const steps: TourStep[] = [];
   for (let index = 0; index < rawSteps.length; index++) {
-    const { step, issues } = validateStep(rawSteps[index], index, ctx);
+    const { step, issues } = validateStep(rawSteps[index], index, ctx, source);
     allIssues.push(...issues);
     if (step) {
       steps.push(step);
@@ -187,16 +213,17 @@ export function validateSteps(
   return { steps, issues: [] };
 }
 
-// Valide chaque étape contre les règles de Tour Anchor :
-// - au plus un localisateur principal (fichier ou répertoire) ;
-// - ligne, motif et sélection ne sont valides qu'avec un fichier ;
-// - ligne et motif sont mutuellement exclusifs ;
-// - le motif doit identifier une occurrence unique dans le fichier ;
-// - les bornes de ligne et de sélection sont vérifiées contre le contenu réel.
+// Validate each step against Tour Anchor rules:
+// - at most one primary locator (file or directory);
+// - line, pattern, and selection are valid only with a file;
+// - line and pattern are mutually exclusive;
+// - the pattern must identify exactly one occurrence in the file;
+// - line and selection bounds are checked against the actual content.
 function validateStep(
   raw: unknown,
   index: number,
-  ctx: WorkspaceContext
+  ctx: WorkspaceContext,
+  source: AnchorSource
 ): { step?: TourStep; issues: Issue[] } {
   const issues: Issue[] = [];
   const base = `steps[${index}]`;
@@ -214,7 +241,26 @@ function validateStep(
   const title = isOptionalString(raw, "title", `${base}.title`, issues);
 
   const file = isOptionalString(raw, "file", `${base}.file`, issues);
+  const baseFile = isOptionalString(raw, "baseFile", `${base}.baseFile`, issues);
   const directory = isOptionalString(raw, "directory", `${base}.directory`, issues);
+
+  let display: "diff" | undefined;
+  if (raw.display !== undefined) {
+    if (raw.display !== "diff") {
+      issues.push({ path: `${base}.display`, message: 'must be "diff"' });
+    } else {
+      display = "diff";
+    }
+    if (file === undefined) {
+      issues.push({ path: `${base}.display`, message: "is only valid together with a file" });
+    }
+  }
+  if (baseFile !== undefined) {
+    checkRelativeAnchor(baseFile, `${base}.baseFile`, issues);
+    if (file === undefined) {
+      issues.push({ path: `${base}.baseFile`, message: "is only valid together with a file" });
+    }
+  }
 
   if (file !== undefined && directory !== undefined) {
     issues.push({ path: base, message: "a step cannot have both a file and a directory" });
@@ -236,6 +282,11 @@ function validateStep(
   if (raw.pattern !== undefined) {
     if (typeof raw.pattern !== "string") {
       issues.push({ path: `${base}.pattern`, message: "must be a string" });
+    } else if (raw.pattern.length > MAX_PATTERN_LENGTH) {
+      issues.push({
+        path: `${base}.pattern`,
+        message: `must be at most ${MAX_PATTERN_LENGTH} characters long (concise patterns are also more resistant to accidental edits in the anchored file)`,
+      });
     } else {
       pattern = raw.pattern;
     }
@@ -256,8 +307,8 @@ function validateStep(
     }
   }
 
-  // Le Markdown d'une étape ne peut contenir que des liens et images HTTPS
-  // ordinaires ; les schémas actifs sont refusés.
+  // Step Markdown may contain only ordinary HTTPS links and images; active
+  // schemes are rejected.
   if (description !== undefined && FORBIDDEN_URI_SCHEME.test(description)) {
     issues.push({
       path: `${base}.description`,
@@ -266,13 +317,22 @@ function validateStep(
     });
   }
 
-  // Résolution du chemin réel de l'ancre : une lecture n'a lieu qu'après
-  // vérification du confinement au workspace.
+  // Resolve the anchor's real path: read only after checking confinement to the
+  // workspace.
   let fileContent: string | undefined;
   let fileAnchorOk = true;
   if (file !== undefined) {
-    const anchor = checkAnchor(ctx, file, "file", `${base}.file`, issues);
-    if (anchor.ok && anchor.realPath !== undefined) {
+    const relativeOk = checkRelativeAnchor(file, `${base}.file`, issues);
+    const anchor: AnchorResult = !relativeOk ? { ok: false }
+      : source.kind === "structure" ? { ok: true }
+      : source.kind === "commit" ? checkCommitAnchor(source.anchors, file, "file", `${base}.file`, issues)
+      : checkAnchor(ctx, file, "file", `${base}.file`, issues);
+    if (anchor.ok && source.kind === "commit") {
+      fileContent = source.anchors.get(path.posix.normalize(normalizeSlashes(file)))?.contents;
+      if (fileContent === undefined) {
+        issues.push({ path: `${base}.file`, message: "could not be read from the commit" });
+      }
+    } else if (anchor.ok && anchor.realPath !== undefined) {
       try {
         fileContent = fs.readFileSync(anchor.realPath, "utf8");
       } catch {
@@ -282,7 +342,13 @@ function validateStep(
     fileAnchorOk = anchor.ok;
   }
   if (directory !== undefined) {
-    checkAnchor(ctx, directory, "directory", `${base}.directory`, issues);
+    if (checkRelativeAnchor(directory, `${base}.directory`, issues) && source.kind !== "structure") {
+      if (source.kind === "commit") {
+        checkCommitAnchor(source.anchors, directory, "directory", `${base}.directory`, issues);
+      } else {
+        checkAnchor(ctx, directory, "directory", `${base}.directory`, issues);
+      }
+    }
   }
 
   if (fileContent === undefined && !fileAnchorOk) {
@@ -318,12 +384,19 @@ function validateStep(
       regex = undefined as unknown as RegExp;
     }
     if (regex) {
-      const matches = fileContent.match(new RegExp(regex.source, "g")) ?? [];
-      if (matches.length !== 1) {
+      if (!safeRegex(regex)) {
         issues.push({
           path: `${base}.pattern`,
-          message: `must match exactly one occurrence in the file (matched ${matches.length})`,
+          message: "may cause excessive backtracking and is not allowed",
         });
+      } else {
+        const matches = fileContent.match(new RegExp(regex.source, "g")) ?? [];
+        if (matches.length !== 1) {
+          issues.push({
+            path: `${base}.pattern`,
+            message: `must match exactly one occurrence in the file (matched ${matches.length})`,
+          });
+        }
       }
     }
   }
@@ -340,6 +413,8 @@ function validateStep(
       title,
       description: description as string,
       file,
+      baseFile,
+      display,
       directory,
       line,
       pattern,
@@ -445,9 +520,41 @@ interface AnchorResult {
   realPath?: string;
 }
 
-// Vérifie qu'une ancre (fichier ou répertoire) existe réellement et reste
-// confinée au workspace : le chemin réel est résolu avant toute lecture, et un
-// lien symbolique qui sort de la racine configurée est refusé.
+function checkRelativeAnchor(value: string, errorPath: string, issues: Issue[]): boolean {
+  const normalized = path.posix.normalize(normalizeSlashes(value));
+  if (value.trim() === "" || value.includes("\0")) {
+    issues.push({ path: errorPath, message: "must be a non-empty path without NUL characters" });
+  } else if (path.isAbsolute(value) || path.win32.isAbsolute(value)) {
+    issues.push({ path: errorPath, message: "must be relative to the workspace root" });
+  } else if (normalized === ".." || normalized.startsWith("../")) {
+    issues.push({ path: errorPath, message: "resolves outside the workspace root" });
+  } else {
+    return true;
+  }
+  return false;
+}
+
+function checkCommitAnchor(
+  anchors: ReadonlyMap<string, CommitAnchor>,
+  value: string,
+  kind: "file" | "directory",
+  errorPath: string,
+  issues: Issue[]
+): AnchorResult {
+  const anchor = anchors.get(path.posix.normalize(normalizeSlashes(value)));
+  if (!anchor) {
+    issues.push({ path: errorPath, message: "does not exist in the analyzed commit" });
+  } else if (anchor.kind !== kind) {
+    issues.push({ path: errorPath, message: `is not a regular ${kind} in the analyzed commit` });
+  } else {
+    return { ok: true };
+  }
+  return { ok: false };
+}
+
+// Verify that a file or directory anchor exists and remains confined to the
+// workspace: resolve its real path before reading, and reject symlinks that
+// escape the configured root.
 function checkAnchor(
   ctx: WorkspaceContext,
   value: string,

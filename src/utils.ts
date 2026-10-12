@@ -72,7 +72,7 @@ export async function getStepFileUri(
   ref?: string
 ): Promise<Uri> {
   let uri;
-  if (step.contents) {
+  if (step.contents !== undefined) {
     uri = Uri.parse(`${FS_SCHEME}://current/${step.file}`);
   } else if (step.uri || step.file) {
     uri = step.uri

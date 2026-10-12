@@ -4,6 +4,17 @@ const FENCE_INFO_PATTERN = /^\s*```(.*)$/;
 const FENCE_CLOSE_PATTERN = /^\s*```[ \t]*$/;
 const FENCE_OPEN_PATTERN = /^\s*```/;
 
+const MERMAID_FENCE_MARKER = "```mermaid";
+
+export function containsMermaidFenceMarker(description: string): boolean {
+  return description.includes(MERMAID_FENCE_MARKER);
+}
+
+export function isMermaidFenceLine(line: string): boolean {
+  const infoMatch = line.match(FENCE_INFO_PATTERN);
+  return !!infoMatch && isMermaidFenceInfo(infoMatch[1]);
+}
+
 export interface DiagramFence {
   caption?: string;
   source: string;
@@ -50,8 +61,7 @@ export function findDiagramFences(description: string): DiagramFence[] {
     }
 
     if (closeIndex === -1) {
-      const infoMatch = lines[index].match(FENCE_INFO_PATTERN);
-      if (infoMatch && isMermaidFenceInfo(infoMatch[1])) {
+      if (isMermaidFenceLine(lines[index])) {
         fences.push({
           caption: findCaption(lines, index),
           source: lines.slice(index + 1).join("\n"),
@@ -63,8 +73,7 @@ export function findDiagramFences(description: string): DiagramFence[] {
       break;
     }
 
-    const infoMatch = lines[index].match(FENCE_INFO_PATTERN);
-    if (infoMatch && isMermaidFenceInfo(infoMatch[1])) {
+    if (isMermaidFenceLine(lines[index])) {
       fences.push({
         caption: findCaption(lines, index),
         source: lines.slice(index + 1, closeIndex).join("\n"),

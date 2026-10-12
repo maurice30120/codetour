@@ -57,13 +57,13 @@ async function configureCodex(context: vscode.ExtensionContext): Promise<void> {
   const serverPath = bundledMcpServerPath(context);
   const current = await currentConfiguration();
   if (isExpectedConfiguration(current, serverPath)) {
-    void vscode.window.showInformationMessage("CodeTour is already configured for Codex.");
+    void vscode.window.showInformationMessage("CodeTour IA is already configured for Codex.");
     return;
   }
   if (current) {
     const repair = "Repair configuration";
     const selected = await vscode.window.showWarningMessage(
-      "Codex already has a different CodeTour MCP configuration.",
+      "Codex already has a different CodeTour IA MCP configuration.",
       repair
     );
     if (selected === repair) {
@@ -72,7 +72,7 @@ async function configureCodex(context: vscode.ExtensionContext): Promise<void> {
     return;
   }
   await addConfiguration(serverPath);
-  void vscode.window.showInformationMessage("CodeTour MCP was configured for Codex.");
+  void vscode.window.showInformationMessage("CodeTour IA MCP was configured for Codex.");
 }
 
 async function repairCodex(context: vscode.ExtensionContext): Promise<void> {
@@ -82,7 +82,7 @@ async function repairCodex(context: vscode.ExtensionContext): Promise<void> {
     await runCodex(["mcp", "remove", SERVER_NAME]);
   }
   await addConfiguration(serverPath);
-  void vscode.window.showInformationMessage("CodeTour MCP configuration for Codex was repaired.");
+  void vscode.window.showInformationMessage("CodeTour IA MCP configuration for Codex was repaired.");
 }
 
 async function reportFailure(action: () => Promise<void>): Promise<void> {
@@ -91,7 +91,7 @@ async function reportFailure(action: () => Promise<void>): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(
-      `Unable to configure CodeTour for Codex. Make sure the Codex CLI and Node.js 18 or newer are available: ${message}`
+      `Unable to configure CodeTour IA for Codex. Make sure the Codex CLI and Node.js 18 or newer are available: ${message}`
     );
   }
 }

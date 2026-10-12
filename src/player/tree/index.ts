@@ -108,8 +108,8 @@ class CodeTourTreeProvider implements TreeDataProvider<TreeItem>, Disposable {
     }
   }
 
-  // Au survol d'une étape, affiche un aperçu de son explication sans obliger
-  // l'utilisateur à quitter la vue d'ensemble de la visite.
+  // On step hover, previews its description without forcing the user to
+  // leave the tour overview.
   async resolveTreeItem(element: TreeItem): Promise<TreeItem> {
     if (element instanceof CodeTourNode && element.tour.description) {
       const content = await renderPreviewDescription(

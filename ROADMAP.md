@@ -1,73 +1,73 @@
 # Roadmap
 
-L'objectif est de proposer des Tours générés par une IA pour expliquer un projet ou les changements apportés à son code.
+The goal is to provide AI-generated Tours that explain a project or the changes made to its code.
 
-## Bugs connus
+## Known bugs
 
-- [ ] Redimensionner automatiquement l'image d'un diagramme Mermaid en fonction de l'espace disponible dans le commentaire ou la surface de prévisualisation, sans provoquer de débordement ni rendre le texte illisible.
+- [ ] Automatically resize a Mermaid diagram image to the space available in the comment or the preview surface, without overflow or unreadable text.
 
-## Priorité 1 — Modes de génération
+## Priority 1 — Generation modes
 
 ### Project Tour
 
-Expliquer le rôle du projet, sa structure et ses principaux parcours d'exécution.
+Explain the project's role, its structure, and its main execution paths.
 
-- [ ] Définir les informations minimales attendues dans un Project Tour.
-- [ ] Générer un parcours progressif allant du point d'entrée vers les modules importants.
-- [ ] Vérifier que les Tour Anchors restent pertinents lorsque le code évolue.
-- [ ] Ajouter un exemple de Project Tour dans la documentation.
+- [ ] Define the minimum information expected in a Project Tour.
+- [ ] Generate a progressive route from the entry point to the important modules.
+- [ ] Verify that Tour Anchors remain relevant as the code evolves.
+- [ ] Add a Project Tour example to the documentation.
 
-### Explication de la review
+### Review explanation
 
-Présenter les remarques d'une revue de code, leur contexte et les corrections attendues.
+Present the remarks of a code review, their context, and the expected fixes.
 
-- [ ] Définir la source de la review : commentaires locaux, GitHub Issues ou pull request.
-- [ ] Déterminer si cette fonctionnalité doit être un mode distinct ou une présentation spécialisée du Changes Tour.
-- [ ] Associer chaque remarque à un Tour Anchor et indiquer sa priorité.
-- [ ] Distinguer clairement les problèmes, les suggestions et les points positifs.
-- [ ] Prévoir le comportement lorsqu'une remarque ne peut pas être associée à une ligne stable.
+- [ ] Define the review source: local comments, GitHub Issues, or pull request.
+- [ ] Determine whether this feature should be a distinct mode or a specialized presentation of the Changes Tour.
+- [ ] Associate each remark with a Tour Anchor and indicate its priority.
+- [ ] Clearly distinguish problems, suggestions, and positive points.
+- [ ] Define the behavior when a remark cannot be associated with a stable line.
 
 ### Changes Tour
 
-Expliquer l'intention, l'implémentation et l'impact des changements depuis la divergence avec la branche de base.
+Explain the intent, implementation, and impact of the changes since the divergence from the base branch.
 
-- [ ] Détecter et afficher clairement la branche ou la référence de base utilisée.
-- [ ] Regrouper les changements par intention plutôt que par ordre des fichiers.
-- [ ] Signaler les changements non commités lorsqu'ils sont explicitement inclus.
-- [ ] Mettre en évidence les impacts sur les tests, la configuration et les migrations.
-- [ ] Ajouter un exemple de Changes Tour dans la documentation.
+- [ ] Detect and clearly display the base branch or reference used.
+- [ ] Group changes by intent rather than file order.
+- [ ] Report uncommitted changes when they are explicitly included.
+- [ ] Highlight impacts on tests, configuration, and migrations.
+- [ ] Add a Changes Tour example to the documentation.
 
-## Priorité 2 — Qualité des Tours
+## Priority 2 — Tour quality
 
-- [ ] Définir des critères de qualité communs : exactitude, concision, ordre pédagogique et pertinence des Tour Anchors.
-- [ ] Ajouter des tests d'intégration pour chaque mode et pour leurs principaux cas d'erreur.
-- [ ] Vérifier les Tours générés sur plusieurs structures de dépôt représentatives.
-- [ ] Fournir des erreurs actionnables lorsqu'un fichier, une référence Git ou un Tour Anchor est invalide.
-- [ ] Permettre de prévisualiser puis de confirmer le remplacement d'un Tour généré existant.
+- [ ] Define shared quality criteria: accuracy, concision, pedagogical order, and Tour Anchor relevance.
+- [ ] Add integration tests for each mode and its main error cases.
+- [ ] Verify generated Tours on several representative repository structures.
+- [ ] Provide actionable errors when a file, a Git reference, or a Tour Anchor is invalid.
+- [ ] Allow previewing and confirming the replacement of an existing generated Tour.
 
-### Tests unitaires de l'extension VS Code
+### VS Code extension unit tests
 
-- [ ] Installer et configurer un framework de tests unitaires compatible avec TypeScript et les modules de l'extension.
-- [ ] Séparer la logique métier des dépendances directes à VS Code afin qu'elle puisse être testée sans lancer l'éditeur.
-- [ ] Créer des adapters minimaux pour simuler les interfaces VS Code uniquement lorsqu'elles varient réellement dans les tests.
-- [ ] Tester en priorité le chargement, la validation, la navigation et la mise à jour des Tours.
-- [ ] Tester la résolution des Tour Anchors ainsi que les cas de fichiers ou de lignes devenus introuvables.
-- [ ] Tester la génération du contenu de prévisualisation et les principaux cas limites Markdown.
-- [ ] Tester les erreurs liées à Git et aux références associées aux Changes Tours.
-- [ ] Ajouter une commande `test:unit` et l'intégrer à la commande globale `npm test`.
-- [ ] Exécuter les tests unitaires dans l'intégration continue et publier un rapport exploitable en cas d'échec.
-- [ ] Définir un objectif de couverture initial centré sur les modules critiques, sans imposer un pourcentage global artificiel.
+- [ ] Install and configure a unit test framework compatible with TypeScript and the extension modules.
+- [ ] Separate business logic from direct VS Code dependencies so it can be tested without launching the editor.
+- [ ] Create minimal adapters to simulate VS Code interfaces only where they actually vary across tests.
+- [ ] Prioritize testing tour loading, validation, navigation, and updates.
+- [ ] Test Tour Anchor resolution, including files or lines that become unavailable.
+- [ ] Test preview content generation and the main Markdown edge cases.
+- [ ] Test Git errors and the references associated with Changes Tours.
+- [ ] Add a `test:unit` command and integrate it into the global `npm test` command.
+- [ ] Run the unit tests in continuous integration and publish an actionable report on failure.
+- [ ] Define an initial coverage target focused on critical modules, without imposing an artificial global percentage.
 
-## Priorité 3 — Simplification et maintenance
+## Priority 3 — Simplification and maintenance
 
-- [ ] Auditer la fonctionnalité d'ouverture d'un Tour par URL, ses usages et ses dépendances.
-- [ ] La supprimer si elle n'est plus utile et si cela simplifie l'interface et l'implémentation du projet.
-- [ ] Nettoyer les commandes, dépendances, tests et éléments de documentation devenus inutiles après sa suppression.
-- [ ] Centraliser la validation et la persistance partagées par les modes de génération derrière une interface réduite.
-- [ ] Documenter les décisions structurantes dans un ADR lorsqu'un choix modifie les contrats existants.
+- [ ] Audit the tour-by-URL opening feature, its uses, and its dependencies.
+- [ ] Remove it if it is no longer useful and if doing so simplifies the project's interface and implementation.
+- [ ] Clean up the commands, dependencies, tests, and documentation items made useless by its removal.
+- [ ] Centralize the validation and persistence shared by the generation modes behind a reduced interface.
+- [ ] Document structuring decisions in an ADR when a choice modifies existing contracts.
 
-## Plus tard
+## Later
 
-- [ ] Étudier l'historique des Tours sans remettre en cause les fichiers générés stables de la version actuelle.
-- [ ] Évaluer les Tours interactifs et conditionnels avec des règles de sécurité explicites.
-- [ ] Recueillir des métriques locales et anonymes sur les erreurs de génération avant toute télémétrie éventuelle.
+- [ ] Study Tour history without calling into question the stable generated files of the current version.
+- [ ] Evaluate interactive and conditional Tours with explicit security rules.
+- [ ] Collect local, anonymous metrics on generation errors before any possible telemetry.

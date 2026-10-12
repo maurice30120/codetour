@@ -4,10 +4,10 @@ import { createContext } from "./context";
 import { createServer } from "./server";
 import packageJson from "../package.json";
 
-// Point d'entrée du binaire `codetour-mcp`.
-// Le serveur ne traite qu'un seul workspace : le répertoire de travail du
-// processus. Les clients MCP savent tous définir ce répertoire sans ajouter un
-// argument propriétaire au protocole de lancement.
+// Entry point for the `codetour-mcp` binary.
+// The server handles exactly one workspace: the process working directory.
+// Every MCP client can set that directory without a proprietary launch
+// argument.
 
 interface ParsedArgs {
   help: boolean;
@@ -27,7 +27,7 @@ function usage(): string {
   ].join("\n");
 }
 
-// Analyse les arguments de la ligne de commande.
+// Parse command-line arguments.
 function parseArgs(argv: string[]): ParsedArgs {
   const result: ParsedArgs = { help: false, version: false };
   for (let index = 0; index < argv.length; index++) {
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
     return;
   }
   const workspaceRoot = process.cwd();
-  // Vérifie le répertoire de travail avant de démarrer, pour échouer clairement.
+  // Verify the working directory before starting, so failures are clear.
   try {
     createContext(workspaceRoot);
   } catch {
