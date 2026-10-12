@@ -12,14 +12,14 @@ import {
   WorkspaceContext,
 } from "./types";
 
-// Deterministic validation engine for Tour proposals.
+// Moteur de validation déterministe des propositions de Tours.
 //
-// Every detected error is aggregated in an `Issue` list (path plus message)
-// before responding, so the agent can correct the proposal in one cycle. A
-// step may be purely explanatory (without a Tour Anchor); when it has a
-// locator, that locator is validated against the real workspace state
-// (existence, line and selection bounds, pattern uniqueness, and symlink
-// confinement to the configured root).
+// Toute erreur détectée est agrégée dans une liste d'`Issue` (chemin + message)
+// avant de répondre, afin que l'agent corrige la proposition en un seul cycle.
+// Une étape peut être purement explicative (sans Tour Anchor) ; lorsqu'elle
+// possède un localisateur, celui-ci est validé contre l'état réel du workspace
+// (existence, bornes de lignes/sélections, unicité du motif, confinement des
+// liens symboliques à la racine configurée).
 
 export const STEP_FIELDS = [
   "title",
@@ -35,14 +35,14 @@ export const STEP_FIELDS = [
 
 export const MAX_RECOMMENDED_STEPS = 15;
 
-// Cap the length of agent-supplied anchor patterns: a hand-crafted regular
-// expression can hang the server process through catastrophic backtracking
-// when matched against an entire file, so only short, focused patterns are
-// accepted.
+// Limite la longueur des motifs d'ancre fournis par l'agent : une expression
+// régulière mal conçue peut bloquer le processus du serveur par
+// backtracking catastrophique lorsqu'elle est appliquée à un fichier entier ;
+// seuls des motifs courts et ciblés sont acceptés.
 export const MAX_PATTERN_LENGTH = 200;
 
-// Reject active URI schemes in Markdown: a generated description must not be
-// able to trigger an action in the editor or terminal.
+// Schémas d'URI actifs refusés dans le Markdown : une description générée ne
+// doit pas pouvoir déclencher une action dans l'éditeur ou le terminal.
 const FORBIDDEN_URI_SCHEME =
   /(?:command|file|vscode|vscode-insiders|javascript):/i;
 
@@ -116,8 +116,8 @@ export function validateProjectParams(
     issues.push({ path: "$", message: "the arguments must be an object" });
     return { issues };
   }
-  // The V1 input schema is strict: unknown fields are rejected, including
-  // `when`, `commands`, `uri`, and V2 capabilities.
+  // Le schéma d'entrée V1 est strict : tout champ inconnu est refusé, ce qui
+  // exclut notamment `when`, `commands`, `uri` et les capacités de V2.
   reportUnknownFields(raw, PROJECT_PARAM_FIELDS, "$", issues);
   const params = validateCommonParams(raw, issues);
   return { params, issues };
@@ -160,8 +160,8 @@ export function validateChangesParams(
   return { params, issues };
 }
 
-// Fields shared by both tools: optional title, optional description (with
-// active URI scheme filtering), and a required step list.
+// Champs communs aux deux outils : titre optionnel, description optionnelle
+// (avec filtrage des schémas d'URI actifs) et liste d'étapes obligatoire.
 function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
   const params: ProjectParams = {};
   const workspacePath = isOptionalString(raw, "workspacePath", "workspacePath", issues);
@@ -213,12 +213,12 @@ export function validateSteps(
   return { steps, issues: [] };
 }
 
-// Validate each step against Tour Anchor rules:
-// - at most one primary locator (file or directory);
-// - line, pattern, and selection are valid only with a file;
-// - line and pattern are mutually exclusive;
-// - the pattern must identify exactly one occurrence in the file;
-// - line and selection bounds are checked against the actual content.
+// Valide chaque étape contre les règles de Tour Anchor :
+// - au plus un localisateur principal (fichier ou répertoire) ;
+// - ligne, motif et sélection ne sont valides qu'avec un fichier ;
+// - ligne et motif sont mutuellement exclusifs ;
+// - le motif doit identifier une occurrence unique dans le fichier ;
+// - les bornes de ligne et de sélection sont vérifiées contre le contenu réel.
 function validateStep(
   raw: unknown,
   index: number,
@@ -307,8 +307,8 @@ function validateStep(
     }
   }
 
-  // Step Markdown may contain only ordinary HTTPS links and images; active
-  // schemes are rejected.
+  // Le Markdown d'une étape ne peut contenir que des liens et images HTTPS
+  // ordinaires ; les schémas actifs sont refusés.
   if (description !== undefined && FORBIDDEN_URI_SCHEME.test(description)) {
     issues.push({
       path: `${base}.description`,
@@ -317,8 +317,8 @@ function validateStep(
     });
   }
 
-  // Resolve the anchor's real path: read only after checking confinement to the
-  // workspace.
+  // Résolution du chemin réel de l'ancre : une lecture n'a lieu qu'après
+  // vérification du confinement au workspace.
   let fileContent: string | undefined;
   let fileAnchorOk = true;
   if (file !== undefined) {
@@ -552,9 +552,9 @@ function checkCommitAnchor(
   return { ok: false };
 }
 
-// Verify that a file or directory anchor exists and remains confined to the
-// workspace: resolve its real path before reading, and reject symlinks that
-// escape the configured root.
+// Vérifie qu'une ancre (fichier ou répertoire) existe réellement et reste
+// confinée au workspace : le chemin réel est résolu avant toute lecture, et un
+// lien symbolique qui sort de la racine configurée est refusé.
 function checkAnchor(
   ctx: WorkspaceContext,
   value: string,

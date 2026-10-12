@@ -3,6 +3,7 @@
 
 import * as vscode from "vscode";
 import { EXTENSION_NAME, SMALL_ICON_URL } from "../constants";
+import { renderPreviewDescription } from "../player/description";
 import { CodeTour } from "../store";
 import { getStepFileUri, getWorkspaceUri } from "../utils";
 
@@ -35,12 +36,23 @@ class CodeTourNotebookProvider implements vscode.NotebookSerializer {
       steps.push({
         contents,
         language: document.languageId,
-        description: item.description,
+        description: await renderPreviewDescription(item.description, undefined, {
+          tour,
+          workspaceRoot
+        }),
         uri
       });
     }
 
     let cells: vscode.NotebookCellData[] = [];
+
+    const titleDescription =
+      tour.description === undefined
+        ? ""
+        : await renderPreviewDescription(tour.description, undefined, {
+            tour,
+            workspaceRoot
+          });
 
     // Title cell
     cells.push(
@@ -48,7 +60,7 @@ class CodeTourNotebookProvider implements vscode.NotebookSerializer {
         1,
         `## ![Icon](${SMALL_ICON_URL})&nbsp;&nbsp; CodeTour (${tour.title}) - ${
           steps.length
-        } steps\n\n${tour.description === undefined ? "" : tour.description}`,
+        } steps\n\n${titleDescription}`,
         "markdown"
       )
     );
@@ -67,6 +79,7 @@ class CodeTourNotebookProvider implements vscode.NotebookSerializer {
           )
         ])
       ];
+      cells.push(cell);
     });
 
     return new vscode.NotebookData(cells);
@@ -80,8 +93,12 @@ class CodeTourNotebookProvider implements vscode.NotebookSerializer {
   }
 }
 
-export function registerNotebookProvider() {
-  vscode.notebook.registerNotebookSerializer(
+export function registerNotebookProvider(): vscode.Disposable | undefined {
+  if (typeof vscode.notebook === "undefined") {
+    return undefined;
+  }
+
+  return vscode.notebook.registerNotebookSerializer(
     EXTENSION_NAME,
     new CodeTourNotebookProvider()
   );

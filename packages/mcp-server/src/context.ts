@@ -2,9 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 import { Issue, WorkspaceContext } from "./types";
 
-// Workspace context: the supplied root and its resolved real path. All
-// confinement checks compare real paths so a symlink cannot escape the
-// configured root.
+// Contexte du workspace : la racine telle que fournie, plus sa résolution en
+// chemin réel. Toute vérification de confinement compare les chemins réels,
+// afin qu'un lien symbolique ne puisse pas sortir de la racine configurée.
 export function createContext(workspaceRoot: string): WorkspaceContext {
   const root = path.resolve(workspaceRoot);
   const realRoot = fs.realpathSync(root);
@@ -14,7 +14,8 @@ export function createContext(workspaceRoot: string): WorkspaceContext {
   return { root, realRoot };
 }
 
-// A call may narrow the configured workspace, but never expand its boundary.
+// Un appel peut restreindre le workspace configuré, jamais en étendre la
+// frontière.
 export function selectContext(
   defaultContext: WorkspaceContext,
   workspacePath?: string

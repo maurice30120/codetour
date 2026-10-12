@@ -6,64 +6,74 @@ The agent analyzes the code and writes the explanations; the server validates
 the proposal, applies the Git and security rules, and atomically replaces the
 reserved tour file.
 
-## Features
+Two specialized tools are exposed:
 
-- **Project Tour generation** — explain a codebase as a whole: its purpose,
-  main entry points, important components, and main execution flows. The tour
-  is written to `.tours/project.tour` and has no Git ref, so it stays usable
-  as the project evolves.
-- **Changes Tour generation** — explain the committed changes on a branch
-  since it diverged from a base ref: the intent of the changes, the major
-  modifications, their impact, and the relevant tests. The tour is written to
-  `.tours/changes.tour` and records the resolved merge-base SHA in `baseRef`
-  and the exact analyzed head SHA in `ref`. File steps automatically use
-  `display: "diff"` to show removed and added lines in VS Code's native diff
-  editor. Added files have an empty left side; renamed files record the old
-  path in `baseFile`. Deleted files are explained by steps without a locator.
-  Uncommitted changes are excluded by default and reported as a warning.
-  When `includeUncommittedChanges: true` actually includes local changes, the
-  entire tour opens current files and omits the Git comparison metadata.
-  On a clean workspace, that option still produces a reproducible Git diff.
-- **Strict validation** — every proposal is checked against a deliberately
-  stricter subset of the CodeTour schema: explanatory Markdown and
-  workspace-internal locations only. CodeTour `commands`, root-level `when`
-  expressions, external `uri` steps, and active Markdown schemes (`command:`,
-  `file:`, `vscode:`, `vscode-insiders:`, `javascript:`) are rejected, and
-  anchors are validated against the analyzed HEAD for committed-only Changes
-  Tours, or the real workspace state for Project Tours and included local work. All validation
-  issues are aggregated into a single response, and the previous tour file is
-  preserved on any failure.
-- **Workspace confinement** — one server instance is confined to one
-  configured workspace root. Calls may select a directory below that root
-  with `workspacePath`. Real paths are resolved before any read or write, symlinks
-  that escape the root are rejected, and the server performs no network
-  access.
-- **Atomic persistence** — the reserved tour file is only replaced after a
-  complete, successful validation, via an atomic rename. It is excluded from
-  the dirty-workspace detection so a previous generation does not warn about
-  itself.
+- `create_project_tour` — a **Project Tour** that explains a codebase as a
+  whole, written to `.tours/project.tour`.
+- `create_changes_tour` — a **Changes Tour** that explains the committed
+  changes on a branch since it diverged from a base ref, written to
+  `.tours/changes.tour`.
+
+Both outputs are compatible with the general CodeTour schema, within a
+deliberately stricter V1 subset: explanatory Markdown and workspace-internal
+locations only. CodeTour `commands`, root-level `when` expressions, external
+`uri` steps, and active Markdown schemes (`command:`, `file:`, `vscode:`,
+`vscode-insiders:`, `javascript:`) are rejected.
+
+Mermaid diagrams are optional and validated before either tool writes a Tour.
+The MCP server reuses the exact fence rules and locked Mermaid implementation
+from `codetour-description-renderer`, so the Tour Generator and playback apply
+the same contract. Validation is local and offline.
 
 ## Requirements
 
 - Node.js >= 18
-- Git (only for Changes Tours)
+- Git (only for `create_changes_tour`)
 
-## Installation and local validation
+## Démarrage rapide
+
+Depuis la racine du dépôt, installez d'abord le renderer partagé, puis les
+dépendances du serveur MCP et vérifiez les deux packages :
 
 ```bash
+cd packages/description-renderer
 npm install
 npm run build
+cd ../mcp-server
+npm install
 npm test
 ```
 
-Run the server locally:
+`npm test` compile le package et exécute toute la suite de tests. Vous pouvez
+ensuite démarrer le serveur depuis un workspace :
 
 ```bash
-node dist/src/cli.js --workspace-root /path/to/workspace
+cd /path/to/workspace
+node /path/to/codetour/packages/mcp-server/dist/src/cli.js
 ```
 
-The `--workspace-root` argument is required. The package exposes the
-`codetour-mcp` binary (available after `npm install` or `npm link`).
+Le processus utilise MCP sur `stdio`. Il attend donc silencieusement les
+requêtes d'un client MCP. Utilisez `Ctrl+C` pour l'arrêter lorsqu'il est lancé
+manuellement.
+
+Le répertoire de travail du processus est le workspace. Une instance du serveur
+traite exactement ce workspace et toutes les opérations y sont confinées : les chemins
+réels sont résolus avant toute lecture ou écriture, les liens symboliques qui
+sortent de la racine sont refusés et le serveur n'effectue aucun accès réseau.
+
+Le package expose le binaire `codetour-mcp`, disponible après `npm install` ou
+`npm link`. Pour rendre ce binaire accessible globalement pendant le
+développement local :
+
+```bash
+npm link
+cd /path/to/workspace
+codetour-mcp
+```
+
+Configurez enfin votre client MCP avec la commande et son répertoire de travail,
+comme dans l'exemple ci-dessous. Une fois connecté, le client découvre
+automatiquement `create_project_tour` et `create_changes_tour`.
 
 ## MCP client configuration
 
@@ -72,11 +82,8 @@ The `--workspace-root` argument is required. The package exposes the
   "mcpServers": {
     "codetour": {
       "command": "node",
-      "args": [
-        "/path/to/codetour/packages/mcp-server/dist/src/cli.js",
-        "--workspace-root",
-        "/path/to/workspace"
-      ]
+      "args": ["/path/to/codetour/packages/mcp-server/dist/src/cli.js"],
+      "cwd": "/path/to/workspace"
     }
   }
 }
@@ -84,36 +91,270 @@ The `--workspace-root` argument is required. The package exposes the
 
 The transport is `stdio` only.
 
-Both tools accept an optional `workspacePath`, relative to the configured
-`--workspace-root`. Use it when the workspace contains several projects or
-Git repositories, for example `"workspacePath": "my-project"`. Step anchors
-and the generated `.tours/` file are relative to the selected directory; the
-returned output path is relative to the configured root. The selection applies
-only to that call. Absolute paths, missing directories and paths or symlinks
-escaping the configured workspace are rejected without replacing a tour.
+Les deux outils acceptent un `workspacePath` optionnel, relatif à la racine du
+workspace (le répertoire de travail du processus). Utilisez-le quand le
+workspace contient plusieurs projets ou dépôts Git, par exemple
+`"workspacePath": "mon-projet"`. Les ancres des étapes et le fichier
+`.tours/` généré sont relatifs à ce répertoire pour cet appel ; le chemin
+retourné reste relatif à la racine configurée. Les chemins absolus, les
+répertoires manquants et les chemins qui sortent de la racine sont refusés.
+
+### Configuration dans Codex
+
+L'extension VS Code fournit les commandes `CodeTour: Configure MCP for Codex`
+et `CodeTour: Repair MCP Configuration for Codex`. La première installe la
+configuration globale lorsqu'elle manque ; la seconde remplace une
+configuration obsolète, notamment après une mise à jour de l'extension.
+
+Pour un build de développement non installé en VSIX, l'équivalent manuel est :
+
+```bash
+codex mcp add codetour -- \
+  node /path/to/codetour/dist/mcp-server.js
+```
+
+Il n'est pas nécessaire de conserver un processus lancé manuellement : Codex
+démarre le serveur `stdio` automatiquement. Vérifiez la configuration avec :
+
+```bash
+codex mcp get codetour
+```
+
+Les nouvelles tâches Codex démarrent le serveur dans leur propre répertoire de
+travail ; une seule configuration globale couvre donc tous les projets.
+
+Pour générer le tour général du projet, demandez par exemple :
+
+```text
+Analyse ce dépôt, puis utilise l'outil MCP codetour.create_project_tour pour
+générer un Project Tour. Présente le but du projet, ses points d'entrée, ses
+composants importants et ses principaux flux d'exécution. Commence par une
+étape ancrée sur le dossier racine pour en expliquer l'organisation, puis
+présente les dossiers importants avant de détailler les fichiers. Utilise des
+ancres stables dans les fichiers lorsque c'est possible.
+```
+
+Pour limiter le Project Tour à un sous-dossier, nommez-le explicitement dans la
+demande. La première étape doit alors utiliser ce chemin dans son champ
+`directory`, relativement à la racine du workspace.
+
+Le résultat est écrit dans `.tours/project.tour`.
+
+Pour documenter les changements de la branche courante :
+
+```text
+Analyse les changements commités de cette branche depuis sa branche de base,
+puis utilise codetour.create_changes_tour pour créer un Changes Tour. Détermine
+la référence de base et utilise le SHA complet du HEAD actuel. N'inclus pas les
+modifications non commitées.
+```
+
+Le résultat est écrit dans `.tours/changes.tour`.
+
+## Tools
+
+### `create_project_tour`
+
+| Argument      | Type     | Required | Description                                             |
+| ------------- | -------- | -------- | ------------------------------------------------------- |
+| `title`       | string   | no       | Defaults to `Project Overview`.                         |
+| `description` | string   | no       | Optional tour description.                              |
+| `steps`       | object[] | yes      | Non-empty list of steps (see below).                    |
+| `workspacePath` | string | no       | Optional directory relative to the workspace root; anchors and the generated `.tours` file resolve inside it for this call. |
+
+A good Project Tour covers the project's purpose, its main entry points, its
+important components, and its main execution flows. When the project has a
+meaningful directory structure, it begins with a directory-anchored overview.
+For a Project Tour scoped to a subdirectory, the first step anchors that exact
+workspace-relative directory. Other important directories should be introduced
+before their individual files.
+
+### `create_changes_tour`
+
+| Argument             | Type     | Required | Description                                                   |
+| -------------------- | -------- | -------- | ------------------------------------------------------------- |
+| `baseRef`             | string   | yes      | Git ref the branch diverged from.                             |
+| `headRef`             | string   | yes      | Full 40-character SHA of the analyzed commit; must equal the current `HEAD`. |
+| `includeUncommittedChanges` | boolean  | no       | Include uncommitted changes explicitly (default `false`).     |
+| `title`              | string   | no       | Defaults to `Changes on <branch>`.                            |
+| `description`        | string   | no       | Optional description; provenance is always appended.          |
+| `steps`              | object[] | yes      | Non-empty list of steps (see below).                          |
+| `workspacePath`      | string   | no       | Optional directory relative to the workspace root; anchors and the generated `.tours` file resolve inside it for this call. |
+
+A good Changes Tour covers the intent of the changes, the major
+modifications, their impact, and the relevant tests.
+
+A committed-only Changes Tour is reproducible: the resolved merge-base SHA is
+persisted in `baseRef` and the analyzed head SHA in `ref`. File steps are
+automatically marked with `display: "diff"` so VS Code opens the Git diff
+between the two commits; added files have an empty left side, and renamed files
+record the original path in `baseFile`. Deleted files must be explained by
+steps without a locator. When `includeUncommittedChanges: true` actually
+includes local changes, anchors are checked against the current workspace, the
+tour has no `ref`, and file steps open the current files.
+
+### Steps
+
+| Field         | Type   | Description                                                                  |
+| ------------- | ------ | ---------------------------------------------------------------------------- |
+| `title`       | string | Optional step title.                                                         |
+| `description` | string | Required Markdown explanation.                                               |
+| `file`        | string | Workspace-relative path; at most one of `file`/`directory` per step.         |
+| `directory`   | string | Workspace-relative path; use for structural overview steps and at most one of `file`/`directory` per step. |
+| `line`        | number | 1-based line; only valid with `file`, mutually exclusive with `pattern`.     |
+| `pattern`     | string | Regular expression matching exactly one occurrence; only valid with `file`.  |
+| `selection`   | object | `{ start: {line, character}, end: {line, character} }`, 1-based; only valid with `file`. |
+| `baseFile`    | string | Workspace-relative path of the file at `baseRef` when it was renamed; `file` is the path at `ref`. Requires `file`. |
+| `display`     | string | `"diff"`: open the Git diff between `baseRef` and `ref`. Requires `file`. |
+
+Steps without any locator are allowed (general context, deleted files).
+Every anchor is validated against the real workspace state. All validation
+errors are aggregated and reported in a single response; the previous tour
+file is preserved on failure.
+
+### Mermaid diagrams
+
+Use Mermaid sparingly: include a diagram only when it materially clarifies a
+relationship or flow. A diagram must use a bare fence with `mermaid` as its
+info string. The nearest non-blank line before that fence must be a visible caption matching
+`**Diagram — …**` (an em dash, with one or more descriptive characters). Blank
+lines between the caption and fence are allowed; other Markdown content breaks
+the caption association.
+
+The exact allowlist is `flowchart`, `sequenceDiagram`, `stateDiagram-v2`,
+`classDiagram`, and `erDiagram`. Each individual description (the Tour
+description and each step description are separate descriptions) accepts at
+most three Mermaid fences, and each source is at most 20 KiB measured as UTF-8
+bytes. Mermaid syntax is parsed locally using the same locked version as
+playback. A malformed caption, unsupported kind, oversized source, invalid
+syntax, or fourth-and-later fence rejects the complete tool call.
+
+Diagram issues use paths such as
+`steps[1].description.mermaid[0].source`; the path identifies the description,
+fence index, and failing field. Every issue also reports the fence's starting
+line and column. All descriptions are checked in one call, and no Tour file is
+written when any diagram or ordinary Tour validation fails.
+
+### Result
+
+Each successful tool call returns a human-readable message and a structure:
+
+```json
+{ "status": "created", "path": ".tours/project.tour", "stepCount": 3, "warnings": [] }
+```
+
+Failures return `{ "status": "error", "code", "message", "issues" }` with one
+of these codes:
+
+| Code                       | Meaning                                                        |
+| -------------------------- | -------------------------------------------------------------- |
+| `TOUR_STEPS_REQUIRED`      | The steps list is missing or empty.                            |
+| `INVALID_PROPOSAL`         | The proposal has validation issues (all listed in `issues`).   |
+| `GIT_REPOSITORY_REQUIRED`  | `create_changes_tour` was called outside a Git repository.     |
+| `STALE_HEAD`               | `headRef` does not match the current `HEAD`.                      |
+| `INVALID_BASE_REF`         | The merge-base between `baseRef` and `headRef` cannot be computed. |
+| `NO_CHANGES`               | No committed changes between the merge-base and `headRef`; the previous tour file is preserved. |
+| `SCHEMA_VALIDATION_FAILED` | Internal: the generated tour did not validate against the CodeTour schema. |
+| `OUTPUT_PATH_ESCAPES_WORKSPACE` | The output directory resolves outside the workspace root. |
+
+Non-blocking warnings:
+
+| Code                            | Meaning                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `STEP_LIMIT_EXCEEDED`           | The tour has more than fifteen steps.                                    |
+| `NO_CHANGED_FILE_ANCHOR`        | No step anchors a file modified by the changes.                          |
+| `UNCOMMITTED_CHANGES_EXCLUDED`  | Staged, unstaged or untracked changes were excluded (default).           |
+| `UNCOMMITTED_CHANGES_INCLUDED`  | Uncommitted changes were included; the tour describes a non-reproducible local state. |
+
+## Git reference policies
+
+- A Project Tour has no CodeTour `ref`, so it stays usable as the project
+  evolves.
+- A reproducible Changes Tour records the exact analyzed head SHA as its
+  `ref`, and generation fails with `STALE_HEAD` if `HEAD` changed since the
+  analysis. Uncommitted changes are excluded by default (with a warning).
+- With `includeUncommittedChanges: true`, the Changes Tour has no `ref` and warns
+  that it describes a non-reproducible local state.
+
+The reserved tour files (`.tours/project.tour` and `.tours/changes.tour`) are
+always replaced after a complete, successful validation, via an atomic
+rename. They are excluded from the dirty-workspace detection so a previous
+generation does not warn about itself.
 
 ## Development
 
+Install the package dependencies once:
+
 ```bash
-npm run typecheck   # type-check only
-npm run build       # compile to dist/
-npm test            # build + integration tests over the stdio MCP seam
+cd packages/description-renderer
+npm install
+npm run build
+cd ../mcp-server
+npm install
 ```
 
-Integration tests launch the server as an MCP client would, over `stdio`,
-against temporary workspaces and temporary Git repositories.
+### Run all tests
 
-## Reading a Changes Tour in GitHub Copilot / VS Code
+From `packages/mcp-server/`:
 
-Ask Copilot to create a Changes Tour with a base Git reference and the full SHA
-of the current HEAD, then start `.tours/changes.tour` from the CodeTour view.
-File steps open the native diff editor with deletions on the left and additions
-on the right (red and green with the standard theme). Comments and selections
-target the right side, and **CodeTour: Resume Tour** reopens the comparison.
+```bash
+npm test
+```
 
-Steps without `display` retain their existing behavior. `view` still focuses
-VS Code views and does not select a diff mode. If the commit pair or a required
-file cannot be resolved, a diff step opens the current file. If that file is
-also missing, its explanation remains available and the tour can continue.
-Exporting a diff tour embeds the HEAD snapshot and removes its Git diff
-metadata, so the exported tour can be read without the repository.
+The renderer must be built before the MCP package because the MCP server uses
+its public shared-rule surface as a local package dependency. The MCP test
+command then compiles the package and runs the complete Node.js test suite from
+`dist/test/`.
+
+The same suite can be launched from the repository root without changing
+directory:
+
+```bash
+npm test --prefix packages/mcp-server
+```
+
+### Run the type checker or build only
+
+```bash
+npm run typecheck   # validate TypeScript without producing files
+npm run build       # compile sources and tests into dist/
+```
+
+From the repository root, append `--prefix packages/mcp-server` to either
+command.
+
+### Run one test file
+
+Individual tests run from the compiled `dist/test/` tree, so build the package
+first. For example:
+
+```bash
+npm run build
+node --test dist/test/integration/changes-tour.test.js
+node --test dist/test/integration/project-tour.test.js
+node --test dist/test/integration/security.test.js
+node --test dist/test/integration/cli.test.js
+node --test dist/test/integration/packaged-binary.test.js
+node --test dist/test/unit/validation.test.js
+```
+
+You can also filter tests in a file by name:
+
+```bash
+node --test --test-name-pattern="STALE_HEAD" \
+  dist/test/integration/changes-tour.test.js
+```
+
+### What the tests exercise
+
+- Project Tour and Changes Tour calls through the public MCP `stdio` seam;
+- Tour Anchor, schema and V1 security validation;
+- Git merge-base, stale `HEAD`, dirty-workspace and deletion-only scenarios;
+- atomic replacement and preservation of an existing Tour after failures;
+- CLI argument validation;
+- `npm pack`, local installation of the archive, execution of the installed
+  `codetour-mcp` binary, and invocation of both public MCP tools.
+
+Integration tests create isolated temporary workspaces and Git repositories
+and remove them after each scenario. The packaging smoke test stays local and
+does not publish anything to npm.

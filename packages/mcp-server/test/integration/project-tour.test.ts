@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   callTool,
   issuePaths,
@@ -13,6 +15,109 @@ import {
   withServer,
   writeFile,
 } from "../helpers/test-utils";
+import {
+  ALLOWED_DIAGRAM_SOURCES,
+  INVALID_FLOWCHART_SOURCE,
+  captionedDiagram,
+  oversizedFlowchartSource,
+} from "../helpers/mermaid-fixtures";
+
+test("accepts all five allowed Mermaid kinds in a Project Tour", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        steps: Object.entries(ALLOWED_DIAGRAM_SOURCES).map(([kind, source]) => ({
+          description: captionedDiagram(`${kind} overview`, source),
+        })),
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.equal(response.structured.stepCount, 5);
+    });
+    const tour = readTourFile(root, ".tours/project.tour");
+    assert.equal((tour.steps as unknown[]).length, 5);
+    assert.ok(tourFileValidAgainstSchema(root, ".tours/project.tour"));
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("aggregates Mermaid errors with fence paths and source locations", async () => {
+  const root = tempDir();
+  try {
+    const description = [
+      ["Introductory text", "", "```mermaid", ALLOWED_DIAGRAM_SOURCES.flowchart, "```"].join("\n"),
+      captionedDiagram("Unsupported", "pie title Pets\n    \"Dogs\" : 1"),
+      captionedDiagram("Oversized", oversizedFlowchartSource()),
+      captionedDiagram("Fourth", ALLOWED_DIAGRAM_SOURCES.flowchart),
+    ].join("\n\n");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        description,
+        steps: [
+          {
+            description: captionedDiagram("Broken syntax", INVALID_FLOWCHART_SOURCE),
+          },
+          {
+            description: [
+              "**Diagram – malformed caption**",
+              "",
+              "```mermaid",
+              ALLOWED_DIAGRAM_SOURCES.flowchart,
+              "```",
+            ].join("\n"),
+          },
+        ],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      const issues = structuredIssues(response);
+      assert.deepEqual(
+        issues.map((issue) => issue.path),
+        [
+          "description.mermaid[0].caption",
+          "description.mermaid[1].kind",
+          "description.mermaid[2].source",
+          "description.mermaid[3]",
+          "steps[0].description.mermaid[0].source",
+          "steps[1].description.mermaid[0].caption",
+        ]
+      );
+      assert.ok(issues.every((issue) => issue.message.includes("line")));
+    });
+    assert.equal(fs.existsSync(path.join(root, ".tours/project.tour")), false);
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("preserves the previous Project Tour when Mermaid validation fails", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const first = await callTool(client, "create_project_tour", {
+        title: "Original",
+        steps: [{ description: "Original step." }],
+      });
+      assert.equal(first.isError, false);
+      const before = readTourFile(root, ".tours/project.tour");
+
+      const second = await callTool(client, "create_project_tour", {
+        title: "Broken",
+        steps: [
+          {
+            description: captionedDiagram("Broken", INVALID_FLOWCHART_SOURCE),
+          },
+        ],
+      });
+      assert.equal(second.isError, true);
+      assert.equal(structuredCode(second), "INVALID_PROPOSAL");
+      assert.deepEqual(readTourFile(root, ".tours/project.tour"), before);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
 
 test("creates a project tour with the default title and no git ref", async () => {
   const root = tempDir();
@@ -99,6 +204,46 @@ test("rejects a missing steps array with TOUR_STEPS_REQUIRED", async () => {
       const response = await callTool(client, "create_project_tour", {});
       assert.equal(response.isError, true);
       assert.equal(structuredCode(response), "TOUR_STEPS_REQUIRED");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("aggregates top-level Mermaid errors even when steps are missing", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        description: captionedDiagram("Broken", INVALID_FLOWCHART_SOURCE),
+        steps: [],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.ok(issuePaths(response).includes("description.mermaid[0].source"));
+      assert.ok(issuePaths(response).includes("steps"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("rejects an unterminated Mermaid fence", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        description: [
+          "**Diagram — Unterminated**",
+          "",
+          "```mermaid",
+          ALLOWED_DIAGRAM_SOURCES.flowchart,
+        ].join("\n"),
+        steps: [{ description: "A valid step." }],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.ok(issuePaths(response).includes("description.mermaid[0].source"));
     });
   } finally {
     rmrf(root);

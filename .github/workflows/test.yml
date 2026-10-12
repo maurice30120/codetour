@@ -1,0 +1,39 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/mcp-server/package-lock.json
+            packages/description-renderer/package-lock.json
+      - name: Install pinned npm
+        run: npm install --global npm@12.0.1
+        working-directory: ${{ runner.temp }}
+      - name: Verify toolchain
+        run: node --version && npm --version
+      - run: npm ci
+      - run: npm ci --prefix packages/description-renderer
+      - run: npm ci --prefix packages/mcp-server
+      - run: npm test
+      - run: npm run package
+      - name: Upload platform VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: codetour-${{ matrix.os }}-${{ runner.arch }}
+          path: codetour-*.vsix
+          if-no-files-found: error

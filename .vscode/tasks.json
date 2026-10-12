@@ -5,24 +5,8 @@
 	"tasks": [
 		{
 			"type": "npm",
-			"script": "watch",
-			"presentation": {
-				"echo": true,
-				"reveal": "never",
-				"focus": false,
-				"panel": "shared",
-				"showReuseMessage": true,
-				"clear": false
-			},
-			"runOptions": {
-				"runOn": "folderOpen"
-			},
-			"isBackground": true,
-		},
-		{
-			"type": "npm",
-			"script": "ts-compile",
-			"problemMatcher": "$tsc",
+			"script": "build",
+			"problemMatcher": "$ts-webpack",
 			"presentation": {
 				"echo": true,
 				"reveal": "never",
