@@ -480,8 +480,8 @@ export function registerPlayerModule(context: ExtensionContext) {
 
   initializeStorage(context);
 
-  // Toute navigation ou modification de la visite rafraîchit automatiquement
-  // l'étape visible, pour que le commentaire reste synchronisé avec le fichier.
+  // Any navigation or tour change automatically refreshes the visible step,
+  // so the comment stays in sync with the file.
   reaction(
     () => [
       store.activeTour

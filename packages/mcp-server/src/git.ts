@@ -3,10 +3,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { WorkspaceContext } from "./types";
 
-// Toutes les opérations Git du serveur passent par `git` en ligne de commande,
-// exécuté dans le workspace configuré. Le Changes Tour dépend de cet
-// historique : merge-base, vérification du SHA de tête, liste des fichiers
-// modifiés et détection des changements non committés.
+// All server Git operations invoke the `git` command line in the configured
+// workspace. The Changes Tour depends on this history for merge-base lookup,
+// HEAD SHA verification, changed-file listing, and uncommitted-change
+// detection.
 
 export interface GitResult {
   stdout: string;
@@ -52,12 +52,11 @@ export async function currentBranchName(
   return result.code === 0 ? result.stdout.trim() : null;
 }
 
-// Résout une référence Git fournie par l'agent en SHA de commit complet
-// avant toute invocation Git : une chaîne brute passée en argument positionnel
-// pourrait sinon être interprétée comme une option Git (ex. `--output=...`)
-// et modifier le comportement de la commande. La couche de validation refuse
-// les références commençant par `-`, donc l'argument composé ci-dessous ne
-// peut être interprété que comme un rev.
+// Resolve an agent-supplied Git reference to a full commit SHA before it is
+// used in any Git invocation: a raw string passed as a positional argument
+// could otherwise be parsed as a Git option (e.g. `--output=...`) and alter
+// the command's behavior. The validation layer rejects references starting
+// with `-`, so the compound argument below can only ever be parsed as a rev.
 export async function resolveCommit(
   ctx: WorkspaceContext,
   ref: string
@@ -113,10 +112,9 @@ export interface CommitAnchor {
   contents?: string;
 }
 
-// Lit les ancres dans l'arbre du commit, jamais via le checkout (qui peut
-// contenir des modifications exclues, des suppressions ou des liens
-// symboliques). Seuls les blobs demandés sont chargés ; les modes de l'arbre
-// distinguent les fichiers réguliers des liens symboliques et submodules.
+// Read anchors from the commit tree, never through the checkout (which can
+// contain excluded edits, deletions, or symlinks). Only requested file blobs
+// are loaded; tree modes distinguish regular files from symlinks/submodules.
 export async function readCommitAnchors(
   ctx: WorkspaceContext,
   ref: string,
@@ -195,9 +193,9 @@ export function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, "/");
 }
 
-// Changements staged, unstaged et untracked du workspace, à l'exception des
-// deux fichiers de Tour réservés : une génération précédente ne doit pas
-// provoquer son propre avertissement de workspace sale.
+// Staged, unstaged, and untracked workspace changes, except for the two
+// reserved Tour files: a previous generation must not trigger its own dirty
+// workspace warning.
 export async function uncommittedChanges(
   ctx: WorkspaceContext
 ): Promise<UncommittedEntry[]> {
@@ -237,9 +235,9 @@ export async function uncommittedChanges(
   return entries;
 }
 
-// Un répertoire `.tours` non suivi apparaît sous la forme d'une seule entrée
-// `?? .tours/` en mode « normal » : on l'ignore uniquement si son contenu se
-// limite aux fichiers de Tour réservés.
+// An untracked `.tours` directory appears as one `?? .tours/` entry in normal
+// mode. Ignore it only when its contents are limited to the reserved Tour
+// files.
 function toursDirectoryOnlyContainsReserved(
   ctx: WorkspaceContext,
   directory: string

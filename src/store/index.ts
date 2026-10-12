@@ -14,8 +14,8 @@ export interface CodeTourStep {
   description: string;
   icon?: string;
 
-  // Une étape guide le lecteur vers un seul type de destination : un fichier,
-  // un répertoire, un contenu virtuel, une ressource ou une vue de VS Code.
+  // A step guides the reader to a single type of destination: a file,
+  // a directory, virtual content, a resource, or a VS Code view.
   file?: string;
   baseFile?: string;
   display?: "diff";
@@ -24,8 +24,8 @@ export interface CodeTourStep {
   uri?: string;
   view?: string;
 
-  // La ligne et la sélection précisent la zone à montrer dans un fichier. Sans
-  // position, l'étape est présentée comme une explication du fichier entier.
+  // Line and selection narrow the region to show inside a file. Without a
+  // position, the step is presented as an explanation of the whole file.
   line?: number;
   selection?: { start: CodeTourStepPosition; end: CodeTourStepPosition };
 
@@ -52,15 +52,15 @@ export interface ActiveTour {
   tour: CodeTour;
   step: number;
 
-  // Pendant l'enregistrement, la visite peut être active avant que son premier
-  // commentaire ne soit placé dans l'éditeur.
+  // While recording, the tour can be active before its first comment is
+  // placed in the editor.
   thread: CommentThread | null | undefined;
 
-  // La racine indique dans quel projet ouvrir les chemins relatifs de la visite.
+  // The root indicates in which project to open the tour's relative paths.
   workspaceRoot?: Uri;
 
-  // Les visites associées permettent de suivre un lien vers une autre visite,
-  // y compris lorsque l'ensemble provient d'une source extérieure au projet.
+  // Associated tours make it possible to follow a link to another tour, even
+  // when the set comes from a source outside the project.
   tours?: CodeTour[];
 }
 

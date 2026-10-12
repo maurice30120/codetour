@@ -2,11 +2,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { WorkspaceContext } from "./types";
 
-// Écriture atomique des Tours générés : le contenu est d'abord écrit dans un
-// fichier temporaire du même répertoire, synchronisé, puis renommé sur la
-// destination. Un échec ne laisse jamais de fichier partiellement écrit et
-// préserve la version précédente. Le répertoire de sortie doit rester confiné
-// au workspace, dont le chemin réel est résolu avant l'écriture.
+// Atomically write generated Tours: write the content to a temporary file in
+// the same directory, sync it, then rename it over the destination. A failure
+// never leaves a partial file and preserves the previous version. The output
+// directory must remain confined to the workspace, whose real path is resolved
+// before writing.
 
 export class OutputPathError extends Error { }
 
