@@ -24,6 +24,7 @@ import {
   SuccessResult,
   TourFile,
   TourStep,
+  ValidatedResult,
   Warning,
   WorkspaceContext,
 } from "./types";
@@ -70,6 +71,33 @@ const MARKDOWN_WRITING_GUIDANCE =
   "keep each explanation concise and tied to the current Tour Anchor. Do not add " +
   "structure mechanically: a short, single-purpose description may remain one paragraph. ";
 
+const PROJECT_TOUR_WORKFLOW_GUIDANCE =
+  "Recommended workflow: (1) explore the codebase before writing — read the entry points and the " +
+  "main modules, not just file names; (2) author the complete content yourself; (3) call this tool " +
+  "once with dryRun true to rehearse the proposal: the complete validation runs and every issue is " +
+  "reported, but nothing is written; (4) correct the reported issues; (5) call again with dryRun " +
+  "omitted to persist the tour. Rehearse especially for large tours or unfamiliar workspaces. " +
+  "What makes a useful Project Tour: orient the reader first (a directory or no-locator step on " +
+  "where the work lives), then follow one coherent route — entry point, main components, how they " +
+  "collaborate — rather than a flat file listing. Explain each step's role and why it matters, and " +
+  "connect it to the surrounding flow instead of restating names or syntax. Anchor each claim at the " +
+  "code that justifies it, preferring a short unique pattern over a line number so the anchor " +
+  "survives edits. One step covers one idea; prefer several focused steps over one long paragraph. ";
+
+const CHANGES_TOUR_WORKFLOW_GUIDANCE =
+  "Recommended workflow: (1) inspect the actual comparison before writing — the diff from the " +
+  "merge-base to headRef, the affected source, and the tests — and base every statement on what " +
+  "the code does, never on commit messages or file names alone; (2) call this tool with dryRun " +
+  "true to rehearse: every check runs (HEAD match, base resolution, merge-base, anchors against " +
+  "headRef, renames, Mermaid) and nothing is written; (3) correct the reported issues; (4) call " +
+  "again with dryRun omitted to persist — if HEAD moved in between, re-read the comparison and " +
+  "resubmit the new SHA with matching content. " +
+  "What makes a useful Changes Tour: open with a directory step orienting the reader to where the " +
+  "work happened; group related changes into one coherent review path; for each major change " +
+  "explain what it does, how it is implemented, and its observable behavioral effect; anchor the " +
+  "discussion at the changed lines; report test coverage factually and never claim tests passed " +
+  "without having run them; explain deleted files with no-locator steps. ";
+
 const PROJECT_TOUR_DESCRIPTION =
   "Create a CodeTour guided walkthrough for understanding a codebase. Use this tool for onboarding " +
   "or explaining the project's architecture and execution flows. Read the relevant source before " +
@@ -79,6 +107,7 @@ const PROJECT_TOUR_DESCRIPTION =
   "Each step should explain the anchored code's role, why it matters, and its connection to the " +
   "surrounding flow; avoid merely restating names or syntax. Adapt the depth and step count to the " +
   "requested audience and scope. " +
+  PROJECT_TOUR_WORKFLOW_GUIDANCE +
   "Input: a required non-empty steps array, an optional title (default: \"Project Overview\"), and " +
   "an optional description summarizing the tour. Each step requires a Markdown description and may " +
   "have a title. Use at most one locator per step: file or directory, relative to the workspace root. " +
@@ -91,6 +120,9 @@ const PROJECT_TOUR_DESCRIPTION =
   "You author the complete content; the server validates it and atomically writes .tours/project.tour, " +
   "replacing the previous Project Tour only on success. Validation issues are returned together; " +
   "correct the reported issues before retrying. Failure preserves the previous tour. " +
+  "Pass dryRun true to rehearse a complete proposal: the same validation runs (anchors, Mermaid, rules), " +
+  "the response reports status \"validated\" with the same warnings, and no file is written even when " +
+  "the proposal is valid. " +
   "Optional workspacePath selects a directory relative to the configured workspace root for this call. " +
   "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. " +
   MARKDOWN_WRITING_GUIDANCE +
@@ -114,6 +146,7 @@ const CHANGES_TOUR_DESCRIPTION =
   "changed lines in the analyzed head snapshot, so the tour comment appears beside the change. " +
   "Use unchanged code only when it supplies essential context. Do not claim tests passed without " +
   "verification; distinguish observed behavior from intended behavior. " +
+  CHANGES_TOUR_WORKFLOW_GUIDANCE +
   "Input: baseRef (required Git reference), headRef (required full 40-character commit SHA equal to " +
   "the current HEAD), a required non-empty steps array, optional title (default: \"Changes on <branch>\"), " +
   "optional description, and includeUncommittedChanges (optional boolean, default false). " +
@@ -138,6 +171,9 @@ const CHANGES_TOUR_DESCRIPTION =
   "description, and atomically writes .tours/changes.tour, replacing the previous Changes Tour only " +
   "on success. Failure preserves it. Correct reported validation issues before retrying; if HEAD " +
   "changed, re-analyze the comparison and submit the new SHA with matching content. " +
+  "Pass dryRun true to rehearse the proposal: the Git checks (HEAD match, base resolution, merge-base, " +
+  "anchors against headRef) and the same validation still run, the response reports status \"validated\" " +
+  "with the same warnings, and no file is written even when the proposal is valid. " +
   "Optional workspacePath selects a repository or subdirectory relative to the configured workspace root for this call. " +
   "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. " +
   MARKDOWN_WRITING_GUIDANCE +
@@ -152,7 +188,7 @@ const issueSchema = z.object({
   message: z.string(),
 });
 const toolResultSchema = z.object({
-  status: z.enum(["created", "error"]),
+  status: z.enum(["created", "error", "validated"]),
   path: z.string().optional(),
   stepCount: z.number().int().nonnegative().optional(),
   warnings: z.array(warningSchema).optional(),
@@ -170,6 +206,12 @@ const projectToolInputSchema = z
       .optional()
       .describe(
         "Optional readable Markdown overview; separate distinct ideas with blank lines between paragraphs."
+      ),
+    dryRun: z
+      .unknown()
+      .optional()
+      .describe(
+        "Validate the complete proposal (rules, anchors, Mermaid) without writing the tour file."
       ),
     steps: z
       .unknown()
@@ -189,6 +231,12 @@ const changesToolInputSchema = z
       .optional()
       .describe(
         "Optional readable Markdown overview; separate distinct ideas with blank lines between paragraphs."
+      ),
+    dryRun: z
+      .unknown()
+      .optional()
+      .describe(
+        "Validate the complete proposal (rules, anchors, Mermaid, Git checks) without writing the tour file."
       ),
     steps: z
       .unknown()
@@ -277,6 +325,16 @@ async function handleCreateProjectTour(
   const finalSteps = steps as TourStep[];
 
   const warnings = stepLimitWarnings(finalSteps);
+
+  // Rehearsal: the proposal is fully validated but never written, so an
+  // agent can verify its content before replacing the previous tour.
+  if (params.dryRun === true) {
+    return validatedResponse(
+      finalSteps.length,
+      warnings,
+      `Validated Project Tour proposal with ${finalSteps.length} step(s); nothing was written (dryRun).`
+    );
+  }
 
   const tour: TourFile = {
     $schema: CODETOUR_SCHEMA_URI,
@@ -481,6 +539,15 @@ async function handleCreateChangesTour(
   }
 
   const title = params.title ?? (await defaultChangesTitle(ctx, headRef));
+  // Rehearsal: every check has run (Git, anchors against headRef, renames,
+  // Mermaid, warnings) but the tour is never written.
+  if (params.dryRun === true) {
+    return validatedResponse(
+      finalSteps.length,
+      warnings,
+      `Validated Changes Tour proposal with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}); nothing was written (dryRun).`
+    );
+  }
   // Enrich the description automatically with the provenance, base, and head
   // so the reader always knows the analyzed scope.
   const provenance = includesLocalChanges
@@ -618,6 +685,26 @@ function successResponse(
   const result: SuccessResult = {
     status: "created",
     path: relativePath,
+    stepCount,
+    warnings,
+  };
+  const text = [
+    message,
+    ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
+  ].join("\n");
+  return {
+    content: [{ type: "text", text }],
+    structuredContent: result as unknown as Record<string, unknown>,
+  };
+}
+
+function validatedResponse(
+  stepCount: number,
+  warnings: Warning[],
+  message: string
+): ToolResponse {
+  const result: ValidatedResult = {
+    status: "validated",
     stepCount,
     warnings,
   };
