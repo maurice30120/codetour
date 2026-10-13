@@ -9,6 +9,8 @@
  * save/discard prompts on this very structure.
  */
 
+import { store } from "../store";
+
 // Identifies one step of one tour: the key of every draft, editing session
 // and pending resolution.
 export interface TourStepRef {
@@ -61,6 +63,18 @@ export function getEditingSession(): EditingSession | undefined {
 
 export function isEditingSession(tourId: string, step: number): boolean {
   return session?.tourId === tourId && session.step === step;
+}
+
+// True when the given step of the given tour is the active one and the one
+// being edited right now: the only step a panel message may ever touch.
+export function isActiveEditingStep(tourId: string, step: number): boolean {
+  const activeTour = store.activeTour;
+  return (
+    !!activeTour &&
+    activeTour.tour.id === tourId &&
+    activeTour.step === step &&
+    isEditingSession(tourId, step)
+  );
 }
 
 // Ends the editing session, without touching any stored draft.

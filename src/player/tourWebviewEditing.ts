@@ -8,7 +8,7 @@ import {
   clearStepDraft,
   endEditingSession,
   getStepDraft,
-  isEditingSession,
+  isActiveEditingStep,
   setStepDraft,
   startEditingSession
 } from "./tourDrafts";
@@ -79,11 +79,7 @@ export async function updateStepDraft(
     return undefined;
   }
 
-  if (
-    !isEditingSession(tourId, step) ||
-    activeTour.tour.id !== tourId ||
-    activeTour.step !== step
-  ) {
+  if (!isActiveEditingStep(tourId, step)) {
     return undefined;
   }
 
@@ -118,16 +114,11 @@ export async function saveStepDraft(
     return "rejected";
   }
 
-  const activeTour = store.activeTour;
-  if (
-    !activeTour ||
-    activeTour.tour.id !== tourId ||
-    activeTour.step !== step ||
-    !isEditingSession(tourId, step)
-  ) {
+  if (!isActiveEditingStep(tourId, step)) {
     return "stale";
   }
 
+  const activeTour = store.activeTour!;
   const tourStep = activeTour.tour.steps[step];
   if (!tourStep) {
     return "stale";
@@ -151,13 +142,7 @@ export function cancelStepEditing(tourId: unknown, step: unknown): boolean {
     return false;
   }
 
-  const activeTour = store.activeTour;
-  if (
-    !activeTour ||
-    activeTour.tour.id !== tourId ||
-    activeTour.step !== step ||
-    !isEditingSession(tourId, step)
-  ) {
+  if (!isActiveEditingStep(tourId, step)) {
     return false;
   }
 

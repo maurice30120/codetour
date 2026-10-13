@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { store } from "../store";
 import { EDITING_KEY } from "../store/actions";
 import { persistStepDescription } from "./tourDraftSaving";
-import { TourStepRef, clearStepDraft, endEditingSession, getStepDraft, isEditingSession } from "./tourDrafts";
+import { TourStepRef, clearStepDraft, endEditingSession, getStepDraft, isActiveEditingStep, isEditingSession } from "./tourDrafts";
 
 // The step whose draft exit is currently being resolved. Only one prompt
 // ever runs at a time: exit actions fired in a burst while a prompt is open
@@ -33,7 +33,7 @@ export function hasUnsavedStepDraft(): boolean {
 export function endWebviewEditingSession(tourId: string, step: number): void {
   // The native recorder editing keeps its own comment flow: a webview
   // session never interferes with it.
-  if (store.isRecording || !isEditingSession(tourId, step)) {
+  if (store.isRecording || !isActiveEditingStep(tourId, step)) {
     return;
   }
 
