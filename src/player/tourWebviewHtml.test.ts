@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
+import { runInNewContext } from "node:vm";
 import { createTourWebviewHtml } from "./tourWebviewHtml";
 
 function baseModel() {
@@ -65,7 +66,7 @@ test("createTourWebviewHtml forwards clicks through postMessage", () => {
   assert.match(html, /const vscode = acquireVsCodeApi\(\)/);
   assert.match(
     html,
-    /send\(\{ type: button\.dataset\.action, tour \}\)/
+    /send\(\{ type: button\.dataset\.action, tour: navigationTour \}\)/
   );
   assert.match(html, /send\(\{ type: "openLink", href \}\)/);
   assert.match(html, /if \(href\.startsWith\("#"\)\) return/);
@@ -301,4 +302,29 @@ test("createTourWebviewHtml wires the draft messages and focuses the editor", ()
     html,
     /img-src data: https:; style-src 'unsafe-inline'; script-src 'nonce-test-nonce'/
   );
+});
+
+
+test("clicking the generated Save and Cancel buttons sends the current draft identity", () => {
+  const html = createTourWebviewHtml({ ...baseModel(), editable: true, editing: { source: "Draft source" } }, "event-nonce");
+  const script = html.match(/<script nonce="event-nonce">([\s\S]*?)<\/script>/)![1];
+  const listeners = new Map<string, (event: unknown) => void>();
+  const messages: unknown[] = [];
+  const source = { value: "Typed browser source", focus: () => undefined, addEventListener: () => undefined };
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({ postMessage: (message: unknown) => messages.push(message) }),
+    document: {
+      body: { dataset: { token: "event-nonce", tourId: "file:///workspace/.tours/base.tour", step: "1" } },
+      getElementById: (id: string) => id === "tour-step-source" ? source : { innerHTML: "" },
+      addEventListener: (name: string, listener: (event: unknown) => void) => listeners.set(name, listener)
+    },
+    window: { addEventListener: () => undefined }
+  });
+  for (const action of ["save", "cancel"]) {
+    listeners.get("click")!({ target: { closest: () => ({ disabled: false, dataset: { action } }) } });
+  }
+  assert.deepEqual(JSON.parse(JSON.stringify(messages)), [
+    { type: "save", tour: "file:///workspace/.tours/base.tour", step: 1, text: "Typed browser source", token: "event-nonce", targetTourId: "file:///workspace/.tours/base.tour" },
+    { type: "cancel", tour: "file:///workspace/.tours/base.tour", step: 1, token: "event-nonce", targetTourId: "file:///workspace/.tours/base.tour" }
+  ]);
 });
