@@ -7,61 +7,12 @@ import { store } from "../store";
 import { getStepLabel } from "../utils";
 import { renderPreviewDescription } from "./description";
 import { createDescriptionWebviewHtml } from "./markdown";
+import { openDescriptionLink } from "./webviewLinks";
 
 const VIEW_TYPE = "codetour.description";
-const ALLOWED_COMMANDS = /^(codetour\.|vscode\.open$)/;
 
 let panel: vscode.WebviewPanel | undefined;
 let linkWorkspaceRoot: vscode.Uri | undefined;
-
-function reviveCommandArgument(value: unknown): unknown {
-  if (
-    value &&
-    typeof value === "object" &&
-    "scheme" in value &&
-    "path" in value
-  ) {
-    const components = value as {
-      scheme: string;
-      authority?: string;
-      path?: string;
-      query?: string;
-      fragment?: string;
-    };
-    return vscode.Uri.from({
-      scheme: components.scheme,
-      authority: components.authority,
-      path: components.path,
-      query: components.query,
-      fragment: components.fragment
-    });
-  }
-
-  return value;
-}
-
-async function openLink(
-  href: string,
-  workspaceRoot?: vscode.Uri
-): Promise<void> {
-  const uri = vscode.Uri.parse(href, true);
-  if (uri.scheme === "command" && ALLOWED_COMMANDS.test(uri.path)) {
-    const parsedArgs: unknown = uri.query
-      ? JSON.parse(decodeURIComponent(uri.query))
-      : [];
-    const args = (Array.isArray(parsedArgs) ? parsedArgs : [parsedArgs]).map(
-      reviveCommandArgument
-    );
-    await vscode.commands.executeCommand(uri.path, ...args);
-  } else if (["http", "https", "mailto"].includes(uri.scheme)) {
-    await vscode.env.openExternal(uri);
-  } else if (!uri.scheme && workspaceRoot) {
-    await vscode.commands.executeCommand(
-      "vscode.open",
-      vscode.Uri.joinPath(workspaceRoot, uri.path)
-    );
-  }
-}
 
 export async function showStepDescription(): Promise<void> {
   const activeTour = store.activeTour;
@@ -96,7 +47,7 @@ export async function showStepDescription(): Promise<void> {
     panel.webview.onDidReceiveMessage(async message => {
       if (message?.type === "openLink" && typeof message.href === "string") {
         try {
-          await openLink(message.href, linkWorkspaceRoot);
+          await openDescriptionLink(message.href, linkWorkspaceRoot);
         } catch {
           vscode.window.showErrorMessage("Unable to open this description link.");
         }
@@ -113,4 +64,14 @@ export async function showStepDescription(): Promise<void> {
     title,
     randomBytes(16).toString("base64")
   );
+}
+
+// Removes the expanded description so a stale duplicate of the step text can't
+// outlive a playback mode change.
+export function disposeStepDescription() {
+  if (panel) {
+    panel.dispose();
+    panel = undefined;
+    linkWorkspaceRoot = undefined;
+  }
 }
