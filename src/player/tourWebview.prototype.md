@@ -2,7 +2,9 @@
 
 Question : quelle disposition permet de lire une explication tout en suivant le code ?
 
-Branche : `feature/tour-webview`. Aucun choix de disposition n’est encore validé.
+Choix utilisateur du 13 octobre 2026 : **variante A, lecture guidée**. Une étape à la fois, avec la navigation sous l’explication.
+
+Référence conservée : branche `prototype/tour-webview`. Intégration prévue sur `feature/tour-webview`, décrite dans [le périmètre d’implémentation](../../docs/tour-webview-implementation.md).
 
 Lancer `npm run prototype:webview`, puis exécuter **CodeTour IA: Prototype Tour WebView** dans la palette de la fenêtre VS Code ouverte. Choisir un tour du workspace.
 
@@ -20,4 +22,4 @@ La barre flottante et les touches gauche/droite changent la variante. Le paramè
 
 Le prototype lit les vrais tours et réutilise le rendu Markdown/Mermaid et la résolution des diffs. Il ne crée pas de commentaires natifs, ne modifie pas les fichiers `.tour` et ne sauvegarde pas la progression. Les commandes contenues dans les étapes ne sont pas exécutées. L’édition et l’enregistrement restent dans le lecteur existant. La commande est disponible uniquement dans un hôte de développement.
 
-Verdict provisoire : la surface peut être séparée des commentaires et conserver l’accès aux fichiers et aux diffs. La disposition gagnante et son confort d’utilisation restent à valider dans VS Code. Après choix, réécrire l’intégration du lecteur pour la production ; conserver ces variantes uniquement dans la branche de prototype.
+Verdict : l’utilisateur préfère A après comparaison des prototypes. L’intégration doit reprendre sa disposition dans le lecteur réel et conserver l’accès aux fichiers et aux diffs. Les variantes B/C et leur sélecteur servent uniquement de référence ; ils seront retirés de la branche d’implémentation après remplacement par le lecteur final.
