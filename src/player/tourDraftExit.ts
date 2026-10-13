@@ -80,11 +80,14 @@ export async function resolveStepDraftBeforeExit(): Promise<boolean> {
 
   pendingResolution = { tourId: tour.id, step };
   try {
-    const choice = await vscode.window.showInformationMessage(
-      "This step has unsaved draft changes. Save them before leaving?",
-      "Save",
-      "Discard",
-      "Cancel"
+    // The question is asked through a quick pick, so keyboard users can
+    // answer it with arrows, enter and escape like the rest of the panel.
+    const choice = await vscode.window.showQuickPick(
+      ["Save", "Discard", "Cancel"],
+      {
+        placeHolder: "This step has unsaved draft changes. Save them before leaving?",
+        ignoreFocusOut: true
+      }
     );
 
     // The answer must still target the step it was asked about: a late

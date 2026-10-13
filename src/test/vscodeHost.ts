@@ -391,7 +391,11 @@ export function createVscodeHost(options: HostOptions = {}) {
   const configurationUpdates: [string, string, unknown, number][] = [];
   const fileWrites: [string, string][] = [];
   const messages: string[] = [];
-  const modalPrompts: { message: string; items: string[] }[] = [];
+  const modalPrompts: {
+    message: string;
+    items: string[];
+    quickPick?: boolean;
+  }[] = [];
   const modalResponses: string[] = [];
   const pendingModals: ((choice: string | undefined) => void)[] = [];
   const externalLinks: Uri[] = [];
@@ -768,7 +772,9 @@ export function createVscodeHost(options: HostOptions = {}) {
     },
     showInformationMessage: (message: string, ...items: string[]) => {
       messages.push(message);
-      modalPrompts.push({ message, items });
+      // The recorded items are a copy: tests may reorder them without
+      // disturbing a prompt still waiting for its answer.
+      modalPrompts.push({ message, items: items.slice() });
       // A modal without a queued answer stays open until the test answers
       // it, like a real VS Code notification the user hasn't clicked yet.
       if (modalResponses.length > 0) {
@@ -782,7 +788,34 @@ export function createVscodeHost(options: HostOptions = {}) {
       messages.push(message);
       return Promise.resolve(undefined);
     },
-    showQuickPick: async () => undefined,
+    // A quick pick joins the very same modal queue as the message prompts:
+    // it stays open until the test answers it, and an answer matching one
+    // of the items returns the item itself, so object-typed quick picks
+    // (git refs, workspace folders) keep their payload.
+    showQuickPick: async (
+      items: unknown,
+      options?: { placeHolder?: string; title?: string }
+    ) => {
+      const list = Array.isArray(items) ? items : [];
+      const labels = list.map(item =>
+        typeof item === "string"
+          ? item
+          : ((item as { label?: string }).label ?? "")
+      );
+      modalPrompts.push({
+        message: options?.placeHolder ?? options?.title ?? "",
+        items: labels.slice(),
+        quickPick: true
+      });
+      const answer =
+        modalResponses.length > 0
+          ? modalResponses.shift()
+          : await new Promise<string | undefined>(resolve =>
+              pendingModals.push(resolve)
+            );
+      const index = labels.findIndex(label => label === answer);
+      return index >= 0 ? list[index] : answer;
+    },
     showInputBox: async () => undefined,
     createTerminal: () => ({
       show: () => undefined,

@@ -259,6 +259,34 @@ preservationTest(
 );
 
 preservationTest(
+  "the draft exit prompt is a keyboard-driven quick pick",
+  async () => {
+    await startDraftTour();
+    await enterEditingWithDraft("Quick pick draft.");
+
+    const navigation = host.vscode.commands.executeCommand(
+      "codetour.nextTourStep"
+    );
+    await host.waitFor(() => host.modalPrompts().length === 1);
+
+    // The save/discard/cancel question is asked through a quick pick, so it
+    // is fully operable from the keyboard: arrows to choose, enter to
+    // validate, escape to cancel and keep the draft.
+    const prompt = host.modalPrompts()[0];
+    assert.equal(prompt.quickPick, true);
+    assert.ok(prompt.message.includes("unsaved"));
+    assert.deepEqual(prompt.items.sort(), ["Cancel", "Discard", "Save"]);
+
+    host.respondToModal("Cancel");
+    await navigation;
+
+    assert.equal(store.activeTour.step, 0);
+    assert.equal(getStepDraft(tour.id, 0), "Quick pick draft.");
+    await resetState();
+  }
+);
+
+preservationTest(
   "leaving the step with a draft proposes save, discard or cancel",
   async () => {
     await startDraftTour();
