@@ -83,6 +83,9 @@ export async function renderTourStep(): Promise<void> {
       { enableScripts: true, localResourceRoots: [] }
     );
     panel.onDidDispose(() => {
+      // Closing the panel invalidates any in-flight render: a delayed mermaid
+      // result must neither throw nor recreate the panel with a stale step.
+      ++panelRenderVersion;
       panel = undefined;
       linkWorkspaceRoot = undefined;
     });
