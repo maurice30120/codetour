@@ -22,3 +22,5 @@ webpack.config.js
 **/*.svg
 dist/extension-web.js*
 dist/test/**
+
+test/**
