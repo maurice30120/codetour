@@ -12,6 +12,11 @@ export interface TourWebviewModel {
   stepTitle: string;
   anchorLabel?: string;
   description: string;
+  // Titles of the tours a series transition hands over to, following the
+  // reader's own navigation rules. They reuse the full tour titles, the
+  // same values the native links pass to startTourByTitle/finishTour.
+  previousTourTitle?: string;
+  nextTourTitle?: string;
 }
 
 function escapeHtml(value: string): string {
@@ -29,9 +34,19 @@ export function createTourWebviewHtml(
 ): string {
   const renderedContent = renderMarkdownToHtml(model.description);
   const stepPosition = model.stepNumber + 1;
-  const previousDisabled = model.stepNumber === 0 ? " disabled" : "";
+  // At the tour bounds, a series transition replaces the disabled step
+  // navigation: the previous button starts the previous tour, the finish
+  // action hands over to the next one.
+  const previousDisabled =
+    model.stepNumber === 0 && !model.previousTourTitle ? " disabled" : "";
   const nextDisabled =
     model.stepNumber >= model.stepCount - 1 ? " disabled" : "";
+  const previousTour = model.previousTourTitle
+    ? ` data-tour="${escapeHtml(model.previousTourTitle)}"`
+    : "";
+  const nextTour = model.nextTourTitle
+    ? ` data-tour="${escapeHtml(model.nextTourTitle)}"`
+    : "";
   const anchor = model.anchorLabel
     ? `\n    <p class="anchor">${escapeHtml(model.anchorLabel)}</p>`
     : "";
@@ -73,17 +88,18 @@ export function createTourWebviewHtml(
     ${renderedContent}
   </article>
   <nav>
-    <button data-action="previous"${previousDisabled}>← Précédent</button>
+    <button data-action="previous"${previousDisabled}${previousTour}>← Précédent</button>
     <button data-action="code">Voir le code</button>
     <button data-action="next"${nextDisabled}>Suivant →</button>
-    <button data-action="finish">Fin</button>
+    <button data-action="finish"${nextTour}>Fin</button>
   </nav>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
     document.addEventListener("click", event => {
       const button = event.target.closest("button[data-action]");
       if (button && !button.disabled) {
-        vscode.postMessage({ type: button.dataset.action });
+        const tour = button.dataset.tour || undefined;
+        vscode.postMessage({ type: button.dataset.action, tour });
         return;
       }
       const link = event.target.closest("a[href]");

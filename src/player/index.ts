@@ -107,11 +107,21 @@ export async function focusPlayer() {
   }
 
   if (isWebviewPlayback()) {
-    revealTourWebview();
+    // Reprendre reopens the step's presentation, including after the panel
+    // was closed mid-tour.
+    await revealTourWebview();
   }
 }
 
 export async function startPlayer() {
+  // Starting a tour invalidates any anchor or render still in flight for a
+  // previous tour, so a late resolution can never resurface.
+  ++renderVersion;
+  currentDiff = undefined;
+  currentSelection = undefined;
+  currentAnchor = undefined;
+  clearActiveAnchorDecoration();
+
   if (controller) {
     controller.dispose();
   }
@@ -171,7 +181,7 @@ const VIEW_COMMANDS = new Map([
   ["terminal", "terminal.focus"]
 ]);
 
-function getPreviousTour(): CodeTour | undefined {
+export function getPreviousTour(): CodeTour | undefined {
   const previousTour = store.tours.find(
     tour => tour.nextTour === store.activeTour?.tour.title
   );
@@ -189,7 +199,7 @@ function getPreviousTour(): CodeTour | undefined {
   }
 }
 
-function getNextTour(): CodeTour | undefined {
+export function getNextTour(): CodeTour | undefined {
   if (store.activeTour?.tour.nextTour) {
     return store.tours.find(
       tour => tour.title === store.activeTour?.tour.nextTour
@@ -204,6 +214,7 @@ function getNextTour(): CodeTour | undefined {
     }
   }
 }
+
 
 async function renderCurrentStep(forceCurrentFile = false) {
   const version = ++renderVersion;
@@ -227,6 +238,25 @@ async function renderCurrentStep(forceCurrentFile = false) {
   );
   let unavailableFile = false;
   let document: TextDocument | undefined;
+  let line = step.line
+    ? step.line - 1
+    : step.selection
+    ? step.selection.end.line - 1
+    : undefined;
+
+  // The existing fallback when a step's target cannot be opened: the reader
+  // is warned, the step stays readable and the tour continues.
+  const markUnavailableFile = () => {
+    unavailableFile = true;
+    line = 0;
+    uri = CONTENT_URI;
+    if (version === renderVersion) {
+      window.showWarningMessage(
+        `CodeTour: file unavailable: ${step.file || step.uri}. You can continue the tour.`
+      );
+    }
+  };
+
   if (step.display === "diff" && step.file) {
     try {
       document = await workspace.openTextDocument(uri);
@@ -236,30 +266,31 @@ async function renderCurrentStep(forceCurrentFile = false) {
       try {
         document = await workspace.openTextDocument(uri);
       } catch {
-        uri = CONTENT_URI;
-        unavailableFile = true;
-        if (version === renderVersion) {
-          window.showWarningMessage(`CodeTour: file unavailable: ${step.file}. You can continue the tour.`);
-        }
+        markUnavailableFile();
       }
     }
   }
   if (version !== renderVersion || !store.activeTour || !controller) return;
 
-  let line = step.line
-    ? step.line - 1
-    : step.selection
-    ? step.selection.end.line - 1
-    : undefined;
-
-  if (unavailableFile) line = 0;
   if (step.file && !unavailableFile && line === undefined) {
     const stepPattern = step.pattern || getActiveStepMarker();
     if (stepPattern) {
-      document = document || await workspace.openTextDocument(uri);
-      const match = document.getText().match(new RegExp(stepPattern, "m"));
-      if (match) {
-        line = document.positionAt(match.index!).line;
+      try {
+        document = document || await workspace.openTextDocument(uri);
+        const match = document.getText().match(new RegExp(stepPattern, "m"));
+        if (match) {
+          line = document.positionAt(match.index!).line;
+        }
+      } catch (error) {
+        if (!isWebviewPlayback()) {
+          throw error;
+        }
+        if (version !== renderVersion || !store.activeTour) {
+          return;
+        }
+        // In webview mode a missing pattern host keeps the step readable in
+        // the panel instead of breaking the render.
+        markUnavailableFile();
       }
     }
   }
@@ -310,7 +341,21 @@ async function renderCurrentStep(forceCurrentFile = false) {
       return;
     }
   } else {
-    await showDocument(uri, range, selection);
+    try {
+      await showDocument(uri, range, selection);
+    } catch (error) {
+      if (!isWebviewPlayback()) {
+        throw error;
+      }
+      if (version !== renderVersion || !store.activeTour) {
+        return;
+      }
+      // In webview mode a file that cannot be opened leaves the step
+      // readable in the panel: no anchor is invented and the tour continues.
+      markUnavailableFile();
+      currentAnchor = undefined;
+      currentSelection = undefined;
+    }
   }
   if (version !== renderVersion || !store.activeTour) return;
 
