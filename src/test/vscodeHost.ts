@@ -83,12 +83,21 @@ export class Uri {
       .replace(/\/{2,}/g, "/")
       .replace(/\/\.(?=\/|$)/g, "")
       .replace(/\/$/, "");
-    return new Uri(base.scheme, base.authority, path, base.query, base.fragment);
+    return new Uri(
+      base.scheme,
+      base.authority,
+      path,
+      base.query,
+      base.fragment
+    );
   }
 }
 
 export class Position {
-  constructor(readonly line: number, readonly character: number) {}
+  constructor(
+    readonly line: number,
+    readonly character: number
+  ) {}
 }
 
 export class Range {
@@ -96,7 +105,12 @@ export class Range {
   readonly end: Position;
 
   constructor(start: Position, end: Position);
-  constructor(startLine: number, startCharacter: number, endLine: number, endCharacter: number);
+  constructor(
+    startLine: number,
+    startCharacter: number,
+    endLine: number,
+    endCharacter: number
+  );
   constructor(
     start: Position | number,
     endOrCharacter: Position | number,
@@ -134,12 +148,30 @@ export class MarkdownString {
   constructor(public value: string = "") {}
 }
 
+// Just enough of the snippet builder for the recorder's completion items.
+export class SnippetString {
+  constructor(public value: string = "") {}
+
+  appendText(value: string): this {
+    this.value += value;
+    return this;
+  }
+
+  appendPlaceholder(value: string): this {
+    this.value += value;
+    return this;
+  }
+}
+
 export class ThemeColor {
   constructor(readonly id: string) {}
 }
 
 export class ThemeIcon {
-  constructor(readonly id: string, public color?: ThemeColor) {}
+  constructor(
+    readonly id: string,
+    public color?: ThemeColor
+  ) {}
 }
 
 export class TreeItem {
@@ -150,7 +182,10 @@ export class TreeItem {
   contextValue?: string;
   command?: { command: string; title: string; arguments?: unknown[] };
   resourceUri?: Uri;
-  constructor(label?: string, public collapsibleState?: number) {
+  constructor(
+    label?: string,
+    public collapsibleState?: number
+  ) {
     this.label = label;
   }
 }
@@ -208,7 +243,10 @@ export const ViewColumn = {
 } as const;
 
 export const CommentMode = { Editing: 1, Preview: 2 } as const;
-export const CommentThreadCollapsibleState = { Collapsed: 0, Expanded: 1 } as const;
+export const CommentThreadCollapsibleState = {
+  Collapsed: 0,
+  Expanded: 1
+} as const;
 export const OverviewRulerLane = { Left: 1, Center: 2, Right: 4 } as const;
 export const ConfigurationTarget = {
   Global: 1,
@@ -223,7 +261,11 @@ export const TextEditorRevealType = {
   AtTop: 3
 } as const;
 export const StatusBarAlignment = { Left: 1, Right: 2 } as const;
-export const TreeItemCollapsibleState = { None: 0, Collapsed: 1, Expanded: 2 } as const;
+export const TreeItemCollapsibleState = {
+  None: 0,
+  Collapsed: 1,
+  Expanded: 2
+} as const;
 export const DecorationRangeBehavior = {
   OpenOpen: 1,
   ClosedClosed: 2,
@@ -261,7 +303,11 @@ export interface CommentController {
   readonly threads: CommentThread[];
   disposed: boolean;
   commentingRangeProvider?: unknown;
-  createCommentThread(uri: Uri, range: Range, comments: unknown[]): CommentThread;
+  createCommentThread(
+    uri: Uri,
+    range: Range,
+    comments: unknown[]
+  ): CommentThread;
   dispose(): void;
 }
 
@@ -283,7 +329,10 @@ export interface WebviewPanel {
   receive(message: unknown): void;
 }
 class MockTextDocument implements TextDocument {
-  constructor(readonly uri: Uri, private text: string) {}
+  constructor(
+    readonly uri: Uri,
+    private text: string
+  ) {}
 
   getText(): string {
     return this.text;
@@ -334,10 +383,12 @@ class MockTextEditor {
     this.revealedRanges.push(range);
   }
 
-  async edit(callback: (editBuilder: {
-    insert: (position: Position, text: string) => void;
-    replace: (selection: Range, text: string) => void;
-  }) => void): Promise<boolean> {
+  async edit(
+    callback: (editBuilder: {
+      insert: (position: Position, text: string) => void;
+      replace: (selection: Range, text: string) => void;
+    }) => void
+  ): Promise<boolean> {
     callback({
       insert: () => undefined,
       replace: () => undefined
@@ -379,9 +430,7 @@ export interface HostOptions {
 
 export function createVscodeHost(options: HostOptions = {}) {
   const configuration = new Map<string, Map<string, unknown>>();
-  for (const [section, values] of Object.entries(
-    options.configuration ?? {}
-  )) {
+  for (const [section, values] of Object.entries(options.configuration ?? {})) {
     configuration.set(section, new Map(Object.entries(values)));
   }
 
@@ -405,7 +454,9 @@ export function createVscodeHost(options: HostOptions = {}) {
   const decorationTypes: TextEditorDecorationType[] = [];
   const commentControllers: MockCommentController[] = [];
   const panels: MockWebviewPanel[] = [];
-  const onDidChangeActiveTextEditor = new EventEmitter<TextEditor | undefined>();
+  const onDidChangeActiveTextEditor = new EventEmitter<
+    TextEditor | undefined
+  >();
   const onDidChangeVisibleTextEditors = new EventEmitter<TextEditor[]>();
   const onDidChangeActiveColorTheme = new EventEmitter<unknown>();
   const failingWrites = new Set(options.failingWritesTo ?? []);
@@ -437,9 +488,9 @@ export function createVscodeHost(options: HostOptions = {}) {
       await gitDelay();
       const object = gitOptions?.objects?.[`${ref}:${path}`];
       if (!object) {
-        const error = new Error(
-          `Unknown path: ${ref}:${path}`
-        ) as Error & { gitErrorCode?: string };
+        const error = new Error(`Unknown path: ${ref}:${path}`) as Error & {
+          gitErrorCode?: string;
+        };
         error.gitErrorCode = "UnknownPath";
         throw error;
       }
@@ -494,10 +545,7 @@ export function createVscodeHost(options: HostOptions = {}) {
           return Promise.reject(new Error(`File not found: ${key}`));
         }
         documents.set(key, new MockTextDocument(uri, ""));
-      } else if (
-        scheme === "codetour" ||
-        scheme === "codetour-content"
-      ) {
+      } else if (scheme === "codetour" || scheme === "codetour-content") {
         documents.set(key, new MockTextDocument(uri, ""));
       } else if (scheme === "git") {
         let text = "";
@@ -559,7 +607,10 @@ export function createVscodeHost(options: HostOptions = {}) {
     disposed = false;
     commentingRangeProvider?: unknown;
 
-    constructor(readonly id: string, readonly label: string) {}
+    constructor(
+      readonly id: string,
+      readonly label: string
+    ) {}
 
     createCommentThread(
       uri: Uri,
@@ -665,6 +716,40 @@ export function createVscodeHost(options: HostOptions = {}) {
     dispose(): void {}
   }
 
+  // The standard input box used by the recorder's title prompts. Tests
+  // reach it through `inputBoxes()` and drive it with `accept(value)`.
+  class MockInputBox {
+    value = "";
+    title?: string;
+    placeholder?: string;
+    buttons: unknown[] = [];
+    private readonly acceptEmitter = new EventEmitter<void>();
+    private readonly buttonEmitter = new EventEmitter<unknown>();
+
+    onDidAccept(listener: () => unknown): Disposable {
+      return this.acceptEmitter.event(listener);
+    }
+
+    onDidTriggerButton(listener: (button: unknown) => unknown): Disposable {
+      return this.buttonEmitter.event(listener);
+    }
+
+    show(): void {}
+
+    hide(): void {}
+
+    dispose(): void {}
+
+    accept(value?: string): void {
+      if (value !== undefined) {
+        this.value = value;
+      }
+      this.acceptEmitter.fire();
+    }
+  }
+
+  const inputBoxes: MockInputBox[] = [];
+
   const memento = new Map<string, unknown>();
   const globalState = {
     get: (key: string) => memento.get(key),
@@ -686,7 +771,11 @@ export function createVscodeHost(options: HostOptions = {}) {
   const workspace = {
     workspaceFolders: [{ uri: rootUri, name: "workspace", index: 0 }],
     workspaceFile: undefined,
-    getWorkspaceFolder: (_uri: Uri) => ({ uri: rootUri, name: "workspace", index: 0 }),
+    getWorkspaceFolder: (_uri: Uri) => ({
+      uri: rootUri,
+      name: "workspace",
+      index: 0
+    }),
     getConfiguration: (section: string) => ({
       get: (key: string, defaultValue?: unknown) => {
         const values = getConfigurationMap(section);
@@ -704,8 +793,10 @@ export function createVscodeHost(options: HostOptions = {}) {
     }),
     openTextDocument: (uri: Uri) => openTextDocument(uri),
     showTextDocument: (uri: Uri) => showTextDocument(uri),
-    registerTextDocumentContentProvider: (_scheme: string, _provider: unknown) =>
-      new Disposable(),
+    registerTextDocumentContentProvider: (
+      _scheme: string,
+      _provider: unknown
+    ) => new Disposable(),
     registerFileSystemProvider: (_scheme: string, _provider: unknown) =>
       new Disposable(),
     onDidChangeConfiguration: () => new Disposable(),
@@ -721,7 +812,13 @@ export function createVscodeHost(options: HostOptions = {}) {
         files.set(uri.path, text);
       },
       readFile: async (uri: Uri) =>
-        new TextEncoder().encode(files.get(uri.path) ?? "")
+        new TextEncoder().encode(files.get(uri.path) ?? ""),
+      stat: async (uri: Uri) => {
+        if (files.has(getFilePath(uri))) {
+          return { type: FileType.File };
+        }
+        throw FileSystemError.FileNotFound();
+      }
     },
     applyEdit: async () => true
   };
@@ -754,12 +851,16 @@ export function createVscodeHost(options: HostOptions = {}) {
       panelOptions: unknown
     ) => createWebviewPanel(viewType, title, showOptions, panelOptions),
     createTreeView: (_id: string, _options: unknown) => new MockTreeView(),
-    registerTreeDataProvider: (_id: string, _provider: unknown) => new Disposable(),
-    registerHoverProvider: (_selector: unknown, _provider: unknown) => new Disposable(),
-    onDidChangeActiveTextEditor: (listener: (editor: TextEditor | undefined) => void) =>
-      onDidChangeActiveTextEditor.event(listener),
-    onDidChangeVisibleTextEditors: (listener: (editors: TextEditor[]) => void) =>
-      onDidChangeVisibleTextEditors.event(listener),
+    registerTreeDataProvider: (_id: string, _provider: unknown) =>
+      new Disposable(),
+    registerHoverProvider: (_selector: unknown, _provider: unknown) =>
+      new Disposable(),
+    onDidChangeActiveTextEditor: (
+      listener: (editor: TextEditor | undefined) => void
+    ) => onDidChangeActiveTextEditor.event(listener),
+    onDidChangeVisibleTextEditors: (
+      listener: (editors: TextEditor[]) => void
+    ) => onDidChangeVisibleTextEditors.event(listener),
     onDidChangeActiveColorTheme: (listener: (theme: unknown) => void) =>
       onDidChangeActiveColorTheme.event(listener),
     onDidCloseTerminal: () => new Disposable(),
@@ -817,6 +918,11 @@ export function createVscodeHost(options: HostOptions = {}) {
       return index >= 0 ? list[index] : answer;
     },
     showInputBox: async () => undefined,
+    createInputBox: () => {
+      const box = new MockInputBox();
+      inputBoxes.push(box);
+      return box;
+    },
     createTerminal: () => ({
       show: () => undefined,
       sendText: () => undefined,
@@ -830,6 +936,7 @@ export function createVscodeHost(options: HostOptions = {}) {
     Range,
     Selection,
     MarkdownString,
+    SnippetString,
     ThemeColor,
     ThemeIcon,
     TreeItem,
@@ -848,7 +955,19 @@ export function createVscodeHost(options: HostOptions = {}) {
     DecorationRangeBehavior,
     FileType,
     commands: {
-      registerCommand: (id: string, handler: (...args: unknown[]) => unknown) => {
+      registerCommand: (
+        id: string,
+        handler: (...args: unknown[]) => unknown
+      ) => {
+        commands.set(id, handler);
+        return new Disposable(() => commands.delete(id));
+      },
+      // Text editor commands are registered like ordinary ones: the mock's
+      // editors don't need the editor-binding ceremony.
+      registerTextEditorCommand: (
+        id: string,
+        handler: (...args: unknown[]) => unknown
+      ) => {
         commands.set(id, handler);
         return new Disposable(() => commands.delete(id));
       },
@@ -881,7 +1000,8 @@ export function createVscodeHost(options: HostOptions = {}) {
     workspace,
     window,
     languages: {
-      registerHoverProvider: () => new Disposable()
+      registerHoverProvider: () => new Disposable(),
+      registerCompletionItemProvider: () => new Disposable()
     },
     extensions: {
       getExtension: (id: string) =>
@@ -939,6 +1059,9 @@ export function createVscodeHost(options: HostOptions = {}) {
     configurationUpdates,
     fileWrites,
     messages,
+    // Every input box created so far, with an `accept(value)` hook to
+    // answer the recorder's title prompts.
+    inputBoxes: () => [...inputBoxes],
     // Every modal prompt shown so far, with the choices it offered.
     modalPrompts: () => [...modalPrompts],
     // Clears the recorded modal prompts, so a test starts from a clean slate.
@@ -963,7 +1086,9 @@ export function createVscodeHost(options: HostOptions = {}) {
         controller.threads.filter(thread => !thread.disposed)
       ),
     livePanels: (viewType?: string) =>
-      panels.filter(panel => !panel.disposed && (!viewType || panel.viewType === viewType)),
+      panels.filter(
+        panel => !panel.disposed && (!viewType || panel.viewType === viewType)
+      ),
     postedMessages: () => panels.flatMap(panel => panel.postedMessages),
     // Makes writes to the given path fail like a full disk or a locked file,
     // and can be reverted to let a retry succeed.
@@ -975,8 +1100,8 @@ export function createVscodeHost(options: HostOptions = {}) {
       return last ? last.webview.html : "";
     },
     editorFor: (path: string) =>
-      visibleTextEditors.find(
-        editor => editor.document.uri.path.endsWith(path)
+      visibleTextEditors.find(editor =>
+        editor.document.uri.path.endsWith(path)
       ) as MockTextEditor | undefined,
     changeColorTheme: (kind: number) => {
       (window.activeColorTheme as { kind: number }).kind = kind;
