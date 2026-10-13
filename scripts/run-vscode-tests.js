@@ -87,6 +87,12 @@ async function observe(port, expected) {
   const cdp = await connect(version.webSocketDebuggerUrl);
   try {
     const { targetInfos } = await cdp.call("Target.getTargets");
+    if (expected.width) {
+      const workbench = targetInfos.find(t => t.type === "page" && t.url.startsWith("vscode-file:"));
+      if (!workbench) return { ok: false, error: "Workbench page missing" };
+      const { windowId } = await cdp.call("Browser.getWindowForTarget", { targetId: workbench.targetId });
+      await cdp.call("Browser.setWindowBounds", { windowId, bounds: { windowState: "normal", width: expected.width, height: 900 } });
+    }
     const found = [];
     for (const target of targetInfos.filter(t => ["page", "iframe", "webview"].includes(t.type))) {
       let sessionId;
@@ -94,21 +100,78 @@ async function observe(port, expected) {
         ({ sessionId } = await cdp.call("Target.attachToTarget", { targetId: target.targetId, flatten: true }));
         await cdp.call("Runtime.enable", {}, sessionId);
         for (const contextId of cdp.contexts.get(sessionId) || []) {
-        const result = await cdp.call("Runtime.evaluate", {
-          contextId,
-          expression: 'JSON.stringify({step:document.body?.dataset.step, text:document.body?.innerText, buttons:[...document.querySelectorAll("button[data-action]")].map(b=>({action:b.dataset.action,disabled:b.disabled}))})',
-          returnByValue: true
-        }, sessionId);
-        const data = JSON.parse(result.result.value || "{}");
-        if (data.step !== undefined) found.push(data);
+          const result = await cdp.call("Runtime.evaluate", {
+            contextId,
+            expression: `JSON.stringify({
+              step: document.body?.dataset.step,
+              text: document.body?.innerText,
+              source: document.querySelector("textarea")?.value,
+              focused: document.activeElement?.id || document.activeElement?.dataset.action,
+              focusVisible: document.activeElement?.matches(":focus-visible"),
+              theme: document.body?.dataset.vscodeThemeKind,
+              width: window.innerWidth,
+              overflow: document.documentElement.scrollWidth > window.innerWidth,
+              progress: document.querySelector("progress")?.value,
+              images: [...document.querySelectorAll("img")].map(i => ({src:i.src, width:i.naturalWidth, height:i.naturalHeight})),
+              buttons: [...document.querySelectorAll("button[data-action]")].map(b => ({action:b.dataset.action, disabled:b.disabled}))
+            })`,
+            returnByValue: true
+          }, sessionId);
+          const data = JSON.parse(result.result.value || "{}");
+          if (data.step === undefined) continue;
+          found.push(data);
+          const match = !expected.absent
+            && data.step === String(expected.step)
+            && (!expected.text || data.text.includes(expected.text))
+            && (expected.source === undefined || data.source === expected.source)
+            && (!expected.png || data.images.some(i => i.src.startsWith("data:image/png;") && i.width > 0))
+            && (!expected.theme || data.theme === expected.theme)
+            && (!expected.focused || data.focused === expected.focused);
+          if (!match) continue;
+          if (expected.action || expected.input !== undefined || expected.focus) {
+            const action = JSON.stringify({action:expected.action,input:expected.input,focus:expected.focus});
+            const operation = await cdp.call("Runtime.evaluate", {
+              contextId,
+              expression: `(() => {
+                const request = ${action};
+                if (request.input !== undefined) {
+                  const source = document.querySelector("textarea");
+                  if (!source) throw Error("No source textarea");
+                  source.focus();
+                  source.value = request.input;
+                  source.dispatchEvent(new Event("input", {bubbles:true}));
+                }
+                if (request.action) {
+                  const button = document.querySelector('button[data-action="' + request.action + '"]');
+                  if (!button || button.disabled) throw Error("Action unavailable: " + request.action);
+                  button.click();
+                }
+                if (request.focus) {
+                  const element = document.querySelector(request.focus);
+                  if (!element) throw Error("Focus element missing");
+                  element.focus();
+                }
+                return true;
+              })()`,
+              returnByValue: true
+            }, sessionId);
+            if (operation.exceptionDetails) return {ok:false, error:operation.exceptionDetails.text};
+          }
+          if (expected.key) {
+            await cdp.call("Input.dispatchKeyEvent", {type:"keyDown", key:expected.key, code:expected.key, windowsVirtualKeyCode:9}, sessionId);
+            await cdp.call("Input.dispatchKeyEvent", {type:"keyUp", key:expected.key, code:expected.key, windowsVirtualKeyCode:9}, sessionId);
+          }
+          if (expected.screenshot) {
+            const capture = await cdp.call("Page.captureScreenshot", {format:"png"}, sessionId);
+            fs.writeFileSync(path.join(temp, expected.screenshot + ".png"), Buffer.from(capture.data, "base64"));
+          }
+          return {ok:true, found, match:data};
         }
-      } catch (_) { /* Target can disappear while switching modes. */ }
-      finally { if (sessionId) await cdp.call("Target.detachFromTarget", { sessionId }).catch(() => {}); }
+      } catch (_) { /* Targets can disappear while switching modes. */ }
+      finally { if (sessionId) await cdp.call("Target.detachFromTarget", {sessionId}).catch(() => {}); }
     }
-    if (expected.absent) return { ok: found.length === 0, found };
-    const match = found.find(data => data.step === String(expected.step) && data.text.includes(expected.text));
-    return { ok: !!match, found };
-  } finally { cdp.close(); }
+    return {ok: !!expected.absent && found.length === 0, found};
+  } finally {cdp.close();}
 }
 (async () => {
   const port = await freePort();
