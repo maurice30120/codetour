@@ -81,6 +81,7 @@ export class Uri {
     const path = [base.path, ...segments]
       .join("/")
       .replace(/\/{2,}/g, "/")
+      .replace(/\/\.(?=\/|$)/g, "")
       .replace(/\/$/, "");
     return new Uri(base.scheme, base.authority, path, base.query, base.fragment);
   }
@@ -783,7 +784,11 @@ export function createVscodeHost(options: HostOptions = {}) {
     editorFor: (path: string) =>
       visibleTextEditors.find(
         editor => editor.document.uri.path.endsWith(path)
-      ) as MockTextEditor | undefined
+      ) as MockTextEditor | undefined,
+    changeColorTheme: (kind: number) => {
+      (window.activeColorTheme as { kind: number }).kind = kind;
+      onDidChangeActiveColorTheme.fire({ kind });
+    }
   };
 }
 
