@@ -18,6 +18,23 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), "codetour-real-host-"));
 const workspace = path.join(temp, "workspace");
 fs.mkdirSync(workspace);
 fs.writeFileSync(path.join(workspace, "anchor.js"), "const first = 1;\nconst second = 2;\nconst third = 3;\n");
+
+function git(...args) {
+  const result = spawnSync("rtk", ["git", "-C", workspace, ...args], {encoding:"utf8"});
+  if (result.status !== 0) throw new Error("Fixture Git command failed: " + result.stderr + result.stdout);
+  return result.stdout.trim();
+}
+git("init", "-b", "main");
+fs.writeFileSync(path.join(workspace, "diff.js"), "const unchanged = 1;\nconst revised = 1;\n");
+git("add", "diff.js");
+git("-c", "user.name=CodeTour Smoke", "-c", "user.email=codetour-smoke@example.invalid", "commit", "-m", "base fixture");
+const baseRef = git("rev-parse", "HEAD");
+fs.writeFileSync(path.join(workspace, "diff.js"), "const unchanged = 1;\nconst revised = 2;\n");
+git("add", "diff.js");
+git("-c", "user.name=CodeTour Smoke", "-c", "user.email=codetour-smoke@example.invalid", "commit", "-m", "head fixture");
+const headRef = git("rev-parse", "HEAD");
+fs.writeFileSync(path.join(temp, "git-fixture.json"), JSON.stringify({baseRef,headRef}));
+
 const profile = path.join(temp, "profile");
 fs.mkdirSync(path.join(profile, "User"), { recursive: true });
 fs.writeFileSync(path.join(profile, "User", "settings.json"), JSON.stringify({
