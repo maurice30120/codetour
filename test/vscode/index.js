@@ -69,7 +69,7 @@ exports.run = async function () {
     
     await observe({step:1, text:"SMOKE_SECOND", action:"edit"});
     await observe({step:1, source:"SMOKE_SECOND", focused:"tour-step-source"});
-    let richDraft = "SAVED_REAL_UI\n\n| One | Two |\n| --- | --- |\n| A | B |\n\n**Diagram — Real smoke**\n\n\`\`\`mermaid\ngraph TD\nA[Start] --> B[Done]\n\`\`\`";
+    let richDraft = "SAVED_REAL_UI\n\n| One | Two |\n| --- | --- |\n| A | B |\n\n**Diagram — Real smoke**\n\n\`\`\`mermaid\nflowchart TD\nA[Start] --> B[Done]\n\`\`\`";
     await observe({step:1, input:richDraft});
     await observe({step:1, source:richDraft, png:true});
     assert.equal(JSON.parse(fs.readFileSync(tourPath)).steps[1].description, "SMOKE_SECOND", "Input remains unsaved");
