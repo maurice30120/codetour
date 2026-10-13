@@ -96,7 +96,7 @@ exports.run = async function () {
     await observe({step:1, source:richDraft});
     checks.push("close and resume preserve unsaved real WebView draft");
     await observe({step:1, source:richDraft, action:"save"});
-    await observe({step:1, text:"SAVED_REAL_UI", png:true});
+    await observe({step:1, text:"SAVED_REAL_UI", png:true, reading:true});
     assert.equal(JSON.parse(fs.readFileSync(tourPath)).steps[1].description, richDraft);
     checks.push("real Save button persists exact Markdown and Mermaid source");
     await vscode.workspace.getConfiguration("codetour").update("playbackMode", "comments", vscode.ConfigurationTarget.Global);
