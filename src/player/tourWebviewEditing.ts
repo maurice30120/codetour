@@ -31,7 +31,12 @@ function isStepNumber(value: unknown): value is number {
 // overwrites its in-memory draft.
 export function enterStepEditing(): boolean {
   const activeTour = store.activeTour;
-  if (!activeTour || !store.canEditTour) {
+  if (!activeTour) {
+    return false;
+  }
+
+  if (!store.canEditTour) {
+    vscode.window.showErrorMessage("This tour cannot be edited.");
     return false;
   }
 
@@ -64,9 +69,18 @@ export async function updateStepDraft(
   }
 
   const activeTour = store.activeTour;
+  if (!activeTour) {
+    return undefined;
+  }
+
+  if (!store.canEditTour) {
+    vscode.window.showErrorMessage(
+      "This tour cannot be edited. Your changes were not saved."
+    );
+    return undefined;
+  }
+
   if (
-    !activeTour ||
-    !store.canEditTour ||
     !isEditingSession(tourId, step) ||
     activeTour.tour.id !== tourId ||
     activeTour.step !== step

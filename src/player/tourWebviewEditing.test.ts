@@ -373,11 +373,29 @@ test("a read-only tour presents no edit action and rejects edit messages", async
   assert.doesNotMatch(panelHtml(), /data-action="editCommand"/);
   assert.doesNotMatch(panelHtml(), /data-action="save"/);
 
-  // A crafted edit message cannot enter the editor...
+  // A crafted edit message cannot enter the editor and its attempt is
+  // rejected explicitly on the host side, like any other edit message.
   panel().receive({ type: "edit" });
-  await new Promise(resolve => setTimeout(resolve, 200));
+  await host.waitFor(() =>
+    host.messages.some(message => message.includes("cannot be edited"))
+  );
   assert.equal(store.isEditing, false);
   assert.doesNotMatch(panelHtml(), /tour-step-source/);
+
+  // A crafted draft message is rejected the same way: no draft is ever
+  // recorded for a tour without edit permissions.
+  panel().receive({
+    type: "draft",
+    tour: readOnlyTour.id,
+    step: 0,
+    text: "Forbidden draft."
+  });
+  await host.waitFor(
+    () =>
+      host.messages.filter(message => message.includes("cannot be edited"))
+        .length >= 2
+  );
+  assert.equal(getStepDraft(readOnlyTour.id, 0), undefined);
 
   // ...and a crafted save message is rejected on the host side without
   // touching the tour.
