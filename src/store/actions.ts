@@ -12,6 +12,7 @@ import {
 import { CodeTour, store } from ".";
 import { EXTENSION_NAME, FS_SCHEME, FS_SCHEME_CONTENT } from "../constants";
 import { startPlayer, stopPlayer } from "../player";
+import { endEditingSession } from "../player/tourDrafts";
 import { getStepSnapshotUri } from "../player/diff";
 import {
   getStepFileUri,
@@ -66,6 +67,7 @@ export function startCodeTour(
 
   commands.executeCommand("setContext", IN_TOUR_KEY, true);
   commands.executeCommand("setContext", CAN_EDIT_TOUR_KEY, canEditTour);
+  store.canEditTour = canEditTour;
 
   if (startInEditMode) {
     store.isRecording = true;
@@ -114,6 +116,12 @@ export async function endCurrentCodeTour(fireEvent: boolean = true) {
     store.isRecording = false;
     store.isEditing = false;
     commands.executeCommand("setContext", RECORDING_KEY, false);
+    commands.executeCommand("setContext", EDITING_KEY, false);
+  } else if (store.isEditing) {
+    // Ending the tour also leaves a webview editing session: the editing
+    // state is cleared while the in-memory draft stays available.
+    store.isEditing = false;
+    endEditingSession();
     commands.executeCommand("setContext", EDITING_KEY, false);
   }
 

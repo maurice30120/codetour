@@ -4,6 +4,17 @@ import { CodeTourStep, store } from "../store";
 import { getTourTitle } from "../utils";
 import { renderPreviewDescription } from "./description";
 import { getNextTour, getPreviousTour } from "./index";
+import {
+  cancelStepEditing,
+  enterStepEditing,
+  executePanelEditCommand,
+  saveStepDraft,
+  updateStepDraft
+} from "./tourWebviewEditing";
+import {
+  getEditingSession,
+  getStepDraft
+} from "./tourDrafts";
 import { createTourWebviewHtml } from "./tourWebviewHtml";
 import { openDescriptionLink } from "./webviewLinks";
 
@@ -66,7 +77,17 @@ export async function renderTourStep(): Promise<void> {
   }
 
   const version = ++panelRenderVersion;
-  const description = await renderPreviewDescription(step.description, undefined, {
+  // An active editing session on the rendered step presents the editor with
+  // the in-memory draft (never the registered content), so a re-entry or a
+  // re-render never loses the author's work in progress.
+  const editingSession = getEditingSession();
+  const editingThisStep =
+    editingSession?.tourId === tour.id && editingSession?.step === stepNumber;
+  const source = editingThisStep
+    ? getStepDraft(tour.id, stepNumber) ?? step.description
+    : undefined;
+  const content = editingThisStep && source !== undefined ? source : step.description;
+  const description = await renderPreviewDescription(content, undefined, {
     tour,
     tours: activeTour.tours,
     workspaceRoot
@@ -94,6 +115,8 @@ export async function renderTourStep(): Promise<void> {
     stepTitle: step.title || `Étape ${stepNumber + 1}`,
     anchorLabel: getStepAnchorLabel(step),
     description,
+    editable: store.canEditTour,
+    editing: editingThisStep && source !== undefined ? { source } : undefined,
     previousTourTitle: previousTour?.title,
     nextTourTitle: nextTour?.title
   };
@@ -146,6 +169,49 @@ export async function renderTourStep(): Promise<void> {
           break;
         case "code":
           await vscode.commands.executeCommand("codetour.resumeTour");
+          break;
+        case "edit":
+          // Entering the editor is a host-side decision: the permissions
+          // are validated here, never trusted from the webview.
+          if (enterStepEditing()) {
+            await renderTourStep();
+          }
+          break;
+        case "draft": {
+          // The preview of a draft change is rendered host-side through the
+          // shared pipeline and posted back to the panel's preview area; a
+          // render that became stale in the meantime is never delivered.
+          const version = panelRenderVersion;
+          const html = await updateStepDraft(
+            message.tour,
+            message.step,
+            message.text
+          );
+          if (html !== undefined && version === panelRenderVersion && panel) {
+            await panel.webview.postMessage({ type: "preview", html });
+          }
+          break;
+        }
+        case "save": {
+          const result = await saveStepDraft(
+            message.tour,
+            message.step,
+            message.text
+          );
+          if (result === "saved") {
+            await renderTourStep();
+          }
+          break;
+        }
+        case "cancel":
+          if (cancelStepEditing(message.tour, message.step)) {
+            await renderTourStep();
+          }
+          break;
+        case "editCommand":
+          // Only the panel's fixed set of recorder commands runs, gated by
+          // the edit permissions.
+          await executePanelEditCommand(message.command);
           break;
         case "openLink":
           if (typeof message.href === "string") {

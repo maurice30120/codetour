@@ -271,6 +271,9 @@ export interface WebviewPanel {
   webview: {
     html: string;
     onDidReceiveMessage(listener: (message: unknown) => void): Disposable;
+    // Delivers a host-to-webview message, recorded so tests can assert what
+    // the extension sent to the panel (e.g. the rendered draft preview).
+    postMessage(message: unknown): boolean;
   };
   disposed: boolean;
   revealed: boolean;
@@ -370,6 +373,8 @@ export interface HostOptions {
   // When true, opening a file-scheme document whose path was never seeded
   // fails like a missing file instead of resolving to an empty document.
   failMissingFiles?: boolean;
+  // Paths whose workspace.fs.writeFile rejects, to exercise save failures.
+  failingWritesTo?: string[];
 }
 
 export function createVscodeHost(options: HostOptions = {}) {
@@ -384,6 +389,7 @@ export function createVscodeHost(options: HostOptions = {}) {
   const commands = new Map<string, (...args: unknown[]) => unknown>();
   const executedCommands: [string, unknown[]][] = [];
   const configurationUpdates: [string, string, unknown, number][] = [];
+  const fileWrites: [string, string][] = [];
   const messages: string[] = [];
   const externalLinks: Uri[] = [];
   const documents = new Map<string, MockTextDocument>();
@@ -395,6 +401,7 @@ export function createVscodeHost(options: HostOptions = {}) {
   const onDidChangeActiveTextEditor = new EventEmitter<TextEditor | undefined>();
   const onDidChangeVisibleTextEditors = new EventEmitter<TextEditor[]>();
   const onDidChangeActiveColorTheme = new EventEmitter<unknown>();
+  const failingWrites = new Set(options.failingWritesTo ?? []);
 
   const rootUri = Uri.file("/workspace");
 
@@ -568,6 +575,7 @@ export function createVscodeHost(options: HostOptions = {}) {
   class MockWebviewPanel implements WebviewPanel {
     disposed = false;
     revealed = false;
+    readonly postedMessages: unknown[] = [];
     webview: WebviewPanel["webview"];
     private readonly onDidDisposeEmitter = new EventEmitter<void>();
     private readonly onDidReceiveMessageEmitter = new EventEmitter<unknown>();
@@ -579,10 +587,15 @@ export function createVscodeHost(options: HostOptions = {}) {
       readonly options: unknown
     ) {
       const emitter = this.onDidReceiveMessageEmitter;
+      const posted = this.postedMessages;
       this.webview = {
         html: "",
         onDidReceiveMessage: (listener: (message: unknown) => void) =>
-          emitter.event(listener)
+          emitter.event(listener),
+        postMessage: (message: unknown) => {
+          posted.push(message);
+          return true;
+        }
       };
     }
 
@@ -693,7 +706,12 @@ export function createVscodeHost(options: HostOptions = {}) {
     findFiles: async () => [],
     fs: {
       writeFile: async (uri: Uri, content: Uint8Array) => {
-        files.set(uri.path, new TextDecoder().decode(content));
+        if (failingWrites.has(uri.path)) {
+          throw new Error(`Write failed: ${uri.path}`);
+        }
+        const text = new TextDecoder().decode(content);
+        fileWrites.push([uri.path, text]);
+        files.set(uri.path, text);
       },
       readFile: async (uri: Uri) =>
         new TextEncoder().encode(files.get(uri.path) ?? "")
@@ -865,6 +883,7 @@ export function createVscodeHost(options: HostOptions = {}) {
     contexts,
     executedCommands,
     configurationUpdates,
+    fileWrites,
     messages,
     externalLinks,
     decorationTypes,
@@ -877,6 +896,11 @@ export function createVscodeHost(options: HostOptions = {}) {
       ),
     livePanels: (viewType?: string) =>
       panels.filter(panel => !panel.disposed && (!viewType || panel.viewType === viewType)),
+    postedMessages: () => panels.flatMap(panel => panel.postedMessages),
+    // Makes writes to the given path fail like a full disk or a locked file,
+    // and can be reverted to let a retry succeed.
+    failWrite: (path: string) => failingWrites.add(path),
+    allowWrite: (path: string) => failingWrites.delete(path),
     panelHtml: () => {
       const live = panels.filter(panel => !panel.disposed);
       const last = live[live.length - 1];
