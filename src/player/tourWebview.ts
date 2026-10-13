@@ -88,6 +88,7 @@ export async function renderTourStep(): Promise<void> {
 
   const model = {
     tourTitle: getTourTitle(tour),
+    tourId: tour.id,
     stepNumber,
     stepCount: tour.steps.length,
     stepTitle: step.title || `Étape ${stepNumber + 1}`,
