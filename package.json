@@ -389,7 +389,7 @@
         },
         {
           "command": "codetour.prototypeWebview",
-          "when": "isDevelopment"
+          "when": "codetour:prototypeAvailable"
         }
       ],
       "comments/commentThread/title": [

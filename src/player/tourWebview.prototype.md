@@ -6,6 +6,10 @@ Branche : `feature/tour-webview`. Aucun choix de disposition n’est encore vali
 
 Lancer `npm run prototype:webview`, puis exécuter **CodeTour IA: Prototype Tour WebView** dans la palette de la fenêtre VS Code ouverte. Choisir un tour du workspace.
 
+La notification « CodeTour IA est chargé en mode développement » propose aussi **Ouvrir le prototype**. Cette fenêtre charge l’extension directement depuis le projet, sans l’installer dans le profil VS Code habituel.
+
+La visibilité de la commande utilise `codetour:prototypeAvailable`, activé par l’extension uniquement en développement. Le contexte VS Code `isDevelopment` concerne le développement de VS Code lui-même et masquait la commande avec la version distribuée. Vérification : `node scripts/check-prototype-command.js`.
+
 - A : une étape à la fois, navigation en bas.
 - B : sommaire latéral, navigation en haut de l’explication.
 - C : toutes les explications dans un document, avec accès au code par étape.

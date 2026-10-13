@@ -101,5 +101,14 @@ export async function activate(context: vscode.ExtensionContext) {
     initializeGitApi();
   }
 
+  if (context.extensionMode === vscode.ExtensionMode.Development) {
+    void vscode.window.showInformationMessage(
+      "CodeTour IA est chargé en mode développement. Le prototype WebView est disponible.",
+      "Ouvrir le prototype"
+    ).then(action => {
+      if (action) void vscode.commands.executeCommand("codetour.prototypeWebview");
+    });
+  }
+
   return initializeApi(context);
 }

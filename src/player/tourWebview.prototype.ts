@@ -14,6 +14,7 @@ const escape = (text: string) => text.replace(/[&<>"']/g, char =>
 export function registerTourWebviewPrototype(context: vscode.ExtensionContext) {
   // The experiment is deliberately unavailable in packaged production builds.
   if (context.extensionMode !== vscode.ExtensionMode.Development) return;
+  void vscode.commands.executeCommand("setContext", "codetour:prototypeAvailable", true);
   context.subscriptions.push(vscode.commands.registerCommand("codetour.prototypeWebview", async () => {
     const selected = await vscode.window.showQuickPick(store.tours.map(tour => ({
       label: tour.title, description: `${tour.steps.length} étapes`, tour
