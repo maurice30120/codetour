@@ -487,3 +487,15 @@ if (codeTourExtension) {
   });
 }
 ```
+
+### Editing a step across playback modes
+
+Existing-step Edit uses the WebView Markdown source field in WebView mode. In
+Comments mode it opens an untitled Markdown source document. Typing in that
+source document updates the same session draft; switching modes transfers the
+text without saving the tour. Use **CodeTour IA: Save Step** from the command
+palette to write the draft to the `.tour` file, or **Cancel Step Editing** to
+discard it. The untitled document is a draft surface; its normal document Save
+does not save the tour. New-tour recording continues to
+use the native comment recorder. Navigation, reordering and ending the tour ask
+whether to save, discard or cancel when the active step has an unsaved draft.

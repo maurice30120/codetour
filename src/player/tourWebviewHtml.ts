@@ -1,5 +1,6 @@
 import {
   createContentSecurityPolicy,
+  escapeHtml,
   renderMarkdownToHtml
 } from "./markdown";
 
@@ -69,15 +70,6 @@ const NARROW_PANEL_STYLES = `
       article { margin: 12px auto; }
     }`;
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 export function createTourWebviewHtml(
   model: TourWebviewModel,
   nonce: string
@@ -139,14 +131,15 @@ export function createTourWebviewHtml(
     const step = Number(document.body.dataset.step);
     const draftSource = document.getElementById("tour-step-source");
     const draftPreview = document.getElementById("tour-draft-preview");
+    let revision = 0;
     if (draftSource) {
       draftSource.focus();
       draftSource.addEventListener("input", () => {
-        vscode.postMessage({ type: "draft", tour, step, text: draftSource.value });
+        send({ type: "draft", tour, step, revision: ++revision, text: draftSource.value });
       });
     }
     window.addEventListener("message", event => {
-      if (event.data && event.data.type === "preview" && draftPreview) {
+      if (event.data && event.data.type === "preview" && event.data.revision === revision && event.data.token === document.body.dataset.token && draftPreview) {
         draftPreview.innerHTML = event.data.html;
       }
     });`
@@ -154,11 +147,11 @@ export function createTourWebviewHtml(
   const draftCases = editing
     ? `
     if (action === "save" && draftSource) {
-      vscode.postMessage({ type: "save", tour, step, text: draftSource.value });
+      send({ type: "save", tour, step, text: draftSource.value });
       return;
     }
     if (action === "cancel") {
-      vscode.postMessage({ type: "cancel", tour, step });
+      send({ type: "cancel", tour, step });
       return;
     }`
     : "";
@@ -173,7 +166,7 @@ export function createTourWebviewHtml(
   <style>${COMMON_STYLES}${editing ? EDITING_STYLES : READING_STYLES}${NARROW_PANEL_STYLES}
   </style>
 </head>
-<body data-tour-id="${escapeHtml(model.tourId)}" data-step="${model.stepNumber}">
+<body data-token="${escapeHtml(nonce)}" data-tour-id="${escapeHtml(model.tourId)}" data-step="${model.stepNumber}">
   <header>
     <small>${escapeHtml(model.tourTitle)}</small>
     <p>${stepPosition} / ${model.stepCount}</p>
@@ -190,17 +183,18 @@ export function createTourWebviewHtml(
     <button data-action="finish"${nextTour}>Finish</button>
   </nav>${editing ? "" : editActions}
   <script nonce="${nonce}">
-    const vscode = acquireVsCodeApi();${draftScript}
+    const vscode = acquireVsCodeApi();
+    const send = message => vscode.postMessage({ ...message, token: document.body.dataset.token, targetTourId: document.body.dataset.tourId, step: Number(document.body.dataset.step) });${draftScript}
     document.addEventListener("click", event => {
       const button = event.target.closest("button[data-action]");
       if (button && !button.disabled) {
         const action = button.dataset.action;
         if (action === "editCommand") {
-          vscode.postMessage({ type: "editCommand", command: button.dataset.command });
+          send({ type: "editCommand", command: button.dataset.command });
           return;
         }${draftCases}
         const tour = button.dataset.tour || undefined;
-        vscode.postMessage({ type: button.dataset.action, tour });
+        send({ type: button.dataset.action, tour });
         return;
       }
       const link = event.target.closest("a[href]");
@@ -208,7 +202,7 @@ export function createTourWebviewHtml(
       const href = link.getAttribute("href");
       if (href.startsWith("#")) return;
       event.preventDefault();
-      vscode.postMessage({ type: "openLink", href });
+      send({ type: "openLink", href });
     });
   </script>
 </body>

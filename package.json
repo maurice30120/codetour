@@ -244,7 +244,8 @@
       {
         "command": "codetour.saveTourStep",
         "title": "Save Step",
-        "enablement": "!commentIsEmpty"
+        "enablement": "codetour:isEditing || !commentIsEmpty",
+        "category": "CodeTour IA"
       },
       {
         "command": "codetour.showMarkers",
@@ -276,6 +277,11 @@
       {
         "command": "codetour.viewNotebook",
         "title": "View Notebook",
+        "category": "CodeTour IA"
+      },
+      {
+        "command": "codetour.cancelTourStepEditing",
+        "title": "Cancel Step Editing",
         "category": "CodeTour IA"
       }
     ],
@@ -391,7 +397,7 @@
         },
         {
           "command": "codetour.saveTourStep",
-          "when": "false"
+          "when": "codetour:isEditing && !codetour:recording && codetour:canEditTour"
         },
         {
           "command": "codetour.showMarkers",
@@ -408,6 +414,10 @@
         {
           "command": "codetour.viewNotebook",
           "when": "false"
+        },
+        {
+          "command": "codetour.cancelTourStepEditing",
+          "when": "codetour:isEditing && !codetour:recording && codetour:canEditTour"
         }
       ],
       "comments/commentThread/title": [
