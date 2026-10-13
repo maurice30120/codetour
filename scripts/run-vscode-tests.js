@@ -54,8 +54,14 @@ async function connect(url) {
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
   let id = 0;
   const pending = new Map();
+  const contexts = new Map();
   socket.onmessage = event => {
     const message = JSON.parse(event.data);
+    if (message.method === "Runtime.executionContextCreated") {
+      const list = contexts.get(message.sessionId) || [];
+      list.push(message.params.context.id);
+      contexts.set(message.sessionId, list);
+    }
     if (message.id && pending.has(message.id)) {
       const request = pending.get(message.id);
       pending.delete(message.id);
@@ -63,6 +69,7 @@ async function connect(url) {
     }
   };
   return {
+    contexts,
     call(method, params = {}, sessionId) {
       return new Promise((resolve, reject) => {
         const requestId = ++id;
@@ -85,12 +92,16 @@ async function observe(port, expected) {
       let sessionId;
       try {
         ({ sessionId } = await cdp.call("Target.attachToTarget", { targetId: target.targetId, flatten: true }));
+        await cdp.call("Runtime.enable", {}, sessionId);
+        for (const contextId of cdp.contexts.get(sessionId) || []) {
         const result = await cdp.call("Runtime.evaluate", {
+          contextId,
           expression: 'JSON.stringify({step:document.body?.dataset.step, text:document.body?.innerText, buttons:[...document.querySelectorAll("button[data-action]")].map(b=>({action:b.dataset.action,disabled:b.disabled}))})',
           returnByValue: true
         }, sessionId);
         const data = JSON.parse(result.result.value || "{}");
         if (data.step !== undefined) found.push(data);
+        }
       } catch (_) { /* Target can disappear while switching modes. */ }
       finally { if (sessionId) await cdp.call("Target.detachFromTarget", { sessionId }).catch(() => {}); }
     }
@@ -121,6 +132,10 @@ async function observe(port, expected) {
   delete env.ELECTRON_RUN_AS_NODE;
   const child = spawn(executable, launchArgs, { env, stdio: ["ignore", log, log] });
   let exit;
+  child.on("error", error => { exit = { error: String(error) }; });
+  const interrupt = () => { child.kill(); process.exitCode = 130; };
+  process.once("SIGINT", interrupt);
+  process.once("SIGTERM", interrupt);
   child.on("exit", (code, signal) => { exit = { code, signal }; });
   console.log("Real VS Code profile and logs: " + temp);
   const deadline = Date.now() + 120000;
@@ -148,5 +163,5 @@ async function observe(port, expected) {
       await pause(200);
     }
     throw new Error("Real VS Code test timed out. Inspect " + path.join(temp, "electron.log"));
-  } finally { child.kill(); fs.closeSync(log); }
+  } finally { child.kill(); fs.closeSync(log); process.removeListener("SIGINT", interrupt); process.removeListener("SIGTERM", interrupt); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
