@@ -1,10 +1,9 @@
-import { runInAction } from "mobx";
 import * as vscode from "vscode";
-import { saveTour } from "../recorder/commands";
 import { CodeTour, store } from "../store";
 import { EDITING_KEY } from "../store/actions";
 import { renderPreviewDescription } from "./description";
 import { renderMarkdownToHtml } from "./markdown";
+import { persistStepDescription } from "./tourDraftSaving";
 import {
   clearStepDraft,
   endEditingSession,
@@ -98,12 +97,11 @@ export async function updateStepDraft(
   return renderMarkdownToHtml(prepared);
 }
 
-// Saves the draft into the active step, reusing the very persistence of the
-// existing saveTourStep sequence: the step description is updated in the
-// store and the tour file is rewritten as-is. A save message that doesn't
-// target the active step or tour is stale and never touches anything. On
-// a write failure the draft is preserved, the step is restored to its
-// registered content and the author stays in the editor.
+// Saves the draft into the active step, through the shared persistence of
+// every draft save. A save message that doesn't target the active step or
+// tour is stale and never touches anything. On a write failure the draft
+// is preserved, the step is restored to its registered content and the
+// author stays in the editor.
 export async function saveStepDraft(
   tourId: unknown,
   step: unknown,
@@ -135,20 +133,7 @@ export async function saveStepDraft(
     return "stale";
   }
 
-  const previousDescription = tourStep.description;
-  runInAction(() => {
-    tourStep.description = text;
-  });
-
-  try {
-    await saveTour(activeTour.tour);
-  } catch {
-    runInAction(() => {
-      tourStep.description = previousDescription;
-    });
-    vscode.window.showErrorMessage(
-      "Unable to save the tour step. Your draft is preserved."
-    );
+  if (!(await persistStepDescription(activeTour.tour, step, text))) {
     return "error";
   }
 

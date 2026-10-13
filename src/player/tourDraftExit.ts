@@ -1,8 +1,7 @@
-import { runInAction } from "mobx";
 import * as vscode from "vscode";
-import { saveTour } from "../recorder/commands";
 import { store } from "../store";
 import { EDITING_KEY } from "../store/actions";
+import { persistStepDescription } from "./tourDraftSaving";
 import {
   clearStepDraft,
   endEditingSession,
@@ -123,27 +122,11 @@ async function saveDraftAndLeave(
   step: number
 ): Promise<boolean> {
   const activeTour = store.activeTour!;
-  const tourStep = activeTour.tour.steps[step];
   const draft = getStepDraft(tourId, step)!;
-  const previousDescription = tourStep.description;
 
-  // The very persistence of the existing saveTourStep sequence: the store
-  // is updated and the tour file rewritten as-is.
-  runInAction(() => {
-    tourStep.description = draft;
-  });
-
-  try {
-    await saveTour(activeTour.tour);
-  } catch {
-    // A failed save blocks the exit: the registered content is restored,
-    // the draft is preserved and the author stays on the step to retry.
-    runInAction(() => {
-      tourStep.description = previousDescription;
-    });
-    vscode.window.showErrorMessage(
-      "Unable to save the tour step. Your draft is preserved."
-    );
+  // The very persistence of the existing saveTourStep sequence; a failed
+  // save blocks the exit and the author stays on the step to retry.
+  if (!(await persistStepDescription(activeTour.tour, step, draft))) {
     return false;
   }
 
