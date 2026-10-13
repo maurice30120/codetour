@@ -70,13 +70,30 @@ test("createTourWebviewHtml forwards clicks through postMessage", () => {
   assert.match(html, /if \(href\.startsWith\("#"\)\) return/);
 });
 
+test("createTourWebviewHtml keeps a rich description readable in a narrow panel", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      description:
+        "| Column | Value |\n| --- | --- |\n| Alpha | One |\n\n![Logo](https://example.com/logo.png)"
+    },
+    "test-nonce"
+  );
+
+  // Images and tables stay constrained, and the layout adapts when the
+  // webview is narrow.
+  assert.match(html, /img \{[^}]*max-width: 100%/);
+  assert.match(html, /table \{[^}]*border-collapse: collapse/);
+  assert.match(html, /th, td \{[^}]*padding/);
+  assert.match(html, /@media \(max-width: \d+px\)/);
+});
+
 test("createTourWebviewHtml keeps the shared content policy and sanitization", () => {
   const html = createTourWebviewHtml(
     {
       ...baseModel(),
       tourTitle: '<script>alert("title")</script>',
-      description:
-        '<a href="javascript:alert(1)">Bad link</a>[Step 2](#2)'
+      description: '<a href="javascript:alert(1)">Bad link</a>[Step 2](#2)'
     },
     "test-nonce"
   );

@@ -60,6 +60,12 @@ export function createTourWebviewHtml(
     button:focus-visible { outline: 2px solid var(--vscode-focusBorder); }
     nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
     .anchor { font-family: var(--vscode-editor-font-family); opacity: .7; }
+    table { border-collapse: collapse; }
+    th, td { padding: 4px 8px; border: 1px solid var(--vscode-panel-border); }
+    @media (max-width: 480px) {
+      body { padding: 12px 12px 60px; }
+      article { margin: 12px auto; }
+    }
   </style>
 </head>
 <body>
