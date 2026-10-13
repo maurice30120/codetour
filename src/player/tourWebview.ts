@@ -11,7 +11,7 @@ import {
   saveStepDraft,
   updateStepDraft
 } from "./tourWebviewEditing";
-import { getEditingSession, getStepDraft } from "./tourDrafts";
+import { getEditingSession, getStepDraft, TourStepRef } from "./tourDrafts";
 import { createTourWebviewHtml } from "./tourWebviewHtml";
 import { openDescriptionLinkOrReport } from "./webviewLinks";
 
@@ -24,7 +24,7 @@ let disposingPanel = false;
 // The presentation the reader closed themselves. A render arriving for that
 // very step must not reopen the panel behind their back; navigating to
 // another step or resuming presents again.
-let userClosedPresentation: { tourId?: string; step?: number } | undefined;
+let userClosedPresentation: TourStepRef | undefined;
 
 function getStepAnchorLabel(step: CodeTourStep): string | undefined {
   if (step.file) {

@@ -2,17 +2,12 @@ import * as vscode from "vscode";
 import { store } from "../store";
 import { EDITING_KEY } from "../store/actions";
 import { persistStepDescription } from "./tourDraftSaving";
-import {
-  clearStepDraft,
-  endEditingSession,
-  getStepDraft,
-  isEditingSession
-} from "./tourDrafts";
+import { TourStepRef, clearStepDraft, endEditingSession, getStepDraft, isEditingSession } from "./tourDrafts";
 
 // The step whose draft exit is currently being resolved. Only one prompt
 // ever runs at a time: exit actions fired in a burst while a prompt is open
 // are ignored, so a late answer can never save or discard another step.
-let pendingResolution: { tourId: string; step: number } | undefined;
+let pendingResolution: TourStepRef | undefined;
 
 // True when the active step has an in-memory draft that differs from its
 // registered content: the only case where leaving needs the author's answer.

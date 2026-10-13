@@ -9,10 +9,14 @@
  * save/discard prompts on this very structure.
  */
 
-export interface EditingSession {
+// Identifies one step of one tour: the key of every draft, editing session
+// and pending resolution.
+export interface TourStepRef {
   tourId: string;
   step: number;
 }
+
+export type EditingSession = TourStepRef;
 
 const drafts = new Map<string, string>();
 let session: EditingSession | undefined;
