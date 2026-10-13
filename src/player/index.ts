@@ -40,6 +40,7 @@ import { registerDecorators } from "./decorator";
 import { registerFileSystemProvider } from "./fileSystem";
 import { registerTextDocumentContentProvider } from "./fileSystem/documentProvider";
 import { renderPreviewDescription } from "./description";
+import { getCommentLineAbove } from "./commentPlacement";
 import { registerStatusBar } from "./status";
 import { registerTreeProvider } from "./tree";
 
@@ -242,6 +243,7 @@ async function renderCurrentStep(forceCurrentFile = false) {
     }
   }
 
+  const hasSourceAnchor = line !== undefined && !!step.file && !unavailableFile;
   if (line === undefined) {
     // The step doesn't have a discoverable line number and so
     // stick the step at the end of the file. Unfortunately, there
@@ -252,7 +254,19 @@ async function renderCurrentStep(forceCurrentFile = false) {
   if (version !== renderVersion || !store.activeTour || !controller) return;
   currentDiff = diff;
 
-  const range = new Range(line!, 0, line!, 0);
+  const anchorRange = new Range(line!, 0, line!, 0);
+  let commentLine = line!;
+  if (
+    hasSourceAnchor &&
+    !store.isEditing &&
+    workspace.getConfiguration("codetour", uri).get("commentPosition", "above") === "above"
+  ) {
+    document = document || await workspace.openTextDocument(uri);
+    const startLine = step.selection ? step.selection.start.line - 1 : line!;
+    commentLine = getCommentLineAbove(startLine, document);
+  }
+  if (version !== renderVersion || !store.activeTour || !controller) return;
+  const range = new Range(commentLine, 0, commentLine, 0);
   let label = `Step #${currentStep + 1} of ${currentTour!.steps.length}`;
 
   if (currentTour.title) {
@@ -375,7 +389,7 @@ async function renderCurrentStep(forceCurrentFile = false) {
       step.selection.end.character - 1
     );
   } else {
-    selection = new Selection(range.start, range.end);
+    selection = new Selection(anchorRange.start, anchorRange.end);
   }
 
   currentSelection = selection;
@@ -463,6 +477,13 @@ async function showDocument(uri: Uri, range: Range, selection?: Selection) {
 }
 
 export function registerPlayerModule(context: ExtensionContext) {
+  context.subscriptions.push(
+    workspace.onDidChangeConfiguration(event => {
+      if (event.affectsConfiguration("codetour.commentPosition") && store.activeTour) {
+        renderCurrentStep();
+      }
+    })
+  );
   registerPlayerCommands();
   context.subscriptions.push(
     registerTreeProvider(context.extensionPath, () => {

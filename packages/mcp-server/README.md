@@ -70,6 +70,14 @@ cd /path/to/workspace
 codetour-mcp
 ```
 
+The server serves exactly one workspace: the process working directory. When
+your MCP client cannot control the working directory of the launched process,
+pass the workspace explicitly instead:
+
+```bash
+codetour-mcp --workspace-root /path/to/workspace
+```
+
 Finally, configure your MCP client with the command and its working directory,
 as in the example below. Once connected, the client automatically discovers
 `create_project_tour` and `create_changes_tour`.
@@ -91,7 +99,8 @@ as in the example below. Once connected, the client automatically discovers
 The transport is `stdio` only.
 
 Both tools accept an optional `workspacePath`, relative to the workspace root
-(the process working directory). Use it when the workspace contains several
+(the process working directory, or the directory passed to
+`--workspace-root`). Use it when the workspace contains several
 projects or Git repositories, for example `"workspacePath": "my-project"`.
 Step anchors and the generated `.tours/` file are relative to that directory
 for this call; the returned path stays relative to the configured root.
@@ -255,6 +264,7 @@ of these codes:
 | `NO_CHANGES`               | No committed changes between the merge-base and `headRef`; the previous tour file is preserved. |
 | `SCHEMA_VALIDATION_FAILED` | Internal: the generated tour did not validate against the CodeTour schema. |
 | `OUTPUT_PATH_ESCAPES_WORKSPACE` | The output directory resolves outside the workspace root. |
+| `INTERNAL_ERROR`            | Unexpected server failure; reported as a result, never as a protocol error. |
 
 Non-blocking warnings:
 

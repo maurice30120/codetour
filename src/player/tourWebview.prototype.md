@@ -6,11 +6,11 @@ Choix utilisateur du 13 octobre 2026 : **variante A, lecture guidée**. Une éta
 
 Référence conservée : branche `prototype/tour-webview`. Intégration prévue sur `feature/tour-webview`, décrite dans [le périmètre d’implémentation](../../docs/tour-webview-implementation.md).
 
-Lancer `npm run prototype:webview`, puis exécuter **CodeTour IA: Prototype Tour WebView** dans la palette de la fenêtre VS Code ouverte. Choisir un tour du workspace.
+Exécuter **CodeTour IA: Prototype Tour WebView** dans la palette de VS Code, puis choisir un tour du workspace. La commande est disponible dans les installations normales et les hôtes de développement. Pour lancer un hôte de développement, utiliser `npm run prototype:webview`.
 
 La notification « CodeTour IA est chargé en mode développement » propose aussi **Ouvrir le prototype**. Cette fenêtre charge l’extension directement depuis le projet, sans l’installer dans le profil VS Code habituel.
 
-La visibilité de la commande utilise `codetour:prototypeAvailable`, activé par l’extension uniquement en développement. Le contexte VS Code `isDevelopment` concerne le développement de VS Code lui-même et masquait la commande avec la version distribuée. Vérification : `node scripts/check-prototype-command.js`.
+La visibilité de la commande utilise `codetour:prototypeAvailable`, activé par l’extension dans tous les modes. Le contexte VS Code `isDevelopment` concerne le développement de VS Code lui-même. Vérification des installations normales et des hôtes de développement : `node scripts/check-prototype-command.js`.
 
 Le rendu construit uniquement la variante sélectionnée. Construire les trois variantes à chaque fois provoquait « Input data should be a String » : la vue C lisait les descriptions de toutes les étapes alors que A/B n’en rendaient qu’une. Vérification des trois dispositions, de la navigation et des messages des boutons : `node scripts/check-prototype-render.js`.
 
@@ -20,6 +20,6 @@ Le rendu construit uniquement la variante sélectionnée. Construire les trois v
 
 La barre flottante et les touches gauche/droite changent la variante. Le paramètre `?variant=A/B/C` est mis à jour dans la WebView ; la variante reste en mémoire lors de la navigation entre étapes. « État du prototype » expose la variante, l’étape, l’ancre et les références Git.
 
-Le prototype lit les vrais tours et réutilise le rendu Markdown/Mermaid et la résolution des diffs. Il ne crée pas de commentaires natifs, ne modifie pas les fichiers `.tour` et ne sauvegarde pas la progression. Les commandes contenues dans les étapes ne sont pas exécutées. L’édition et l’enregistrement restent dans le lecteur existant. La commande est disponible uniquement dans un hôte de développement.
+Le prototype lit les vrais tours et réutilise le rendu Markdown/Mermaid et la résolution des diffs. Il ne crée pas de commentaires natifs, ne modifie pas les fichiers `.tour` et ne sauvegarde pas la progression. Les commandes contenues dans les étapes ne sont pas exécutées. L’édition et l’enregistrement restent dans le lecteur existant.
 
 Verdict : l’utilisateur préfère A après comparaison des prototypes. L’intégration doit reprendre sa disposition dans le lecteur réel et conserver l’accès aux fichiers et aux diffs. Les variantes B/C et leur sélecteur servent uniquement de référence ; ils seront retirés de la branche d’implémentation après remplacement par le lecteur final.

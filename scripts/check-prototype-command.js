@@ -1,5 +1,5 @@
-// Regression: a development extension must expose its prototype in the palette
-// of a RELEASE build of VS Code, where VS Code's own isDevelopment is false.
+// Regression: both development and packaged extensions must expose the prototype
+// in a RELEASE build of VS Code, where VS Code's own isDevelopment is false.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
@@ -24,8 +24,8 @@ for (const development of [true, false]) {
   }).outputText;
   vm.runInNewContext(source, { module, exports: module.exports, require: name => name === "vscode" ? vscode : {} });
   module.exports.registerTourWebviewPrototype({ extensionMode: development ? 2 : 1, subscriptions: [] });
-  assert.equal(commands.has(menu.command), development);
-  assert.equal(contexts.get(menu.when) ?? false, development,
-    `Prototype palette visibility must match extension mode (${development ? "development" : "production"})`);
+  assert.equal(commands.has(menu.command), true);
+  assert.equal(contexts.get(menu.when) ?? false, true,
+    `Prototype must be visible in ${development ? "development" : "production"}`);
 }
-console.log("PASS: prototype command visible in a release VS Code development host; hidden in production.");
+console.log("PASS: prototype command visible in development and packaged installations.");

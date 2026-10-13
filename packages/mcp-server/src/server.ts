@@ -68,6 +68,8 @@ const MARKDOWN_WRITING_GUIDANCE =
   "heading when a description covers multiple topics, and use bullet or numbered lists " +
   "for collections, alternatives, or sequences. Use **bold** sparingly for important " +
   "concepts and backticks for code identifiers. Avoid dense monolithic paragraphs, and " +
+  "aim for two or three sentences per paragraph. Separate top-level list items with " +
+  "blank lines so they remain readable in the narrow editor comment panel. " +
   "keep each explanation concise and tied to the current Tour Anchor. Do not add " +
   "structure mechanically: a short, single-purpose description may remain one paragraph. ";
 
@@ -264,7 +266,7 @@ export function createServer(workspaceRoot: string): McpServer {
       inputSchema: projectToolInputSchema,
       outputSchema: toolResultSchema,
     },
-    (args) => handleCreateProjectTour(ctx, args)
+    (args) => safeToolCall(args, (input) => handleCreateProjectTour(ctx, input))
   );
 
   server.registerTool(
@@ -274,10 +276,28 @@ export function createServer(workspaceRoot: string): McpServer {
       inputSchema: changesToolInputSchema,
       outputSchema: toolResultSchema,
     },
-    (args) => handleCreateChangesTour(ctx, args)
+    (args) => safeToolCall(args, (input) => handleCreateChangesTour(ctx, input))
   );
 
   return server;
+}
+
+// An unexpected exception escaping a handler surfaces as an MCP protocol
+// error, whose payload many clients replace with a generic message. Reporting
+// it as a structured error result instead keeps the diagnostic text in the
+// tool response, in the same shape as every other failure.
+function safeToolCall(
+  args: unknown,
+  handler: (args: unknown) => Promise<ToolResponse>
+): Promise<ToolResponse> {
+  return handler(args).catch((error: unknown) =>
+    errorResponse(
+      "INTERNAL_ERROR",
+      `Unexpected server failure: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    )
+  );
 }
 
 // Create a Project Tour: no Git access is required, the tour works in any
@@ -409,7 +429,7 @@ async function handleCreateChangesTour(
     return errorResponse(
       "GIT_REPOSITORY_REQUIRED",
       `create_changes_tour requires a Git repository, but the configured workspace root (${ctx.root}) is not inside one. ` +
-        "Select a repository with workspacePath, or restart codetour-mcp in the repository to analyze, rather than its parent directory."
+        "Select a repository with workspacePath, or restart codetour-mcp in the repository to analyze (or pass it via --workspace-root), rather than its parent directory."
     );
   }
 

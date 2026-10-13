@@ -70,6 +70,12 @@
           "default": true,
           "description": "Specifies whether or not to show tour markers in the editor gutter."
         },
+        "codetour.commentPosition": {
+          "type": "string",
+          "enum": ["above", "below"],
+          "default": "above",
+          "description": "Position tour comments above or below their code anchor during playback. Above keeps adjacent single-line C# attributes with the declaration. A first-line anchor displays below the first line."
+        },
         "codetour.customTourDirectory": {
           "type": "string",
           "default": null,

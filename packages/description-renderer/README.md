@@ -20,6 +20,9 @@ Design constraints:
   native comments. No generated SVG or PNG file is ever written.
 - **No generated assets** — the Mermaid source stays in the tour file; nothing
   is committed or persisted.
+- **Reading layout** — diagrams include 24 SVG units of padding around their
+  content and are rasterized at a maximum width of 900 pixels, preserving their
+  aspect ratio so wide diagrams do not dominate native comment panels.
 - **Reuse** — rendered diagrams are reused only in memory when their exact
   source, effective theme, renderer version and rendering options match. A
   theme change can call `clearMermaidRenderCache()` to discard all entries;

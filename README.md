@@ -412,6 +412,8 @@ The `CodeTour` extension contributes the following settings:
 
 - `Codetour > Show Markers` - Specifies whether or not to show [tour markers](#tour-markers). Defaults to `true`.
 
+- `Codetour > Comment Position` (`codetour.commentPosition`) - Displays playback comments `above` the code anchor by default; choose `below` for the previous placement. Above places the comment before adjacent single-line C# attributes, while preserving the code anchor and selection. VS Code displays first-line comments below the first line.
+
 - `Codetour > Custom Tour Directory` - Specifies the name of a custom directory path that tours can be stored in within an opened workspace (e.g. `docs/tours`).
 
 ### Keybindings
