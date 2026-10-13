@@ -347,8 +347,29 @@ class MockTextEditor {
 
 export type TextEditor = MockTextEditor;
 
+export interface GitObjectMock {
+  mode?: string;
+  content?: string;
+}
+
+// A minimal vscode.git API mock. Objects are keyed by `${ref}:${fsPath}`;
+// a missing object behaves like Git's UnknownPath error. `delayMs` makes
+// repository calls observable-slow so tests can interleave with in-flight
+// step resolutions.
+export interface GitMockOptions {
+  branch?: string;
+  head?: string;
+  commits?: string[];
+  objects?: Record<string, GitObjectMock>;
+  delayMs?: number;
+}
+
 export interface HostOptions {
   configuration?: Record<string, Record<string, unknown>>;
+  git?: GitMockOptions;
+  // When true, opening a file-scheme document whose path was never seeded
+  // fails like a missing file instead of resolving to an empty document.
+  failMissingFiles?: boolean;
 }
 
 export function createVscodeHost(options: HostOptions = {}) {
@@ -376,6 +397,54 @@ export function createVscodeHost(options: HostOptions = {}) {
   const onDidChangeActiveColorTheme = new EventEmitter<unknown>();
 
   const rootUri = Uri.file("/workspace");
+
+  const gitOptions = options.git;
+  const gitDelay = () =>
+    gitOptions?.delayMs
+      ? new Promise(resolve => setTimeout(resolve, gitOptions.delayMs))
+      : Promise.resolve();
+  const gitRepository = {
+    state: {
+      HEAD: {
+        type: 0,
+        name: gitOptions?.branch,
+        commit: gitOptions?.head
+      },
+      refs: []
+    },
+    async getCommit(ref: string) {
+      await gitDelay();
+      if (!gitOptions?.commits?.includes(ref)) {
+        throw new Error(`Unknown commit: ${ref}`);
+      }
+      return { hash: ref };
+    },
+    async getObjectDetails(ref: string, path: string) {
+      await gitDelay();
+      const object = gitOptions?.objects?.[`${ref}:${path}`];
+      if (!object) {
+        const error = new Error(
+          `Unknown path: ${ref}:${path}`
+        ) as Error & { gitErrorCode?: string };
+        error.gitErrorCode = "UnknownPath";
+        throw error;
+      }
+      return {
+        mode: object.mode ?? "100644",
+        object: "0000000000000000000000000000000000000000",
+        size: 0
+      };
+    }
+  };
+  const gitApi = {
+    toGitUri: (uri: Uri, ref: string) =>
+      Uri.from({
+        scheme: "git",
+        path: uri.path,
+        query: JSON.stringify({ path: uri.path, ref })
+      }),
+    getRepository: (uri: Uri) => (uri.scheme === "file" ? gitRepository : null)
+  };
 
   function getConfigurationMap(section: string): Map<string, unknown> {
     if (!configuration.has(section)) {
@@ -407,13 +476,29 @@ export function createVscodeHost(options: HostOptions = {}) {
       if (scheme === "file" && files.has(path)) {
         documents.set(key, new MockTextDocument(uri, files.get(path)!));
       } else if (scheme === "file") {
+        if (options.failMissingFiles) {
+          return Promise.reject(new Error(`File not found: ${key}`));
+        }
         documents.set(key, new MockTextDocument(uri, ""));
       } else if (
         scheme === "codetour" ||
-        scheme === "codetour-content" ||
-        scheme === "git"
+        scheme === "codetour-content"
       ) {
         documents.set(key, new MockTextDocument(uri, ""));
+      } else if (scheme === "git") {
+        let text = "";
+        try {
+          const parsed = JSON.parse(uri.query) as {
+            path?: string;
+            ref?: string;
+          };
+          text =
+            gitOptions?.objects?.[`${parsed.ref}:${parsed.path}`]?.content ??
+            "";
+        } catch {
+          text = "";
+        }
+        documents.set(key, new MockTextDocument(uri, text));
       } else {
         throw new Error(`Cannot open document: ${key}`);
       }
@@ -711,6 +796,14 @@ export function createVscodeHost(options: HostOptions = {}) {
           contexts.set(args[0] as string, args[1]);
           return;
         }
+        // A diff editor surfaces both sides as open editors, the modified
+        // one last, so tests can assert per-side selections and decorations.
+        if (id === "vscode.diff") {
+          const [original, modified] = args as [Uri, Uri];
+          await showTextDocument(original);
+          await showTextDocument(modified);
+          return undefined;
+        }
         const handler = commands.get(id);
         if (handler) {
           return handler(...args);
@@ -729,7 +822,15 @@ export function createVscodeHost(options: HostOptions = {}) {
       registerHoverProvider: () => new Disposable()
     },
     extensions: {
-      getExtension: (_id: string) => undefined
+      getExtension: (id: string) =>
+        id === "vscode.git" && options.git
+          ? {
+              isActive: true,
+              exports: {
+                getAPI: (_version: number) => gitApi
+              }
+            }
+          : undefined
     },
     env: {
       openExternal: (uri: Uri) => {

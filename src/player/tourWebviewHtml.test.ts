@@ -64,7 +64,7 @@ test("createTourWebviewHtml forwards clicks through postMessage", () => {
   assert.match(html, /const vscode = acquireVsCodeApi\(\)/);
   assert.match(
     html,
-    /vscode\.postMessage\(\{ type: button\.dataset\.action \}\)/
+    /vscode\.postMessage\(\{ type: button\.dataset\.action, tour \}\)/
   );
   assert.match(html, /vscode\.postMessage\(\{ type: "openLink", href \}\)/);
   assert.match(html, /if \(href\.startsWith\("#"\)\) return/);
@@ -86,6 +86,41 @@ test("createTourWebviewHtml keeps a rich description readable in a narrow panel"
   assert.match(html, /table \{[^}]*border-collapse: collapse/);
   assert.match(html, /th, td \{[^}]*padding/);
   assert.match(html, /@media \(max-width: \d+px\)/);
+});
+
+test("createTourWebviewHtml carries the series transitions at the tour bounds", () => {
+  // Without a transition, the bounds keep their disabled step navigation.
+  const firstStep = createTourWebviewHtml(
+    { ...baseModel(), stepNumber: 0 },
+    "test-nonce"
+  );
+  assert.doesNotMatch(firstStep, /data-tour=/);
+
+  // A previous tour replaces the disabled previous button, and the finish
+  // action hands over to the next tour, using the full tour titles.
+  const transitionalFirstStep = createTourWebviewHtml(
+    { ...baseModel(), stepNumber: 0, nextTourTitle: "2 - Next Tour" },
+    "test-nonce"
+  );
+  assert.match(
+    transitionalFirstStep,
+    /data-action="finish" data-tour="2 - Next Tour"/
+  );
+
+  const transitionalLastStep = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      stepNumber: 2,
+      previousTourTitle: "1 - Previous Tour"
+    },
+    "test-nonce"
+  );
+  assert.match(
+    transitionalLastStep,
+    /data-action="previous" data-tour="1 - Previous Tour">← Précédent</
+  );
+  assert.doesNotMatch(transitionalLastStep, /data-action="previous" disabled/);
+});
 });
 
 test("createTourWebviewHtml keeps the shared content policy and sanitization", () => {
