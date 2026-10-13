@@ -338,7 +338,11 @@ async function renderCurrentStep(forceCurrentFile = false) {
   const hasCodeAnchor =
     step.file !== undefined || step.uri !== undefined || step.contents !== undefined;
   if (isWebviewPlayback() && !hasCodeAnchor && !unavailableFile) {
-    // Keep the reading panel as the only presentation of this step.
+    // Keep the reading panel as the only presentation of this step. No
+    // anchorable document exists, so none is recorded: resuming reveals
+    // the panel without ever trying to show a document.
+    currentAnchor = undefined;
+    currentSelection = undefined;
   } else if (currentDiff) {
     try {
       await showDiff(currentDiff, range, selection, version);

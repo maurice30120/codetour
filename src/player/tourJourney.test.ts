@@ -400,3 +400,27 @@ test("finishing resolves the unsaved draft first, then removes the presentation"
     assert.ok(!ranges || ranges.length === 0);
   }
 });
+
+test("resuming a step without any anchor reveals the panel without opening a document", async () => {
+  // The journey restarts directly on the leg without any code anchor.
+  await host.vscode.commands.executeCommand("codetour.startTour", journeyTour, 4);
+  await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
+  assert.equal(store.activeTour!.step, 4);
+
+  panel().dispose();
+  assert.equal(host.livePanels("codetour.tour").length, 0);
+
+  // Resuming presents the step again through the panel alone: no synthetic
+  // content document is opened and no code anchor is invented.
+  await host.vscode.commands.executeCommand("codetour.resumeTour");
+  await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
+  assert.match(panelHtml(), /class="anchor">Présentation</);
+  assert.equal(
+    host.visibleTextEditors.filter(
+      editor => editor.document.uri.scheme === "codetour-content"
+    ).length,
+    0,
+    "resuming an anchorless step never opens a content document"
+  );
+  assert.ok(!anchorRanges("src/player.ts")?.length);
+});
