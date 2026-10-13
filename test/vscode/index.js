@@ -90,7 +90,9 @@ exports.run = async function () {
     assert.equal(JSON.parse(fs.readFileSync(tourPath)).steps[1].description, "SMOKE_SECOND");
     checks.push("native source edits survive mode switching without implicit persistence");
 
-    await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+    const panelTab = vscode.window.tabGroups.all.flatMap(group => group.tabs).find(tab => tab.input instanceof vscode.TabInputWebview && tab.label.includes(tour.title));
+    assert.ok(panelTab, "Real playback WebView tab exists");
+    assert.ok(await vscode.window.tabGroups.close(panelTab), "Real playback WebView tab closes");
     await observe({absent:true});
     await vscode.commands.executeCommand("codetour.resumeTour");
     await observe({step:1, source:richDraft});

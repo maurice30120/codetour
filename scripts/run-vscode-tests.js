@@ -47,7 +47,7 @@ fs.writeFileSync(path.join(profile, "User", "settings.json"), JSON.stringify({
 }));
 const extensions = path.join(temp, "extensions");
 fs.mkdirSync(extensions);
-let development = root;
+let development = path.resolve(value("--development") || root);
 const vsix = value("--vsix");
 if (vsix) {
   // Extract into isolated extensions directory: guarantees exactly this artifact,
@@ -129,7 +129,7 @@ async function observe(port, expected) {
               width: window.innerWidth,
               overflow: document.documentElement.scrollWidth > window.innerWidth,
               progress: document.querySelector("progress")?.value,
-              images: [...document.querySelectorAll("img")].map(i => ({src:i.src, width:i.naturalWidth, height:i.naturalHeight})),
+              images: [...document.querySelectorAll("img")].map(i => ({src:i.src.startsWith("data:image/png;") ? "data:image/png;" : i.src, width:i.naturalWidth, height:i.naturalHeight})),
               buttons: [...document.querySelectorAll("button[data-action]")].map(b => ({action:b.dataset.action, disabled:b.disabled}))
             })`,
             returnByValue: true
@@ -162,7 +162,12 @@ async function observe(port, expected) {
                 if (request.action) {
                   const button = document.querySelector('button[data-action="' + request.action + '"]');
                   if (!button || button.disabled) throw Error("Action unavailable: " + request.action);
+                  const clickErrors = [];
+                  const captureError = event => clickErrors.push(event.message);
+                  window.addEventListener("error", captureError);
                   button.click();
+                  window.removeEventListener("error", captureError);
+                  if (clickErrors.length) throw Error(clickErrors.join("; "));
                 }
                 if (request.focus) {
                   const element = document.querySelector(request.focus);
@@ -173,7 +178,7 @@ async function observe(port, expected) {
               })()`,
               returnByValue: true
             }, sessionId);
-            if (operation.exceptionDetails) return {ok:false, error:operation.exceptionDetails.text};
+            if (operation.exceptionDetails) return {ok:false, error:operation.exceptionDetails.exception?.description || operation.exceptionDetails.text};
           }
           if (expected.key) {
             await cdp.call("Input.dispatchKeyEvent", {type:"keyDown", key:expected.key, code:expected.key, windowsVirtualKeyCode:9}, sessionId);
