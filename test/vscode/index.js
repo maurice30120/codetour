@@ -107,12 +107,14 @@ exports.run = async function () {
 
     await vscode.workspace.getConfiguration("workbench").update("colorTheme", "Default Light Modern", vscode.ConfigurationTarget.Global);
     const light = await observe({step:1, theme:"vscode-light", png:true, width:1000, screenshot:"webview-light-narrow", focus:'button[data-action="edit"]'});
+    assert.ok(light.match.width <= 480, "Actual light WebView viewport is narrow");
     assert.equal(light.match.overflow, false, "Light narrow WebView has no horizontal overflow");
     await observe({step:1, focused:"edit", key:"Tab"});
     const keyboardFocus = await observe({step:1, focused:"editCommand"});
     assert.equal(keyboardFocus.match.focusVisible, true, "Keyboard Tab gives visible focus");
     await vscode.workspace.getConfiguration("workbench").update("colorTheme", "Default Dark Modern", vscode.ConfigurationTarget.Global);
     const dark = await observe({step:1, theme:"vscode-dark", png:true, screenshot:"webview-dark-narrow"});
+    assert.ok(dark.match.width <= 480, "Actual dark WebView viewport is narrow");
     assert.equal(dark.match.overflow, false, "Dark narrow WebView has no horizontal overflow");
     assert.equal(dark.match.progress, 2, "Real progress element tracks last step");
     checks.push("light and dark screenshots, keyboard focus and progress verified");
