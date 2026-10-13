@@ -420,6 +420,9 @@ export interface GitMockOptions {
 
 export interface HostOptions {
   configuration?: Record<string, Record<string, unknown>>;
+  // Values seeded at the workspace scope, overriding the global ones when
+  // both exist, like VS Code's configuration precedence.
+  workspaceConfiguration?: Record<string, Record<string, unknown>>;
   git?: GitMockOptions;
   // When true, opening a file-scheme document whose path was never seeded
   // fails like a missing file instead of resolving to an empty document.
@@ -432,6 +435,13 @@ export function createVscodeHost(options: HostOptions = {}) {
   const configuration = new Map<string, Map<string, unknown>>();
   for (const [section, values] of Object.entries(options.configuration ?? {})) {
     configuration.set(section, new Map(Object.entries(values)));
+  }
+
+  const workspaceConfiguration = new Map<string, Map<string, unknown>>();
+  for (const [section, values] of Object.entries(
+    options.workspaceConfiguration ?? {}
+  )) {
+    workspaceConfiguration.set(section, new Map(Object.entries(values)));
   }
 
   const contexts = new Map<string, unknown>();
@@ -516,6 +526,13 @@ export function createVscodeHost(options: HostOptions = {}) {
       configuration.set(section, new Map());
     }
     return configuration.get(section)!;
+  }
+
+  function getWorkspaceConfigurationMap(section: string): Map<string, unknown> {
+    if (!workspaceConfiguration.has(section)) {
+      workspaceConfiguration.set(section, new Map());
+    }
+    return workspaceConfiguration.get(section)!;
   }
 
   function setFileContent(path: string, text: string): void {
@@ -778,17 +795,28 @@ export function createVscodeHost(options: HostOptions = {}) {
     }),
     getConfiguration: (section: string) => ({
       get: (key: string, defaultValue?: unknown) => {
+        const workspaceValues = getWorkspaceConfigurationMap(section);
+        if (workspaceValues.has(key)) {
+          return workspaceValues.get(key);
+        }
         const values = getConfigurationMap(section);
         return values.has(key) ? values.get(key) : defaultValue;
       },
       update: async (key: string, value: unknown, target: number) => {
-        getConfigurationMap(section).set(key, value);
+        if (target === ConfigurationTarget.Workspace) {
+          getWorkspaceConfigurationMap(section).set(key, value);
+        } else {
+          getConfigurationMap(section).set(key, value);
+        }
         configurationUpdates.push([section, key, value, target]);
       },
-      has: (key: string) => getConfigurationMap(section).has(key),
+      has: (key: string) =>
+        getConfigurationMap(section).has(key) ||
+        getWorkspaceConfigurationMap(section).has(key),
       inspect: (key: string) => ({
         key,
-        globalValue: getConfigurationMap(section).get(key)
+        globalValue: getConfigurationMap(section).get(key),
+        workspaceValue: getWorkspaceConfigurationMap(section).get(key)
       })
     }),
     openTextDocument: (uri: Uri) => openTextDocument(uri),

@@ -235,9 +235,16 @@ export function registerPlayerCommands() {
         store.playbackMode === "webview" ? "comments" : "webview";
       store.playbackMode = nextMode;
 
-      await vscode.workspace
-        .getConfiguration("codetour")
-        .update("playbackMode", nextMode, vscode.ConfigurationTarget.Global);
+      // A preference set at the workspace scope is the effective one: the
+      // toggle must update that very scope, or the workspace value keeps
+      // overriding the global one and the toggle appears to do nothing.
+      const configuration = vscode.workspace.getConfiguration("codetour");
+      const target =
+        configuration.inspect("playbackMode")?.workspaceValue !== undefined
+          ? vscode.ConfigurationTarget.Workspace
+          : vscode.ConfigurationTarget.Global;
+
+      await configuration.update("playbackMode", nextMode, target);
     }
   );
 
