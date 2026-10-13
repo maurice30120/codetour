@@ -193,8 +193,8 @@ export function createTourWebviewHtml(
           send({ type: "editCommand", command: button.dataset.command });
           return;
         }${draftCases}
-        const tour = button.dataset.tour || undefined;
-        send({ type: button.dataset.action, tour });
+        const navigationTour = button.dataset.tour || undefined;
+        send({ type: button.dataset.action, tour: navigationTour });
         return;
       }
       const link = event.target.closest("a[href]");
