@@ -233,7 +233,7 @@ test("rapid navigation settles on the last requested step", async () => {
 
   panel()!.receive({ type: "next" });
   await sleep(10);
-  panel()!.receive({ type: "previous" });
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("1 / 2"));
   await sleep(150);
 
@@ -261,7 +261,7 @@ test("rapid navigation settles on the last requested step", async () => {
 });
 
 test("toggling the playback mode during an anchor resolution leaves no stale presentation", async () => {
-  panel()!.receive({ type: "previous" });
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("1 / 2"));
   await host.waitFor(() => anchorRanges(SMALL_ICON_URL).length === 1);
 
@@ -292,7 +292,7 @@ test("switching tours during an anchor resolution never shows the previous tour'
   ).length;
 
   // Start another tour while the diff step is still resolving its anchor.
-  panel()!.receive({ type: "previous" });
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("1 / 2"));
   panel()!.receive({ type: "next" });
   await sleep(10);

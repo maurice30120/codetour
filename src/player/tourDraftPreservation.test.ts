@@ -197,7 +197,9 @@ preservationTest(
     await host.vscode.commands.executeCommand("codetour.togglePlaybackMode");
     await host.waitFor(() => panelHtml().includes("1 / 2"));
     assert.equal(host.liveThreads().length, 0);
-    assert.equal(store.isEditing, false);
+    assert.equal(store.isEditing, true);
+    const sourceEditor = host.visibleTextEditors.find(editor => editor.document.uri.scheme === "untitled")!;
+    assert.equal(sourceEditor.document.getText(), "Toggle draft.");
     panel().receive({ type: "edit" });
     await host.waitFor(
       () => !!panelHtml().match(/<textarea id="tour-step-source"/)
@@ -552,18 +554,12 @@ preservationTest("no prompt appears without an unsaved draft", async () => {
   await resetState();
 });
 
-preservationTest(
-  "a programmatic tour end keeps the draft in memory",
-  async () => {
-    await startDraftTour();
-    await enterEditingWithDraft("Kept draft.");
-
-    endCurrentCodeTour(false);
-
-    assert.equal(store.activeTour, null);
-    assert.equal(store.isEditing, false);
-    assert.equal(getEditingSession(), undefined);
-    assert.equal(getStepDraft(tour.id, 0), "Kept draft.");
-    await resetState();
-  }
-);
+preservationTest("a programmatic tour end honours draft cancellation", async () => {
+  await startDraftTour();
+  await enterEditingWithDraft("Kept draft.");
+  host.respondToModal("Cancel");
+  await endCurrentCodeTour(false);
+  assert.ok(store.activeTour);
+  assert.equal(getStepDraft(tour.id, 0), "Kept draft.");
+  await resetState();
+});

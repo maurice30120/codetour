@@ -54,7 +54,7 @@ export function startCodeTour(
   canEditTour: boolean = true,
   tours?: CodeTour[]
 ) {
-  const targetStep = stepNumber ? stepNumber : tour.steps.length ? 0 : -1;
+  const targetStep = tour.steps.length ? Math.max(0, Math.min(Number.isInteger(stepNumber) ? stepNumber! : 0, tour.steps.length - 1)) : -1;
   const sameStep =
     store.activeTour?.tour.id === tour.id &&
     store.activeTour?.step === targetStep;
@@ -63,7 +63,7 @@ export function startCodeTour(
   // author decides what happens to their unsaved draft first. The start is
   // deferred, never silently dropped, and runs once the draft is resolved.
   if (hasUnsavedStepDraft() && !sameStep) {
-    void (async () => {
+    return (async () => {
       if (await resolveStepDraftBeforeExit()) {
         startCodeTourInternal(
           tour,
@@ -75,7 +75,6 @@ export function startCodeTour(
         );
       }
     })();
-    return;
   }
 
   startCodeTourInternal(
@@ -102,7 +101,7 @@ function startCodeTourInternal(
     workspaceRoot = getWorkspaceUri(tour);
   }
 
-  const step = stepNumber ? stepNumber : tour.steps.length ? 0 : -1;
+  const step = tour.steps.length ? Math.max(0, Math.min(Number.isInteger(stepNumber) ? stepNumber! : 0, tour.steps.length - 1)) : -1;
   store.activeTour = {
     tour,
     step,
@@ -154,6 +153,7 @@ export async function selectTour(
 }
 
 export async function endCurrentCodeTour(fireEvent: boolean = true) {
+  if (!store.activeTour || !(await resolveStepDraftBeforeExit())) return;
   if (fireEvent) {
     _onDidEndTour.fire(store.activeTour!.tour);
   }
@@ -187,25 +187,29 @@ export async function endCurrentCodeTour(fireEvent: boolean = true) {
 }
 
 export async function moveCurrentCodeTourBackward() {
+  if (!store.activeTour || store.activeTour.step <= 0) return;
   // Leaving the current step goes through the draft guard first: the move
   // only happens once the author's draft is resolved.
   if (!(await resolveStepDraftBeforeExit())) {
     return;
   }
 
-  --store.activeTour!.step;
+  if (!store.activeTour) return;
+  store.activeTour.step = Math.max(0, store.activeTour.step - 1);
 
   _onDidStartTour.fire([store.activeTour!.tour, store.activeTour!.step]);
 }
 
 export async function moveCurrentCodeTourForward() {
+  if (!store.activeTour || store.activeTour.step >= store.activeTour.tour.steps.length - 1) return;
   if (!(await resolveStepDraftBeforeExit())) {
     return;
   }
 
   await progress.update();
 
-  store.activeTour!.step++;
+  if (!store.activeTour) return;
+  store.activeTour.step = Math.min(store.activeTour.tour.steps.length - 1, store.activeTour.step + 1);
 
   _onDidStartTour.fire([store.activeTour!.tour, store.activeTour!.step]);
 }

@@ -21,6 +21,8 @@ let panel: vscode.WebviewPanel | undefined;
 let linkWorkspaceRoot: vscode.Uri | undefined;
 let panelRenderVersion = 0;
 let disposingPanel = false;
+let activeToken: string | undefined;
+let draftRevision = 0;
 // The presentation the reader closed themselves. A render arriving for that
 // very step must not reopen the panel behind their back; navigating to
 // another step or resuming presents again.
@@ -74,6 +76,7 @@ export async function renderTourStep(): Promise<void> {
   }
 
   const version = ++panelRenderVersion;
+  const sourceRevision = draftRevision;
   // An active editing session on the rendered step presents the editor with
   // the in-memory draft (never the registered content), so a re-entry or a
   // re-render never loses the author's work in progress.
@@ -93,10 +96,13 @@ export async function renderTourStep(): Promise<void> {
   if (
     version !== panelRenderVersion ||
     !store.activeTour ||
+    store.activeTour.tour !== tour || store.activeTour.step !== stepNumber ||
     store.playbackMode !== "webview"
   ) {
     return;
   }
+
+  if (editingThisStep && sourceRevision !== draftRevision) return renderTourStep();
 
   // Tour transitions reuse the reader's own rules: the previous button
   // starts the previous tour at the first step, the finish action hands
@@ -135,6 +141,8 @@ export async function renderTourStep(): Promise<void> {
       panel = undefined;
       linkWorkspaceRoot = undefined;
       panelRenderVersion++;
+      activeToken = undefined;
+      draftRevision++;
       if (!disposingPanel && store.activeTour) {
         userClosedPresentation = {
           tourId: store.activeTour.tour.id,
@@ -143,6 +151,9 @@ export async function renderTourStep(): Promise<void> {
       }
     });
     panel.webview.onDidReceiveMessage(async message => {
+      const active = store.activeTour;
+      if (!active || !activeToken || message?.token !== activeToken ||
+          message?.targetTourId !== active.tour.id || message?.step !== active.step) return;
       const tourTitle =
         typeof message?.tour === "string" && message.tour ? message.tour : undefined;
       switch (message?.type) {
@@ -180,13 +191,14 @@ export async function renderTourStep(): Promise<void> {
           // shared pipeline and posted back to the panel's preview area; a
           // render that became stale in the meantime is never delivered.
           const version = panelRenderVersion;
+          const revision = ++draftRevision;
           const html = await updateStepDraft(
             message.tour,
             message.step,
             message.text
           );
-          if (html !== undefined && version === panelRenderVersion && panel) {
-            await panel.webview.postMessage({ type: "preview", html });
+          if (html !== undefined && version === panelRenderVersion && revision === draftRevision && panel) {
+            await panel.webview.postMessage({ type: "preview", html, revision: message.revision, token: activeToken });
           }
           break;
         }
@@ -196,7 +208,7 @@ export async function renderTourStep(): Promise<void> {
             message.step,
             message.text
           );
-          if (result === "saved") {
+          if (result === "saved" || result === "error") {
             await renderTourStep();
           }
           break;
@@ -209,7 +221,8 @@ export async function renderTourStep(): Promise<void> {
         case "editCommand":
           // Only the panel's fixed set of recorder commands runs, gated by
           // the edit permissions.
-          await executePanelEditCommand(message.command);
+          const token = activeToken;
+          await executePanelEditCommand(message.command, () => activeToken === token && store.activeTour === active && store.activeTour.step === message.step);
           break;
         case "openLink":
           if (typeof message.href === "string") {
@@ -224,10 +237,9 @@ export async function renderTourStep(): Promise<void> {
 
   linkWorkspaceRoot = workspaceRoot;
   userClosedPresentation = undefined;
-  panel.webview.html = createTourWebviewHtml(
-    model,
-    randomBytes(16).toString("base64")
-  );
+  activeToken = randomBytes(16).toString("base64");
+  draftRevision++;
+  panel.webview.html = createTourWebviewHtml(model, activeToken);
 }
 
 // Brings the reading panel back when the reader closed it: the step is

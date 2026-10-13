@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
 import * as nodeModule from "module";
-import { createVscodeHost, CommentMode } from "../test/vscodeHost";
+import { createVscodeHost } from "../test/vscodeHost";
 
 // The delivery-level checks that the existing recording flows keep working
 // next to the parallel playback mode: recording a brand new tour, editing
@@ -112,34 +112,17 @@ test("editing and previewing the active tour keep working next to the webview mo
   await host.waitFor(() => host.panelHtml().includes("1 / 1"), 5000);
   assert.equal(host.livePanels("codetour.tour").length, 1);
 
-  // The existing edit command moves the tour into the recorder's native
-  // editing flow: an editing comment thread, no reading panel.
   await host.vscode.commands.executeCommand("codetour.editTour");
-  await host.waitFor(() => host.liveThreads().length === 1);
-  assert.equal(store.isRecording, true);
-  assert.equal(store.isEditing, true);
-  assert.equal(host.livePanels("codetour.tour").length, 0);
-  assert.equal(host.liveThreads()[0].comments[0].mode, CommentMode.Editing);
-
-  // The existing preview command restores the reading presentation inside
-  // the recording session, which keeps the native comment threads by
-  // design: the thread is back in preview mode, not the panel.
-  await host.vscode.commands.executeCommand("codetour.previewTour");
-  await host.waitFor(() =>
-    host.liveThreads().some(thread =>
-      thread.comments.some(comment => comment.mode === CommentMode.Preview)
-    )
-  );
-  assert.equal(store.isRecording, true);
-  assert.equal(store.isEditing, false);
-  assert.equal(host.livePanels("codetour.tour").length, 0);
-
-  // Ending the recording session and starting the tour again reads it in
-  // the webview panel once more, per the unchanged preference.
-  await host.vscode.commands.executeCommand("codetour.endTour");
+  await host.waitFor(() => host.panelHtml().includes("tour-step-source"));
   assert.equal(store.isRecording, false);
-  await startTour();
-  await host.waitFor(() => host.panelHtml().includes("1 / 1"), 5000);
+  assert.equal(store.isEditing, true);
+  assert.equal(host.liveThreads().length, 0);
+
+  await host.vscode.commands.executeCommand("codetour.previewTour");
+  await host.waitFor(() => !host.panelHtml().includes("tour-step-source"));
+  assert.equal(store.isRecording, false);
+  assert.equal(store.isEditing, false);
   assert.equal(host.liveThreads().length, 0);
   assert.equal(host.livePanels("codetour.tour").length, 1);
+  await host.vscode.commands.executeCommand("codetour.endTour");
 });

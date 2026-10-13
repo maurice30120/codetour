@@ -17,12 +17,17 @@ import {
 } from "../store/actions";
 import { progress } from "../store/storage";
 import { readUriContents } from "../utils";
+import { cancelStepEditing } from "./tourWebviewEditing";
 import { showStepDescription } from "./descriptionWebview";
 import { resolveStepDraftBeforeExit } from "./tourDraftExit";
 import { CodeTourNode } from "./tree/nodes";
 
 let terminal: vscode.Terminal | null;
 export function registerPlayerCommands() {
+  vscode.commands.registerCommand(`${EXTENSION_NAME}.cancelTourStepEditing`, () => {
+    const active = store.activeTour;
+    if (active) cancelStepEditing(active.tour.id, active.step);
+  });
   // Internal inspection seam used by the development-host smoke test. It
   // reads the comment owned by the active player, not a renderer-side value.
   vscode.commands.registerCommand(
@@ -210,7 +215,7 @@ export function registerPlayerCommands() {
       return;
     }
 
-    endCurrentCodeTour();
+    await endCurrentCodeTour();
   });
 
   vscode.commands.registerCommand(
@@ -238,9 +243,11 @@ export function registerPlayerCommands() {
       // A preference set at the workspace scope is the effective one: the
       // toggle must update that very scope, or the workspace value keeps
       // overriding the global one and the toggle appears to do nothing.
-      const configuration = vscode.workspace.getConfiguration("codetour");
+      const configuration = vscode.workspace.getConfiguration("codetour", store.activeTour?.workspaceRoot);
       const target =
-        configuration.inspect("playbackMode")?.workspaceValue !== undefined
+        configuration.inspect("playbackMode")?.workspaceFolderValue !== undefined
+          ? vscode.ConfigurationTarget.WorkspaceFolder
+          : configuration.inspect("playbackMode")?.workspaceValue !== undefined
           ? vscode.ConfigurationTarget.Workspace
           : vscode.ConfigurationTarget.Global;
 

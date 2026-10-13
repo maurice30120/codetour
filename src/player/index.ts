@@ -50,7 +50,7 @@ import { renderPreviewDescription } from "./description";
 import { getCommentLineAbove } from "./commentPlacement";
 import { getPlaybackMode } from "./playbackMode";
 import { registerStatusBar } from "./status";
-import { endWebviewEditingSession } from "./tourDraftExit";
+import { registerNativeDraftEditor, showNativeDraftEditor } from "./nativeDraftEditor";
 import { isEditingSession } from "./tourDrafts";
 import {
   disposeTourWebview,
@@ -354,7 +354,7 @@ async function renderCurrentStep(forceCurrentFile = false) {
     }
   } else {
     try {
-      await showDocument(uri, range, selection);
+      await showDocument(uri, range, selection, version);
     } catch (error) {
       if (!isWebviewPlayback()) {
         throw error;
@@ -376,16 +376,15 @@ async function renderCurrentStep(forceCurrentFile = false) {
     // the expanded description cannot duplicate the panel's text.
     disposeStepDescription();
     setActiveAnchorDecoration(
-      hasCodeAnchor && !unavailableFile ? currentAnchor : undefined
+      hasCodeAnchor && hasSourceAnchor && !unavailableFile ? currentAnchor : undefined
     );
     await renderTourStep();
   } else {
     disposeTourWebview();
     clearActiveAnchorDecoration();
-    // Presenting the step natively ends the webview editing session, but
-    // never its in-memory draft: the author finds it again when the panel
-    // comes back, and the native thread shows the registered content.
-    endWebviewEditingSession(currentTour.id, currentStep);
+    // Existing-step drafts retain their session across both surfaces. The
+    // native comment shows registered content; the Markdown document edits
+    // the shared draft without relying on comment input-change events.
     let commentRange = range;
     if (
       hasSourceAnchor &&
@@ -399,6 +398,7 @@ async function renderCurrentStep(forceCurrentFile = false) {
     }
     if (version !== renderVersion || !store.activeTour || !controller) return;
     await presentCurrentStepInThread(step, version, commentRange);
+    if (isEditingSession(currentTour.id, currentStep)) await showNativeDraftEditor();
   }
   if (version !== renderVersion || !store.activeTour) return;
 
@@ -578,11 +578,13 @@ async function showDiff(diff: StepDiff, range: Range, selection: Selection, vers
   }
 }
 
-async function showDocument(uri: Uri, range: Range, selection?: Selection) {
+async function showDocument(uri: Uri, range: Range, selection?: Selection, version = renderVersion) {
   const document =
     window.visibleTextEditors.find(
       editor => editor.document.uri.toString() === uri.toString()
     ) || (await window.showTextDocument(uri, { preserveFocus: true }));
+
+  if (version !== renderVersion || !store.activeTour) return;
 
   // TODO: Figure out how to force focus when navigating
   // to documents which are already open.
@@ -597,11 +599,13 @@ async function showDocument(uri: Uri, range: Range, selection?: Selection) {
 export function registerPlayerModule(context: ExtensionContext) {
   context.subscriptions.push(
     workspace.onDidChangeConfiguration(event => {
+      if (event.affectsConfiguration("codetour.playbackMode")) store.playbackMode = getPlaybackMode();
       if (event.affectsConfiguration("codetour.commentPosition") && store.activeTour) {
         renderCurrentStep();
       }
     })
   );
+  context.subscriptions.push(registerNativeDraftEditor());
   registerPlayerCommands();
   store.playbackMode = getPlaybackMode();
   context.subscriptions.push(registerActiveAnchorModule());
@@ -634,6 +638,7 @@ export function registerPlayerModule(context: ExtensionContext) {
   reaction(
     () => [
       store.playbackMode,
+      store.isEditing,
       store.activeTour
         ? [
             store.activeTour.step,

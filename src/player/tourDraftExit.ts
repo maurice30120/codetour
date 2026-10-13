@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { store } from "../store";
 import { EDITING_KEY } from "../store/actions";
-import { persistStepDescription } from "./tourDraftSaving";
+import { persistStepDescription, waitForDraftSave } from "./tourDraftSaving";
 import { TourStepRef, clearStepDraft, endEditingSession, getStepDraft, isActiveEditingStep, isEditingSession } from "./tourDrafts";
 
 // The step whose draft exit is currently being resolved. Only one prompt
@@ -56,6 +56,8 @@ export async function resolveStepDraftBeforeExit(): Promise<boolean> {
   }
 
   const { tour, step } = activeTour;
+  if (!(await waitForDraftSave(tour))) return false;
+  if (store.activeTour !== activeTour) return false;
   if (pendingResolution) {
     // A resolution is already in flight: the late action is ignored so a
     // burst of exits never triggers a second save on another step.

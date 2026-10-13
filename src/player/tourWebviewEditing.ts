@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CodeTour, store } from "../store";
 import { EDITING_KEY } from "../store/actions";
 import { renderPreviewDescription } from "./description";
+import { restoreNativeDraftEditor } from "./nativeDraftEditor";
 import { renderMarkdownToHtml } from "./markdown";
 import { persistStepDescription } from "./tourDraftSaving";
 import {
@@ -124,10 +125,12 @@ export async function saveStepDraft(
     return "stale";
   }
 
+  setStepDraft(tourId, step, text);
   if (!(await persistStepDescription(activeTour.tour, step, text))) {
     return "error";
   }
 
+  if (!isActiveEditingStep(tourId, step) || getStepDraft(tourId, step) !== text) return "stale";
   store.isEditing = false;
   vscode.commands.executeCommand("setContext", EDITING_KEY, false);
   clearStepDraft(tourId, step);
@@ -146,8 +149,10 @@ export function cancelStepEditing(tourId: unknown, step: unknown): boolean {
     return false;
   }
 
+  const target = store.activeTour!.tour.steps[step];
   clearStepDraft(tourId, step);
   endEditingSession();
+  void restoreNativeDraftEditor(target);
   store.isEditing = false;
   vscode.commands.executeCommand("setContext", EDITING_KEY, false);
   return true;
@@ -179,7 +184,7 @@ const PANEL_EDIT_COMMANDS: Record<
 // Executes one of the panel's editing commands on the active step. The
 // existing recorder commands stay the single implementation: both playback
 // presentations route to them.
-export async function executePanelEditCommand(command: unknown): Promise<void> {
+export async function executePanelEditCommand(command: unknown, isCurrent: () => boolean = () => true): Promise<void> {
   const activeTour = store.activeTour;
   if (typeof command !== "string" || !activeTour || !store.canEditTour) {
     return;
@@ -198,5 +203,8 @@ export async function executePanelEditCommand(command: unknown): Promise<void> {
     return;
   }
 
-  await vscode.commands.executeCommand(command, ...entry.args(tour, step));
+  if (!isCurrent()) return;
+  const args = entry.args(tour, step) as { tour: CodeTour; stepNumber: number; isCurrent?: () => boolean }[];
+  args[0].isCurrent = isCurrent;
+  await vscode.commands.executeCommand(command, ...args);
 }

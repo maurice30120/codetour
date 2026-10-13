@@ -331,7 +331,9 @@ export interface WebviewPanel {
 class MockTextDocument implements TextDocument {
   constructor(
     readonly uri: Uri,
-    private text: string
+    private text: string,
+    readonly languageId = "plaintext",
+    private readonly changed?: (document: MockTextDocument) => void
   ) {}
 
   getText(): string {
@@ -362,6 +364,7 @@ class MockTextDocument implements TextDocument {
 
   replace(text: string): void {
     this.text = text;
+    this.changed?.(this);
   }
 }
 
@@ -391,7 +394,7 @@ class MockTextEditor {
   ): Promise<boolean> {
     callback({
       insert: () => undefined,
-      replace: () => undefined
+      replace: (_range, text) => this.document.replace(text)
     });
     return true;
   }
@@ -447,6 +450,8 @@ export function createVscodeHost(options: HostOptions = {}) {
   const contexts = new Map<string, unknown>();
   const commands = new Map<string, (...args: unknown[]) => unknown>();
   const executedCommands: [string, unknown[]][] = [];
+  const onDidChangeTextDocument = new EventEmitter<{ document: MockTextDocument }>();
+  const onDidChangeConfiguration = new EventEmitter<{ affectsConfiguration: (key: string) => boolean }>();
   const configurationUpdates: [string, string, unknown, number][] = [];
   const fileWrites: [string, string][] = [];
   const messages: string[] = [];
@@ -550,7 +555,14 @@ export function createVscodeHost(options: HostOptions = {}) {
     return relative;
   }
 
-  function openTextDocument(uri: Uri): Promise<MockTextDocument> {
+  function openTextDocument(value: Uri | { language: string; content: string }): Promise<MockTextDocument> {
+    if (!(value instanceof Uri)) {
+      const uri = Uri.parse(`untitled:CodeTour-draft-${documents.size}.md`);
+      const document = new MockTextDocument(uri, value.content, value.language, document => onDidChangeTextDocument.fire({ document }));
+      documents.set(uri.toString(), document);
+      return Promise.resolve(document);
+    }
+    const uri = value;
     const key = uri.toString();
     if (!documents.has(key)) {
       const scheme = uri.scheme;
@@ -585,8 +597,9 @@ export function createVscodeHost(options: HostOptions = {}) {
     return Promise.resolve(documents.get(key)!);
   }
 
-  async function showTextDocument(uri: Uri): Promise<MockTextEditor> {
-    const document = await openTextDocument(uri);
+  async function showTextDocument(value: Uri | MockTextDocument): Promise<MockTextEditor> {
+    const document = value instanceof MockTextDocument ? value : await openTextDocument(value);
+    const uri = document.uri;
     const existing = visibleTextEditors.find(
       editor => editor.document.uri.toString() === uri.toString()
     );
@@ -690,7 +703,13 @@ export function createVscodeHost(options: HostOptions = {}) {
     }
 
     receive(message: unknown): void {
-      this.onDidReceiveMessageEmitter.fire(message);
+      const body = this.webview.html.match(/<body[^>]+>/)?.[0] ?? "";
+      const identity = {
+        token: body.match(/data-token="([^"]*)"/)?.[1],
+        targetTourId: body.match(/data-tour-id="([^"]*)"/)?.[1],
+        step: Number(body.match(/data-step="([^"]*)"/)?.[1])
+      };
+      this.onDidReceiveMessageEmitter.fire({ ...identity, ...(message as object) });
     }
   }
 
@@ -809,6 +828,7 @@ export function createVscodeHost(options: HostOptions = {}) {
           getConfigurationMap(section).set(key, value);
         }
         configurationUpdates.push([section, key, value, target]);
+        onDidChangeConfiguration.fire({ affectsConfiguration: requested => requested === `${section}.${key}` });
       },
       has: (key: string) =>
         getConfigurationMap(section).has(key) ||
@@ -819,15 +839,16 @@ export function createVscodeHost(options: HostOptions = {}) {
         workspaceValue: getWorkspaceConfigurationMap(section).get(key)
       })
     }),
-    openTextDocument: (uri: Uri) => openTextDocument(uri),
-    showTextDocument: (uri: Uri) => showTextDocument(uri),
+    openTextDocument: (value: Uri | { language: string; content: string }) => openTextDocument(value),
+    showTextDocument: (value: Uri | MockTextDocument) => showTextDocument(value),
     registerTextDocumentContentProvider: (
       _scheme: string,
       _provider: unknown
     ) => new Disposable(),
     registerFileSystemProvider: (_scheme: string, _provider: unknown) =>
       new Disposable(),
-    onDidChangeConfiguration: () => new Disposable(),
+    onDidChangeConfiguration: (listener: (event: { affectsConfiguration: (key: string) => boolean }) => void) => onDidChangeConfiguration.event(listener),
+    onDidChangeTextDocument: (listener: (event: { document: MockTextDocument }) => void) => onDidChangeTextDocument.event(listener),
     onDidSaveTextDocument: () => new Disposable(),
     findFiles: async () => [],
     fs: {
@@ -894,7 +915,7 @@ export function createVscodeHost(options: HostOptions = {}) {
     onDidCloseTerminal: () => new Disposable(),
     createStatusBarItem: (_alignment?: number, _priority?: number) =>
       new MockStatusBarItem(),
-    showTextDocument: (uri: Uri) => showTextDocument(uri),
+    showTextDocument: (value: Uri | MockTextDocument) => showTextDocument(value),
     showWarningMessage: (message: string) => {
       messages.push(message);
       return Promise.resolve(undefined);

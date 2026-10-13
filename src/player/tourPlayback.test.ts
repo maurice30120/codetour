@@ -210,3 +210,23 @@ test("finishing the tour removes the panel, the anchor and the presentation", as
     assert.ok(!ranges || ranges.length === 0);
   }
 });
+
+
+test("public navigation stays inside the first and final steps", async () => {
+  await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  assert.equal(store.activeTour.step, 0);
+  await host.vscode.commands.executeCommand("codetour.startTour", tour, 2);
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  assert.equal(store.activeTour.step, 2);
+  await host.vscode.commands.executeCommand("codetour.endTour");
+});
+
+test("a whole-file step invents no source logo", async () => {
+  await host.vscode.commands.executeCommand("codetour.startTour", {
+    ...tour, steps: [{ file: "src/player.ts", description: "Whole file" }]
+  });
+  await host.waitFor(() => host.panelHtml().includes("Whole file"));
+  assert.ok(!anchorDecoration("src/player.ts")?.length);
+  await host.vscode.commands.executeCommand("codetour.endTour");
+});
