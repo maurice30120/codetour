@@ -16,7 +16,6 @@ import {
 } from "./store/actions";
 import { discoverTours as _discoverTours } from "./store/provider";
 import { registerDesktopIntegrations } from "./desktopIntegration";
-import { registerTourWebviewPrototype } from "./player/tourWebview.prototype";
 
 /**
  * Partage la découverte des visites entre l'ouverture normale du projet et
@@ -84,7 +83,6 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(notebookProvider);
   }
   registerPlayerModule(context);
-  registerTourWebviewPrototype(context);
   registerRecorderModule();
   registerLiveShareModule();
 
@@ -99,15 +97,6 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     initializeGitApi();
-  }
-
-  if (context.extensionMode === vscode.ExtensionMode.Development) {
-    void vscode.window.showInformationMessage(
-      "CodeTour IA est chargé en mode développement. Le prototype WebView est disponible.",
-      "Ouvrir le prototype"
-    ).then(action => {
-      if (action) void vscode.commands.executeCommand("codetour.prototypeWebview");
-    });
   }
 
   return initializeApi(context);

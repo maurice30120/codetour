@@ -18,6 +18,7 @@ import {
 import { progress } from "../store/storage";
 import { readUriContents } from "../utils";
 import { showStepDescription } from "./descriptionWebview";
+import { resolveStepDraftBeforeExit } from "./tourDraftExit";
 import { CodeTourNode } from "./tree/nodes";
 
 let terminal: vscode.Terminal | null;
@@ -77,6 +78,13 @@ export function registerPlayerCommands() {
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.finishTour`,
     async (title?: string) => {
+      // Finishing leaves the current step: the draft is resolved first, so
+      // an unsaved draft can still be saved or kept by the author, and the
+      // progress is only updated when the end actually happens.
+      if (!(await resolveStepDraftBeforeExit())) {
+        return;
+      }
+
       await progress.update();
 
       if (title) {
@@ -153,9 +161,8 @@ export function registerPlayerCommands() {
 
       const lineAdjustment = codeSnippet.split("\n").length - 1;
       if (lineAdjustment > 0) {
-        store.activeTour!.tour.steps[
-          store.activeTour!.step
-        ].line! += lineAdjustment;
+        store.activeTour!.tour.steps[store.activeTour!.step].line! +=
+          lineAdjustment;
 
         saveTour(store.activeTour!.tour);
       }
@@ -196,10 +203,15 @@ export function registerPlayerCommands() {
     }
   );
 
-  vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.endTour`,
-    endCurrentCodeTour
-  );
+  vscode.commands.registerCommand(`${EXTENSION_NAME}.endTour`, async () => {
+    // An explicit end is a step exit like any other: the draft guard runs
+    // first and the tour only ends when the author resolved their draft.
+    if (!(await resolveStepDraftBeforeExit())) {
+      return;
+    }
+
+    endCurrentCodeTour();
+  });
 
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.previousTourStep`,
@@ -212,6 +224,29 @@ export function registerPlayerCommands() {
   );
 
   vscode.commands.registerCommand(`${EXTENSION_NAME}.resumeTour`, focusPlayer);
+
+  // Switches the presentation of the active tour between the native comment
+  // threads and the reading webview. The reaction in the player module
+  // re-renders the current step in the newly selected mode.
+  vscode.commands.registerCommand(
+    `${EXTENSION_NAME}.togglePlaybackMode`,
+    async () => {
+      const nextMode =
+        store.playbackMode === "webview" ? "comments" : "webview";
+      store.playbackMode = nextMode;
+
+      // A preference set at the workspace scope is the effective one: the
+      // toggle must update that very scope, or the workspace value keeps
+      // overriding the global one and the toggle appears to do nothing.
+      const configuration = vscode.workspace.getConfiguration("codetour");
+      const target =
+        configuration.inspect("playbackMode")?.workspaceValue !== undefined
+          ? vscode.ConfigurationTarget.Workspace
+          : vscode.ConfigurationTarget.Global;
+
+      await configuration.update("playbackMode", nextMode, target);
+    }
+  );
 
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.openTourFile`,

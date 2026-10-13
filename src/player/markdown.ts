@@ -35,6 +35,15 @@ export function renderMarkdownToHtml(content: string): string {
   });
 }
 
+/**
+ * The Content-Security-Policy shared by every extension-owned HTML surface
+ * (ADR 0009): no remote origin, only nonce'd scripts, inline styles and
+ * data/https images.
+ */
+export function createContentSecurityPolicy(nonce: string): string {
+  return `default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'`;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -57,7 +66,7 @@ export function createDescriptionWebviewHtml(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'">
+  <meta http-equiv="Content-Security-Policy" content="${createContentSecurityPolicy(nonce)}">
   <title>${safeTitle}</title>
   <style>
     body { box-sizing: border-box; max-width: 80ch; margin: 0 auto; padding: clamp(1rem, 4vw, 2.5rem); font-family: var(--vscode-font-family); font-size: max(14px, var(--vscode-font-size)); line-height: 1.65; overflow-wrap: anywhere; color: var(--vscode-editor-foreground); }

@@ -5,14 +5,6 @@
     "types": ["node"]
   },
   "include": [
-    "src/player/insertCode.ts",
-    "src/player/insertCode.test.ts",
-    "src/player/commentMenu.test.ts",
-    "src/player/descriptionWebview.test.ts",
-    "src/player/markdown.ts",
-    "src/player/readability.ts",
-    "src/player/readability.test.ts",
-    "src/player/commentPlacement.ts",
-    "src/player/commentPlacement.test.ts"
+    "src"
   ]
 }

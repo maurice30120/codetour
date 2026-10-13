@@ -12,6 +12,11 @@ import {
 import { CodeTour, store } from ".";
 import { EXTENSION_NAME, FS_SCHEME, FS_SCHEME_CONTENT } from "../constants";
 import { startPlayer, stopPlayer } from "../player";
+import { endEditingSession } from "../player/tourDrafts";
+import {
+  hasUnsavedStepDraft,
+  resolveStepDraftBeforeExit
+} from "../player/tourDraftExit";
 import { getStepSnapshotUri } from "../player/diff";
 import {
   getStepFileUri,
@@ -49,6 +54,48 @@ export function startCodeTour(
   canEditTour: boolean = true,
   tours?: CodeTour[]
 ) {
+  const targetStep = stepNumber ? stepNumber : tour.steps.length ? 0 : -1;
+  const sameStep =
+    store.activeTour?.tour.id === tour.id &&
+    store.activeTour?.step === targetStep;
+
+  // Starting another tour or another step leaves the current one: the
+  // author decides what happens to their unsaved draft first. The start is
+  // deferred, never silently dropped, and runs once the draft is resolved.
+  if (hasUnsavedStepDraft() && !sameStep) {
+    void (async () => {
+      if (await resolveStepDraftBeforeExit()) {
+        startCodeTourInternal(
+          tour,
+          stepNumber,
+          workspaceRoot,
+          startInEditMode,
+          canEditTour,
+          tours
+        );
+      }
+    })();
+    return;
+  }
+
+  startCodeTourInternal(
+    tour,
+    stepNumber,
+    workspaceRoot,
+    startInEditMode,
+    canEditTour,
+    tours
+  );
+}
+
+function startCodeTourInternal(
+  tour: CodeTour,
+  stepNumber?: number,
+  workspaceRoot?: Uri,
+  startInEditMode: boolean = false,
+  canEditTour: boolean = true,
+  tours?: CodeTour[]
+) {
   startPlayer();
 
   if (!workspaceRoot) {
@@ -66,6 +113,7 @@ export function startCodeTour(
 
   commands.executeCommand("setContext", IN_TOUR_KEY, true);
   commands.executeCommand("setContext", CAN_EDIT_TOUR_KEY, canEditTour);
+  store.canEditTour = canEditTour;
 
   if (startInEditMode) {
     store.isRecording = true;
@@ -115,6 +163,12 @@ export async function endCurrentCodeTour(fireEvent: boolean = true) {
     store.isEditing = false;
     commands.executeCommand("setContext", RECORDING_KEY, false);
     commands.executeCommand("setContext", EDITING_KEY, false);
+  } else if (store.isEditing) {
+    // Ending the tour also leaves a webview editing session: the editing
+    // state is cleared while the in-memory draft stays available.
+    store.isEditing = false;
+    endEditingSession();
+    commands.executeCommand("setContext", EDITING_KEY, false);
   }
 
   stopPlayer();
@@ -132,13 +186,23 @@ export async function endCurrentCodeTour(fireEvent: boolean = true) {
   });
 }
 
-export function moveCurrentCodeTourBackward() {
+export async function moveCurrentCodeTourBackward() {
+  // Leaving the current step goes through the draft guard first: the move
+  // only happens once the author's draft is resolved.
+  if (!(await resolveStepDraftBeforeExit())) {
+    return;
+  }
+
   --store.activeTour!.step;
 
   _onDidStartTour.fire([store.activeTour!.tour, store.activeTour!.step]);
 }
 
 export async function moveCurrentCodeTourForward() {
+  if (!(await resolveStepDraftBeforeExit())) {
+    return;
+  }
+
   await progress.update();
 
   store.activeTour!.step++;
@@ -220,9 +284,12 @@ export async function exportTour(tour: CodeTour) {
         const exported = { ...step };
         if (step.contents === undefined && !step.uri && step.file) {
           const workspaceRoot = getWorkspaceUri(tour);
-          const stepFileUri = step.display === "diff" && tour.ref && /^[0-9a-f]{40}$/.test(tour.ref)
-            ? await getStepSnapshotUri(step, workspaceRoot, tour.ref)
-            : await getStepFileUri(step, workspaceRoot, tour.ref);
+          const stepFileUri =
+            step.display === "diff" &&
+            tour.ref &&
+            /^[0-9a-f]{40}$/.test(tour.ref)
+              ? await getStepSnapshotUri(step, workspaceRoot, tour.ref)
+              : await getStepFileUri(step, workspaceRoot, tour.ref);
           exported.contents = await readUriContents(stepFileUri);
         }
         delete exported.markerTitle;
