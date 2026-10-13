@@ -18,6 +18,7 @@ import {
 import { progress } from "../store/storage";
 import { readUriContents } from "../utils";
 import { showStepDescription } from "./descriptionWebview";
+import { resolveStepDraftBeforeExit } from "./tourDraftExit";
 import { CodeTourNode } from "./tree/nodes";
 
 let terminal: vscode.Terminal | null;
@@ -77,6 +78,13 @@ export function registerPlayerCommands() {
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.finishTour`,
     async (title?: string) => {
+      // Finishing leaves the current step: the draft is resolved first, so
+      // an unsaved draft can still be saved or kept by the author, and the
+      // progress is only updated when the end actually happens.
+      if (!(await resolveStepDraftBeforeExit())) {
+        return;
+      }
+
       await progress.update();
 
       if (title) {
@@ -153,9 +161,8 @@ export function registerPlayerCommands() {
 
       const lineAdjustment = codeSnippet.split("\n").length - 1;
       if (lineAdjustment > 0) {
-        store.activeTour!.tour.steps[
-          store.activeTour!.step
-        ].line! += lineAdjustment;
+        store.activeTour!.tour.steps[store.activeTour!.step].line! +=
+          lineAdjustment;
 
         saveTour(store.activeTour!.tour);
       }
@@ -196,10 +203,15 @@ export function registerPlayerCommands() {
     }
   );
 
-  vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.endTour`,
-    endCurrentCodeTour
-  );
+  vscode.commands.registerCommand(`${EXTENSION_NAME}.endTour`, async () => {
+    // An explicit end is a step exit like any other: the draft guard runs
+    // first and the tour only ends when the author resolved their draft.
+    if (!(await resolveStepDraftBeforeExit())) {
+      return;
+    }
+
+    endCurrentCodeTour();
+  });
 
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.previousTourStep`,
@@ -225,11 +237,7 @@ export function registerPlayerCommands() {
 
       await vscode.workspace
         .getConfiguration("codetour")
-        .update(
-          "playbackMode",
-          nextMode,
-          vscode.ConfigurationTarget.Global
-        );
+        .update("playbackMode", nextMode, vscode.ConfigurationTarget.Global);
     }
   );
 

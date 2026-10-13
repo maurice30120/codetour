@@ -49,7 +49,13 @@ import { registerTextDocumentContentProvider } from "./fileSystem/documentProvid
 import { renderPreviewDescription } from "./description";
 import { getPlaybackMode } from "./playbackMode";
 import { registerStatusBar } from "./status";
-import { disposeTourWebview, renderTourStep, revealTourWebview } from "./tourWebview";
+import { endWebviewEditingSession } from "./tourDraftExit";
+import { isEditingSession } from "./tourDrafts";
+import {
+  disposeTourWebview,
+  renderTourStep,
+  revealTourWebview
+} from "./tourWebview";
 import { registerTreeProvider } from "./tree";
 
 const CONTROLLER_ID = "codetour";
@@ -370,6 +376,10 @@ async function renderCurrentStep(forceCurrentFile = false) {
   } else {
     disposeTourWebview();
     clearActiveAnchorDecoration();
+    // Presenting the step natively ends the webview editing session, but
+    // never its in-memory draft: the author finds it again when the panel
+    // comes back, and the native thread shows the registered content.
+    endWebviewEditingSession(currentTour.id, currentStep);
     await presentCurrentStepInThread(
       step,
       version,
@@ -576,7 +586,15 @@ export function registerPlayerModule(context: ExtensionContext) {
   context.subscriptions.push(
     registerTreeProvider(context.extensionPath, () => {
       clearMermaidRenderCache();
-      if (store.activeTour && !store.isEditing) {
+      const activeTour = store.activeTour;
+      if (
+        activeTour &&
+        // A webview editing session re-renders like any other step — the
+        // panel presents the in-memory draft, never a stale theme — while
+        // the native recorder editing keeps its own comment flow untouched.
+        (!store.isEditing ||
+          isEditingSession(activeTour.tour.id, activeTour.step))
+      ) {
         renderCurrentStep();
       }
     })
