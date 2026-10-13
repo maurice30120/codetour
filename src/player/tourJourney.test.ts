@@ -278,7 +278,7 @@ test("the multi-step journey reads files, diffs, directories and mermaid in the 
   // The step without a code anchor stays readable in the panel alone.
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
-  assert.match(panelHtml(), /class="anchor">Présentation</);
+  assert.match(panelHtml(), /class="anchor">Presentation</);
   assert.equal(
     host.visibleTextEditors.filter(
       editor => editor.document.uri.scheme === "codetour-content"
@@ -414,7 +414,7 @@ test("resuming a step without any anchor reveals the panel without opening a doc
   // content document is opened and no code anchor is invented.
   await host.vscode.commands.executeCommand("codetour.resumeTour");
   await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
-  assert.match(panelHtml(), /class="anchor">Présentation</);
+  assert.match(panelHtml(), /class="anchor">Presentation</);
   assert.equal(
     host.visibleTextEditors.filter(
       editor => editor.document.uri.scheme === "codetour-content"

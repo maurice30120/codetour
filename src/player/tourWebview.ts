@@ -46,7 +46,7 @@ function getStepAnchorLabel(step: CodeTourStep): string | undefined {
     return step.view;
   }
 
-  return "Présentation";
+  return "Presentation";
 }
 
 // Presents the active step in the layout A reading panel: tour header and
@@ -110,7 +110,7 @@ export async function renderTourStep(): Promise<void> {
     tourId: tour.id,
     stepNumber,
     stepCount: tour.steps.length,
-    stepTitle: step.title || `Étape ${stepNumber + 1}`,
+    stepTitle: step.title || `Step ${stepNumber + 1}`,
     anchorLabel: getStepAnchorLabel(step),
     description,
     editable: store.canEditTour,

@@ -106,7 +106,7 @@ test("a step without any code anchor stays readable and invents no marker", asyn
 
   // The step is readable in the panel and nothing is anchored or opened.
   assert.match(host.panelHtml(), /This step explains without any code anchor\./);
-  assert.match(host.panelHtml(), /class="anchor">Présentation</);
+  assert.match(host.panelHtml(), /class="anchor">Presentation</);
   assert.equal(anchorRanges().length, 0);
   assert.equal(anchorFreeEditorPaths().length, 1);
   assert.equal(host.liveThreads().length, 0);

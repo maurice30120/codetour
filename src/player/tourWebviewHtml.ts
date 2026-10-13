@@ -105,12 +105,12 @@ export function createTourWebviewHtml(
   // view as plain buttons. They are only presented when the tour is
   // editable and they always route to the very same commands.
   const editActions = model.editable
-    ? `\n  <nav class="actions" aria-label="Actions d'édition">
-    <button data-action="edit">Éditer l'étape</button>
-    <button data-action="editCommand" data-command="codetour.changeTourStepTitle">Renommer l'étape</button>
-    <button data-action="editCommand" data-command="codetour.changeTourStepLine">Changer l'ancre</button>
-    <button data-action="editCommand" data-command="codetour.moveTourStepBack"${previousDisabled}>Déplacer l'étape ↑</button>
-    <button data-action="editCommand" data-command="codetour.moveTourStepForward"${nextDisabled}>Déplacer l'étape ↓</button>
+    ? `\n  <nav class="actions" aria-label="Editing actions">
+    <button data-action="edit">Edit step</button>
+    <button data-action="editCommand" data-command="codetour.changeTourStepTitle">Rename step</button>
+    <button data-action="editCommand" data-command="codetour.changeTourStepLine">Change anchor</button>
+    <button data-action="editCommand" data-command="codetour.moveTourStepBack"${previousDisabled}>Move step up</button>
+    <button data-action="editCommand" data-command="codetour.moveTourStepForward"${nextDisabled}>Move step down</button>
   </nav>`
     : "";
 
@@ -119,18 +119,18 @@ export function createTourWebviewHtml(
   // actions; everything else — header, navigation, wiring — is shared.
   const editing = !!model.editing;
   const articleBody = editing
-    ? `<label for="tour-step-source">Source Markdown</label>
+    ? `<label for="tour-step-source">Markdown source</label>
     <textarea id="tour-step-source" spellcheck="false">${escapeHtml(model.editing!.source)}</textarea>
-    <h2>Aperçu</h2>
+    <h2>Preview</h2>
     <div id="tour-draft-preview" aria-live="polite">
     ${renderedContent}
     </div>`
     : renderedContent;
   const editActionsBar = editing
     ? `
-  <div class="edit-actions" role="group" aria-label="Actions d'édition">
-    <button data-action="save">Sauvegarder</button>
-    <button data-action="cancel">Annuler</button>
+  <div class="edit-actions" role="group" aria-label="Editing actions">
+    <button data-action="save">Save</button>
+    <button data-action="cancel">Cancel</button>
   </div>`
     : "";
   const draftScript = editing
@@ -177,17 +177,17 @@ export function createTourWebviewHtml(
   <header>
     <small>${escapeHtml(model.tourTitle)}</small>
     <p>${stepPosition} / ${model.stepCount}</p>
-    <progress value="${stepPosition}" max="${model.stepCount}" aria-label="Progression du tour"></progress>
+    <progress value="${stepPosition}" max="${model.stepCount}" aria-label="Tour progress"></progress>
   </header>
   <article>
     <h1>${escapeHtml(model.stepTitle)}</h1>${anchor}
     ${articleBody}
   </article>${editActionsBar}
-  <nav aria-label="Navigation du tour">
-    <button data-action="previous"${previousDisabled}${previousTour}>← Précédent</button>
-    <button data-action="code">Voir le code</button>
-    <button data-action="next"${nextDisabled}>Suivant →</button>
-    <button data-action="finish"${nextTour}>Fin</button>
+  <nav aria-label="Tour navigation">
+    <button data-action="previous"${previousDisabled}${previousTour}>← Previous</button>
+    <button data-action="code">View code</button>
+    <button data-action="next"${nextDisabled}>Next →</button>
+    <button data-action="finish"${nextTour}>Finish</button>
   </nav>${editing ? "" : editActions}
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();${draftScript}

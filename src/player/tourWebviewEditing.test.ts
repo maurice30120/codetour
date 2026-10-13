@@ -165,8 +165,8 @@ test("entering edit shows the source, keeps the anchor only and no native thread
   assert.match(panelHtml(), /<textarea id="tour-step-source"/);
   assert.match(panelHtml(), /Registered intro\./);
   assert.match(panelHtml(), /```mermaid/);
-  assert.match(panelHtml(), /data-action="save"[^>]*>Sauvegarder</);
-  assert.match(panelHtml(), /data-action="cancel"[^>]*>Annuler</);
+  assert.match(panelHtml(), /data-action="save"[^>]*>Save</);
+  assert.match(panelHtml(), /data-action="cancel"[^>]*>Cancel</);
 
   // Editing never requires a native comment thread: the editor keeps only
   // the anchor decoration.

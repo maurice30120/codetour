@@ -21,7 +21,7 @@ test("createTourWebviewHtml renders the layout A reading structure", () => {
   assert.match(html, /<header>/);
   assert.match(html, /<small>Tour of the codebase<\/small>/);
   assert.match(html, /<p>2 \/ 3<\/p>/);
-  assert.match(html, /<progress value="2" max="3" aria-label="Progression du tour"><\/progress>/);
+  assert.match(html, /<progress value="2" max="3" aria-label="Tour progress"><\/progress>/);
 
   // Article: step title, anchor target and the shared description rendering.
   assert.match(html, /<article>/);
@@ -35,10 +35,10 @@ test("createTourWebviewHtml renders the layout A reading structure", () => {
   const navIndex = html.indexOf("<nav");
   assert.ok(articleIndex < navIndex);
 
-  assert.match(html, /data-action="previous"[^>]*>← Précédent</);
-  assert.match(html, /data-action="code"[^>]*>Voir le code</);
-  assert.match(html, /data-action="next"[^>]*>Suivant →</);
-  assert.match(html, /data-action="finish"[^>]*>Fin</);
+  assert.match(html, /data-action="previous"[^>]*>← Previous</);
+  assert.match(html, /data-action="code"[^>]*>View code</);
+  assert.match(html, /data-action="next"[^>]*>Next →</);
+  assert.match(html, /data-action="finish"[^>]*>Finish</);
 });
 
 test("createTourWebviewHtml disables navigation only at the tour bounds", () => {
@@ -125,7 +125,7 @@ test("createTourWebviewHtml carries the series transitions at the tour bounds", 
   );
   assert.match(
     transitionalLastStep,
-    /data-action="previous" data-tour="1 - Previous Tour">← Précédent</
+    /data-action="previous" data-tour="1 - Previous Tour">← Previous</
   );
   assert.doesNotMatch(transitionalLastStep, /data-action="previous" disabled/);
 });
@@ -155,24 +155,24 @@ test("createTourWebviewHtml exposes the edit entry points only for editable tour
     "test-nonce"
   );
 
-  assert.match(html, /data-action="edit"[^>]*>Éditer l'étape</);
+  assert.match(html, /data-action="edit"[^>]*>Edit step</);
   // The existing recorder commands stay reachable from the panel as plain
   // buttons, one per documented action: step title, anchor and step order.
   assert.match(
     html,
-    /data-action="editCommand" data-command="codetour\.changeTourStepTitle"[^>]*>Renommer l'étape</
+    /data-action="editCommand" data-command="codetour\.changeTourStepTitle"[^>]*>Rename step</
   );
   assert.match(
     html,
-    /data-action="editCommand" data-command="codetour\.changeTourStepLine"[^>]*>Changer l'ancre</
+    /data-action="editCommand" data-command="codetour\.changeTourStepLine"[^>]*>Change anchor</
   );
   assert.match(
     html,
-    /data-action="editCommand" data-command="codetour\.moveTourStepBack"[^>]*>Déplacer l'étape ↑</
+    /data-action="editCommand" data-command="codetour\.moveTourStepBack"[^>]*>Move step up</
   );
   assert.match(
     html,
-    /data-action="editCommand" data-command="codetour\.moveTourStepForward"[^>]*>Déplacer l'étape ↓</
+    /data-action="editCommand" data-command="codetour\.moveTourStepForward"[^>]*>Move step down</
   );
 
   // A tour without edit permissions presents no active editing action at
@@ -212,7 +212,7 @@ test("createTourWebviewHtml renders an editing view with source, preview and sav
   );
 
   // The Markdown source, mermaid fences included, stays editable text.
-  assert.match(html, /<label for="tour-step-source">Source Markdown<\/label>/);
+  assert.match(html, /<label for="tour-step-source">Markdown source<\/label>/);
   assert.match(
     html,
     /<textarea id="tour-step-source"[^>]*>Edited \*\*source\*\* with &lt;markup&gt;/
@@ -225,8 +225,8 @@ test("createTourWebviewHtml renders an editing view with source, preview and sav
   assert.match(html, /<p>Preview of the draft\.<\/p>/);
 
   // Save and cancel are keyboard-reachable buttons with explicit labels.
-  assert.match(html, /data-action="save"[^>]*>Sauvegarder</);
-  assert.match(html, /data-action="cancel"[^>]*>Annuler</);
+  assert.match(html, /data-action="save"[^>]*>Save</);
+  assert.match(html, /data-action="cancel"[^>]*>Cancel</);
 
   // While editing, the reading command buttons are not needed to edit the
   // text; the editing view keeps only its own actions and the navigation.
@@ -242,12 +242,12 @@ test("createTourWebviewHtml keeps the navigation and editing keyboard accessible
   // The step navigation and the edit actions are labelled landmarks, and
   // the progress bar carries an accessible name since its value has no
   // text of its own.
-  assert.match(html, /<nav aria-label="Navigation du tour">/);
+  assert.match(html, /<nav aria-label="Tour navigation">/);
   assert.match(
     html,
-    /<progress value="2" max="3" aria-label="Progression du tour">/
+    /<progress value="2" max="3" aria-label="Tour progress">/
   );
-  assert.match(html, /<nav class="actions" aria-label="Actions d'édition">/);
+  assert.match(html, /<nav class="actions" aria-label="Editing actions">/);
 
   // Focus stays visible on every keyboard-reachable control.
   assert.match(
@@ -258,8 +258,8 @@ test("createTourWebviewHtml keeps the navigation and editing keyboard accessible
   // Every action stays a native button with an explicit text label, so the
   // whole panel is operable from the keyboard without a pointer.
   assert.doesNotMatch(html, /<div data-action=/);
-  assert.match(html, /data-action="previous"[^>]*>← Précédent</);
-  assert.match(html, /data-action="edit"[^>]*>Éditer l'étape</);
+  assert.match(html, /data-action="previous"[^>]*>← Previous</);
+  assert.match(html, /data-action="edit"[^>]*>Edit step</);
 
   // The editing view keeps the same landmarks, its labelled source field
   // and its visible focus while the author edits.
@@ -272,12 +272,12 @@ test("createTourWebviewHtml keeps the navigation and editing keyboard accessible
     },
     "test-nonce"
   );
-  assert.match(editing, /<nav aria-label="Navigation du tour">/);
+  assert.match(editing, /<nav aria-label="Tour navigation">/);
   assert.match(
     editing,
-    /<div class="edit-actions" role="group" aria-label="Actions d'édition">/
+    /<div class="edit-actions" role="group" aria-label="Editing actions">/
   );
-  assert.match(editing, /<label for="tour-step-source">Source Markdown<\/label>/);
+  assert.match(editing, /<label for="tour-step-source">Markdown source<\/label>/);
   assert.match(editing, /button:focus-visible/);
 });
 
