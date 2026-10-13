@@ -353,6 +353,25 @@ At any time, you can end the current code tour by means of one of the following 
 - Click the stop button next to the active tour in the `CodeTour` tree
 - Running the `CodeTour: End Tour` command in the command palette
 
+## Reading Tours in a Side Panel
+
+By default, tour explanations display as inline comments within your editor. If you'd prefer to keep your editor clear of comments, you can instead read tours in a side panel, which is displayed next to your code:
+
+1. Set the `codetour.playbackMode` setting to `webview` (see [below](#configuration-settings)), or
+2. Run the `CodeTour: Toggle Tour Playback Mode` command while taking a tour.
+
+Both actions switch the presentation of the current tour without restarting it: the same tour resumes at the same step, with the same progress, and the choice is remembered in your VS Code settings for your next tours. The toggle command is available at any time while you're taking a tour, so you can switch back to the inline comments whenever you prefer.
+
+When the webview mode is active:
+
+- Your editor only displays the small CodeTour logo in the gutter, at the line the current step is anchored to. This anchor is visible even if you've hidden the general [tour markers](#tour-markers), and no comment thread or description text is displayed in the editor or the `Comments` panel.
+- The side panel displays the tour title, your progression, the step's title and target (file, line, directory or diff), the full step content (including [Mermaid diagrams](#code-blocks), tables and images), and the navigation actions below the explanation. The panel follows VS Code's light/dark theme, and everything is reachable with the keyboard: navigation buttons, the Markdown source editor, and the save/discard prompts all expose a visible focus.
+- Opening a step still opens the associated file, selection or diff in the other column, and closing the panel doesn't end the tour. Run `CodeTour: Resume Current Tour` (or click the status bar item) to bring the panel back at the current step.
+
+Editing works from the panel as well: the `Éditer l'étape` action presents the step's Markdown source, a live preview (Mermaid diagrams included) and `Sauvegarder`/`Annuler` actions, and saves into the existing `.tour` file, so edited tours stay compatible with every other tool. If you navigate away from a step with unsaved changes, CodeTour asks whether to save, discard or keep editing, and a failed save never loses your draft: it stays in memory for the session, across mode switches and panel re-opens.
+
+The playback mode is purely a presentation choice: no existing tour needs to be migrated, and the tour recorder always uses the comment-based editing flow, regardless of this setting.
+
 ## Maintaining Tours
 
 In order to ensure that your tours stay up-to-date as your codebase evolves, you can install one of the following tasks as part of your CI pipeline, in order to detect "tour drift" in response to PRs/commits/etc.
@@ -386,7 +405,9 @@ In addition to the `CodeTour` tree view and the status bar item, the CodeTour ex
 
 - `CodeTour: Record Tour` - Starts the [tour recorder](#authoring-tours), which allows you to create a new tour by creating a sequence of steps.
 
-* `CodeTour: Start Tour` - Starts a tour for the currently opened workspace. This command is only visible if the current workspace has one or more code tours.
+- `CodeTour: Start Tour` - Starts a tour for the currently opened workspace. This command is only visible if the current workspace has one or more code tours.
+
+* `CodeTour: Toggle Tour Playback Mode` - Switches the presentation of the active tour between inline comments and the [side reading panel](#reading-tours-in-a-side-panel). This command is only visible while you're actively playing a tour.
 
 * `CodeTour: Refresh Tours` - Refreshes the [`CodeTour` view](#tree-view), which can be handy if you'd created/modified/deleted tour files on disk. This command is only visible if the current workspace has one or more code tours.
 
@@ -413,6 +434,8 @@ The `CodeTour` extension contributes the following settings:
 - `Codetour > Show Markers` - Specifies whether or not to show [tour markers](#tour-markers). Defaults to `true`.
 
 - `Codetour > Custom Tour Directory` - Specifies the name of a custom directory path that tours can be stored in within an opened workspace (e.g. `docs/tours`).
+
+- `Codetour > Playback Mode` - Specifies how tour steps are presented while reading: inline `comments` (the default) or a side `webview` panel (see [reading tours in a side panel](#reading-tours-in-a-side-panel)). This setting only affects the presentation; tour files and the recorder are unchanged.
 
 ### Keybindings
 
