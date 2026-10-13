@@ -66,7 +66,7 @@ exports.run = async function () {
     checks.push("native toggle preserves current step");
     await vscode.commands.executeCommand("codetour.togglePlaybackMode");
     await observe({ step: 1, text: "SMOKE_SECOND" });
-    
+
     await observe({step:1, text:"SMOKE_SECOND", action:"edit"});
     await observe({step:1, source:"SMOKE_SECOND", focused:"tour-step-source"});
     let richDraft = "SAVED_REAL_UI\n\n| One | Two |\n| --- | --- |\n| A | B |\n\n**Diagram — Real smoke**\n\n\`\`\`mermaid\nflowchart TD\nA[Start] --> B[Done]\n\`\`\`";
