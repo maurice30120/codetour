@@ -391,6 +391,9 @@ export function createVscodeHost(options: HostOptions = {}) {
   const configurationUpdates: [string, string, unknown, number][] = [];
   const fileWrites: [string, string][] = [];
   const messages: string[] = [];
+  const modalPrompts: { message: string; items: string[] }[] = [];
+  const modalResponses: string[] = [];
+  const pendingModals: ((choice: string | undefined) => void)[] = [];
   const externalLinks: Uri[] = [];
   const documents = new Map<string, MockTextDocument>();
   const files = new Map<string, string>();
@@ -763,9 +766,17 @@ export function createVscodeHost(options: HostOptions = {}) {
       messages.push(message);
       return Promise.resolve(undefined);
     },
-    showInformationMessage: (message: string, ..._items: string[]) => {
+    showInformationMessage: (message: string, ...items: string[]) => {
       messages.push(message);
-      return Promise.resolve(undefined);
+      modalPrompts.push({ message, items });
+      // A modal without a queued answer stays open until the test answers
+      // it, like a real VS Code notification the user hasn't clicked yet.
+      if (modalResponses.length > 0) {
+        return Promise.resolve(modalResponses.shift());
+      }
+      return new Promise<string | undefined>(resolve => {
+        pendingModals.push(resolve);
+      });
     },
     showErrorMessage: (message: string) => {
       messages.push(message);
@@ -876,6 +887,16 @@ export function createVscodeHost(options: HostOptions = {}) {
     }
   }
 
+  // Answers an already-shown modal, or queues the answer for the next one.
+  // `undefined` emulates dismissing the dialog without choosing.
+  const respondToModal = (choice: string | undefined) => {
+    if (pendingModals.length > 0) {
+      pendingModals.shift()!(choice);
+    } else {
+      modalResponses.push(choice as string);
+    }
+  };
+
   return {
     vscode,
     rootUri,
@@ -885,6 +906,20 @@ export function createVscodeHost(options: HostOptions = {}) {
     configurationUpdates,
     fileWrites,
     messages,
+    // Every modal prompt shown so far, with the choices it offered.
+    modalPrompts: () => [...modalPrompts],
+    // Clears the recorded modal prompts, so a test starts from a clean slate.
+    resetModals: () => {
+      modalPrompts.length = 0;
+    },
+    // Answers the next shown modal with one of its choices; `undefined`
+    // emulates dismissal. An answer can also be queued before it is shown.
+    respondToModal,
+    // Waits for a modal to be shown and answers it with the given choice.
+    answerModal: async (choice: string | undefined) => {
+      await waitFor(() => modalPrompts.length > 0);
+      respondToModal(choice);
+    },
     externalLinks,
     decorationTypes,
     visibleTextEditors,
