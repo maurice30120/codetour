@@ -431,7 +431,7 @@ test("the panel routes to the existing recorder commands with permissions", asyn
   );
 });
 
-test("finishing the tour during an edit clears the editing state and keeps the draft in memory", async () => {
+test("finishing the tour during an edit prompts for the draft before ending", async () => {
   await host.vscode.commands.executeCommand("codetour.startTour", tour);
   await host.waitFor(() => panelHtml().includes("1 / 2"));
   await enterEditing();
@@ -439,21 +439,21 @@ test("finishing the tour during an edit clears the editing state and keeps the d
     type: "draft",
     tour: tour.id,
     step: 0,
-    text: "Draft kept across the end of the tour."
+    text: "Draft resolved at the end of the tour."
   });
-  await host.waitFor(() => !!postedPreview(/Draft kept across the end/));
+  await host.waitFor(() => !!postedPreview(/Draft resolved at the end/));
 
-  await host.vscode.commands.executeCommand("codetour.finishTour");
+  // Finishing is a step exit like any other: the draft is proposed first
+  // and the tour only ends once the author resolved it.
+  const finish = host.vscode.commands.executeCommand("codetour.finishTour");
+  await host.waitFor(() => host.modalPrompts().length === 1);
+  host.respondToModal("Discard");
+  await finish;
   await host.waitFor(() => store.activeTour === null);
 
-  // Ending the tour removes the presentation and leaves clean editing
-  // flags, without silently dropping the in-memory draft.
   assert.equal(store.isEditing, false);
   assert.equal(host.contexts.get("codetour:isEditing"), false);
   assert.equal(host.livePanels("codetour.tour").length, 0);
   assert.equal(getEditingSession(), undefined);
-  assert.equal(
-    getStepDraft(tour.id, 0),
-    "Draft kept across the end of the tour."
-  );
+  assert.equal(getStepDraft(tour.id, 0), undefined);
 });
