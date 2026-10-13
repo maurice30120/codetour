@@ -141,6 +141,7 @@ async function observe(port, expected) {
             && data.step === String(expected.step)
             && (!expected.text || data.text.includes(expected.text))
             && (expected.source === undefined || data.source === expected.source)
+            && (!expected.reading || data.source === undefined)
             && (!expected.png || data.images.some(i => i.src.startsWith("data:image/png;") && i.width > 0))
             && (!expected.theme || data.theme === expected.theme)
             && (!expected.focused || data.focused === expected.focused);
