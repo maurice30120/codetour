@@ -132,7 +132,9 @@ exports.run = async function () {
       ]
     };
     // Initialize the real built-in Git extension before exercising snapshots.
-    await vscode.extensions.getExtension("vscode.git").activate();
+    const gitApi = (await vscode.extensions.getExtension("vscode.git").activate()).getAPI(1);
+    for (let i = 0; i < 100 && !gitApi.getRepository(vscode.Uri.joinPath(workspace, "diff.js")); i++) await pause(100);
+    assert.ok(gitApi.getRepository(vscode.Uri.joinPath(workspace, "diff.js")), "Real Git extension discovers isolated fixture repository");
     await vscode.commands.executeCommand("codetour.startTour", diffTour, 0, workspace);
     await observe({step:0, text:"SMOKE_DIFF"});
     let diffEditors;
