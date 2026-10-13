@@ -7,7 +7,7 @@ import { store } from "../store";
 import { getStepLabel } from "../utils";
 import { renderPreviewDescription } from "./description";
 import { createDescriptionWebviewHtml } from "./markdown";
-import { openDescriptionLink } from "./webviewLinks";
+import { openDescriptionLinkOrReport } from "./webviewLinks";
 
 const VIEW_TYPE = "codetour.description";
 
@@ -46,11 +46,7 @@ export async function showStepDescription(): Promise<void> {
     });
     panel.webview.onDidReceiveMessage(async message => {
       if (message?.type === "openLink" && typeof message.href === "string") {
-        try {
-          await openDescriptionLink(message.href, linkWorkspaceRoot);
-        } catch {
-          vscode.window.showErrorMessage("Unable to open this description link.");
-        }
+        await openDescriptionLinkOrReport(message.href, linkWorkspaceRoot);
       }
     });
   } else {

@@ -13,7 +13,7 @@ import {
 } from "./tourWebviewEditing";
 import { getEditingSession, getStepDraft } from "./tourDrafts";
 import { createTourWebviewHtml } from "./tourWebviewHtml";
-import { openDescriptionLink } from "./webviewLinks";
+import { openDescriptionLinkOrReport } from "./webviewLinks";
 
 const VIEW_TYPE = "codetour.tour";
 
@@ -213,13 +213,7 @@ export async function renderTourStep(): Promise<void> {
           break;
         case "openLink":
           if (typeof message.href === "string") {
-            try {
-              await openDescriptionLink(message.href, linkWorkspaceRoot);
-            } catch {
-              vscode.window.showErrorMessage(
-                "Unable to open this description link."
-              );
-            }
+            await openDescriptionLinkOrReport(message.href, linkWorkspaceRoot);
           }
           break;
       }

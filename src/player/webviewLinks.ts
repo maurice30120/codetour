@@ -54,3 +54,19 @@ export async function openDescriptionLink(
     );
   }
 }
+
+// Opens a link clicked in an extension-owned description surface and reports
+// the failure instead of letting it break the surface. Every description
+// webview routes its openLink messages through here.
+export async function openDescriptionLinkOrReport(
+  href: string,
+  workspaceRoot?: vscode.Uri
+): Promise<void> {
+  try {
+    await openDescriptionLink(href, workspaceRoot);
+  } catch {
+    vscode.window.showErrorMessage(
+      "Unable to open this description link."
+    );
+  }
+}

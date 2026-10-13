@@ -69,6 +69,13 @@ test("createTourWebviewHtml forwards clicks through postMessage", () => {
   );
   assert.match(html, /vscode\.postMessage\(\{ type: "openLink", href \}\)/);
   assert.match(html, /if \(href\.startsWith\("#"\)\) return/);
+
+  // The recorder command buttons of the reading view carry their command
+  // through the message, so the panel routes them like the editing view.
+  assert.match(
+    html,
+    /vscode\.postMessage\(\{ type: "editCommand", command: button\.dataset\.command \}\)/
+  );
 });
 
 test("createTourWebviewHtml keeps a rich description readable in a narrow panel", () => {
