@@ -16,6 +16,7 @@ import {
 } from "./store/actions";
 import { discoverTours as _discoverTours } from "./store/provider";
 import { registerDesktopIntegrations } from "./desktopIntegration";
+import { registerTourWebviewPrototype } from "./player/tourWebview.prototype";
 
 /**
  * Partage la découverte des visites entre l'ouverture normale du projet et
@@ -83,6 +84,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(notebookProvider);
   }
   registerPlayerModule(context);
+  registerTourWebviewPrototype(context);
   registerRecorderModule();
   registerLiveShareModule();
 

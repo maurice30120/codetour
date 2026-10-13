@@ -254,6 +254,11 @@
         "command": "codetour.viewNotebook",
         "title": "View Notebook",
         "category": "CodeTour IA"
+      },
+      {
+        "command": "codetour.prototypeWebview",
+        "title": "Prototype Tour WebView",
+        "category": "CodeTour IA"
       }
     ],
     "menus": {
@@ -381,6 +386,10 @@
         {
           "command": "codetour.viewNotebook",
           "when": "false"
+        },
+        {
+          "command": "codetour.prototypeWebview",
+          "when": "isDevelopment"
         }
       ],
       "comments/commentThread/title": [
@@ -719,7 +728,8 @@
     "watch": "webpack --mode development --watch",
     "package": "node scripts/package-extension.js",
     "vscode:prepublish": "npm run build",
-    "test": "npm run build && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test && npm --prefix packages/description-renderer test && npm --prefix packages/mcp-server test"
+    "test": "npm run build && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test && npm --prefix packages/description-renderer test && npm --prefix packages/mcp-server test",
+    "prototype:webview": "npm run build && node scripts/tour-webview.prototype.js"
   },
   "prettier": {
     "arrowParens": "avoid",
