@@ -129,3 +129,31 @@ test("an older Mermaid preview never replaces newer plain text", async () => {
   await host.vscode.commands.executeCommand("codetour.cancelTourStepEditing");
   await host.vscode.commands.executeCommand("codetour.endTour");
 });
+
+
+test("typing during a successful save preserves the newer unsaved draft", async () => {
+  await start();
+  await draft("Saved snapshot");
+  const originalWrite = host.vscode.workspace.fs.writeFile;
+  let releaseWrite!: () => Promise<void>;
+  host.vscode.workspace.fs.writeFile = async (uri, bytes) => new Promise<void>(resolve => {
+    releaseWrite = async () => { await originalWrite(uri, bytes); resolve(); };
+  });
+  panel().receive({ type: "save", tour: tour.id, step: 0, text: "Saved snapshot" });
+  await host.waitFor(() => !!releaseWrite);
+  panel().receive({ type: "draft", tour: tour.id, step: 0, text: "Newer unsaved typing" });
+  await host.waitFor(() => host.postedMessages().some((message: unknown) => (message as { html?: string }).html?.includes("Newer unsaved typing")));
+  await releaseWrite();
+  host.vscode.workspace.fs.writeFile = originalWrite;
+  await host.waitFor(() => store.activeTour.tour.steps[0].description === "Saved snapshot");
+  await host.waitFor(() => host.panelHtml().includes("Newer unsaved typing"));
+  assert.equal(store.isEditing, true);
+  assert.match(host.panelHtml(), /tour-step-source/);
+  host.respondToModal("Cancel");
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  assert.equal(store.activeTour.step, 0);
+  await host.vscode.commands.executeCommand("codetour.saveTourStep");
+  assert.equal(store.activeTour.tour.steps[0].description, "Newer unsaved typing");
+  assert.equal(store.isEditing, false);
+  await host.vscode.commands.executeCommand("codetour.endTour");
+});
