@@ -121,7 +121,6 @@ test("createTourWebviewHtml carries the series transitions at the tour bounds", 
   );
   assert.doesNotMatch(transitionalLastStep, /data-action="previous" disabled/);
 });
-});
 
 test("createTourWebviewHtml keeps the shared content policy and sanitization", () => {
   const html = createTourWebviewHtml(

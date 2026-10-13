@@ -240,14 +240,12 @@ test("closing the panel during a pending mermaid render keeps the latest request
   host.livePanels("codetour.tour")[0]!.dispose();
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  // The close ends the presentation, not the tour, and any delayed render
-  // shows the step the reader last requested — never an older step.
+  // The close ends the presentation, not the tour: the requested step is
+  // kept, and the delayed mermaid render neither reopens the closed panel
+  // nor resurrects an older step behind the reader's back.
   assert.equal(store.activeTour?.step, 0);
   assert.equal(host.contexts.get("codetour:inTour"), true);
-  assert.equal(host.livePanels("codetour.tour").length, 1);
-  assert.match(panelHtml(), /1 \/ 3/);
-  assert.match(panelHtml(), /alt="Diagram — Flow"/);
-  assert.doesNotMatch(panelHtml(), /<h1>Broken diagram<\/h1>/);
+  assert.equal(host.livePanels("codetour.tour").length, 0);
 
   // The reader continues from the requested step.
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
