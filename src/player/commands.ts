@@ -213,6 +213,26 @@ export function registerPlayerCommands() {
 
   vscode.commands.registerCommand(`${EXTENSION_NAME}.resumeTour`, focusPlayer);
 
+  // Switches the presentation of the active tour between the native comment
+  // threads and the reading webview. The reaction in the player module
+  // re-renders the current step in the newly selected mode.
+  vscode.commands.registerCommand(
+    `${EXTENSION_NAME}.togglePlaybackMode`,
+    async () => {
+      const nextMode =
+        store.playbackMode === "webview" ? "comments" : "webview";
+      store.playbackMode = nextMode;
+
+      await vscode.workspace
+        .getConfiguration("codetour")
+        .update(
+          "playbackMode",
+          nextMode,
+          vscode.ConfigurationTarget.Global
+        );
+    }
+  );
+
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.openTourFile`,
     async () => {

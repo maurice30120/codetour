@@ -74,6 +74,15 @@
           "type": "string",
           "default": null,
           "description": "Specifies a custom location to use when discovering tours."
+        },
+        "codetour.playbackMode": {
+          "type": "string",
+          "enum": [
+            "comments",
+            "webview"
+          ],
+          "default": "comments",
+          "description": "Specifies how tour steps are presented while reading: inline comments or a side webview panel."
         }
       }
     },
@@ -247,6 +256,11 @@
         "icon": "$(play)"
       },
       {
+        "command": "codetour.togglePlaybackMode",
+        "title": "Toggle Tour Playback Mode",
+        "category": "CodeTour IA"
+      },
+      {
         "command": "codetour.unmakeTourPrimary",
         "title": "Unmake Primary"
       },
@@ -281,6 +295,10 @@
         {
           "command": "codetour.startTour",
           "when": "codetour:hasTours"
+        },
+        {
+          "command": "codetour.togglePlaybackMode",
+          "when": "codetour:inTour"
         },
         {
           "command": "codetour.addDirectoryStep",
