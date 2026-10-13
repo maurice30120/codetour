@@ -10,6 +10,8 @@ La notification « CodeTour IA est chargé en mode développement » propose aus
 
 La visibilité de la commande utilise `codetour:prototypeAvailable`, activé par l’extension uniquement en développement. Le contexte VS Code `isDevelopment` concerne le développement de VS Code lui-même et masquait la commande avec la version distribuée. Vérification : `node scripts/check-prototype-command.js`.
 
+Le rendu construit uniquement la variante sélectionnée. Construire les trois variantes à chaque fois provoquait « Input data should be a String » : la vue C lisait les descriptions de toutes les étapes alors que A/B n’en rendaient qu’une. Vérification des trois dispositions, de la navigation et des messages des boutons : `node scripts/check-prototype-render.js`.
+
 - A : une étape à la fois, navigation en bas.
 - B : sommaire latéral, navigation en haut de l’explication.
 - C : toutes les explications dans un document, avec accès au code par étape.
