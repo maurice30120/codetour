@@ -69,7 +69,7 @@ exports.run = async function () {
     
     await observe({step:1, text:"SMOKE_SECOND", action:"edit"});
     await observe({step:1, source:"SMOKE_SECOND", focused:"tour-step-source"});
-    let richDraft = "SAVED_REAL_UI\n\n| One | Two |\n| --- | --- |\n| A | B |\n\n**Diagram — Real smoke**\n\n\`\`\`mermaid\ngraph TD\nA[Start] --> B[Done]\n\`\`\`";
+    let richDraft = "SAVED_REAL_UI\n\n| One | Two |\n| --- | --- |\n| A | B |\n\n**Diagram — Real smoke**\n\n\`\`\`mermaid\nflowchart TD\nA[Start] --> B[Done]\n\`\`\`";
     await observe({step:1, input:richDraft});
     await observe({step:1, source:richDraft, png:true});
     assert.equal(JSON.parse(fs.readFileSync(tourPath)).steps[1].description, "SMOKE_SECOND", "Input remains unsaved");
@@ -107,12 +107,14 @@ exports.run = async function () {
 
     await vscode.workspace.getConfiguration("workbench").update("colorTheme", "Default Light Modern", vscode.ConfigurationTarget.Global);
     const light = await observe({step:1, theme:"vscode-light", png:true, width:1000, screenshot:"webview-light-narrow", focus:'button[data-action="edit"]'});
+    assert.ok(light.match.width <= 480, "Actual light WebView viewport is narrow");
     assert.equal(light.match.overflow, false, "Light narrow WebView has no horizontal overflow");
     await observe({step:1, focused:"edit", key:"Tab"});
     const keyboardFocus = await observe({step:1, focused:"editCommand"});
     assert.equal(keyboardFocus.match.focusVisible, true, "Keyboard Tab gives visible focus");
     await vscode.workspace.getConfiguration("workbench").update("colorTheme", "Default Dark Modern", vscode.ConfigurationTarget.Global);
     const dark = await observe({step:1, theme:"vscode-dark", png:true, screenshot:"webview-dark-narrow"});
+    assert.ok(dark.match.width <= 480, "Actual dark WebView viewport is narrow");
     assert.equal(dark.match.overflow, false, "Dark narrow WebView has no horizontal overflow");
     assert.equal(dark.match.progress, 2, "Real progress element tracks last step");
     checks.push("light and dark screenshots, keyboard focus and progress verified");
@@ -120,6 +122,38 @@ exports.run = async function () {
     await vscode.commands.executeCommand("codetour.endTour");
     await observe({ absent: true });
     checks.push("end disposes real WebView");
+    const refs = JSON.parse(fs.readFileSync(path.join(temp, "git-fixture.json")));
+    const diffTour = {
+      id: vscode.Uri.joinPath(workspace, "diff-smoke.tour").toString(),
+      title:"Real Git diff smoke", baseRef:refs.baseRef, ref:refs.headRef,
+      steps:[
+        {file:"diff.js", display:"diff", line:2, description:"SMOKE_DIFF"},
+        {description:"SMOKE_UNANCHORED_CONTENT"}
+      ]
+    };
+    // Initialize the real built-in Git extension before exercising snapshots.
+    const gitApi = (await vscode.extensions.getExtension("vscode.git").activate()).getAPI(1);
+    for (let i = 0; i < 100 && !gitApi.getRepository(vscode.Uri.joinPath(workspace, "diff.js")); i++) await pause(100);
+    assert.ok(gitApi.getRepository(vscode.Uri.joinPath(workspace, "diff.js")), "Real Git extension discovers isolated fixture repository");
+    await vscode.commands.executeCommand("codetour.startTour", diffTour, 0, workspace);
+    await observe({step:0, text:"SMOKE_DIFF"});
+    let diffEditors;
+    for (let i = 0; i < 100; i++) {
+      diffEditors = vscode.window.visibleTextEditors.filter(e => e.document.uri.scheme === "git" && e.document.uri.fsPath.endsWith("diff.js"));
+      if (diffEditors.length === 2) break;
+      await pause(100);
+    }
+    assert.equal(diffEditors.length, 2, "Real diff displays original and modified snapshot documents");
+    const snapshots = diffEditors.map(e => ({ref:JSON.parse(e.document.uri.query).ref, text:e.document.getText()}));
+    assert.ok(snapshots.some(s => s.ref === refs.baseRef && s.text.includes("const revised = 1;")), "Original real Git snapshot");
+    assert.ok(snapshots.some(s => s.ref === refs.headRef && s.text.includes("const revised = 2;")), "Modified real Git snapshot");
+    checks.push("real Git diff opens exact original and modified revisions");
+    await vscode.commands.executeCommand("codetour.nextTourStep");
+    await observe({step:1, text:"SMOKE_UNANCHORED_CONTENT"});
+    checks.push("unanchored content step follows real diff playback");
+    await vscode.commands.executeCommand("codetour.endTour");
+    await observe({absent:true});
+
     fs.writeFileSync(path.join(temp, "result.json"), JSON.stringify({ ok: true, checks }));
   } catch (error) {
     fs.writeFileSync(path.join(temp, "result.json"), JSON.stringify({ ok: false, checks, error: error.stack || String(error) }));
