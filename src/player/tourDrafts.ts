@@ -27,11 +27,7 @@ export function getStepDraft(tourId: string, step: number): string | undefined {
 }
 
 // Records the current draft of the given step.
-export function setStepDraft(
-  tourId: string,
-  step: number,
-  text: string
-): void {
+export function setStepDraft(tourId: string, step: number, text: string): void {
   drafts.set(draftKey(tourId, step), text);
 }
 

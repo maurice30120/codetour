@@ -143,7 +143,9 @@ function postedPreview(match: RegExp): PanelMessage | undefined {
 
 async function enterEditing() {
   panel().receive({ type: "edit" });
-  await host.waitFor(() => !!panelHtml().match(/<textarea id="tour-step-source"/));
+  await host.waitFor(
+    () => !!panelHtml().match(/<textarea id="tour-step-source"/)
+  );
 }
 
 test("an editable tour presents the edit entry points in the panel", async () => {
@@ -173,10 +175,7 @@ test("entering edit shows the source, keeps the anchor only and no native thread
   assert.equal(host.liveThreads().length, 0);
 
   // The initial preview renders the draft through the shared pipeline.
-  await host.waitFor(
-    () => !!panelHtml().match(/data:image\/png;base64/),
-    5000
-  );
+  await host.waitFor(() => !!panelHtml().match(/data:image\/png;base64/), 5000);
   assert.match(panelHtml(), /alt="Diagram — Flow"/);
   assert.equal(getStepDraft(tour.id, 0), storeStepDescription(0));
 });
@@ -326,7 +325,12 @@ test("a save error is reported and preserves the draft for a retry", async () =>
   });
   await host.waitFor(() => !!postedPreview(/Retry draft/));
 
-  panel().receive({ type: "save", tour: tour.id, step: 0, text: "Retry draft." });
+  panel().receive({
+    type: "save",
+    tour: tour.id,
+    step: 0,
+    text: "Retry draft."
+  });
   await host.waitFor(() =>
     host.messages.some(message => message.includes("Unable to save"))
   );
@@ -344,7 +348,12 @@ test("a save error is reported and preserves the draft for a retry", async () =>
 
   // Once the write works again, the same draft saves.
   host.allowWrite("/workspace/.tours/editing.tour");
-  panel().receive({ type: "save", tour: tour.id, step: 0, text: "Retry draft." });
+  panel().receive({
+    type: "save",
+    tour: tour.id,
+    step: 0,
+    text: "Retry draft."
+  });
   await host.waitFor(
     () =>
       panelHtml().includes("Retry draft.") &&

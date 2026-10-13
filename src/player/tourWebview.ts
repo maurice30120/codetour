@@ -11,10 +11,7 @@ import {
   saveStepDraft,
   updateStepDraft
 } from "./tourWebviewEditing";
-import {
-  getEditingSession,
-  getStepDraft
-} from "./tourDrafts";
+import { getEditingSession, getStepDraft } from "./tourDrafts";
 import { createTourWebviewHtml } from "./tourWebviewHtml";
 import { openDescriptionLink } from "./webviewLinks";
 
@@ -84,9 +81,10 @@ export async function renderTourStep(): Promise<void> {
   const editingThisStep =
     editingSession?.tourId === tour.id && editingSession?.step === stepNumber;
   const source = editingThisStep
-    ? getStepDraft(tour.id, stepNumber) ?? step.description
+    ? (getStepDraft(tour.id, stepNumber) ?? step.description)
     : undefined;
-  const content = editingThisStep && source !== undefined ? source : step.description;
+  const content =
+    editingThisStep && source !== undefined ? source : step.description;
   const description = await renderPreviewDescription(content, undefined, {
     tour,
     tours: activeTour.tours,

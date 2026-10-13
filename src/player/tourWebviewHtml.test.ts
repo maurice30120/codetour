@@ -242,5 +242,8 @@ test("createTourWebviewHtml wires the draft messages and focuses the editor", ()
   assert.match(html, /type: "save"/);
   assert.match(html, /type: "cancel"/);
   // The same content policy covers the editing view.
-  assert.match(html, /img-src data: https:; style-src 'unsafe-inline'; script-src 'nonce-test-nonce'/);
+  assert.match(
+    html,
+    /img-src data: https:; style-src 'unsafe-inline'; script-src 'nonce-test-nonce'/
+  );
 });

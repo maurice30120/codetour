@@ -22,9 +22,7 @@ function isTourId(value: unknown): value is string {
 }
 
 function isStepNumber(value: unknown): value is number {
-  return (
-    typeof value === "number" && Number.isInteger(value) && value >= 0
-  );
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 // Enters the editing session of the active step, without ever requiring a
@@ -149,10 +147,7 @@ export async function saveStepDraft(
 
 // Abandons the draft of the active step: the registered content is restored
 // in the panel and the in-memory draft is dropped.
-export function cancelStepEditing(
-  tourId: unknown,
-  step: unknown
-): boolean {
+export function cancelStepEditing(tourId: unknown, step: unknown): boolean {
   if (!isTourId(tourId) || !isStepNumber(step)) {
     return false;
   }
@@ -200,9 +195,7 @@ const PANEL_EDIT_COMMANDS: Record<
 // Executes one of the panel's editing commands on the active step. The
 // existing recorder commands stay the single implementation: both playback
 // presentations route to them.
-export async function executePanelEditCommand(
-  command: unknown
-): Promise<void> {
+export async function executePanelEditCommand(command: unknown): Promise<void> {
   const activeTour = store.activeTour;
   if (typeof command !== "string" || !activeTour || !store.canEditTour) {
     return;
@@ -215,8 +208,8 @@ export async function executePanelEditCommand(
 
   const { tour, step } = activeTour;
   if (
-    entry.canMove === -1 && step === 0 ||
-    entry.canMove === 1 && step >= tour.steps.length - 1
+    (entry.canMove === -1 && step === 0) ||
+    (entry.canMove === 1 && step >= tour.steps.length - 1)
   ) {
     return;
   }
