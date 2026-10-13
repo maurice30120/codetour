@@ -67,7 +67,7 @@ export function createTourWebviewHtml(
   // view as plain buttons. They are only presented when the tour is
   // editable and they always route to the very same commands.
   const editActions = model.editable
-    ? `\n  <nav class="actions">
+    ? `\n  <nav class="actions" aria-label="Actions d'édition">
     <button data-action="edit">Éditer l'étape</button>
     <button data-action="editCommand" data-command="codetour.changeTourStepTitle">Renommer l'étape</button>
     <button data-action="editCommand" data-command="codetour.changeTourStepLine">Changer l'ancre</button>
@@ -116,7 +116,7 @@ export function createTourWebviewHtml(
   <header>
     <small>${escapeHtml(model.tourTitle)}</small>
     <p>${stepPosition} / ${model.stepCount}</p>
-    <progress value="${stepPosition}" max="${model.stepCount}"></progress>
+    <progress value="${stepPosition}" max="${model.stepCount}" aria-label="Progression du tour"></progress>
   </header>
   <article>
     <h1>${escapeHtml(model.stepTitle)}</h1>${anchor}
@@ -127,11 +127,11 @@ export function createTourWebviewHtml(
     ${renderedContent}
     </div>
   </article>
-  <div class="edit-actions">
+  <div class="edit-actions" role="group" aria-label="Actions d'édition">
     <button data-action="save">Sauvegarder</button>
     <button data-action="cancel">Annuler</button>
   </div>
-  <nav>
+  <nav aria-label="Navigation du tour">
     <button data-action="previous"${previousDisabled}${previousTour}>← Précédent</button>
     <button data-action="code">Voir le code</button>
     <button data-action="next"${nextDisabled}>Suivant →</button>
@@ -223,13 +223,13 @@ export function createTourWebviewHtml(
   <header>
     <small>${escapeHtml(model.tourTitle)}</small>
     <p>${stepPosition} / ${model.stepCount}</p>
-    <progress value="${stepPosition}" max="${model.stepCount}"></progress>
+    <progress value="${stepPosition}" max="${model.stepCount}" aria-label="Progression du tour"></progress>
   </header>
   <article>
     <h1>${escapeHtml(model.stepTitle)}</h1>${anchor}
     ${renderedContent}
   </article>
-  <nav>
+  <nav aria-label="Navigation du tour">
     <button data-action="previous"${previousDisabled}${previousTour}>← Précédent</button>
     <button data-action="code">Voir le code</button>
     <button data-action="next"${nextDisabled}>Suivant →</button>

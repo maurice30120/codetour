@@ -21,7 +21,7 @@ test("createTourWebviewHtml renders the layout A reading structure", () => {
   assert.match(html, /<header>/);
   assert.match(html, /<small>Tour of the codebase<\/small>/);
   assert.match(html, /<p>2 \/ 3<\/p>/);
-  assert.match(html, /<progress value="2" max="3"><\/progress>/);
+  assert.match(html, /<progress value="2" max="3" aria-label="Progression du tour"><\/progress>/);
 
   // Article: step title, anchor target and the shared description rendering.
   assert.match(html, /<article>/);
@@ -32,7 +32,7 @@ test("createTourWebviewHtml renders the layout A reading structure", () => {
 
   // Navigation sits below the explanation.
   const articleIndex = html.indexOf("<article>");
-  const navIndex = html.indexOf("<nav>");
+  const navIndex = html.indexOf("<nav");
   assert.ok(articleIndex < navIndex);
 
   assert.match(html, /data-action="previous"[^>]*>← Précédent</);
@@ -224,6 +224,54 @@ test("createTourWebviewHtml renders an editing view with source, preview and sav
   // While editing, the reading command buttons are not needed to edit the
   // text; the editing view keeps only its own actions and the navigation.
   assert.doesNotMatch(html, /data-action="editCommand"/);
+});
+
+test("createTourWebviewHtml keeps the navigation and editing keyboard accessible", () => {
+  const html = createTourWebviewHtml(
+    { ...baseModel(), editable: true },
+    "test-nonce"
+  );
+
+  // The step navigation and the edit actions are labelled landmarks, and
+  // the progress bar carries an accessible name since its value has no
+  // text of its own.
+  assert.match(html, /<nav aria-label="Navigation du tour">/);
+  assert.match(
+    html,
+    /<progress value="2" max="3" aria-label="Progression du tour">/
+  );
+  assert.match(html, /<nav class="actions" aria-label="Actions d'édition">/);
+
+  // Focus stays visible on every keyboard-reachable control.
+  assert.match(
+    html,
+    /button:focus-visible \{ outline: 2px solid var\(--vscode-focusBorder\); \}/
+  );
+
+  // Every action stays a native button with an explicit text label, so the
+  // whole panel is operable from the keyboard without a pointer.
+  assert.doesNotMatch(html, /<div data-action=/);
+  assert.match(html, /data-action="previous"[^>]*>← Précédent</);
+  assert.match(html, /data-action="edit"[^>]*>Éditer l'étape</);
+
+  // The editing view keeps the same landmarks, its labelled source field
+  // and its visible focus while the author edits.
+  const editing = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      editable: true,
+      editing: { source: "Draft" },
+      description: "<p>P</p>"
+    },
+    "test-nonce"
+  );
+  assert.match(editing, /<nav aria-label="Navigation du tour">/);
+  assert.match(
+    editing,
+    /<div class="edit-actions" role="group" aria-label="Actions d'édition">/
+  );
+  assert.match(editing, /<label for="tour-step-source">Source Markdown<\/label>/);
+  assert.match(editing, /button:focus-visible/);
 });
 
 test("createTourWebviewHtml wires the draft messages and focuses the editor", () => {

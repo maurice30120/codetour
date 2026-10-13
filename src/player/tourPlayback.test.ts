@@ -100,7 +100,7 @@ test("webview playback reads a step in a layout A panel with the logo alone at t
 
   const html = host.panelHtml();
   assert.match(html, /<small>Demo Tour<\/small>/);
-  assert.match(html, /<progress value="1" max="3">/);
+  assert.match(html, /<progress value="1" max="3" aria-label=/);
   assert.match(html, /<h1>Player entry<\/h1>/);
   assert.match(html, /<p>The player starts here\.<\/p>/);
   assert.match(html, /class="anchor">src\/player\.ts : 3</);
