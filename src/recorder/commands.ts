@@ -491,7 +491,12 @@ export function registerRecorderCommands() {
     `${EXTENSION_NAME}.editTour`,
     async (node: CodeTourNode | vscode.CommentThread) => {
       if (node instanceof CodeTourNode) {
-        await startCodeTour(node.tour);
+        const canEdit = store.activeTour?.tour.id === node.tour.id ? store.canEditTour : true;
+        if (!canEdit) {
+          vscode.window.showErrorMessage("This tour cannot be edited.");
+          return;
+        }
+        await startCodeTour(node.tour, undefined, undefined, false, canEdit);
         if (store.activeTour?.tour.id !== node.tour.id) return;
       }
       store.isRecording = false;
@@ -503,7 +508,12 @@ export function registerRecorderCommands() {
   vscode.commands.registerCommand(
     `${EXTENSION_NAME}.editTourAtStep`,
     async (node: CodeTourStepNode) => {
-      await startCodeTour(node.tour, node.stepNumber);
+      const canEdit = store.activeTour?.tour.id === node.tour.id ? store.canEditTour : true;
+      if (!canEdit) {
+        vscode.window.showErrorMessage("This tour cannot be edited.");
+        return;
+      }
+      await startCodeTour(node.tour, node.stepNumber, undefined, false, canEdit);
       if (store.activeTour?.tour.id !== node.tour.id || store.activeTour.step !== node.stepNumber) return;
       store.isRecording = false;
       await vscode.commands.executeCommand("setContext", "codetour:recording", false);
