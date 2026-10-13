@@ -127,6 +127,13 @@ async function saveDraftAndLeave(
     return false;
   }
 
+  // Saving resolves only the exact snapshot that reached disk. Typing while
+  // the write was pending remains a dirty draft and blocks this exit.
+  if (
+    store.activeTour !== activeTour || activeTour.tour.id !== tourId ||
+    activeTour.step !== step || getStepDraft(tourId, step) !== draft
+  ) return false;
+
   endWebviewEditingSession(tourId, step);
   clearStepDraft(tourId, step);
   return true;

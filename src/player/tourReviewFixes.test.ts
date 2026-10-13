@@ -157,3 +157,43 @@ test("typing during a successful save preserves the newer unsaved draft", async 
   assert.equal(store.isEditing, false);
   await host.vscode.commands.executeCommand("codetour.endTour");
 });
+
+
+test("Save from the exit prompt preserves typing newer than its disk snapshot", async () => {
+  await start();
+  await draft("Exit saved snapshot");
+  const originalWrite = host.vscode.workspace.fs.writeFile;
+  let releaseWrite!: () => Promise<void>;
+  host.vscode.workspace.fs.writeFile = async (uri, bytes) => new Promise<void>(resolve => {
+    releaseWrite = async () => { await originalWrite(uri, bytes); resolve(); };
+  });
+  host.respondToModal("Save");
+  const move = host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.waitFor(() => !!releaseWrite);
+  panel().receive({ type: "draft", tour: tour.id, step: 0, text: "Typing during exit save" });
+  await host.waitFor(() => host.postedMessages().some((message: unknown) => (message as { html?: string }).html?.includes("Typing during exit save")));
+  await releaseWrite();
+  host.vscode.workspace.fs.writeFile = originalWrite;
+  await move;
+  assert.equal(store.activeTour.step, 0);
+  assert.equal(store.isEditing, true);
+  assert.equal(store.activeTour.tour.steps[0].description, "Exit saved snapshot");
+  await host.waitFor(() => host.panelHtml().includes("Typing during exit save"));
+  await host.vscode.commands.executeCommand("codetour.saveTourStep");
+  assert.equal(store.activeTour.tour.steps[0].description, "Typing during exit save");
+  await host.vscode.commands.executeCommand("codetour.endTour");
+});
+
+test("tree Edit cannot widen the active tour's read-only permission", async () => {
+  const { startCodeTour } = require("../store/actions");
+  startCodeTour(tour, 0, undefined, false, false);
+  await host.waitFor(() => host.panelHtml().includes("<h1>First</h1>"));
+  const activeTour = store.activeTour.tour;
+  await host.vscode.commands.executeCommand("codetour.editTourAtStep", { tour: activeTour, stepNumber: 1 });
+  assert.equal(store.canEditTour, false);
+  assert.equal(store.isEditing, false);
+  assert.equal(store.activeTour.step, 0);
+  assert.equal(host.liveThreads().length, 0);
+  assert.doesNotMatch(host.panelHtml(), /tour-step-source/);
+  await host.vscode.commands.executeCommand("codetour.endTour");
+});
