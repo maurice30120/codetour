@@ -188,6 +188,20 @@ function promptBlocks(records: FakeAgentLogRecord[]): { type: string; text: stri
   return (last!.params as { prompt: { type: string; text: string }[] }).prompt;
 }
 
+/** The prompt blocks of the agent's n-th question, oldest first. */
+function promptBlocksAt(
+  records: FakeAgentLogRecord[],
+  index: number
+): { type: string; text: string }[] {
+  const prompts = records.filter(record => record.method === "session/prompt");
+  const prompt = prompts[index]!;
+  return (prompt.params as { prompt: { type: string; text: string }[] }).prompt;
+}
+
+function promptCount(records: FakeAgentLogRecord[]): number {
+  return records.filter(record => record.method === "session/prompt").length;
+}
+
 test("follow-up questions carry the step's previous exchanges to the agent over one session", async () => {
   resetChatState();
   const agent = createAgentWorkspace();
@@ -482,6 +496,201 @@ test("the fake agent's streamed chunks appear progressively in the chat with the
   assert.equal(complete.exchanges[0].pending, undefined);
   assert.notEqual(complete.exchanges[0].failed, true);
   assert.match(complete.exchanges[0].answerHtml, /Tour answer, part two\./);
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
+test("each step keeps its own conversation over one agent session, unmixed across renders", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent);
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Première étape ?" });
+  await waitForCompletedAnswer(update => update.exchanges.length === 1);
+
+  // The reader moves to another step: it starts its own conversation, and
+  // no exchange of the first step reaches its questions.
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.waitFor(() => host.panelHtml().includes("2 / 3"));
+  chatPanel().receive({ type: "askQuestion", question: "Autre fichier ?" });
+  await waitForCompletedAnswer(update =>
+    update.exchanges.some(exchange => exchange.question === "Autre fichier ?")
+  );
+
+  let records = await waitForLog(agent.logPath, found =>
+    promptCount(found) === 2
+  );
+  const stepTwoBlocks = promptBlocksAt(records, 1);
+  assert.equal(stepTwoBlocks.length, 2, "the second step starts with no history");
+  assert.equal(stepTwoBlocks[0].text, "Autre fichier ?");
+  assert.match(stepTwoBlocks[1].text, /src\/other\.ts/);
+  assert.ok(
+    !stepTwoBlocks.some(block => block.text.includes("Première étape ?")),
+    "the first step's exchange never leaks into the second step's question"
+  );
+
+  // Coming back to the first step restores its whole conversation, without
+  // any trace of the step visited in between.
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.waitFor(() =>
+    host.panelHtml().includes("Première étape ?") &&
+    !host.panelHtml().includes("Autre fichier ?")
+  );
+
+  // A follow-up on the first step is grounded in that step's exchanges only.
+  chatPanel().receive({ type: "askQuestion", question: "On revient comment ?" });
+  await waitForCompletedAnswer(update =>
+    update.exchanges.some(exchange => exchange.question === "On revient comment ?")
+  );
+
+  records = await waitForLog(agent.logPath, found => promptCount(found) === 3);
+  const followUpBlocks = promptBlocksAt(records, 2);
+  assert.equal(followUpBlocks.length, 3, "the follow-up carries the step's history");
+  assert.match(followUpBlocks[2].text, /Première étape \?/);
+  assert.match(followUpBlocks[2].text, /Tour answer, part two\./);
+  assert.ok(
+    !followUpBlocks[2].text.includes("Autre fichier ?"),
+    "the other step's exchange never leaks into the follow-up"
+  );
+
+  // One agent session answers the whole reading session: no relaunch per
+  // step and no session split per step.
+  assert.equal(
+    records.filter(record => record.method === "initialize").length,
+    1
+  );
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
+test("conversations are isolated by tour identity while the reading webview stays open", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent);
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Question du premier tour ?" });
+  await waitForCompletedAnswer(update => update.exchanges.length === 1);
+
+  // The reader starts another tour without closing the reading webview: a
+  // step with the same number starts from an empty conversation.
+  const secondTour = {
+    id: "file:///workspace/.tours/second.tour",
+    title: "2 - Second Tour",
+    description: "Un autre tour dans la même lecture.",
+    steps: [
+      {
+        title: "Same file, other tour",
+        description: "La même étape d'un autre tour.",
+        file: "src/player.ts",
+        line: 3
+      }
+    ]
+  };
+  await host.vscode.commands.executeCommand("codetour.startTour", secondTour);
+  await host.waitFor(() =>
+    host.panelHtml().includes("La même étape d'un autre tour.")
+  );
+  chatPanel().receive({ type: "askQuestion", question: "Question de l'autre tour ?" });
+  await waitForCompletedAnswer(update =>
+    update.exchanges.some(exchange => exchange.question === "Question de l'autre tour ?")
+  );
+
+  let records = await waitForLog(agent.logPath, found => promptCount(found) === 2);
+  const otherTourBlocks = promptBlocksAt(records, 1);
+  assert.equal(otherTourBlocks.length, 2, "the other tour's step starts with no history");
+  assert.equal(otherTourBlocks[0].text, "Question de l'autre tour ?");
+  assert.match(otherTourBlocks[1].text, /La même étape d'un autre tour\./);
+  assert.ok(
+    !otherTourBlocks.some(block => block.text.includes("Question du premier tour ?")),
+    "the first tour's exchange never leaks into the other tour's question"
+  );
+
+  // Reopening the first tour recovers its conversation, still unmixed.
+  await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.waitFor(() =>
+    host.panelHtml().includes("Question du premier tour ?") &&
+    !host.panelHtml().includes("Question de l'autre tour ?")
+  );
+
+  chatPanel().receive({ type: "askQuestion", question: "Et le premier, alors ?" });
+  await waitForCompletedAnswer(update =>
+    update.exchanges.some(exchange => exchange.question === "Et le premier, alors ?")
+  );
+
+  records = await waitForLog(agent.logPath, found => promptCount(found) === 3);
+  const backBlocks = promptBlocksAt(records, 2);
+  assert.equal(backBlocks.length, 3, "the first tour's conversation survived the detour");
+  assert.match(backBlocks[2].text, /Question du premier tour \?/);
+  assert.ok(
+    !backBlocks[2].text.includes("Question de l'autre tour ?"),
+    "the other tour's exchange never leaks into the first tour's follow-up"
+  );
+
+  // The two tours share the reading session's single agent process.
+  assert.equal(
+    records.filter(record => record.method === "initialize").length,
+    1
+  );
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
+test("closing the reading webview forgets every conversation and nothing is ever written to disk", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent);
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Avant de fermer ?" });
+  await waitForCompletedAnswer(update => update.exchanges.length === 1);
+  chatPanel().receive({ type: "askQuestion", question: "Deuxième avant ?" });
+  await waitForCompletedAnswer(update => update.exchanges.length === 2);
+
+  // The whole conversation lived in memory: no file was written at any
+  // point of the chat, its answers or the render refreshes.
+  assert.equal(host.fileWrites.length, 0);
+
+  // Closing the reading webview ends every conversation.
+  chatPanel().dispose();
+  await startTour();
+  const reopenedHtml = host.panelHtml();
+  assert.ok(!reopenedHtml.includes("Avant de fermer ?"));
+  assert.ok(!reopenedHtml.includes("Deuxième avant ?"));
+
+  chatPanel().receive({ type: "askQuestion", question: "Nouvelle lecture ?" });
+  await waitForCompletedAnswer(update =>
+    update.exchanges.some(exchange => exchange.question === "Nouvelle lecture ?")
+  );
+
+  // The reopened reading session starts from an empty conversation: the
+  // question is the agent's first, with no remembered exchange.
+  const records = await waitForLog(agent.logPath, found => promptCount(found) === 3);
+  const blocks = promptBlocks(records);
+  assert.equal(blocks.length, 2, "the reopened session remembers no exchange");
+  assert.ok(
+    !blocks.some(block => block.text.includes("Avant de fermer ?")),
+    "the closed session's exchanges never reach the reopened session"
+  );
+
+  // A fresh agent process serves the reopened reading session.
+  assert.equal(
+    records.filter(record => record.method === "initialize").length,
+    2
+  );
+
+  // Closing did not persist anything either.
+  assert.equal(host.fileWrites.length, 0);
 
   chatPanel().dispose();
   agent.cleanup();
