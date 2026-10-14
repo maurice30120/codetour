@@ -153,6 +153,7 @@ function lastChatUpdate() {
   );
   return messages[messages.length - 1] as {
     exchanges: { question: string; answerHtml: string; failed?: boolean }[];
+    responding?: boolean;
   };
 }
 
@@ -176,8 +177,12 @@ async function startTourWithSteps(fileName: string, steps: CodeTourStep[]) {
 
 async function ask(question: string) {
   chatPanel().receive({ type: "askQuestion", question });
-  await host.waitFor(() =>
-    lastChatUpdate()?.exchanges.some(exchange => exchange.question === question)
+  // The answer must complete before the test moves on: a new question is
+  // blocked while the previous answer is still streaming.
+  await host.waitFor(
+    () =>
+      lastChatUpdate().responding === false &&
+      lastChatUpdate().exchanges.some(exchange => exchange.question === question)
   );
 }
 
@@ -344,7 +349,7 @@ test("an embedded-content step sends the code the reader actually sees", async (
     type: "askQuestion",
     question: "Que fait ce contenu ?"
   });
-  await host.waitFor(() => !!lastChatUpdate());
+  await host.waitFor(() => lastChatUpdate().responding === false);
 
   // The embedded contents are what the reader's step displays, so they are
   // what the responder receives, with the step's declared path.
@@ -392,7 +397,7 @@ test("a directory-anchored step sends the declared directory, never a buffer", a
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 2"));
   chatPanel().receive({ type: "askQuestion", question: "Que trouve-t-on dans src ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await host.waitFor(() => lastChatUpdate().responding === false);
 
   assert.equal(received.length, 1);
   assert.deepEqual(received[0], {
@@ -428,7 +433,7 @@ test("a URI step sends the code displayed at its target", async () => {
   ]);
 
   chatPanel().receive({ type: "askQuestion", question: "Sur quoi pointe cette URI ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await host.waitFor(() => lastChatUpdate().responding === false);
 
   // The reader sees the URI's document, so the question carries that code,
   // not an unavailable target.
@@ -482,7 +487,7 @@ test("an unavailable file target is reported as such, never substituted", async 
     )
   );
   chatPanel().receive({ type: "askQuestion", question: "Où est le code ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await host.waitFor(() => lastChatUpdate().responding === false);
 
   // The question reports the unavailable target as such, with its declared
   // path; the still-open buffer of src/present.ts is never substituted.
@@ -520,7 +525,7 @@ test("a view step sends only the description, without any code target", async ()
   ]);
 
   chatPanel().receive({ type: "askQuestion", question: "Que montre cette vue ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await host.waitFor(() => lastChatUpdate().responding === false);
 
   // A view step presents no code at all: the question carries only the
   // step's explanation, without any invented target.

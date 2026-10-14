@@ -110,7 +110,7 @@ export function createAcpStepChatResponder(
   }
 
   return {
-    async answer(request) {
+    async answer(request, events) {
       const current = await openSession(request);
       let outcome;
       try {
@@ -128,7 +128,12 @@ export function createAcpStepChatResponder(
           current.prompt(
             request.question,
             toTourStepContext(request.context),
-            undefined,
+            // Every streamed chunk of the agent's answer is handed to the
+            // chat as it arrives, so the reader never waits for the whole
+            // generation to finish.
+            events?.onAnswerDelta
+              ? { onAssistantText: delta => events.onAnswerDelta?.(delta) }
+              : undefined,
             request.history
           ),
           crashed

@@ -88,13 +88,30 @@ function resetChatState() {
   host.livePanels("codetour.tour").forEach(panel => panel.dispose());
 }
 
-function lastChatUpdate() {
-  const messages = chatPanel().postedMessages.filter(
+interface StepChatUpdate {
+  exchanges: { question: string; answerHtml: string; failed?: boolean; pending?: boolean }[];
+  responding?: boolean;
+}
+
+function stepChatUpdates(): StepChatUpdate[] {
+  return chatPanel().postedMessages.filter(
     message => (message as { type?: string }).type === "stepChat"
-  );
-  return messages[messages.length - 1] as {
-    exchanges: { question: string; answerHtml: string; failed?: boolean }[];
-  };
+  ) as StepChatUpdate[];
+}
+
+function lastChatUpdate(): StepChatUpdate {
+  const updates = stepChatUpdates();
+  return updates[updates.length - 1];
+}
+
+/** Waits until the step's answer is complete, not merely streaming. */
+async function waitForCompletedAnswer(
+  predicate: (update: StepChatUpdate) => boolean
+) {
+  await host.waitFor(() => {
+    const update = lastChatUpdate();
+    return update?.responding === false && predicate(update);
+  });
 }
 
 interface FakeAgentLogRecord {
@@ -180,10 +197,12 @@ test("follow-up questions carry the step's previous exchanges to the agent over 
   await startTour();
 
   chatPanel().receive({ type: "askQuestion", question: "Première question ?" });
-  await host.waitFor(() => lastChatUpdate()?.exchanges.length === 1);
+  // The answer must complete before the follow-up can be sent: a question
+  // is blocked while the previous answer is still streaming.
+  await waitForCompletedAnswer(update => update.exchanges.length === 1);
 
   chatPanel().receive({ type: "askQuestion", question: "Et ensuite ?" });
-  await host.waitFor(() => lastChatUpdate()?.exchanges.length === 2);
+  await waitForCompletedAnswer(update => update.exchanges.length === 2);
 
   const records = await waitForLog(agent.logPath, found =>
     found.filter(record => record.method === "session/prompt").length === 2
@@ -217,8 +236,8 @@ test("a step without displayed code is reported as unavailable to the agent, nev
   await host.vscode.commands.executeCommand("codetour.navigateToStep", 3);
   await host.waitFor(() => host.panelHtml().includes("3 / 3"));
   chatPanel().receive({ type: "askQuestion", question: "Que dire sans code ?" });
-  await host.waitFor(() =>
-    lastChatUpdate()?.exchanges.some(
+  await waitForCompletedAnswer(update =>
+    update.exchanges.some(
       exchange => exchange.question === "Que dire sans code ?"
     )
   );
@@ -254,7 +273,7 @@ test("an agent launch failure lands in the chat and the next question retries", 
   await startTour();
 
   chatPanel().receive({ type: "askQuestion", question: "Es-tu là ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await waitForCompletedAnswer(update => update.exchanges.length === 1);
 
   const failure = lastChatUpdate();
   assert.equal(failure.exchanges[0].failed, true);
@@ -270,7 +289,7 @@ test("an agent launch failure lands in the chat and the next question retries", 
 
   // The next question relaunches the agent and gets its answer.
   chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
-  await host.waitFor(() => lastChatUpdate()?.exchanges.length === 2);
+  await waitForCompletedAnswer(update => update.exchanges.length === 2);
   assert.notEqual(lastChatUpdate().exchanges[1].failed, true);
   assert.match(lastChatUpdate().exchanges[1].answerHtml, /Tour answer, part two\./);
 
@@ -287,7 +306,7 @@ test("an answer whose turn ran forbidden tools is flagged in the chat", async ()
   await startTour();
 
   chatPanel().receive({ type: "askQuestion", question: "Tente l'interdit ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await waitForCompletedAnswer(update => update.exchanges.length === 1);
 
   // The agent's answer is shown, but the forbidden tool use it ran despite
   // the Ask mode name is not hidden from the reader.
@@ -308,7 +327,7 @@ test("a lost agent connection lands in the chat and the next question relaunches
   await startTour();
 
   chatPanel().receive({ type: "askQuestion", question: "Tu vas disparaître ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await waitForCompletedAnswer(update => update.exchanges.length === 1);
 
   const failure = lastChatUpdate();
   assert.equal(failure.exchanges[0].failed, true);
@@ -320,7 +339,7 @@ test("a lost agent connection lands in the chat and the next question relaunches
 
   // The next question relaunches a fresh agent process and gets its answer.
   chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
-  await host.waitFor(() => lastChatUpdate()?.exchanges.length === 2);
+  await waitForCompletedAnswer(update => update.exchanges.length === 2);
   assert.notEqual(lastChatUpdate().exchanges[1].failed, true);
   assert.match(lastChatUpdate().exchanges[1].answerHtml, /Tour answer, part two\./);
 
@@ -343,7 +362,7 @@ test("closing the reading webview releases the ACP agent process", async () => {
   await startTour();
 
   chatPanel().receive({ type: "askQuestion", question: "Avant de partir ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await waitForCompletedAnswer(update => update.exchanges.length === 1);
   assert.equal(processes.length, 1);
 
   chatPanel().dispose();
@@ -379,8 +398,8 @@ test("a step question reaches the ACP agent in Ask mode with the displayed conte
     type: "askQuestion",
     question: "Pourquoi appeler startPlayer ici ?"
   });
-  await host.waitFor(() =>
-    lastChatUpdate()?.exchanges.some(exchange =>
+  await waitForCompletedAnswer(update =>
+    update.exchanges.some(exchange =>
       /Tour answer, part two\./.test(exchange.answerHtml)
     )
   );
@@ -411,6 +430,58 @@ test("a step question reaches the ACP agent in Ask mode with the displayed conte
   assert.equal(update.exchanges[0].question, "Pourquoi appeler startPlayer ici ?");
   assert.notEqual(update.exchanges[0].failed, true);
   assert.match(update.exchanges[0].answerHtml, /Tour answer, part two\./);
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
+test("the fake agent's streamed chunks appear progressively in the chat with the in-progress state", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent);
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Réponse en flux ?" });
+
+  // The answer completes: the chat is ready for a new question again.
+  await waitForCompletedAnswer(update =>
+    update.exchanges[0]?.answerHtml?.includes("part two.")
+  );
+
+  // The first chunk was already readable on its own, with the
+  // response-in-progress state, before the turn completed: the chunk
+  // messages arrive over the transport in a fixed order, so the partial
+  // update is always posted before the complete one.
+  const updates = stepChatUpdates();
+  const partial = updates.find(
+    update =>
+      update.responding === true &&
+      update.exchanges[0]?.answerHtml?.includes("Tour answer,") &&
+      !update.exchanges[0].answerHtml.includes("part two.")
+  );
+  assert.ok(
+    partial,
+    "the first chunk was displayed while the answer was still in progress"
+  );
+  assert.equal(partial.exchanges[0].pending, true);
+  assert.equal(
+    updates.findIndex(update => update === partial) <
+      updates.findIndex(
+        update =>
+          update.responding === false &&
+          update.exchanges[0]?.answerHtml?.includes("part two.")
+      ),
+    true
+  );
+
+  // Exactly one question was asked and the complete answer is whole.
+  const complete = lastChatUpdate();
+  assert.equal(complete.exchanges.length, 1);
+  assert.equal(complete.exchanges[0].pending, undefined);
+  assert.notEqual(complete.exchanges[0].failed, true);
+  assert.match(complete.exchanges[0].answerHtml, /Tour answer, part two\./);
 
   chatPanel().dispose();
   agent.cleanup();

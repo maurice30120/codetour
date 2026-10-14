@@ -76,13 +76,20 @@ function resetChatState() {
   host.livePanels("codetour.tour").forEach(panel => panel.dispose());
 }
 
-function lastChatUpdate() {
-  const messages = chatPanel().postedMessages.filter(
+interface StepChatUpdate {
+  exchanges: { question: string; answerHtml: string; failed?: boolean; pending?: boolean }[];
+  responding?: boolean;
+}
+
+function stepChatUpdates(): StepChatUpdate[] {
+  return chatPanel().postedMessages.filter(
     message => (message as { type?: string }).type === "stepChat"
-  );
-  return messages[messages.length - 1] as {
-    exchanges: { question: string; answerHtml: string; failed?: boolean }[];
-  };
+  ) as StepChatUpdate[];
+}
+
+function lastChatUpdate(): StepChatUpdate {
+  const updates = stepChatUpdates();
+  return updates[updates.length - 1];
 }
 
 test("each step keeps its own conversation, feeding follow-ups and surviving refreshes", async () => {
@@ -108,12 +115,22 @@ test("each step keeps its own conversation, feeding follow-ups and surviving ref
   await startTour();
 
   chatPanel().receive({ type: "askQuestion", question: "Première question ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  // The answer must complete before a follow-up can be sent: a question
+  // is blocked while the step's previous answer is in progress.
+  await host.waitFor(
+    () =>
+      lastChatUpdate().responding === false &&
+      lastChatUpdate().exchanges.length === 1
+  );
 
   // A follow-up on the same step carries the previous exchange, raw answer
   // included, and its answer lands under the whole conversation.
   chatPanel().receive({ type: "askQuestion", question: "Et ensuite ?" });
-  await host.waitFor(() => lastChatUpdate().exchanges.length === 2);
+  await host.waitFor(
+    () =>
+      lastChatUpdate().responding === false &&
+      lastChatUpdate().exchanges.length === 2
+  );
   assert.deepEqual(received[1].history, [
     { question: "Première question ?", answer: "Réponse 1." }
   ]);
@@ -123,10 +140,12 @@ test("each step keeps its own conversation, feeding follow-ups and surviving ref
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
   chatPanel().receive({ type: "askQuestion", question: "Autre fichier ?" });
-  await host.waitFor(() =>
-    lastChatUpdate()?.exchanges.some(
-      exchange => exchange.question === "Autre fichier ?"
-    )
+  await host.waitFor(
+    () =>
+      lastChatUpdate().responding === false &&
+      lastChatUpdate().exchanges.some(
+        exchange => exchange.question === "Autre fichier ?"
+      )
   );
   assert.equal(received[2].context.path, "src/other.ts");
   assert.deepEqual(received[2].history, []);
@@ -185,7 +204,11 @@ test("a question sends the displayed buffer, path and description to the respond
     type: "askQuestion",
     question: "Pourquoi appeler startPlayer ici ?"
   });
-  await host.waitFor(() => !!lastChatUpdate());
+  await host.waitFor(
+    () =>
+      lastChatUpdate().responding === false &&
+      lastChatUpdate().exchanges.length === 1
+  );
 
   assert.equal(received.length, 1);
   const request = received[0];
@@ -228,7 +251,8 @@ test("a step without a displayed buffer reports the unavailable target, never a 
   await host.waitFor(() => host.panelHtml().includes("3 / 3"));
   chatPanel().receive({ type: "askQuestion", question: "Que dire sans code ?" });
   await host.waitFor(() =>
-    lastChatUpdate()?.exchanges.some(
+    lastChatUpdate().responding === false &&
+    lastChatUpdate().exchanges.some(
       exchange => exchange.question === "Que dire sans code ?"
     )
   );
@@ -257,7 +281,7 @@ test("the responder's answer is rendered through the shared sanitizer", async ()
   await startTour();
 
   chatPanel().receive({ type: "askQuestion", question: "Tente une injection ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await host.waitFor(() => lastChatUpdate().responding === false);
 
   const answerHtml = lastChatUpdate().exchanges[0].answerHtml;
   assert.ok(!answerHtml.includes("<script"));
@@ -286,7 +310,7 @@ test("errors of the responder land in the chat without disturbing the reading", 
   await startTour();
 
   chatPanel().receive({ type: "askQuestion", question: "Et si ça casse ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await host.waitFor(() => lastChatUpdate().responding === false);
 
   const update = lastChatUpdate();
   assert.equal(update.exchanges[0].question, "Et si ça casse ?");
@@ -308,7 +332,7 @@ test("asking without an injected responder explains it in the chat", async () =>
   await startTour();
 
   chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await host.waitFor(() => lastChatUpdate().responding === false);
 
   const update = lastChatUpdate();
   assert.equal(update.exchanges[0].question, "Qui répond ?");
@@ -351,8 +375,121 @@ test("malformed and stale questions never reach the responder", async () => {
 
   // The reader can still ask for the rendered step afterwards.
   chatPanel().receive({ type: "askQuestion", question: "Question valable ?" });
-  await host.waitFor(() => !!lastChatUpdate());
+  await host.waitFor(() => lastChatUpdate().responding === false);
   assert.equal(calls, 1);
+
+  setStepChatResponder(undefined);
+  chatPanel().dispose();
+});
+
+test("the answer streams into the chat with a visible in-progress state and blocks new questions meanwhile", async () => {
+  resetChatState();
+  const received: {
+    question: string;
+    history?: { question: string; answer: string }[];
+  }[] = [];
+  // The responder streams a first chunk, then keeps the turn open until
+  // the test releases it: no timing of a real model is ever involved.
+  let releaseTail!: () => void;
+  const tailGate = new Promise<void>(resolve => {
+    releaseTail = resolve;
+  });
+  setStepChatResponder({
+    answer: async (
+      request: { question: string },
+      events?: { onAnswerDelta?: (delta: string) => void }
+    ) => {
+      received.push(request);
+      events?.onAnswerDelta?.("Premier morceau ");
+      await tailGate;
+      events?.onAnswerDelta?.("et le second <script>alert(1)</script>.");
+      return "Premier morceau et le second <script>alert(1)</script>.";
+    }
+  });
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Question en flux ?" });
+
+  // The question shows up immediately, with the response-in-progress state
+  // visible before any answer text has arrived.
+  await host.waitFor(() =>
+    stepChatUpdates().some(
+      update =>
+        update.responding === true &&
+        update.exchanges.some(
+          exchange =>
+            exchange.question === "Question en flux ?" && exchange.pending === true
+        )
+    )
+  );
+
+  // The first chunk is readable on its own as soon as it arrives, still
+  // with the in-progress state, and sanitized like every chat content.
+  await host.waitFor(() =>
+    stepChatUpdates().some(
+      update =>
+        update.responding === true &&
+        update.exchanges.some(
+          exchange => exchange.answerHtml.includes("Premier morceau")
+        )
+    )
+  );
+  const partial = stepChatUpdates().find(
+    update =>
+      update.responding === true &&
+      update.exchanges[0]?.answerHtml?.includes("Premier morceau")
+  )!;
+  assert.ok(
+    !partial.exchanges[0].answerHtml.includes("<script"),
+    "a streamed chunk never bypasses the sanitizer"
+  );
+
+  // A new question is blocked while the response is in progress: it never
+  // reaches the responder and never enters the conversation.
+  chatPanel().receive({ type: "askQuestion", question: "Trop pressé ?" });
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal(received.length, 1);
+  const whileResponding = lastChatUpdate()!;
+  assert.equal(whileResponding.responding, true);
+  assert.equal(whileResponding.exchanges.length, 1);
+  assert.ok(
+    !whileResponding.exchanges.some(
+      exchange => exchange.question === "Trop pressé ?"
+    )
+  );
+
+  releaseTail();
+  await host.waitFor(() => {
+    const update = lastChatUpdate();
+    return (
+      update?.responding === false &&
+      update.exchanges[0]?.answerHtml?.includes("et le second")
+    );
+  });
+
+  // The completed answer is whole and sanitized, and the chat is ready for
+  // a new question again.
+  const complete = lastChatUpdate()!;
+  assert.equal(complete.exchanges.length, 1);
+  assert.notEqual(complete.exchanges[0].failed, true);
+  assert.ok(!complete.exchanges[0].answerHtml.includes("<script"));
+  chatPanel().receive({ type: "askQuestion", question: "Maintenant ?" });
+  await host.waitFor(
+    () =>
+      lastChatUpdate().responding === false &&
+      lastChatUpdate().exchanges.some(
+        exchange => exchange.question === "Maintenant ?"
+      )
+  );
+  assert.equal(received.length, 2);
+  assert.deepEqual(received[1].history, [
+    {
+      question: "Question en flux ?",
+      answer: "Premier morceau et le second <script>alert(1)</script>."
+    }
+  ]);
 
   setStepChatResponder(undefined);
   chatPanel().dispose();

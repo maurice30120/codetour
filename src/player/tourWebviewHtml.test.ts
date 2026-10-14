@@ -228,3 +228,122 @@ test("navigation disables absent neighbors and names linked tours at the boundar
   assert.match(linked, /Tour précédent : Intro &quot;tour&quot;/);
   assert.doesNotMatch(linked, /data-action="previous"[^>]* disabled/);
 });
+
+test("the step chat renders the response-in-progress state and locks the form while responding", () => {
+  const idle = createTourWebviewHtml(baseModel(), "responding-nonce");
+
+  // At rest, no response is in progress: the status is hidden and the
+  // question field accepts new questions.
+  assert.match(
+    idle,
+    /<p class="step-chat-status" id="step-chat-status" hidden>Réponse en cours…<\/p>/
+  );
+  assert.doesNotMatch(idle, /id="step-chat-input"[^>]* disabled/);
+  assert.doesNotMatch(idle, /class="step-chat-submit"[^>]* disabled/);
+
+  const responding = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatResponding: true,
+      chatExchanges: [
+        {
+          question: "Pourquoi cette étape ?",
+          answerHtml: "<p>Premier morceau…</p>",
+          pending: true
+        }
+      ]
+    },
+    "responding-nonce"
+  );
+
+  // While the answer streams, the in-progress state is visible and the
+  // streaming answer is readable, marked as still in progress.
+  assert.match(
+    responding,
+    /<p class="step-chat-status" id="step-chat-status">Réponse en cours…<\/p>/
+  );
+  assert.match(
+    responding,
+    /<li class="step-chat-answer step-chat-pending"><p>Premier morceau…<\/p><\/li>/
+  );
+  assert.match(responding, /id="step-chat-input"[^>]* disabled/);
+  assert.match(responding, /class="step-chat-submit"[^>]*disabled/);
+});
+
+test("the step chat message handler reflects the streaming updates and unlocks the form when the answer completes", () => {
+  const html = createTourWebviewHtml(baseModel(), "stream-nonce");
+  const script = html.match(/<script nonce="stream-nonce">([\s\S]*?)<\/script>/)![1];
+  const messages: unknown[] = [];
+  const elements: Record<string, unknown> = {};
+  let messageListener!: (event: unknown) => void;
+  const chatInput = { value: "", disabled: false };
+  const submitButton = { disabled: false };
+  const chatStatus = { hidden: false };
+  const chatLog = { innerHTML: "" };
+  elements["step-chat-form"] = { addEventListener: () => undefined };
+  elements["step-chat-input"] = chatInput;
+  elements["step-chat-submit"] = submitButton;
+  elements["step-chat-status"] = chatStatus;
+  elements["step-chat-log"] = chatLog;
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({
+      postMessage: (message: unknown) => messages.push(message)
+    }),
+    document: {
+      body: { dataset: { token: "stream-nonce", tourId: baseModel().tourId, step: "1" } },
+      addEventListener: () => undefined,
+      getElementById: (id: string) => elements[id]
+    },
+    window: {
+      addEventListener: (_name: string, listener: (event: unknown) => void) => {
+        messageListener = listener;
+      }
+    }
+  });
+
+  // The question appears immediately with the in-progress state: the form
+  // is locked so no new question can be sent meanwhile.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: true,
+      exchanges: [{ question: "En flux ?", answerHtml: "", pending: true }]
+    }
+  });
+  assert.equal(chatStatus.hidden, false);
+  assert.equal(chatInput.disabled, true);
+  assert.equal(submitButton.disabled, true);
+  assert.equal(
+    chatLog.innerHTML,
+    '<li class="step-chat-question">En flux ?</li>' +
+      '<li class="step-chat-answer step-chat-pending"></li>'
+  );
+
+  // The first chunk is displayed as soon as it arrives, still in progress.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: true,
+      exchanges: [{ question: "En flux ?", answerHtml: "<p>Premier morceau</p>", pending: true }]
+    }
+  });
+  assert.match(chatLog.innerHTML, /Premier morceau/);
+  assert.equal(chatInput.disabled, true);
+
+  // The complete answer turns the in-progress state off and unlocks the form.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: false,
+      exchanges: [{ question: "En flux ?", answerHtml: "<p>Premier morceau complet.</p>" }]
+    }
+  });
+  assert.equal(chatStatus.hidden, true);
+  assert.equal(chatInput.disabled, false);
+  assert.equal(submitButton.disabled, false);
+  assert.equal(
+    chatLog.innerHTML,
+    '<li class="step-chat-question">En flux ?</li>' +
+      '<li class="step-chat-answer"><p>Premier morceau complet.</p></li>'
+  );
+});

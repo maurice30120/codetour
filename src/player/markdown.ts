@@ -60,6 +60,9 @@ export interface TourStepChatExchange {
   // the description; the webview never renders raw responder Markdown.
   answerHtml: string;
   failed?: boolean;
+  // True while this question's answer is still streaming: the answer is
+  // readable as it grows, marked as not yet complete.
+  pending?: boolean;
 }
 
 /** The active step displayed in the single expanded reading view. */
@@ -72,6 +75,9 @@ export interface TourWebviewModel {
   anchorLabel?: string;
   description: string;
   chatExchanges?: TourStepChatExchange[];
+  // True while the step's latest question is still being answered: the
+  // response-in-progress state is visible and the form is locked.
+  chatResponding?: boolean;
   previousTourTitle?: string;
   nextTourTitle?: string;
 }
@@ -85,7 +91,7 @@ function renderStepChatLogHtml(
         `<li class="step-chat-question">${escapeHtml(exchange.question)}</li>` +
         `<li class="step-chat-answer${
           exchange.failed ? " step-chat-error" : ""
-        }">${exchange.answerHtml}</li>`
+        }${exchange.pending ? " step-chat-pending" : ""}">${exchange.answerHtml}</li>`
     )
     .join("");
 }
@@ -110,6 +116,9 @@ const READING_STYLES = `
     .step-chat-question { margin: 0; padding: .45em .75em; border-radius: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground, inherit); overflow-wrap: anywhere; }
     .step-chat-answer { margin: 0; padding: 0 .75em; overflow-wrap: anywhere; }
     .step-chat-answer.step-chat-error { color: var(--vscode-errorForeground); border-left: 3px solid var(--vscode-errorForeground); }
+    .step-chat-answer.step-chat-pending { color: var(--vscode-descriptionForeground); }
+    .step-chat-status { margin: 0 0 1.25em; padding: 0 .75em; font-style: italic; color: var(--vscode-descriptionForeground); }
+    .step-chat-input:disabled, .step-chat-submit:disabled { opacity: .55; cursor: default; }
     .step-chat-form { display: flex; gap: 6px; }
     .step-chat-input { flex: 1 1 auto; min-width: 0; padding: 4px 6px; border: 1px solid var(--vscode-input-border, transparent); border-radius: 3px; font: inherit; color: var(--vscode-input-foreground); background: var(--vscode-input-background); }
     .step-chat-input:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
@@ -170,9 +179,16 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       <ol class="step-chat-log" id="step-chat-log">${renderStepChatLogHtml(
         model.chatExchanges
       )}</ol>
+      <p class="step-chat-status" id="step-chat-status"${
+        model.chatResponding ? "" : " hidden"
+      }>Réponse en cours…</p>
       <form class="step-chat-form" id="step-chat-form">
-        <input class="step-chat-input" id="step-chat-input" type="text" autocomplete="off" placeholder="Poser une question sur cette étape…" aria-label="Question sur cette étape">
-        <button type="submit" class="step-chat-submit">Envoyer</button>
+        <input class="step-chat-input" id="step-chat-input" type="text" autocomplete="off" placeholder="Poser une question sur cette étape…" aria-label="Question sur cette étape"${
+          model.chatResponding ? " disabled" : ""
+        }>
+        <button type="submit" class="step-chat-submit"${
+          model.chatResponding ? " disabled" : ""
+        }>Envoyer</button>
       </form>
     </section>
   </article>
@@ -183,6 +199,8 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     const chatForm = document.getElementById("step-chat-form");
     const chatInput = document.getElementById("step-chat-input");
+    const chatSubmit = document.getElementById("step-chat-submit");
+    const chatStatus = document.getElementById("step-chat-status");
     if (chatForm && chatInput) {
       chatForm.addEventListener("submit", event => {
         event.preventDefault();
@@ -197,11 +215,19 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       const message = event.data;
       if (!message || message.type !== "stepChat" || !Array.isArray(message.exchanges)) return;
       const log = document.getElementById("step-chat-log");
-      if (!log) return;
-      log.innerHTML = message.exchanges.map(exchange =>
-        '<li class="step-chat-question">' + escapeHtml(exchange.question) + "</li>" +
-        '<li class="step-chat-answer' + (exchange.failed ? " step-chat-error" : "") + '">' +
-        exchange.answerHtml + "</li>").join("");
+      if (log) {
+        log.innerHTML = message.exchanges.map(exchange =>
+          '<li class="step-chat-question">' + escapeHtml(exchange.question) + "</li>" +
+          '<li class="step-chat-answer' + (exchange.failed ? " step-chat-error" : "") + (exchange.pending ? " step-chat-pending" : "") + '">' +
+          exchange.answerHtml + "</li>").join("");
+      }
+      // The response-in-progress state stays visible while the answer
+      // streams, and the form stays locked so no new question can be sent
+      // before the current answer completes.
+      const responding = message.responding === true;
+      if (chatStatus) chatStatus.hidden = !responding;
+      if (chatInput) chatInput.disabled = responding;
+      if (chatSubmit) chatSubmit.disabled = responding;
     });
     document.addEventListener("click", event => {
       const button = event.target.closest("button[data-action]");

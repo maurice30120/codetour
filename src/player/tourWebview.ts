@@ -7,7 +7,9 @@ import { createTourWebviewHtml } from "./markdown";
 import {
   askTourStepQuestion,
   clearStepChatConversations,
-  getStepChatExchanges
+  getStepChatConversationView,
+  getStepChatExchanges,
+  type StepChatConversationView
 } from "./stepChat";
 import { getNextTour, getPreviousTour } from "./index";
 
@@ -63,15 +65,25 @@ export function showTourWebview(): void {
           typeof message.question === "string" &&
           message.question.trim()
         ) {
-          const exchanges = await askTourStepQuestion(
+          // Every streamed chunk of the answer is posted as it arrives, with
+          // the response-in-progress state; a question asked while the step's
+          // previous answer is still streaming is blocked inside the chat and
+          // produces no update.
+          const postChatView = (chatView: StepChatConversationView) => {
+            // A stale render (navigation while the answer was streaming) must
+            // not push a conversation into the step the reader now sees; the
+            // stored exchange resurfaces when its step is rendered again.
+            if (view !== current || current.rendered !== rendered) return;
+            void current.panel.webview.postMessage({
+              type: "stepChat",
+              ...chatView
+            });
+          };
+          await askTourStepQuestion(
             rendered.active,
-            message.question.trim()
+            message.question.trim(),
+            postChatView
           );
-          // A stale render (navigation while the answer was pending) must not
-          // push a conversation into the step the reader now sees; the stored
-          // exchange resurfaces when its step is rendered again.
-          if (view !== current || current.rendered !== rendered) return;
-          await current.panel.webview.postMessage({ type: "stepChat", exchanges });
         }
       } catch {
         vscode.window.showErrorMessage("Unable to open this description link.");
@@ -105,6 +117,7 @@ export async function renderTourStep(): Promise<void> {
     stepCount: tour.steps.length, stepTitle: step.title || `Step ${stepNumber + 1}`,
     anchorLabel: getStepAnchorLabel(step), description,
     chatExchanges: getStepChatExchanges(tour.id, stepNumber),
+    chatResponding: getStepChatConversationView(tour.id, stepNumber).responding,
     previousTourTitle: getPreviousTour()?.title,
     nextTourTitle: getNextTour()?.title
   }, token);

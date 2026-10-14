@@ -13,10 +13,15 @@ import { renderMarkdownToHtml } from "./markdown";
  * - webview → extension: `{ type: "askQuestion", question, token,
  *   targetTourId, step }` submits the reader's question for the rendered
  *   step, with the same identity as every other webview message.
- * - extension → webview: `{ type: "stepChat", exchanges }` replaces the
- *   rendered conversation of the step. Each exchange is a question with the
- *   answer HTML produced by the shared renderer and sanitizer; a failed
- *   exchange carries the error message instead of a responder answer.
+ * - extension → webview: `{ type: "stepChat", exchanges, responding }`
+ *   replaces the rendered conversation of the step. Each exchange is a
+ *   question with the answer HTML produced by the shared renderer and
+ *   sanitizer; a failed exchange carries the error message instead of a
+ *   responder answer. The answer streams chunk by chunk: one update per
+ *   received chunk, `responding` true and the latest exchange `pending`
+ *   while the answer is in progress, `responding` false once it is
+ *   complete. A question is blocked while the step's previous answer is
+ *   still in progress.
  *
  * Conversations are kept in memory per tour and step identity, until the
  * reading webview closes; nothing is persisted to disk.
@@ -71,6 +76,15 @@ export interface StepChatHistoryEntry {
  */
 export class StepChatAgentUnavailableError extends Error {}
 
+/** Streaming callbacks for one step question's answer. */
+export interface StepChatAnswerEvents {
+  /**
+   * Called for each answer chunk as it arrives from the responder; the
+   * chat displays it immediately, before the answer is complete.
+   */
+  onAnswerDelta?(delta: string): void;
+}
+
 /** What the responder receives for a question. */
 export interface StepChatRequest {
   question: string;
@@ -86,7 +100,10 @@ export interface StepChatRequest {
  * at the same seam.
  */
 export interface StepChatResponder {
-  answer(request: StepChatRequest): Promise<string> | string;
+  answer(
+    request: StepChatRequest,
+    events?: StepChatAnswerEvents
+  ): Promise<string> | string;
   /**
    * Releases the responder's agent resources; called when the reading
    * webview closes or the responder is replaced.
@@ -122,6 +139,9 @@ interface StoredExchange {
   answerMarkdown: string;
   answerHtml: string;
   failed: boolean;
+  // True while the responder is still answering this question: the
+  // response-in-progress state of the chat.
+  pending?: boolean;
 }
 
 const conversations = new Map<string, StoredExchange[]>();
@@ -134,16 +154,46 @@ function getConversation(tourId: string, step: number): StoredExchange[] {
   return conversations.get(conversationKey(tourId, step)) ?? [];
 }
 
+/** One question with its answer, as the webview renders it. */
+export interface StepChatExchangeView {
+  question: string;
+  answerHtml: string;
+  failed?: boolean;
+  // True while this question's answer is still streaming.
+  pending?: boolean;
+}
+
+/** The conversation of a step, with its response-in-progress state. */
+export interface StepChatConversationView {
+  exchanges: StepChatExchangeView[];
+  // True while the step's latest question is still being answered: new
+  // questions are blocked until it turns false.
+  responding: boolean;
+}
+
 /** The conversation of a step, as the webview renders it. */
 export function getStepChatExchanges(
   tourId: string,
   step: number
-): { question: string; answerHtml: string; failed?: boolean }[] {
-  return getConversation(tourId, step).map(exchange => ({
-    question: exchange.question,
-    answerHtml: exchange.answerHtml,
-    failed: exchange.failed || undefined
-  }));
+): StepChatExchangeView[] {
+  return getStepChatConversationView(tourId, step).exchanges;
+}
+
+/** The conversation of a step with its response-in-progress state. */
+export function getStepChatConversationView(
+  tourId: string,
+  step: number
+): StepChatConversationView {
+  const conversation = getConversation(tourId, step);
+  return {
+    exchanges: conversation.map(exchange => ({
+      question: exchange.question,
+      answerHtml: exchange.answerHtml,
+      failed: exchange.failed || undefined,
+      pending: exchange.pending || undefined
+    })),
+    responding: conversation.some(exchange => exchange.pending === true)
+  };
 }
 
 /** Forgets every step conversation; called when the reading webview closes. */
@@ -267,64 +317,117 @@ async function readDisplayedSide(uri: Uri): Promise<string> {
 }
 
 /**
- * Asks the injected responder for the rendered step, records the exchange in
- * the step's conversation and returns the updated webview conversation.
+ * Asks the injected responder for the rendered step, records the exchange
+ * in the step's conversation and returns the updated webview conversation.
+ *
+ * The answer streams: each received chunk is reported through `onProgress`
+ * with the response-in-progress state visible, until the complete answer
+ * turns it off. A new question is blocked while the step's previous answer
+ * is still in progress: it never reaches the responder.
  */
 export async function askTourStepQuestion(
   active: ActiveTour,
-  question: string
-): Promise<{ question: string; answerHtml: string; failed?: boolean }[]> {
+  question: string,
+  onProgress?: (view: StepChatConversationView) => void
+): Promise<StepChatConversationView> {
   const key = conversationKey(active.tour.id, active.step);
+  const view = (): StepChatConversationView =>
+    getStepChatConversationView(active.tour.id, active.step);
+
+  // A new question cannot be sent while the previous answer is in progress.
+  if (view().responding) {
+    return view();
+  }
+
   const history: StepChatHistoryEntry[] = getConversation(
     active.tour.id,
     active.step
   )
-    .filter(exchange => !exchange.failed)
+    .filter(exchange => !exchange.failed && !exchange.pending)
     .map(exchange => ({
       question: exchange.question,
       answer: exchange.answerMarkdown
     }));
 
-  let exchange: StoredExchange;
+  // The question appears immediately with the response-in-progress state,
+  // before any answer text arrives.
+  const exchange: StoredExchange = {
+    question,
+    answerMarkdown: "",
+    answerHtml: "",
+    failed: false,
+    pending: true
+  };
+  const conversation = getConversation(active.tour.id, active.step);
+  conversation.push(exchange);
+  conversations.set(key, conversation);
+  onProgress?.(view());
+
+  // The stored exchange is updated in place: the conversation keeps its
+  // order and a refresh never mixes the streamed answer into another step.
+  const complete = (final: StoredExchange) => {
+    exchange.answerMarkdown = final.answerMarkdown;
+    exchange.answerHtml = final.answerHtml;
+    exchange.failed = final.failed;
+    exchange.pending = undefined;
+  };
+
   if (!responder) {
-    exchange = failedExchange(
-      question,
-      "Le répondant de cette étape n'est pas disponible. La lecture du tour reste utilisable."
+    complete(
+      failedExchange(
+        question,
+        "Le répondant de cette étape n'est pas disponible. La lecture du tour reste utilisable."
+      )
     );
   } else {
+    let streamed = "";
     try {
-      const answerMarkdown = await responder.answer({
-        question,
-        context: await resolveStepContext(active),
-        history,
-        workspaceRoot: active.workspaceRoot?.fsPath ?? ""
-      });
-      exchange = {
+      const answerMarkdown = await responder.answer(
+        {
+          question,
+          context: await resolveStepContext(active),
+          history,
+          workspaceRoot: active.workspaceRoot?.fsPath ?? ""
+        },
+        {
+          // Every chunk is rendered through the shared sanitizer and
+          // displayed on its own: the answer is readable as it streams.
+          onAnswerDelta: (delta: string) => {
+            streamed += delta;
+            exchange.answerHtml = renderMarkdownToHtml(streamed);
+            onProgress?.(view());
+          }
+        }
+      );
+      complete({
         question,
         answerMarkdown,
         answerHtml: renderMarkdownToHtml(answerMarkdown),
         failed: false
-      };
+      });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       if (error instanceof StepChatAgentUnavailableError) {
-        exchange = failedExchange(
-          question,
-          `${reason} Une nouvelle question relancera l'agent ; la lecture du tour reste utilisable.`
+        complete(
+          failedExchange(
+            question,
+            `${reason} Une nouvelle question relancera l'agent ; la lecture du tour reste utilisable.`
+          )
         );
       } else {
-        exchange = failedExchange(
-          question,
-          `La réponse à cette question a échoué (${reason}). La lecture du tour reste utilisable.`
+        complete(
+          failedExchange(
+            question,
+            `La réponse à cette question a échoué (${reason}). La lecture du tour reste utilisable.`
+          )
         );
       }
     }
   }
 
-  const conversation = getConversation(active.tour.id, active.step);
-  conversation.push(exchange);
-  conversations.set(key, conversation);
-  return getStepChatExchanges(active.tour.id, active.step);
+  const final = view();
+  onProgress?.(final);
+  return final;
 }
 
 function failedExchange(question: string, message: string): StoredExchange {
