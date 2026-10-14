@@ -127,7 +127,6 @@ interface PromptTurn {
   message: string;
   tools: Map<string, ExecutedToolUse>;
   events: AskSessionEvents;
-  promise?: Promise<PromptOutcome>;
   resolve: (outcome: PromptOutcome) => void;
   reject: (error: unknown) => void;
 }
@@ -362,7 +361,6 @@ export function openAskSession(
           message: "",
           tools: new Map(),
           events: events ?? {},
-          promise: turnPromise,
           resolve: resolveTurn,
           reject: rejectTurn
         };
