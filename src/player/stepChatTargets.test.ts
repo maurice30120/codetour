@@ -106,3 +106,48 @@ test("an embedded-content step sends the code the reader actually sees", async (
   setStepChatResponder(undefined);
   chatPanel().dispose();
 });
+
+test("a directory-anchored step sends the declared directory, never a buffer", async () => {
+  resetChatState();
+  const received: RecordedContext[] = [];
+  setStepChatResponder({
+    answer: async (request: { question: string; context: RecordedContext }) => {
+      received.push(request.context);
+      return "Réponse répertoire.";
+    }
+  });
+
+  registerPlayerModule(host.extensionContext);
+  host.setFileContent("src/present.ts", ["const present = true;", "run();"].join("\n"));
+  await startTourWithSteps("directory.tour", [
+    {
+      title: "File entry",
+      description: "Étape avec fichier présent.",
+      file: "src/present.ts",
+      line: 1
+    },
+    {
+      title: "Directory target",
+      description: "Étape ancrée à un répertoire.",
+      directory: "src"
+    }
+  ]);
+
+  // The file step leaves its buffer open behind the reader; the directory
+  // step presents no code, so the question must not capture that buffer.
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.waitFor(() => host.panelHtml().includes("2 / 2"));
+  chatPanel().receive({ type: "askQuestion", question: "Que trouve-t-on dans src ?" });
+  await host.waitFor(() => !!lastChatUpdate());
+
+  assert.equal(received.length, 1);
+  assert.deepEqual(received[0], {
+    available: false,
+    path: "src",
+    description: "Étape ancrée à un répertoire."
+  });
+  assert.match(lastChatUpdate().exchanges[0].answerHtml, /Réponse répertoire/);
+
+  setStepChatResponder(undefined);
+  chatPanel().dispose();
+});
