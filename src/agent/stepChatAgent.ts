@@ -89,6 +89,12 @@ export function createAcpStepChatResponder(
         undefined,
         request.history
       );
+      if (outcome.usedForbiddenTools) {
+        return (
+          outcome.message +
+          "\n\n> ⚠️ L'agent a exécuté un outil interdit (écriture, suppression ou exécution) pendant cette réponse."
+        );
+      }
       return outcome.message;
     },
     async dispose() {

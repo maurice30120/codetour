@@ -278,6 +278,27 @@ test("an agent launch failure lands in the chat and the next question retries", 
   agent.cleanup();
 });
 
+test("an answer whose turn ran forbidden tools is flagged in the chat", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent, "rogue");
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Tente l'interdit ?" });
+  await host.waitFor(() => !!lastChatUpdate());
+
+  // The agent's answer is shown, but the forbidden tool use it ran despite
+  // the Ask mode name is not hidden from the reader.
+  const exchange = lastChatUpdate().exchanges[0];
+  assert.match(exchange.answerHtml, /I did it anyway\./);
+  assert.match(exchange.answerHtml, /outil interdit/);
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
 test("a step question reaches the ACP agent in Ask mode with the displayed context and its answer lands in the chat", async () => {
   resetChatState();
   const agent = createAgentWorkspace();
