@@ -177,8 +177,28 @@ function messageOf(error: unknown): string {
  */
 function toTourStepContext(context: StepChatContext): TourStepContext {
   if (context.available) {
+    // A diff step shows two snapshots: both sides are transmitted, each
+    // identified with its own path and Git commit, so the agent discusses
+    // the comparison the reader actually sees.
+    if ("diff" in context) {
+      const { original, modified } = context.diff;
+      return {
+        filePath: context.path,
+        description: context.description,
+        code: [
+          `Original (${original.ref}) ${original.path}:`,
+          "```",
+          original.code,
+          "```",
+          `Modified (${modified.ref}) ${modified.path}:`,
+          "```",
+          modified.code,
+          "```"
+        ].join("\n")
+      };
+    }
     return {
-      filePath: context.path,
+      filePath: context.path ?? "",
       description: context.description,
       code: context.code
     };

@@ -1,5 +1,6 @@
 import { Uri, window, workspace } from "vscode";
 import { ActiveTour } from "../store";
+import { FS_SCHEME } from "../constants";
 import { getStepFileUri } from "../utils";
 import { getStepDiff, getStepDiffPath } from "./diff";
 import { renderMarkdownToHtml } from "./markdown";
@@ -35,9 +36,9 @@ export interface StepChatDiffSide {
 export type StepChatContext =
   | {
       available: true;
-      // The tour's declared path for the step target.
-      path: string;
-      // The code the reader actually sees in the open buffer.
+      // The tour's declared path for the step target, when it has one.
+      path?: string;
+      // The code the reader actually sees for the step target.
       code: string;
       description: string;
     }
@@ -156,12 +157,18 @@ export function clearStepChatConversations(): void {
 
 /**
  * Captures the step context faithful to what the reader is shown, reusing
- * the reader's own target resolution. A diff step captures the persisted
- * comparison's two sides as such; any other step captures the buffer of the
- * exact target the render resolved — the Git snapshot of a Changes Tour
- * step, never the current workspace file, or the open buffer of an ordinary
- * step, unsaved edits included. A target that is not currently displayed is
- * reported unavailable, never silently replaced by another file.
+ * the reader's own target resolution across every step target kind.
+ *
+ * - A diff step captures the persisted comparison's two sides as such, each
+ *   identified with its own path and Git commit.
+ * - Any other code step captures the buffer of the exact target the render
+ *   resolved — the Git snapshot of a Changes Tour step, never the current
+ *   workspace file, the virtual document of an embedded-content step, or
+ *   the open buffer of a file or URI step, unsaved edits included.
+ * - A step without code (a directory, a view or a plain explanation)
+ *   passes the declared target, if any, without any substitute code.
+ * - A target that is not currently displayed is reported unavailable,
+ *   never silently replaced by another file.
  */
 export async function resolveStepContext(
   active: ActiveTour
@@ -203,31 +210,56 @@ export async function resolveStepContext(
     }
   }
 
+  // The virtual document of an embedded-content step, as the reader's own
+  // resolution opens it.
+  if (step.contents !== undefined) {
+    const target = Uri.parse(`${FS_SCHEME}://current/${step.file}`);
+    const editor = window.visibleTextEditors.find(
+      editor => editor.document.uri.toString() === target.toString()
+    );
+    if (!editor) {
+      return { available: false, path: step.file, description };
+    }
+    return {
+      available: true,
+      path: step.file,
+      code: editor.document.getText(),
+      description
+    };
+  }
+
   const file = step.file || step.uri;
-  if (!file) {
-    return { available: false, description };
+  if (file) {
+    // The same resolution the render performs: the Git snapshot of a Changes
+    // Tour step, the current buffer of an ordinary step.
+    const uri = await getStepFileUri(
+      step,
+      active.workspaceRoot,
+      step.display === "diff" ? undefined : tour.ref
+    );
+    const editor = window.visibleTextEditors.find(
+      editor => editor.document.uri.toString() === uri.toString()
+    );
+    if (!editor) {
+      return { available: false, path: file, description };
+    }
+
+    return {
+      available: true,
+      path: file,
+      code: editor.document.getText(),
+      description
+    };
   }
 
-  // The same resolution the render performs: the Git snapshot of a Changes
-  // Tour step, the current buffer of an ordinary step.
-  const uri = await getStepFileUri(
-    step,
-    active.workspaceRoot,
-    step.display === "diff" ? undefined : tour.ref
-  );
-  const editor = window.visibleTextEditors.find(
-    editor => editor.document.uri.toString() === uri.toString()
-  );
-  if (!editor) {
-    return { available: false, path: file, description };
+  // A directory-anchored step presents no code: the declared directory is
+  // the target the agent receives, never a substitute buffer.
+  if (step.directory) {
+    return { available: false, path: step.directory, description };
   }
 
-  return {
-    available: true,
-    path: file,
-    code: editor.document.getText(),
-    description
-  };
+  // No code target at all: a view or plain explanation step.
+  return { available: false, description };
 }
 
 async function readDisplayedSide(uri: Uri): Promise<string> {
