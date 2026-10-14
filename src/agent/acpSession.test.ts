@@ -76,6 +76,200 @@ function createWorkspace(): { workspace: string; cleanup: () => void } {
   };
 }
 
+test("the client refuses write and terminal requests and verifies the tools the agent really ran", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "rogue"));
+  try {
+    const session = await openAskSession({
+      transport: agent,
+      cwd: workspace.workspace
+    });
+    try {
+      const tools: {
+        toolCallId: string;
+        kind?: string;
+        forbidden: boolean;
+      }[] = [];
+      const outcome = await session.prompt(
+        "Rogue question",
+        {
+          filePath: "src/anchor.js",
+          description: "Two constants",
+          code: "const first = 1;"
+        },
+        { onToolUse: tool => tools.push(tool) }
+      );
+
+      // The turn completes even though the agent misbehaved, and every
+      // forbidden action is visible beyond the Ask mode name.
+      assert.equal(outcome.stopReason, "end_turn");
+      assert.equal(outcome.message, "I did it anyway.");
+      assert.ok(outcome.usedForbiddenTools);
+      const editTool = outcome.tools.find(tool => tool.toolCallId === "rogue-edit");
+      assert.ok(editTool, "the executed edit tool was tracked");
+      assert.equal(editTool!.kind, "edit");
+      assert.equal(editTool!.status, "completed");
+      assert.equal(editTool!.forbidden, true);
+      assert.ok(
+        tools.some(tool => tool.toolCallId === "rogue-edit" && tool.forbidden),
+        "the tool event reported the forbidden use"
+      );
+
+      const records = await waitForLog(logPath, found =>
+        found.some(record => record.method === "terminal/create")
+      );
+      const writeRefusal = records.find(
+        record => record.method === "fs/write_text_file"
+      );
+      assert.ok(writeRefusal, "the write request was recorded");
+      assert.ok(writeRefusal!.refused, "the write request was refused");
+      assert.equal(writeRefusal!.refused!.code, -32601);
+      assert.match(
+        writeRefusal!.refused!.message,
+        /does not provide file writing/
+      );
+
+      const terminalRefusal = records.find(
+        record => record.method === "terminal/create"
+      );
+      assert.ok(terminalRefusal, "the terminal request was recorded");
+      assert.ok(terminalRefusal!.refused, "the terminal request was refused");
+
+      const executePermission = records.find(
+        record =>
+          record.method === "session/request_permission" &&
+          record.params?.kind === "execute"
+      );
+      assert.ok(executePermission, "the execute permission request was recorded");
+      assert.equal(executePermission!.outcome, "reject");
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
+test("read-only tool use is granted once, served inside the workspace only, and reported as allowed", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "permission-read"));
+  try {
+    const session = await openAskSession({
+      transport: agent,
+      cwd: workspace.workspace
+    });
+    try {
+      const outcome = await session.prompt("Read question", {
+        filePath: "src/anchor.js",
+        description: "Two constants",
+        code: "const first = 1;"
+      });
+
+      assert.equal(outcome.stopReason, "end_turn");
+      assert.equal(outcome.message, "Read allowed.");
+      assert.ok(!outcome.usedForbiddenTools);
+      const readTool = outcome.tools.find(
+        tool => tool.toolCallId === "read-tool"
+      );
+      assert.ok(readTool, "the read tool was tracked");
+      assert.equal(readTool!.kind, "read");
+      assert.equal(readTool!.status, "completed");
+      assert.equal(readTool!.forbidden, false);
+
+      const records = await waitForLog(logPath, found =>
+        found.some(
+          record =>
+            record.method === "fs/read_text_file" &&
+            record.params?.path === "anchor.js"
+        )
+      );
+      const permission = records.find(
+        record => record.method === "session/request_permission"
+      );
+      assert.ok(permission, "the read permission request was recorded");
+      assert.equal(permission!.outcome, "allow");
+
+      const outsideRead = records.find(
+        record =>
+          record.method === "fs/read_text_file" &&
+          record.params?.path === "/etc/hostname"
+      );
+      assert.ok(outsideRead, "the outside read was recorded");
+      assert.ok(outsideRead!.refused, "the outside read was refused");
+
+      const insideRead = records.find(
+        record =>
+          record.method === "fs/read_text_file" &&
+          record.params?.path === "anchor.js"
+      );
+      assert.ok(insideRead, "the inside read was recorded");
+      assert.equal(insideRead!.outcome, "allowed");
+      assert.match(insideRead!.content ?? "", /const first = 1;/);
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
+test("cancelling interrupts an in-flight answer and frees the session for the next question", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "slow"));
+  try {
+    const session = await openAskSession({
+      transport: agent,
+      cwd: workspace.workspace
+    });
+    try {
+      const context = {
+        filePath: "src/anchor.js",
+        description: "Two constants",
+        code: "const first = 1;"
+      };
+      const outcomePromise = session.prompt("A slow question", context);
+
+      // A second prompt must not start while a turn is in flight.
+      await assert.rejects(
+        session.prompt("An overlapping question", context),
+        /already in flight/
+      );
+
+      await waitForLog(logPath, records =>
+        records.some(record => record.method === "session/prompt")
+      );
+      session.cancel();
+
+      const outcome = await outcomePromise;
+      assert.equal(outcome.stopReason, "cancelled");
+      assert.equal(outcome.message, "Working");
+
+      const records = await waitForLog(logPath, found =>
+        found.some(record => record.method === "session/cancel")
+      );
+      assert.ok(
+        records.some(record => record.method === "session/cancel"),
+        "the agent received the cancellation"
+      );
+
+      // The session is cleanly released: the next question gets a full answer.
+      const followUp = await session.prompt("A follow-up question", context);
+      assert.equal(followUp.stopReason, "end_turn");
+      assert.equal(followUp.message, "Tour answer, part two.");
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
 test("a prompt carries the tour step context and receives the complete answer", async () => {
   const workspace = createWorkspace();
   const logPath = path.join(workspace.workspace, "agent.log");

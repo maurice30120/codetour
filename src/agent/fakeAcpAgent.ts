@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as acp from "@agentclientprotocol/sdk";
 import { appendFileSync } from "node:fs";
+import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 
 /**
@@ -55,6 +56,8 @@ const agent = acp.agent({ name: "fake-acp-agent" });
 let sessionId = "fake-session";
 let currentModeId = "edit";
 let promptAbort: AbortController | null = null;
+let promptCount = 0;
+let sessionCwd = "";
 
 agent.onRequest(acp.methods.agent.initialize, context => {
   log({
@@ -65,6 +68,7 @@ agent.onRequest(acp.methods.agent.initialize, context => {
 });
 
 agent.onRequest(acp.methods.agent.session.new, context => {
+  sessionCwd = context.params.cwd;
   log({
     method: "session/new",
     params: context.params as unknown as Record<string, unknown>
@@ -106,6 +110,7 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
   });
   const abort = new AbortController();
   promptAbort = abort;
+  promptCount += 1;
   const notify = (update: acp.SessionUpdate) =>
     context.client.notify(acp.methods.client.session.update, {
       sessionId: params.sessionId,
@@ -119,6 +124,11 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
 
   switch (behavior) {
     case "slow":
+      if (promptCount > 1) {
+        await chunk("Tour answer, ");
+        await chunk("part two.");
+        return { stopReason: "end_turn" } as acp.PromptResponse;
+      }
       await chunk("Working");
       await new Promise<void>(resolve => {
         const timer = setTimeout(resolve, 15_000);
@@ -246,6 +256,45 @@ async function permissionReadTurn(
       ]
     }
   );
+  // A read outside the session workspace must be refused.
+  try {
+    await context.client.request<acp.ReadTextFileResponse, acp.ReadTextFileRequest>(
+      acp.methods.client.fs.readTextFile,
+      {
+        sessionId: context.params.sessionId,
+        path: "/etc/hostname"
+      }
+    );
+    log({ method: "fs/read_text_file", params: { path: "/etc/hostname" }, outcome: "allowed" });
+  } catch (error) {
+    log({
+      method: "fs/read_text_file",
+      params: { path: "/etc/hostname" },
+      refused: toRefusal(error)
+    });
+  }
+  // A read inside the workspace must be served.
+  try {
+    const file = await context.client.request<
+      acp.ReadTextFileResponse,
+      acp.ReadTextFileRequest
+    >(acp.methods.client.fs.readTextFile, {
+      sessionId: context.params.sessionId,
+      path: join(sessionCwd, "anchor.js")
+    });
+    log({
+      method: "fs/read_text_file",
+      params: { path: "anchor.js" },
+      outcome: "allowed",
+      content: file.content
+    });
+  } catch (error) {
+    log({
+      method: "fs/read_text_file",
+      params: { path: "anchor.js" },
+      refused: toRefusal(error)
+    });
+  }
   log({
     method: "session/request_permission",
     params: { kind: "read" },
