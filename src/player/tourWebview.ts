@@ -9,6 +9,7 @@ import {
   clearStepChatConversations,
   getStepChatConversationView,
   getStepChatExchanges,
+  stopTourStepQuestion,
   type StepChatConversationView
 } from "./stepChat";
 import { getNextTour, getPreviousTour } from "./index";
@@ -84,6 +85,20 @@ export function showTourWebview(): void {
             message.question.trim(),
             postChatView
           );
+        } else if (message.type === "stopQuestion") {
+          // The Arrêter button interrupts the step's answer in flight: the
+          // responder's ACP exchange is cancelled, the interrupted state is
+          // posted to the chat and a new question is accepted immediately.
+          const postChatView = (chatView: StepChatConversationView) => {
+            // A stale render (navigation while the answer was streaming) must
+            // not push a conversation into the step the reader now sees.
+            if (view !== current || current.rendered !== rendered) return;
+            void current.panel.webview.postMessage({
+              type: "stepChat",
+              ...chatView
+            });
+          };
+          stopTourStepQuestion(rendered.active, postChatView);
         }
       } catch {
         vscode.window.showErrorMessage("Unable to open this description link.");

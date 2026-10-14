@@ -77,7 +77,13 @@ function resetChatState() {
 }
 
 interface StepChatUpdate {
-  exchanges: { question: string; answerHtml: string; failed?: boolean; pending?: boolean }[];
+  exchanges: {
+    question: string;
+    answerHtml: string;
+    failed?: boolean;
+    pending?: boolean;
+    interrupted?: boolean;
+  }[];
   responding?: boolean;
 }
 
@@ -377,6 +383,110 @@ test("malformed and stale questions never reach the responder", async () => {
   chatPanel().receive({ type: "askQuestion", question: "Question valable ?" });
   await host.waitFor(() => lastChatUpdate().responding === false);
   assert.equal(calls, 1);
+
+  setStepChatResponder(undefined);
+  chatPanel().dispose();
+});
+
+test("stopping interrupts the in-flight answer, ignores its late completion and accepts a new question immediately", async () => {
+  resetChatState();
+  const received: {
+    question: string;
+    history?: { question: string; answer: string }[];
+  }[] = [];
+  const pendingAnswers: ((answer: string) => void)[] = [];
+  let cancels = 0;
+  // The responder streams one chunk, then keeps each turn open until the
+  // test releases it: no timing of a real model is ever involved.
+  setStepChatResponder({
+    answer: (
+      request: { question: string; history?: { question: string; answer: string }[] },
+      events?: { onAnswerDelta?: (delta: string) => void }
+    ) => {
+      received.push(request);
+      events?.onAnswerDelta?.("Un morceau ");
+      return new Promise<string>(resolve => {
+        pendingAnswers.push(resolve);
+      });
+    },
+    cancel: () => {
+      cancels++;
+    }
+  });
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Longue réponse ?" });
+  await host.waitFor(() =>
+    stepChatUpdates().some(
+      update =>
+        update.responding === true &&
+        update.exchanges[0]?.answerHtml?.includes("Un morceau")
+    )
+  );
+
+  // The reader stops the request that has become useless.
+  chatPanel().receive({ type: "stopQuestion" });
+  await host.waitFor(() => lastChatUpdate().responding === false);
+
+  // The interrupted state is visible: the streamed part stays readable,
+  // marked as interrupted, and the responder was told to cancel.
+  const stopped = lastChatUpdate()!;
+  assert.equal(stopped.exchanges.length, 1);
+  assert.equal(stopped.exchanges[0].interrupted, true);
+  assert.equal(stopped.exchanges[0].pending, undefined);
+  assert.match(stopped.exchanges[0].answerHtml, /Un morceau/);
+  assert.match(stopped.exchanges[0].answerHtml, /Réponse interrompue/);
+  assert.equal(cancels, 1);
+
+  // The late completion of the stopped answer is ignored: it never
+  // overwrites the interrupted state, whatever it answers.
+  pendingAnswers[0]!("Réponse tardive, arrivée trop tard.");
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const afterLate = lastChatUpdate()!;
+  assert.equal(afterLate.exchanges[0].interrupted, true);
+  assert.ok(
+    !afterLate.exchanges[0].answerHtml.includes("Réponse tardive"),
+    "the late answer of the stopped exchange never reaches the chat"
+  );
+  assert.ok(
+    !stepChatUpdates().some(update =>
+      update.exchanges.some(
+        exchange => exchange.answerHtml?.includes("Réponse tardive")
+      )
+    )
+  );
+
+  // A new question is accepted immediately after the stop, without any
+  // reload: it reaches the responder, whose interrupted exchange never
+  // feeds its history.
+  chatPanel().receive({ type: "askQuestion", question: "Nouvelle question ?" });
+  await host.waitFor(() =>
+    stepChatUpdates().some(
+      update =>
+        update.responding === true &&
+        update.exchanges.some(
+          exchange => exchange.question === "Nouvelle question ?"
+        )
+    )
+  );
+  await host.waitFor(() => received.length === 2);
+  assert.deepEqual(received[1].history, []);
+  pendingAnswers[1]!("La nouvelle réponse, complète.");
+  await host.waitFor(
+    () =>
+      lastChatUpdate().responding === false &&
+      lastChatUpdate().exchanges[1]?.answerHtml?.includes("La nouvelle réponse")
+  );
+  assert.equal(lastChatUpdate().exchanges[0].interrupted, true);
+
+  // Stopping with no answer in flight changes nothing.
+  chatPanel().receive({ type: "stopQuestion" });
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(cancels, 1);
+  assert.equal(lastChatUpdate().responding, false);
+  assert.equal(lastChatUpdate().exchanges[1].interrupted, undefined);
 
   setStepChatResponder(undefined);
   chatPanel().dispose();

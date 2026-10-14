@@ -13,6 +13,10 @@ import { renderMarkdownToHtml } from "./markdown";
  * - webview → extension: `{ type: "askQuestion", question, token,
  *   targetTourId, step }` submits the reader's question for the rendered
  *   step, with the same identity as every other webview message.
+ * - webview → extension: `{ type: "stopQuestion", token, targetTourId,
+ *   step }` interrupts the step's answer in flight: the responder's
+ *   exchange is cancelled, the interrupted state is displayed in the
+ *   chat and a new question is accepted immediately.
  * - extension → webview: `{ type: "stepChat", exchanges, responding }`
  *   replaces the rendered conversation of the step. Each exchange is a
  *   question with the answer HTML produced by the shared renderer and
@@ -105,6 +109,11 @@ export interface StepChatResponder {
     events?: StepChatAnswerEvents
   ): Promise<string> | string;
   /**
+   * Interrupts the in-flight answer, if any. The late completion of a
+   * cancelled answer is ignored by the chat.
+   */
+  cancel?(): void;
+  /**
    * Releases the responder's agent resources; called when the reading
    * webview closes or the responder is replaced.
    */
@@ -142,6 +151,9 @@ interface StoredExchange {
   // True while the responder is still answering this question: the
   // response-in-progress state of the chat.
   pending?: boolean;
+  // True when the reader stopped this exchange's answer: its late
+  // completion must never overwrite the interrupted state.
+  interrupted?: boolean;
 }
 
 const conversations = new Map<string, StoredExchange[]>();
@@ -161,6 +173,9 @@ export interface StepChatExchangeView {
   failed?: boolean;
   // True while this question's answer is still streaming.
   pending?: boolean;
+  // True when the reader stopped this answer: the partial answer stays
+  // readable, marked as interrupted.
+  interrupted?: boolean;
 }
 
 /** The conversation of a step, with its response-in-progress state. */
@@ -190,7 +205,8 @@ export function getStepChatConversationView(
       question: exchange.question,
       answerHtml: exchange.answerHtml,
       failed: exchange.failed || undefined,
-      pending: exchange.pending || undefined
+      pending: exchange.pending || undefined,
+      interrupted: exchange.interrupted || undefined
     })),
     responding: conversation.some(exchange => exchange.pending === true)
   };
@@ -343,7 +359,9 @@ export async function askTourStepQuestion(
     active.tour.id,
     active.step
   )
-    .filter(exchange => !exchange.failed && !exchange.pending)
+    // A failed or interrupted exchange never completed: neither feeds a
+    // follow-up question's history.
+    .filter(exchange => !exchange.failed && !exchange.pending && !exchange.interrupted)
     .map(exchange => ({
       question: exchange.question,
       answer: exchange.answerMarkdown
@@ -365,7 +383,12 @@ export async function askTourStepQuestion(
 
   // The stored exchange is updated in place: the conversation keeps its
   // order and a refresh never mixes the streamed answer into another step.
+  // The late completion of a stopped exchange is ignored: it never
+  // overwrites the interrupted state the reader already sees.
   const complete = (final: StoredExchange) => {
+    if (exchange.interrupted) {
+      return;
+    }
     exchange.answerMarkdown = final.answerMarkdown;
     exchange.answerHtml = final.answerHtml;
     exchange.failed = final.failed;
@@ -393,6 +416,9 @@ export async function askTourStepQuestion(
           // Every chunk is rendered through the shared sanitizer and
           // displayed on its own: the answer is readable as it streams.
           onAnswerDelta: (delta: string) => {
+            if (exchange.interrupted) {
+              return;
+            }
             streamed += delta;
             exchange.answerHtml = renderMarkdownToHtml(streamed);
             onProgress?.(view());
@@ -428,6 +454,51 @@ export async function askTourStepQuestion(
   const final = view();
   onProgress?.(final);
   return final;
+}
+
+/**
+ * Interrupts the step's answer in flight and returns the updated webview
+ * conversation.
+ *
+ * The responder's exchange is cancelled and the stopped exchange keeps
+ * whatever already streamed, marked as interrupted; the late completion
+ * of the cancelled answer is ignored. A new question is accepted
+ * immediately, without reloading the webview. Stopping with no answer in
+ * flight changes nothing.
+ */
+export function stopTourStepQuestion(
+  active: ActiveTour,
+  onProgress?: (view: StepChatConversationView) => void
+): StepChatConversationView {
+  const conversation = getConversation(active.tour.id, active.step);
+  const exchange = [...conversation]
+    .reverse()
+    .find(candidate => candidate.pending === true);
+  if (!exchange) {
+    return getStepChatConversationView(active.tour.id, active.step);
+  }
+
+  // The stopped answer keeps its streamed part, marked as interrupted.
+  exchange.pending = undefined;
+  exchange.interrupted = true;
+  exchange.answerHtml = interruptedAnswerHtml(exchange.answerHtml);
+
+  // The responder cancels its in-flight ACP exchange; a responder without
+  // cancellation still leaves the interrupted state in the chat.
+  try {
+    responder?.cancel?.();
+  } catch {
+    // Stopping must never disturb the reader.
+  }
+
+  const final = getStepChatConversationView(active.tour.id, active.step);
+  onProgress?.(final);
+  return final;
+}
+
+/** The displayed answer of a stopped exchange, with its interruption. */
+function interruptedAnswerHtml(streamedAnswer: string): string {
+  return `${streamedAnswer}<p class="step-chat-interrupted" role="status">Réponse interrompue.</p>`;
 }
 
 function failedExchange(question: string, message: string): StoredExchange {
