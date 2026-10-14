@@ -127,6 +127,7 @@ interface PromptTurn {
   message: string;
   tools: Map<string, ExecutedToolUse>;
   events: AskSessionEvents;
+  promise?: Promise<PromptOutcome>;
   resolve: (outcome: PromptOutcome) => void;
   reject: (error: unknown) => void;
 }
@@ -347,32 +348,41 @@ export function openAskSession(
             )
           );
         }
-        return new Promise<PromptOutcome>((resolve, reject) => {
-          turn = {
-            message: "",
-            tools: new Map(),
-            events: events ?? {},
-            resolve,
-            reject
-          };
-          connection.agent
-            .request(acp.methods.agent.session.prompt, {
-              sessionId: sessionObject.sessionId,
-              prompt: buildPromptBlocks(question, context)
-            })
-            .then(
-              response => {
-                // The agent's last session/update notifications can still be
-                // in flight when the prompt response arrives. Let them drain
-                // before the turn completes, so the answer is never missing
-                // its final chunks.
-                setImmediate(() => finishTurn(response));
-              },
-              error => {
-                setImmediate(() => failTurn(error));
-              }
-            );
+        let resolveTurn: (outcome: PromptOutcome) => void = () => undefined;
+        let rejectTurn: (error: unknown) => void = () => undefined;
+        const turnPromise = new Promise<PromptOutcome>((resolve, reject) => {
+          resolveTurn = resolve;
+          rejectTurn = reject;
         });
+        // Teardown can reject the in-flight turn before the caller attaches
+        // its own handler; keep that window free of unhandled rejections.
+        turnPromise.catch(() => undefined);
+        turn = {
+          message: "",
+          tools: new Map(),
+          events: events ?? {},
+          promise: turnPromise,
+          resolve: resolveTurn,
+          reject: rejectTurn
+        };
+        connection.agent
+          .request(acp.methods.agent.session.prompt, {
+            sessionId: sessionObject.sessionId,
+            prompt: buildPromptBlocks(question, context)
+          })
+          .then(
+            response => {
+              // The agent's last session/update notifications can still be
+              // in flight when the prompt response arrives. Let them drain
+              // before the turn completes, so the answer is never missing
+              // its final chunks.
+              setImmediate(() => finishTurn(response));
+            },
+            error => {
+              setImmediate(() => failTurn(error));
+            }
+          );
+        return turnPromise;
       },
       cancel() {
         if (closed || !turn) {
@@ -446,6 +456,24 @@ export function openAskSession(
         }
         return undefined;
       })
-      .then(() => openResolve(sessionObject), openReject);
+      .then(
+        () => openResolve(sessionObject),
+        (error: unknown) => {
+          // A vanished entry usually surfaces first as the SDK's generic
+          // connection-closed rejection; give the reader a real cause.
+          if (
+            error instanceof Error &&
+            /ACP connection closed/.test(error.message)
+          ) {
+            openReject(
+              new Error(
+                "The ACP agent exited or closed the connection before the session could start."
+              )
+            );
+            return;
+          }
+          openReject(error);
+        }
+      );
   });
 }

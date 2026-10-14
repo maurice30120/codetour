@@ -76,6 +76,89 @@ function createWorkspace(): { workspace: string; cleanup: () => void } {
   };
 }
 
+test("a session refuses to open without an Ask mode", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "no-ask-mode"));
+  try {
+    await assert.rejects(
+      openAskSession({ transport: agent, cwd: workspace.workspace }),
+      /does not offer an Ask mode/
+    );
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
+test("a session fails fast when the ACP entry exits at launch", async () => {
+  const workspace = createWorkspace();
+  try {
+    const agent = spawnAcpAgent({
+      command: process.execPath,
+      args: ["-e", "process.exit(1)"],
+      cwd: workspace.workspace
+    });
+    try {
+      await assert.rejects(
+        openAskSession({ transport: agent, cwd: workspace.workspace }),
+        /before the session could start|ENOENT/
+      );
+    } finally {
+      await agent.dispose();
+    }
+  } finally {
+    workspace.cleanup();
+  }
+});
+
+test("closing the session interrupts the in-flight turn and releases the agent process", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "slow"));
+  try {
+    const session = await openAskSession({
+      transport: agent,
+      cwd: workspace.workspace
+    });
+    const outcomePromise = session.prompt("A slow question", {
+      filePath: "src/anchor.js",
+      description: "Two constants",
+      code: "const first = 1;"
+    });
+    await waitForLog(logPath, records =>
+      records.some(record => record.method === "session/prompt")
+    );
+
+    await session.close();
+    await assert.rejects(outcomePromise);
+    await assert.rejects(
+      session.prompt("After close", {
+        filePath: "src/anchor.js",
+        description: "Two constants",
+        code: "const first = 1;"
+      }),
+      /closed/
+    );
+    // Closing twice stays a clean no-op.
+    await session.close();
+
+    // The agent process is actually released.
+    await Promise.race([
+      agent.exited,
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("the agent process did not exit")),
+          5000
+        )
+      )
+    ]);
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
 test("the client refuses write and terminal requests and verifies the tools the agent really ran", async () => {
   const workspace = createWorkspace();
   const logPath = path.join(workspace.workspace, "agent.log");
