@@ -299,6 +299,35 @@ test("an answer whose turn ran forbidden tools is flagged in the chat", async ()
   agent.cleanup();
 });
 
+test("a lost agent connection lands in the chat and the next question relaunches the agent", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent, "exit-mid-prompt-once");
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Tu vas disparaître ?" });
+  await host.waitFor(() => !!lastChatUpdate());
+
+  const failure = lastChatUpdate();
+  assert.equal(failure.exchanges[0].failed, true);
+  assert.match(
+    failure.exchanges[0].answerHtml,
+    /La connexion à l'agent de conversation a été perdue/
+  );
+  assert.match(failure.exchanges[0].answerHtml, /relancera l'agent/);
+
+  // The next question relaunches a fresh agent process and gets its answer.
+  chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
+  await host.waitFor(() => lastChatUpdate()?.exchanges.length === 2);
+  assert.notEqual(lastChatUpdate().exchanges[1].failed, true);
+  assert.match(lastChatUpdate().exchanges[1].answerHtml, /Tour answer, part two\./);
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
 test("a step question reaches the ACP agent in Ask mode with the displayed context and its answer lands in the chat", async () => {
   resetChatState();
   const agent = createAgentWorkspace();

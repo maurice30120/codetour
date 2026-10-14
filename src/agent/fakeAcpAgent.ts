@@ -153,6 +153,24 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
       });
       await chunk("Answered from Edit mode.");
       return { stopReason: "end_turn" } as acp.PromptResponse;
+    case "exit-mid-prompt-once": {
+      // The first prompt kills the agent process before answering; the
+      // relaunched process answers the retry.
+      let prompts = 0;
+      try {
+        prompts = readFileSync(logPath, "utf8")
+          .split("\n")
+          .filter(line => line.includes('"session/prompt"')).length;
+      } catch {
+        prompts = 1;
+      }
+      if (prompts < 2) {
+        process.exit(3);
+      }
+      await chunk("Tour answer, ");
+      await chunk("part two.");
+      return { stopReason: "end_turn" } as acp.PromptResponse;
+    }
     case "slow":
       if (promptCount > 1) {
         await chunk("Tour answer, ");

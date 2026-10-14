@@ -80,15 +80,68 @@ export function createAcpStepChatResponder(
     return opening;
   }
 
+  /** True when the agent process behind the session is already gone. */
+  async function transportGone(): Promise<boolean> {
+    const currentAgent = agent;
+    if (!currentAgent) {
+      return false;
+    }
+    return Promise.race([
+      currentAgent.exited.then(
+        () => true,
+        () => true
+      ),
+      new Promise<boolean>(resolve => setImmediate(() => resolve(false)))
+    ]);
+  }
+
+  /** Drops a dead session so the next question relaunches the agent. */
+  function releaseBrokenSession(): void {
+    const currentSession = session;
+    const currentAgent = agent;
+    session = undefined;
+    agent = undefined;
+    opening = undefined;
+    if (currentAgent) {
+      currentAgent.dispose().catch(() => undefined);
+    } else if (currentSession) {
+      currentSession.close().catch(() => undefined);
+    }
+  }
+
   return {
     async answer(request) {
       const current = await openSession(request);
-      const outcome = await current.prompt(
-        request.question,
-        toTourStepContext(request.context),
-        undefined,
-        request.history
-      );
+      let outcome;
+      try {
+        // A crashed agent must never leave the reader waiting on a prompt
+        // that can no longer be answered.
+        const crashed = agent!.exited.then(
+          () => {
+            throw new Error("The ACP agent exited during the answer.");
+          },
+          () => {
+            throw new Error("The ACP agent connection broke during the answer.");
+          }
+        );
+        outcome = await Promise.race([
+          current.prompt(
+            request.question,
+            toTourStepContext(request.context),
+            undefined,
+            request.history
+          ),
+          crashed
+        ]);
+      } catch (error) {
+        if (await transportGone()) {
+          releaseBrokenSession();
+          throw new StepChatAgentUnavailableError(
+            `La connexion à l'agent de conversation a été perdue : ${messageOf(error)}`
+          );
+        }
+        throw error;
+      }
       if (outcome.usedForbiddenTools) {
         return (
           outcome.message +
@@ -113,15 +166,15 @@ export function createAcpStepChatResponder(
   };
 }
 
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Maps the resolver-captured step context onto the prompt context. An
  * unavailable target is reported as such; no other file's code is ever
  * substituted for the missing display.
  */
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function toTourStepContext(context: StepChatContext): TourStepContext {
   if (context.available) {
     return {
