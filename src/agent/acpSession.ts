@@ -360,7 +360,18 @@ export function openAskSession(
               sessionId: sessionObject.sessionId,
               prompt: buildPromptBlocks(question, context)
             })
-            .then(finishTurn, failTurn);
+            .then(
+              response => {
+                // The agent's last session/update notifications can still be
+                // in flight when the prompt response arrives. Let them drain
+                // before the turn completes, so the answer is never missing
+                // its final chunks.
+                setImmediate(() => finishTurn(response));
+              },
+              error => {
+                setImmediate(() => failTurn(error));
+              }
+            );
         });
       },
       cancel() {

@@ -76,6 +76,62 @@ function createWorkspace(): { workspace: string; cleanup: () => void } {
   };
 }
 
+test("a prompt carries the tour step context and receives the complete answer", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath));
+  try {
+    const session = await openAskSession({
+      transport: agent,
+      cwd: workspace.workspace
+    });
+    try {
+      const deltas: string[] = [];
+      const outcome = await session.prompt(
+        "What does the second constant do?",
+        {
+          filePath: "src/anchor.js",
+          description: "Two constants",
+          code: "const first = 1;\nconst second = 2;"
+        },
+        { onAssistantText: delta => deltas.push(delta) }
+      );
+
+      assert.equal(outcome.stopReason, "end_turn");
+      assert.equal(outcome.message, "Tour answer, part two.");
+      assert.deepEqual(deltas, ["Tour answer, ", "part two."]);
+
+      const records = await waitForLog(logPath, found =>
+        found.some(record => record.method === "session/prompt")
+      );
+      const prompt = records.find(record => record.method === "session/prompt");
+      assert.ok(prompt, "session/prompt was recorded");
+      const blocks = (prompt.params as { prompt: { type: string; text: string }[] })
+        .prompt;
+      assert.equal(blocks.length, 2);
+      assert.equal(blocks[0].type, "text");
+      assert.match(blocks[0].text, /second constant/);
+
+      const contextBlock = blocks[1].text;
+      assert.match(contextBlock, /src\/anchor\.js/);
+      assert.match(contextBlock, /Two constants/);
+      assert.match(contextBlock, /const second = 2;/);
+
+      // Ask must still be selected and verified before the first prompt.
+      assert.ok(
+        records.findIndex(record => record.method === "session/set_mode") <
+          records.findIndex(record => record.method === "session/prompt"),
+        "Ask was selected before the prompt was sent"
+      );
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
 test("an ask session starts the ACP entry, advertises no write or terminal capability, and selects Ask", async () => {
   const workspace = createWorkspace();
   const logPath = path.join(workspace.workspace, "agent.log");
