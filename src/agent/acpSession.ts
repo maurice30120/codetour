@@ -214,6 +214,7 @@ export function openAskSession(
     };
 
     let sessionId = "";
+    let askModeId = "";
     let turn: PromptTurn | null = null;
     let currentModeId: string | null = null;
     let closed = false;
@@ -341,7 +342,7 @@ export function openAskSession(
             )
           );
         }
-        if (currentModeId !== ASK_MODE_ID) {
+        if (currentModeId !== askModeId) {
           return Promise.reject(
             new Error(
               `The agent is in "${currentModeId}" mode; the tour step conversation only prompts in Ask mode.`
@@ -443,6 +444,7 @@ export function openAskSession(
               .join(", ")}).`
           );
         }
+        askModeId = askMode.id;
         currentModeId = modes.currentModeId;
         if (modes.currentModeId !== askMode.id) {
           return guard(

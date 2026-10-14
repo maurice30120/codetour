@@ -76,6 +76,80 @@ function createWorkspace(): { workspace: string; cleanup: () => void } {
   };
 }
 
+test("an Ask mode is also selected by name when its id differs", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "ask-mode-by-name"));
+  try {
+    const session = await openAskSession({
+      transport: agent,
+      cwd: workspace.workspace
+    });
+    try {
+      // The agent names its Ask mode "Ask" but identifies it as "qa": the
+      // session must still select it and allow prompting against that id.
+      assert.equal(session.modeId, "qa");
+      const outcome = await session.prompt("Question", {
+        filePath: "src/anchor.js",
+        description: "Two constants",
+        code: "const first = 1;"
+      });
+      assert.equal(outcome.stopReason, "end_turn");
+
+      const records = await waitForLog(logPath, found =>
+        found.some(record => record.method === "session/set_mode")
+      );
+      const setMode = records.find(
+        record => record.method === "session/set_mode"
+      );
+      assert.equal((setMode!.params as { modeId: string }).modeId, "qa");
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
+test("a mode change away from Ask is detected and the next question is refused", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "mode-drift"));
+  try {
+    const session = await openAskSession({
+      transport: agent,
+      cwd: workspace.workspace
+    });
+    try {
+      assert.equal(session.modeId, "ask");
+      const context = {
+        filePath: "src/anchor.js",
+        description: "Two constants",
+        code: "const first = 1;"
+      };
+
+      const outcome = await session.prompt("Question", context);
+      assert.equal(outcome.stopReason, "end_turn");
+      assert.equal(outcome.message, "Answered from Edit mode.");
+
+      // The drift was tracked from the agent's own mode update, so the
+      // session refuses to prompt outside Ask even though it never saw a
+      // set_mode request.
+      assert.equal(session.modeId, "edit");
+      await assert.rejects(
+        session.prompt("Another question", context),
+        /only prompts in Ask mode/
+      );
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
 test("a session refuses to open without an Ask mode", async () => {
   const workspace = createWorkspace();
   const logPath = path.join(workspace.workspace, "agent.log");

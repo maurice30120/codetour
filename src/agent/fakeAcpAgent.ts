@@ -73,13 +73,19 @@ agent.onRequest(acp.methods.agent.session.new, context => {
     method: "session/new",
     params: context.params as unknown as Record<string, unknown>
   });
-  const availableModes =
-    behavior === "no-ask-mode"
-      ? [{ id: "edit", name: "Edit" }]
-      : [
-          { id: "edit", name: "Edit" },
-          { id: "ask", name: "Ask" }
-        ];
+  let availableModes = [
+    { id: "edit", name: "Edit" },
+    { id: "ask", name: "Ask" }
+  ];
+  if (behavior === "no-ask-mode") {
+    availableModes = [{ id: "edit", name: "Edit" }];
+  }
+  if (behavior === "ask-mode-by-name") {
+    availableModes = [
+      { id: "edit", name: "Edit" },
+      { id: "qa", name: "Ask" }
+    ];
+  }
   return {
     sessionId,
     modes: { availableModes, currentModeId }
@@ -123,6 +129,16 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
     });
 
   switch (behavior) {
+    case "mode-drift":
+      // Leaves Ask mode in the middle of a turn; the client must notice
+      // from the current_mode_update, not from the mode name it selected.
+      currentModeId = "edit";
+      await notify({
+        sessionUpdate: "current_mode_update",
+        currentModeId: "edit"
+      });
+      await chunk("Answered from Edit mode.");
+      return { stopReason: "end_turn" } as acp.PromptResponse;
     case "slow":
       if (promptCount > 1) {
         await chunk("Tour answer, ");
