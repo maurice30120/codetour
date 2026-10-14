@@ -185,6 +185,7 @@ async function observe(port, expected) {
             await cdp.call("Input.dispatchKeyEvent", {type:"keyUp", key:expected.key, code:expected.key, windowsVirtualKeyCode:9}, sessionId);
           }
           if (expected.screenshot) {
+            await cdp.call("Runtime.evaluate", {contextId, expression:"window.scrollTo(0,0)"}, sessionId);
             const capture = await cdp.call("Page.captureScreenshot", {format:"png"}, sessionId);
             fs.writeFileSync(path.join(temp, expected.screenshot + ".png"), Buffer.from(capture.data, "base64"));
           }

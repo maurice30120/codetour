@@ -70,6 +70,12 @@ exports.run = async function () {
     await observe({step:1, text:"SMOKE_SECOND", action:"edit"});
     await observe({step:1, source:"SMOKE_SECOND", focused:"tour-step-source"});
     let richDraft = "SAVED_REAL_UI\n\n| One | Two |\n| --- | --- |\n| A | B |\n\n**Diagram — Real smoke**\n\n\`\`\`mermaid\nflowchart TD\nA[Start] --> B[Done]\n\`\`\`";
+
+    richDraft += "\n\n" + "This long explanation checks readable wrapping and navigation in a narrow reader panel. ".repeat(35);
+    richDraft += "\n\nLONG_IDENTIFIER_" + "X".repeat(350);
+    richDraft += "\n\nhttps://example.invalid/long/" + "abcdef".repeat(90);
+    richDraft += "\n\n| First column | Second column | Third column | Fourth column | Fifth column | Sixth column |\n| --- | --- | --- | --- | --- | --- |\n| " + Array.from({length:6}, (_, i) => "Column" + i + "_" + "Y".repeat(60)).join(" | ") + " |";
+
     await observe({step:1, input:richDraft});
     await observe({step:1, source:richDraft, png:true});
     assert.equal(JSON.parse(fs.readFileSync(tourPath)).steps[1].description, "SMOKE_SECOND", "Input remains unsaved");
