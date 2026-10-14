@@ -2,11 +2,14 @@
 // Licensed under the MIT License.
 
 import * as vscode from "vscode";
+import { createAcpStepChatResponder } from "./agent/stepChatAgent";
+import { vibeAcpEntry } from "./agent/vibeAcpEntry";
 import { initializeApi } from "./api";
 import { initializeGitApi } from "./git";
 import { registerLiveShareModule } from "./liveShare";
 import { registerNotebookProvider } from "./notebook";
 import { registerPlayerModule } from "./player";
+import { setStepChatResponder } from "./player/stepChat";
 import { registerRecorderModule } from "./recorder";
 import { store } from "./store";
 import {
@@ -83,6 +86,18 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(notebookProvider);
   }
   registerPlayerModule(context);
+  // Tour Step Conversations answer through the ACP session layer, launched
+  // by the installed Vibe entry with the tour's workspace root; the session
+  // layer verifies the Ask mode before the first prompt.
+  const stepChatResponder = createAcpStepChatResponder(request =>
+    vibeAcpEntry(request.workspaceRoot)
+  );
+  setStepChatResponder(stepChatResponder);
+  context.subscriptions.push({
+    dispose: () => {
+      void stepChatResponder.dispose();
+    }
+  });
   registerRecorderModule();
   registerLiveShareModule();
 

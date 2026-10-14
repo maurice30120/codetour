@@ -49,21 +49,44 @@ export interface StepChatRequest {
   question: string;
   context: StepChatContext;
   history: StepChatHistoryEntry[];
+  /** The workspace root the tour lives in; the agent session's cwd. */
+  workspaceRoot: string;
 }
 
 /**
- * The injected responder answering step questions. The extension owns no
- * real agent in this base; tests and later features inject one.
+ * The responder answering step questions: the ACP session layer over the
+ * installed agent entry in production, injected by the deterministic tests
+ * at the same seam.
  */
 export interface StepChatResponder {
   answer(request: StepChatRequest): Promise<string> | string;
+  /**
+   * Releases the responder's agent resources; called when the reading
+   * webview closes or the responder is replaced.
+   */
+  dispose?(): Promise<void> | void;
 }
 
 let responder: StepChatResponder | undefined;
 
 /** Injects (or removes) the responder answering step chat questions. */
 export function setStepChatResponder(next?: StepChatResponder): void {
+  releaseResponder(responder);
   responder = next;
+}
+
+function releaseResponder(current: StepChatResponder | undefined): void {
+  if (!current) {
+    return;
+  }
+  try {
+    const released = current.dispose?.();
+    if (released) {
+      Promise.resolve(released).catch(() => undefined);
+    }
+  } catch {
+    // Releasing a responder must never disturb the reader.
+  }
 }
 
 interface StoredExchange {
@@ -99,6 +122,10 @@ export function getStepChatExchanges(
 /** Forgets every step conversation; called when the reading webview closes. */
 export function clearStepChatConversations(): void {
   conversations.clear();
+  // The ACP agent resources are released with the conversations; the
+  // responder stays registered and lazily relaunches for a future reading
+  // session.
+  releaseResponder(responder);
 }
 
 /**
@@ -161,7 +188,8 @@ export async function askTourStepQuestion(
       const answerMarkdown = await responder.answer({
         question,
         context: resolveOpenBufferContext(active),
-        history
+        history,
+        workspaceRoot: active.workspaceRoot?.fsPath ?? ""
       });
       exchange = {
         question,
