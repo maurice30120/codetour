@@ -3,7 +3,7 @@
   "displayName": "CodeTour IA",
   "description": "Record and playback guided tours of codebases, with AI-generated project and changes tours, directly within the editor",
   "publisher": "maurice30120",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packageManager": "npm@12.0.1",
   "volta": {
     "node": "24.18.0",
@@ -70,10 +70,28 @@
           "default": true,
           "description": "Specifies whether or not to show tour markers in the editor gutter."
         },
+        "codetour.commentPosition": {
+          "type": "string",
+          "enum": [
+            "above",
+            "below"
+          ],
+          "default": "above",
+          "description": "Position tour comments above or below their code anchor during playback. Above keeps adjacent single-line C# attributes with the declaration. A first-line anchor displays below the first line."
+        },
         "codetour.customTourDirectory": {
           "type": "string",
           "default": null,
           "description": "Specifies a custom location to use when discovering tours."
+        },
+        "codetour.playbackMode": {
+          "type": "string",
+          "enum": [
+            "comments",
+            "webview"
+          ],
+          "default": "comments",
+          "description": "Specifies how tour steps are presented while reading: inline comments or a side webview panel."
         }
       }
     },
@@ -226,7 +244,8 @@
       {
         "command": "codetour.saveTourStep",
         "title": "Save Step",
-        "enablement": "!commentIsEmpty"
+        "enablement": "codetour:isEditing || !commentIsEmpty",
+        "category": "CodeTour IA"
       },
       {
         "command": "codetour.showMarkers",
@@ -247,12 +266,22 @@
         "icon": "$(play)"
       },
       {
+        "command": "codetour.togglePlaybackMode",
+        "title": "Toggle Tour Playback Mode",
+        "category": "CodeTour IA"
+      },
+      {
         "command": "codetour.unmakeTourPrimary",
         "title": "Unmake Primary"
       },
       {
         "command": "codetour.viewNotebook",
         "title": "View Notebook",
+        "category": "CodeTour IA"
+      },
+      {
+        "command": "codetour.cancelTourStepEditing",
+        "title": "Cancel Step Editing",
         "category": "CodeTour IA"
       }
     ],
@@ -281,6 +310,10 @@
         {
           "command": "codetour.startTour",
           "when": "codetour:hasTours"
+        },
+        {
+          "command": "codetour.togglePlaybackMode",
+          "when": "codetour:inTour"
         },
         {
           "command": "codetour.addDirectoryStep",
@@ -364,7 +397,7 @@
         },
         {
           "command": "codetour.saveTourStep",
-          "when": "false"
+          "when": "codetour:isEditing && !codetour:recording && codetour:canEditTour"
         },
         {
           "command": "codetour.showMarkers",
@@ -381,6 +414,10 @@
         {
           "command": "codetour.viewNotebook",
           "when": "false"
+        },
+        {
+          "command": "codetour.cancelTourStepEditing",
+          "when": "codetour:isEditing && !codetour:recording && codetour:canEditTour"
         }
       ],
       "comments/commentThread/title": [

@@ -552,3 +552,74 @@ test("rejects symlinks that escape the workspace root", async () => {
     rmrf(outside);
   }
 });
+
+test("dryRun validates a proposal without writing the tour file", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const first = await callTool(client, "create_project_tour", {
+        title: "Baseline",
+        steps: [{ description: "Original step." }],
+      });
+      assert.equal(first.isError, false, first.text);
+
+      const response = await callTool(client, "create_project_tour", {
+        title: "Rehearsal",
+        dryRun: true,
+        steps: [{ description: "Rehearsed step." }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.equal(response.structured.status, "validated");
+      assert.equal(response.structured.stepCount, 1);
+      assert.equal(response.structured.path, undefined);
+    });
+    const tour = readTourFile(root, ".tours/project.tour");
+    assert.equal(tour.title, "Baseline");
+    assert.equal(((tour.steps as unknown[])[0] as { description: string }).description, "Original step.");
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("dryRun still rejects an invalid proposal and preserves the previous tour", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const first = await callTool(client, "create_project_tour", {
+        title: "Baseline",
+        steps: [{ description: "Original step." }],
+      });
+      assert.equal(first.isError, false, first.text);
+
+      const response = await callTool(client, "create_project_tour", {
+        title: "Rehearsal",
+        dryRun: true,
+        steps: [{ description: "Rehearsed step.", file: "does-not-exist.ts" }],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.ok(issuePaths(response).includes("steps[0].file"));
+    });
+    const tour = readTourFile(root, ".tours/project.tour");
+    assert.equal(tour.title, "Baseline");
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("rejects a non-boolean dryRun", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        dryRun: "yes",
+        steps: [{ description: "Step." }],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.ok(issuePaths(response).includes("dryRun"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});

@@ -97,11 +97,12 @@ function reportUnknownFields(
   }
 }
 
-const PROJECT_PARAM_FIELDS = ["workspacePath", "title", "description", "steps"] as const;
+const PROJECT_PARAM_FIELDS = ["workspacePath", "title", "description", "dryRun", "steps"] as const;
 const CHANGES_PARAM_FIELDS = [
   "workspacePath",
   "title",
   "description",
+  "dryRun",
   "steps",
   "baseRef",
   "headRef",
@@ -182,6 +183,13 @@ function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
       });
     }
     params.description = description;
+  }
+  if (raw.dryRun !== undefined) {
+    if (typeof raw.dryRun !== "boolean") {
+      issues.push({ path: "dryRun", message: "must be a boolean" });
+    } else {
+      params.dryRun = raw.dryRun;
+    }
   }
   if (raw.steps === undefined) {
     issues.push({ path: "steps", message: "is required" });

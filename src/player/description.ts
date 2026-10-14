@@ -9,6 +9,7 @@ import {
 import { CodeTour, store } from "../store";
 import { getTourTitle } from "../utils";
 import { appendInsertCodeLinks } from "./insertCode";
+import { spaceDescriptionImages, spaceDescriptionLists } from "./readability";
 
 const SHELL_SCRIPT_PATTERN = /^>>\s+(?<script>.*)$/gm;
 
@@ -105,8 +106,9 @@ export async function renderPreviewDescription(
   theme: DescriptionTheme = getDescriptionTheme(),
   context: PreviewDescriptionContext = {}
 ): Promise<string> {
-  return generatePreviewContent(
-    await renderDescription(content, theme),
-    context
+  return spaceDescriptionLists(
+    spaceDescriptionImages(
+      generatePreviewContent(await renderDescription(content, theme), context)
+    )
   );
 }
