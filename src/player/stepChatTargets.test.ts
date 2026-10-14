@@ -151,3 +151,42 @@ test("a directory-anchored step sends the declared directory, never a buffer", a
   setStepChatResponder(undefined);
   chatPanel().dispose();
 });
+
+test("a URI step sends the code displayed at its target", async () => {
+  resetChatState();
+  const received: RecordedContext[] = [];
+  setStepChatResponder({
+    answer: async (request: { question: string; context: RecordedContext }) => {
+      received.push(request.context);
+      return "Réponse URI.";
+    }
+  });
+
+  registerPlayerModule(host.extensionContext);
+  host.setFileContent("src/player.ts", ["const player = true;", "start();"].join("\n"));
+  await startTourWithSteps("uri.tour", [
+    {
+      title: "URI target",
+      description: "Étape ancrée à une URI.",
+      uri: "file:///workspace/src/player.ts",
+      line: 1
+    }
+  ]);
+
+  chatPanel().receive({ type: "askQuestion", question: "Sur quoi pointe cette URI ?" });
+  await host.waitFor(() => !!lastChatUpdate());
+
+  // The reader sees the URI's document, so the question carries that code,
+  // not an unavailable target.
+  assert.equal(received.length, 1);
+  assert.deepEqual(received[0], {
+    available: true,
+    path: "file:///workspace/src/player.ts",
+    code: "const player = true;\nstart();",
+    description: "Étape ancrée à une URI."
+  });
+  assert.match(lastChatUpdate().exchanges[0].answerHtml, /Réponse URI/);
+
+  setStepChatResponder(undefined);
+  chatPanel().dispose();
+});
