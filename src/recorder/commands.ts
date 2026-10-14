@@ -8,9 +8,7 @@ import { workspace } from "vscode";
 import { EXTENSION_NAME, FS_SCHEME_CONTENT } from "../constants";
 import { api, RefType } from "../git";
 import { CodeTourComment } from "../player";
-import { enterStepEditing, saveStepDraft } from "../player/tourWebviewEditing";
-import { getStepDraft, isEditingSession } from "../player/tourDrafts";
-import { resolveStepDraftBeforeExit } from "../player/tourDraftExit";
+import { enterStepEditing, saveStepDraft, isEditingSession, resolveStepDraftBeforeExit } from "../player/stepEditing";
 import { renderPreviewDescription } from "../player/description";
 import { CodeTourNode, CodeTourStepNode } from "../player/tree/nodes";
 import { CodeTour, CodeTourStep, store } from "../store";
@@ -501,7 +499,7 @@ export function registerRecorderCommands() {
       }
       store.isRecording = false;
       await vscode.commands.executeCommand("setContext", "codetour:recording", false);
-      enterStepEditing();
+      return enterStepEditing();
     }
   );
 
@@ -517,7 +515,7 @@ export function registerRecorderCommands() {
       if (store.activeTour?.tour.id !== node.tour.id || store.activeTour.step !== node.stepNumber) return;
       store.isRecording = false;
       await vscode.commands.executeCommand("setContext", "codetour:recording", false);
-      enterStepEditing();
+      return enterStepEditing();
     }
   );
 
@@ -578,7 +576,7 @@ export function registerRecorderCommands() {
     async (comment?: CodeTourComment) => {
       const active = store.activeTour;
       if (active && isEditingSession(active.tour.id, active.step)) {
-        return saveStepDraft(active.tour.id, active.step, getStepDraft(active.tour.id, active.step) ?? active.tour.steps[active.step].description);
+        return saveStepDraft();
       }
       if (!comment?.parent) {
         return;

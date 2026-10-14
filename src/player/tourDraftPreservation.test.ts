@@ -8,7 +8,7 @@ import { createVscodeHost, Uri } from "../test/vscodeHost";
 // cancel prompt every step exit proposes while a draft exists.
 const host = createVscodeHost({
   configuration: {
-    codetour: { playbackMode: "webview", showMarkers: false }
+    codetour: { showMarkers: false }
   }
 });
 
@@ -27,13 +27,14 @@ const originalLoad = (nodeModule as unknown as { _load: unknown })._load as (
 };
 
 const { registerPlayerModule } = require("../player");
+const { registerRecorderCommands } = require("../recorder/commands");
 const { store } = require("../store");
 const { endCurrentCodeTour } = require("../store/actions");
 const {
   clearStepDraft,
   getStepDraft,
   getEditingSession
-} = require("../player/tourDrafts");
+} = require("../player/stepEditing");
 
 const tour = {
   id: "file:///workspace/.tours/drafts.tour",
@@ -98,24 +99,30 @@ function seedWorkspace() {
 async function startDraftTour() {
   seedWorkspace();
   store.tours = [tour, otherTour];
-  store.playbackMode = "webview";
   await host.vscode.commands.executeCommand("codetour.startTour", tour);
-  await host.waitFor(() => panelHtml().includes("1 / 2"));
+  await host.waitFor(() => host.liveThreads().length === 1);
 }
 
 async function enterEditingWithDraft(text: string) {
-  panel().receive({ type: "edit" });
-  await host.waitFor(
-    () => !!panelHtml().match(/<textarea id="tour-step-source"/)
-  );
-  panel().receive({ type: "draft", tour: tour.id, step: 0, text });
-  await host.waitFor(() => !!postedPreview(new RegExp(text.trim())));
+  const before = host.visibleTextEditors.filter(item => item.document.uri.scheme === "untitled").length;
+  await host.vscode.commands.executeCommand("codetour.editTour");
+  await host.waitFor(() => host.visibleTextEditors.filter(item => item.document.uri.scheme === "untitled").length > before);
+  await host.waitFor(() => !!nativeSource());
+  const editor = nativeSource()!;
+  await editor.edit(edit => edit.replace(new host.vscode.Range(0, 0, editor.document.lineCount, 0), text));
+  await host.waitFor(() => getStepDraft(tour.id, 0) === text);
+}
+
+function nativeSource() {
+  return [...host.visibleTextEditors].reverse().find(editor => editor.document.uri.scheme === "untitled" && editor.document.getText() === getStepDraft(tour.id, store.activeTour.step));
 }
 
 // Resets the module-level draft state between the tests of this file.
 async function resetState() {
   if (store.activeTour) {
-    endCurrentCodeTour(false);
+    const { hasUnsavedStepDraft } = require("./stepEditing");
+    if (hasUnsavedStepDraft()) host.respondToModal("Discard");
+    await endCurrentCodeTour(false);
   }
   clearStepDraft(tour.id, 0);
   clearStepDraft(tour.id, 1);
@@ -138,26 +145,7 @@ function preservationTest(name: string, fn: () => Promise<void>) {
   });
 }
 
-function panel() {
-  return host.livePanels("codetour.tour")[0]!;
-}
-
-function panelHtml() {
-  return host.panelHtml();
-}
-
-type PanelMessage = { type?: string; html?: string };
-
-function postedPreview(match: RegExp): PanelMessage | undefined {
-  return host
-    .postedMessages()
-    .find(
-      message =>
-        (message as PanelMessage).type === "preview" &&
-        !!(message as PanelMessage).html &&
-        match.test((message as PanelMessage).html!)
-    ) as PanelMessage | undefined;
-}
+function panelHtml() { return host.panelHtml(); }
 
 async function readTourFile(tourId: string) {
   const bytes = await host.vscode.workspace.fs.readFile(Uri.parse(tourId));
@@ -168,97 +156,8 @@ function storeStepDescription(step: number): string {
   return store.activeTour!.tour.steps[step].description;
 }
 
-preservationTest(
-  "switching playback mode during an edit keeps the draft and saves nothing",
-  async () => {
-    registerPlayerModule(host.extensionContext);
-    await startDraftTour();
-    await enterEditingWithDraft("Toggle draft.");
-
-    // Switching to the native presentation never saves the draft implicitly.
-    await host.vscode.commands.executeCommand("codetour.togglePlaybackMode");
-    await host.waitFor(() =>
-      (host.liveThreads()[0]?.comments[0]?.body?.value ?? "").includes(
-        "Registered first content."
-      )
-    );
-    assert.equal(host.livePanels("codetour.tour").length, 0);
-    assert.equal(getStepDraft(tour.id, 0), "Toggle draft.");
-    const saved = (await readTourFile(tour.id)) as {
-      steps: { description: string }[];
-    };
-    assert.match(saved.steps[0].description, /Registered first content\./);
-
-    // The recording state is not disturbed by the switch.
-    assert.equal(store.isRecording, false);
-    assert.equal(store.activeTour.step, 0);
-
-    // Switching back re-presents the step, and the draft is editable again.
-    await host.vscode.commands.executeCommand("codetour.togglePlaybackMode");
-    await host.waitFor(() => panelHtml().includes("1 / 2"));
-    assert.equal(host.liveThreads().length, 0);
-    assert.equal(store.isEditing, true);
-    const sourceEditor = host.visibleTextEditors.find(editor => editor.document.uri.scheme === "untitled")!;
-    assert.equal(sourceEditor.document.getText(), "Toggle draft.");
-    panel().receive({ type: "edit" });
-    await host.waitFor(
-      () => !!panelHtml().match(/<textarea id="tour-step-source"/)
-    );
-    assert.match(panelHtml(), /Toggle draft\./);
-    assert.equal(getStepDraft(tour.id, 0), "Toggle draft.");
-    await resetState();
-  }
-);
-
-preservationTest(
-  "closing and resuming the panel during an edit restores the editor with the draft",
-  async () => {
-    await startDraftTour();
-    await enterEditingWithDraft("Reopen draft.");
-
-    panel().dispose();
-    assert.equal(host.livePanels("codetour.tour").length, 0);
-    assert.equal(getStepDraft(tour.id, 0), "Reopen draft.");
-
-    await host.vscode.commands.executeCommand("codetour.resumeTour");
-    await host.waitFor(
-      () => !!panelHtml().match(/<textarea id="tour-step-source"/)
-    );
-    assert.match(panelHtml(), /Reopen draft\./);
-    assert.equal(store.isEditing, true);
-    assert.equal(getStepDraft(tour.id, 0), "Reopen draft.");
-
-    // Nothing was persisted by the close/reopen cycle.
-    const saved = (await readTourFile(tour.id)) as {
-      steps: { description: string }[];
-    };
-    assert.match(saved.steps[0].description, /Registered first content\./);
-    await resetState();
-  }
-);
-
-preservationTest(
-  "a theme change during an edit re-renders the panel without replacing the draft",
-  async () => {
-    await startDraftTour();
-    await enterEditingWithDraft("Theme draft.");
-
-    // Empty the panel content: only a real re-render can repopulate it.
-    panel().webview.html = "";
-
-    host.changeColorTheme(host.vscode.ColorThemeKind.Dark);
-
-    await host.waitFor(
-      () =>
-        !!panelHtml().match(/<textarea id="tour-step-source"/) &&
-        panelHtml().includes("Theme draft.")
-    );
-    assert.equal(store.isEditing, true);
-    assert.equal(getStepDraft(tour.id, 0), "Theme draft.");
-    assert.equal(host.liveThreads().length, 0);
-    await resetState();
-  }
-);
+registerPlayerModule(host.extensionContext);
+registerRecorderCommands();
 
 preservationTest(
   "the draft exit prompt is a keyboard-driven quick pick",
@@ -313,7 +212,7 @@ preservationTest(
     assert.equal(getStepDraft(tour.id, 0), "Exit draft.");
     assert.equal(store.isEditing, true);
     assert.equal(getEditingSession()?.step, 0);
-    assert.match(panelHtml(), /<textarea id="tour-step-source"/);
+    assert.ok(nativeSource());
     await resetState();
   }
 );
@@ -355,8 +254,8 @@ preservationTest(
     assert.equal(getEditingSession(), undefined);
     assert.equal(store.isEditing, false);
     assert.match(storeStepDescription(0), /Registered first content\./);
-    await host.waitFor(() => panelHtml().includes("2 / 2"));
-    assert.match(panelHtml(), /Registered second content\./);
+    await host.waitFor(() => host.liveThreads()[0]?.comments[0]?.body.value.includes("Registered second content."));
+    assert.match(host.liveThreads()[0].comments[0].body.value, /Registered second content\./);
     assert.doesNotMatch(panelHtml(), /tour-step-source/);
 
     // The discard never touched the tour file.
@@ -412,7 +311,7 @@ preservationTest(
     assert.equal(store.activeTour.step, 0);
     assert.equal(getStepDraft(tour.id, 0), "Retry after failure.");
     assert.equal(store.isEditing, true);
-    assert.match(panelHtml(), /<textarea id="tour-step-source"/);
+    assert.ok(nativeSource());
     assert.match(storeStepDescription(0), /Registered first content\./);
 
     // Once the write works again, the same draft saves and the exit proceeds.
@@ -522,7 +421,8 @@ preservationTest(
     assert.equal(draftWrites.length, 1);
 
     // A late panel message targeting the previous step is still rejected.
-    panel().receive({ type: "save", tour: tour.id, step: 0, text: "Late." });
+    const { saveStepDraft } = require("./stepEditing");
+    assert.equal(await saveStepDraft(), false);
     await new Promise(resolve => setTimeout(resolve, 200));
     assert.match(storeStepDescription(0), /Burst draft\./);
     await resetState();
@@ -534,19 +434,17 @@ preservationTest("no prompt appears without an unsaved draft", async () => {
 
   // No editing session at all: navigation is silent.
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
-  await host.waitFor(() => panelHtml().includes("2 / 2"));
+  await host.waitFor(() => host.liveThreads()[0]?.comments[0]?.body.value.includes("Registered second content."));
   assert.equal(host.modalPrompts().length, 0);
   await host.vscode.commands.executeCommand("codetour.previousTourStep");
-  await host.waitFor(() => panelHtml().includes("1 / 2"));
+  await host.waitFor(() => host.liveThreads().length === 1);
 
   // Entering the editor without typing leaves the draft identical to the
   // registered content: no prompt either.
-  panel().receive({ type: "edit" });
-  await host.waitFor(
-    () => !!panelHtml().match(/<textarea id="tour-step-source"/)
-  );
+  await host.vscode.commands.executeCommand("codetour.editTour");
+  await host.waitFor(() => !!nativeSource());
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
-  await host.waitFor(() => panelHtml().includes("2 / 2"));
+  await host.waitFor(() => host.liveThreads()[0]?.comments[0]?.body.value.includes("Registered second content."));
   assert.equal(host.modalPrompts().length, 0);
   assert.equal(getStepDraft(tour.id, 0), undefined);
   assert.equal(store.isEditing, false);
@@ -562,4 +460,22 @@ preservationTest("a programmatic tour end honours draft cancellation", async () 
   assert.ok(store.activeTour);
   assert.equal(getStepDraft(tour.id, 0), "Kept draft.");
   await resetState();
+});
+
+preservationTest("opening expanded reading resolves an unsaved native draft", async () => {
+  await startDraftTour();
+  await enterEditingWithDraft("Expanded draft.");
+  const opening = host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.answerModal("Cancel");
+  await opening;
+  assert.equal(store.isExpandedViewOpen, false);
+  assert.equal(store.isEditing, true);
+  assert.equal(getStepDraft(tour.id, 0), "Expanded draft.");
+  assert.equal(host.livePanels("codetour.tour").length, 0);
+  host.respondToModal("Save");
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.waitFor(() => host.panelHtml().includes("Expanded draft."));
+  assert.equal(store.isEditing, false);
+  assert.equal(getStepDraft(tour.id, 0), undefined);
+  assert.equal((await readTourFile(tour.id)).steps[0].description, "Expanded draft.");
 });

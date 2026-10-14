@@ -12,11 +12,11 @@ import {
 import { CodeTour, store } from ".";
 import { EXTENSION_NAME, FS_SCHEME, FS_SCHEME_CONTENT } from "../constants";
 import { startPlayer, stopPlayer } from "../player";
-import { endEditingSession } from "../player/tourDrafts";
 import {
+  endEditingSession,
   hasUnsavedStepDraft,
   resolveStepDraftBeforeExit
-} from "../player/tourDraftExit";
+} from "../player/stepEditing";
 import { getStepSnapshotUri } from "../player/diff";
 import {
   getStepFileUri,
@@ -164,11 +164,9 @@ export async function endCurrentCodeTour(fireEvent: boolean = true) {
     commands.executeCommand("setContext", RECORDING_KEY, false);
     commands.executeCommand("setContext", EDITING_KEY, false);
   } else if (store.isEditing) {
-    // Ending the tour also leaves a webview editing session: the editing
+    // Ending the tour also leaves a step editing session: the editing
     // state is cleared while the in-memory draft stays available.
-    store.isEditing = false;
     endEditingSession();
-    commands.executeCommand("setContext", EDITING_KEY, false);
   }
 
   stopPlayer();

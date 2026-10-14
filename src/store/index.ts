@@ -67,11 +67,6 @@ export interface ActiveTour {
 type CodeTourProgress = [string, number[]];
 export type CodeTourStepTuple = [CodeTour, CodeTourStep, number, number?];
 
-// The presentation used while reading a tour: the historical inline comment
-// threads, or the side webview panel. The mode belongs to VS Code settings
-// and never changes the persisted tour format.
-export type PlaybackMode = "comments" | "webview";
-
 export interface Store {
   tours: CodeTour[];
   activeTour: ActiveTour | null;
@@ -81,9 +76,9 @@ export interface Store {
   isEditing: boolean;
   // Whether the current permissions allow editing the active tour. It is
   // the store-side mirror of the codetour:canEditTour context, so surfaces
-  // like the webview can enforce it in their UI and message handling.
+  // can enforce it in their UI and commands.
   canEditTour: boolean;
-  playbackMode: PlaybackMode;
+  isExpandedViewOpen: boolean;
   showMarkers: boolean;
   progress: CodeTourProgress[];
 }
@@ -94,7 +89,7 @@ export const store: Store = observable({
   isRecording: false,
   isEditing: false,
   canEditTour: true,
-  playbackMode: "comments",
+  isExpandedViewOpen: false,
   get hasTours() {
     return this.tours.length > 0;
   },

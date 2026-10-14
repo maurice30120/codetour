@@ -37,27 +37,35 @@ export const STEP_FIELDS = [
 
 export const MAX_RECOMMENDED_STEPS = 15;
 
-export function step0OverviewWarnings(steps: TourStep[]): Warning[] {
-  const step0 = steps[0];
-  const fences = step0 === undefined ? [] : findDiagramFences(step0.description);
+// Readability limit for the first diagram of the orientation step, shared with
+// the tool guidance in server.ts so the advised and enforced values stay equal.
+export const MAX_RECOMMENDED_DIAGRAM_NODES = 12;
+
+export function orientationStepWarnings(steps: TourStep[]): Warning[] {
+  const orientationStep = steps[0];
+  const fences =
+    orientationStep === undefined ? [] : findDiagramFences(orientationStep.description);
   const warnings: Warning[] = [];
   if (
-    step0 === undefined ||
-    step0.file !== undefined ||
-    step0.directory !== undefined ||
+    orientationStep === undefined ||
+    orientationStep.file !== undefined ||
+    orientationStep.directory !== undefined ||
     fences.length === 0
   ) {
     warnings.push({
-      code: "STEP0_MISSING_OVERVIEW",
+      code: "ORIENTATION_STEP_MISSING_OVERVIEW",
       message:
-        "The first step should be a locator-free overview with at least one diagram.",
+        "The first step should be a locator-free orientation step with at least one diagram.",
     });
   }
-  if (fences[0] !== undefined && diagramNodeCount(fences[0].source) > 15) {
+  if (
+    fences[0] !== undefined &&
+    diagramNodeCount(fences[0].source) > MAX_RECOMMENDED_DIAGRAM_NODES
+  ) {
     warnings.push({
-      code: "STEP0_DIAGRAM_TOO_LARGE",
+      code: "ORIENTATION_STEP_DIAGRAM_TOO_LARGE",
       message:
-        "The first diagram in the overview has more than 15 nodes; consider simplifying it for readability.",
+        `The first diagram in the orientation step has more than ${MAX_RECOMMENDED_DIAGRAM_NODES} nodes; consider simplifying it for readability.`,
     });
   }
   return warnings;

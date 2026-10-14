@@ -9,7 +9,7 @@ import { createVscodeHost } from "../test/vscodeHost";
 // the recorder, whose flows build on the native comment threads.
 const host = createVscodeHost({
   configuration: {
-    codetour: { playbackMode: "webview", showMarkers: false }
+    codetour: { showMarkers: false }
   }
 });
 
@@ -66,7 +66,7 @@ async function startTour() {
   await host.vscode.commands.executeCommand("codetour.startTour", tour);
 }
 
-test("recording a new tour keeps the native flow under a webview preference", async () => {
+test("recording a new tour keeps the native flow", async () => {
   registerPlayerModule(host.extensionContext);
   registerRecorderModule();
 
@@ -108,21 +108,21 @@ test("recording a new tour keeps the native flow under a webview preference", as
 test("editing and previewing the active tour keep working next to the webview mode", async () => {
   await startTour();
 
-  // The tour reads in the webview panel, per the preference.
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("1 / 1"), 5000);
   assert.equal(host.livePanels("codetour.tour").length, 1);
 
   await host.vscode.commands.executeCommand("codetour.editTour");
-  await host.waitFor(() => host.panelHtml().includes("tour-step-source"));
+  await host.waitFor(() => host.visibleTextEditors.some(editor => editor.document.uri.scheme === "untitled"));
   assert.equal(store.isRecording, false);
   assert.equal(store.isEditing, true);
-  assert.equal(host.liveThreads().length, 0);
+  assert.equal(host.liveThreads().length, 1);
 
   await host.vscode.commands.executeCommand("codetour.previewTour");
-  await host.waitFor(() => !host.panelHtml().includes("tour-step-source"));
+  await host.waitFor(() => host.liveThreads()[0]?.comments[0]?.body.value.includes("Registered editable content."));
   assert.equal(store.isRecording, false);
   assert.equal(store.isEditing, false);
-  assert.equal(host.liveThreads().length, 0);
-  assert.equal(host.livePanels("codetour.tour").length, 1);
+  assert.equal(host.liveThreads().length, 1);
+  assert.equal(host.livePanels("codetour.tour").length, 0);
   await host.vscode.commands.executeCommand("codetour.endTour");
 });

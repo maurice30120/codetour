@@ -1,264 +1,156 @@
 import { randomBytes } from "crypto";
 import * as vscode from "vscode";
-import { CodeTourStep, store } from "../store";
+import { ActiveTour, CodeTourStep, store } from "../store";
 import { getTourTitle } from "../utils";
 import { renderPreviewDescription } from "./description";
+import { createTourWebviewHtml } from "./markdown";
 import { getNextTour, getPreviousTour } from "./index";
-import {
-  cancelStepEditing,
-  enterStepEditing,
-  executePanelEditCommand,
-  saveStepDraft,
-  updateStepDraft
-} from "./tourWebviewEditing";
-import { getEditingSession, getStepDraft, TourStepRef } from "./tourDrafts";
-import { createTourWebviewHtml } from "./tourWebviewHtml";
-import { openDescriptionLinkOrReport } from "./webviewLinks";
 
-const VIEW_TYPE = "codetour.tour";
-
-let panel: vscode.WebviewPanel | undefined;
-let linkWorkspaceRoot: vscode.Uri | undefined;
-let panelRenderVersion = 0;
-let disposingPanel = false;
-let activeToken: string | undefined;
-let draftRevision = 0;
-// The presentation the reader closed themselves. A render arriving for that
-// very step must not reopen the panel behind their back; navigating to
-// another step or resuming presents again.
-let userClosedPresentation: TourStepRef | undefined;
-
-function getStepAnchorLabel(step: CodeTourStep): string | undefined {
-  if (step.file) {
-    let label = step.file;
-    if (step.line) {
-      label += ` : ${step.line}`;
-    }
-    if (step.display === "diff") {
-      label += " · Diff";
-    }
-    return label;
-  }
-
-  if (step.directory) {
-    return step.directory;
-  }
-
-  if (step.view) {
-    return step.view;
-  }
-
-  return "Presentation";
+interface TourView {
+  panel: vscode.WebviewPanel;
+  version: number;
+  rendered?: { active: ActiveTour; step: number; token: string };
 }
 
-// Presents the active step in the layout A reading panel: tour header and
-// progression, step title, prepared description, then navigation. The
-// description comes from the shared rendering pipeline (Mermaid included) and
-// the buttons drive the very same player commands as every other surface.
-export async function renderTourStep(): Promise<void> {
-  const activeTour = store.activeTour;
-  if (!activeTour) {
-    return;
-  }
+let view: TourView | undefined;
 
-  const { tour, step: stepNumber, workspaceRoot } = activeTour;
-  const step = tour.steps[stepNumber];
-  if (!step) {
-    return;
-  }
-
-  if (
-    !panel &&
-    userClosedPresentation?.tourId === tour.id &&
-    userClosedPresentation.step === stepNumber
-  ) {
-    return;
-  }
-
-  const version = ++panelRenderVersion;
-  const sourceRevision = draftRevision;
-  // An active editing session on the rendered step presents the editor with
-  // the in-memory draft (never the registered content), so a re-entry or a
-  // re-render never loses the author's work in progress.
-  const editingSession = getEditingSession();
-  const editingThisStep =
-    editingSession?.tourId === tour.id && editingSession?.step === stepNumber;
-  const source = editingThisStep
-    ? (getStepDraft(tour.id, stepNumber) ?? step.description)
-    : undefined;
-  const content =
-    editingThisStep && source !== undefined ? source : step.description;
-  const description = await renderPreviewDescription(content, undefined, {
-    tour,
-    tours: activeTour.tours,
-    workspaceRoot
-  });
-  if (
-    version !== panelRenderVersion ||
-    !store.activeTour ||
-    store.activeTour.tour !== tour || store.activeTour.step !== stepNumber ||
-    store.playbackMode !== "webview"
-  ) {
-    return;
-  }
-
-  if (editingThisStep && sourceRevision !== draftRevision) return renderTourStep();
-
-  // Tour transitions reuse the reader's own rules: the previous button
-  // starts the previous tour at the first step, the finish action hands
-  // over to the next tour of a series.
-  const previousTour = stepNumber === 0 ? getPreviousTour() : undefined;
-  const nextTour =
-    stepNumber === tour.steps.length - 1 ? getNextTour() : undefined;
-
-  const model = {
-    tourTitle: getTourTitle(tour),
-    tourId: tour.id,
-    stepNumber,
-    stepCount: tour.steps.length,
-    stepTitle: step.title || `Step ${stepNumber + 1}`,
-    anchorLabel: getStepAnchorLabel(step),
-    description,
-    editable: store.canEditTour,
-    editing: editingThisStep && source !== undefined ? { source } : undefined,
-    previousTourTitle: previousTour?.title,
-    nextTourTitle: nextTour?.title
-  };
-  const title = `CodeTour — ${getTourTitle(tour)}`;
-
-  if (!panel) {
-    panel = vscode.window.createWebviewPanel(
-      VIEW_TYPE,
-      title,
-      { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-      { enableScripts: true, localResourceRoots: [] }
-    );
-    panel.onDidDispose(() => {
-      // Closing the panel is a presentation choice, not a tour change: the
-      // mode and the step stay as they are, and neither a render still in
-      // flight nor one arriving late for this step may recreate the panel
-      // with a stale step.
-      panel = undefined;
-      linkWorkspaceRoot = undefined;
-      panelRenderVersion++;
-      activeToken = undefined;
-      draftRevision++;
-      if (!disposingPanel && store.activeTour) {
-        userClosedPresentation = {
-          tourId: store.activeTour.tour.id,
-          step: store.activeTour.step
-        };
-      }
+/** Opens or focuses the sole reading panel. The player reaction renders it. */
+export function showTourWebview(): void {
+  const active = store.activeTour;
+  if (!active || store.isRecording) return;
+  if (!view) {
+    const current: TourView = {
+      panel: vscode.window.createWebviewPanel(
+        "codetour.tour",
+        `CodeTour — ${getTourTitle(active.tour)}`,
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+        { enableScripts: true, localResourceRoots: [] }
+      ),
+      version: 0
+    };
+    view = current;
+    current.panel.onDidDispose(() => {
+      if (view !== current) return;
+      view = undefined;
+      store.isExpandedViewOpen = false;
     });
-    panel.webview.onDidReceiveMessage(async message => {
-      const active = store.activeTour;
-      if (!active || !activeToken || message?.token !== activeToken ||
-          message?.targetTourId !== active.tour.id || message?.step !== active.step) return;
-      const tourTitle =
-        typeof message?.tour === "string" && message.tour ? message.tour : undefined;
-      switch (message?.type) {
-        case "previous":
-          if (tourTitle) {
-            await vscode.commands.executeCommand(
-              "codetour.startTourByTitle",
-              tourTitle
-            );
+    current.panel.webview.onDidReceiveMessage(async message => {
+      const rendered = current.rendered;
+      if (view !== current || !rendered || rendered.active !== store.activeTour ||
+          rendered.step !== store.activeTour.step || message?.token !== rendered.token ||
+          message?.targetTourId !== store.activeTour.tour.id || message?.step !== rendered.step) return;
+      try {
+        if (message.type === "previous" || message.type === "next") {
+          const backward = message.type === "previous";
+          const withinTour = backward ? rendered.step > 0 : rendered.step < rendered.active.tour.steps.length - 1;
+          if (withinTour) {
+            await vscode.commands.executeCommand(backward ? "codetour.previousTourStep" : "codetour.nextTourStep");
           } else {
-            await vscode.commands.executeCommand("codetour.previousTourStep");
+            const target = backward ? getPreviousTour() : getNextTour();
+            if (target) await vscode.commands.executeCommand(backward ? "codetour.startTourByTitle" : "codetour.finishTour", target.title);
           }
-          break;
-        case "next":
-          await vscode.commands.executeCommand("codetour.nextTourStep");
-          break;
-        case "finish":
-          await vscode.commands.executeCommand(
-            "codetour.finishTour",
-            tourTitle
-          );
-          break;
-        case "code":
-          await vscode.commands.executeCommand("codetour.resumeTour");
-          break;
-        case "edit":
-          // Entering the editor is a host-side decision: the permissions
-          // are validated here, never trusted from the webview.
-          if (enterStepEditing()) {
-            await renderTourStep();
-          }
-          break;
-        case "draft": {
-          // The preview of a draft change is rendered host-side through the
-          // shared pipeline and posted back to the panel's preview area; a
-          // render that became stale in the meantime is never delivered.
-          const version = panelRenderVersion;
-          const revision = ++draftRevision;
-          const html = await updateStepDraft(
-            message.tour,
-            message.step,
-            message.text
-          );
-          if (html !== undefined && version === panelRenderVersion && revision === draftRevision && panel) {
-            await panel.webview.postMessage({ type: "preview", html, revision: message.revision, token: activeToken });
-          }
-          break;
+        } else if (message.type === "openLink" && typeof message.href === "string") {
+          await openDescriptionLink(message.href, rendered.active.workspaceRoot);
         }
-        case "save": {
-          const result = await saveStepDraft(
-            message.tour,
-            message.step,
-            message.text
-          );
-          if (result === "saved" || result === "error") {
-            await renderTourStep();
-          }
-          break;
-        }
-        case "cancel":
-          if (cancelStepEditing(message.tour, message.step)) {
-            await renderTourStep();
-          }
-          break;
-        case "editCommand":
-          // Only the panel's fixed set of recorder commands runs, gated by
-          // the edit permissions.
-          const token = activeToken;
-          await executePanelEditCommand(message.command, () => activeToken === token && store.activeTour === active && store.activeTour.step === message.step);
-          break;
-        case "openLink":
-          if (typeof message.href === "string") {
-            await openDescriptionLinkOrReport(message.href, linkWorkspaceRoot);
-          }
-          break;
+      } catch {
+        vscode.window.showErrorMessage("Unable to open this description link.");
       }
     });
-  } else {
-    panel.title = title;
+    store.isExpandedViewOpen = true;
   }
-
-  linkWorkspaceRoot = workspaceRoot;
-  userClosedPresentation = undefined;
-  activeToken = randomBytes(16).toString("base64");
-  draftRevision++;
-  panel.webview.html = createTourWebviewHtml(model, activeToken);
+  view.panel.reveal(undefined, true);
 }
 
-// Brings the reading panel back when the reader closed it: the step is
-// re-presented, never a stale one.
-export async function revealTourWebview() {
-  userClosedPresentation = undefined;
-  if (!panel) {
-    await renderTourStep();
-  }
-  panel?.reveal(undefined, true);
+/** Updates an existing panel; rendering can never reopen a closed panel. */
+export async function renderTourStep(): Promise<void> {
+  const current = view;
+  const active = store.activeTour;
+  if (!current || !active) return;
+  const { tour, step: stepNumber, workspaceRoot } = active;
+  const step = tour.steps[stepNumber];
+  if (!step) return;
+  const version = ++current.version;
+  const description = await renderPreviewDescription(step.description, undefined, {
+    tour, tours: active.tours, workspaceRoot
+  });
+  if (view !== current || current.version !== version || store.activeTour !== active ||
+      active.step !== stepNumber || !store.isExpandedViewOpen) return;
+
+  const token = randomBytes(16).toString("base64");
+  current.rendered = { active, step: stepNumber, token };
+  current.panel.title = `CodeTour — ${getTourTitle(tour)}`;
+  current.panel.webview.html = createTourWebviewHtml({
+    tourTitle: getTourTitle(tour), tourId: tour.id, stepNumber,
+    stepCount: tour.steps.length, stepTitle: step.title || `Step ${stepNumber + 1}`,
+    anchorLabel: getStepAnchorLabel(step), description,
+    previousTourTitle: getPreviousTour()?.title,
+    nextTourTitle: getNextTour()?.title
+  }, token);
 }
 
-export function disposeTourWebview() {
-  if (panel) {
-    disposingPanel = true;
-    panel.dispose();
-    disposingPanel = false;
-    panel = undefined;
-    linkWorkspaceRoot = undefined;
-    userClosedPresentation = undefined;
+export function disposeTourWebview(): void {
+  const previous = view;
+  view = undefined;
+  previous?.panel.dispose();
+  store.isExpandedViewOpen = false;
+}
+
+function getStepAnchorLabel(step: CodeTourStep): string {
+  const file = step.file || step.uri;
+  if (!file) return step.directory || step.view || "Presentation";
+  return file + (step.line ? ` : ${step.line}` : "") +
+    (step.display === "diff" ? " · Diff" : "");
+}
+
+const ALLOWED_COMMANDS = /^(codetour\.|vscode\.open$)/;
+
+function reviveCommandArgument(value: unknown): unknown {
+  if (
+    value &&
+    typeof value === "object" &&
+    "scheme" in value &&
+    "path" in value
+  ) {
+    const components = value as {
+      scheme: string;
+      authority?: string;
+      path?: string;
+      query?: string;
+      fragment?: string;
+    };
+    return vscode.Uri.from({
+      scheme: components.scheme,
+      authority: components.authority,
+      path: components.path,
+      query: components.query,
+      fragment: components.fragment
+    });
+  }
+
+  return value;
+}
+
+// Opens a link clicked in an extension-owned description surface, applying the
+// shared allowlist and workspace-relative resolution.
+async function openDescriptionLink(
+  href: string,
+  workspaceRoot?: vscode.Uri
+): Promise<void> {
+  const uri = vscode.Uri.parse(href, true);
+  if (uri.scheme === "command" && ALLOWED_COMMANDS.test(uri.path)) {
+    const parsedArgs: unknown = uri.query
+      ? JSON.parse(decodeURIComponent(uri.query))
+      : [];
+    const args = (Array.isArray(parsedArgs) ? parsedArgs : [parsedArgs]).map(
+      reviveCommandArgument
+    );
+    await vscode.commands.executeCommand(uri.path, ...args);
+  } else if (["http", "https", "mailto"].includes(uri.scheme)) {
+    await vscode.env.openExternal(uri);
+  } else if (!uri.scheme && workspaceRoot) {
+    await vscode.commands.executeCommand(
+      "vscode.open",
+      vscode.Uri.joinPath(workspaceRoot, uri.path)
+    );
   }
 }

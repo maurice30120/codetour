@@ -7,7 +7,7 @@ import { createVscodeHost, Uri } from "../test/vscodeHost";
 // markers are hidden: the active anchor must still be visible.
 const host = createVscodeHost({
   configuration: {
-    codetour: { playbackMode: "webview", showMarkers: false }
+    codetour: { showMarkers: false }
   }
 });
 
@@ -72,6 +72,7 @@ function seedWorkspace() {
 async function startTour() {
   seedWorkspace();
   await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
 }
 
 function activeAnchorType() {
@@ -104,8 +105,6 @@ test("webview playback reads a step in a layout A panel with the logo alone at t
   assert.match(html, /<h1>Player entry<\/h1>/);
   assert.match(html, /<p>The player starts here\.<\/p>/);
   assert.match(html, /class="anchor">src\/player\.ts : 3</);
-  assert.match(html, /data-action="previous" disabled/);
-  assert.doesNotMatch(html, /data-action="next" disabled/);
 
   // The editor only shows the small CodeTour logo at the resolved anchor,
   // even though the general tour markers are hidden.
@@ -121,24 +120,21 @@ test("webview playback reads a step in a layout A panel with the logo alone at t
   assert.deepEqual(otherDecorations, []);
 });
 
-test("the panel navigation reuses the player actions, progression and bounds", async () => {
-  const panel = host.livePanels("codetour.tour")[0];
+test("extension navigation reuses the player actions, progression and bounds", async () => {
 
-  panel!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
   assert.equal(host.liveThreads().length, 0);
   const selectionDecorations = anchorDecoration("src/player.ts");
   assert.equal(selectionDecorations![0].start.line, 5);
   assert.match(host.panelHtml(), /<h1>Playback rule<\/h1>/);
 
-  panel!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("3 / 3"));
-  assert.match(host.panelHtml(), /data-action="next" disabled/);
-  assert.doesNotMatch(host.panelHtml(), /data-action="previous" disabled/);
   const patternDecorations = anchorDecoration("src/anchor.ts");
   assert.equal(patternDecorations![0].start.line, 4);
 
-  panel!.receive({ type: "previous" });
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
 
   // Two steps forward recorded progression; going backward does not add any.
@@ -148,10 +144,10 @@ test("the panel navigation reuses the player actions, progression and bounds", a
   assert.deepEqual([...progression].sort(), [0, 1]);
 });
 
-test("toggling playback modes preserves the tour, the step and the native rendering", async () => {
+test("closing and reopening the expanded view preserves the tour, the step and the native rendering", async () => {
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
 
-  await host.vscode.commands.executeCommand("codetour.togglePlaybackMode");
+  host.livePanels("codetour.tour")[0]!.dispose();
   await host.waitFor(() =>
     host.liveThreads()[0]?.comments[0]?.body.value.includes(
       "The selection anchors this rule."
@@ -165,7 +161,7 @@ test("toggling playback modes preserves the tour, the step and the native render
   );
   assert.equal(store.activeTour.step, 1);
 
-  await host.vscode.commands.executeCommand("codetour.togglePlaybackMode");
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
   assert.equal(host.liveThreads().length, 0);
   assert.equal(anchorDecoration("src/player.ts")![0].start.line, 5);
@@ -175,7 +171,7 @@ test("toggling playback modes preserves the tour, the step and the native render
   const updates = host.configurationUpdates.filter(
     ([, key]) => key === "playbackMode"
   );
-  assert.equal(updates.length, 2);
+  assert.equal(updates.length, 0);
   const progression = (store.progress as [string, number[]][]).find(
     ([id]) => id === tour.id
   )![1];
@@ -188,7 +184,7 @@ test("resuming returns to the anchor and the panel without a comment thread", as
   const editor = host.editorFor("src/player.ts")!;
   const revealedCount = editor.revealedRanges.length;
 
-  panel.receive({ type: "code" });
+  await host.vscode.commands.executeCommand("codetour.resumeTour");
   await host.waitFor(() => editor.revealedRanges.length > revealedCount);
   assert.equal(panel.revealed, true);
   assert.equal(host.liveThreads().length, 0);
@@ -214,9 +210,11 @@ test("finishing the tour removes the panel, the anchor and the presentation", as
 
 test("public navigation stays inside the first and final steps", async () => {
   await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.vscode.commands.executeCommand("codetour.previousTourStep");
   assert.equal(store.activeTour.step, 0);
   await host.vscode.commands.executeCommand("codetour.startTour", tour, 2);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
   assert.equal(store.activeTour.step, 2);
   await host.vscode.commands.executeCommand("codetour.endTour");
@@ -226,6 +224,7 @@ test("a whole-file step invents no source logo", async () => {
   await host.vscode.commands.executeCommand("codetour.startTour", {
     ...tour, steps: [{ file: "src/player.ts", description: "Whole file" }]
   });
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Whole file"));
   assert.ok(!anchorDecoration("src/player.ts")?.length);
   await host.vscode.commands.executeCommand("codetour.endTour");

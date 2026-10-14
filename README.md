@@ -355,22 +355,11 @@ At any time, you can end the current code tour by means of one of the following 
 
 ## Reading Tours in a Side Panel
 
-By default, tour explanations display as inline comments within your editor. If you'd prefer to keep your editor clear of comments, you can instead read tours in a side panel, which is displayed next to your code:
+Tours start with inline comments. Click **Show Expanded Description** in the comment toolbar, the CodeTour view toolbar, or the command palette to read the active step beside your code.
 
-1. Set the `codetour.playbackMode` setting to `webview` (see [below](#configuration-settings)), or
-2. Run the `CodeTour: Toggle Tour Playback Mode` command while taking a tour.
+The single reading view displays the tour title, progress, step title and target, and the description with Markdown, images, tables and Mermaid. Navigate with the extension tree, commands or shortcuts; the panel follows the active step. The code displays only the small CodeTour logo at its anchor, even when general tour markers are hidden. Steps without a code anchor remain readable without an invented marker.
 
-Both actions switch the presentation of the current tour without restarting it: the same tour resumes at the same step, with the same progress, and the choice is remembered in your VS Code settings for your next tours. The toggle command is available at any time while you're taking a tour, so you can switch back to the inline comments whenever you prefer.
-
-When the webview mode is active:
-
-- Your editor only displays the small CodeTour logo in the gutter, at the line the current step is anchored to. This anchor is visible even if you've hidden the general [tour markers](#tour-markers), and no comment thread or description text is displayed in the editor or the `Comments` panel.
-- The side panel displays the tour title, your progression, the step's title and target (file, line, directory or diff), the full step content (including [Mermaid diagrams](#code-blocks), tables and images), and the navigation actions below the explanation. The panel follows VS Code's light/dark theme, and everything is reachable with the keyboard: navigation buttons, the Markdown source editor, and the save/discard prompts all expose a visible focus.
-- Opening a step still opens the associated file, selection or diff in the other column, and closing the panel doesn't end the tour. Run `CodeTour: Resume Current Tour` (or click the status bar item) to bring the panel back at the current step.
-
-Editing works from the panel as well: the `Éditer l'étape` action presents the step's Markdown source, a live preview (Mermaid diagrams included) and `Sauvegarder`/`Annuler` actions, and saves into the existing `.tour` file, so edited tours stay compatible with every other tool. If you navigate away from a step with unsaved changes, CodeTour asks whether to save, discard or keep editing, and a failed save never loses your draft: it stays in memory for the session, across mode switches and panel re-opens.
-
-The playback mode is purely a presentation choice: no existing tour needs to be migrated, and the tour recorder always uses the comment-based editing flow, regardless of this setting.
+Closing the panel restores the inline comment at the same step. Editing from the extension also returns to the native presentation and opens a managed Markdown draft document. Use **Save Step** or **Cancel Step Editing** from the command palette. Leaving an unsaved draft asks whether to save, discard or cancel; failed saves preserve the draft.
 
 ## Maintaining Tours
 
@@ -407,7 +396,7 @@ In addition to the `CodeTour` tree view and the status bar item, the CodeTour ex
 
 - `CodeTour: Start Tour` - Starts a tour for the currently opened workspace. This command is only visible if the current workspace has one or more code tours.
 
-* `CodeTour: Toggle Tour Playback Mode` - Switches the presentation of the active tour between inline comments and the [side reading panel](#reading-tours-in-a-side-panel). This command is only visible while you're actively playing a tour.
+* `CodeTour IA: Show Expanded Description` - Opens the active step in the [side reading panel](#reading-tours-in-a-side-panel).
 
 * `CodeTour: Refresh Tours` - Refreshes the [`CodeTour` view](#tree-view), which can be handy if you'd created/modified/deleted tour files on disk. This command is only visible if the current workspace has one or more code tours.
 
@@ -437,7 +426,6 @@ The `CodeTour` extension contributes the following settings:
 
 - `Codetour > Custom Tour Directory` - Specifies the name of a custom directory path that tours can be stored in within an opened workspace (e.g. `docs/tours`).
 
-- `Codetour > Playback Mode` - Specifies how tour steps are presented while reading: inline `comments` (the default) or a side `webview` panel (see [reading tours in a side panel](#reading-tours-in-a-side-panel)). This setting only affects the presentation; tour files and the recorder are unchanged.
 
 ### Keybindings
 
@@ -488,14 +476,6 @@ if (codeTourExtension) {
 }
 ```
 
-### Editing a step across playback modes
+### Editing an existing step
 
-Existing-step Edit uses the WebView Markdown source field in WebView mode. In
-Comments mode it opens an untitled Markdown source document. Typing in that
-source document updates the same session draft; switching modes transfers the
-text without saving the tour. Use **CodeTour IA: Save Step** from the command
-palette to write the draft to the `.tour` file, or **Cancel Step Editing** to
-discard it. The untitled document is a draft surface; its normal document Save
-does not save the tour. New-tour recording continues to
-use the native comment recorder. Navigation, reordering and ending the tour ask
-whether to save, discard or cancel when the active step has an unsaved draft.
+Use Edit in the CodeTour tree or comment toolbar. The extension opens an untitled Markdown draft document and restores inline comments if the expanded view was open. Typing updates the session draft. **CodeTour IA: Save Step** writes it to the `.tour` file; **Cancel Step Editing** discards it. The document's normal Save action does not save the tour. New-tour recording continues to use native comments. Navigation, reordering, ending the tour and opening expanded reading ask whether to save, discard or cancel when the active step has an unsaved draft.

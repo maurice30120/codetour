@@ -8,7 +8,7 @@ import { ColorThemeKind, createVscodeHost } from "../test/vscodeHost";
 // permissions, hot theme changes and stale renders during rapid navigation.
 const host = createVscodeHost({
   configuration: {
-    codetour: { playbackMode: "webview", showMarkers: false }
+    codetour: { showMarkers: false }
   }
 });
 
@@ -88,6 +88,7 @@ function seedWorkspace() {
 async function startTour() {
   seedWorkspace();
   await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
 }
 
 function panelHtml() {
@@ -122,9 +123,8 @@ test("a mermaid diagram renders in the reading panel with its caption as alt tex
 });
 
 test("an invalid diagram falls back to the shared notice without hiding the rest", async () => {
-  const panel = host.livePanels("codetour.tour")[0]!;
 
-  panel.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => panelHtml().includes("2 / 3"));
 
   const html = panelHtml();
@@ -135,9 +135,8 @@ test("an invalid diagram falls back to the shared notice without hiding the rest
 });
 
 test("tables, images and tour references render through the shared pipeline", async () => {
-  const panel = host.livePanels("codetour.tour")[0]!;
 
-  panel.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => panelHtml().includes("3 / 3"));
 
   const html = panelHtml();
@@ -249,6 +248,7 @@ test("closing the panel during a pending mermaid render keeps the latest request
 
   // The reader continues from the requested step.
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => panelHtml().includes("2 / 3"));
   assert.match(panelHtml(), /<h1>Broken diagram<\/h1>/);
 });

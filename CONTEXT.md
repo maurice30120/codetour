@@ -39,3 +39,14 @@ _Avoid_: Workspace root argument, current folder
 **Playback Surface**:
 A user-visible place where a Tour or Tour Step description is presented while reading a Tour.
 _Avoid_: Component, container
+
+**Expanded Description View**:
+The side panel displaying the active Tour Step's explanation while the code retains its anchor marker.
+_Avoid_: Prototype, variant A
+
+**Tour Step Draft**:
+An unsaved change to a Tour Step's explanation.
+
+**Tour Step Conversation**:
+A discussion with an agent about one Tour Step, grounded in its displayed code and explanation. Each step has its own conversation.
+_Avoid_: Tour chat, workspace chat

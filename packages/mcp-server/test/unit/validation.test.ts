@@ -5,16 +5,17 @@ import { test } from "node:test";
 import { createContext } from "../../src/context";
 import {
   MAX_PATTERN_LENGTH,
+  MAX_RECOMMENDED_DIAGRAM_NODES,
   MAX_RECOMMENDED_STEPS,
-  step0OverviewWarnings,
+  orientationStepWarnings,
   validateChangesParams,
   validateProjectParams,
   validateSteps,
 } from "../../src/validation";
 import { rmrf, tempDir, writeFile } from "../helpers/test-utils";
 
-test("step0OverviewWarnings accepts a locator-free Mermaid overview", () => {
-  const warnings = step0OverviewWarnings([
+test("orientationStepWarnings accepts a locator-free Mermaid overview", () => {
+  const warnings = orientationStepWarnings([
     {
       description: [
         "**Diagram — Vue contexte**",
@@ -30,8 +31,8 @@ test("step0OverviewWarnings accepts a locator-free Mermaid overview", () => {
   assert.deepEqual(warnings, []);
 });
 
-test("step0OverviewWarnings warns when the first step has a file locator", () => {
-  const warnings = step0OverviewWarnings([
+test("orientationStepWarnings warns when the first step has a file locator", () => {
+  const warnings = orientationStepWarnings([
     {
       description: "**Diagram — Overview**\n\n```mermaid\nflowchart LR\n  A --> B\n```",
       file: "src/index.ts",
@@ -39,26 +40,47 @@ test("step0OverviewWarnings warns when the first step has a file locator", () =>
   ]);
 
   assert.deepEqual(warnings.map((warning) => warning.code), [
-    "STEP0_MISSING_OVERVIEW",
+    "ORIENTATION_STEP_MISSING_OVERVIEW",
   ]);
 });
 
-test("step0OverviewWarnings warns when the first step has no Mermaid fence", () => {
-  const warnings = step0OverviewWarnings([
+test("orientationStepWarnings warns when the first step has no Mermaid fence", () => {
+  const warnings = orientationStepWarnings([
     { description: "A text-only introduction." },
   ]);
 
   assert.deepEqual(warnings.map((warning) => warning.code), [
-    "STEP0_MISSING_OVERVIEW",
+    "ORIENTATION_STEP_MISSING_OVERVIEW",
   ]);
 });
 
-test("step0OverviewWarnings warns when the first diagram exceeds fifteen nodes", () => {
+test("orientationStepWarnings accepts a diagram at the recommended node limit", () => {
   const edges = Array.from(
-    { length: 15 },
+    { length: MAX_RECOMMENDED_DIAGRAM_NODES - 1 },
     (_, index) => `  Node${index + 1} --> Node${index + 2}`
   );
-  const warnings = step0OverviewWarnings([
+  const warnings = orientationStepWarnings([
+    {
+      description: [
+        "**Diagram — Overview**",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        ...edges,
+        "```",
+      ].join("\n"),
+    },
+  ]);
+
+  assert.deepEqual(warnings, []);
+});
+
+test("orientationStepWarnings warns when the first diagram exceeds the recommended node limit", () => {
+  const edges = Array.from(
+    { length: MAX_RECOMMENDED_DIAGRAM_NODES },
+    (_, index) => `  Node${index + 1} --> Node${index + 2}`
+  );
+  const warnings = orientationStepWarnings([
     {
       description: [
         "**Diagram — Overview**",
@@ -72,12 +94,12 @@ test("step0OverviewWarnings warns when the first diagram exceeds fifteen nodes",
   ]);
 
   assert.deepEqual(warnings.map((warning) => warning.code), [
-    "STEP0_DIAGRAM_TOO_LARGE",
+    "ORIENTATION_STEP_DIAGRAM_TOO_LARGE",
   ]);
 });
 
-test("step0OverviewWarnings does not count edge labels as diagram nodes", () => {
-  const warnings = step0OverviewWarnings([
+test("orientationStepWarnings does not count edge labels as diagram nodes", () => {
+  const warnings = orientationStepWarnings([
     {
       description: [
         "**Diagram — Vue contexte**",

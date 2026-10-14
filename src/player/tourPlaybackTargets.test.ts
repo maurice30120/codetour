@@ -5,7 +5,7 @@ import { createVscodeHost, Uri } from "../test/vscodeHost";
 
 const host = createVscodeHost({
   configuration: {
-    codetour: { playbackMode: "webview", showMarkers: false }
+    codetour: { showMarkers: false }
   },
   failMissingFiles: true
 });
@@ -72,6 +72,7 @@ async function startTour() {
     )
   );
   await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
 }
 
 function activeAnchorType() {
@@ -101,7 +102,7 @@ test("a step without any code anchor stays readable and invents no marker", asyn
   await host.waitFor(() => host.panelHtml().includes("File entry"));
   assert.equal(anchorRanges().length, 1);
 
-  host.livePanels("codetour.tour")[0]!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("No anchor"));
 
   // The step is readable in the panel and nothing is anchored or opened.
@@ -112,16 +113,16 @@ test("a step without any code anchor stays readable and invents no marker", asyn
   assert.equal(host.liveThreads().length, 0);
 
   // The tour continues after the unanchored step.
-  host.livePanels("codetour.tour")[0]!.receive({ type: "previous" });
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("File entry"));
   assert.equal(anchorRanges().length, 1);
 });
 
 test("directory and view steps keep their target behavior without any marker", async () => {
-  host.livePanels("codetour.tour")[0]!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("No anchor"));
 
-  host.livePanels("codetour.tour")[0]!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("Directory target"));
 
   // The directory is revealed in the explorer and no anchor is invented.
@@ -134,7 +135,7 @@ test("directory and view steps keep their target behavior without any marker", a
   assert.equal(anchorRanges().length, 0);
   assert.equal(anchorFreeEditorPaths().length, 1);
 
-  host.livePanels("codetour.tour")[0]!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("View target"));
 
   // The configured view is focused, again without any anchor.
@@ -150,7 +151,7 @@ test("directory and view steps keep their target behavior without any marker", a
 test("an unavailable file keeps the current step readable and the tour going", async () => {
   // The previous test left the tour on the view step; the next one is the
   // step whose file is missing.
-  host.livePanels("codetour.tour")[0]!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("Missing file"));
 
   // The panel shows the current step, not a stale one, and warns the reader.
@@ -171,9 +172,25 @@ test("an unavailable file keeps the current step readable and the tour going", a
   assert.equal(host.liveThreads().length, 0);
 
   // The tour continues after the missing file.
-  host.livePanels("codetour.tour")[0]!.receive({ type: "previous" });
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("View target"));
-  host.livePanels("codetour.tour")[0]!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("Missing file"));
   assert.equal(store.activeTour.step, 4);
+});
+
+test("URI and embedded-content steps show the logo at their explicit anchor", async () => {
+  for (const step of [
+    { uri: "file:///workspace/src/player.ts", line: 2, description: "URI anchor" },
+    { contents: "first\nsecond\nthird", line: 2, description: "Embedded anchor" }
+  ]) {
+    await host.vscode.commands.executeCommand("codetour.startTour", { ...tour, steps: [step] });
+    await host.vscode.commands.executeCommand("codetour.showStepDescription");
+    await host.waitFor(() => host.panelHtml().includes(step.description));
+    const anchors = anchorRanges();
+    assert.equal(anchors.length, 1);
+    assert.equal(anchors[0].line, 1);
+    assert.equal(host.liveThreads().length, 0);
+    await host.vscode.commands.executeCommand("codetour.endTour");
+  }
 });

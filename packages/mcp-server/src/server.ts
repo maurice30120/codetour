@@ -29,8 +29,9 @@ import {
   WorkspaceContext,
 } from "./types";
 import {
+  MAX_RECOMMENDED_DIAGRAM_NODES,
   MAX_RECOMMENDED_STEPS,
-  step0OverviewWarnings,
+  orientationStepWarnings,
   validateChangesParams,
   validateProjectParams,
   validateSteps,
@@ -87,7 +88,7 @@ const PROJECT_TOUR_WORKFLOW_GUIDANCE =
   "code that justifies it, preferring a short unique pattern over a line number so the anchor " +
   "survives edits. One step covers one idea; prefer several focused steps over one long paragraph. ";
 
-const PROJECT_TOUR_STEP0_GUIDANCE =
+const PROJECT_TOUR_ORIENTATION_GUIDANCE =
   "The first step must be an orientation step with an explicit title such as \"Vue d'ensemble\" " +
   "and no locator: omit both file and directory. Structure its description in this order: " +
   "(1) two or three sentences explaining what the system does and for whom; " +
@@ -106,7 +107,8 @@ const PROJECT_TOUR_STEP0_GUIDANCE =
   "alone never creates a boundary. Describe the existing design, not a proposed redesign. When code " +
   "evidence does not establish a boundary or relationship, state the uncertainty in the text instead " +
   "of inventing a box. In these diagrams, use one subgraph per container, verbal edge labels, no " +
-  "decorative or meaningless arrows, and about 12 nodes at most so they remain readable. ";
+  "decorative or meaningless arrows, and at most " +
+  `${MAX_RECOMMENDED_DIAGRAM_NODES} nodes so they remain readable. `;
 
 const CHANGES_TOUR_WORKFLOW_GUIDANCE =
   "Recommended workflow: (1) inspect the actual comparison before writing — the diff from the " +
@@ -132,7 +134,7 @@ const PROJECT_TOUR_DESCRIPTION =
   "surrounding flow; avoid merely restating names or syntax. Adapt the depth and step count to the " +
   "requested audience and scope. " +
   PROJECT_TOUR_WORKFLOW_GUIDANCE +
-  PROJECT_TOUR_STEP0_GUIDANCE +
+  PROJECT_TOUR_ORIENTATION_GUIDANCE +
   "Input: a required non-empty steps array, an optional title (default: \"Project Overview\"), and " +
   "an optional description summarizing the tour. Each step requires a Markdown description and may " +
   "have a title. Use at most one locator per step: file or directory, relative to the workspace root. " +
@@ -369,7 +371,7 @@ async function handleCreateProjectTour(
 
   const warnings = [
     ...stepLimitWarnings(finalSteps),
-    ...step0OverviewWarnings(finalSteps),
+    ...orientationStepWarnings(finalSteps),
   ];
 
   // Rehearsal: the proposal is fully validated but never written, so an

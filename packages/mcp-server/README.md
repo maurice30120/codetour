@@ -181,15 +181,15 @@ interaction and its mechanism. Include a second `flowchart`, captioned
 execution or storage boundary, then map each zone to workspace directories with
 relative Markdown links.
 
-Use C4 terms precisely: an actor is a person in a role with a need; a system is
-software that delivers user value, not automatically a repository; an external
-system is outside the described boundary; and a container is an application or
-store with an execution or storage boundary, not a Docker container. A folder,
-package, or import alone is not a boundary. Describe the existing design and
-state uncertainty instead of inventing boxes or relationships. Use one
-`subgraph` per container, verbal edge labels, no decorative arrows, and about 12
-nodes at most. The following steps descend into the relevant directories and
-files.
+The full C4 wording — the actor, system, external system, and container
+definitions, the boundary evidence rules, and the diagram conventions — lives
+only in the `create_project_tour` tool description, which is the authoritative
+guidance given to the agent; this README deliberately does not duplicate it. The
+server backs that guidance with advisory warnings
+(`ORIENTATION_STEP_MISSING_OVERVIEW`, `ORIENTATION_STEP_DIAGRAM_TOO_LARGE`) when
+the first step is not a locator-free orientation step or its first diagram
+exceeds the recommended node count. The following steps descend into the
+relevant directories and files.
 
 ### `create_changes_tour`
 

@@ -43,19 +43,16 @@ import { registerCodeStatusModule } from "./codeStatus";
 import { getStepDiff, StepDiff } from "./diff";
 import { registerPlayerCommands } from "./commands";
 import { registerDecorators } from "./decorator";
-import { disposeStepDescription } from "./descriptionWebview";
 import { registerFileSystemProvider } from "./fileSystem";
 import { registerTextDocumentContentProvider } from "./fileSystem/documentProvider";
 import { renderPreviewDescription } from "./description";
 import { getCommentLineAbove } from "./commentPlacement";
-import { getPlaybackMode } from "./playbackMode";
 import { registerStatusBar } from "./status";
-import { registerNativeDraftEditor, showNativeDraftEditor } from "./nativeDraftEditor";
-import { isEditingSession } from "./tourDrafts";
+import { registerNativeDraftEditor, isEditingSession } from "./stepEditing";
 import {
   disposeTourWebview,
   renderTourStep,
-  revealTourWebview
+  showTourWebview
 } from "./tourWebview";
 import { registerTreeProvider } from "./tree";
 
@@ -95,7 +92,7 @@ let renderVersion = 0;
 // The presentation used for the active tour. Recording keeps the native
 // comment threads, because the recording flows build on them.
 function isWebviewPlayback() {
-  return store.playbackMode === "webview" && !store.isRecording;
+  return store.isExpandedViewOpen && !store.isRecording;
 }
 
 export async function focusPlayer() {
@@ -114,9 +111,8 @@ export async function focusPlayer() {
   }
 
   if (isWebviewPlayback()) {
-    // Reprendre reopens the step's presentation, including after the panel
-    // was closed mid-tour.
-    await revealTourWebview();
+    // Resume focuses the existing reading panel.
+    await showTourWebview();
   }
 }
 
@@ -302,7 +298,8 @@ async function renderCurrentStep(forceCurrentFile = false) {
     }
   }
 
-  const hasSourceAnchor = line !== undefined && !!step.file && !unavailableFile;
+  const hasCodeAnchor = step.file !== undefined || step.uri !== undefined || step.contents !== undefined;
+  const hasSourceAnchor = line !== undefined && hasCodeAnchor && !unavailableFile;
   if (line === undefined) {
     // The step doesn't have a discoverable line number and so
     // stick the step at the end of the file. Unfortunately, there
@@ -337,8 +334,6 @@ async function renderCurrentStep(forceCurrentFile = false) {
   // only the description presentation differs. In webview mode, a step
   // without an anchorable document stays readable in the panel: nothing is
   // opened and no anchor marker is invented.
-  const hasCodeAnchor =
-    step.file !== undefined || step.uri !== undefined || step.contents !== undefined;
   if (isWebviewPlayback() && !hasCodeAnchor && !unavailableFile) {
     // Keep the reading panel as the only presentation of this step. No
     // anchorable document exists, so none is recorded: resuming reveals
@@ -372,9 +367,7 @@ async function renderCurrentStep(forceCurrentFile = false) {
   if (version !== renderVersion || !store.activeTour) return;
 
   if (isWebviewPlayback()) {
-    // No comment thread ever carries the description in webview mode, and
-    // the expanded description cannot duplicate the panel's text.
-    disposeStepDescription();
+    // The description lives only in the expanded view; code keeps its logo.
     setActiveAnchorDecoration(
       hasCodeAnchor && hasSourceAnchor && !unavailableFile ? currentAnchor : undefined
     );
@@ -398,7 +391,6 @@ async function renderCurrentStep(forceCurrentFile = false) {
     }
     if (version !== renderVersion || !store.activeTour || !controller) return;
     await presentCurrentStepInThread(step, version, commentRange);
-    if (isEditingSession(currentTour.id, currentStep)) await showNativeDraftEditor();
   }
   if (version !== renderVersion || !store.activeTour) return;
 
@@ -599,7 +591,6 @@ async function showDocument(uri: Uri, range: Range, selection?: Selection, versi
 export function registerPlayerModule(context: ExtensionContext) {
   context.subscriptions.push(
     workspace.onDidChangeConfiguration(event => {
-      if (event.affectsConfiguration("codetour.playbackMode")) store.playbackMode = getPlaybackMode();
       if (event.affectsConfiguration("codetour.commentPosition") && store.activeTour) {
         renderCurrentStep();
       }
@@ -607,7 +598,6 @@ export function registerPlayerModule(context: ExtensionContext) {
   );
   context.subscriptions.push(registerNativeDraftEditor());
   registerPlayerCommands();
-  store.playbackMode = getPlaybackMode();
   context.subscriptions.push(registerActiveAnchorModule());
   context.subscriptions.push(
     registerTreeProvider(context.extensionPath, () => {
@@ -615,9 +605,7 @@ export function registerPlayerModule(context: ExtensionContext) {
       const activeTour = store.activeTour;
       if (
         activeTour &&
-        // A webview editing session re-renders like any other step — the
-        // panel presents the in-memory draft, never a stale theme — while
-        // the native recorder editing keeps its own comment flow untouched.
+        // Refresh reading content without disturbing recorder editing.
         (!store.isEditing ||
           isEditingSession(activeTour.tour.id, activeTour.step))
       ) {
@@ -637,7 +625,7 @@ export function registerPlayerModule(context: ExtensionContext) {
   // visible step, so the presented description stays in sync with the code.
   reaction(
     () => [
-      store.playbackMode,
+      store.isExpandedViewOpen,
       store.isEditing,
       store.activeTour
         ? [

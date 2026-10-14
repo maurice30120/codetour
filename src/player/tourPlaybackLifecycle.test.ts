@@ -8,7 +8,7 @@ const HEAD_REF = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 const host = createVscodeHost({
   configuration: {
-    codetour: { playbackMode: "webview", showMarkers: true }
+    codetour: { showMarkers: true }
   },
   git: {
     branch: "main",
@@ -89,6 +89,29 @@ function seedWorkspace() {
   host.setFileContent("src/beta.ts", ["const beta = 1;", "const betaRule = 2;"].join("\n"));
 }
 
+test("panel navigation moves between steps and linked tours with the existing progression rules", async () => {
+  registerPlayerModule(host.extensionContext);
+  seedWorkspace();
+  store.tours = [tourA, tourB];
+  await host.vscode.commands.executeCommand("codetour.startTour", tourA);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.waitFor(() => host.panelHtml().includes("Alpha entry"));
+  const send = (type: string) => host.livePanels("codetour.tour")[0].receive({ type });
+  send("previous");
+  await sleep(20);
+  assert.equal(store.activeTour.step, 0);
+  send("next");
+  await host.waitFor(() => host.panelHtml().includes("2 / 2"));
+  send("next");
+  await host.waitFor(() => host.panelHtml().includes("Beta entry"));
+  assert.deepEqual([...progressFor(tourA.id)].sort(), [0, 1]);
+  send("previous");
+  await host.waitFor(() => host.panelHtml().includes("Alpha entry"));
+  assert.equal(store.activeTour.step, 0);
+  await host.vscode.commands.executeCommand("codetour.endTour");
+  store.progress = [];
+});
+
 function decorationType(iconUrl: string) {
   return host.decorationTypes.find(
     type => (type.options.gutterIconPath as Uri).toString() === iconUrl
@@ -117,28 +140,30 @@ function progressFor(tourId: string) {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-test("closing the panel keeps the mode and the step, and resume reopens the presentation", async () => {
+test("closing restores comments at the same step, and expanded view reopens it", async () => {
   registerPlayerModule(host.extensionContext);
   seedWorkspace();
   store.tours = [tourA, tourB];
   await host.vscode.commands.executeCommand("codetour.startTour", tourA);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Alpha entry"));
 
   panel()!.dispose();
   await host.waitFor(() => host.livePanels("codetour.tour").length === 0);
 
   // Closing the presentation changes neither the preference nor the step.
-  assert.equal(store.playbackMode, "webview");
+  assert.equal(store.isExpandedViewOpen, false);
   assert.equal(store.activeTour.step, 0);
   assert.equal(
     host.configurationUpdates.filter(([, key]) => key === "playbackMode")
       .length,
     0
   );
-  assert.equal(anchorRanges(SMALL_ICON_URL).length, 1);
+  await host.waitFor(() => host.liveThreads().length === 1);
+  assert.equal(anchorRanges(SMALL_ICON_URL).length, 0);
 
   // Reprendre reopens the step's presentation without any comment thread.
-  await host.vscode.commands.executeCommand("codetour.resumeTour");
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Alpha entry"));
   assert.equal(host.livePanels("codetour.tour").length, 1);
   assert.equal(panel()!.revealed, true);
@@ -148,20 +173,20 @@ test("closing the panel keeps the mode and the step, and resume reopens the pres
 test("closing the panel while a step resolves keeps the panel closed", async () => {
   // The next step resolves a diff, which takes observable time in the Git
   // mock: the panel is closed while that resolution is still in flight.
-  panel()!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await sleep(10);
   panel()!.dispose();
 
   // The anchor side completes, but no reading panel is resurrected.
   await host.waitFor(
-    () => anchorRanges(SMALL_ICON_URL).some(({ uri }) => uri.includes(HEAD_REF))
+    () => host.liveThreads().length === 1
   );
   await sleep(150);
   assert.equal(host.livePanels("codetour.tour").length, 0);
   assert.equal(store.activeTour.step, 1);
 
   // Reprendre brings the closed presentation back for the current step.
-  await host.vscode.commands.executeCommand("codetour.resumeTour");
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Alpha diff"));
   assert.equal(host.livePanels("codetour.tour").length, 1);
 });
@@ -187,16 +212,13 @@ test("finishing removes the presentation and the active marker, not the passive 
 
 test("the finish action starts the next tour of a series without an extra counted step", async () => {
   await host.vscode.commands.executeCommand("codetour.startTour", tourA);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Alpha entry"));
 
-  panel()!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 2"));
-  assert.match(
-    host.panelHtml(),
-    /data-action="finish" data-tour="2 - Beta Tour"/
-  );
 
-  panel()!.receive({ type: "finish", tour: "2 - Beta Tour" });
+  await host.vscode.commands.executeCommand("codetour.finishTour", "2 - Beta Tour");
   await host.waitFor(() => host.panelHtml().includes("Beta entry"));
   assert.equal(store.activeTour.tour.title, "2 - Beta Tour");
   assert.match(host.panelHtml(), /<small>Beta Tour<\/small>/);
@@ -210,12 +232,8 @@ test("the finish action starts the next tour of a series without an extra counte
 });
 
 test("the previous action starts the previous tour at its first step", async () => {
-  assert.match(
-    host.panelHtml(),
-    /data-action="previous" data-tour="1 - Alpha Tour"/
-  );
 
-  panel()!.receive({ type: "previous", tour: "1 - Alpha Tour" });
+  await host.vscode.commands.executeCommand("codetour.startTourByTitle", "1 - Alpha Tour");
   await host.waitFor(() => host.panelHtml().includes("Alpha entry"));
   assert.equal(store.activeTour.tour.title, "1 - Alpha Tour");
   assert.equal(store.activeTour.step, 0);
@@ -231,7 +249,7 @@ test("rapid navigation settles on the last requested step", async () => {
     ([id]) => id === "vscode.diff"
   ).length;
 
-  panel()!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await sleep(10);
   await host.vscode.commands.executeCommand("codetour.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("1 / 2"));
@@ -248,7 +266,7 @@ test("rapid navigation settles on the last requested step", async () => {
   );
 
   // The other direction: a slow render requested last wins.
-  panel()!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 2"));
   await sleep(150);
   assert.match(host.panelHtml(), /<h1>Alpha diff<\/h1>/);
@@ -266,9 +284,9 @@ test("toggling the playback mode during an anchor resolution leaves no stale pre
   await host.waitFor(() => anchorRanges(SMALL_ICON_URL).length === 1);
 
   // Toggle while the diff step is still resolving its anchor.
-  panel()!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await sleep(10);
-  await host.vscode.commands.executeCommand("codetour.togglePlaybackMode");
+  panel()!.dispose();
 
   await host.waitFor(() =>
     host.liveThreads()[0]?.comments[0]?.body.value.includes(
@@ -284,7 +302,7 @@ test("toggling the playback mode during an anchor resolution leaves no stale pre
 });
 
 test("switching tours during an anchor resolution never shows the previous tour's target", async () => {
-  await host.vscode.commands.executeCommand("codetour.togglePlaybackMode");
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("2 / 2"));
 
   const diffCallsBefore = host.executedCommands.filter(
@@ -294,9 +312,10 @@ test("switching tours during an anchor resolution never shows the previous tour'
   // Start another tour while the diff step is still resolving its anchor.
   await host.vscode.commands.executeCommand("codetour.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("1 / 2"));
-  panel()!.receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await sleep(10);
   await host.vscode.commands.executeCommand("codetour.startTour", tourB);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
 
   await host.waitFor(() => host.panelHtml().includes("Beta entry"));
   assert.equal(store.activeTour.tour.title, "2 - Beta Tour");

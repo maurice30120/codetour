@@ -8,7 +8,7 @@ const HEAD_REF = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 const host = createVscodeHost({
   configuration: {
-    codetour: { playbackMode: "webview", showMarkers: false }
+    codetour: { showMarkers: false }
   },
   git: {
     branch: "main",
@@ -73,6 +73,7 @@ const tour = {
 
 async function startTour() {
   await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
 }
 
 function activeAnchorType() {
@@ -168,6 +169,7 @@ test("an unavailable diff follows the existing fallbacks and keeps the tour read
       message.includes("file unavailable: src/gone.ts")
     )
   );
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Gone diff"));
 
   // The step stays readable in the panel, without any anchor or comparison.

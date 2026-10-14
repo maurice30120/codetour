@@ -40,7 +40,6 @@ fs.mkdirSync(path.join(profile, "User"), { recursive: true });
 fs.writeFileSync(path.join(profile, "User", "settings.json"), JSON.stringify({
   "security.workspace.trust.enabled": false,
   "codetour.promptForWorkspaceTours": false,
-  "codetour.playbackMode": "comments",
   "workbench.startupEditor": "none",
   "window.restoreWindows": "none",
   "extensions.autoUpdate": false
@@ -150,43 +149,8 @@ async function observe(port, expected) {
             && (!expected.theme || data.theme === expected.theme)
             && (!expected.focused || data.focused === expected.focused);
           if (!match) continue;
-          if (expected.action || expected.input !== undefined || expected.focus) {
-            const action = JSON.stringify({action:expected.action,input:expected.input,focus:expected.focus});
-            const operation = await cdp.call("Runtime.evaluate", {
-              contextId,
-              expression: `(() => {
-                const request = ${action};
-                if (request.input !== undefined) {
-                  const source = document.querySelector("textarea");
-                  if (!source) throw Error("No source textarea");
-                  source.focus();
-                  source.value = request.input;
-                  source.dispatchEvent(new Event("input", {bubbles:true}));
-                }
-                if (request.action) {
-                  const button = document.querySelector('button[data-action="' + request.action + '"]');
-                  if (!button || button.disabled) throw Error("Action unavailable: " + request.action);
-                  const clickErrors = [];
-                  const captureError = event => clickErrors.push(event.message);
-                  window.addEventListener("error", captureError);
-                  button.click();
-                  window.removeEventListener("error", captureError);
-                  if (clickErrors.length) throw Error(clickErrors.join("; "));
-                }
-                if (request.focus) {
-                  const element = document.querySelector(request.focus);
-                  if (!element) throw Error("Focus element missing");
-                  element.focus();
-                }
-                return true;
-              })()`,
-              returnByValue: true
-            }, sessionId);
-            if (operation.exceptionDetails) return {ok:false, error:operation.exceptionDetails.exception?.description || operation.exceptionDetails.text};
-          }
-          if (expected.key) {
-            await cdp.call("Input.dispatchKeyEvent", {type:"keyDown", key:expected.key, code:expected.key, windowsVirtualKeyCode:9}, sessionId);
-            await cdp.call("Input.dispatchKeyEvent", {type:"keyUp", key:expected.key, code:expected.key, windowsVirtualKeyCode:9}, sessionId);
+          if (expected.click) {
+            await cdp.call("Runtime.evaluate", {contextId, expression: `document.querySelector('button[data-action="${expected.click}"]').click()`}, sessionId);
           }
           if (expected.screenshot) {
             await cdp.call("Runtime.evaluate", {contextId, expression:"window.scrollTo(0,0)"}, sessionId);

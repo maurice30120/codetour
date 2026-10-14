@@ -57,9 +57,10 @@ const originalLoad = (nodeModule as unknown as { _load: unknown })._load as (
 };
 
 const { registerPlayerModule } = require("../player");
+const { registerRecorderCommands } = require("../recorder/commands");
 const { store } = require("../store");
 const { SMALL_ICON_URL } = require("../constants");
-const { getStepDraft } = require("../player/tourDrafts");
+const { getStepDraft } = require("../player/stepEditing");
 
 const journeyTour = {
   id: "file:///workspace/.tours/journey.tour",
@@ -182,6 +183,7 @@ async function readTourFile(): Promise<Record<string, unknown>> {
 
 test("the journey starts in the native mode by default and toggles mid-tour", async () => {
   registerPlayerModule(host.extensionContext);
+  registerRecorderCommands();
   await startJourney();
 
   // Without any playbackMode preference, the tour presents itself through
@@ -192,11 +194,11 @@ test("the journey starts in the native mode by default and toggles mid-tour", as
     )
   );
   assert.equal(host.livePanels("codetour.tour").length, 0);
-  assert.equal(store.playbackMode, "comments");
+  assert.equal(store.isExpandedViewOpen, false);
 
   // The public toggle switches the very same tour to the webview panel,
   // without restarting it or counting an extra toured step.
-  await host.vscode.commands.executeCommand("codetour.togglePlaybackMode");
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() => panelHtml().includes("1 / 6"), 5000);
 
   assert.equal(store.activeTour!.step, 0);
@@ -207,7 +209,7 @@ test("the journey starts in the native mode by default and toggles mid-tour", as
     host.configurationUpdates.filter(
       ([, key]) => key === "playbackMode"
     ),
-    [["codetour", "playbackMode", "webview", 1]]
+    []
   );
   const progression = (store.progress as [string, number[]][]).find(
     ([id]) => id === journeyTour.id
@@ -288,10 +290,8 @@ test("the multi-step journey reads files, diffs, directories and mermaid in the 
 
   // The panel's own buttons reach the last step, where the forward
   // navigation disables itself at the tour bound.
-  panel().receive({ type: "next" });
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => panelHtml().includes("6 / 6"), 5000);
-  assert.match(panelHtml(), /data-action="next" disabled/);
-  assert.doesNotMatch(panelHtml(), /data-action="previous" disabled/);
 
   // The whole journey recorded its progression once per step.
   const progression = (store.progress as [string, number[]][]).find(
@@ -305,122 +305,55 @@ test("the multi-step journey reads files, diffs, directories and mermaid in the 
   assert.equal(store.activeTour!.step, 4);
 });
 
-test("editing and saving from the panel updates the tour file, then closes and resumes", async () => {
-  await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
+function sourceEditor() {
+  return [...host.visibleTextEditors].reverse().find(editor => editor.document.uri.scheme === "untitled" && editor.document.getText() === getStepDraft(journeyTour.id, store.activeTour.step));
+}
+async function editSource(text: string) {
+  const before = host.visibleTextEditors.filter(item => item.document.uri.scheme === "untitled").length;
+  await host.vscode.commands.executeCommand("codetour.editTour");
+  await host.waitFor(() => host.visibleTextEditors.filter(item => item.document.uri.scheme === "untitled").length > before);
+  await host.waitFor(() => !!sourceEditor());
+  const editor = sourceEditor()!;
+  await editor.edit(edit => edit.replace(new host.vscode.Range(0, 0, editor.document.lineCount, 0), text));
+}
 
-  // Entering the editor from the panel works on a step without any code
-  // anchor: the panel is the only presentation of this leg.
-  panel().receive({ type: "edit" });
-  await host.waitFor(
-    () => !!panelHtml().match(/<textarea id="tour-step-source"/)
-  );
-  assert.match(panelHtml(), /Registered wrap-up\./);
-
-  const editedText = "Journey edited wrap-up.";
-  panel().receive({
-    type: "draft",
-    tour: journeyTour.id,
-    step: 4,
-    text: editedText
-  });
-  await host.waitFor(() =>
-    host.postedMessages().some(
-      message =>
-        (message as { type?: string; html?: string }).type === "preview" &&
-        !!(message as { html?: string }).html?.includes("Journey edited")
-    )
-  );
-
-  // Saving writes the existing tour file and presents the saved content.
-  panel().receive({
-    type: "save",
-    tour: journeyTour.id,
-    step: 4,
-    text: editedText
-  });
-  await host.waitFor(
-    () =>
-      panelHtml().includes("Journey edited wrap-up.") &&
-      !panelHtml().includes("tour-step-source"),
-    5000
-  );
-  assert.equal(store.isEditing, false);
-  assert.equal(getStepDraft(journeyTour.id, 4), undefined);
-  const saved = (await readTourFile()) as {
-    steps: { description: string }[];
-  };
-  assert.equal(saved.steps[4].description, editedText);
-
-  // Closing the panel keeps the tour and the step; the public resume
-  // command reopens the presentation where the journey left it.
-  panel().dispose();
+test("editing an unanchored step from the extension saves and reopens expanded reading", async () => {
+  await editSource("Journey edited wrap-up.");
   assert.equal(host.livePanels("codetour.tour").length, 0);
-  assert.equal(store.activeTour!.step, 4);
-
-  await host.vscode.commands.executeCommand("codetour.resumeTour");
-  await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
-  assert.match(panelHtml(), /Journey edited wrap-up\./);
+  assert.equal(store.isExpandedViewOpen, false);
+  await host.vscode.commands.executeCommand("codetour.saveTourStep");
+  assert.equal((await readTourFile() as { steps: { description: string }[] }).steps[4].description, "Journey edited wrap-up.");
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.waitFor(() => panelHtml().includes("Journey edited wrap-up."));
+  panel().dispose();
+  await host.waitFor(() => host.liveThreads().length === 1);
+  assert.equal(store.activeTour.step, 4);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.waitFor(() => panelHtml().includes("5 / 6"));
 });
 
-test("finishing resolves the unsaved draft first, then removes the presentation", async () => {
+test("finishing resolves a native unsaved draft before removing the presentation", async () => {
   host.resetModals();
-  await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
-
-  // One last edit leaves an unsaved draft when the tour is finished.
-  panel().receive({ type: "edit" });
-  await host.waitFor(
-    () => !!panelHtml().match(/<textarea id="tour-step-source"/)
-  );
-  panel().receive({
-    type: "draft",
-    tour: journeyTour.id,
-    step: 4,
-    text: "Final wrap-up draft."
-  });
-
+  await editSource("Final wrap-up draft.");
   const finish = host.vscode.commands.executeCommand("codetour.finishTour");
   await host.answerModal("Save");
   await finish;
-
   await host.waitFor(() => store.activeTour === null);
   assert.equal(host.livePanels("codetour.tour").length, 0);
   assert.equal(host.liveThreads().length, 0);
-  assert.equal(host.contexts.get("codetour:inTour"), false);
-
-  // The draft was saved into the tour file before the tour ended.
-  const saved = (await readTourFile()) as {
-    steps: { description: string }[];
-  };
-  assert.equal(saved.steps[4].description, "Final wrap-up draft.");
-
-  // No anchor of the finished tour is left in any editor.
+  assert.equal((await readTourFile() as { steps: { description: string }[] }).steps[4].description, "Final wrap-up draft.");
   const type = activeAnchorType();
-  for (const editor of host.visibleTextEditors) {
-    const ranges = type ? editor.decorations.get(type) : undefined;
-    assert.ok(!ranges || ranges.length === 0);
-  }
+  for (const editor of host.visibleTextEditors) assert.ok(!editor.decorations.get(type!)?.length);
 });
 
-test("resuming a step without any anchor reveals the panel without opening a document", async () => {
-  // The journey restarts directly on the leg without any code anchor.
+test("expanded reading of an unanchored step opens no synthetic document", async () => {
   await host.vscode.commands.executeCommand("codetour.startTour", journeyTour, 4);
-  await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
-  assert.equal(store.activeTour!.step, 4);
-
-  panel().dispose();
-  assert.equal(host.livePanels("codetour.tour").length, 0);
-
-  // Resuming presents the step again through the panel alone: no synthetic
-  // content document is opened and no code anchor is invented.
-  await host.vscode.commands.executeCommand("codetour.resumeTour");
-  await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.waitFor(() => panelHtml().includes("5 / 6"));
   assert.match(panelHtml(), /class="anchor">Presentation</);
-  assert.equal(
-    host.visibleTextEditors.filter(
-      editor => editor.document.uri.scheme === "codetour-content"
-    ).length,
-    0,
-    "resuming an anchorless step never opens a content document"
-  );
   assert.ok(!anchorRanges("src/player.ts")?.length);
+  const documentsBefore = host.visibleTextEditors.length;
+  await host.vscode.commands.executeCommand("codetour.resumeTour");
+  assert.equal(host.visibleTextEditors.length, documentsBefore);
+  await host.vscode.commands.executeCommand("codetour.endTour");
 });

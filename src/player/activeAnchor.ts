@@ -36,10 +36,7 @@ export function setActiveAnchorDecoration(anchor: ActiveAnchor | undefined) {
 }
 
 export function clearActiveAnchorDecoration() {
-  activeAnchor = undefined;
-  vscode.window.visibleTextEditors.forEach(editor =>
-    editor.setDecorations(ACTIVE_ANCHOR_DECORATOR, [])
-  );
+  setActiveAnchorDecoration(undefined);
 }
 
 export function registerActiveAnchorModule(): vscode.Disposable {

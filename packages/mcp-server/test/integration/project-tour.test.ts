@@ -135,7 +135,7 @@ test("creates a project tour with the default title and no git ref", async () =>
       assert.equal(response.structured.status, "created");
       assert.equal(response.structured.path, ".tours/project.tour");
       assert.equal(response.structured.stepCount, 2);
-      assert.deepEqual(warningCodes(response), ["STEP0_MISSING_OVERVIEW"]);
+      assert.deepEqual(warningCodes(response), ["ORIENTATION_STEP_MISSING_OVERVIEW"]);
     });
     const tour = readTourFile(root, ".tours/project.tour");
     assert.equal(tour.title, "Project Overview");
@@ -148,7 +148,7 @@ test("creates a project tour with the default title and no git ref", async () =>
   }
 });
 
-test("returns advisory step zero overview warnings without rejecting the tour", async () => {
+test("returns advisory orientation step warnings without rejecting the tour", async () => {
   const root = tempDir();
   try {
     writeFile(root, "src/index.ts", "export const answer = 42;\n");
@@ -164,7 +164,7 @@ test("returns advisory step zero overview warnings without rejecting the tour", 
 
       assert.equal(response.isError, false);
       assert.equal(response.structured.status, "created");
-      assert.ok(warningCodes(response).includes("STEP0_MISSING_OVERVIEW"));
+      assert.ok(warningCodes(response).includes("ORIENTATION_STEP_MISSING_OVERVIEW"));
     });
     assert.ok(tourFileValidAgainstSchema(root, ".tours/project.tour"));
   } finally {

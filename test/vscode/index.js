@@ -32,7 +32,8 @@ exports.run = async function () {
     assert.ok(extension, "CodeTour extension discovered");
     await extension.activate();
     const commands = await vscode.commands.getCommands(true);
-    assert.ok(commands.includes("codetour.togglePlaybackMode"));
+    assert.ok(commands.includes("codetour.showStepDescription"));
+    assert.ok(!commands.includes("codetour.togglePlaybackMode"));
     assert.ok(!commands.includes("codetour.prototypeWebview"), "Prototype command removed");
     checks.push("production commands registered");
     const workspace = vscode.workspace.workspaceFolders[0].uri;
@@ -49,83 +50,73 @@ exports.run = async function () {
     await editorLine(0);
     await observe({ absent: true });
     checks.push("native playback opens real editor");
-    await vscode.commands.executeCommand("codetour.togglePlaybackMode");
-    await observe({ step: 0, text: "SMOKE_FIRST" });
+    async function closeExpanded() {
+      const panelTab = vscode.window.tabGroups.all.flatMap(group => group.tabs).find(tab => tab.input instanceof vscode.TabInputWebview && tab.label.includes(tour.title));
+      assert.ok(panelTab, "Expanded reading tab exists");
+      assert.ok(await vscode.window.tabGroups.close(panelTab));
+      await observe({ absent: true });
+    }
+    await vscode.commands.executeCommand("codetour.showStepDescription");
+    const first = await observe({ step: 0, text: "SMOKE_FIRST" });
+    assert.deepEqual(first.match.buttons, [{action:"previous", disabled:true}, {action:"next", disabled:false}]);
+    assert.equal(first.match.source, undefined, "Reading view has no source editor");
+    assert.equal(await vscode.commands.executeCommand("codetour._getActiveCommentBody"), undefined);
     await editorLine(0);
-    checks.push("toggle opens real WebView at same anchor");
-    await vscode.commands.executeCommand("codetour.nextTourStep");
+    checks.push("expanded action opens a single reading view with compact navigation");
+    await observe({step:0, click:"next"});
     await observe({ step: 1, text: "SMOKE_SECOND" });
     await editorLine(1);
-    checks.push("next updates real DOM and editor anchor");
     await vscode.commands.executeCommand("codetour.resumeTour");
     await observe({ step: 1, text: "SMOKE_SECOND" });
-    checks.push("resume preserves current step");
-    await vscode.commands.executeCommand("codetour.togglePlaybackMode");
-    await observe({ absent: true });
-    await editorLine(1);
-    checks.push("native toggle preserves current step");
-    await vscode.commands.executeCommand("codetour.togglePlaybackMode");
+    checks.push("extension navigation and resume update the real DOM and editor");
+    await closeExpanded();
+    for (let i = 0; i < 100; i++) {
+      const body = await vscode.commands.executeCommand("codetour._getActiveCommentBody");
+      if (body && body.includes("SMOKE_SECOND")) break;
+      await pause(100);
+    }
+    assert.match(await vscode.commands.executeCommand("codetour._getActiveCommentBody"), /SMOKE_SECOND/);
+    await vscode.commands.executeCommand("codetour.showStepDescription");
     await observe({ step: 1, text: "SMOKE_SECOND" });
+    checks.push("closing restores the native comment at the same step");
 
-    await observe({step:1, text:"SMOKE_SECOND", action:"edit"});
-    await observe({step:1, source:"SMOKE_SECOND", focused:"tour-step-source"});
-    let richDraft = "SAVED_REAL_UI\n\n| One | Two |\n| --- | --- |\n| A | B |\n\n**Diagram — Real smoke**\n\n\`\`\`mermaid\nflowchart TD\nA[Start] --> B[Done]\n\`\`\`";
-
-    richDraft += "\n\n" + "This long explanation checks readable wrapping and navigation in a narrow reader panel. ".repeat(35);
-    richDraft += "\n\nLONG_IDENTIFIER_" + "X".repeat(350);
-    richDraft += "\n\nhttps://example.invalid/long/" + "abcdef".repeat(90);
-    richDraft += "\n\n| First column | Second column | Third column | Fourth column | Fifth column | Sixth column |\n| --- | --- | --- | --- | --- | --- |\n| " + Array.from({length:6}, (_, i) => "Column" + i + "_" + "Y".repeat(60)).join(" | ") + " |";
-
-    await observe({step:1, input:richDraft});
-    await observe({step:1, source:richDraft, png:true});
-    assert.equal(JSON.parse(fs.readFileSync(tourPath)).steps[1].description, "SMOKE_SECOND", "Input remains unsaved");
-    checks.push("real textarea input updates Mermaid PNG preview without writing tour");
-    await vscode.commands.executeCommand("codetour.togglePlaybackMode");
-    await observe({absent:true});
+    await vscode.commands.executeCommand("codetour.editTour");
+    await observe({ absent: true });
     let nativeSource;
     for (let i = 0; i < 100; i++) {
-      nativeSource = vscode.window.visibleTextEditors.find(e => e.document.isUntitled && e.document.languageId === "markdown" && e.document.getText() === richDraft);
+      nativeSource = vscode.window.visibleTextEditors.find(e => e.document.isUntitled && e.document.languageId === "markdown" && e.document.getText() === "SMOKE_SECOND");
       if (nativeSource) break;
       await pause(100);
     }
-    assert.ok(nativeSource, "Native mode opens managed Markdown source with current unsaved WebView draft");
-    richDraft += "\n\nNATIVE_SOURCE_EDIT";
+    assert.ok(nativeSource, "Edit opens managed native Markdown source");
+    const richDraft = [
+      "SAVED_REAL_UI",
+      "| One | Two |\n| --- | --- |\n| A | B |",
+      "**Diagram — Real smoke**",
+      "```mermaid\nflowchart TD\nA[Start] --> B[Done]\n```",
+      "This long explanation checks wrapping in a narrow panel. ".repeat(35),
+      "LONG_IDENTIFIER_" + "X".repeat(350),
+      "[Documentation](https://example.invalid/docs)"
+    ].join("\n\n");
     assert.ok(await nativeSource.edit(edit => edit.replace(new vscode.Range(0, 0, nativeSource.document.lineCount, 0), richDraft)));
-    await vscode.commands.executeCommand("codetour.togglePlaybackMode");
-    await observe({step:1, source:richDraft, png:true});
     assert.equal(JSON.parse(fs.readFileSync(tourPath)).steps[1].description, "SMOKE_SECOND");
-    checks.push("native source edits survive mode switching without implicit persistence");
-
-    const panelTab = vscode.window.tabGroups.all.flatMap(group => group.tabs).find(tab => tab.input instanceof vscode.TabInputWebview && tab.label.includes(tour.title));
-    assert.ok(panelTab, "Real playback WebView tab exists");
-    assert.ok(await vscode.window.tabGroups.close(panelTab), "Real playback WebView tab closes");
-    await observe({absent:true});
-    await vscode.commands.executeCommand("codetour.resumeTour");
-    await observe({step:1, source:richDraft});
-    checks.push("close and resume preserve unsaved real WebView draft");
-    await observe({step:1, source:richDraft, action:"save"});
-    await observe({step:1, text:"SAVED_REAL_UI", png:true, reading:true});
+    await vscode.commands.executeCommand("codetour.saveTourStep");
     assert.equal(JSON.parse(fs.readFileSync(tourPath)).steps[1].description, richDraft);
-    checks.push("real Save button persists exact Markdown and Mermaid source");
-    await vscode.workspace.getConfiguration("codetour").update("playbackMode", "comments", vscode.ConfigurationTarget.Global);
-    await observe({absent:true});
-    await vscode.workspace.getConfiguration("codetour").update("playbackMode", "webview", vscode.ConfigurationTarget.Global);
-    await observe({step:1, text:"SAVED_REAL_UI", png:true});
-    checks.push("live playback setting changes switch the actual presentation");
+    await vscode.commands.executeCommand("codetour.showStepDescription");
+    await observe({ step: 1, text: "SAVED_REAL_UI", png: true, reading: true });
+    checks.push("native editing saves exact Markdown and Mermaid for expanded reading");
 
     await vscode.workspace.getConfiguration("workbench").update("colorTheme", "Default Light Modern", vscode.ConfigurationTarget.Global);
-    const light = await observe({step:1, theme:"vscode-light", png:true, width:1000, screenshot:"webview-light-narrow", focus:'button[data-action="edit"]'});
-    assert.ok(light.match.width <= 480, "Actual light WebView viewport is narrow");
-    assert.equal(light.match.overflow, false, "Light narrow WebView has no horizontal overflow");
-    await observe({step:1, focused:"edit", key:"Tab"});
-    const keyboardFocus = await observe({step:1, focused:"editCommand"});
-    assert.equal(keyboardFocus.match.focusVisible, true, "Keyboard Tab gives visible focus");
+    const light = await observe({step:1, theme:"vscode-light", png:true, width:1000, screenshot:"webview-light-narrow"});
+    assert.ok(light.match.width <= 480);
+    assert.equal(light.match.overflow, false);
+    assert.equal(light.match.buttons.length, 2);
     await vscode.workspace.getConfiguration("workbench").update("colorTheme", "Default Dark Modern", vscode.ConfigurationTarget.Global);
     const dark = await observe({step:1, theme:"vscode-dark", png:true, screenshot:"webview-dark-narrow"});
-    assert.ok(dark.match.width <= 480, "Actual dark WebView viewport is narrow");
-    assert.equal(dark.match.overflow, false, "Dark narrow WebView has no horizontal overflow");
-    assert.equal(dark.match.progress, 2, "Real progress element tracks last step");
-    checks.push("light and dark screenshots, keyboard focus and progress verified");
+    assert.ok(dark.match.width <= 480);
+    assert.equal(dark.match.overflow, false);
+    assert.equal(dark.match.progress, 2);
+    checks.push("real light and dark narrow reading views render compact navigation without overflow");
 
     await vscode.commands.executeCommand("codetour.endTour");
     await observe({ absent: true });
@@ -144,6 +135,7 @@ exports.run = async function () {
     for (let i = 0; i < 100 && !gitApi.getRepository(vscode.Uri.joinPath(workspace, "diff.js")); i++) await pause(100);
     assert.ok(gitApi.getRepository(vscode.Uri.joinPath(workspace, "diff.js")), "Real Git extension discovers isolated fixture repository");
     await vscode.commands.executeCommand("codetour.startTour", diffTour, 0, workspace);
+    await vscode.commands.executeCommand("codetour.showStepDescription");
     await observe({step:0, text:"SMOKE_DIFF"});
     let diffEditors;
     for (let i = 0; i < 100; i++) {
