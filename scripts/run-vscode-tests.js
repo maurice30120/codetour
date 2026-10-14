@@ -99,16 +99,18 @@ async function connect(url) {
   };
 }
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+let viewportWidth;
 async function observe(port, expected) {
   const version = await (await fetch("http://127.0.0.1:" + port + "/json/version")).json();
   const cdp = await connect(version.webSocketDebuggerUrl);
   try {
     const { targetInfos } = await cdp.call("Target.getTargets");
-    if (expected.width) {
+    if (expected.width) viewportWidth = expected.width;
+    if (viewportWidth) {
       const workbench = targetInfos.find(t => t.type === "page" && t.url.startsWith("vscode-file:"));
       if (!workbench) return { ok: false, error: "Workbench page missing" };
-      const { windowId } = await cdp.call("Browser.getWindowForTarget", { targetId: workbench.targetId });
-      await cdp.call("Browser.setWindowBounds", { windowId, bounds: { windowState: "normal", width: expected.width, height: 900 } });
+      const { sessionId } = await cdp.call("Target.attachToTarget", { targetId: workbench.targetId, flatten: true });
+      await cdp.call("Emulation.setDeviceMetricsOverride", { width: viewportWidth, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
     }
     const found = [];
     for (const target of targetInfos.filter(t => ["page", "iframe", "webview"].includes(t.type))) {

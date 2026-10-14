@@ -37,7 +37,7 @@ export interface TourWebviewModel {
 
 // The styles shared by the reading and the editing presentations of a step.
 const COMMON_STYLES = `
-    body { max-width: none; padding: 24px 24px 100px; font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-editor-foreground); }
+    body { box-sizing: border-box; max-width: none; padding: 24px 24px 100px; overflow-wrap: anywhere; font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-editor-foreground); }
     a { color: var(--vscode-textLink-foreground); }
     img { max-width: 100%; height: auto; }
     pre { overflow: auto; padding: 1rem; background: var(--vscode-textCodeBlock-background); }
@@ -53,7 +53,7 @@ const COMMON_STYLES = `
     button:focus-visible { outline: 2px solid var(--vscode-focusBorder); }
     nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
     .anchor { font-family: var(--vscode-editor-font-family); opacity: .7; }
-    table { border-collapse: collapse; }
+    table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
     th, td { padding: 4px 8px; border: 1px solid var(--vscode-panel-border); }`;
 
 const READING_STYLES = `
