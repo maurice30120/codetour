@@ -190,3 +190,58 @@ test("a URI step sends the code displayed at its target", async () => {
   setStepChatResponder(undefined);
   chatPanel().dispose();
 });
+
+test("an unavailable file target is reported as such, never substituted", async () => {
+  resetChatState();
+  const received: RecordedContext[] = [];
+  setStepChatResponder({
+    answer: async (request: { question: string; context: RecordedContext }) => {
+      received.push(request.context);
+      return "Réponse indisponible.";
+    }
+  });
+
+  registerPlayerModule(host.extensionContext);
+  host.setFileContent("src/present.ts", ["const present = true;", "run();"].join("\n"));
+  await startTourWithSteps("unavailable.tour", [
+    {
+      title: "File entry",
+      description: "Étape avec fichier présent.",
+      file: "src/present.ts",
+      line: 1
+    },
+    {
+      title: "Missing file",
+      description: "Étape au fichier disparu.",
+      file: "src/gone.ts",
+      line: 1
+    }
+  ]);
+
+  // The reader is warned that the target is unavailable and the step stays
+  // readable; the previous step's buffer is still open behind the panel.
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.waitFor(() => host.panelHtml().includes("2 / 2"));
+  await host.waitFor(() =>
+    host.messages.some(message =>
+      message.includes("file unavailable: src/gone.ts")
+    )
+  );
+  chatPanel().receive({ type: "askQuestion", question: "Où est le code ?" });
+  await host.waitFor(() => !!lastChatUpdate());
+
+  // The question reports the unavailable target as such, with its declared
+  // path; the still-open buffer of src/present.ts is never substituted.
+  assert.equal(received.length, 1);
+  assert.deepEqual(received[0], {
+    available: false,
+    path: "src/gone.ts",
+    description: "Étape au fichier disparu."
+  });
+  assert.match(lastChatUpdate().exchanges[0].answerHtml, /Réponse indisponible/);
+
+  setStepChatResponder(undefined);
+  // Ending the tour stops the player and its panel; a plain panel dispose
+  // would re-render the missing target after the test ends.
+  await host.vscode.commands.executeCommand("codetour.endTour");
+});
