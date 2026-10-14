@@ -245,3 +245,38 @@ test("an unavailable file target is reported as such, never substituted", async 
   // would re-render the missing target after the test ends.
   await host.vscode.commands.executeCommand("codetour.endTour");
 });
+
+test("a view step sends only the description, without any code target", async () => {
+  resetChatState();
+  const received: RecordedContext[] = [];
+  setStepChatResponder({
+    answer: async (request: { question: string; context: RecordedContext }) => {
+      received.push(request.context);
+      return "Réponse vue.";
+    }
+  });
+
+  registerPlayerModule(host.extensionContext);
+  await startTourWithSteps("view.tour", [
+    {
+      title: "View target",
+      description: "Étape focalisant une vue.",
+      view: "explorer"
+    }
+  ]);
+
+  chatPanel().receive({ type: "askQuestion", question: "Que montre cette vue ?" });
+  await host.waitFor(() => !!lastChatUpdate());
+
+  // A view step presents no code at all: the question carries only the
+  // step's explanation, without any invented target.
+  assert.equal(received.length, 1);
+  assert.deepEqual(received[0], {
+    available: false,
+    description: "Étape focalisant une vue."
+  });
+  assert.match(lastChatUpdate().exchanges[0].answerHtml, /Réponse vue/);
+
+  setStepChatResponder(undefined);
+  chatPanel().dispose();
+});
