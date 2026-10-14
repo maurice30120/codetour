@@ -61,6 +61,11 @@ export interface TourStepContext {
   description: string;
   /** The code exactly as displayed for this step. */
   code: string;
+  /**
+   * True when the step's code target is not currently displayed: the agent
+   * is told so and must not guess or read another file as a stand-in.
+   */
+  codeUnavailable?: boolean;
 }
 
 /** A tool the agent executed during a prompt turn. */
@@ -180,15 +185,21 @@ function buildPromptBlocks(
   context: TourStepContext,
   history: readonly TourStepExchange[]
 ): acp.ContentBlock[] {
-  const contextText = [
-    "Tour step context the question is about:",
-    `File: ${context.filePath}`,
-    `Description: ${context.description}`,
-    "Code:",
-    "```",
-    context.code,
-    "```"
-  ].join("\n");
+  const contextLines = ["Tour step context the question is about:"];
+  if (context.codeUnavailable) {
+    if (context.filePath) {
+      contextLines.push(`File: ${context.filePath} (target not currently displayed)`);
+    }
+    contextLines.push(
+      "No code is currently displayed for this tour step; do not guess or read another file as a stand-in."
+    );
+    contextLines.push(`Description: ${context.description}`);
+  } else {
+    contextLines.push(`File: ${context.filePath}`);
+    contextLines.push(`Description: ${context.description}`);
+    contextLines.push("Code:", "```", context.code, "```");
+  }
+  const contextText = contextLines.join("\n");
   const blocks: acp.ContentBlock[] = [
     { type: "text", text: question },
     { type: "text", text: contextText }

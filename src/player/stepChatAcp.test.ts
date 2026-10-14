@@ -206,6 +206,45 @@ test("follow-up questions carry the step's previous exchanges to the agent over 
   agent.cleanup();
 });
 
+test("a step without displayed code is reported as unavailable to the agent, never substituted", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent);
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  await host.vscode.commands.executeCommand("codetour.navigateToStep", 3);
+  await host.waitFor(() => host.panelHtml().includes("3 / 3"));
+  chatPanel().receive({ type: "askQuestion", question: "Que dire sans code ?" });
+  await host.waitFor(() =>
+    lastChatUpdate()?.exchanges.some(
+      exchange => exchange.question === "Que dire sans code ?"
+    )
+  );
+
+  const records = await waitForLog(agent.logPath, found =>
+    found.some(record => record.method === "session/prompt")
+  );
+  const blocks = promptBlocks(records);
+  // The prompt says the step's code target is not displayed instead of
+  // silently substituting another file's code.
+  assert.match(blocks[1].text, /No code is currently displayed/);
+  assert.ok(!/File:/.test(blocks[1].text), "no file path stands in for the missing target");
+  assert.ok(
+    !/const other = true/.test(blocks[1].text),
+    "no other file's code is substituted"
+  );
+  assert.match(blocks[1].text, /Étape sans cible de code\./);
+
+  // The reader still gets the agent's answer for the described step.
+  assert.notEqual(lastChatUpdate().exchanges[0].failed, true);
+  assert.match(lastChatUpdate().exchanges[0].answerHtml, /Tour answer, part two\./);
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
 test("a step question reaches the ACP agent in Ask mode with the displayed context and its answer lands in the chat", async () => {
   resetChatState();
   const agent = createAgentWorkspace();

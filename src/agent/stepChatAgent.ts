@@ -120,6 +120,7 @@ function toTourStepContext(context: StepChatContext): TourStepContext {
   return {
     filePath: context.path ?? "",
     description: context.description,
-    code: ""
+    code: "",
+    codeUnavailable: true
   };
 }
