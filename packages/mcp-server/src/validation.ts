@@ -68,20 +68,23 @@ function diagramNodeCount(source: string): number {
   const identifier = "[A-Za-z_][A-Za-z0-9_.-]*";
 
   // Advisory readability heuristic: count distinct identifiers declared as
-  // edge endpoints, bracket/parenthesis nodes, or subgraphs. This is not a
-  // complete Mermaid parser and intentionally does not reject any diagram.
-  for (const line of source.split("\n")) {
+  // subgraphs, bracket/parenthesis nodes, or edge endpoints. Edge labels are
+  // stripped first (pipe labels, and text after the endpoint's colon) so words
+  // inside labels are never counted as nodes. This is not a complete Mermaid
+  // parser and intentionally does not reject any diagram.
+  for (const rawLine of source.split("\n")) {
+    const line = rawLine.replace(/\|[^|]*\|/g, " ");
     const subgraph = line.match(new RegExp(`^\\s*subgraph\\s+(${identifier})\\b`, "i"));
     if (subgraph) nodes.add(subgraph[1]);
 
-    for (const match of line.matchAll(new RegExp(`\\b(${identifier})\\s*[\\[(]`, "g"))) {
+    for (const match of line.matchAll(new RegExp(`^\\s*(${identifier})\\s*[\\[(]`, "g"))) {
       nodes.add(match[1]);
     }
-    for (const match of line.matchAll(
-      new RegExp(`(${identifier})(?:\\s*[\\[(][^\\]\\)]*[\\]\\)])?\\s*(?:-->|---)\\s*(?:\\|[^|]*\\|\\s*)?(${identifier})`, "g")
-    )) {
-      nodes.add(match[1]);
-      nodes.add(match[2]);
+    if (!/(-->|---)/.test(line)) continue;
+    for (const segment of line.split(/-->|---/)) {
+      const endpoint = segment.split(":")[0];
+      const node = endpoint.match(new RegExp(`(${identifier})`));
+      if (node) nodes.add(node[1]);
     }
   }
   return nodes.size;

@@ -84,7 +84,7 @@ test("preserves the previous Changes Tour when Mermaid syntax is invalid", async
   }
 });
 
-test("creates a changes tour without Project Tour step zero warnings", async () => {
+test("creates a changes tour with the exact head SHA as ref", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
     await withServer(root, async (client) => {
@@ -102,7 +102,6 @@ test("creates a changes tour without Project Tour step zero warnings", async () 
       assert.equal(response.structured.path, ".tours/changes.tour");
       assert.equal(response.structured.stepCount, 2);
       assert.deepEqual(response.structured.warnings, []);
-      assert.ok(!warningCodes(response).includes("STEP0_MISSING_OVERVIEW"));
     });
     const tour = readTourFile(root, ".tours/changes.tour");
     assert.equal(tour.ref, head);
@@ -112,6 +111,33 @@ test("creates a changes tour without Project Tour step zero warnings", async () 
     assert.ok(description.includes(baseSha));
     assert.ok(description.includes(head));
     assert.ok(tourFileValidAgainstSchema(root, ".tours/changes.tour"));
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("creates a changes tour without Project Tour step zero warnings", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        description: "Explains the feature branch.",
+        steps: [
+          { description: "Intent of the change." },
+          { description: "The new file.", file: "feature.txt", line: 1 },
+        ],
+      });
+      assert.equal(response.isError, false);
+      assert.equal(response.structured.status, "created");
+      // The first step has no locator and no Mermaid fence: the Project Tour
+      // step zero warnings are not wired into the Changes Tour flow, so this
+      // must stay warning-free.
+      assert.deepEqual(response.structured.warnings, []);
+      assert.ok(!warningCodes(response).includes("STEP0_MISSING_OVERVIEW"));
+      assert.ok(!warningCodes(response).includes("STEP0_DIAGRAM_TOO_LARGE"));
+    });
   } finally {
     rmrf(root);
   }

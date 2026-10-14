@@ -76,6 +76,24 @@ test("step0OverviewWarnings warns when the first diagram exceeds fifteen nodes",
   ]);
 });
 
+test("step0OverviewWarnings does not count edge labels as diagram nodes", () => {
+  const warnings = step0OverviewWarnings([
+    {
+      description: [
+        "**Diagram — Vue contexte**",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        "  Client[\"Client\"] --> API: passe les commandes (HTTPS)",
+        "  API -->|enregistre les tours| Store[(\"Fichiers .tours\")]",
+        "```",
+      ].join("\n"),
+    },
+  ]);
+
+  assert.deepEqual(warnings, []);
+});
+
 test("validateProjectParams rejects non-object arguments", () => {
   const { issues } = validateProjectParams("not-an-object");
   assert.ok(issues.some((issue) => issue.path === "$"));
