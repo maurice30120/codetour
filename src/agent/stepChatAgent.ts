@@ -38,9 +38,18 @@ export function createAcpStepChatResponder(
   let session: AskSession | undefined;
   let agent: AcpAgentProcess | undefined;
   let opening: Promise<AskSession> | undefined;
+  // The answer currently in flight, if any.
+  let answering: Promise<unknown> | undefined;
   // Bumped by dispose so a launch racing the close of the reading webview
   // can never install a leaked session on a fresh conversation.
   let epoch = 0;
+  // Bumped when the reader stops an answer whose agent session is still
+  // starting: the stopped question is never prompted once it opens.
+  let stopEpoch = 0;
+
+  // An agent that honors the ACP cancellation ends its turn promptly; one
+  // that ignores it must not block the reader's next question forever.
+  const STOP_SETTLE_TIMEOUT_MS = 10_000;
 
   async function openSession(request: StepChatRequest): Promise<AskSession> {
     if (session) {
@@ -111,49 +120,96 @@ export function createAcpStepChatResponder(
 
   return {
     async answer(request, events) {
-      const current = await openSession(request);
-      let outcome;
-      try {
-        // A crashed agent must never leave the reader waiting on a prompt
-        // that can no longer be answered.
-        const crashed = agent!.exited.then(
-          () => {
-            throw new Error("The ACP agent exited during the answer.");
-          },
-          () => {
-            throw new Error("The ACP agent connection broke during the answer.");
-          }
-        );
-        outcome = await Promise.race([
-          current.prompt(
-            request.question,
-            toTourStepContext(request.context),
-            // Every streamed chunk of the agent's answer is handed to the
-            // chat as it arrives, so the reader never waits for the whole
-            // generation to finish.
-            events?.onAnswerDelta
-              ? { onAssistantText: delta => events.onAnswerDelta?.(delta) }
-              : undefined,
-            request.history
-          ),
-          crashed
-        ]);
-      } catch (error) {
-        if (await transportGone()) {
-          releaseBrokenSession();
-          throw new StepChatAgentUnavailableError(
-            `La connexion à l'agent de conversation a été perdue : ${messageOf(error)}`
+      const settling = answering;
+      const turn = (async () => {
+        // An answer the reader stopped may still be settling on the ACP
+        // session: its cancelled turn ends before the next question is
+        // prompted, so a new question after a stop is never rejected as
+        // already in flight.
+        if (settling) {
+          await Promise.race([
+            settling.then(
+              () => undefined,
+              () => undefined
+            ),
+            new Promise(resolve =>
+              setTimeout(resolve, STOP_SETTLE_TIMEOUT_MS)
+            )
+          ]);
+        }
+        const myStopEpoch = stopEpoch;
+        const current = await openSession(request);
+        // A stop that arrived while the agent was still starting targets
+        // this very question: it is never prompted to the agent.
+        if (myStopEpoch !== stopEpoch) {
+          throw new Error(
+            "The tour step conversation was stopped before the question was sent."
           );
         }
-        throw error;
+        let outcome;
+        try {
+          // A crashed agent must never leave the reader waiting on a
+          // prompt that can no longer be answered.
+          const crashed = agent!.exited.then(
+            () => {
+              throw new Error("The ACP agent exited during the answer.");
+            },
+            () => {
+              throw new Error(
+                "The ACP agent connection broke during the answer."
+              );
+            }
+          );
+          outcome = await Promise.race([
+            current.prompt(
+              request.question,
+              toTourStepContext(request.context),
+              // Every streamed chunk of the agent's answer is handed to the
+              // chat as it arrives, so the reader never waits for the whole
+              // generation to finish.
+              events?.onAnswerDelta
+                ? {
+                    onAssistantText: delta => events.onAnswerDelta?.(delta)
+                  }
+                : undefined,
+              request.history
+            ),
+            crashed
+          ]);
+        } catch (error) {
+          if (await transportGone()) {
+            releaseBrokenSession();
+            throw new StepChatAgentUnavailableError(
+              `La connexion à l'agent de conversation a été perdue : ${messageOf(error)}`
+            );
+          }
+          throw error;
+        }
+        if (outcome.usedForbiddenTools) {
+          return (
+            outcome.message +
+            "\n\n> ⚠️ L'agent a exécuté un outil interdit (écriture, suppression ou exécution) pendant cette réponse."
+          );
+        }
+        return outcome.message;
+      })();
+      answering = turn;
+      try {
+        return await turn;
+      } finally {
+        if (answering === turn) {
+          answering = undefined;
+        }
       }
-      if (outcome.usedForbiddenTools) {
-        return (
-          outcome.message +
-          "\n\n> ⚠️ L'agent a exécuté un outil interdit (écriture, suppression ou exécution) pendant cette réponse."
-        );
+    },
+    cancel() {
+      if (!session) {
+        // The agent is still starting: the stopped question must never be
+        // prompted once its session opens.
+        stopEpoch++;
+        return;
       }
-      return outcome.message;
+      session.cancel();
     },
     async dispose() {
       epoch++;

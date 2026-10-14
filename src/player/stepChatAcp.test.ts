@@ -89,7 +89,13 @@ function resetChatState() {
 }
 
 interface StepChatUpdate {
-  exchanges: { question: string; answerHtml: string; failed?: boolean; pending?: boolean }[];
+  exchanges: {
+    question: string;
+    answerHtml: string;
+    failed?: boolean;
+    pending?: boolean;
+    interrupted?: boolean;
+  }[];
   responding?: boolean;
 }
 
@@ -496,6 +502,64 @@ test("the fake agent's streamed chunks appear progressively in the chat with the
   assert.equal(complete.exchanges[0].pending, undefined);
   assert.notEqual(complete.exchanges[0].failed, true);
   assert.match(complete.exchanges[0].answerHtml, /Tour answer, part two\./);
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
+test("the Arrêter button cancels the in-flight ACP exchange and a new question is answered immediately", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent, "slow");
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  // The slow agent streams one chunk, then keeps the turn open: the
+  // answer is visibly in progress when the reader stops it.
+  chatPanel().receive({ type: "askQuestion", question: "Réponse longue ?" });
+  await host.waitFor(() =>
+    stepChatUpdates().some(
+      update =>
+        update.responding === true &&
+        update.exchanges[0]?.answerHtml?.includes("Working")
+    )
+  );
+
+  // The reader stops the request that has become useless.
+  chatPanel().receive({ type: "stopQuestion" });
+  await host.waitFor(() => lastChatUpdate().responding === false);
+
+  // The cancellation travelled to the agent over the ACP transport, and
+  // the interrupted state is visible in the chat with the streamed part.
+  await waitForLog(agent.logPath, found =>
+    found.some(record => record.method === "session/cancel")
+  );
+  const stopped = lastChatUpdate();
+  assert.equal(stopped.exchanges[0].interrupted, true);
+  assert.match(stopped.exchanges[0].answerHtml, /Working/);
+  assert.match(stopped.exchanges[0].answerHtml, /Réponse interrompue/);
+
+  // A new question is accepted immediately, without reloading the webview,
+  // and answered over the same agent session.
+  chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
+  await waitForCompletedAnswer(update =>
+    update.exchanges.some(exchange => exchange.question === "Et maintenant ?")
+  );
+  const records = await waitForLog(agent.logPath, found => promptCount(found) === 2);
+  assert.equal(
+    records.filter(record => record.method === "initialize").length,
+    1,
+    "the stopped session still serves the next question"
+  );
+  // The stopped exchange, never completed, feeds no follow-up history.
+  const blocks = promptBlocksAt(records, 1);
+  assert.equal(blocks.length, 2);
+  assert.equal(blocks[0].text, "Et maintenant ?");
+  const answered = lastChatUpdate();
+  assert.match(answered.exchanges[1].answerHtml, /Tour answer, part two\./);
+  assert.equal(answered.exchanges[1].interrupted, undefined);
+  assert.equal(answered.exchanges[0].interrupted, true);
 
   chatPanel().dispose();
   agent.cleanup();
