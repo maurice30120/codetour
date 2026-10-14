@@ -136,10 +136,10 @@ To generate the general project tour, ask for example:
 ```text
 Analyze this repository, then use the codetour.create_project_tour MCP tool to
 generate a Project Tour. Present the project's purpose, its entry points, its
-important components and its main execution flows. Start with a step anchored
-on the root directory to explain its organization, then present the important
-directories before detailing the files. Use stable anchors in files whenever
-possible.
+important components and its main execution flows. Start with an unanchored
+orientation step that maps the system context and its real execution or storage
+boundaries, then descend into the relevant directories and files. Use stable
+anchors in files whenever possible.
 ```
 
 To scope the Project Tour to a subdirectory, name it explicitly in the request.
@@ -171,11 +171,25 @@ The result is written to `.tours/changes.tour`.
 | `workspacePath` | string | no       | Optional directory relative to the workspace root; anchors and the generated `.tours` file resolve inside it for this call. |
 
 A good Project Tour covers the project's purpose, its main entry points, its
-important components, and its main execution flows. When the project has a
-meaningful directory structure, it begins with a directory-anchored overview.
-For a Project Tour scoped to a subdirectory, the first step anchors that exact
-workspace-relative directory. Other important directories should be introduced
-before their individual files.
+important components, and its main execution flows. Its first step is an
+explicitly titled orientation step without a `file` or `directory` locator. The
+description starts with two or three sentences explaining what the system does
+and for whom, followed by `**Diagram — Vue contexte**` and a Mermaid `flowchart`
+of actors, the system, and external systems. Every relationship names an
+interaction and its mechanism. Include a second `flowchart`, captioned
+`**Diagram — Conteneurs**`, only when the code establishes more than one real
+execution or storage boundary, then map each zone to workspace directories with
+relative Markdown links.
+
+Use C4 terms precisely: an actor is a person in a role with a need; a system is
+software that delivers user value, not automatically a repository; an external
+system is outside the described boundary; and a container is an application or
+store with an execution or storage boundary, not a Docker container. A folder,
+package, or import alone is not a boundary. Describe the existing design and
+state uncertainty instead of inventing boxes or relationships. Use one
+`subgraph` per container, verbal edge labels, no decorative arrows, and about 12
+nodes at most. The following steps descend into the relevant directories and
+files.
 
 ### `create_changes_tour`
 

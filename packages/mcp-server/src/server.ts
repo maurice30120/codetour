@@ -86,6 +86,27 @@ const PROJECT_TOUR_WORKFLOW_GUIDANCE =
   "code that justifies it, preferring a short unique pattern over a line number so the anchor " +
   "survives edits. One step covers one idea; prefer several focused steps over one long paragraph. ";
 
+const PROJECT_TOUR_STEP0_GUIDANCE =
+  "The first step must be an orientation step with an explicit title such as \"Vue d'ensemble\" " +
+  "and no locator: omit both file and directory. Structure its description in this order: " +
+  "(1) two or three sentences explaining what the system does and for whom; " +
+  "(2) a Mermaid flowchart introduced by the exact caption **Diagram — Vue contexte**, showing " +
+  "the actors, the system under study, and external systems; every edge must state an interaction " +
+  "verb and its mechanism, for example `Client --> API: passe les commandes (HTTPS)`; " +
+  "(3) a second Mermaid flowchart introduced by the exact caption **Diagram — Conteneurs**, but only " +
+  "when the project has more than one execution or storage boundary—otherwise omit it and never draw " +
+  "a boundary that does not exist; (4) a short zone-to-workspace-directory mapping with relative " +
+  "Markdown links to the relevant directories, connecting the map to the following steps. " +
+  "Use these C4 meanings strictly: an Actor is a person in a role, with their need; a System is " +
+  "software that delivers value to its users, and a repository is not automatically a system; an " +
+  "External system is outside the described boundary, so explain the interaction rather than its " +
+  "internals; a Container is an application or store with an execution or storage boundary, such as " +
+  "a web app, CLI, worker, or database—it is not a Docker container. A directory, package, or import " +
+  "alone never creates a boundary. Describe the existing design, not a proposed redesign. When code " +
+  "evidence does not establish a boundary or relationship, state the uncertainty in the text instead " +
+  "of inventing a box. In these diagrams, use one subgraph per container, verbal edge labels, no " +
+  "decorative or meaningless arrows, and about 12 nodes at most so they remain readable. ";
+
 const CHANGES_TOUR_WORKFLOW_GUIDANCE =
   "Recommended workflow: (1) inspect the actual comparison before writing — the diff from the " +
   "merge-base to headRef, the affected source, and the tests — and base every statement on what " +
@@ -110,6 +131,7 @@ const PROJECT_TOUR_DESCRIPTION =
   "surrounding flow; avoid merely restating names or syntax. Adapt the depth and step count to the " +
   "requested audience and scope. " +
   PROJECT_TOUR_WORKFLOW_GUIDANCE +
+  PROJECT_TOUR_STEP0_GUIDANCE +
   "Input: a required non-empty steps array, an optional title (default: \"Project Overview\"), and " +
   "an optional description summarizing the tour. Each step requires a Markdown description and may " +
   "have a title. Use at most one locator per step: file or directory, relative to the workspace root. " +
