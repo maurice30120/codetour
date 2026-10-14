@@ -464,6 +464,10 @@ export function createVscodeHost(options: HostOptions = {}) {
   const pendingModals: ((choice: string | undefined) => void)[] = [];
   const externalLinks: Uri[] = [];
   const documents = new Map<string, MockTextDocument>();
+  const fileSystemProviders = new Map<
+    string,
+    { readFile(uri: Uri): Promise<Uint8Array> }
+  >();
   const files = new Map<string, string>();
   const visibleTextEditors: MockTextEditor[] = [];
   const decorationTypes: TextEditorDecorationType[] = [];
@@ -555,7 +559,9 @@ export function createVscodeHost(options: HostOptions = {}) {
     return relative;
   }
 
-  function openTextDocument(value: Uri | { language: string; content: string }): Promise<MockTextDocument> {
+  async function openTextDocument(
+    value: Uri | { language: string; content: string }
+  ): Promise<MockTextDocument> {
     if (!(value instanceof Uri)) {
       const uri = Uri.parse(`untitled:CodeTour-draft-${documents.size}.md`);
       const document = new MockTextDocument(uri, value.content, value.language, document => onDidChangeTextDocument.fire({ document }));
@@ -574,8 +580,11 @@ export function createVscodeHost(options: HostOptions = {}) {
           return Promise.reject(new Error(`File not found: ${key}`));
         }
         documents.set(key, new MockTextDocument(uri, ""));
-      } else if (scheme === "codetour" || scheme === "codetour-content") {
+      } else if (scheme === "codetour-content") {
         documents.set(key, new MockTextDocument(uri, ""));
+      } else if (fileSystemProviders.has(scheme)) {
+        const bytes = await fileSystemProviders.get(scheme)!.readFile(uri);
+        documents.set(key, new MockTextDocument(uri, new TextDecoder().decode(bytes)));
       } else if (scheme === "git") {
         let text = "";
         try {
@@ -845,8 +854,15 @@ export function createVscodeHost(options: HostOptions = {}) {
       _scheme: string,
       _provider: unknown
     ) => new Disposable(),
-    registerFileSystemProvider: (_scheme: string, _provider: unknown) =>
-      new Disposable(),
+    // Registered file system providers serve their documents' text, like
+    // VS Code resolves virtual schemes such as the tour content scheme.
+    registerFileSystemProvider: (
+      scheme: string,
+      provider: { readFile(uri: Uri): Promise<Uint8Array> }
+    ) => {
+      fileSystemProviders.set(scheme, provider);
+      return new Disposable(() => fileSystemProviders.delete(scheme));
+    },
     onDidChangeConfiguration: (listener: (event: { affectsConfiguration: (key: string) => boolean }) => void) => onDidChangeConfiguration.event(listener),
     onDidChangeTextDocument: (listener: (event: { document: MockTextDocument }) => void) => onDidChangeTextDocument.event(listener),
     onDidSaveTextDocument: () => new Disposable(),

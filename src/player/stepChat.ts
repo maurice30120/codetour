@@ -1,5 +1,6 @@
-import { window } from "vscode";
+import { Uri, window } from "vscode";
 import { ActiveTour } from "../store";
+import { FS_SCHEME } from "../constants";
 import { getFileUri } from "../utils";
 import { renderMarkdownToHtml } from "./markdown";
 
@@ -24,9 +25,9 @@ import { renderMarkdownToHtml } from "./markdown";
 export type StepChatContext =
   | {
       available: true;
-      // The tour's declared path for the step target.
-      path: string;
-      // The code the reader actually sees in the open buffer.
+      // The tour's declared path for the step target, when it has one.
+      path?: string;
+      // The code the reader actually sees for the step target.
       code: string;
       description: string;
     }
@@ -102,33 +103,70 @@ export function clearStepChatConversations(): void {
 }
 
 /**
- * Captures the step context from the open buffer. This base covers the
- * buffer the reader is shown; other target kinds are resolved later. The
- * captured code is the buffer's current content — unsaved edits included —
- * and an unshown target is reported unavailable, never substituted.
+ * Captures the step context from what the reader actually sees, whatever
+ * the step's target kind.
+ *
+ * - A file or URI step captures the open buffer's current content — unsaved
+ *   edits included — at the target the reader is shown.
+ * - An embedded-content step displays a virtual document served by the
+ *   tour file system: its text, the step's own contents, is captured.
+ * - A step without code (a directory, a view or a plain explanation)
+ *   passes the declared target, if any, without any substitute code.
+ * - An unshown target is reported unavailable, never replaced by another
+ *   file's code.
  */
-export function resolveOpenBufferContext(active: ActiveTour): StepChatContext {
+export function resolveStepChatContext(active: ActiveTour): StepChatContext {
   const step = active.tour.steps[active.step];
   const description = step?.description ?? "";
-  const file = step?.file;
-  if (!step || !file) {
+  if (!step) {
     return { available: false, description };
   }
 
-  const target = getFileUri(file, active.workspaceRoot);
-  const editor = window.visibleTextEditors.find(
-    editor => editor.document.uri.path === target.path
-  );
-  if (!editor) {
-    return { available: false, path: file, description };
+  // The virtual document of an embedded-content step, as the reader's own
+  // resolution opens it.
+  if (step.contents !== undefined) {
+    const target = Uri.parse(`${FS_SCHEME}://current/${step.file}`);
+    const editor = window.visibleTextEditors.find(
+      editor => editor.document.uri.toString() === target.toString()
+    );
+    if (!editor) {
+      return { available: false, path: step.file, description };
+    }
+    return {
+      available: true,
+      path: step.file,
+      code: editor.document.getText(),
+      description
+    };
   }
 
-  return {
-    available: true,
-    path: file,
-    code: editor.document.getText(),
-    description
-  };
+  const targetPath = step.file ?? step.uri;
+  if (targetPath) {
+    const target = step.uri
+      ? Uri.parse(step.uri)
+      : getFileUri(step.file!, active.workspaceRoot);
+    const editor = window.visibleTextEditors.find(
+      editor => editor.document.uri.path === target.path
+    );
+    if (!editor) {
+      return { available: false, path: targetPath, description };
+    }
+    return {
+      available: true,
+      path: targetPath,
+      code: editor.document.getText(),
+      description
+    };
+  }
+
+  // A directory-anchored step presents no code: the declared directory is
+  // the target the agent receives, never a substitute buffer.
+  if (step.directory) {
+    return { available: false, path: step.directory, description };
+  }
+
+  // No code target at all: a view or plain explanation step.
+  return { available: false, description };
 }
 
 /**
@@ -160,7 +198,7 @@ export async function askTourStepQuestion(
     try {
       const answerMarkdown = await responder.answer({
         question,
-        context: resolveOpenBufferContext(active),
+        context: resolveStepChatContext(active),
         history
       });
       exchange = {
