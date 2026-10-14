@@ -44,6 +44,12 @@ export interface StepChatHistoryEntry {
   answer: string;
 }
 
+/**
+ * The conversation's agent could not be launched or its connection broke;
+ * the reader may retry with a new question, which relaunches the agent.
+ */
+export class StepChatAgentUnavailableError extends Error {}
+
 /** What the responder receives for a question. */
 export interface StepChatRequest {
   question: string;
@@ -197,11 +203,19 @@ export async function askTourStepQuestion(
         answerHtml: renderMarkdownToHtml(answerMarkdown),
         failed: false
       };
-    } catch {
-      exchange = failedExchange(
-        question,
-        "La réponse à cette question a échoué. La lecture du tour reste utilisable."
-      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      if (error instanceof StepChatAgentUnavailableError) {
+        exchange = failedExchange(
+          question,
+          `${reason} Une nouvelle question relancera l'agent ; la lecture du tour reste utilisable.`
+        );
+      } else {
+        exchange = failedExchange(
+          question,
+          `La réponse à cette question a échoué (${reason}). La lecture du tour reste utilisable.`
+        );
+      }
     }
   }
 

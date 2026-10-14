@@ -245,6 +245,39 @@ test("a step without displayed code is reported as unavailable to the agent, nev
   agent.cleanup();
 });
 
+test("an agent launch failure lands in the chat and the next question retries", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent, "launch-fail-once");
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Es-tu là ?" });
+  await host.waitFor(() => !!lastChatUpdate());
+
+  const failure = lastChatUpdate();
+  assert.equal(failure.exchanges[0].failed, true);
+  assert.match(failure.exchanges[0].answerHtml, /Impossible de lancer l'agent/);
+  assert.match(failure.exchanges[0].answerHtml, /relancera l'agent/);
+
+  // The reader keeps reading and navigating without any agent.
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.waitFor(() => host.panelHtml().includes("2 / 3"));
+  assert.match(host.panelHtml(), /class="step-chat"/);
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.waitFor(() => host.panelHtml().includes("1 / 3"));
+
+  // The next question relaunches the agent and gets its answer.
+  chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
+  await host.waitFor(() => lastChatUpdate()?.exchanges.length === 2);
+  assert.notEqual(lastChatUpdate().exchanges[1].failed, true);
+  assert.match(lastChatUpdate().exchanges[1].answerHtml, /Tour answer, part two\./);
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
 test("a step question reaches the ACP agent in Ask mode with the displayed context and its answer lands in the chat", async () => {
   resetChatState();
   const agent = createAgentWorkspace();

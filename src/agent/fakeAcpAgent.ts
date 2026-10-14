@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as acp from "@agentclientprotocol/sdk";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 
@@ -19,6 +19,20 @@ const behavior = process.argv[3] ?? "default";
 if (!logPath) {
   process.stderr.write("usage: fakeAcpAgent <logPath> [behavior]\n");
   process.exit(2);
+}
+
+if (behavior === "launch-fail-once") {
+  // The first launch dies before speaking ACP; the retry boots normally.
+  let booted = false;
+  try {
+    booted = readFileSync(logPath, "utf8").includes('"boot"');
+  } catch {
+    booted = false;
+  }
+  if (!booted) {
+    log({ method: "boot", outcome: "failed" });
+    process.exit(1);
+  }
 }
 
 /** Safety net: never outlive a broken test run. */

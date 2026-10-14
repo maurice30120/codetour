@@ -2,10 +2,11 @@ import type { AcpAgentEntry, AcpAgentProcess } from "./acpAgentProcess";
 import { spawnAcpAgent } from "./acpAgentProcess";
 import type { AskSession, TourStepContext } from "./acpSession";
 import { openAskSession } from "./acpSession";
-import type {
-  StepChatContext,
-  StepChatRequest,
-  StepChatResponder
+import {
+  StepChatAgentUnavailableError,
+  type StepChatContext,
+  type StepChatRequest,
+  type StepChatResponder
 } from "../player/stepChat";
 
 /**
@@ -67,7 +68,9 @@ export function createAcpStepChatResponder(
             opening = undefined;
             spawned.dispose().catch(() => undefined);
           }
-          throw error;
+          throw new StepChatAgentUnavailableError(
+            `Impossible de lancer l'agent de conversation : ${messageOf(error)}`
+          );
         }
       );
       // Teardown can reject the launch before the caller attaches its own
@@ -109,6 +112,10 @@ export function createAcpStepChatResponder(
  * unavailable target is reported as such; no other file's code is ever
  * substituted for the missing display.
  */
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function toTourStepContext(context: StepChatContext): TourStepContext {
   if (context.available) {
     return {
