@@ -1,6 +1,7 @@
-import { window } from "vscode";
+import { Uri, window, workspace } from "vscode";
 import { ActiveTour } from "../store";
-import { getFileUri } from "../utils";
+import { getStepFileUri } from "../utils";
+import { getStepDiff, getStepDiffPath } from "./diff";
 import { renderMarkdownToHtml } from "./markdown";
 
 /**
@@ -20,6 +21,16 @@ import { renderMarkdownToHtml } from "./markdown";
  * reading webview closes; nothing is persisted to disk.
  */
 
+/** One side of a displayed diff comparison, identified as such. */
+export interface StepChatDiffSide {
+  // The tour's declared path for this side's file.
+  path: string;
+  // The Git commit whose snapshot this side displays.
+  ref: string;
+  // The side's displayed content.
+  code: string;
+}
+
 /** The step context captured for a question, faithful to the display. */
 export type StepChatContext =
   | {
@@ -28,6 +39,15 @@ export type StepChatContext =
       path: string;
       // The code the reader actually sees in the open buffer.
       code: string;
+      description: string;
+    }
+  | {
+      available: true;
+      // The tour's declared path label of the compared files.
+      path: string;
+      // A diff step displays two sides: both are transmitted, each
+      // identified with its own path and Git commit.
+      diff: { original: StepChatDiffSide; modified: StepChatDiffSide };
       description: string;
     }
   | {
@@ -102,22 +122,68 @@ export function clearStepChatConversations(): void {
 }
 
 /**
- * Captures the step context from the open buffer. This base covers the
- * buffer the reader is shown; other target kinds are resolved later. The
- * captured code is the buffer's current content — unsaved edits included —
- * and an unshown target is reported unavailable, never substituted.
+ * Captures the step context faithful to what the reader is shown, reusing
+ * the reader's own target resolution. A diff step captures the persisted
+ * comparison's two sides as such; any other step captures the buffer of the
+ * exact target the render resolved — the Git snapshot of a Changes Tour
+ * step, never the current workspace file, or the open buffer of an ordinary
+ * step, unsaved edits included. A target that is not currently displayed is
+ * reported unavailable, never silently replaced by another file.
  */
-export function resolveOpenBufferContext(active: ActiveTour): StepChatContext {
-  const step = active.tour.steps[active.step];
+export async function resolveStepContext(
+  active: ActiveTour
+): Promise<StepChatContext> {
+  const tour = active.tour;
+  const step = tour.steps[active.step];
   const description = step?.description ?? "";
-  const file = step?.file;
-  if (!step || !file) {
+  if (!step) {
     return { available: false, description };
   }
 
-  const target = getFileUri(file, active.workspaceRoot);
+  if (step.display === "diff" && step.file) {
+    const diff = await getStepDiff(step, tour, active.workspaceRoot);
+    if (diff) {
+      try {
+        // The same snapshot documents the render displays, already opened
+        // by the reader's resolution.
+        const [original, modified] = await Promise.all([
+          readDisplayedSide(diff.original),
+          readDisplayedSide(diff.modified)
+        ]);
+        return {
+          available: true,
+          path: getStepDiffPath(step),
+          diff: {
+            original: {
+              path: step.baseFile || step.file,
+              ref: tour.baseRef!,
+              code: original
+            },
+            modified: { path: step.file, ref: tour.ref!, code: modified }
+          },
+          description
+        };
+      } catch {
+        // A side that cannot be read falls back to the single-target
+        // resolution below, exactly like the render's own fallback.
+      }
+    }
+  }
+
+  const file = step.file || step.uri;
+  if (!file) {
+    return { available: false, description };
+  }
+
+  // The same resolution the render performs: the Git snapshot of a Changes
+  // Tour step, the current buffer of an ordinary step.
+  const uri = await getStepFileUri(
+    step,
+    active.workspaceRoot,
+    step.display === "diff" ? undefined : tour.ref
+  );
   const editor = window.visibleTextEditors.find(
-    editor => editor.document.uri.path === target.path
+    editor => editor.document.uri.toString() === uri.toString()
   );
   if (!editor) {
     return { available: false, path: file, description };
@@ -129,6 +195,10 @@ export function resolveOpenBufferContext(active: ActiveTour): StepChatContext {
     code: editor.document.getText(),
     description
   };
+}
+
+async function readDisplayedSide(uri: Uri): Promise<string> {
+  return (await workspace.openTextDocument(uri)).getText();
 }
 
 /**
@@ -160,7 +230,7 @@ export async function askTourStepQuestion(
     try {
       const answerMarkdown = await responder.answer({
         question,
-        context: resolveOpenBufferContext(active),
+        context: await resolveStepContext(active),
         history
       });
       exchange = {
