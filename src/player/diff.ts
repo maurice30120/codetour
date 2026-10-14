@@ -9,6 +9,11 @@ import { getFileUri } from "../utils";
 
 const COMMIT_SHA = /^[0-9a-f]{40}$/;
 
+/** The workspace-relative label of the compared paths, shown in the diff title. */
+export function getStepDiffPath(step: CodeTourStep): string {
+  return step.baseFile ? `${step.baseFile} → ${step.file}` : step.file!;
+}
+
 export interface StepDiff {
   original: Uri;
   modified: Uri;
@@ -64,7 +69,7 @@ export async function getStepDiff(
       if (step.baseFile || (error as { gitErrorCode?: string })?.gitErrorCode !== "UnknownPath") return;
       original = Uri.from({ scheme: FS_SCHEME_CONTENT, authority: "added", path: baseFile.path, query: tour.baseRef });
     }
-    const path = step.baseFile ? `${step.baseFile} → ${step.file}` : step.file;
+    const path = getStepDiffPath(step);
     return { original, modified, title: `${path} (${tour.baseRef} ↔ ${tour.ref})` };
   } catch {
     return;
