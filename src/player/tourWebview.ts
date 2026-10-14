@@ -4,6 +4,11 @@ import { ActiveTour, CodeTourStep, store } from "../store";
 import { getTourTitle } from "../utils";
 import { renderPreviewDescription } from "./description";
 import { createTourWebviewHtml } from "./markdown";
+import {
+  askTourStepQuestion,
+  clearStepChatConversations,
+  getStepChatExchanges
+} from "./stepChat";
 import { getNextTour, getPreviousTour } from "./index";
 
 interface TourView {
@@ -33,6 +38,8 @@ export function showTourWebview(): void {
       if (view !== current) return;
       view = undefined;
       store.isExpandedViewOpen = false;
+      // The conversations live only as long as the reading webview.
+      clearStepChatConversations();
     });
     current.panel.webview.onDidReceiveMessage(async message => {
       const rendered = current.rendered;
@@ -51,6 +58,20 @@ export function showTourWebview(): void {
           }
         } else if (message.type === "openLink" && typeof message.href === "string") {
           await openDescriptionLink(message.href, rendered.active.workspaceRoot);
+        } else if (
+          message.type === "askQuestion" &&
+          typeof message.question === "string" &&
+          message.question.trim()
+        ) {
+          const exchanges = await askTourStepQuestion(
+            rendered.active,
+            message.question.trim()
+          );
+          // A stale render (navigation while the answer was pending) must not
+          // push a conversation into the step the reader now sees; the stored
+          // exchange resurfaces when its step is rendered again.
+          if (view !== current || current.rendered !== rendered) return;
+          await current.panel.webview.postMessage({ type: "stepChat", exchanges });
         }
       } catch {
         vscode.window.showErrorMessage("Unable to open this description link.");
@@ -83,6 +104,7 @@ export async function renderTourStep(): Promise<void> {
     tourTitle: getTourTitle(tour), tourId: tour.id, stepNumber,
     stepCount: tour.steps.length, stepTitle: step.title || `Step ${stepNumber + 1}`,
     anchorLabel: getStepAnchorLabel(step), description,
+    chatExchanges: getStepChatExchanges(tour.id, stepNumber),
     previousTourTitle: getPreviousTour()?.title,
     nextTourTitle: getNextTour()?.title
   }, token);

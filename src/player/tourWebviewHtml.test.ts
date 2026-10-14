@@ -37,6 +37,51 @@ test("createTourWebviewHtml renders the layout A reading structure", () => {
 
 });
 
+test("createTourWebviewHtml renders the step chat field under the description", () => {
+  const html = createTourWebviewHtml(baseModel(), "chat-nonce");
+
+  // The chat lives under the rendered explanation, inside the reading article.
+  const descriptionIndex = html.indexOf("<strong>CodeTour</strong>");
+  const chatIndex = html.indexOf('class="step-chat"');
+  assert.ok(descriptionIndex > 0);
+  assert.ok(chatIndex > descriptionIndex);
+  assert.match(html, /<section class="step-chat" aria-label="Discussion de l'étape">/);
+  assert.match(html, /<form class="step-chat-form" id="step-chat-form">/);
+  assert.match(html, /<input class="step-chat-input" id="step-chat-input" type="text"/);
+  assert.match(html, /aria-label="Question sur cette étape"/);
+  assert.match(html, /<button type="submit" class="step-chat-submit"/);
+});
+
+test("createTourWebviewHtml renders the step conversation with escaped questions and answers under them", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatExchanges: [
+        {
+          question: 'Que fait "<b>cette</b>" &lt;fonction&gt; ?',
+          answerHtml: "<p>Elle retourne <strong>la valeur</strong>.</p>"
+        },
+        {
+          question: "Et si l'agent échoue ?",
+          answerHtml: "<p>Erreur de réponse.</p>",
+          failed: true
+        }
+      ]
+    },
+    "chat-nonce"
+  );
+
+  // Each question appears first, then its answer right under it, in order.
+  const questionIndex = html.indexOf("Que fait &quot;&lt;b&gt;cette&lt;/b&gt;&quot; &amp;lt;fonction&amp;gt; ?");
+  assert.ok(questionIndex > 0, "the question is escaped in the log");
+  const answerIndex = html.indexOf("<li class=\"step-chat-answer\"><p>Elle retourne <strong>la valeur</strong>.</p></li>");
+  assert.ok(answerIndex > questionIndex, "the answer appears under its question");
+  assert.match(html, /<li class="step-chat-question">/);
+  assert.match(html, /step-chat-answer step-chat-error"/);
+  const secondQuestionIndex = html.indexOf("Et si l&#39;agent échoue ?");
+  assert.ok(secondQuestionIndex > answerIndex);
+});
+
 test("createTourWebviewHtml keeps a rich description readable in a narrow panel", () => {
   const html = createTourWebviewHtml(
     {
@@ -84,8 +129,10 @@ test("the reading view forwards only content links with the active step identity
     acquireVsCodeApi: () => ({ postMessage: (message: unknown) => messages.push(message) }),
     document: {
       body: { dataset: { token: "event-nonce", tourId: baseModel().tourId, step: "1" } },
-      addEventListener: (_name: string, listener: (event: unknown) => void) => { click = listener; }
-    }
+      addEventListener: (_name: string, listener: (event: unknown) => void) => { click = listener; },
+      getElementById: () => null
+    },
+    window: { addEventListener: () => undefined }
   });
   let prevented = false;
   click({ target: { closest: (selector: string) => selector.startsWith("button") ? null : ({ getAttribute: () => "https://example.com" }) }, preventDefault: () => { prevented = true; } });
@@ -97,6 +144,79 @@ test("the reading view forwards only content links with the active step identity
   assert.deepEqual(JSON.parse(JSON.stringify(messages[1])), { type: "next", token: "event-nonce", targetTourId: baseModel().tourId, step: 1 });
   click({ target: { closest: () => ({ dataset: { action: "previous" }, disabled: true }) } });
   assert.equal(messages.length, 2);
+});
+
+test("the step chat submits questions with the step identity and renders chat updates safely", () => {
+  const html = createTourWebviewHtml(baseModel(), "chat-nonce");
+  const script = html.match(/<script nonce="chat-nonce">([\s\S]*?)<\/script>/)![1];
+  const messages: unknown[] = [];
+  const elements: Record<string, unknown> = {};
+  let submit!: (event: unknown) => void;
+  let messageListener!: (event: unknown) => void;
+  const chatInput = { value: "" };
+  const chatLog = { innerHTML: "" };
+  elements["step-chat-form"] = {
+    addEventListener: (_name: string, listener: (event: unknown) => void) => {
+      submit = listener;
+    }
+  };
+  elements["step-chat-input"] = chatInput;
+  elements["step-chat-log"] = chatLog;
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({
+      postMessage: (message: unknown) => messages.push(message)
+    }),
+    document: {
+      body: { dataset: { token: "chat-nonce", tourId: baseModel().tourId, step: "1" } },
+      addEventListener: () => undefined,
+      getElementById: (id: string) => elements[id]
+    },
+    window: {
+      addEventListener: (_name: string, listener: (event: unknown) => void) => {
+        messageListener = listener;
+      }
+    }
+  });
+
+  // Submitting the chat field sends the question with the active step identity.
+  chatInput.value = "  Pourquoi cette étape ?  ";
+  submit({ preventDefault: () => undefined });
+  assert.deepEqual(JSON.parse(JSON.stringify(messages)), [
+    {
+      type: "askQuestion",
+      question: "Pourquoi cette étape ?",
+      token: "chat-nonce",
+      targetTourId: baseModel().tourId,
+      step: 1
+    }
+  ]);
+  assert.equal(chatInput.value, "", "the field is cleared after sending");
+
+  // An empty question is never sent.
+  chatInput.value = "   ";
+  submit({ preventDefault: () => undefined });
+  assert.equal(messages.length, 1);
+
+  // A chat update replaces the log with escaped questions and the answers.
+  messageListener({
+    data: {
+      type: "stepChat",
+      exchanges: [
+        { question: '<script>alert(1)</script>', answerHtml: "<p>Réponse sûre.</p>" }
+      ]
+    }
+  });
+  assert.equal(
+    chatLog.innerHTML,
+    '<li class="step-chat-question">&lt;script&gt;alert(1)&lt;/script&gt;</li>' +
+      '<li class="step-chat-answer"><p>Réponse sûre.</p></li>'
+  );
+
+  // Malformed updates never touch the displayed conversation.
+  messageListener({ data: { type: "stepChat" } });
+  messageListener({ data: { type: "unrelated", exchanges: [] } });
+  messageListener({ data: undefined });
+  assert.match(chatLog.innerHTML, /Réponse sûre/);
 });
 
 test("navigation disables absent neighbors and names linked tours at the boundaries", () => {
