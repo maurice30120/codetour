@@ -171,6 +171,41 @@ function promptBlocks(records: FakeAgentLogRecord[]): { type: string; text: stri
   return (last!.params as { prompt: { type: string; text: string }[] }).prompt;
 }
 
+test("follow-up questions carry the step's previous exchanges to the agent over one session", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent);
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Première question ?" });
+  await host.waitFor(() => lastChatUpdate()?.exchanges.length === 1);
+
+  chatPanel().receive({ type: "askQuestion", question: "Et ensuite ?" });
+  await host.waitFor(() => lastChatUpdate()?.exchanges.length === 2);
+
+  const records = await waitForLog(agent.logPath, found =>
+    found.filter(record => record.method === "session/prompt").length === 2
+  );
+  const blocks = promptBlocks(records);
+  assert.equal(blocks[0].text, "Et ensuite ?");
+  // The previous exchange feeds the follow-up, question and answer alike.
+  assert.equal(blocks.length, 3);
+  assert.match(blocks[2].text, /Première question \?/);
+  assert.match(blocks[2].text, /Tour answer, part two\./);
+
+  // A single agent session answers the whole reading session: no
+  // per-question ephemeral relaunch.
+  assert.equal(
+    records.filter(record => record.method === "initialize").length,
+    1
+  );
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
 test("a step question reaches the ACP agent in Ask mode with the displayed context and its answer lands in the chat", async () => {
   resetChatState();
   const agent = createAgentWorkspace();

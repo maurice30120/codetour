@@ -82,7 +82,9 @@ export function createAcpStepChatResponder(
       const current = await openSession(request);
       const outcome = await current.prompt(
         request.question,
-        toTourStepContext(request.context)
+        toTourStepContext(request.context),
+        undefined,
+        request.history
       );
       return outcome.message;
     },

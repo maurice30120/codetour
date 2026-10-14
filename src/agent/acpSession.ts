@@ -47,6 +47,12 @@ const ASK_MODE_ID = "ask";
 const ASK_MODE_NAME = "ask";
 const CLIENT_NAME = "codetour";
 
+/** A previous question of the step's conversation, with its answer. */
+export interface TourStepExchange {
+  question: string;
+  answer: string;
+}
+
 /** The code, path and explanation of the Tour Step a question is about. */
 export interface TourStepContext {
   /** Display path of the step's code, as shown to the reader. */
@@ -99,13 +105,15 @@ export interface AskSession {
   /** The verified current mode; prompts are refused outside Ask. */
   readonly modeId: string;
   /**
-   * Sends the reader's question with the context of its Tour Step and
-   * resolves once the agent's answer is complete.
+   * Sends the reader's question with the context of its Tour Step and the
+   * step's previous exchanges, and resolves once the agent's answer is
+   * complete.
    */
   prompt(
     question: string,
     context: TourStepContext,
-    events?: AskSessionEvents
+    events?: AskSessionEvents,
+    history?: readonly TourStepExchange[]
   ): Promise<PromptOutcome>;
   /** Interrupts the prompt turn in flight, if any. */
   cancel(): void;
@@ -169,7 +177,8 @@ function decidePermission(
 
 function buildPromptBlocks(
   question: string,
-  context: TourStepContext
+  context: TourStepContext,
+  history: readonly TourStepExchange[]
 ): acp.ContentBlock[] {
   const contextText = [
     "Tour step context the question is about:",
@@ -180,10 +189,23 @@ function buildPromptBlocks(
     context.code,
     "```"
   ].join("\n");
-  return [
+  const blocks: acp.ContentBlock[] = [
     { type: "text", text: question },
     { type: "text", text: contextText }
   ];
+  if (history.length > 0) {
+    blocks.push({
+      type: "text",
+      text: [
+        "Previous exchanges of this tour step conversation, oldest first:",
+        ...history.flatMap(exchange => [
+          `Reader: ${exchange.question}`,
+          `Agent: ${exchange.answer}`
+        ])
+      ].join("\n")
+    });
+  }
+  return blocks;
 }
 
 /**
@@ -328,7 +350,7 @@ export function openAskSession(
       get modeId() {
         return currentModeId ?? "";
       },
-      prompt(question, context, events) {
+      prompt(question, context, events, history) {
         if (closed) {
           return Promise.reject(
             new Error("The tour step conversation session is closed.")
@@ -367,7 +389,7 @@ export function openAskSession(
         connection.agent
           .request(acp.methods.agent.session.prompt, {
             sessionId: sessionObject.sessionId,
-            prompt: buildPromptBlocks(question, context)
+            prompt: buildPromptBlocks(question, context, history ?? [])
           })
           .then(
             response => {
