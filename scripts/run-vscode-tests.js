@@ -105,11 +105,13 @@ async function observe(port, expected) {
   const cdp = await connect(version.webSocketDebuggerUrl);
   try {
     const { targetInfos } = await cdp.call("Target.getTargets");
+    let workbenchSession;
     if (expected.width) viewportWidth = expected.width;
     if (viewportWidth) {
       const workbench = targetInfos.find(t => t.type === "page" && t.url.startsWith("vscode-file:"));
       if (!workbench) return { ok: false, error: "Workbench page missing" };
       const { sessionId } = await cdp.call("Target.attachToTarget", { targetId: workbench.targetId, flatten: true });
+      workbenchSession = sessionId;
       await cdp.call("Emulation.setDeviceMetricsOverride", { width: viewportWidth, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
     }
     const found = [];
@@ -188,12 +190,15 @@ async function observe(port, expected) {
           }
           if (expected.screenshot) {
             await cdp.call("Runtime.evaluate", {contextId, expression:"window.scrollTo(0,0)"}, sessionId);
-            const capture = await cdp.call("Page.captureScreenshot", {format:"png"}, sessionId);
+            const capture = await cdp.call("Page.captureScreenshot", {format:"png"}, workbenchSession || sessionId);
             fs.writeFileSync(path.join(temp, expected.screenshot + ".png"), Buffer.from(capture.data, "base64"));
           }
           return {ok:true, found, match:data};
         }
-      } catch (_) { /* Targets can disappear while switching modes. */ }
+      } catch (error) {
+        if (expected.screenshot && found.length) return { ok: false, found, error: String(error) };
+        /* Targets can disappear while switching modes. */
+      }
       finally { if (sessionId) await cdp.call("Target.detachFromTarget", {sessionId}).catch(() => {}); }
     }
     return {ok: !!expected.absent && found.length === 0, found};
