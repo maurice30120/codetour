@@ -30,6 +30,7 @@ import {
 } from "./types";
 import {
   MAX_RECOMMENDED_STEPS,
+  step0OverviewWarnings,
   validateChangesParams,
   validateProjectParams,
   validateSteps,
@@ -366,7 +367,10 @@ async function handleCreateProjectTour(
   }
   const finalSteps = steps as TourStep[];
 
-  const warnings = stepLimitWarnings(finalSteps);
+  const warnings = [
+    ...stepLimitWarnings(finalSteps),
+    ...step0OverviewWarnings(finalSteps),
+  ];
 
   // Rehearsal: the proposal is fully validated but never written, so an
   // agent can verify its content before replacing the previous tour.

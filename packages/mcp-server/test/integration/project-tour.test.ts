@@ -135,13 +135,37 @@ test("creates a project tour with the default title and no git ref", async () =>
       assert.equal(response.structured.status, "created");
       assert.equal(response.structured.path, ".tours/project.tour");
       assert.equal(response.structured.stepCount, 2);
-      assert.deepEqual(response.structured.warnings, []);
+      assert.deepEqual(warningCodes(response), ["STEP0_MISSING_OVERVIEW"]);
     });
     const tour = readTourFile(root, ".tours/project.tour");
     assert.equal(tour.title, "Project Overview");
     assert.equal(tour.description, "An overview of the project.");
     assert.equal(tour.ref, undefined);
     assert.equal(tour.$schema, "https://aka.ms/codetour-schema");
+    assert.ok(tourFileValidAgainstSchema(root, ".tours/project.tour"));
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("returns advisory step zero overview warnings without rejecting the tour", async () => {
+  const root = tempDir();
+  try {
+    writeFile(root, "src/index.ts", "export const answer = 42;\n");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        steps: [
+          {
+            description: "The entry point is explained here.",
+            file: "src/index.ts",
+          },
+        ],
+      });
+
+      assert.equal(response.isError, false);
+      assert.equal(response.structured.status, "created");
+      assert.ok(warningCodes(response).includes("STEP0_MISSING_OVERVIEW"));
+    });
     assert.ok(tourFileValidAgainstSchema(root, ".tours/project.tour"));
   } finally {
     rmrf(root);

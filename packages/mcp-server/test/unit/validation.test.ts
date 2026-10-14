@@ -6,11 +6,75 @@ import { createContext } from "../../src/context";
 import {
   MAX_PATTERN_LENGTH,
   MAX_RECOMMENDED_STEPS,
+  step0OverviewWarnings,
   validateChangesParams,
   validateProjectParams,
   validateSteps,
 } from "../../src/validation";
 import { rmrf, tempDir, writeFile } from "../helpers/test-utils";
+
+test("step0OverviewWarnings accepts a locator-free Mermaid overview", () => {
+  const warnings = step0OverviewWarnings([
+    {
+      description: [
+        "**Diagram — Vue contexte**",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        "  Reader --> Tour",
+        "```",
+      ].join("\n"),
+    },
+  ]);
+
+  assert.deepEqual(warnings, []);
+});
+
+test("step0OverviewWarnings warns when the first step has a file locator", () => {
+  const warnings = step0OverviewWarnings([
+    {
+      description: "**Diagram — Overview**\n\n```mermaid\nflowchart LR\n  A --> B\n```",
+      file: "src/index.ts",
+    },
+  ]);
+
+  assert.deepEqual(warnings.map((warning) => warning.code), [
+    "STEP0_MISSING_OVERVIEW",
+  ]);
+});
+
+test("step0OverviewWarnings warns when the first step has no Mermaid fence", () => {
+  const warnings = step0OverviewWarnings([
+    { description: "A text-only introduction." },
+  ]);
+
+  assert.deepEqual(warnings.map((warning) => warning.code), [
+    "STEP0_MISSING_OVERVIEW",
+  ]);
+});
+
+test("step0OverviewWarnings warns when the first diagram exceeds fifteen nodes", () => {
+  const edges = Array.from(
+    { length: 15 },
+    (_, index) => `  Node${index + 1} --> Node${index + 2}`
+  );
+  const warnings = step0OverviewWarnings([
+    {
+      description: [
+        "**Diagram — Overview**",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        ...edges,
+        "```",
+      ].join("\n"),
+    },
+  ]);
+
+  assert.deepEqual(warnings.map((warning) => warning.code), [
+    "STEP0_DIAGRAM_TOO_LARGE",
+  ]);
+});
 
 test("validateProjectParams rejects non-object arguments", () => {
   const { issues } = validateProjectParams("not-an-object");

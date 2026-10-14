@@ -84,7 +84,7 @@ test("preserves the previous Changes Tour when Mermaid syntax is invalid", async
   }
 });
 
-test("creates a changes tour with the exact head SHA as ref", async () => {
+test("creates a changes tour without Project Tour step zero warnings", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
     await withServer(root, async (client) => {
@@ -102,6 +102,7 @@ test("creates a changes tour with the exact head SHA as ref", async () => {
       assert.equal(response.structured.path, ".tours/changes.tour");
       assert.equal(response.structured.stepCount, 2);
       assert.deepEqual(response.structured.warnings, []);
+      assert.ok(!warningCodes(response).includes("STEP0_MISSING_OVERVIEW"));
     });
     const tour = readTourFile(root, ".tours/changes.tour");
     assert.equal(tour.ref, head);

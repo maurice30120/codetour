@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import safeRegex from "safe-regex2";
+import { findDiagramFences } from "codetour-description-renderer";
 import { CommitAnchor, normalizeSlashes } from "./git";
 import {
   ChangesParams,
@@ -9,6 +10,7 @@ import {
   ProjectParams,
   Selection,
   TourStep,
+  Warning,
   WorkspaceContext,
 } from "./types";
 
@@ -34,6 +36,56 @@ export const STEP_FIELDS = [
 ] as const;
 
 export const MAX_RECOMMENDED_STEPS = 15;
+
+export function step0OverviewWarnings(steps: TourStep[]): Warning[] {
+  const step0 = steps[0];
+  const fences = step0 === undefined ? [] : findDiagramFences(step0.description);
+  const warnings: Warning[] = [];
+  if (
+    step0 === undefined ||
+    step0.file !== undefined ||
+    step0.directory !== undefined ||
+    fences.length === 0
+  ) {
+    warnings.push({
+      code: "STEP0_MISSING_OVERVIEW",
+      message:
+        "The first step should be a locator-free overview with at least one diagram.",
+    });
+  }
+  if (fences[0] !== undefined && diagramNodeCount(fences[0].source) > 15) {
+    warnings.push({
+      code: "STEP0_DIAGRAM_TOO_LARGE",
+      message:
+        "The first diagram in the overview has more than 15 nodes; consider simplifying it for readability.",
+    });
+  }
+  return warnings;
+}
+
+function diagramNodeCount(source: string): number {
+  const nodes = new Set<string>();
+  const identifier = "[A-Za-z_][A-Za-z0-9_.-]*";
+
+  // Advisory readability heuristic: count distinct identifiers declared as
+  // edge endpoints, bracket/parenthesis nodes, or subgraphs. This is not a
+  // complete Mermaid parser and intentionally does not reject any diagram.
+  for (const line of source.split("\n")) {
+    const subgraph = line.match(new RegExp(`^\\s*subgraph\\s+(${identifier})\\b`, "i"));
+    if (subgraph) nodes.add(subgraph[1]);
+
+    for (const match of line.matchAll(new RegExp(`\\b(${identifier})\\s*[\\[(]`, "g"))) {
+      nodes.add(match[1]);
+    }
+    for (const match of line.matchAll(
+      new RegExp(`(${identifier})(?:\\s*[\\[(][^\\]\\)]*[\\]\\)])?\\s*(?:-->|---)\\s*(?:\\|[^|]*\\|\\s*)?(${identifier})`, "g")
+    )) {
+      nodes.add(match[1]);
+      nodes.add(match[2]);
+    }
+  }
+  return nodes.size;
+}
 
 // Cap the length of agent-supplied anchor patterns: a hand-crafted regular
 // expression can hang the server process through catastrophic backtracking
