@@ -63,6 +63,9 @@ export interface TourStepChatExchange {
   // True while this question's answer is still streaming: the answer is
   // readable as it grows, marked as not yet complete.
   pending?: boolean;
+  // True when the reader stopped this question's answer: the partial
+  // answer stays readable, marked as interrupted.
+  interrupted?: boolean;
 }
 
 /** The active step displayed in the single expanded reading view. */
@@ -91,7 +94,9 @@ function renderStepChatLogHtml(
         `<li class="step-chat-question">${escapeHtml(exchange.question)}</li>` +
         `<li class="step-chat-answer${
           exchange.failed ? " step-chat-error" : ""
-        }${exchange.pending ? " step-chat-pending" : ""}">${exchange.answerHtml}</li>`
+        }${exchange.pending ? " step-chat-pending" : ""}${
+          exchange.interrupted ? " step-chat-interrupted" : ""
+        }">${exchange.answerHtml}</li>`
     )
     .join("");
 }
@@ -117,6 +122,7 @@ const READING_STYLES = `
     .step-chat-answer { margin: 0; padding: 0 .75em; overflow-wrap: anywhere; }
     .step-chat-answer.step-chat-error { color: var(--vscode-errorForeground); border-left: 3px solid var(--vscode-errorForeground); }
     .step-chat-answer.step-chat-pending { color: var(--vscode-descriptionForeground); }
+    .step-chat-interrupted { font-style: italic; }
     .step-chat-status { margin: 0 0 1.25em; padding: 0 .75em; font-style: italic; color: var(--vscode-descriptionForeground); }
     .step-chat-input:disabled, .step-chat-submit:disabled { opacity: .55; cursor: default; }
     .step-chat-form { display: flex; gap: 6px; }
@@ -124,6 +130,9 @@ const READING_STYLES = `
     .step-chat-input:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
     .step-chat-submit { display: inline-flex; align-items: center; min-height: 26px; padding: 3px 10px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; font: inherit; font-size: 12px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); cursor: pointer; }
     .step-chat-submit:hover { background: var(--vscode-button-hoverBackground, var(--vscode-button-background)); }
+    .step-chat-stop { display: inline-flex; align-items: center; min-height: 26px; padding: 3px 10px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; font: inherit; font-size: 12px; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); cursor: pointer; }
+    .step-chat-stop:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-secondaryBackground)); }
+    .step-chat-stop[hidden] { display: none; }
     .tour-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
     .tour-toolbar small { flex: 1 1 160px; min-width: 0; font-size: 13px; font-weight: 500; line-height: 1.4; }
     .tour-navigation { display: flex; align-items: center; gap: 6px; margin-left: auto; }
@@ -189,6 +198,9 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
         <button type="submit" class="step-chat-submit"${
           model.chatResponding ? " disabled" : ""
         }>Envoyer</button>
+        <button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrompre la réponse en cours"${
+          model.chatResponding ? "" : " hidden"
+        }>Arrêter</button>
       </form>
     </section>
   </article>
@@ -201,6 +213,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     const chatInput = document.getElementById("step-chat-input");
     const chatSubmit = document.getElementById("step-chat-submit");
     const chatStatus = document.getElementById("step-chat-status");
+    const chatStop = document.getElementById("step-chat-stop");
     if (chatForm && chatInput) {
       chatForm.addEventListener("submit", event => {
         event.preventDefault();
@@ -218,7 +231,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       if (log) {
         log.innerHTML = message.exchanges.map(exchange =>
           '<li class="step-chat-question">' + escapeHtml(exchange.question) + "</li>" +
-          '<li class="step-chat-answer' + (exchange.failed ? " step-chat-error" : "") + (exchange.pending ? " step-chat-pending" : "") + '">' +
+          '<li class="step-chat-answer' + (exchange.failed ? " step-chat-error" : "") + (exchange.pending ? " step-chat-pending" : "") + (exchange.interrupted ? " step-chat-interrupted" : "") + '">' +
           exchange.answerHtml + "</li>").join("");
       }
       // The response-in-progress state stays visible while the answer
@@ -228,6 +241,9 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       if (chatStatus) chatStatus.hidden = !responding;
       if (chatInput) chatInput.disabled = responding;
       if (chatSubmit) chatSubmit.disabled = responding;
+      // The Arrêter button exists only for the in-progress answer: it
+      // disappears as soon as no answer is in flight anymore.
+      if (chatStop) chatStop.hidden = !responding;
     });
     document.addEventListener("click", event => {
       const button = event.target.closest("button[data-action]");

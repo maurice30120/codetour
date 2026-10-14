@@ -65,6 +65,11 @@ test("createTourWebviewHtml renders the step conversation with escaped questions
           question: "Et si l'agent échoue ?",
           answerHtml: "<p>Erreur de réponse.</p>",
           failed: true
+        },
+        {
+          question: "Et si le lecteur arrête ?",
+          answerHtml: '<p>Réponse partielle.</p><p class="step-chat-interrupted" role="status">Réponse interrompue.</p>',
+          interrupted: true
         }
       ]
     },
@@ -80,6 +85,11 @@ test("createTourWebviewHtml renders the step conversation with escaped questions
   assert.match(html, /step-chat-answer step-chat-error"/);
   const secondQuestionIndex = html.indexOf("Et si l&#39;agent échoue ?");
   assert.ok(secondQuestionIndex > answerIndex);
+
+  // A stopped answer keeps its partial text, marked as interrupted.
+  const stoppedQuestionIndex = html.indexOf("Et si le lecteur arrête ?");
+  assert.ok(stoppedQuestionIndex > secondQuestionIndex);
+  assert.match(html, /<li class="step-chat-answer step-chat-interrupted"><p>Réponse partielle.<\/p>/);
 });
 
 test("createTourWebviewHtml keeps a rich description readable in a narrow panel", () => {
@@ -144,6 +154,16 @@ test("the reading view forwards only content links with the active step identity
   assert.deepEqual(JSON.parse(JSON.stringify(messages[1])), { type: "next", token: "event-nonce", targetTourId: baseModel().tourId, step: 1 });
   click({ target: { closest: () => ({ dataset: { action: "previous" }, disabled: true }) } });
   assert.equal(messages.length, 2);
+
+  // The Arrêter button of the chat stops the in-flight answer with the
+  // same step identity as every other webview message.
+  click({ target: { closest: () => ({ dataset: { action: "stopQuestion" }, disabled: false }) } });
+  assert.deepEqual(JSON.parse(JSON.stringify(messages[2])), {
+    type: "stopQuestion",
+    token: "event-nonce",
+    targetTourId: baseModel().tourId,
+    step: 1
+  });
 });
 
 test("the step chat submits questions with the step identity and renders chat updates safely", () => {
@@ -270,6 +290,38 @@ test("the step chat renders the response-in-progress state and locks the form wh
   assert.match(responding, /class="step-chat-submit"[^>]*disabled/);
 });
 
+test("the step chat offers the Arrêter button only while an answer is in progress", () => {
+  const idle = createTourWebviewHtml(baseModel(), "stop-nonce");
+
+  // At rest no answer is in flight: there is nothing to interrupt, so the
+  // stop button stays hidden and the form keeps accepting questions.
+  assert.match(
+    idle,
+    /<button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrompre la réponse en cours" hidden>Arrêter<\/button>/
+  );
+
+  // While an answer is in progress, the stop button becomes visible and
+  // clickable next to the locked form.
+  const responding = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatResponding: true,
+      chatExchanges: [
+        {
+          question: "Pourquoi cette étape ?",
+          answerHtml: "<p>Premier morceau…</p>",
+          pending: true
+        }
+      ]
+    },
+    "stop-nonce"
+  );
+  assert.match(
+    responding,
+    /<button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrompre la réponse en cours">Arrêter<\/button>/
+  );
+});
+
 test("the step chat message handler reflects the streaming updates and unlocks the form when the answer completes", () => {
   const html = createTourWebviewHtml(baseModel(), "stream-nonce");
   const script = html.match(/<script nonce="stream-nonce">([\s\S]*?)<\/script>/)![1];
@@ -279,11 +331,13 @@ test("the step chat message handler reflects the streaming updates and unlocks t
   const chatInput = { value: "", disabled: false };
   const submitButton = { disabled: false };
   const chatStatus = { hidden: false };
+  const chatStop = { hidden: true };
   const chatLog = { innerHTML: "" };
   elements["step-chat-form"] = { addEventListener: () => undefined };
   elements["step-chat-input"] = chatInput;
   elements["step-chat-submit"] = submitButton;
   elements["step-chat-status"] = chatStatus;
+  elements["step-chat-stop"] = chatStop;
   elements["step-chat-log"] = chatLog;
   runInNewContext(script, {
     acquireVsCodeApi: () => ({
@@ -313,6 +367,9 @@ test("the step chat message handler reflects the streaming updates and unlocks t
   assert.equal(chatStatus.hidden, false);
   assert.equal(chatInput.disabled, true);
   assert.equal(submitButton.disabled, true);
+  // While the answer streams, the Arrêter button is visible: the reader can
+  // interrupt a request that has become useless.
+  assert.equal(chatStop.hidden, false);
   assert.equal(
     chatLog.innerHTML,
     '<li class="step-chat-question">En flux ?</li>' +
@@ -345,5 +402,29 @@ test("the step chat message handler reflects the streaming updates and unlocks t
     chatLog.innerHTML,
     '<li class="step-chat-question">En flux ?</li>' +
       '<li class="step-chat-answer"><p>Premier morceau complet.</p></li>'
+  );
+
+  // A stopped answer leaves the interrupted state in the chat: the partial
+  // answer stays readable, marked as interrupted, and the form accepts a new
+  // question without any reload.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: false,
+      exchanges: [
+        {
+          question: "En flux ?",
+          answerHtml: '<p>Premier morceau</p><p class="step-chat-interrupted" role="status">Réponse interrompue.</p>',
+          interrupted: true
+        }
+      ]
+    }
+  });
+  assert.equal(chatStop.hidden, true);
+  assert.equal(chatInput.disabled, false);
+  assert.equal(
+    chatLog.innerHTML,
+    '<li class="step-chat-question">En flux ?</li>' +
+      '<li class="step-chat-answer step-chat-interrupted"><p>Premier morceau</p><p class="step-chat-interrupted" role="status">Réponse interrompue.</p></li>'
   );
 });
