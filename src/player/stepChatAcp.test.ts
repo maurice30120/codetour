@@ -328,6 +328,38 @@ test("a lost agent connection lands in the chat and the next question relaunches
   agent.cleanup();
 });
 
+test("closing the reading webview releases the ACP agent process", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  const processes: { exited: Promise<unknown> }[] = [];
+  setStepChatResponder(
+    createAcpStepChatResponder(() => fakeAgentEntry(agent), {
+      onProcess: (spawned: { exited: Promise<unknown> }) =>
+        processes.push(spawned)
+    })
+  );
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Avant de partir ?" });
+  await host.waitFor(() => !!lastChatUpdate());
+  assert.equal(processes.length, 1);
+
+  chatPanel().dispose();
+  await Promise.race([
+    processes[0].exited,
+    new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new Error("the agent process did not exit")),
+        5000
+      )
+    )
+  ]);
+
+  agent.cleanup();
+});
+
 test("a step question reaches the ACP agent in Ask mode with the displayed context and its answer lands in the chat", async () => {
   resetChatState();
   const agent = createAgentWorkspace();
