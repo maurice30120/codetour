@@ -35,6 +35,25 @@ if (behavior === "launch-fail-once") {
   }
 }
 
+// The first launch cannot authenticate: the ACP handshake is answered with
+// an authentication error, exactly like an entry whose account is not
+// connected; the relaunched process succeeds.
+const AUTH_ERROR_MESSAGE =
+  "Authentication required: connect the Vibe account before asking (401).";
+let authRequired = false;
+if (behavior === "auth-fail-once") {
+  let booted = false;
+  try {
+    booted = readFileSync(logPath, "utf8").includes('"boot"');
+  } catch {
+    booted = false;
+  }
+  if (!booted) {
+    log({ method: "boot", outcome: "auth-required" });
+    authRequired = true;
+  }
+}
+
 /** Safety net: never outlive a broken test run. */
 setTimeout(() => process.exit(0), 120_000).unref();
 process.stdin.on("end", () => process.exit(0));
@@ -76,8 +95,13 @@ let sessionCwd = "";
 agent.onRequest(acp.methods.agent.initialize, context => {
   log({
     method: "initialize",
-    params: context.params as unknown as Record<string, unknown>
+    params: context.params as unknown as Record<string, unknown>,
+    outcome: authRequired ? "auth-failed" : undefined,
+    error: authRequired ? AUTH_ERROR_MESSAGE : undefined
   });
+  if (authRequired) {
+    throw new acp.RequestError(-32001, AUTH_ERROR_MESSAGE);
+  }
   return { protocolVersion: acp.PROTOCOL_VERSION, agentCapabilities: {} };
 });
 

@@ -317,6 +317,86 @@ test("an agent launch failure lands in the chat and the next question retries", 
   agent.cleanup();
 });
 
+test("an agent authentication failure lands in the chat and the next question retries", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent, "auth-fail-once");
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Es-tu connecté ?" });
+  await waitForCompletedAnswer(update => update.exchanges.length === 1);
+
+  // The failed exchange is visible in the chat with a comprehensible
+  // message: the agent's own authentication cause, wrapped in the launch
+  // error and the retry hint.
+  const failure = lastChatUpdate();
+  assert.equal(failure.exchanges[0].failed, true);
+  assert.match(failure.exchanges[0].answerHtml, /Impossible de lancer l'agent/);
+  assert.match(failure.exchanges[0].answerHtml, /Authentication required/);
+  assert.match(failure.exchanges[0].answerHtml, /relancera l'agent/);
+
+  // Reading and navigation remain fully usable with no authenticated agent.
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.waitFor(() => host.panelHtml().includes("2 / 3"));
+  assert.match(host.panelHtml(), /class="step-chat"/);
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.waitFor(() => host.panelHtml().includes("1 / 3"));
+
+  // The retry relaunches the agent without reloading the webview; the
+  // now-authenticated process answers the question.
+  chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
+  await waitForCompletedAnswer(update => update.exchanges.length === 2);
+  assert.notEqual(lastChatUpdate().exchanges[1].failed, true);
+  assert.match(lastChatUpdate().exchanges[1].answerHtml, /Tour answer, part two\./);
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
+test("a missing agent entry reports the launch failure in the chat and the reader keeps reading", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  setStepChatResponder(
+    createAcpStepChatResponder(() => ({
+      command: "codetour-no-such-acp-agent",
+      args: [],
+      cwd: agent.workspace
+    }))
+  );
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Personne ?" });
+  await waitForCompletedAnswer(update => update.exchanges.length === 1);
+
+  // An entry that cannot even be spawned is reported in the chat with the
+  // retry hint, never as a crash of the reading webview.
+  const failure = lastChatUpdate();
+  assert.equal(failure.exchanges[0].failed, true);
+  assert.match(failure.exchanges[0].answerHtml, /Impossible de lancer l'agent/);
+  assert.match(failure.exchanges[0].answerHtml, /relancera l'agent/);
+
+  // Reading and navigation remain fully usable without any agent process.
+  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.waitFor(() => host.panelHtml().includes("2 / 3"));
+  assert.match(host.panelHtml(), /class="step-chat"/);
+  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.waitFor(() => host.panelHtml().includes("1 / 3"));
+
+  // Retrying attempts a fresh launch of the missing entry and reports the
+  // failure again, without blocking the chat or crashing the reader.
+  chatPanel().receive({ type: "askQuestion", question: "Toujours personne ?" });
+  await waitForCompletedAnswer(update => update.exchanges.length === 2);
+  assert.equal(lastChatUpdate().exchanges[1].failed, true);
+  assert.match(lastChatUpdate().exchanges[1].answerHtml, /Impossible de lancer l'agent/);
+
+  chatPanel().dispose();
+  agent.cleanup();
+});
+
 test("an answer whose turn ran forbidden tools is flagged in the chat", async () => {
   resetChatState();
   const agent = createAgentWorkspace();
