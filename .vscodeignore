@@ -19,6 +19,16 @@ webpack.config.js
 **/*.vsix
 .git/**
 .github/**
+.pi/**
+.scratch/**
+.vibe/**
+bun.lock
+rapport-difficultes-mcp-codetour.md
+.node-version
+.nvmrc
+MIGRATION.md
+ROADMAP.md
+skills-lock.json
 **/*.svg
 dist/extension-web.js*
 dist/test/**

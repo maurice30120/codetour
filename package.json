@@ -4,10 +4,9 @@
   "description": "Record and playback guided tours of codebases, with AI-generated project and changes tours, directly within the editor",
   "publisher": "maurice30120",
   "version": "0.1.1",
-  "packageManager": "npm@12.0.1",
+  "packageManager": "bun@1.3.5",
   "volta": {
-    "node": "24.18.0",
-    "npm": "12.0.1"
+    "node": "24.18.0"
   },
   "author": {
     "name": "Microsoft Corporation"
@@ -739,14 +738,17 @@
     "webpack-merge": "^5.8.0"
   },
   "scripts": {
-    "build": "npm --prefix packages/description-renderer run build && npm --prefix packages/mcp-server run build && webpack --mode production && node scripts/prepare-resvg-runtime.js",
+    "build": "bun --cwd packages/description-renderer run build && bun --cwd packages/mcp-server run build && webpack --mode production && node scripts/prepare-resvg-runtime.js",
     "watch": "webpack --mode development --watch",
     "package": "node scripts/package-extension.js",
-    "vscode:prepublish": "npm run build",
-    "test": "npm run build && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test && npm --prefix packages/description-renderer test && npm --prefix packages/mcp-server test"
+    "vscode:prepublish": "bun run build",
+    "test": "bun run build && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test && bun --cwd packages/description-renderer test && bun --cwd packages/mcp-server test"
   },
   "prettier": {
     "arrowParens": "avoid",
     "trailingComma": "none"
-  }
+  },
+  "trustedDependencies": [
+    "@vscode/vsce-sign"
+  ]
 }

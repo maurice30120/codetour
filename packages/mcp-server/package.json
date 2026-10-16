@@ -31,7 +31,7 @@
     "build": "tsc -p tsconfig.json && node ../../scripts/stage-mcp-renderer.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepack": "node ../../scripts/stage-mcp-renderer.js",
-    "test": "npm run build && node ../../scripts/run-compiled-tests.js dist/test",
+    "test": "bun run build && node ../../scripts/run-compiled-tests.js dist/test",
     "start": "node dist/src/cli.js"
   },
   "dependencies": {
