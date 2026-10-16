@@ -37,6 +37,8 @@ and tour exports with embedded source.
 ## Install
 
 Requires **VS Code 1.101 or later** on desktop.
+CodeTour IA is not yet published on the VS Code Marketplace; install it from a
+GitHub release.
 
 1. Download the `.vsix` matching your platform from [GitHub Releases](https://github.com/maurice30120/codetour/releases).
 2. In VS Code, run **Extensions: Install from VSIX...** and select the file.
@@ -51,6 +53,10 @@ code --install-extension ./codetour-<platform>-<version>.vsix
 Upgrading from Microsoft CodeTour? Follow [MIGRATION.md](MIGRATION.md).
 
 ## Generate your first tour
+
+You need an AI client with MCP support, such as GitHub Copilot in VS Code or
+Codex, configured with your chosen provider. Installing the extension alone does
+not generate tours. You can record and replay tours without an AI agent.
 
 The extension bundles a local MCP server exposing `create_project_tour` and
 `create_changes_tour`. VS Code and GitHub Copilot discover a server for each
