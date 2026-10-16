@@ -137,9 +137,13 @@ async function validateDescription(
           `the limit is ${MAX_DIAGRAM_SOURCE_BYTES} bytes`;
       } else {
         const detectedKind = diagramKindOf(fence.source);
+        const found =
+          detectedKind === undefined
+            ? "undefined"
+            : JSON.stringify(detectedKind);
         message =
-          `the Mermaid source at ${location} uses unsupported kind ` +
-          `${detectedKind ? `"${detectedKind}"` : "(none detected)"}; ` +
+          `the Mermaid source at ${location} uses an unsupported kind; ` +
+          `found: ${found}; ` +
           `supported kinds are ${ALLOWED_DIAGRAM_KINDS.join(", ")}`;
       }
       issues.push({ path: fencePath(descriptionPath, index, field), message });
@@ -151,7 +155,9 @@ async function validateDescription(
     } catch {
       issues.push({
         path: fencePath(descriptionPath, index, "source"),
-        message: `the Mermaid source at ${location} has invalid Mermaid syntax`,
+        message:
+          `the Mermaid source at ${location} has invalid Mermaid syntax; ` +
+          `found: ${JSON.stringify(fence.source)}`,
       });
     }
   }
