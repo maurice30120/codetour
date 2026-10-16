@@ -171,6 +171,13 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
     });
 
   switch (behavior) {
+    case "ignore-cancel-once": {
+      const prompts = readFileSync(logPath, "utf8").split("\n")
+        .filter(line => line.includes('"session/prompt"')).length;
+      if (prompts === 1) await new Promise<never>(() => undefined);
+      await chunk("Tour answer after restart.");
+      return { stopReason: "end_turn" } as acp.PromptResponse;
+    }
     case "prompt-fails":
       throw new acp.RequestError(-32001, "Authentication required at prompt time");
     case "partial-fails":

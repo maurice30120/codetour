@@ -996,3 +996,104 @@ test("stopping after the handshake begins prevents timed-out startup from fallin
     assert.equal(readLog(second.logPath).length, 0);
   } finally { chatPanel().dispose(); first.cleanup(); second.cleanup(); }
 });
+
+
+test("concurrent step questions share ordered fallback without skipping the working provider", async () => {
+  resetChatState();
+  const first = createAgentWorkspace();
+  const second = createAgentWorkspace();
+  const processes: { dispose(): Promise<void> }[] = [];
+  const responder = createFallbackStepChatResponder(() => [
+    { name: "Vibe", entry: fakeAgentEntry(first, "no-ask-mode") },
+    { name: "Copilot", entry: fakeAgentEntry(second) }
+  ], { onProcess: (agent: { dispose(): Promise<void> }) => processes.push(agent) });
+  const request = (question: string) => ({
+    question, workspaceRoot: first.workspace, history: [],
+    context: { available: false as const, description: "A tour step" }
+  });
+  try {
+    const results = await Promise.allSettled([
+      responder.answer(request("First step question")),
+      responder.answer(request("Second step question"))
+    ]);
+    assert.deepEqual(results.map(result => result.status), ["fulfilled", "fulfilled"]);
+    for (const result of results) {
+      if (result.status === "fulfilled") assert.match(result.value, /Tour answer/);
+    }
+    assert.equal(promptCount(readLog(second.logPath)), 2);
+    assert.equal(readLog(second.logPath).filter(row => row.method === "initialize").length, 1);
+  } finally {
+    await responder.dispose();
+    await Promise.all(processes.map(agent => agent.dispose()));
+    first.cleanup();
+    second.cleanup();
+  }
+});
+
+
+test("cancelling the ACP queue rejects waiting questions and accepts a fresh question", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  let restarted = false;
+  const responder = createFallbackStepChatResponder(() => [
+    { name: "Vibe", entry: fakeAgentEntry(agent, restarted ? "default" : "slow") }
+  ]);
+  const request = (question: string) => ({
+    question, workspaceRoot: agent.workspace, history: [],
+    context: { available: false as const, description: "A tour step" }
+  });
+  try {
+    const first = responder.answer(request("In flight"));
+    await waitForLog(agent.logPath, found => promptCount(found) === 1);
+    const waiting = responder.answer(request("Waiting"));
+    const stopped = Promise.allSettled([first, waiting]);
+    responder.cancel();
+    restarted = true;
+    const fresh = responder.answer(request("Fresh"));
+    const results = await stopped;
+    assert.equal(results[1].status, "rejected");
+    assert.match(await fresh, /Tour answer/);
+    const records = readLog(agent.logPath);
+    assert.equal(promptCount(records), 2, "the cancelled queued question never reaches the agent");
+    assert.equal(promptBlocksAt(records, 1)[0].text, "Fresh");
+  } finally {
+    await responder.dispose();
+    agent.cleanup();
+  }
+});
+
+
+test("a fresh question starts after cancelling an ACP agent that never acknowledges cancel", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  const responder = createFallbackStepChatResponder(() => [
+    { name: "Vibe", entry: fakeAgentEntry(agent, "ignore-cancel-once") }
+  ]);
+  const request = (question: string) => ({
+    question, workspaceRoot: agent.workspace, history: [],
+    context: { available: false as const, description: "A tour step" }
+  });
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const first = responder.answer(request("Unresponsive"));
+    const finished = Promise.allSettled([first]);
+    await waitForLog(agent.logPath, found => promptCount(found) === 1);
+    responder.cancel();
+    const fresh = responder.answer(request("After stop"));
+    const answer = await Promise.race([
+      fresh,
+      new Promise<never>((_, reject) => {
+        deadline = setTimeout(() => reject(new Error("fresh question stayed blocked after cancel")), 2000);
+      })
+    ]);
+    assert.match(answer, /Tour answer after restart/);
+    await finished;
+    const records = readLog(agent.logPath);
+    assert.equal(records.filter(row => row.method === "initialize").length, 2);
+    assert.equal(promptBlocksAt(records, 1)[0].text, "After stop");
+  } finally {
+    clearTimeout(deadline);
+    await responder.dispose();
+    agent.cleanup();
+  }
+});
