@@ -68,7 +68,7 @@ function registerHoverProvider() {
       );
       const hovers = tourSteps.map(([tour, _, stepNumber]) => {
         const args = encodeURIComponent(JSON.stringify([tour.id, stepNumber]));
-        const command = `command:codetour._startTourById?${args}`;
+        const command = `command:codetourIA._startTourById?${args}`;
         return `CodeTour: ${tour.title} (Step #${
           stepNumber + 1
         }) &nbsp;[Start Tour](${command} "Start Tour")\n`;
@@ -94,7 +94,8 @@ export async function updateDecorations(
   }
 
   const ranges = store.activeEditorSteps!.map(
-    ([, , , line]) => new vscode.Range(line!, 0, line!, 1000)
+    // A point range keeps the gutter icon on the first visual line when wrapped.
+    ([, , , line]) => new vscode.Range(line!, 0, line!, 0)
   );
   editor.setDecorations(TOUR_DECORATOR, ranges);
 }

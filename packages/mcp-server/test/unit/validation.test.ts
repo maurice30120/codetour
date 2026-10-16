@@ -5,12 +5,116 @@ import { test } from "node:test";
 import { createContext } from "../../src/context";
 import {
   MAX_PATTERN_LENGTH,
+  MAX_RECOMMENDED_DIAGRAM_NODES,
   MAX_RECOMMENDED_STEPS,
+  orientationStepWarnings,
   validateChangesParams,
   validateProjectParams,
   validateSteps,
 } from "../../src/validation";
 import { rmrf, tempDir, writeFile } from "../helpers/test-utils";
+
+test("orientationStepWarnings accepts a locator-free Mermaid overview", () => {
+  const warnings = orientationStepWarnings([
+    {
+      description: [
+        "**Diagram — Vue contexte**",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        "  Reader --> Tour",
+        "```",
+      ].join("\n"),
+    },
+  ]);
+
+  assert.deepEqual(warnings, []);
+});
+
+test("orientationStepWarnings warns when the first step has a file locator", () => {
+  const warnings = orientationStepWarnings([
+    {
+      description: "**Diagram — Overview**\n\n```mermaid\nflowchart LR\n  A --> B\n```",
+      file: "src/index.ts",
+    },
+  ]);
+
+  assert.deepEqual(warnings.map((warning) => warning.code), [
+    "ORIENTATION_STEP_MISSING_OVERVIEW",
+  ]);
+});
+
+test("orientationStepWarnings warns when the first step has no Mermaid fence", () => {
+  const warnings = orientationStepWarnings([
+    { description: "A text-only introduction." },
+  ]);
+
+  assert.deepEqual(warnings.map((warning) => warning.code), [
+    "ORIENTATION_STEP_MISSING_OVERVIEW",
+  ]);
+});
+
+test("orientationStepWarnings accepts a diagram at the recommended node limit", () => {
+  const edges = Array.from(
+    { length: MAX_RECOMMENDED_DIAGRAM_NODES - 1 },
+    (_, index) => `  Node${index + 1} --> Node${index + 2}`
+  );
+  const warnings = orientationStepWarnings([
+    {
+      description: [
+        "**Diagram — Overview**",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        ...edges,
+        "```",
+      ].join("\n"),
+    },
+  ]);
+
+  assert.deepEqual(warnings, []);
+});
+
+test("orientationStepWarnings warns when the first diagram exceeds the recommended node limit", () => {
+  const edges = Array.from(
+    { length: MAX_RECOMMENDED_DIAGRAM_NODES },
+    (_, index) => `  Node${index + 1} --> Node${index + 2}`
+  );
+  const warnings = orientationStepWarnings([
+    {
+      description: [
+        "**Diagram — Overview**",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        ...edges,
+        "```",
+      ].join("\n"),
+    },
+  ]);
+
+  assert.deepEqual(warnings.map((warning) => warning.code), [
+    "ORIENTATION_STEP_DIAGRAM_TOO_LARGE",
+  ]);
+});
+
+test("orientationStepWarnings does not count edge labels as diagram nodes", () => {
+  const warnings = orientationStepWarnings([
+    {
+      description: [
+        "**Diagram — Vue contexte**",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        "  Client[\"Client\"] --> API: passe les commandes (HTTPS)",
+        "  API -->|enregistre les tours| Store[(\"Fichiers .tours\")]",
+        "```",
+      ].join("\n"),
+    },
+  ]);
+
+  assert.deepEqual(warnings, []);
+});
 
 test("validateProjectParams rejects non-object arguments", () => {
   const { issues } = validateProjectParams("not-an-object");
@@ -225,4 +329,31 @@ test("content-only steps without any anchor are allowed", () => {
 
 test("the recommended step maximum is fifteen", () => {
   assert.equal(MAX_RECOMMENDED_STEPS, 15);
+});
+
+
+test("step questions are optional and preserve up to four contextual prompts", () => {
+  const root = tempDir();
+  try {
+    const questions = [" Why? ", "Which caller?", "Which tests?", "Which limit?"];
+    const result = validate([{ description: "Step", questions }, { description: "Legacy step" }], root);
+    assert.deepEqual(result.issues, []);
+    assert.ok(result.steps);
+    assert.deepEqual(result.steps[0].questions, questions.map(question => question.trim()));
+    assert.equal(result.steps[1].questions, undefined);
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("step questions reject excessive, empty and non-string suggestions", () => {
+  const root = tempDir();
+  try {
+    for (const questions of ["Why?", Array(5).fill("Why?"), [""], ["   "], [42], [null]]) {
+      const result = validate([{ description: "Step", questions }], root);
+      assert.ok(result.issues.some(issue => issue.path.startsWith("steps[0].questions")));
+    }
+  } finally {
+    rmrf(root);
+  }
 });

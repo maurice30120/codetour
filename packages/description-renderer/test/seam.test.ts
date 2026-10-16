@@ -66,7 +66,7 @@ test("renderDescription returns descriptions without Mermaid unchanged", async (
     "const answer = 42;",
     "```",
     "",
-    "[Next tour](command:codetour.startTourByTitle?%5B%22Next%22%5D)"
+    "[Next tour](command:codetourIA.startTourByTitle?%5B%22Next%22%5D)"
   ].join("\n");
 
   assert.equal(await renderDescription(description, "light"), description);

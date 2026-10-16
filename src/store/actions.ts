@@ -10,8 +10,13 @@ import {
   workspace
 } from "vscode";
 import { CodeTour, store } from ".";
-import { EXTENSION_NAME, FS_SCHEME, FS_SCHEME_CONTENT } from "../constants";
+import { COMMAND_PREFIX, EXTENSION_NAME, FS_SCHEME, FS_SCHEME_CONTENT } from "../constants";
 import { startPlayer, stopPlayer } from "../player";
+import {
+  endEditingSession,
+  hasUnsavedStepDraft,
+  resolveStepDraftBeforeExit
+} from "../player/stepEditing";
 import { getStepSnapshotUri } from "../player/diff";
 import {
   getStepFileUri,
@@ -49,13 +54,54 @@ export function startCodeTour(
   canEditTour: boolean = true,
   tours?: CodeTour[]
 ) {
+  const targetStep = tour.steps.length ? Math.max(0, Math.min(Number.isInteger(stepNumber) ? stepNumber! : 0, tour.steps.length - 1)) : -1;
+  const sameStep =
+    store.activeTour?.tour.id === tour.id &&
+    store.activeTour?.step === targetStep;
+
+  // Starting another tour or another step leaves the current one: the
+  // author decides what happens to their unsaved draft first. The start is
+  // deferred, never silently dropped, and runs once the draft is resolved.
+  if (hasUnsavedStepDraft() && !sameStep) {
+    return (async () => {
+      if (await resolveStepDraftBeforeExit()) {
+        startCodeTourInternal(
+          tour,
+          stepNumber,
+          workspaceRoot,
+          startInEditMode,
+          canEditTour,
+          tours
+        );
+      }
+    })();
+  }
+
+  startCodeTourInternal(
+    tour,
+    stepNumber,
+    workspaceRoot,
+    startInEditMode,
+    canEditTour,
+    tours
+  );
+}
+
+function startCodeTourInternal(
+  tour: CodeTour,
+  stepNumber?: number,
+  workspaceRoot?: Uri,
+  startInEditMode: boolean = false,
+  canEditTour: boolean = true,
+  tours?: CodeTour[]
+) {
   startPlayer();
 
   if (!workspaceRoot) {
     workspaceRoot = getWorkspaceUri(tour);
   }
 
-  const step = stepNumber ? stepNumber : tour.steps.length ? 0 : -1;
+  const step = tour.steps.length ? Math.max(0, Math.min(Number.isInteger(stepNumber) ? stepNumber! : 0, tour.steps.length - 1)) : -1;
   store.activeTour = {
     tour,
     step,
@@ -66,6 +112,7 @@ export function startCodeTour(
 
   commands.executeCommand("setContext", IN_TOUR_KEY, true);
   commands.executeCommand("setContext", CAN_EDIT_TOUR_KEY, canEditTour);
+  store.canEditTour = canEditTour;
 
   if (startInEditMode) {
     store.isRecording = true;
@@ -106,6 +153,7 @@ export async function selectTour(
 }
 
 export async function endCurrentCodeTour(fireEvent: boolean = true) {
+  if (!store.activeTour || !(await resolveStepDraftBeforeExit())) return;
   if (fireEvent) {
     _onDidEndTour.fire(store.activeTour!.tour);
   }
@@ -115,6 +163,10 @@ export async function endCurrentCodeTour(fireEvent: boolean = true) {
     store.isEditing = false;
     commands.executeCommand("setContext", RECORDING_KEY, false);
     commands.executeCommand("setContext", EDITING_KEY, false);
+  } else if (store.isEditing) {
+    // Ending the tour also leaves a step editing session: the editing
+    // state is cleared while the in-memory draft stays available.
+    endEditingSession();
   }
 
   stopPlayer();
@@ -132,16 +184,30 @@ export async function endCurrentCodeTour(fireEvent: boolean = true) {
   });
 }
 
-export function moveCurrentCodeTourBackward() {
-  --store.activeTour!.step;
+export async function moveCurrentCodeTourBackward() {
+  if (!store.activeTour || store.activeTour.step <= 0) return;
+  // Leaving the current step goes through the draft guard first: the move
+  // only happens once the author's draft is resolved.
+  if (!(await resolveStepDraftBeforeExit())) {
+    return;
+  }
+
+  if (!store.activeTour) return;
+  store.activeTour.step = Math.max(0, store.activeTour.step - 1);
 
   _onDidStartTour.fire([store.activeTour!.tour, store.activeTour!.step]);
 }
 
 export async function moveCurrentCodeTourForward() {
+  if (!store.activeTour || store.activeTour.step >= store.activeTour.tour.steps.length - 1) return;
+  if (!(await resolveStepDraftBeforeExit())) {
+    return;
+  }
+
   await progress.update();
 
-  store.activeTour!.step++;
+  if (!store.activeTour) return;
+  store.activeTour.step = Math.min(store.activeTour.tour.steps.length - 1, store.activeTour.step + 1);
 
   _onDidStartTour.fire([store.activeTour!.tour, store.activeTour!.step]);
 }
@@ -220,9 +286,12 @@ export async function exportTour(tour: CodeTour) {
         const exported = { ...step };
         if (step.contents === undefined && !step.uri && step.file) {
           const workspaceRoot = getWorkspaceUri(tour);
-          const stepFileUri = step.display === "diff" && tour.ref && /^[0-9a-f]{40}$/.test(tour.ref)
-            ? await getStepSnapshotUri(step, workspaceRoot, tour.ref)
-            : await getStepFileUri(step, workspaceRoot, tour.ref);
+          const stepFileUri =
+            step.display === "diff" &&
+            tour.ref &&
+            /^[0-9a-f]{40}$/.test(tour.ref)
+              ? await getStepSnapshotUri(step, workspaceRoot, tour.ref)
+              : await getStepFileUri(step, workspaceRoot, tour.ref);
           exported.contents = await readUriContents(stepFileUri);
         }
         delete exported.markerTitle;
@@ -241,5 +310,5 @@ export async function exportTour(tour: CodeTour) {
 }
 
 export async function recordTour(workspaceRoot: Uri) {
-  commands.executeCommand(`${EXTENSION_NAME}.recordTour`, workspaceRoot);
+  commands.executeCommand(`${COMMAND_PREFIX}.recordTour`, workspaceRoot);
 }

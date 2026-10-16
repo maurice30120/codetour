@@ -135,13 +135,37 @@ test("creates a project tour with the default title and no git ref", async () =>
       assert.equal(response.structured.status, "created");
       assert.equal(response.structured.path, ".tours/project.tour");
       assert.equal(response.structured.stepCount, 2);
-      assert.deepEqual(response.structured.warnings, []);
+      assert.deepEqual(warningCodes(response), ["ORIENTATION_STEP_MISSING_OVERVIEW"]);
     });
     const tour = readTourFile(root, ".tours/project.tour");
     assert.equal(tour.title, "Project Overview");
     assert.equal(tour.description, "An overview of the project.");
     assert.equal(tour.ref, undefined);
     assert.equal(tour.$schema, "https://aka.ms/codetour-schema");
+    assert.ok(tourFileValidAgainstSchema(root, ".tours/project.tour"));
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("returns advisory orientation step warnings without rejecting the tour", async () => {
+  const root = tempDir();
+  try {
+    writeFile(root, "src/index.ts", "export const answer = 42;\n");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        steps: [
+          {
+            description: "The entry point is explained here.",
+            file: "src/index.ts",
+          },
+        ],
+      });
+
+      assert.equal(response.isError, false);
+      assert.equal(response.structured.status, "created");
+      assert.ok(warningCodes(response).includes("ORIENTATION_STEP_MISSING_OVERVIEW"));
+    });
     assert.ok(tourFileValidAgainstSchema(root, ".tours/project.tour"));
   } finally {
     rmrf(root);
@@ -550,5 +574,100 @@ test("rejects symlinks that escape the workspace root", async () => {
   } finally {
     rmrf(root);
     rmrf(outside);
+  }
+});
+
+test("dryRun validates a proposal without writing the tour file", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const first = await callTool(client, "create_project_tour", {
+        title: "Baseline",
+        steps: [{ description: "Original step." }],
+      });
+      assert.equal(first.isError, false, first.text);
+
+      const response = await callTool(client, "create_project_tour", {
+        title: "Rehearsal",
+        dryRun: true,
+        steps: [{ description: "Rehearsed step." }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.equal(response.structured.status, "validated");
+      assert.equal(response.structured.stepCount, 1);
+      assert.equal(response.structured.path, undefined);
+    });
+    const tour = readTourFile(root, ".tours/project.tour");
+    assert.equal(tour.title, "Baseline");
+    assert.equal(((tour.steps as unknown[])[0] as { description: string }).description, "Original step.");
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("dryRun still rejects an invalid proposal and preserves the previous tour", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const first = await callTool(client, "create_project_tour", {
+        title: "Baseline",
+        steps: [{ description: "Original step." }],
+      });
+      assert.equal(first.isError, false, first.text);
+
+      const response = await callTool(client, "create_project_tour", {
+        title: "Rehearsal",
+        dryRun: true,
+        steps: [{ description: "Rehearsed step.", file: "does-not-exist.ts" }],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.ok(issuePaths(response).includes("steps[0].file"));
+    });
+    const tour = readTourFile(root, ".tours/project.tour");
+    assert.equal(tour.title, "Baseline");
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("rejects a non-boolean dryRun", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        dryRun: "yes",
+        steps: [{ description: "Step." }],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.ok(issuePaths(response).includes("dryRun"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+
+test("persists suggested questions and preserves the tour when there are more than four", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const questions = ["Why this entry point?", "What calls it?", "Which tests cover it?"];
+      const response = await callTool(client, "create_project_tour", {
+        steps: [{ description: "Entry point.", questions }],
+      });
+      assert.equal(response.isError, false, response.text);
+      const tour = readTourFile(root, ".tours/project.tour");
+      assert.deepEqual((tour.steps as { questions: string[] }[])[0].questions, questions);
+      assert.ok(tourFileValidAgainstSchema(root, ".tours/project.tour"));
+      const rejected = await callTool(client, "create_project_tour", {
+        steps: [{ description: "Replacement.", questions: Array(5).fill("Why?") }],
+      });
+      assert.equal(rejected.isError, true);
+      assert.deepEqual(readTourFile(root, ".tours/project.tour"), tour);
+    });
+  } finally {
+    rmrf(root);
   }
 });

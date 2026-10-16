@@ -1,0 +1,128 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Sérialisation du fallback ACP pour les questions d'étapes concurrentes",
+  "description": "Ce commit corrige une course dans la conversation des étapes de tour : deux questions simultanées partageaient l'index de fallback et la session active, pouvant sauter un fournisseur fonctionnel ou disposer sa session en plein usage.\n\nLa correction sérialise l'opération complète — sélection, démarrage, fallback et prompt — dans une file `pending`. L'annulation invalide les questions en file et détruit le transport de l'agent actif avant d'admettre de nouvelles questions, y compris pour les agents qui ignorent l'annulation.\n\nGenerated from the merge-base of `HEAD~1` (`9710f3214e12b9ff8e120093826f1fb667944c2d`) to `29c0a87a50fd86415e47340da49b7f6db28e451e`.",
+  "ref": "29c0a87a50fd86415e47340da49b7f6db28e451e",
+  "baseRef": "9710f3214e12b9ff8e120093826f1fb667944c2d",
+  "steps": [
+    {
+      "title": "Où se passe le changement",
+      "description": "Ce commit corrige la gestion des **questions concurrentes** dans la conversation des étapes de tour, qui repose sur le fallback entre agents ACP (Vibe → Copilot → Codex → Claude Code).\n\nLe cœur du changement est dans `src/agent/fallbackStepChatAgent.ts` : l'opération entière — sélection du fournisseur, démarrage, fallback et prompt — est désormais sérialisée sur la session partagée.\n\nLes fichiers touchés :\n\n- `src/agent/fallbackStepChatAgent.ts` — sérialisation, invalidation à l'annulation, destruction du transport.\n- `src/agent/fakeAcpAgent.ts` — nouveau comportement de test `ignore-cancel-once`.\n- `src/player/stepChatAcp.test.ts` — trois tests de régression par sous-processus réels.\n- `docs/adr/0014-fallback-between-acp-agents-with-provider-modes.md` — la décision est documentée.",
+      "questions": [
+        "Pourquoi la sérialisation se fait-elle au niveau du fallback et non du fournisseur individuel ?",
+        "Quels états partagés rendaient la version précédente fragile ?"
+      ],
+      "directory": "src/agent"
+    },
+    {
+      "title": "La file d'attente partagée",
+      "description": "Avant ce commit, chaque appel à `answer` lisait et incrémentait directement `selected` et `active`. Deux questions lancées en même temps avançaient le même index de fallback : un fournisseur fonctionnel pouvait être sauté, ou sa session disposée sous les pieds de l'autre.\n\nLa nouvelle variable `pending` transforme la sélection, le démarrage, le fallback et le prompt en **une seule opération** sur la session partagée. Chaque question s'enchaîne sur la promesse précédente au lieu de s'exécuter en parallèle.\n\n`generation` conserve son rôle : c'est le compteur qui invalide les tentatives obsolètes après un `cancel` ou un `dispose`.",
+      "questions": [
+        "Pourquoi `pending` est-il une `Promise<void>` et non la promesse de réponse ?",
+        "Que se passerait-il si deux questions avançaient `selected` simultanément ?"
+      ],
+      "file": "src/agent/fallbackStepChatAgent.ts",
+      "pattern": "let pending: Promise<void> = Promise\\.resolve\\(\\);",
+      "display": "diff"
+    },
+    {
+      "title": "Sérialisation dans answer",
+      "description": "Tout le corps de `answer` (réinitialisation du workspace, boucle de fallback, prompt) est déplacé dans le callback de `pending.then`. La logique elle-même est inchangée — c'est l'ordonnancement qui change.\n\nEn tête de callback, un `attempt !== generation` rejette immédiatement toute requête obsolète encore en file : une question annulée pendant qu'elle attendait ne démarre jamais d'agent.\n\nLe garde-fou existant « une réponse visible appartient à un seul agent » (`streamed`) est préservé : un agent ayant déjà streamé du texte ne reçoit jamais un autre fournisseur greffé dans la même réponse.",
+      "questions": [
+        "Pourquoi vérifier `attempt !== generation` avant la boucle de fallback et à chaque itération ?",
+        "La vérification du workspace reste-t-elle correcte quand les questions sont en file ?"
+      ],
+      "file": "src/agent/fallbackStepChatAgent.ts",
+      "pattern": "const answer = pending\\.then",
+      "display": "diff"
+    },
+    {
+      "title": "La file survit aux rejets",
+      "description": "Subtilité clé : `pending` est réassignée à `answer.then(() => undefined, () => undefined)`, pas à `answer` lui-même.\n\nSi `answer` rejette (question annulée, tous les fournisseurs indisponibles), le rejet est absorbé avant d'atteindre la promesse suivante. Sans cela, une seule question rejetée bloquerait la file pour toutes les suivantes.\n\nLa promesse d'origine est retournée à l'appelant, qui voit donc bien l'erreur ; seule la chaîne interne est « apaisée ».",
+      "questions": [
+        "Pourquoi absorber le rejet au lieu de le propager dans la file ?",
+        "Que verrait l'appelant si `pending` était réassignée à `answer` directement ?"
+      ],
+      "file": "src/agent/fallbackStepChatAgent.ts",
+      "pattern": "pending = answer\\.then",
+      "display": "diff"
+    },
+    {
+      "title": "cancel invalide la file et détruit le transport",
+      "description": "`cancel()` fait trois choses désormais :\n\n1. `generation++` invalide la requête active **et** les requêtes déjà en file, qui rejettent avec « Réponse interrompue. » dès leur tour sans jamais atteindre un agent.\n\n2. `active` est détaché, puis `cancel()` lui est délégué — comme avant.\n\n3. `pending` est remplacée par la promesse de `previous.dispose()`. Un agent réel peut ignorer l'annulation ; la destruction de son transport garantit que la file ne se rouvre qu'une fois l'agent réellement arrêté.\n\nConséquence observable : une question fraîche après un « Stop » attend la fin du transport, mais démarre — elle ne reste jamais bloquée, même face à un agent qui ne répond pas à l'annulation.",
+      "questions": [
+        "Pourquoi détruire le transport au lieu de faire confiance à cancel ?",
+        "Le fournisseur sélectionné est-il conservé pour le redémarrage ?"
+      ],
+      "file": "src/agent/fallbackStepChatAgent.ts",
+      "pattern": "A live agent may ignore cancel\\.",
+      "display": "diff"
+    },
+    {
+      "title": "dispose attend la file",
+      "description": "`dispose()` réinitialise `selected` et `workspace` (fermeture de la vue de lecture) et remplace `pending` par la promesse de destruction de l'agent actif — mais cette fois il l'attend.\n\nLa boucle de fallback conservant le premier fournisseur qui fonctionne pour toute la session de lecture, cette remise à zéro complète est ce qui permet un nouveau cycle de sélection propre à la réouverture.\n\n**Diagram — cycle de vie des questions dans la file**\n\n```mermaid\nsequenceDiagram\n    participant U as Vue de lecture\n    participant F as Fallback\n    participant A as Agent ACP\n    U->>F: answer(question)\n    F->>F: enfile sur pending\n    F->>A: sélection + startup + prompt\n    A-->>F: réponse ou erreur (fallback)\n    F-->>U: réponse\n    U->>F: cancel()\n    F->>A: dispose du transport\n    F->>F: file rouverte aux nouvelles questions\n```",
+      "questions": [
+        "Quand la fermeture de la vue réinitialise-t-elle la sélection ?",
+        "Que garantit l'attente explicite de `pending` dans dispose ?"
+      ],
+      "file": "src/agent/fallbackStepChatAgent.ts",
+      "pattern": "await pending;",
+      "display": "diff"
+    },
+    {
+      "title": "fakeAcpAgent : un agent qui ignore l'annulation",
+      "description": "Le faux agent ACP utilisé par les tests de régression gagne un comportement `ignore-cancel-once`.\n\nAu premier prompt, il compte les requêtes `session/prompt` dans son journal et, s'il s'agit du premier, ne répond jamais (`new Promise<never>` sans résolution) : il simule un agent qui ignore l'annulation. Au prompt suivant, il répond « Tour answer after restart. ».\n\nCe double de test rend observable le scénario du bug : annuler une question bloquée sur un agent muet, puis poser une question fraîche qui doit quand même aboutir sur une **nouvelle instance** du même agent.",
+      "questions": [
+        "Pourquoi compter les prompts dans le journal plutôt que garder un état en mémoire ?",
+        "Quel comportement réel ce double de test simule-t-il ?"
+      ],
+      "file": "src/agent/fakeAcpAgent.ts",
+      "pattern": "case \"ignore-cancel-once\": \\{",
+      "display": "diff"
+    },
+    {
+      "title": "Test : questions concurrentes sans sauter de fournisseur",
+      "description": "Premier test de régression : deux questions sont envoyées **en parallèle** alors que Vibe n'expose pas le mode requis (`no-ask-mode`) et que Copilot fonctionne.\n\nSans la correction, la concurrence faisait avancer `selected` deux fois et le fournisseur Copilot pouvait être sauté. Avec la file, on observe :\n\n- les deux questions aboutissent (`fulfilled`) ;\n- `session/prompt` apparaît deux fois dans le journal de Copilot ;\n- un seul `initialize` — la session du fournisseur retenu est bien réutilisée, pas relancée.\n\nCe test s'exécute contre de vrais sous-processus du faux agent, pas des mocks en mémoire.",
+      "questions": [
+        "Que révèle le décompte des initialize dans le journal ?",
+        "Ce test échouerait-il sans la sérialisation, et pourquoi ?"
+      ],
+      "file": "src/player/stepChatAcp.test.ts",
+      "pattern": "concurrent step questions share ordered fallback",
+      "display": "diff"
+    },
+    {
+      "title": "Test : l'annulation rejette la file et admet une question fraîche",
+      "description": "Deuxième test : une question en vol sur un agent lent, une deuxième mise en file, puis `cancel()` pendant que la deuxième attend. L'agent passe ensuite en comportement `default`.\n\nObservations attendues :\n\n- la question en attente est rejetée — elle n'atteint jamais l'agent (le journal ne compte que 2 prompts) ;\n- la question fraîche « Fresh » est bien le premier bloc de prompt du deuxième cycle.\n\nAutrement dit, l'annulation vide la file au lieu de laisser des requêtes mortes s'exécuter plus tard sur un agent redémarré.",
+      "questions": [
+        "Pourquoi la question fraîche est-elle admissible avant la fin de la première ?",
+        "Que garantit la vérification du premier bloc de prompt du deuxième cycle ?"
+      ],
+      "file": "src/player/stepChatAcp.test.ts",
+      "pattern": "cancelling the ACP queue rejects waiting questions",
+      "display": "diff"
+    },
+    {
+      "title": "Test : redémarrage après annulation d'un agent muet",
+      "description": "Troisième test, contre le comportement `ignore-cancel-once` : la première question reste suspendue à jamais sur un agent qui ne répond pas, puis `cancel()` est appelé et une question « After stop » est posée immédiatement.\n\nLa question fraîche doit répondre « Tour answer after restart » avant un délai de 2 secondes — sans la destruction du transport dans `cancel()`, elle resterait bloquée derrière la promesse jamais résolue de la première.\n\nLe journal confirme deux `initialize` : la session de l'agent muet a été détruite et remplacée par une nouvelle instance du même fournisseur.",
+      "questions": [
+        "Qui débloque la question fraîche : le cancel de l'agent ou le dispose du transport ?",
+        "Pourquoi un second initialize plutôt qu'une réutilisation de session ?"
+      ],
+      "file": "src/player/stepChatAcp.test.ts",
+      "pattern": "a fresh question starts after cancelling",
+      "display": "diff"
+    },
+    {
+      "title": "La décision consignée dans l'ADR 0014",
+      "description": "L'ADR 0014 (fallback entre agents ACP avec modes par fournisseur) gagne un paragraphe qui consigne les trois règles posées par ce commit :\n\n- les questions sérialisent l'opération complète — sélection, démarrage, fallback, prompt — sur la session partagée ;\n- l'arrêt invalide les questions en file et détruit le transport actif avant d'admettre de nouvelles questions, le fournisseur sélectionné étant conservé pour le redémarrage ;\n- la fermeture de la vue de lecture réinitialise en plus la sélection de fournisseur.\n\nLe message de commit décrit une validation par tests de régression en sous-processus réels, typecheck et suites d'extension, de renderer et de serveur MCP ; ces exécutions ne sont pas vérifiées dans ce tour.",
+      "questions": [
+        "Pourquoi conserver le fournisseur sélectionné après un arrêt ?",
+        "Quelle partie de ces règles relève de la spécification plutôt que de l'implémentation ?"
+      ],
+      "file": "docs/adr/0014-fallback-between-acp-agents-with-provider-modes.md",
+      "pattern": "Questions serialize the whole selection",
+      "display": "diff"
+    }
+  ]
+}

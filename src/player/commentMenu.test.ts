@@ -20,7 +20,7 @@ test("the comment toolbar exposes expanded description without replacing End Tou
   assert.ok(
     actions.some(
       action =>
-        action.command === "codetour.showStepDescription" &&
+        action.command === "codetourIA.showStepDescription" &&
         action.group === "inline@0" &&
         action.when === "commentController == codetour"
     )
@@ -28,7 +28,7 @@ test("the comment toolbar exposes expanded description without replacing End Tou
   assert.ok(
     actions.some(
       action =>
-        action.command === "codetour.endTour" && action.group === "inline@3"
+        action.command === "codetourIA.endTour" && action.group === "inline@3"
     )
   );
 });

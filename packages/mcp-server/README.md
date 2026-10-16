@@ -70,6 +70,14 @@ cd /path/to/workspace
 codetour-mcp
 ```
 
+The server serves exactly one workspace: the process working directory. When
+your MCP client cannot control the working directory of the launched process,
+pass the workspace explicitly instead:
+
+```bash
+codetour-mcp --workspace-root /path/to/workspace
+```
+
 Finally, configure your MCP client with the command and its working directory,
 as in the example below. Once connected, the client automatically discovers
 `create_project_tour` and `create_changes_tour`.
@@ -91,7 +99,8 @@ as in the example below. Once connected, the client automatically discovers
 The transport is `stdio` only.
 
 Both tools accept an optional `workspacePath`, relative to the workspace root
-(the process working directory). Use it when the workspace contains several
+(the process working directory, or the directory passed to
+`--workspace-root`). Use it when the workspace contains several
 projects or Git repositories, for example `"workspacePath": "my-project"`.
 Step anchors and the generated `.tours/` file are relative to that directory
 for this call; the returned path stays relative to the configured root.
@@ -127,10 +136,10 @@ To generate the general project tour, ask for example:
 ```text
 Analyze this repository, then use the codetour.create_project_tour MCP tool to
 generate a Project Tour. Present the project's purpose, its entry points, its
-important components and its main execution flows. Start with a step anchored
-on the root directory to explain its organization, then present the important
-directories before detailing the files. Use stable anchors in files whenever
-possible.
+important components and its main execution flows. Start with an unanchored
+orientation step that maps the system context and its real execution or storage
+boundaries, then descend into the relevant directories and files. Use stable
+anchors in files whenever possible.
 ```
 
 To scope the Project Tour to a subdirectory, name it explicitly in the request.
@@ -162,11 +171,25 @@ The result is written to `.tours/changes.tour`.
 | `workspacePath` | string | no       | Optional directory relative to the workspace root; anchors and the generated `.tours` file resolve inside it for this call. |
 
 A good Project Tour covers the project's purpose, its main entry points, its
-important components, and its main execution flows. When the project has a
-meaningful directory structure, it begins with a directory-anchored overview.
-For a Project Tour scoped to a subdirectory, the first step anchors that exact
-workspace-relative directory. Other important directories should be introduced
-before their individual files.
+important components, and its main execution flows. Its first step is an
+explicitly titled orientation step without a `file` or `directory` locator. The
+description starts with two or three sentences explaining what the system does
+and for whom, followed by `**Diagram — Vue contexte**` and a Mermaid `flowchart`
+of actors, the system, and external systems. Every relationship names an
+interaction and its mechanism. Include a second `flowchart`, captioned
+`**Diagram — Conteneurs**`, only when the code establishes more than one real
+execution or storage boundary, then map each zone to workspace directories with
+relative Markdown links.
+
+The full C4 wording — the actor, system, external system, and container
+definitions, the boundary evidence rules, and the diagram conventions — lives
+only in the `create_project_tour` tool description, which is the authoritative
+guidance given to the agent; this README deliberately does not duplicate it. The
+server backs that guidance with advisory warnings
+(`ORIENTATION_STEP_MISSING_OVERVIEW`, `ORIENTATION_STEP_DIAGRAM_TOO_LARGE`) when
+the first step is not a locator-free orientation step or its first diagram
+exceeds the recommended node count. The following steps descend into the
+relevant directories and files.
 
 ### `create_changes_tour`
 
@@ -255,6 +278,7 @@ of these codes:
 | `NO_CHANGES`               | No committed changes between the merge-base and `headRef`; the previous tour file is preserved. |
 | `SCHEMA_VALIDATION_FAILED` | Internal: the generated tour did not validate against the CodeTour schema. |
 | `OUTPUT_PATH_ESCAPES_WORKSPACE` | The output directory resolves outside the workspace root. |
+| `INTERNAL_ERROR`            | Unexpected server failure; reported as a result, never as a protocol error. |
 
 Non-blocking warnings:
 
@@ -357,3 +381,17 @@ node --test --test-name-pattern="STALE_HEAD" \
 Integration tests create isolated temporary workspaces and Git repositories
 and remove them after each scenario. The packaging smoke test stays local and
 does not publish anything to npm.
+
+
+### Suggested step questions
+
+Both creation tools accept an optional `questions` array on each step, with up to four non-empty strings. Prefer three or four concise questions tied to the step's explanation, in the same language. For example:
+
+```json
+{
+  "description": "This entry point starts the player.",
+  "questions": ["What starts the player?", "How are navigation errors handled?", "Which tests cover this path?"]
+}
+```
+
+The Expanded Description View displays these as buttons that immediately send the selected question to the ACP step conversation. Buttons are disabled while an answer is in progress. Steps without questions display no suggestions.

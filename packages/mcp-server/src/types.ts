@@ -11,6 +11,7 @@ export interface Selection {
 export interface TourStep {
   title?: string;
   description: string;
+  questions?: string[];
   file?: string;
   baseFile?: string;
   display?: "diff";
@@ -24,6 +25,7 @@ export interface ProjectParams {
   workspacePath?: string;
   title?: string;
   description?: string;
+  dryRun?: boolean;
   steps?: unknown[];
 }
 
@@ -59,6 +61,12 @@ export interface SuccessResult {
   warnings: Warning[];
 }
 
+export interface ValidatedResult {
+  status: "validated";
+  stepCount: number;
+  warnings: Warning[];
+}
+
 export interface ErrorResult {
   status: "error";
   code: string;
@@ -66,7 +74,7 @@ export interface ErrorResult {
   issues?: Issue[];
 }
 
-export type ToolResult = SuccessResult | ErrorResult;
+export type ToolResult = SuccessResult | ValidatedResult | ErrorResult;
 
 export interface WorkspaceContext {
   root: string;

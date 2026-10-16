@@ -116,6 +116,33 @@ test("creates a changes tour with the exact head SHA as ref", async () => {
   }
 });
 
+test("creates a changes tour without Project Tour orientation step warnings", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        description: "Explains the feature branch.",
+        steps: [
+          { description: "Intent of the change." },
+          { description: "The new file.", file: "feature.txt", line: 1 },
+        ],
+      });
+      assert.equal(response.isError, false);
+      assert.equal(response.structured.status, "created");
+      // The first step has no locator and no Mermaid fence: the orientation step
+      // warnings are not wired into the Changes Tour flow, so this
+      // must stay warning-free.
+      assert.deepEqual(response.structured.warnings, []);
+      assert.ok(!warningCodes(response).includes("ORIENTATION_STEP_MISSING_OVERVIEW"));
+      assert.ok(!warningCodes(response).includes("ORIENTATION_STEP_DIAGRAM_TOO_LARGE"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("uses the provided title when given", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
@@ -684,3 +711,57 @@ test(
     }
   }
 );
+
+test("dryRun validates the proposal and writes nothing", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const first = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [{ description: "Original.", file: "feature.txt" }],
+      });
+      assert.equal(first.isError, false, first.text);
+
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        dryRun: true,
+        title: "Rehearsal",
+        steps: [{ description: "Rehearsed.", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.equal(response.structured.status, "validated");
+      assert.equal(response.structured.stepCount, 1);
+      assert.equal(response.structured.path, undefined);
+    });
+    const tour = readTourFile(root, ".tours/changes.tour");
+    assert.equal(tour.title, "Changes on feature");
+    assert.equal(((tour.steps as unknown[])[0] as { description: string }).description, "Original.");
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("dryRun still fails with STALE_HEAD when headRef does not match HEAD", async () => {
+  const { root, baseSha } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: "0".repeat(40),
+        dryRun: true,
+        steps: [{ description: "Rehearsed." }],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "STALE_HEAD");
+    });
+    assert.equal(
+      fs.existsSync(path.join(root, ".tours/changes.tour")),
+      false,
+      "dryRun must not create the tour file"
+    );
+  } finally {
+    rmrf(root);
+  }
+});

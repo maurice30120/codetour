@@ -18,7 +18,8 @@ export interface ToolResponse {
 
 export async function startServer(
   workspaceRoot: string,
-  envOverrides: Record<string, string> = {}
+  envOverrides: Record<string, string> = {},
+  serverArgs: string[] = []
 ): Promise<Client> {
   const client = new Client(
     { name: "codetour-mcp-test-client", version: "0.0.0" },
@@ -26,7 +27,7 @@ export async function startServer(
   );
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [CLI_PATH],
+    args: [CLI_PATH, ...serverArgs],
     cwd: workspaceRoot,
     env: {
       ...Object.fromEntries(

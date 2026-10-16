@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import safeRegex from "safe-regex2";
+import { findDiagramFences } from "codetour-description-renderer";
 import { CommitAnchor, normalizeSlashes } from "./git";
 import {
   ChangesParams,
@@ -9,6 +10,7 @@ import {
   ProjectParams,
   Selection,
   TourStep,
+  Warning,
   WorkspaceContext,
 } from "./types";
 
@@ -24,6 +26,7 @@ import {
 export const STEP_FIELDS = [
   "title",
   "description",
+  "questions",
   "file",
   "baseFile",
   "display",
@@ -34,6 +37,67 @@ export const STEP_FIELDS = [
 ] as const;
 
 export const MAX_RECOMMENDED_STEPS = 15;
+
+// Readability limit for the first diagram of the orientation step, shared with
+// the tool guidance in server.ts so the advised and enforced values stay equal.
+export const MAX_RECOMMENDED_DIAGRAM_NODES = 12;
+
+export function orientationStepWarnings(steps: TourStep[]): Warning[] {
+  const orientationStep = steps[0];
+  const fences =
+    orientationStep === undefined ? [] : findDiagramFences(orientationStep.description);
+  const warnings: Warning[] = [];
+  if (
+    orientationStep === undefined ||
+    orientationStep.file !== undefined ||
+    orientationStep.directory !== undefined ||
+    fences.length === 0
+  ) {
+    warnings.push({
+      code: "ORIENTATION_STEP_MISSING_OVERVIEW",
+      message:
+        "The first step should be a locator-free orientation step with at least one diagram.",
+    });
+  }
+  if (
+    fences[0] !== undefined &&
+    diagramNodeCount(fences[0].source) > MAX_RECOMMENDED_DIAGRAM_NODES
+  ) {
+    warnings.push({
+      code: "ORIENTATION_STEP_DIAGRAM_TOO_LARGE",
+      message:
+        `The first diagram in the orientation step has more than ${MAX_RECOMMENDED_DIAGRAM_NODES} nodes; consider simplifying it for readability.`,
+    });
+  }
+  return warnings;
+}
+
+function diagramNodeCount(source: string): number {
+  const nodes = new Set<string>();
+  const identifier = "[A-Za-z_][A-Za-z0-9_.-]*";
+
+  // Advisory readability heuristic: count distinct identifiers declared as
+  // subgraphs, bracket/parenthesis nodes, or edge endpoints. Edge labels are
+  // stripped first (pipe labels, and text after the endpoint's colon) so words
+  // inside labels are never counted as nodes. This is not a complete Mermaid
+  // parser and intentionally does not reject any diagram.
+  for (const rawLine of source.split("\n")) {
+    const line = rawLine.replace(/\|[^|]*\|/g, " ");
+    const subgraph = line.match(new RegExp(`^\\s*subgraph\\s+(${identifier})\\b`, "i"));
+    if (subgraph) nodes.add(subgraph[1]);
+
+    for (const match of line.matchAll(new RegExp(`^\\s*(${identifier})\\s*[\\[(]`, "g"))) {
+      nodes.add(match[1]);
+    }
+    if (!/(-->|---)/.test(line)) continue;
+    for (const segment of line.split(/-->|---/)) {
+      const endpoint = segment.split(":")[0];
+      const node = endpoint.match(new RegExp(`(${identifier})`));
+      if (node) nodes.add(node[1]);
+    }
+  }
+  return nodes.size;
+}
 
 // Cap the length of agent-supplied anchor patterns: a hand-crafted regular
 // expression can hang the server process through catastrophic backtracking
@@ -97,11 +161,12 @@ function reportUnknownFields(
   }
 }
 
-const PROJECT_PARAM_FIELDS = ["workspacePath", "title", "description", "steps"] as const;
+const PROJECT_PARAM_FIELDS = ["workspacePath", "title", "description", "dryRun", "steps"] as const;
 const CHANGES_PARAM_FIELDS = [
   "workspacePath",
   "title",
   "description",
+  "dryRun",
   "steps",
   "baseRef",
   "headRef",
@@ -183,6 +248,13 @@ function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
     }
     params.description = description;
   }
+  if (raw.dryRun !== undefined) {
+    if (typeof raw.dryRun !== "boolean") {
+      issues.push({ path: "dryRun", message: "must be a boolean" });
+    } else {
+      params.dryRun = raw.dryRun;
+    }
+  }
   if (raw.steps === undefined) {
     issues.push({ path: "steps", message: "is required" });
   } else if (!Array.isArray(raw.steps)) {
@@ -239,6 +311,23 @@ function validateStep(
   }
 
   const title = isOptionalString(raw, "title", `${base}.title`, issues);
+
+  let questions: string[] | undefined;
+  if (raw.questions !== undefined) {
+    if (!Array.isArray(raw.questions) || raw.questions.length > 4) {
+      issues.push({ path: `${base}.questions`, message: "must be an array of at most 4 non-empty strings" });
+    } else {
+      const validatedQuestions: string[] = [];
+      raw.questions.forEach((question, questionIndex) => {
+        if (typeof question !== "string" || !question.trim()) {
+          issues.push({ path: `${base}.questions[${questionIndex}]`, message: "must be a non-empty string" });
+        } else {
+          validatedQuestions.push(question.trim());
+        }
+      });
+      questions = validatedQuestions;
+    }
+  }
 
   const file = isOptionalString(raw, "file", `${base}.file`, issues);
   const baseFile = isOptionalString(raw, "baseFile", `${base}.baseFile`, issues);
@@ -412,6 +501,7 @@ function validateStep(
     step: {
       title,
       description: description as string,
+      ...(questions !== undefined ? { questions } : {}),
       file,
       baseFile,
       display,

@@ -15,7 +15,7 @@ export interface RenderedDiagram {
  * the in-memory cache key so a long-lived extension host never reuses output
  * produced by an older renderer implementation.
  */
-export const DESCRIPTION_RENDERER_VERSION = "0.1.0";
+export const DESCRIPTION_RENDERER_VERSION = "0.1.3";
 
 interface MermaidRenderResult {
   svg: string;
@@ -37,8 +37,8 @@ const MERMAID_RENDER_OPTIONS = Object.freeze({
   htmlLabels: false,
   flowchartHtmlLabels: false,
   rasterizer: "@resvg/resvg-js@2.6.2",
-  maxRasterizedWidth: 2000,
-  viewBoxPadding: 2
+  maxRasterizedWidth: 900,
+  viewBoxPadding: 24
 } as const);
 
 let mermaid: MermaidApi | undefined;

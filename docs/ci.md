@@ -1,5 +1,9 @@
 # Plugin CI and downloads
 
+Both workflows use Node.js 24.18.0 (from `.nvmrc`) and npm 12.0.1.
+They run `npm ci` for the root and both packages using committed
+`package-lock.json` files, then run the npm test and packaging scripts.
+
 The Test workflow runs on every push and pull request. It runs the tests and
 packages the VS Code extension for Linux, macOS and Windows. These builds verify
 the VSIX but do not retain it as an Actions artifact.

@@ -1,0 +1,140 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Mode WebView parallèle pour la lecture et l'édition des tours",
+  "description": "Ce tour de changements couvre la fonctionnalité « Mode WebView parallèle pour la lecture et l'édition des tours » (tickets #36 à #42) : les explications d'un tour peuvent désormais se lire dans un panneau WebView à côté de l'éditeur, le code ne conservant qu'une ancre discrète, tandis que le mode par commentaires natifs reste le comportement par défaut.\n\nLe fil de la livraison : un prototype de trois dispositions et le choix du layout A ; une préférence de mode de lecture avec sa commande de bascule ; la lecture des fichiers, des diffs et des étapes sans ancre sans jamais perdre le lecteur ; le rendu riche partagé (Markdown, tableaux, Mermaid) ; l'édition et la sauvegarde d'une étape depuis le panneau avec validation des permissions et de la fraîcheur des messages ; la conservation des brouillons à travers les bascules, fermetures et sorties d'étape ; l'accès clavier ; un harnais de tests dans un vrai VS Code ; et la livraison production en version 0.1.1.\n\nChaque étape s'arrête sur le fichier qui porte la décision correspondante, de la spécification validée jusqu'à la version livrée.\n\nActualisation : la consolidation du lecteur (commit 1e90c42, 14 octobre 2026) a retiré la bascule de mode et la préférence `codetour.playbackMode` — la vue étendue du layout A est la seule présentation étendue — et l'édition en panneau a laissé place à un éditeur Markdown natif (`src/player/stepEditing.ts`). Les étapes ci-dessous sont réancrées sur les fichiers actuels.\n\nGenerated from the merge-base of `0af1642d6325b7d50d998c8a58cb4f4a718ed2a2` (`0af1642d6325b7d50d998c8a58cb4f4a718ed2a2`) to `bf0c139432f19e6befd7b6d19baffe3eb996442a`.",
+  "ref": "bf0c139432f19e6befd7b6d19baffe3eb996442a",
+  "baseRef": "0af1642d6325b7d50d998c8a58cb4f4a718ed2a2",
+  "steps": [
+    {
+      "title": "Orientation : lire un tour à côté du code",
+      "description": "Le problème de départ : les explications d'un tour affichées dans les commentaires natifs occupent de la place au milieu du code. Le lecteur veut les déplacer dans un panneau à côté de l'éditeur, garder un repère discret sur le code concerné, et continuer à éditer les tours — sans perdre le mode de lecture actuel ni le rendu Mermaid.\n\nCe tour suit la réponse livrée sur cette période : la spécification validée, la préférence de mode et sa bascule, le lecteur partagé qui orchestre les deux présentations, le panneau de lecture et son ancre seule, le rendu riche, l'édition dans le panneau, les brouillons conservés, la sortie d'une étape non sauvegardée, le harnais de tests réel, puis la livraison 0.1.1.\n\n**Diagram — le fil de la fonctionnalité**\n\n```mermaid\nflowchart TD\n  A[Prototype de trois layouts] --> B[Choix du layout A]\n  B --> C[Preference de mode et bascule]\n  C --> D[Panneau WebView de lecture]\n  C --> E[Ancre seule dans la marge]\n  D --> F[Edition dans le panneau]\n  F --> G[Brouillons et sauvegarde]\n  D --> H[Tests dans un hote VS Code reel]\n```",
+      "questions": [
+        "Pourquoi conserver le mode par commentaires natifs comme défaut plutôt que de remplacer la présentation existante ?",
+        "Qu'est-ce que le panneau WebView doit réutiliser du lecteur actuel pour ne pas devenir un second lecteur avec son propre état ?"
+      ]
+    },
+    {
+      "title": "La spécification validée du mode parallèle",
+      "description": "Ce document est la référence validée de la vue étendue, réécrite le 14 octobre 2026 pour la consolidation du lecteur : l'énoncé du problème, le comportement retenu et les décisions structurantes. La décision centrale : il existe une seule disposition, issue de la vue A, **sans sélecteur ni préférence de présentation** — le panneau est une surface du même lecteur, jamais un second lecteur avec un état autonome.\n\nLa spécification d'origine — trente-sept récits utilisateur, deux modes avec bascule, édition dans le panneau — a été resserrée : le tour démarre dans les commentaires natifs, « Show Expanded Description » ouvre le panneau latéral, sa fermeture rétablit le commentaire ; l'édition revient à un document Markdown natif ; les brouillons restent protégés par Save/Discard/Cancel à chaque sortie d'étape.\n\nLes exclusions sont maintenues : pas de barre de navigation ajoutée au format des tours, pas de création de nouveaux tours dans la WebView, et des brouillons jamais persistés à la fermeture de l'éditeur.",
+      "questions": [
+        "Pourquoi le choix de présentation vit-il dans l'état du lecteur plutôt que dans une préférence persistante ?",
+        "Pourquoi les variantes B et C du prototype ont-elles été explicitement exclues de la livraison ?"
+      ],
+      "file": "docs/tour-webview-implementation.md",
+      "pattern": "^# Vue étendue du tour",
+      "display": "diff"
+    },
+    {
+      "title": "La présentation active : un état du lecteur",
+      "description": "La bascule de mode a disparu avec la consolidation du lecteur : plus de préférence `codetour.playbackMode` ni de commande `codetour.togglePlaybackMode`. La présentation active est une question d'état : `isWebviewPlayback()` rend vrai quand la vue étendue est ouverte et que le lecteur n'enregistre pas.\n\nL'enregistrement conserve les fils de commentaires natifs, car les flux d'enregistrement s'appuient sur eux. Pendant la lecture, ouvrir la vue étendue présente l'étape dans le panneau, et la refermer rétablit le commentaire natif — sans jamais perdre le tour actif, son étape ni sa progression.",
+      "questions": [
+        "Pourquoi la présentation est-elle dérivée de l'état du lecteur plutôt que d'une préférence persistante ?",
+        "Pourquoi l'enregistrement garde-t-il les fils de commentaires natifs ?",
+        "Que se passe-t-il quand la vue étendue est refermée en pleine lecture ?"
+      ],
+      "file": "src/player/index.ts",
+      "pattern": "function isWebviewPlayback"
+    },
+    {
+      "title": "Un seul lecteur pour deux présentations",
+      "description": "Le cœur du lecteur résout et ouvre l'ancre **de la même façon dans les deux modes** : seule la présentation de la description diffère. En mode WebView, aucun fil de commentaires ne porte la description — le fil existant est retiré lors du passage au mode natif vers WebView, et aucun aperçu périmé ne duplique le texte de l'étape.\n\nLes étapes de diff conservent la résolution de la comparaison Git : le panneau ouvre le diff via `vscode.diff` sur le côté modifié, sans jamais remplacer le diff par un éditeur simple. Une étape sans document ancrable reste lisible dans le panneau : rien n'est ouvert et aucun marqueur n'est inventé sur un fichier ou une ligne arbitraires. Enfin, chaque rendu porte une version : un résultat asynchrone retardé par une navigation, une bascule ou une fermeture est ignoré et ne remplace jamais la nouvelle étape.",
+      "questions": [
+        "Pourquoi une étape sans ancre exploitable doit-elle rester lisible au lieu d'échouer ?",
+        "Comment un rendu asynchrone retardé est-il empêché de remplacer la nouvelle étape affichée ?",
+        "Pourquoi le côté modifié du diff est-il visé plutôt que le fichier seul ?"
+      ],
+      "file": "src/player/index.ts",
+      "pattern": "The anchor is resolved and opened the same way in both playback modes",
+      "display": "diff"
+    },
+    {
+      "title": "Le panneau de lecture du layout A",
+      "description": "`renderTourStep` présente l'étape active dans la disposition A retenue : en-tête du tour et progression, titre de l'étape, description préparée, puis navigation sous l'explication. La description passe par le pipeline de rendu partagé — Mermaid inclus — et les boutons pilotent **les mêmes commandes du lecteur** que les autres surfaces, pas des actions propres au panneau.\n\nLes transitions de série réutilisent les règles du lecteur : le bouton précédent au premier pas démarre le tour précédent, l'action de fin passe au tour suivant. Le panneau respecte une fermeture volontaire : un rendu arrivant pour l'étape que le lecteur vient de fermer ne rouvre pas le panneau dans son dos ; naviguer vers une autre étape rétablit la présentation. Enfin, l'édition ne vit plus dans le panneau depuis la consolidation du lecteur : ouvrir une session d'édition referme le panneau et présente la source dans un document Markdown natif (`src/player/stepEditing.ts`).",
+      "questions": [
+        "Pourquoi les boutons du panneau réexécutent-ils les commandes publiques du lecteur plutôt que des actions internes ?",
+        "Comment la fermeture du panneau par l'utilisateur est-elle respectée par un rendu en retard ?",
+        "Pourquoi une session d'édition rend-elle le brouillon plutôt que le contenu enregistré de l'étape ?"
+      ],
+      "file": "src/player/tourWebview.ts",
+      "pattern": "export async function renderTourStep",
+      "display": "diff"
+    },
+    {
+      "title": "L'ancre seule dans la marge",
+      "description": "En mode WebView, le code n'affiche que le petit logo CodeTour dans la marge, à l'ancre réellement résolue de l'étape active. Contrairement aux marqueurs généraux des tours, cette décoration ne porte **ni description, ni bloc de commentaire, ni texte au survol** : le texte vit exclusivement dans le panneau.\n\nLe repère suit le tour actif même quand les marqueurs généraux sont masqués, et se rafraîchit sur chaque changement d'éditeurs visibles. Une étape sans ancre exploitable n'obtient pas de marqueur inventé : elle reste simplement lisible dans le panneau.",
+      "questions": [
+        "Pourquoi le repère reste-t-il visible quand les marqueurs généraux des tours sont masqués ?",
+        "Quelles informations le repère choisit-il délibérément de ne pas porter, et pourquoi ?"
+      ],
+      "file": "src/player/activeAnchor.ts",
+      "pattern": "The active-anchor marker of the webview playback mode",
+      "display": "diff"
+    },
+    {
+      "title": "Le HTML du panneau : sécurité et lisibilité",
+      "description": "`createTourWebviewHtml` construit le document du panneau à partir du modèle de l'étape : styles alignés sur les variables de thème de VS Code, contenu échappé, rendu Markdown partagé et politique de sécurité de contenu reconstruite avec le nonce du panneau.\n\nLa lisibilité reste une exigence à part entière : les tableaux défilent horizontalement au lieu de déborder, des requêtes de média resserrent les marges dans un panneau étroit, et le texte se replie partout. La zone d'édition en Markdown brut qui vivait dans ce panneau a disparu avec la consolidation : l'édition est revenue à un document Markdown natif (`src/player/stepEditing.ts`), et le HTML ne porte plus que la lecture.",
+      "questions": [
+        "Pourquoi la politique de sécurité de contenu est-elle appliquée avec un nonce plutôt qu'assouplie pour le panneau ?",
+        "Comment les tableaux et les descriptions longues restent-ils lisibles dans un panneau étroit ?",
+        "Pourquoi l'édition a-t-elle quitté le panneau pour un document Markdown natif ?"
+      ],
+      "file": "src/player/markdown.ts",
+      "pattern": "export function createTourWebviewHtml"
+    },
+    {
+      "title": "Éditer et sauvegarder depuis un éditeur natif",
+      "description": "`enterStepEditing` ouvre la session d'édition de l'étape active **sans jamais exiger de fil de commentaires natif** : les permissions sont vérifiées d'abord (`store.canEditTour` — un tour non modifiable est refusé sans rien écrire), le brouillon est amorcé depuis la description enregistrée, le panneau de lecture est refermé, puis un document Markdown natif présente la source — clôtures Mermaid incluses.\n\nUne sauvegarde se termine par un petit nombre d'issues observables : enregistrée via l'opération d'instantané partagée — « Save Step » et la sauvegarde avant sortie utilisent exactement cette opération —, abandonnée par « Cancel Step Editing », ou préservée quand l'écriture échoue : le brouillon reste alors dans l'éditeur pour réessayer. Les actions de renommage, d'ancre et de réordonnancement restent routées vers un ensemble fixe de commandes de l'enregistreur existant.",
+      "questions": [
+        "Que devient le brouillon quand la sauvegarde échoue, et pourquoi ?",
+        "Pourquoi « Save Step » et la sauvegarde avant sortie partagent-elles la même opération ?",
+        "Pourquoi les actions d'édition passent-elles par un ensemble fixe de commandes existantes ?"
+      ],
+      "file": "src/player/stepEditing.ts",
+      "pattern": "export async function enterStepEditing"
+    },
+    {
+      "title": "Les brouillons vivent avec les étapes",
+      "description": "Un brouillon d'édition appartient à **l'objet étape**, conservé dans une `WeakMap` du module d'édition — jamais au panneau ni au seul numéro d'étape. Il survit donc aux fermetures de panneau et aux navigations au sein de la session. Rien n'est persisté ici : le contenu enregistré de l'étape dans le magasin reste intact jusqu'à une sauvegarde explicite.\n\nL'indexation par l'objet étape rend le brouillon insensible aux insertions et réordonnancements, qui ne peuvent pas réassigner son contenu. Une réentrée sur une étape déjà brouillonnée ne remplace jamais le brouillon existant par la source enregistrée.",
+      "questions": [
+        "Pourquoi le brouillon est-il rattaché à l'objet étape plutôt qu'au panneau ou au numéro d'étape seul ?",
+        "Que se passerait-il si le brouillon était indexé par le seul numéro d'étape ?",
+        "Pourquoi une réentrée ne doit-elle jamais écraser un brouillon existant ?"
+      ],
+      "file": "src/player/stepEditing.ts",
+      "pattern": "const drafts = new WeakMap<CodeTourStep, string>\\(\\);"
+    },
+    {
+      "title": "Quitter une étape avec un brouillon non sauvegardé",
+      "description": "Toute action qui quitterait l'étape éditée — navigation, ouverture de la vue étendue, fin de tour, enregistrement — passe par la même résolution : si l'étape active possède un brouillon différent de son contenu enregistré, l'auteur doit répondre avant de partir. La question est posée dans un quick pick — Sauvegarder, Abandonner, Annuler — pour rester accessible au clavier, avec le focus maintenu.\n\nUne seule résolution à la fois : les actions de sortie arrivant en rafale pendant un prompt sont ignorées, et une réponse tardive ne peut jamais sauvegarder ou abandonner une autre étape que celle pour laquelle la question a été posée. Un échec de sauvegarde préserve le brouillon pour réessayer ; une sortie sans changement ferme proprement la session sans rien demander.",
+      "questions": [
+        "Pourquoi la question passe-t-elle par un quick pick plutôt qu'un dialogue demandant la souris ?",
+        "Comment une rafale d'actions de sortie est-elle empêchée de déclencher une seconde sauvegarde sur une autre étape ?",
+        "Pourquoi une sortie sans modification ne déclenche-t-elle aucun prompt ?"
+      ],
+      "file": "src/player/stepEditing.ts",
+      "pattern": "export async function resolveStepDraftBeforeExit"
+    },
+    {
+      "title": "Un harnais de tests au niveau des commandes publiques",
+      "description": "Cet hôte en mémoire implémente uniquement la surface de l'API VS Code que les modules du lecteur touchent, et **enregistre chaque effet observable** — fils de commentaires, panneaux WebView, décorations, documents révélés, commandes — pour que les tests assert sur le comportement plutôt que sur la structure interne de l'état.\n\nPar-dessus, `scripts/run-vscode-tests.js` pilote un vrai VS Code installé avec l'artefact packagé, sur une fixture Git contenant un vrai diff. Les tests de parcours parcourent le mode parallèle complet à travers les commandes publiques : bascules de mode, logo seul dans le code, fichiers, diffs, Mermaid dans le panneau, édition, sauvegarde, fermeture, reprise et fin de tour.",
+      "questions": [
+        "Pourquoi tester par les commandes publiques plutôt que par la forme interne des fonctions ?",
+        "Qu'apporte le harnais dans un vrai VS Code installé par rapport à l'hôte en mémoire ?"
+      ],
+      "file": "src/test/vscodeHost.ts",
+      "pattern": "A minimal in-memory VS Code host used to exercise the compiled extension",
+      "display": "diff"
+    },
+    {
+      "title": "La livraison production 0.1.1",
+      "description": "L'intégration finale retire le prototype et son sélecteur de variantes pour ne livrer que le panneau de lecture du layout A ; la version passe à **0.1.1**. Le manifeste livrait alors la commande publique de bascule `codetour.togglePlaybackMode` et la préférence `codetour.playbackMode` ; la consolidation du lecteur les a retirées depuis, « Show Expanded Description » restant la porte d'entrée de la vue étendue. Le harnais de tests réel est entré dans la suite standard.\n\nLa vérification de l'artefact packagé garantit que le mode production reste utilisable hors hôte de développement, sans dépendre d'une commande ou d'un contexte propres au prototype.",
+      "questions": [
+        "Pourquoi retirer le prototype et son sélecteur de variantes plutôt que de les garder derrière un réglage ?",
+        "Que garantit le test de l'artefact packagé par rapport aux tests en hôte de développement ?"
+      ],
+      "file": "package.json",
+      "pattern": "\"version\": \"0\\.1\\.1\",",
+      "display": "diff"
+    }
+  ]
+}

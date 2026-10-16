@@ -3,7 +3,7 @@
 
 import { when } from "mobx";
 import * as vscode from "vscode";
-import { EXTENSION_NAME } from "../constants";
+import { COMMAND_PREFIX } from "../constants";
 import { focusPlayer } from "../player";
 import { saveTour } from "../recorder/commands";
 import { CodeTour, store } from "../store";
@@ -17,20 +17,27 @@ import {
 } from "../store/actions";
 import { progress } from "../store/storage";
 import { readUriContents } from "../utils";
-import { showStepDescription } from "./descriptionWebview";
+import { cancelStepEditing, resolveStepDraftBeforeExit } from "./stepEditing";
+import { showTourWebview } from "./tourWebview";
 import { CodeTourNode } from "./tree/nodes";
 
 let terminal: vscode.Terminal | null;
 export function registerPlayerCommands() {
-  // Internal inspection seam used by the development-host smoke test. It
-  // reads the comment owned by the active player, not a renderer-side value.
+  vscode.commands.registerCommand(`${COMMAND_PREFIX}.cancelTourStepEditing`, () => {
+    return cancelStepEditing();
+  });
+  // Opens the sole reading panel on the active step, resolving any draft first.
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.showStepDescription`,
-    showStepDescription
+    `${COMMAND_PREFIX}.showStepDescription`,
+    async () => {
+      if (!store.activeTour || store.isRecording || !(await resolveStepDraftBeforeExit())) return;
+      showTourWebview();
+    }
   );
 
+  // Internal inspection seam for the development-host smoke test.
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}._getActiveCommentBody`,
+    `${COMMAND_PREFIX}._getActiveCommentBody`,
     () => {
       const comment = store.activeTour?.thread?.comments[0];
       if (!comment) {
@@ -46,7 +53,7 @@ export function registerPlayerCommands() {
   // Lets a marker preview open the tour and its matching step directly;
   // this command is not meant for the public command palette.
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}._startTourById`,
+    `${COMMAND_PREFIX}._startTourById`,
     async (id: string, stepNumber: number) => {
       const tour = store.tours.find(tour => tour.id === id);
       if (tour) {
@@ -57,7 +64,7 @@ export function registerPlayerCommands() {
 
   // Opens a linked tour from the Markdown content of another tour.
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.startTourByTitle`,
+    `${COMMAND_PREFIX}.startTourByTitle`,
     async (title: string, stepNumber?: number) => {
       const tours = store.activeTour?.tours || store.tours;
       const tour = tours.find(tour => tour.title === title);
@@ -75,24 +82,31 @@ export function registerPlayerCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.finishTour`,
+    `${COMMAND_PREFIX}.finishTour`,
     async (title?: string) => {
+      // Finishing leaves the current step: the draft is resolved first, so
+      // an unsaved draft can still be saved or kept by the author, and the
+      // progress is only updated when the end actually happens.
+      if (!(await resolveStepDraftBeforeExit())) {
+        return;
+      }
+
       await progress.update();
 
       if (title) {
         vscode.commands.executeCommand(
-          `${EXTENSION_NAME}.startTourByTitle`,
+          `${COMMAND_PREFIX}.startTourByTitle`,
           title
         );
       } else {
-        vscode.commands.executeCommand(`${EXTENSION_NAME}.endTour`);
+        vscode.commands.executeCommand(`${COMMAND_PREFIX}.endTour`);
       }
     }
   );
 
   // Takes the reader to the step targeted by a Markdown link.
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.navigateToStep`,
+    `${COMMAND_PREFIX}.navigateToStep`,
     async (stepNumber: number) => {
       startCodeTour(
         store.activeTour!.tour,
@@ -107,7 +121,7 @@ export function registerPlayerCommands() {
 
   // Runs the text proposed by a step in the CodeTour terminal.
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.sendTextToTerminal`,
+    `${COMMAND_PREFIX}.sendTextToTerminal`,
     async (text: string) => {
       if (!terminal) {
         terminal = vscode.window.createTerminal("CodeTour");
@@ -129,7 +143,7 @@ export function registerPlayerCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.insertCodeSnippet`,
+    `${COMMAND_PREFIX}.insertCodeSnippet`,
     async (codeBlock: string) => {
       const codeSnippet = decodeURIComponent(codeBlock);
 
@@ -153,9 +167,8 @@ export function registerPlayerCommands() {
 
       const lineAdjustment = codeSnippet.split("\n").length - 1;
       if (lineAdjustment > 0) {
-        store.activeTour!.tour.steps[
-          store.activeTour!.step
-        ].line! += lineAdjustment;
+        store.activeTour!.tour.steps[store.activeTour!.step].line! +=
+          lineAdjustment;
 
         saveTour(store.activeTour!.tour);
       }
@@ -165,7 +178,7 @@ export function registerPlayerCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.startTour`,
+    `${COMMAND_PREFIX}.startTour`,
     async (
       tour?: CodeTour | CodeTourNode,
       stepNumber?: number,
@@ -189,32 +202,37 @@ export function registerPlayerCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.viewNotebook`,
+    `${COMMAND_PREFIX}.viewNotebook`,
     async (node: CodeTourNode) => {
       const tourUri = vscode.Uri.parse(node.tour.id);
       vscode.window.showTextDocument(tourUri);
     }
   );
 
-  vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.endTour`,
-    endCurrentCodeTour
-  );
+  vscode.commands.registerCommand(`${COMMAND_PREFIX}.endTour`, async () => {
+    // An explicit end is a step exit like any other: the draft guard runs
+    // first and the tour only ends when the author resolved their draft.
+    if (!(await resolveStepDraftBeforeExit())) {
+      return;
+    }
+
+    await endCurrentCodeTour();
+  });
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.previousTourStep`,
+    `${COMMAND_PREFIX}.previousTourStep`,
     moveCurrentCodeTourBackward
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.nextTourStep`,
+    `${COMMAND_PREFIX}.nextTourStep`,
     moveCurrentCodeTourForward
   );
 
-  vscode.commands.registerCommand(`${EXTENSION_NAME}.resumeTour`, focusPlayer);
+  vscode.commands.registerCommand(`${COMMAND_PREFIX}.resumeTour`, focusPlayer);
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.openTourFile`,
+    `${COMMAND_PREFIX}.openTourFile`,
     async () => {
       const uri = await vscode.window.showOpenDialog({
         filters: {
@@ -244,7 +262,7 @@ export function registerPlayerCommands() {
     }
   );
 
-  vscode.commands.registerCommand(`${EXTENSION_NAME}.openTourUrl`, async () => {
+  vscode.commands.registerCommand(`${COMMAND_PREFIX}.openTourUrl`, async () => {
     const url = await vscode.window.showInputBox({
       prompt: "Specify the URL of the tour file to open",
       value: await vscode.env.clipboard.readText()
@@ -268,7 +286,7 @@ export function registerPlayerCommands() {
   });
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.exportTour`,
+    `${COMMAND_PREFIX}.exportTour`,
     async (node: CodeTourNode) => {
       const uri = await vscode.window.showSaveDialog({
         filters: {
@@ -301,15 +319,15 @@ export function registerPlayerCommands() {
     );
   }
 
-  vscode.commands.registerCommand(`${EXTENSION_NAME}.hideMarkers`, () =>
+  vscode.commands.registerCommand(`${COMMAND_PREFIX}.hideMarkers`, () =>
     setShowMarkers(false)
   );
 
-  vscode.commands.registerCommand(`${EXTENSION_NAME}.showMarkers`, () =>
+  vscode.commands.registerCommand(`${COMMAND_PREFIX}.showMarkers`, () =>
     setShowMarkers(true)
   );
 
-  vscode.commands.registerCommand(`${EXTENSION_NAME}.resetProgress`, () =>
+  vscode.commands.registerCommand(`${COMMAND_PREFIX}.resetProgress`, () =>
     progress.reset()
   );
 }

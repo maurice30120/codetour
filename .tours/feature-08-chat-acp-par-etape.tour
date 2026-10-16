@@ -1,0 +1,143 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Rework du lecteur, éditeur natif d'étape et chat ACP",
+  "description": "Ce Changes Tour couvre la fonctionnalité « Rework du lecteur, éditeur natif d'étape et chat ACP » (issues #44 à #54), développée entre les commits f22f158 et 29c0a87. Le fil commence par une refonte du lecteur de tour : l'édition d'une étape quitte la webview au profit d'un éditeur natif VS Code, le rendu Markdown et son assainissement sont centralisés, et le projet migre ses verrous de dépendances vers bun.\n\nLa seconde moitié introduit la Tour Step Conversation : une discussion avec un agent IA ancrée sur l'étape affichée, portée par l'Agent Client Protocol (ACP) vers des agents installés localement (Vibe en premier). Le client CodeTour y est délibérément en lecture seule : il annonce et accorde uniquement les outils de lecture, refuse les écritures de fichiers et les terminaux, et vérifie les outils réellement exécutés à chaque tour plutôt que de faire confiance au nom du mode Ask.\n\nLe parcours suit l'architecture de bout en bout : l'éditeur natif d'étape, la webview de lecture recentrée, le rendu partagé, le transport stdio, la session ACP en lecture seule, le contexte d'étape transmis à l'agent, l'agent de conversation, le fallback sérialisé entre fournisseurs ACP, et l'agent factice qui rend les tests déterministes à la frontière du transport. Les décisions d'architecture sont consignées dans les ADR 0013 et 0014.\n\nGenerated from the merge-base of `f22f158aa2b6efc016ecb1cdd1578dbb68a0d332` (`f22f158aa2b6efc016ecb1cdd1578dbb68a0d332`) to `29c0a87a50fd86415e47340da49b7f6db28e451e`.",
+  "ref": "29c0a87a50fd86415e47340da49b7f6db28e451e",
+  "baseRef": "f22f158aa2b6efc016ecb1cdd1578dbb68a0d332",
+  "steps": [
+    {
+      "title": "Vue d'ensemble de la fonctionnalité",
+      "description": "Ce segment relie 48 commits qui reworkent le lecteur de tour autour d'un éditeur natif d'étape, migrent le projet vers bun, puis introduisent la Tour Step Conversation : un chat ancré sur chaque étape du tour, servi par un agent ACP installé localement.\n\nLe diagramme ci-dessous résume le fil de la fonctionnalité.\n\n**Diagram — Le fil de la fonctionnalité du lecteur au chat ACP**\n\n```mermaid\nflowchart TD\n  A[Lecteur de tour] --> B[Éditeur natif des étapes]\n  A --> C[Chat par étape]\n  C --> D[Agent ACP installé]\n  D --> E[Mode Ask en lecture seule]\n  E --> F[Réponse diffusée en flux]\n  F --> G[Bouton Arrêter]\n```",
+      "questions": [
+        "Pourquoi l'édition d'étape a-t-elle été déplacée de la webview vers un éditeur natif ?",
+        "Quelles garanties de lecture seule le client ACP apporte-t-il à la conversation ?",
+        "Comment le fallback entre agents évite-t-il les réponses mélangées ?"
+      ]
+    },
+    {
+      "title": "L'éditeur natif d'étape",
+      "description": "L'édition d'une étape n'est plus une surface webview : `enterStepEditing` ouvre un document natif VS Code par session d'édition, adossé au brouillon de l'étape.\n\nUn Tour Step Draft vit dans une WeakMap indexée par l'étape, ce qui le rattache au cycle de vie du tour en mémoire ; la sauvegarde repasse par la commande d'enregistrement du recorder, et la sortie de session est protégée contre les réentrances. Le lecteur gagne ainsi la complétion, le diff et le parcours natifs de l'éditeur.",
+      "questions": [
+        "Comment un brouillon survit-il à la fermeture puis à la réouverture de l'éditeur ?",
+        "Pourquoi les brouillons sont-ils gardés en WeakMap plutôt que dans le dépôt ?"
+      ],
+      "file": "src/player/stepEditing.ts",
+      "pattern": "export async function enterStepEditing",
+      "display": "diff"
+    },
+    {
+      "title": "La webview de lecture recentrée",
+      "description": "La webview devient une pure surface de lecture : les anciens modules d'édition en webview (`tourWebviewEditing`, `descriptionWebview`, `tourWebviewHtml`) disparaissent, remplacés par un flux de messages resserré.\n\nLe message `stopQuestion` est le contrepoint du bouton Arrêter : quand le lecteur interrompt une réponse en cours, l'échange de l'étape est annulé, l'état interrompu est affiché dans le chat et une nouvelle question est acceptée immédiatement. La vue du chat est repoussée vers la webview avec les échanges rendus et l'état de progression.",
+      "questions": [
+        "Que fait le côté extension quand le lecteur presse Arrêter pendant une réponse ?",
+        "Quelles anciennes surfaces d'édition ont disparu avec ce rework ?"
+      ],
+      "file": "src/player/tourWebview.ts",
+      "pattern": "message.type === \"stopQuestion\"",
+      "display": "diff"
+    },
+    {
+      "title": "Rendu et assainissement partagés",
+      "description": "Descriptions d'étapes et réponses du chat passent par le même pipeline : MarkdownIt puis sanitize-html, avec une CSP commune dotée d'un nonce. La webview ne rend jamais le Markdown brut du répondeur.\n\n`createContentSecurityPolicy` scelle la frontière de sécurité de chaque surface HTML possédée par l'extension : aucune origine distante, uniquement des scripts à nonce, des styles en ligne et des images en données ou https.",
+      "questions": [
+        "Pourquoi la webview ne rend-elle jamais directement le Markdown brut de l'agent ?",
+        "Quels schémas d'URI le sanitizer accepte-t-il pour les liens et les images ?"
+      ],
+      "file": "src/player/markdown.ts",
+      "pattern": "export function createContentSecurityPolicy",
+      "display": "diff"
+    },
+    {
+      "title": "Le transport ACP sur stdio",
+      "description": "`AcpAgentEntry` décrit comment lancer un agent installé : commande, arguments, répertoire de travail et mode attendu. Rien n'est téléchargé, la conversation ne démarre que des exécutables présents sur la machine.\n\n`spawnAcpAgent` expose le stdio du processus comme flux ACP en NDJSON, avec une promesse `exited` qui règle à la mort du transport : la couche de session échoue immédiatement au lieu d'attendre une connexion qui ne répondra jamais.",
+      "questions": [
+        "Comment la couche de session détecte-t-elle immédiatement une connexion perdue ?",
+        "Pourquoi l'agent est-il lancé paresseusement à la première question ?"
+      ],
+      "file": "src/agent/acpAgentProcess.ts",
+      "pattern": "export function spawnAcpAgent",
+      "display": "diff"
+    },
+    {
+      "title": "La session Ask en lecture seule",
+      "description": "La couche de session fait du client CodeTour un client ACP en lecture seule, conformément à l'ADR 0013 : elle n'annonce ni écriture de fichier ni terminal, refuse explicitement ces requêtes par des erreurs JSON-RPC, et n'accorde la permission qu'aux outils de lecture.\n\nLe mode Ask n'est jamais cru sur son nom : les changements de mode sont suivis depuis les notifications `current_mode_update` de l'agent, et les genres d'outils réellement exécutés sont vérifiés à chaque tour contre `FORBIDDEN_TOOL_KINDS` — édition, suppression, déplacement et exécution sont refusés quel que soit le mode annoncé. La réponse est diffusée morceau par morceau via `agent_message_chunk`.",
+      "questions": [
+        "Pourquoi le mode Ask n'est-il jamais cru sur son nom seul ?",
+        "Quels genres d'outils sont refusés quel que soit le mode annoncé ?",
+        "Comment le streaming des morceaux de réponse est-il exposé à la webview ?"
+      ],
+      "file": "src/agent/acpSession.ts",
+      "pattern": "export const FORBIDDEN_TOOL_KINDS",
+      "display": "diff"
+    },
+    {
+      "title": "Le chat d'étape et son contexte",
+      "description": "Le protocole du chat est resserré : `askQuestion` soumet la question du lecteur pour l'étape rendue, `stopQuestion` l'interrompt, et la vue `stepChat` remplace la conversation affichée avec les échanges rendus et l'état de progression. Les conversations vivent en mémoire par identité de tour et d'étape, jusqu'à la fermeture de la webview ; rien n'est persisté sur disque.\n\nLe contexte capturé pour une question est fidèle à l'affichage : fichier affiché, URI, répertoire, contenu embarqué, ou les deux côtés d'un diff identifiés chacun avec leur commit Git. Une cible non affichée est signalée comme telle à l'agent, jamais remplacée en silence par un autre fichier.",
+      "questions": [
+        "Comment le contexte transmet-il fidèlement ce que le lecteur voit à l'écran ?",
+        "Que devient une question dont la cible n'est plus affichée ?",
+        "Pourquoi les conversations ne sont-elles pas persistées sur disque ?"
+      ],
+      "file": "src/player/stepChat.ts",
+      "pattern": "type: \"askQuestion\"",
+      "display": "diff"
+    },
+    {
+      "title": "L'agent de conversation ACP",
+      "description": "Le répondeur du chat est construit sur la couche de session : l'agent est lancé paresseusement à la première question, conservé pour toute la session de lecture, et son mode Ask est sélectionné puis vérifié avant le premier prompt. Les échanges précédents de l'étape sont rejoués dans le prompt pour donner la mémoire de la conversation.\n\nUne connexion perde ne tue pas la conversation : une erreur `StepChatAgentUnavailableError` invite le lecteur à réessayer, ce qui relance l'agent avec une nouvelle question. Deux compteurs d'époques rendent inoffensives les courses : une session lancée pendant la fermeture de la webview ne peut jamais s'installer sur une conversation neuve, et une question arrêtée pendant le démarrage n'est jamais promptée.",
+      "questions": [
+        "Comment une session lancée pendant la fermeture de la webview est-elle rendue inoffensive ?",
+        "Pourquoi les échanges précédents sont-ils rejoués dans le prompt de l'agent ?",
+        "Que se passe-t-il pour une question arrêtée pendant que l'agent démarre ?"
+      ],
+      "file": "src/agent/stepChatAgent.ts",
+      "pattern": "export function createAcpStepChatResponder",
+      "display": "diff"
+    },
+    {
+      "title": "Le fallback sérialisé entre agents",
+      "description": "L'ADR 0014 définit l'ordre de repli entre fournisseurs ACP installés, et ce répondeur l'applique : la première session qui fonctionne est conservée jusqu'à la fermeture de la vue de lecture. Un échec de lancement, d'authentification, de poignée de main, de négociation de mode ou de prompt avant le premier texte de réponse enchaîne sur le fournisseur suivant ; une requête interrompue ou une réponse partiellement diffusée ne retombe jamais, pour éviter les réessais indésirables et les réponses mélangées.\n\nLe commit final (29c0a87) sérialise l'ensemble sélection, démarrage, fallback et prompt sur la session partagée : des questions concurrentes sur des étapes différentes ne peuvent plus faire avancer le même index de fallback en parallèle. L'arrêt invalide les questions en file et retire le transport actif avant que de nouvelles questions ne passent.",
+      "questions": [
+        "Pourquoi une réponse partiellement diffusée ne déclenche-t-elle jamais de fallback ?",
+        "Comment la sérialisation empêche-t-elle l'avancement concurrent de l'index de fallback ?",
+        "Que devient le fournisseur sélectionné après un arrêt puis une nouvelle question ?"
+      ],
+      "file": "src/agent/fallbackStepChatAgent.ts",
+      "pattern": "export function createFallbackStepChatResponder",
+      "display": "diff"
+    },
+    {
+      "title": "Les fournisseurs installés et leurs modes",
+      "description": "La liste des fournisseurs est une politique explicite par agent : Vibe en mode Ask via son entrée dédiée `vibe-acp`, Copilot sur son mode par défaut annoncé avec filtrage des outils en lecture seule (view, grep, glob et MCP intégrés désactivés), Codex en mode read-only, Claude Code en mode plan.\n\nCopilot n'utilise jamais Ask : son mode est suivi pour détecter la dérive, tandis que le filtrage d'outils et le refus des permissions imposent la politique du lecteur indépendamment du nom du mode. Vibe, Codex et Claude sont ignorés quand leur mode requis est absent, et rien n'est installé automatiquement.",
+      "questions": [
+        "Pourquoi Copilot utilise-t-il son mode par défaut plutôt que Ask ?",
+        "Que se passe-t-il quand le mode requis d'un agent est absent de sa publicité ?"
+      ],
+      "file": "src/agent/acpProviders.ts",
+      "pattern": "export function acpProviders",
+      "display": "diff"
+    },
+    {
+      "title": "L'agent factice pour des tests déterministes",
+      "description": "La suite de tests refuse de mocker la couche de session en mémoire : elle lance l'agent factice comme un vrai processus fils, exactement à la même frontière de transport que l'entrée Vibe installée.\n\nL'agent factice enregistre chaque requête reçue dans un journal JSON et expose des comportements scriptés — réponse complète, annulation en vol, requête d'outil interdite, échec de lancement — qui permettent de piloter des scénarios complets sans modèle réel, tout en affirmant sur le contenu du fil (capacités, sélection Ask, contexte de l'étape, refus).",
+      "questions": [
+        "Pourquoi les tests spawnent-ils un vrai processus plutôt qu'un mock en mémoire ?",
+        "Quels comportements l'agent factice permet-il de piloter sans modèle réel ?"
+      ],
+      "file": "src/agent/fakeAcpAgent.ts",
+      "pattern": "scripted behaviors",
+      "display": "diff"
+    },
+    {
+      "title": "La décision d'architecture : un client ACP en lecture seule",
+      "description": "L'ADR 0013 consigne la décision fondatrice : la Tour Step Conversation parle à l'agent installé via l'ACP avec le SDK officiel derrière une petite couche de session, mais le client CodeTour est délibérément en lecture seule — pas de capacité d'écriture annoncée, des refus explicites, des lectures de fichiers confinées à l'espace de travail de la session.\n\nLes conséquences bornent l'évolution : la couche est sans interface utilisateur derrière la couture `AcpAgentTransport`, et aucune annonce de capacité, aucun accord de permission ni aucune tolérance de genre d'outil ne peut être élargi sans une nouvelle décision à cet endroit. L'ADR 0014 étend ensuite cette exigence Vibe-seule au repli multi-fournisseurs avec des modes spécifiques.",
+      "questions": [
+        "Quelles options ont été écartées et pourquoi ?",
+        "Quelle partie de la politique ne peut pas être élargie sans nouvelle décision ?"
+      ],
+      "file": "docs/adr/0013-run-tour-step-conversations-over-acp-as-a-read-only-client.md",
+      "pattern": "read-only client",
+      "display": "diff"
+    }
+  ]
+}

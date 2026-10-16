@@ -6,6 +6,14 @@ const { TARGETS, hostTarget } = require("./prepare-resvg-runtime");
 const root = path.resolve(__dirname, "..");
 const target = process.env.CODETOUR_TARGET || hostTarget();
 
+function readJson(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    throw new Error(`Could not read JSON from ${file}: ${error.message}`);
+  }
+}
+
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: root,
@@ -38,15 +46,13 @@ function main() {
 
   run(npm, ["run", "build"]);
   const listing = run(vsce, ["ls"], { capture: true });
-  const packageJson = JSON.parse(
-    fs.readFileSync(path.join(root, "package.json"), "utf8")
-  );
+  const packageJson = readJson(path.join(root, "package.json"));
   if (packageJson.browser) {
     throw new Error("The packaged extension must not contain a browser entry point.");
   }
 
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(root, "dist", "resvg-runtime", "manifest.json"), "utf8")
+  const manifest = readJson(
+    path.join(root, "dist", "resvg-runtime", "manifest.json")
   );
   if (manifest.target !== target || manifest.binary !== TARGETS[target].binary) {
     throw new Error("The staged rasterizer runtime does not match the requested VSIX target.");

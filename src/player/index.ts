@@ -23,7 +23,7 @@ import {
 } from "vscode";
 import { clearMermaidRenderCache } from "codetour-description-renderer";
 import { CONTENT_URI, SMALL_ICON_URL } from "../constants";
-import { CodeTour, store } from "../store";
+import { CodeTour, CodeTourStep, store } from "../store";
 import { initializeStorage } from "../store/storage";
 import {
   getActiveStepMarker,
@@ -33,6 +33,12 @@ import {
   getStepLabel,
   getTourTitle
 } from "../utils";
+import {
+  ActiveAnchor,
+  clearActiveAnchorDecoration,
+  registerActiveAnchorModule,
+  setActiveAnchorDecoration
+} from "./activeAnchor";
 import { registerCodeStatusModule } from "./codeStatus";
 import { getStepDiff, StepDiff } from "./diff";
 import { registerPlayerCommands } from "./commands";
@@ -40,7 +46,15 @@ import { registerDecorators } from "./decorator";
 import { registerFileSystemProvider } from "./fileSystem";
 import { registerTextDocumentContentProvider } from "./fileSystem/documentProvider";
 import { renderPreviewDescription } from "./description";
+import { getCommentLineAbove } from "./commentPlacement";
 import { registerStatusBar } from "./status";
+import { registerNativeDraftEditor, isEditingSession } from "./stepEditing";
+import {
+  disposeTourWebview,
+  getTourCodeViewColumn,
+  renderTourStep,
+  showTourWebview
+} from "./tourWebview";
 import { registerTreeProvider } from "./tree";
 
 const CONTROLLER_ID = "codetour";
@@ -73,26 +87,45 @@ export class CodeTourComment implements Comment {
 let controller: CommentController | null;
 let currentDiff: StepDiff | undefined;
 let currentSelection: Selection | undefined;
+let currentAnchor: ActiveAnchor | undefined;
 let renderVersion = 0;
 
+// The presentation used for the active tour. Recording keeps the native
+// comment threads, because the recording flows build on them.
+function isWebviewPlayback() {
+  return store.isExpandedViewOpen && !store.isRecording;
+}
+
 export async function focusPlayer() {
-  const currentThread = store.activeTour?.thread;
-  // A tour step that targets the workspace root has no thread range to
-  // reveal, and there may not be an active tour at all. In those cases
-  // there is nothing to focus, so bail out instead of dereferencing an
-  // invalid range.
-  if (!currentThread?.range) {
+  const activeTour = store.activeTour;
+  if (!activeTour) {
     return;
   }
 
-  if (store.activeTour?.tour.steps[store.activeTour.step]?.display === "diff") {
+  const step = activeTour.tour.steps[activeTour.step];
+  if (step?.display === "diff") {
     await renderCurrentStep();
-  } else {
-    await showDocument(currentThread.uri, currentThread.range, currentSelection);
+  } else if (currentAnchor) {
+    // Resuming doesn't depend on a native comment thread: the anchor of the
+    // current step is enough to bring the reader back to the code.
+    await showDocument(currentAnchor.uri, currentAnchor.range, currentSelection);
+  }
+
+  if (isWebviewPlayback()) {
+    // Resume focuses the existing reading panel.
+    await showTourWebview();
   }
 }
 
 export async function startPlayer() {
+  // Starting a tour invalidates any anchor or render still in flight for a
+  // previous tour, so a late resolution can never resurface.
+  ++renderVersion;
+  currentDiff = undefined;
+  currentSelection = undefined;
+  currentAnchor = undefined;
+  clearActiveAnchorDecoration();
+
   if (controller) {
     controller.dispose();
   }
@@ -119,6 +152,9 @@ export async function stopPlayer() {
   ++renderVersion;
   currentDiff = undefined;
   currentSelection = undefined;
+  currentAnchor = undefined;
+  clearActiveAnchorDecoration();
+  disposeTourWebview();
   if (store.activeTour?.thread) {
     store.activeTour!.thread.dispose();
     store.activeTour!.thread = null;
@@ -149,7 +185,7 @@ const VIEW_COMMANDS = new Map([
   ["terminal", "terminal.focus"]
 ]);
 
-function getPreviousTour(): CodeTour | undefined {
+export function getPreviousTour(): CodeTour | undefined {
   const previousTour = store.tours.find(
     tour => tour.nextTour === store.activeTour?.tour.title
   );
@@ -167,7 +203,7 @@ function getPreviousTour(): CodeTour | undefined {
   }
 }
 
-function getNextTour(): CodeTour | undefined {
+export function getNextTour(): CodeTour | undefined {
   if (store.activeTour?.tour.nextTour) {
     return store.tours.find(
       tour => tour.title === store.activeTour?.tour.nextTour
@@ -182,6 +218,7 @@ function getNextTour(): CodeTour | undefined {
     }
   }
 }
+
 
 async function renderCurrentStep(forceCurrentFile = false) {
   const version = ++renderVersion;
@@ -205,6 +242,25 @@ async function renderCurrentStep(forceCurrentFile = false) {
   );
   let unavailableFile = false;
   let document: TextDocument | undefined;
+  let line = step.line
+    ? step.line - 1
+    : step.selection
+    ? step.selection.end.line - 1
+    : undefined;
+
+  // The existing fallback when a step's target cannot be opened: the reader
+  // is warned, the step stays readable and the tour continues.
+  const markUnavailableFile = () => {
+    unavailableFile = true;
+    line = 0;
+    uri = CONTENT_URI;
+    if (version === renderVersion) {
+      window.showWarningMessage(
+        `CodeTour: file unavailable: ${step.file || step.uri}. You can continue the tour.`
+      );
+    }
+  };
+
   if (step.display === "diff" && step.file) {
     try {
       document = await workspace.openTextDocument(uri);
@@ -214,34 +270,37 @@ async function renderCurrentStep(forceCurrentFile = false) {
       try {
         document = await workspace.openTextDocument(uri);
       } catch {
-        uri = CONTENT_URI;
-        unavailableFile = true;
-        if (version === renderVersion) {
-          window.showWarningMessage(`CodeTour: file unavailable: ${step.file}. You can continue the tour.`);
-        }
+        markUnavailableFile();
       }
     }
   }
   if (version !== renderVersion || !store.activeTour || !controller) return;
 
-  let line = step.line
-    ? step.line - 1
-    : step.selection
-    ? step.selection.end.line - 1
-    : undefined;
-
-  if (unavailableFile) line = 0;
   if (step.file && !unavailableFile && line === undefined) {
     const stepPattern = step.pattern || getActiveStepMarker();
     if (stepPattern) {
-      document = document || await workspace.openTextDocument(uri);
-      const match = document.getText().match(new RegExp(stepPattern, "m"));
-      if (match) {
-        line = document.positionAt(match.index!).line;
+      try {
+        document = document || await workspace.openTextDocument(uri);
+        const match = document.getText().match(new RegExp(stepPattern, "m"));
+        if (match) {
+          line = document.positionAt(match.index!).line;
+        }
+      } catch (error) {
+        if (!isWebviewPlayback()) {
+          throw error;
+        }
+        if (version !== renderVersion || !store.activeTour) {
+          return;
+        }
+        // In webview mode a missing pattern host keeps the step readable in
+        // the panel instead of breaking the render.
+        markUnavailableFile();
       }
     }
   }
 
+  const hasCodeAnchor = step.file !== undefined || step.uri !== undefined || step.contents !== undefined;
+  const hasSourceAnchor = line !== undefined && hasCodeAnchor && !unavailableFile;
   if (line === undefined) {
     // The step doesn't have a discoverable line number and so
     // stick the step at the end of the file. Unfortunately, there
@@ -253,115 +312,6 @@ async function renderCurrentStep(forceCurrentFile = false) {
   currentDiff = diff;
 
   const range = new Range(line!, 0, line!, 0);
-  let label = `Step #${currentStep + 1} of ${currentTour!.steps.length}`;
-
-  if (currentTour.title) {
-    const title = getTourTitle(currentTour);
-    label += ` (${title})`;
-  }
-
-  const thread = controller!.createCommentThread(uri, range, []);
-  store.activeTour!.thread = thread;
-
-  const mode =
-    store.isRecording && store.isEditing
-      ? CommentMode.Editing
-      : CommentMode.Preview;
-  let content = step.description;
-  if (mode === CommentMode.Preview) {
-    content = await renderPreviewDescription(content, undefined, {
-      tour: currentTour,
-      tours: store.activeTour!.tours,
-      workspaceRoot
-    });
-  }
-  if (version !== renderVersion || !store.activeTour || !controller) {
-    thread.dispose();
-    return;
-  }
-
-  let hasPreviousStep = currentStep > 0;
-  const hasNextStep = currentStep < currentTour.steps.length - 1;
-  const isFinalStep = currentStep === currentTour.steps.length - 1;
-
-  const showNavigation = hasPreviousStep || hasNextStep || isFinalStep;
-  if (!store.isEditing && showNavigation) {
-    content += "\n\n---\n";
-
-    if (hasPreviousStep) {
-      const stepLabel = getStepLabel(
-        currentTour,
-        currentStep - 1,
-        false,
-        false
-      );
-      const suffix = stepLabel ? ` (${stepLabel})` : "";
-      content += `← [Previous${suffix}](command:codetour.previousTourStep "Navigate to previous step")`;
-    } else {
-      const previousTour = getPreviousTour();
-      if (previousTour) {
-        hasPreviousStep = true;
-
-        const tourTitle = getTourTitle(previousTour);
-        const argsContent = encodeURIComponent(
-          JSON.stringify([previousTour.title])
-        );
-        content += `← [Previous Tour (${tourTitle})](command:codetour.startTourByTitle?${argsContent} "Navigate to previous tour")`;
-      }
-    }
-
-    const prefix = hasPreviousStep ? " | " : "";
-    if (hasNextStep) {
-      const stepLabel = getStepLabel(
-        currentTour,
-        currentStep + 1,
-        false,
-        false
-      );
-      const suffix = stepLabel ? ` (${stepLabel})` : "";
-      content += `${prefix}[Next${suffix}](command:codetour.nextTourStep "Navigate to next step") →`;
-    } else if (isFinalStep) {
-      const nextTour = getNextTour();
-      if (nextTour) {
-        const tourTitle = getTourTitle(nextTour);
-        const argsContent = encodeURIComponent(
-          JSON.stringify([nextTour.title])
-        );
-        content += `${prefix}[Next Tour (${tourTitle})](command:codetour.finishTour?${argsContent} "Start next tour")`;
-      } else {
-        content += `${prefix}[Finish Tour](command:codetour.finishTour "Finish the tour")`;
-      }
-    }
-  }
-
-  const comment = new CodeTourComment(
-    content,
-    label,
-    thread,
-    mode
-  );
-
-  if (version !== renderVersion || !store.activeTour || !controller) {
-    thread.dispose();
-    return;
-  }
-
-  // @ts-ignore
-  thread.canReply = false;
-  thread.comments = [comment];
-
-  const contextValues = [];
-  if (hasPreviousStep) {
-    contextValues.push("hasPrevious");
-  }
-
-  if (hasNextStep) {
-    contextValues.push("hasNext");
-  }
-
-  thread.contextValue = contextValues.join(".");
-  thread.collapsibleState =
-    CommentThreadCollapsibleState.Expanded;
 
   let selection;
   if (step.selection && !unavailableFile) {
@@ -379,7 +329,19 @@ async function renderCurrentStep(forceCurrentFile = false) {
   }
 
   currentSelection = selection;
-  if (currentDiff) {
+  currentAnchor = { uri, range };
+
+  // The anchor is resolved and opened the same way in both playback modes;
+  // only the description presentation differs. In webview mode, a step
+  // without an anchorable document stays readable in the panel: nothing is
+  // opened and no anchor marker is invented.
+  if (isWebviewPlayback() && !hasCodeAnchor && !unavailableFile) {
+    // Keep the reading panel as the only presentation of this step. No
+    // anchorable document exists, so none is recorded: resuming reveals
+    // the panel without ever trying to show a document.
+    currentAnchor = undefined;
+    currentSelection = undefined;
+  } else if (currentDiff) {
     try {
       await showDiff(currentDiff, range, selection, version);
     } catch {
@@ -387,7 +349,49 @@ async function renderCurrentStep(forceCurrentFile = false) {
       return;
     }
   } else {
-    await showDocument(uri, range, selection);
+    try {
+      await showDocument(uri, range, selection, version);
+    } catch (error) {
+      if (!isWebviewPlayback()) {
+        throw error;
+      }
+      if (version !== renderVersion || !store.activeTour) {
+        return;
+      }
+      // In webview mode a file that cannot be opened leaves the step
+      // readable in the panel: no anchor is invented and the tour continues.
+      markUnavailableFile();
+      currentAnchor = undefined;
+      currentSelection = undefined;
+    }
+  }
+  if (version !== renderVersion || !store.activeTour) return;
+
+  if (isWebviewPlayback()) {
+    // The description lives only in the expanded view; code keeps its logo.
+    setActiveAnchorDecoration(
+      hasCodeAnchor && hasSourceAnchor && !unavailableFile ? currentAnchor : undefined
+    );
+    await renderTourStep();
+  } else {
+    disposeTourWebview();
+    clearActiveAnchorDecoration();
+    // Existing-step drafts retain their session across both surfaces. The
+    // native comment shows registered content; the Markdown document edits
+    // the shared draft without relying on comment input-change events.
+    let commentRange = range;
+    if (
+      hasSourceAnchor &&
+      !store.isEditing &&
+      workspace.getConfiguration("codetour", uri).get("commentPosition", "above") === "above"
+    ) {
+      document = document || await workspace.openTextDocument(uri);
+      const startLine = step.selection ? step.selection.start.line - 1 : line!;
+      const commentLine = getCommentLineAbove(startLine, document);
+      commentRange = new Range(commentLine, 0, commentLine, 0);
+    }
+    if (version !== renderVersion || !store.activeTour || !controller) return;
+    await presentCurrentStepInThread(step, version, commentRange);
   }
   if (version !== renderVersion || !store.activeTour) return;
 
@@ -428,8 +432,131 @@ async function renderCurrentStep(forceCurrentFile = false) {
   }
 }
 
+async function presentCurrentStepInThread(
+  step: CodeTourStep,
+  version: number,
+  range: Range
+) {
+  const currentTour = store.activeTour!.tour;
+  const currentStep = store.activeTour!.step;
+  const workspaceRoot = store.activeTour!.workspaceRoot;
+
+  let label = `Step #${currentStep + 1} of ${currentTour!.steps.length}`;
+  if (currentTour.title) {
+    const title = getTourTitle(currentTour);
+    label += ` (${title})`;
+  }
+
+  const uri = currentAnchor!.uri;
+  const thread = controller!.createCommentThread(uri, range, []);
+  store.activeTour!.thread = thread;
+
+  const mode =
+    store.isRecording && store.isEditing
+      ? CommentMode.Editing
+      : CommentMode.Preview;
+  let content = step.description;
+  if (mode === CommentMode.Preview) {
+    content = await renderPreviewDescription(content, undefined, {
+      tour: currentTour,
+      tours: store.activeTour!.tours,
+      workspaceRoot
+    });
+  }
+  if (version !== renderVersion || !store.activeTour || !controller) {
+    thread.dispose();
+    return;
+  }
+
+  let hasPreviousStep = currentStep > 0;
+  const hasNextStep = currentStep < currentTour.steps.length - 1;
+  const isFinalStep = currentStep === currentTour.steps.length - 1;
+
+  const showNavigation = hasPreviousStep || hasNextStep || isFinalStep;
+  if (!store.isEditing && showNavigation) {
+    content += "\n\n---\n";
+
+    if (hasPreviousStep) {
+      const stepLabel = getStepLabel(
+        currentTour,
+        currentStep - 1,
+        false,
+        false
+      );
+      const suffix = stepLabel ? ` (${stepLabel})` : "";
+      content += `← [Previous${suffix}](command:codetourIA.previousTourStep "Navigate to previous step")`;
+    } else {
+      const previousTour = getPreviousTour();
+      if (previousTour) {
+        hasPreviousStep = true;
+
+        const tourTitle = getTourTitle(previousTour);
+        const argsContent = encodeURIComponent(
+          JSON.stringify([previousTour.title])
+        );
+        content += `← [Previous Tour (${tourTitle})](command:codetourIA.startTourByTitle?${argsContent} "Navigate to previous tour")`;
+      }
+    }
+
+    const prefix = hasPreviousStep ? " | " : "";
+    if (hasNextStep) {
+      const stepLabel = getStepLabel(
+        currentTour,
+        currentStep + 1,
+        false,
+        false
+      );
+      const suffix = stepLabel ? ` (${stepLabel})` : "";
+      content += `${prefix}[Next${suffix}](command:codetourIA.nextTourStep "Navigate to next step") →`;
+    } else if (isFinalStep) {
+      const nextTour = getNextTour();
+      if (nextTour) {
+        const tourTitle = getTourTitle(nextTour);
+        const argsContent = encodeURIComponent(
+          JSON.stringify([nextTour.title])
+        );
+        content += `${prefix}[Next Tour (${tourTitle})](command:codetourIA.finishTour?${argsContent} "Start next tour")`;
+      } else {
+        content += `${prefix}[Finish Tour](command:codetourIA.finishTour "Finish the tour")`;
+      }
+    }
+  }
+
+  const comment = new CodeTourComment(
+    content,
+    label,
+    thread,
+    mode
+  );
+
+  if (version !== renderVersion || !store.activeTour || !controller) {
+    thread.dispose();
+    return;
+  }
+
+  // @ts-ignore
+  thread.canReply = false;
+  thread.comments = [comment];
+
+  const contextValues = [];
+  if (hasPreviousStep) {
+    contextValues.push("hasPrevious");
+  }
+
+  if (hasNextStep) {
+    contextValues.push("hasNext");
+  }
+
+  thread.contextValue = contextValues.join(".");
+  thread.collapsibleState =
+    CommentThreadCollapsibleState.Expanded;
+
+}
+
 async function showDiff(diff: StepDiff, range: Range, selection: Selection, version: number) {
+  const viewColumn = getTourCodeViewColumn();
   await commands.executeCommand("vscode.diff", diff.original, diff.modified, diff.title, {
+    ...(viewColumn !== undefined ? { viewColumn } : {}),
     preserveFocus: false,
     preview: true,
     selection: selection || range
@@ -446,11 +573,18 @@ async function showDiff(diff: StepDiff, range: Range, selection: Selection, vers
   }
 }
 
-async function showDocument(uri: Uri, range: Range, selection?: Selection) {
+async function showDocument(uri: Uri, range: Range, selection?: Selection, version = renderVersion) {
+  const viewColumn = getTourCodeViewColumn();
   const document =
     window.visibleTextEditors.find(
-      editor => editor.document.uri.toString() === uri.toString()
-    ) || (await window.showTextDocument(uri, { preserveFocus: true }));
+      editor => editor.document.uri.toString() === uri.toString() &&
+        (viewColumn === undefined || editor.viewColumn === viewColumn)
+    ) || (await window.showTextDocument(uri, {
+      preserveFocus: true,
+      ...(viewColumn !== undefined ? { viewColumn } : {})
+    }));
+
+  if (version !== renderVersion || !store.activeTour) return;
 
   // TODO: Figure out how to force focus when navigating
   // to documents which are already open.
@@ -463,11 +597,26 @@ async function showDocument(uri: Uri, range: Range, selection?: Selection) {
 }
 
 export function registerPlayerModule(context: ExtensionContext) {
+  context.subscriptions.push(
+    workspace.onDidChangeConfiguration(event => {
+      if (event.affectsConfiguration("codetour.commentPosition") && store.activeTour) {
+        renderCurrentStep();
+      }
+    })
+  );
+  context.subscriptions.push(registerNativeDraftEditor());
   registerPlayerCommands();
+  context.subscriptions.push(registerActiveAnchorModule());
   context.subscriptions.push(
     registerTreeProvider(context.extensionPath, () => {
       clearMermaidRenderCache();
-      if (store.activeTour && !store.isEditing) {
+      const activeTour = store.activeTour;
+      if (
+        activeTour &&
+        // Refresh reading content without disturbing recorder editing.
+        (!store.isEditing ||
+          isEditingSession(activeTour.tour.id, activeTour.step))
+      ) {
         renderCurrentStep();
       }
     })
@@ -480,10 +629,12 @@ export function registerPlayerModule(context: ExtensionContext) {
 
   initializeStorage(context);
 
-  // Any navigation or tour change automatically refreshes the visible step,
-  // so the comment stays in sync with the file.
+  // Any navigation, playback mode or tour change automatically refreshes the
+  // visible step, so the presented description stays in sync with the code.
   reaction(
     () => [
+      store.isExpandedViewOpen,
+      store.isEditing,
       store.activeTour
         ? [
             store.activeTour.step,

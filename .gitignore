@@ -5,8 +5,11 @@ node_modules
 .DS_Store
 .agents/
 skills-lock.json
-.tours
 .vscode
 AGENTS.md
 docs/agents/
+.vibe
 .vibe/skills
+.pi/
+.scratch/
+rapport-difficultes-mcp-codetour.md

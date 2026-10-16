@@ -12,6 +12,7 @@ export interface CodeTourStepPosition {
 export interface CodeTourStep {
   title?: string;
   description: string;
+  questions?: string[];
   icon?: string;
 
   // A step guides the reader to a single type of destination: a file,
@@ -74,6 +75,11 @@ export interface Store {
   hasTours: boolean;
   isRecording: boolean;
   isEditing: boolean;
+  // Whether the current permissions allow editing the active tour. It is
+  // the store-side mirror of the codetour:canEditTour context, so surfaces
+  // can enforce it in their UI and commands.
+  canEditTour: boolean;
+  isExpandedViewOpen: boolean;
   showMarkers: boolean;
   progress: CodeTourProgress[];
 }
@@ -83,6 +89,8 @@ export const store: Store = observable({
   activeTour: null,
   isRecording: false,
   isEditing: false,
+  canEditTour: true,
+  isExpandedViewOpen: false,
   get hasTours() {
     return this.tours.length > 0;
   },

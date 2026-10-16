@@ -1,0 +1,137 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Vue étendue et sécurisée des descriptions de tour",
+  "description": "Ce Changes Tour explique l'ajout de la vue étendue et sécurisée des descriptions de tour (#28, PR #29), développée entre c9d13c4 et 91e5c86. Jusqu'ici, une description d'étape trop longue restait confinée dans le commentaire du lecteur de tour ; ce segment introduit un panneau webview dédié qui affiche cette description de façon riche et sûre.\n\nLe socle repose sur trois briques : un rendu Markdown partagé avec un nettoyage HTML strict dans `src/player/markdown.ts`, un panneau webview unique — créé dans `src/player/descriptionWebview.ts`, aujourd'hui consolidé dans `src/player/tourWebview.ts` —, et un point d'entrée déclaré dans le lecteur et dans le manifeste de l'extension. L'ADR 0009 fige la décision d'architecture : toute surface HTML détenue par l'extension passe par le même pipeline de rendu et de nettoyage.\n\nLe segment enrichit aussi le serveur MCP : les descriptions d'outils guident désormais les générateurs de tours vers un Markdown lisible (paragraphes séparés par des lignes vides) et vers un usage assumé des diagrammes Mermaid. La sécurité est testée à trois niveaux : nettoyage du contenu, politique de sécurité du contenu du panneau, et liste blanche des liens ouverts.\n\nGenerated from the merge-base of `c9d13c4cc8d712d3fc59506ac0cc141850582b1d` (`c9d13c4cc8d712d3fc59506ac0cc141850582b1d`) to `91e5c86fd996e07e28fe9f2489f9e206140b38af`.",
+  "ref": "91e5c86fd996e07e28fe9f2489f9e206140b38af",
+  "baseRef": "c9d13c4cc8d712d3fc59506ac0cc141850582b1d",
+  "steps": [
+    {
+      "title": "Vue d'ensemble de la fonctionnalité",
+      "description": "Une description d'étape de tour peut dépasser ce que le commentaire du lecteur affiche confortablement. Ce segment ajoute une vue étendue : un panneau webview qui présente la description complète de l'étape active, rendue en HTML riche et confinée par une politique de sécurité stricte.\n\nLe flux va du lecteur de tour vers la vue, en passant par un pipeline de rendu partagé :\n\n**Diagram — Le parcours securise d'une description de tour**\n\n```mermaid\nflowchart TD\n  A[Etape de tour active] --> B[Vue etendue webview]\n  B --> C[Pipeline Markdown partage]\n  C --> D[Nettoyage HTML strict]\n  D --> E[Contenu affiche en securite]\n  E --> F[Clic sur un lien]\n  F --> G{Scheme autorise}\n  G -->|Oui| H[Ouverture via VS Code]\n  G -->|Non| I[Lien rejete]\n```\n\nTrois zones du dépôt portent la fonctionnalité : le lecteur VS Code (`src/player`), le manifeste de l'extension (`package.json`), et le serveur MCP (`packages/mcp-server`) dont les consignes de rédaction évoluent en parallèle.",
+      "questions": [
+        "Pourquoi rendre la vue dans un panneau webview plutôt que dans le commentaire existant ?",
+        "Quelle frontière de sécurité sépare le pipeline de rendu de la surface d'affichage ?",
+        "Où le clic sur un lien de la description est-il réellement intercepté ?"
+      ]
+    },
+    {
+      "title": "Deux nouveaux termes de vocabulaire",
+      "description": "Le vocabulaire du projet gagne deux entrées qui nomment précisément la fonctionnalité. **Tour Step** désigne un arrêt contextualisé dans un tour, ancré à un emplacement de code ou à une surface de contenu, et porteur d'une description.\n\n**Playback Surface** désigne un endroit visible de l'extension où la description d'un tour ou d'une étape est présentée pendant la lecture : le commentaire du lecteur et la nouvelle vue étendue sont deux surfaces de lecture distinctes. Ces termes évitent les confusions (« Comment », « slide », « Component ») dans les discussions et les revues de code.",
+      "questions": [
+        "Pourquoi distinguer l'étape de tour de l'ancre qui la relie au code ?",
+        "Le panneau webview et le commentaire du lecteur sont-ils deux Playback Surfaces au sens de cette définition ?"
+      ],
+      "file": "CONTEXT.md",
+      "pattern": "\\*\\*Tour Step\\*\\*",
+      "display": "diff"
+    },
+    {
+      "title": "ADR 0009 — centraliser le rendu et le nettoyage",
+      "description": "L'ADR 0009 arrête la décision structurante du segment : CodeTour utilise un seul pipeline de description partagé pour toutes les surfaces de lecture. Ce pipeline prépare les liens et références propres à CodeTour, rend les diagrammes Mermaid, et produit le même Markdown quelle que soit la destination.\n\nLes surfaces natives de VS Code reçoivent ce Markdown préparé tel quel (VS Code en possède le rendu) ; les surfaces HTML détenues par l'extension — dont la nouvelle vue étendue — le convertissent via un moteur Markdown déclaré explicitement puis un nettoyage HTML explicite. Les dépendances `markdown-it` et `sanitize-html` deviennent des dépendances directes de l'application : leur comportement est versionné et testable à la frontière de CodeTour, et une mise à jour ailleurs ne peut pas changer silencieusement le rendu.\n\nLes options écartées sont documentées : s'appuyer sur un moteur Markdown transitif, laisser chaque webview configurer son propre rendu, ou remplacer le rendu natif de VS Code par du HTML généré.",
+      "questions": [
+        "Pourquoi un moteur Markdown transitif est-il refusé comme frontière de sécurité ?",
+        "Qu'est-ce qui empêche les règles de nettoyage de diverger entre les surfaces HTML de l'extension ?"
+      ],
+      "file": "docs/adr/0009-centralize-markdown-rendering-and-sanitization.md",
+      "pattern": "Centralize Markdown rendering and sanitization",
+      "display": "diff"
+    },
+    {
+      "title": "Un moteur de rendu et un nettoyage partagés",
+      "description": "`renderMarkdownToHtml` est le point de passage obligatoire de tout contenu affiché dans une surface HTML détenue par l'extension. Le Markdown est rendu par `markdown-it` avec le HTML brut accepté en entrée (le pipeline partagé émet des balises d'images responsives), puis le nettoyage `sanitize-html` constitue la frontière de sécurité.\n\nLa liste blanche est volontairement resserrée : balises de présentation et liens, attributs limités (`id` partout, `href` et `title` pour les liens, `class` pour le code, `alt`/`src`/`title`/`width` pour les images), et schémas d'URI restreints — `http`, `https`, `mailto` et le schéma `command` pour les liens internes, plus `data` pour les images. Tout le reste — scripts, gestionnaires d'événements, styles — est supprimé avant l'affichage.",
+      "questions": [
+        "Pourquoi privilégier un nettoyage HTML en sortie plutôt que l'interdiction du HTML en entrée du moteur ?",
+        "Quels schémas d'URI un lien légitime d'une description de tour peut-il utiliser ici ?"
+      ],
+      "file": "src/player/markdown.ts",
+      "pattern": "export function renderMarkdownToHtml",
+      "display": "diff"
+    },
+    {
+      "title": "Une coquille HTML confinée par CSP",
+      "description": "`createTourWebviewHtml` assemble la page du panneau : le contenu nettoyé, un titre échappé par `escapeHtml`, des styles alignés sur les variables de thème de VS Code, et un script d'interception des clics protégé par un nonce à usage unique.\n\nLa politique de sécurité du contenu bloque tout par défaut : seules les images `data` et `https` passent, les styles en ligne sont autorisés, et les scripts doivent porter le nonce généré à chaque rendu via `randomBytes`. Sans ce nonce, aucun script ne s'exécute dans le panneau, même si du contenu hostile franchissait le nettoyage.",
+      "questions": [
+        "Pourquoi le nonce est-il régénéré à chaque affichage de la description ?",
+        "Quel rôle joue le script résident du panneau si le contenu est déjà nettoyé ?"
+      ],
+      "file": "src/player/markdown.ts",
+      "pattern": "http-equiv=\"Content-Security-Policy\"",
+      "display": "diff"
+    },
+    {
+      "title": "Un panneau unique pour l'étape active",
+      "description": "`showTourWebview` ouvre ou révèle l'unique panneau de lecture depuis l'étape active : le panneau de type `codetour.tour` est créé une seule fois dans la colonne voisine, puis simplement révélé ensuite, et sa fermeture remet la vue à zéro avec les conversations de l'étape. Le rendu de l'étape est publié par `renderTourStep` : la description passe par le pipeline partagé (`renderPreviewDescription`), et le HTML sécurisé remplace le contenu du panneau.\n\nChaque rendu est protégé contre la navigation concurrente : un compteur de version écarte le rendu d'une étape depuis remplacée, et un panneau fermé n'est jamais rouvert par un rendu tardif. À l'origine du segment, ce panneau vivait dans `src/player/descriptionWebview.ts` ; la consolidation du lecteur l'a rattaché au module de la vue de lecture.",
+      "questions": [
+        "Pourquoi conserver un seul panneau plutôt qu'un panneau par étape ?",
+        "Comment un rendu démarré juste avant une navigation est-il écarté ?"
+      ],
+      "file": "src/player/tourWebview.ts",
+      "pattern": "export function showTourWebview"
+    },
+    {
+      "title": "Des liens ouverts selon une liste blanche",
+      "description": "Le script du panneau ne navigue pas lui-même : chaque clic sur un lien non interne envoie un message `openLink` à l'extension, et `openDescriptionLink` décide de l'ouverture côté hôte. Le message n'est traité que s'il porte le jeton, l'identifiant de tour et le numéro d'étape du dernier rendu : un message venu d'un panneau périmé est ignoré.\n\nTrois familles de destinations sont traitées : les URI de commandes ne sont exécutées que si leur nom satisfait la liste blanche `ALLOWED_COMMANDS` (préfixe `codetour.` ou la commande d'ouverture de VS Code), les URI `http`, `https` et `mailto` passent par le navigateur externe, et les chemins relatifs sont résolus contre la racine de l'espace de travail. Les arguments de commande sont restaurés en URI VS Code par `reviveCommandArgument` avant exécution, et toute erreur d'ouverture est signalée à l'utilisateur. La fonction vivait dans `src/player/descriptionWebview.ts` sous le nom `openLink` avant la consolidation du lecteur.",
+      "questions": [
+        "Pourquoi la liste blanche de commandes s'applique-t-elle côté extension et non dans le script du panneau ?",
+        "Que se passe-t-il pour un lien relatif quand aucune racine d'espace de travail n'est mémorisée ?",
+        "Quel risque la restauration des arguments en URI typés cherche-t-elle à couvrir ?"
+      ],
+      "file": "src/player/tourWebview.ts",
+      "pattern": "async function openDescriptionLink"
+    },
+    {
+      "title": "L'enregistrement de la commande dans le lecteur",
+      "description": "Le lecteur enregistre la commande `codetour.showStepDescription` en tête de `registerPlayerCommands`. Son gestionnaire est le point de couture entre le manifeste — qui déclare la commande et son icône — et l'unique panneau de lecture : il résout d'abord tout brouillon d'édition en cours (`resolveStepDraftBeforeExit`), refuse de s'exécuter hors lecture (tour inactif ou enregistrement), puis ouvre ou révèle la vue étendue via `showTourWebview`.\n\nLa commande vit à côté des autres commandes internes du lecteur ; c'est elle que la barre d'outils du commentaire invoque lorsque la description mérite la vue étendue.",
+      "questions": [
+        "Pourquoi la commande est-elle enregistrée par le lecteur plutôt que par une activation distincte ?",
+        "Que se passerait-il si la commande était déclarée dans le manifeste sans être enregistrée dans le registre du lecteur ?"
+      ],
+      "file": "src/player/commands.ts",
+      "pattern": "\\$\\{EXTENSION_NAME\\}\\.showStepDescription",
+      "display": "diff"
+    },
+    {
+      "title": "Le manifeste : commande et bouton dans la barre du commentaire",
+      "description": "Le manifeste déclare la commande `codetour.showStepDescription` (titre « Show Expanded Description », catégorie CodeTour, icône « preview »), la retire de la palette de commandes, et l'ajoute au menu de titre des fils de commentaires en tête de rangée (`inline@0`, visible quand le contrôleur de commentaires est celui de CodeTour).\n\nLe positionnement en `inline@0` place le bouton d'ouverture avant la navigation entre étapes (`inline@1` et suivantes) ; la fin de tour reste en fin de rangée (`inline@3`). Le test de manifeste d'une étape suivante verrouille ce placement.",
+      "questions": [
+        "Pourquoi la commande est-elle retirée de la palette de commandes ?",
+        "Que garantit le placement en tête de rangée pour l'utilisateur qui lit une étape ?"
+      ],
+      "file": "package.json",
+      "pattern": "\"group\": \"inline@0\"",
+      "display": "diff"
+    },
+    {
+      "title": "Trois garanties testées pour la vue étendue",
+      "description": "La suite du panneau verrouille la sécurité hors de VS Code : le test `createTourWebviewHtml keeps the shared content policy and sanitization` vérifie que le HTML produit conserve la politique de sécurité du contenu avec son nonce, qu'un lien au schéma `javascript` est supprimé sans casser le texte du lien, et qu'un titre piégé (`<script>` inséré) reste échappé.\n\nUn second test exécute le script résident du panneau : seuls les liens de contenu sont interceptés et transmis, chaque message portant l'identité du rendu actif (jeton, tour, étape). Le fichier historique `src/player/descriptionWebview.test.ts` a été absorbé par cette suite lors de la consolidation du lecteur ; les assertions comparent le HTML produit à des expressions attendues, ce qui rend la frontière vérifiable sans lancer l'extension.",
+      "questions": [
+        "Pourquoi tester le nettoyage HTML indépendamment du panneau VS Code ?",
+        "Quelle assertion distingue l'échappement du titre du nettoyage du contenu ?"
+      ],
+      "file": "src/player/tourWebviewHtml.test.ts",
+      "pattern": "keeps the shared content policy and sanitization"
+    },
+    {
+      "title": "Le manifeste verrouillé par un test",
+      "description": "Ce test lit le manifeste de l'extension à l'exécution et vérifie que le bouton d'ouverture de la vue étendue est exposé dans la barre de titre des fils de commentaires (`codetour.showStepDescription` en `inline@0` sous le contrôleur CodeTour) sans déplacer l'action de fin de tour (`codetour.endTour` reste en `inline@3`).\n\nLa barre de titre des commentaires est une surface finement négociée : ce test empêche une contribution future de casser l'accès à la vue en réordonnant ou en retirant les actions.",
+      "questions": [
+        "Pourquoi vérifier le manifeste plutôt que la liste des commandes enregistrées ?",
+        "Quelle régression le test sur « End Tour » cherche-t-il à prévenir ?"
+      ],
+      "file": "src/player/commentMenu.test.ts",
+      "pattern": "inline@0",
+      "display": "diff"
+    },
+    {
+      "title": "Le serveur MCP réclame un Markdown lisible",
+      "description": "En parallèle de la vue, le serveur MCP affine ses consignes aux générateurs de tours : `MARKDOWN_WRITING_GUIDANCE` exige des paragraphes courts séparés par des lignes vides (un simple saut de ligne est une coupure douce Markdown), des titres pour les descriptions multi-sujets, des listes pour les collections, et déconseille les paragraphes monolithiques. Les schémas d'entrée des deux outils documentent aussi ces attentes, et la validation des diagrammes Mermaid (dans `mermaid-validation.ts`) passe de « avec parcimonie » à « dès qu'il clarifie une relation », avec au moins un diagramme recommandé pour les tours multi-étapes.\n\nCe segment rend donc le format des descriptions cohérent des deux côtés : ce que les générateurs produisent est exactement ce que la vue étendue sait rendre proprement et sûrement. Enfin, le lanceur de tests compilés (`scripts/run-compiled-tests.js`) passe en exécution sérielle, pour éviter qu'un rafraîchissement de paquet du serveur n'entre en concurrence avec un autre processus de test.",
+      "questions": [
+        "Pourquoi la consigne insiste-t-elle sur les lignes vides plutôt que sur les sauts de ligne simples ?",
+        "Quel lien ce changement de consigne crée-t-il avec la vue étendue introduite par ce segment ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "const MARKDOWN_WRITING_GUIDANCE",
+      "display": "diff"
+    }
+  ]
+}

@@ -7,16 +7,18 @@ the extension forward and adds AI-generated tours.
 
 ## Compatibility
 
-Everything you already have keeps working:
+Existing tours remain supported, with command links requiring migration:
 
 - **`.tour` files** — the file format is unchanged. The schema was only
   extended with optional fields (`baseRef`, `baseFile`, `display`), so every
   existing tour loads as-is, including tours recorded with the original
   extension.
-- **Command links** — tour steps using `command:codetour.*` links keep working;
-  the command IDs are unchanged. Only the display name of the commands changed
-  (they now appear under the `CodeTour IA` category).
-- **Keyboard shortcuts, settings and tours stored in `.tours/`** — unchanged.
+- **Command links** — replace `command:codetour.` with `command:codetourIA.`
+  in tour descriptions, and `codetour.` with `codetourIA.` in step `commands`
+  arrays and custom keyboard shortcut command IDs. For example,
+  `codetour.startTour` becomes `codetourIA.startTour`. Legacy command aliases
+  are not registered, to avoid conflicts with the original extension.
+- **Default keyboard shortcuts, settings and tours stored in `.tours/`** — unchanged.
 - **Public tour export and tour-by-URL links** — unchanged.
 
 ## What the fork adds
@@ -43,8 +45,8 @@ CodeTour IA is not published on the VS Code Marketplace yet. Releases are
 distributed as VSIX packages on
 [GitHub Releases](https://github.com/maurice30120/codetour/releases).
 
-1. Uninstall the original CodeTour extension (optional: both extensions can
-   coexist, but running both at once is not recommended).
+1. Uninstall the original CodeTour extension (`vsls-contrib.codetour`) to
+   avoid duplicate menus and competing playback surfaces.
 2. Download the latest `.vsix` from
    [GitHub Releases](https://github.com/maurice30120/codetour/releases).
 3. Install it:

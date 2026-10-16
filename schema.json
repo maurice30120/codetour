@@ -33,6 +33,12 @@
         "type": "object",
         "required": ["description"],
         "properties": {
+          "questions": {
+            "type": "array",
+            "maxItems": 4,
+            "items": { "type": "string", "minLength": 1, "pattern": "\\S" },
+            "description": "Optional questions for this step, displayed as buttons that send directly to the step conversation."
+          },
           "file": {
             "type": "string",
             "description": "File path (relative to the workspace root) that the step is associated with."

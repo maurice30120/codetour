@@ -22,7 +22,7 @@ interface FenceSpan {
 
 function insertCodeLink(codeBlock: string): string {
   const params = encodeURIComponent(JSON.stringify([codeBlock]));
-  return `↪ [Insert Code](command:codetour.insertCodeSnippet?${params} "Insert Code")`;
+  return `↪ [Insert Code](command:codetourIA.insertCodeSnippet?${params} "Insert Code")`;
 }
 
 function transformLegacy(content: string): string {

@@ -200,10 +200,10 @@ function measureTextBox(element: Element): Box {
       const dy = coordinateOf(tspan.getAttribute("dy"), fontSize);
       if (explicitY !== undefined) {
         lineY = explicitY;
-      } else if (dy !== undefined) {
+      }
+      // SVG dy offsets the current position even when y resets it.
+      if (dy !== undefined) {
         lineY += dy;
-      } else {
-        lineY += fontSize * LINE_HEIGHT_FACTOR;
       }
       measureLine(tspan.textContent || "", lineY);
     }
@@ -235,6 +235,15 @@ function union(boxes: Box[]): Box {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
+function parseNumberList(value: string): number[] {
+  return value
+    .trim()
+    .split(/[\s,]+/)
+    .filter(part => part !== "")
+    .map(Number)
+    .filter(number => !isNaN(number));
+}
+
 function multiplyMatrices(first: Matrix, second: Matrix): Matrix {
   return {
     a: first.a * second.a + first.c * second.b,
@@ -255,10 +264,7 @@ function parseTransform(value: string | null): Matrix {
   const pattern = /(translate|scale|rotate|matrix)\s*\(([^)]*)\)/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(value))) {
-    const args = match[2]
-      .split(/[\s,]+/)
-      .map(Number)
-      .filter(number => !isNaN(number));
+    const args = parseNumberList(match[2]);
 
     let transform: Matrix;
     if (match[1] === "translate") {
@@ -310,6 +316,8 @@ function transformBox(box: Box, matrix: Matrix): Box {
 
   return union(points.map(point => ({ ...point, width: 0, height: 0 })));
 }
+
+const ZERO_BOX: Box = { x: 0, y: 0, width: 0, height: 0 };
 
 function measureElementBox(element: Element, inherited: Matrix = IDENTITY): Box {
   const matrix = multiplyMatrices(
@@ -364,6 +372,27 @@ function measureElementBox(element: Element, inherited: Matrix = IDENTITY): Box 
     );
   }
 
+  if (tag === "polygon" || tag === "polyline") {
+    // Points travel in x/y pairs; a malformed pair is skipped whole so the
+    // pairing of the remaining coordinates is never shifted.
+    const numbers = (element.getAttribute("points") || "")
+      .trim()
+      .split(/[\s,]+/)
+      .filter(part => part !== "");
+    const points: Box[] = [];
+    for (let index = 0; index + 1 < numbers.length; index += 2) {
+      const x = Number(numbers[index]);
+      const y = Number(numbers[index + 1]);
+      if (!isNaN(x) && !isNaN(y)) {
+        points.push({ x, y, width: 0, height: 0 });
+      }
+    }
+    if (points.length === 0) {
+      return transformBox(ZERO_BOX, matrix);
+    }
+    return transformBox(union(points), matrix);
+  }
+
   if (tag === "path") {
     return pathBox(element, matrix);
   }
@@ -372,7 +401,7 @@ function measureElementBox(element: Element, inherited: Matrix = IDENTITY): Box 
     .filter(child => !NON_RENDERED_ELEMENTS.has(child.localName))
     .map(child => measureElementBox(child, matrix));
   if (boxes.length === 0) {
-    return transformBox({ x: 0, y: 0, width: 0, height: 0 }, matrix);
+    return transformBox(ZERO_BOX, matrix);
   }
   return union(boxes);
 }
@@ -397,12 +426,7 @@ function pathBox(element: Element, matrix: Matrix): Box {
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(commands))) {
     const command = match[1];
-    const args = match[2]
-      .trim()
-      .split(/[\s,]+/)
-      .filter(part => part !== "")
-      .map(Number)
-      .filter(number => !isNaN(number));
+    const args = parseNumberList(match[2]);
 
     if (command === "M" || command === "L" || command === "T") {
       for (let index = 0; index + 1 < args.length; index += 2) {
@@ -482,7 +506,7 @@ function pathBox(element: Element, matrix: Matrix): Box {
   }
 
   if (minX === Infinity) {
-    return transformBox({ x: 0, y: 0, width: 0, height: 0 }, matrix);
+    return transformBox(ZERO_BOX, matrix);
   }
 
   return transformBox(

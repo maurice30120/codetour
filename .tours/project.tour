@@ -1,0 +1,115 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "CodeTour codebase design",
+  "description": "A design study of CodeTour read through its modules: where the deep interfaces are, where the seams sit, and which adapters prove them real. One idea per step, anchored in the source.",
+  "steps": [
+    {
+      "title": "Overview",
+      "description": "CodeTour is a VS Code extension that lets developers record and play back guided walkthroughs of a codebase, anchored directly in the editor. It also ships a Model Context Protocol (MCP) server that lets an AI agent author those walkthroughs through a validated, atomic pipeline.\nThis tour reads the codebase as a set of **modules**, **interfaces**, and **seams**: where a large amount of behaviour hides behind a small interface (depth), and where two adapters prove a seam is real.\n**Diagram — Context view**\n```mermaid\nflowchart LR\n  Developer[\"Developer, onboarding to a codebase\"] -->|\"plays recorded tours (VS Code comments and webview)\"| CodeTour[\"CodeTour\"]\n  Agent[\"AI agent, authoring a tour for its user\"] -->|\"proposes tours (MCP tools over stdio)\"| CodeTour\n  CodeTour -->|\"registers comments, commands and webviews (Extension Host API)\"| VSCode[\"VS Code\"]\n  CodeTour -->|\"renders diagram sources (bundled Mermaid engine)\"| Mermaid[\"Mermaid\"]\n  CodeTour -->|\"reads diffs and commit anchors (git child processes)\"| Git[\"Git repository\"]\n```\n**Diagram — Containers**\n```mermaid\nflowchart LR\n  subgraph Extension[\"CodeTour extension (VS Code extension host process)\"]\n  end\n  subgraph McpServer[\"codetour-mcp server (standalone Node process, stdio)\"]\n  end\n  subgraph TourFiles[\"Tour files (.tour JSON under .tours/, workspace file system)\"]\n  end\n  Developer[\"Developer\"] -->|\"records and plays tours (VS Code commands and comments)\"| Extension\n  Agent[\"AI agent\"] -->|\"submits tour proposals (MCP over stdio)\"| McpServer\n  McpServer -->|\"writes tour files atomically (temp file, fsync, rename)\"| TourFiles\n  Extension -->|\"discovers and reads tour files (workspace file system)\"| TourFiles\n```\nThe shared `description-renderer` package is deliberately not a container: it is a library compiled into both. Where the work lives:\n- [src/](src/) — the extension: player, recorder, store, ACP agent\n- [packages/mcp-server/](packages/mcp-server/) — the MCP server and its validation pipeline\n- [packages/description-renderer/](packages/description-renderer/) — the rendering module shared by both\n- [schema.json](schema.json) — the .tour file contract",
+      "questions": [
+        "Pourquoi le serveur MCP est-il un processus séparé plutôt qu'une partie de l'extension ?",
+        "Pourquoi description-renderer est-il partagé entre les deux conteneurs ?",
+        "Que garantit le contrat du fichier .tour ?"
+      ]
+    },
+    {
+      "title": "The renderer: one deep module behind a small interface",
+      "description": "The `description-renderer` package is the deepest module in the codebase. Its entire interface fits in this one file — `renderDescription`, `renderMermaidDiagram`, the fence and caption helpers — while the implementation spans `parse`, `rules`, `render`, `dom`, `sanitize`, `measure` and `rasterize`.\nTwo consumers cross this seam: the extension renders step descriptions in the reading webview, and the MCP server validates the same content offline. The depth pays twice: the caption grammar and the diagram rules live behind one interface, so playback and validation can never drift apart.",
+      "questions": [
+        "Quels modules importent ce paquet ?",
+        "Que décide evaluateDiagramFence ?",
+        "Pourquoi le serveur doit-il valider avec le même moteur que la lecture ?"
+      ],
+      "file": "packages/description-renderer/src/index.ts",
+      "pattern": "renderDescription"
+    },
+    {
+      "title": "The caption grammar has one source of truth",
+      "description": "A Mermaid fence must be preceded by a bold caption line `**Diagram — …**`. The `CAPTION_PATTERN` regular expression on this line is the only place that grammar is defined; `matchDiagramCaption` wraps it for every consumer.\nThis is locality in action. The extension's rendering, the MCP server's diagnostics, and the frozen tests all go through the same function instead of re-implementing the walk: change the grammar once and every caller, test, and error message follows.",
+      "questions": [
+        "Qui appelle matchDiagramCaption ?",
+        "Pourquoi le tiret cadratin est-il littéral dans le motif ?",
+        "Qu'est-ce qui est remonté quand un bloc Mermaid n'a pas de caption ?"
+      ],
+      "file": "packages/description-renderer/src/rules.ts",
+      "pattern": "const CAPTION_PATTERN"
+    },
+    {
+      "title": "The MCP server interface: two tools, deliberately permissive",
+      "description": "The server's whole interface is two tools, `create_project_tour` and `create_changes_tour`. The comment anchored here records a real design decision: the input schemas stay permissive (`z.unknown()` plus `.passthrough()`), because a strict schema would make the MCP SDK reject a malformed proposal before the server could say why.\nField-by-field validation therefore runs inside, in `validation.ts`, and one response aggregates every issue with a `path` and a `message`. Callers get the complete picture in a single round trip instead of a first-error-only rejection.",
+      "questions": [
+        "Pourquoi ne pas valider dans le schéma ?",
+        "Comment les problèmes atteignent-ils l'agent appelant ?",
+        "Que répète le dryRun sans rien écrire ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "Tool input schemas remain intentionally permissive"
+    },
+    {
+      "title": "Offline validation equals playback, by construction",
+      "description": "`validateMermaidDescriptions` checks every Mermaid fence in a proposal offline. Its `parseMermaid` helper calls the renderer's `renderMermaidDiagram` and deliberately discards the PNG, as the comment anchored here states: validation uses the exact locked Mermaid engine and the same strict configuration as playback.\nSo \"valid for the server\" means \"renders in the webview\" — not an approximation. The interface is one function plus the shared guidance text; fence walking, rendering and error mapping all hide behind it.",
+      "questions": [
+        "Pourquoi jeter le PNG rendu ?",
+        "Quels types de diagrammes sont autorisés ?",
+        "Comment le diagnostic localise-t-il un bloc invalide ?"
+      ],
+      "file": "packages/mcp-server/src/mermaid-validation.ts",
+      "pattern": "renderMermaidDiagram uses the exact locked Mermaid engine"
+    },
+    {
+      "title": "Atomic persistence",
+      "description": "When a proposal fully validates, `writeTourAtomic` writes the tour. The content goes to a temporary file in the target directory, is fsynced, then renamed over the destination: a crash never leaves a partial file and always preserves the previous tour.\nThe output path is resolved through `realpath` and confined to the workspace root, so a proposal can never write outside the workspace — the security rules live inside the module, not in the callers.",
+      "questions": [
+        "Pourquoi renommer plutôt qu'écrire en place ?",
+        "Pourquoi résoudre realpath avant d'écrire ?",
+        "Quand la visite précédente est-elle préservée ?"
+      ],
+      "file": "packages/mcp-server/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic"
+    },
+    {
+      "title": "The step chat seam: two adapters make it real",
+      "description": "Step conversations do not create their answering agent; they accept it. `setStepChatResponder` injects whatever implements the `StepChatResponder` interface anchored here: `answer`, plus optional `cancel` and `dispose`.\nProduction installs the ACP responder over the installed agent; `createFallbackStepChatResponder` is a second adapter; the deterministic tests inject their own at the same seam. Two adapters mean the seam is real, and the chat logic never learns which one is behind it.",
+      "questions": [
+        "Qui appelle setStepChatResponder ?",
+        "Que fait cancel sur une réponse en cours ?",
+        "Pourquoi cancel et dispose sont-ils optionnels ?"
+      ],
+      "file": "src/player/stepChat.ts",
+      "pattern": "export function setStepChatResponder"
+    },
+    {
+      "title": "Read-only by allowlist, not by convention",
+      "description": "The ACP session that answers step questions may only read and explain code. That is enforced by two exported lists anchored here: `FORBIDDEN_TOOL_KINDS` (`edit`, `delete`, `move`, `execute`) is refused whatever the current mode claims, while the read-only allowlist (`read`, `search`, `fetch`, `think`) is granted without escalation.\nThe reader-facing conversation therefore cannot mutate the workspace even when the agent proposes to. The safety rule lives at the seam between the agent's capability and the reader's trust.",
+      "questions": [
+        "Quels types d'outils passent sans escalade ?",
+        "Pourquoi refuser execute même en mode de confiance ?",
+        "Où ailleurs le code impose-t-il la lecture seule ?"
+      ],
+      "file": "src/agent/acpSession.ts",
+      "pattern": "export const FORBIDDEN_TOOL_KINDS"
+    },
+    {
+      "title": "The store: one observable state, many surfaces",
+      "description": "All playback state lives in the single mobx `observable` anchored here: the tours, the active tour, progress and UI flags. Commands, the tree, the webview and the decorator all read the same state and mutate it through the actions module.\n`discoverTours` in `provider.ts` is the only loader, and `extension.ts` caches its promise so a normal project open and a tour link share one file read. Change and verification concentrate in one place — locality again.",
+      "questions": [
+        "Quelles surfaces s'abonnent à activeTour ?",
+        "Pourquoi mettre en cache la promesse de discoverTours ?",
+        "Pourquoi mobx plutôt que des mises à jour manuelles ?"
+      ],
+      "file": "src/store/index.ts",
+      "pattern": "export const store: Store = observable"
+    },
+    {
+      "title": "The webview HTML module",
+      "description": "`createTourWebviewHtml(model, nonce)` turns a typed `TourWebviewModel` into the full HTML document of the reading webview. Everything a caller would have to get right — the content security policy, the nonce, HTML escaping of questions and answers, diagram rendering — is inside the module.\nThe caller only builds the model, and the interface is the test surface: `tourWebviewHtml.test.ts` feeds models in and freezes the escaping behaviour in the HTML out.",
+      "questions": [
+        "Contre quoi escapeHtml protège-t-il ?",
+        "Pourquoi la CSP est-elle construite avec le nonce ?",
+        "Qu'est-ce qui appartient au modèle plutôt qu'au HTML ?"
+      ],
+      "file": "src/player/markdown.ts",
+      "pattern": "export function createTourWebviewHtml"
+    }
+  ]
+}

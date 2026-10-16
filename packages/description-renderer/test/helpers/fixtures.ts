@@ -209,5 +209,5 @@ export const HOSTILE_INTERACTION_SOURCE = [
 
 export const HOSTILE_MARKDOWN_LABEL_SOURCE = [
   "flowchart TD",
-  '    A["See [docs](https://evil.example) and [run](command:codetour.nextTourStep)"] --> B'
+  '    A["See [docs](https://evil.example) and [run](command:codetourIA.nextTourStep)"] --> B'
 ].join("\n");

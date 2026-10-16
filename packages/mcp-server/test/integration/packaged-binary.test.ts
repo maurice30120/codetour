@@ -20,7 +20,9 @@ const execFileAsync = promisify(execFile);
 const packageRoot = path.join(__dirname, "..", "..", "..");
 
 async function npm(args: string[], cwd: string, cache: string): Promise<string> {
-  const npmCli = process.env.npm_execpath;
+  // npm sets npm_execpath to its CLI JavaScript entry, which runs under this
+  // Node. Fall back to the npm executable when no CLI entry is provided.
+  const npmCli = process.env.npm_execpath?.endsWith(".js") ? process.env.npm_execpath : undefined;
   const command = npmCli ? process.execPath : "npm";
   const commandArgs = npmCli ? [npmCli, ...args] : args;
   const result = await execFileAsync(command, commandArgs, {
