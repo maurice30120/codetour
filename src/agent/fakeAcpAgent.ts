@@ -213,7 +213,7 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
         if (behavior === "close-stream-mid-prompt-once") {
           process.stdout.end();
           // Keep the process alive after EOF to expose stream/exit ordering.
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
         process.exit(3);
       }
