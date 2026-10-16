@@ -5,6 +5,7 @@ import { Uri } from "vscode";
 import { join } from "path";
 
 export const EXTENSION_NAME = "codetour";
+export const COMMAND_PREFIX = "codetourIA";
 
 export const FS_SCHEME = EXTENSION_NAME;
 export const FS_SCHEME_CONTENT = `${FS_SCHEME}-content`;

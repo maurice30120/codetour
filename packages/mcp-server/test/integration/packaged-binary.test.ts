@@ -21,7 +21,7 @@ const packageRoot = path.join(__dirname, "..", "..", "..");
 
 async function npm(args: string[], cwd: string, cache: string): Promise<string> {
   // npm sets npm_execpath to its CLI JavaScript entry, which runs under this
-  // Node; bun sets it to its native binary, which does not.
+  // Node. Fall back to the npm executable when no CLI entry is provided.
   const npmCli = process.env.npm_execpath?.endsWith(".js") ? process.env.npm_execpath : undefined;
   const command = npmCli ? process.execPath : "npm";
   const commandArgs = npmCli ? [npmCli, ...args] : args;

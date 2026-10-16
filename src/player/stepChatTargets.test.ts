@@ -158,18 +158,18 @@ function lastChatUpdate() {
 }
 
 async function startReading(tour: unknown) {
-  await host.vscode.commands.executeCommand("codetour.startTour", tour);
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.startTour", tour);
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
 }
 
 async function startTourWithSteps(fileName: string, steps: CodeTourStep[]) {
-  await host.vscode.commands.executeCommand("codetour.startTour", {
+  await host.vscode.commands.executeCommand("codetourIA.startTour", {
     id: `file:///workspace/.tours/${fileName}`,
     title: "1 - Step Targets Tour",
     description: "A tour covering step target types",
     steps
   });
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() =>
     host.panelHtml().includes("Ask a question about this step")
   );
@@ -198,7 +198,7 @@ function recordContexts() {
 }
 
 async function endTour() {
-  await host.vscode.commands.executeCommand("codetour.endTour");
+  await host.vscode.commands.executeCommand("codetourIA.endTour");
   await host.waitFor(() => store.activeTour === null);
 }
 
@@ -233,7 +233,7 @@ test("a diff step sends both displayed sides, identified as such", async () => {
 test("an added file diff identifies its empty original side", async () => {
   const received = recordContexts();
 
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("Added diff step"));
   await ask("D'où vient ce fichier ?");
 
@@ -251,7 +251,7 @@ test("an added file diff identifies its empty original side", async () => {
 test("a snapshot step sends the displayed Git snapshot, not the current file", async () => {
   const received = recordContexts();
 
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("Snapshot step"));
   await ask("Que montre ce snapshot ?");
 
@@ -394,7 +394,7 @@ test("a directory-anchored step sends the declared directory, never a buffer", a
 
   // The file step leaves its buffer open behind the reader; the directory
   // step presents no code, so the question must not capture that buffer.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 2"));
   chatPanel().receive({ type: "askQuestion", question: "Que trouve-t-on dans src ?" });
   await host.waitFor(() => lastChatUpdate().responding === false);
@@ -479,7 +479,7 @@ test("an unavailable file target is reported as such, never substituted", async 
 
   // The reader is warned that the target is unavailable and the step stays
   // readable; the previous step's buffer is still open behind the panel.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 2"));
   await host.waitFor(() =>
     host.messages.some(message =>
@@ -502,7 +502,7 @@ test("an unavailable file target is reported as such, never substituted", async 
   setStepChatResponder(undefined);
   // Ending the tour stops the player and its panel; a plain panel dispose
   // would re-render the missing target after the test ends.
-  await host.vscode.commands.executeCommand("codetour.endTour");
+  await host.vscode.commands.executeCommand("codetourIA.endTour");
 });
 
 test("a view step sends only the description, without any code target", async () => {

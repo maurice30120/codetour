@@ -71,8 +71,8 @@ function seedWorkspace() {
 
 async function startTour() {
   seedWorkspace();
-  await host.vscode.commands.executeCommand("codetour.startTour", tour);
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.startTour", tour);
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() =>
     host.panelHtml().includes("Ask a question about this step")
   );
@@ -261,7 +261,7 @@ test("a step without displayed code is reported as unavailable to the agent, nev
   registerPlayerModule(host.extensionContext);
   await startTour();
 
-  await host.vscode.commands.executeCommand("codetour.navigateToStep", 3);
+  await host.vscode.commands.executeCommand("codetourIA.navigateToStep", 3);
   await host.waitFor(() => host.panelHtml().includes("3 / 3"));
   chatPanel().receive({ type: "askQuestion", question: "Que dire sans code ?" });
   await waitForCompletedAnswer(update =>
@@ -309,10 +309,10 @@ test("an agent launch failure lands in the chat and the next question retries", 
   assert.match(failure.exchanges[0].answerHtml, /restart the agent/);
 
   // The reader keeps reading and navigating without any agent.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
   assert.match(host.panelHtml(), /class="step-chat"/);
-  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("1 / 3"));
 
   // The next question relaunches the agent and gets its answer.
@@ -346,10 +346,10 @@ test("an agent authentication failure lands in the chat and the next question re
   assert.match(failure.exchanges[0].answerHtml, /restart the agent/);
 
   // Reading and navigation remain fully usable with no authenticated agent.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
   assert.match(host.panelHtml(), /class="step-chat"/);
-  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("1 / 3"));
 
   // The retry relaunches the agent without reloading the webview; the
@@ -388,10 +388,10 @@ test("a missing agent entry reports the launch failure in the chat and the reade
   assert.match(failure.exchanges[0].answerHtml, /restart the agent/);
 
   // Reading and navigation remain fully usable without any agent process.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
   assert.match(host.panelHtml(), /class="step-chat"/);
-  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
   await host.waitFor(() => host.panelHtml().includes("1 / 3"));
 
   // Retrying attempts a fresh launch of the missing entry and reports the
@@ -676,7 +676,7 @@ test("each step keeps its own conversation over one agent session, unmixed acros
 
   // The reader moves to another step: it starts its own conversation, and
   // no exchange of the first step reaches its questions.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
   chatPanel().receive({ type: "askQuestion", question: "Autre fichier ?" });
   await waitForCompletedAnswer(update =>
@@ -697,7 +697,7 @@ test("each step keeps its own conversation over one agent session, unmixed acros
 
   // Coming back to the first step restores its whole conversation, without
   // any trace of the step visited in between.
-  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
   await host.waitFor(() =>
     host.panelHtml().includes("Première étape ?") &&
     !host.panelHtml().includes("Autre fichier ?")
@@ -756,7 +756,7 @@ test("conversations are isolated by tour identity while the reading webview stay
       }
     ]
   };
-  await host.vscode.commands.executeCommand("codetour.startTour", secondTour);
+  await host.vscode.commands.executeCommand("codetourIA.startTour", secondTour);
   await host.waitFor(() =>
     host.panelHtml().includes("La même étape d'un autre tour.")
   );
@@ -776,7 +776,7 @@ test("conversations are isolated by tour identity while the reading webview stay
   );
 
   // Reopening the first tour recovers its conversation, still unmixed.
-  await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.vscode.commands.executeCommand("codetourIA.startTour", tour);
   await host.waitFor(() =>
     host.panelHtml().includes("Question du premier tour ?") &&
     !host.panelHtml().includes("Question de l'autre tour ?")

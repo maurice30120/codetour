@@ -63,7 +63,7 @@ function seedWorkspace() {
 
 async function startTour() {
   seedWorkspace();
-  await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.vscode.commands.executeCommand("codetourIA.startTour", tour);
 }
 
 test("recording a new tour keeps the native flow", async () => {
@@ -72,7 +72,7 @@ test("recording a new tour keeps the native flow", async () => {
 
   // The recording command asks for the tour title through the standard
   // input box, exactly like before the parallel playback mode.
-  host.vscode.commands.executeCommand("codetour.recordTour");
+  host.vscode.commands.executeCommand("codetourIA.recordTour");
   await host.waitFor(() => host.inputBoxes().length === 1);
   host.inputBoxes()[0].accept("Recorded Tour");
   await host.waitFor(() => store.isRecording === true, 5000);
@@ -99,7 +99,7 @@ test("recording a new tour keeps the native flow", async () => {
   assert.ok(host.liveThreads().length === 0 || store.activeTour!.step === -1);
 
   // Ending the tour ends the recording session cleanly.
-  await host.vscode.commands.executeCommand("codetour.endTour");
+  await host.vscode.commands.executeCommand("codetourIA.endTour");
   assert.equal(store.isRecording, false);
   assert.equal(store.activeTour, null);
   assert.equal(host.contexts.get("codetour:inTour"), false);
@@ -108,21 +108,21 @@ test("recording a new tour keeps the native flow", async () => {
 test("editing and previewing the active tour keep working next to the webview mode", async () => {
   await startTour();
 
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("1 / 1"), 5000);
   assert.equal(host.livePanels("codetour.tour").length, 1);
 
-  await host.vscode.commands.executeCommand("codetour.editTour");
+  await host.vscode.commands.executeCommand("codetourIA.editTour");
   await host.waitFor(() => host.visibleTextEditors.some(editor => editor.document.uri.scheme === "untitled"));
   assert.equal(store.isRecording, false);
   assert.equal(store.isEditing, true);
   assert.equal(host.liveThreads().length, 1);
 
-  await host.vscode.commands.executeCommand("codetour.previewTour");
+  await host.vscode.commands.executeCommand("codetourIA.previewTour");
   await host.waitFor(() => host.liveThreads()[0]?.comments[0]?.body.value.includes("Registered editable content."));
   assert.equal(store.isRecording, false);
   assert.equal(store.isEditing, false);
   assert.equal(host.liveThreads().length, 1);
   assert.equal(host.livePanels("codetour.tour").length, 0);
-  await host.vscode.commands.executeCommand("codetour.endTour");
+  await host.vscode.commands.executeCommand("codetourIA.endTour");
 });

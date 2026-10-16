@@ -4,6 +4,14 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const RESVG_VERSION = "2.6.2";
 
+function readJson(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    throw new Error(`Could not read JSON from ${file}: ${error.message}`);
+  }
+}
+
 // VS Code's standard desktop/remote Node targets. Linux artifacts are built
 // against glibc; the package must be built again on a musl host if that host
 // is added to the published target matrix.
@@ -89,8 +97,8 @@ function prepareRuntime(target = requestedTarget()) {
     );
   }
 
-  const baseManifest = JSON.parse(
-    fs.readFileSync(path.join(basePackage, "package.json"), "utf8")
+  const baseManifest = readJson(
+    path.join(basePackage, "package.json")
   );
   if (baseManifest.version !== RESVG_VERSION) {
     throw new Error(

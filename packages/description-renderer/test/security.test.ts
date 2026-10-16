@@ -99,7 +99,7 @@ test("click callbacks, hrefs and link styles cannot become active output", async
   assertValidPng(extractPngDataUri(content, caption));
   assert.ok(!content.includes("<a "));
   assert.ok(!content.includes("](https://"));
-  assert.ok(!content.includes("command:codetour.nextTourStep"));
+  assert.ok(!content.includes("command:codetourIA.nextTourStep"));
   assert.ok(!content.includes("```mermaid"));
 });
 

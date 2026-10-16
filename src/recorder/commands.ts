@@ -5,7 +5,7 @@ import { action, comparer, runInAction } from "mobx";
 import * as path from "path";
 import * as vscode from "vscode";
 import { workspace } from "vscode";
-import { EXTENSION_NAME, FS_SCHEME_CONTENT } from "../constants";
+import { COMMAND_PREFIX, EXTENSION_NAME, FS_SCHEME_CONTENT } from "../constants";
 import { api, RefType } from "../git";
 import { CodeTourComment } from "../player";
 import { enterStepEditing, saveStepDraft, isEditingSession, resolveStepDraftBeforeExit } from "../player/stepEditing";
@@ -165,7 +165,7 @@ export function registerRecorderCommands() {
 
         if (response === REENTER_TITLE_RESPONSE) {
           return vscode.commands.executeCommand(
-            `${EXTENSION_NAME}.recordTour`,
+            `${COMMAND_PREFIX}.recordTour`,
             workspaceRoot,
             tourTitle
           );
@@ -197,7 +197,7 @@ export function registerRecorderCommands() {
   }
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.recordTour`,
+    `${COMMAND_PREFIX}.recordTour`,
     async (workspaceRoot?: vscode.Uri, placeHolderTitle?: string) => {
       const inputBox = vscode.window.createInputBox();
       inputBox.title =
@@ -300,7 +300,7 @@ export function registerRecorderCommands() {
   }
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.addContentStep`,
+    `${COMMAND_PREFIX}.addContentStep`,
     action(async (node?: CodeTourStepNode) => {
       const value = store.activeTour?.step === -1 ? "Introduction" : "";
       const title = await vscode.window.showInputBox({
@@ -337,7 +337,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.addDirectoryStep`,
+    `${COMMAND_PREFIX}.addDirectoryStep`,
     action(async (uri: vscode.Uri) => {
       const stepNumber = ++store.activeTour!.step;
       const tour = store.activeTour!.tour;
@@ -360,7 +360,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerTextEditorCommand(
-    `${EXTENSION_NAME}.addSelectionStep`,
+    `${COMMAND_PREFIX}.addSelectionStep`,
     action(async (editor: vscode.TextEditor) => {
       const stepNumber = ++store.activeTour!.step;
       const tour = store.activeTour!.tour;
@@ -384,7 +384,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.addTourStep`,
+    `${COMMAND_PREFIX}.addTourStep`,
     action(async (reply: vscode.CommentReply) => {
       if (store.activeTour!.thread) {
         store.activeTour!.thread.dispose();
@@ -486,7 +486,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.editTour`,
+    `${COMMAND_PREFIX}.editTour`,
     async (node: CodeTourNode | vscode.CommentThread) => {
       if (node instanceof CodeTourNode) {
         const canEdit = store.activeTour?.tour.id === node.tour.id ? store.canEditTour : true;
@@ -504,7 +504,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.editTourAtStep`,
+    `${COMMAND_PREFIX}.editTourAtStep`,
     async (node: CodeTourStepNode) => {
       const canEdit = store.activeTour?.tour.id === node.tour.id ? store.canEditTour : true;
       if (!canEdit) {
@@ -520,7 +520,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.previewTour`,
+    `${COMMAND_PREFIX}.previewTour`,
     async (node: CodeTourNode | vscode.CommentThread) => {
       if (!(await resolveStepDraftBeforeExit())) return;
       store.isRecording = false;
@@ -547,7 +547,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.makeTourPrimary`,
+    `${COMMAND_PREFIX}.makeTourPrimary`,
     async (node: CodeTourNode) => {
       const primaryTour = node.tour;
       primaryTour.isPrimary = true;
@@ -563,7 +563,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.unmakeTourPrimary`,
+    `${COMMAND_PREFIX}.unmakeTourPrimary`,
     async (node: CodeTourNode) => {
       const primaryTour = node.tour;
       delete primaryTour.isPrimary;
@@ -572,7 +572,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.saveTourStep`,
+    `${COMMAND_PREFIX}.saveTourStep`,
     async (comment?: CodeTourComment) => {
       const active = store.activeTour;
       if (active && isEditingSession(active.tour.id, active.step)) {
@@ -664,22 +664,22 @@ export function registerRecorderCommands() {
   }
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.moveTourStepBack`,
+    `${COMMAND_PREFIX}.moveTourStepBack`,
     moveStep.bind(null, -1)
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.moveTourStepForward`,
+    `${COMMAND_PREFIX}.moveTourStepForward`,
     moveStep.bind(null, 1)
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.changeTourDescription`,
+    `${COMMAND_PREFIX}.changeTourDescription`,
     (node: CodeTourNode) => updateTourProperty(node.tour, "description")
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.changeTourTitle`,
+    `${COMMAND_PREFIX}.changeTourTitle`,
     async (node: CodeTourNode) => {
       const oldTitle = node.tour.title;
       const newTitle = await updateTourProperty(node.tour, "title");
@@ -699,7 +699,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.changeTourStepTitle`,
+    `${COMMAND_PREFIX}.changeTourStepTitle`,
     async (node: CodeTourStepNode) => {
       const step = node.tour.steps[node.stepNumber];
       const response = await vscode.window.showInputBox({
@@ -721,7 +721,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.changeTourStepIcon`,
+    `${COMMAND_PREFIX}.changeTourStepIcon`,
     async (node: CodeTourStepNode) => {
       const step = node.tour.steps[node.stepNumber];
       const response = await vscode.window.showInputBox({
@@ -742,7 +742,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.changeTourStepLine`,
+    `${COMMAND_PREFIX}.changeTourStepLine`,
     async (node: CodeTourComment | CodeTourStepNode) => {
       const tour = node instanceof CodeTourComment ? store.activeTour?.tour : node.tour;
       const stepNumber = node instanceof CodeTourComment ? store.activeTour?.step : node.stepNumber;
@@ -765,7 +765,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.changeTourRef`,
+    `${COMMAND_PREFIX}.changeTourRef`,
     async (node: CodeTourNode) => {
       const workspaceRoot =
         store.activeTour &&
@@ -794,7 +794,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.deleteTour`,
+    `${COMMAND_PREFIX}.deleteTour`,
     async (node: CodeTourNode, additionalNodes: CodeTourNode[]) => {
       const messageSuffix = additionalNodes
         ? `${additionalNodes.length} selected tours`
@@ -825,7 +825,7 @@ export function registerRecorderCommands() {
   );
 
   vscode.commands.registerCommand(
-    `${EXTENSION_NAME}.deleteTourStep`,
+    `${COMMAND_PREFIX}.deleteTourStep`,
     async (
       node: CodeTourStepNode | CodeTourComment,
       additionalNodes: CodeTourStepNode[]

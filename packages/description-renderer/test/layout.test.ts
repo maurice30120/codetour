@@ -60,4 +60,37 @@ test("a decision diamond reserves its own vertical space in the layout", async (
     spans.get("C")!.top >= spans.get("B")!.bottom,
     "the decision diamond overlaps the node above it"
   );
+  // Both branch targets must exist before the diamond clears them.
+  assert.ok(spans.has("D"), "the oui branch was not found in the SVG");
+  assert.ok(spans.has("I"), "the non branch was not found in the SVG");
+  assert.ok(
+    spans.get("C")!.bottom <= spans.get("D")!.top,
+    "the decision diamond overlaps the oui branch"
+  );
+  assert.ok(
+    spans.get("C")!.bottom <= spans.get("I")!.top,
+    "the decision diamond overlaps the non branch"
+  );
 });
+
+for (const theme of ["light", "dark"] as const) {
+  test(`edge label backgrounds cover their text in ${theme} mode`, async () => {
+    const { svg } = await renderMermaidDiagram(
+      "flowchart TD\n A{Validation hors ligne} -->|Erreur| B[Correction]\n A -->|OK| C[Fichier de tour]",
+      theme
+    );
+    const labels = parseSvgDocument(svg).querySelectorAll(".edgeLabels .label");
+    assert.strictEqual(labels.length, 2);
+    for (const label of Array.from(labels)) {
+      const rect = label.querySelector("rect.background")!;
+      const line = label.querySelector("text > tspan")!;
+      // SVG applies dy on top of y, even when both are specified.
+      const baseline = (parseFloat(line.getAttribute("y")!) +
+        parseFloat(line.getAttribute("dy")!)) * 16;
+      const top = Number(rect.getAttribute("y"));
+      const bottom = top + Number(rect.getAttribute("height"));
+      assert.ok(top <= baseline - 16 * 0.85, "background starts below text");
+      assert.ok(bottom >= baseline + 16 * 0.3, "background ends above text");
+    }
+  });
+}

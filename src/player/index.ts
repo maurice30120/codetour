@@ -484,7 +484,7 @@ async function presentCurrentStepInThread(
         false
       );
       const suffix = stepLabel ? ` (${stepLabel})` : "";
-      content += `← [Previous${suffix}](command:codetour.previousTourStep "Navigate to previous step")`;
+      content += `← [Previous${suffix}](command:codetourIA.previousTourStep "Navigate to previous step")`;
     } else {
       const previousTour = getPreviousTour();
       if (previousTour) {
@@ -494,7 +494,7 @@ async function presentCurrentStepInThread(
         const argsContent = encodeURIComponent(
           JSON.stringify([previousTour.title])
         );
-        content += `← [Previous Tour (${tourTitle})](command:codetour.startTourByTitle?${argsContent} "Navigate to previous tour")`;
+        content += `← [Previous Tour (${tourTitle})](command:codetourIA.startTourByTitle?${argsContent} "Navigate to previous tour")`;
       }
     }
 
@@ -507,7 +507,7 @@ async function presentCurrentStepInThread(
         false
       );
       const suffix = stepLabel ? ` (${stepLabel})` : "";
-      content += `${prefix}[Next${suffix}](command:codetour.nextTourStep "Navigate to next step") →`;
+      content += `${prefix}[Next${suffix}](command:codetourIA.nextTourStep "Navigate to next step") →`;
     } else if (isFinalStep) {
       const nextTour = getNextTour();
       if (nextTour) {
@@ -515,9 +515,9 @@ async function presentCurrentStepInThread(
         const argsContent = encodeURIComponent(
           JSON.stringify([nextTour.title])
         );
-        content += `${prefix}[Next Tour (${tourTitle})](command:codetour.finishTour?${argsContent} "Start next tour")`;
+        content += `${prefix}[Next Tour (${tourTitle})](command:codetourIA.finishTour?${argsContent} "Start next tour")`;
       } else {
-        content += `${prefix}[Finish Tour](command:codetour.finishTour "Finish the tour")`;
+        content += `${prefix}[Finish Tour](command:codetourIA.finishTour "Finish the tour")`;
       }
     }
   }

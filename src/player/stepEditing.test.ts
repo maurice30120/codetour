@@ -103,8 +103,8 @@ function seedWorkspace() {
 
 async function startTour() {
   seedWorkspace();
-  await host.vscode.commands.executeCommand("codetour.startTour", tour);
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.startTour", tour);
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
 }
 
 function panel() {
@@ -128,7 +128,7 @@ function sourceEditor() {
 }
 async function editSource(text: string) {
   const before = host.visibleTextEditors.filter(item => item.document.uri.scheme === "untitled").length;
-  await host.vscode.commands.executeCommand("codetour.editTour");
+  await host.vscode.commands.executeCommand("codetourIA.editTour");
   await host.waitFor(() => host.visibleTextEditors.filter(item => item.document.uri.scheme === "untitled").length > before);
   await host.waitFor(() => !!sourceEditor());
   const editor = sourceEditor()!;
@@ -142,7 +142,7 @@ test("the expanded view ignores editing and mutation messages", async () => {
   await host.waitFor(() => host.panelHtml().includes("1 / 2"));
   assert.doesNotMatch(host.panelHtml(), /<textarea|data-action="(?:edit|save|cancel)"/);
   for (const type of ["finish", "code", "edit", "draft", "save", "cancel", "editCommand"]) {
-    panel().receive({ type, tour: tour.id, step: 0, text: "Forbidden mutation", command: "codetour.changeTourStepTitle" });
+    panel().receive({ type, tour: tour.id, step: 0, text: "Forbidden mutation", command: "codetourIA.changeTourStepTitle" });
   }
   await new Promise(resolve => setTimeout(resolve, 50));
   assert.equal(store.activeTour.step, 0);
@@ -158,22 +158,36 @@ test("native editing saves exact Markdown and Mermaid source for expanded readin
   assert.equal(store.isEditing, true);
   assert.equal(getStepDraft(tour.id, 0), draftText);
   assert.match(storeStepDescription(0), /Registered intro/);
-  await host.vscode.commands.executeCommand("codetour.saveTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.saveTourStep");
   const saved = await readTourFile(tour.id);
   assert.equal(saved.steps[0].description, draftText);
   assert.equal("id" in saved, false);
   assert.equal(getEditingSession(), undefined);
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Draft intro."), 5000);
   assert.match(host.panelHtml(), /alt="Diagram — Draft"/);
   assert.equal(host.liveThreads().length, 0);
+});
+
+test("the expanded Edit button opens the native draft and rejects stale requests", async () => {
+  const current = panel();
+  assert.match(host.panelHtml(), /data-action="editStep"/);
+  current.receive({ type: "editStep", token: "stale-token" });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(store.isEditing, false);
+  current.receive({ type: "editStep" });
+  await host.waitFor(() => !!sourceEditor());
+  assert.equal(store.isEditing, true);
+  assert.equal(host.livePanels("codetour.tour").length, 0);
+  assert.equal(getStepDraft(tour.id, 0), draftText);
+  await host.vscode.commands.executeCommand("codetourIA.cancelTourStepEditing");
 });
 
 test("cancel restores the saved source without a tour write", async () => {
   const writes = host.fileWrites.length;
   await editSource("Cancelled draft");
   const editor = sourceEditor()!;
-  await host.vscode.commands.executeCommand("codetour.cancelTourStepEditing");
+  await host.vscode.commands.executeCommand("codetourIA.cancelTourStepEditing");
   await host.waitFor(() => editor.document.getText() === draftText);
   assert.equal(getStepDraft(tour.id, 0), undefined);
   assert.equal(store.isEditing, false);
@@ -183,26 +197,28 @@ test("cancel restores the saved source without a tour write", async () => {
 test("a save failure preserves native typing for a retry", async () => {
   await editSource("Retry draft");
   host.failWrite("/workspace/.tours/editing.tour");
-  await host.vscode.commands.executeCommand("codetour.saveTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.saveTourStep");
   assert.ok(host.messages.some(message => message.includes("Unable to save")));
   assert.equal(getStepDraft(tour.id, 0), "Retry draft");
   assert.equal(store.isEditing, true);
   assert.equal(sourceEditor()!.document.getText(), "Retry draft");
   assert.equal((await readTourFile(tour.id)).steps[0].description, draftText);
   host.allowWrite("/workspace/.tours/editing.tour");
-  await host.vscode.commands.executeCommand("codetour.saveTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.saveTourStep");
   assert.equal((await readTourFile(tour.id)).steps[0].description, "Retry draft");
-  await host.vscode.commands.executeCommand("codetour.endTour");
+  await host.vscode.commands.executeCommand("codetourIA.endTour");
 });
 
 test("read-only tours reject editing from the extension", async () => {
   await startCodeTour(readOnlyTour, undefined, undefined, false, false);
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Read only step"));
-  await host.vscode.commands.executeCommand("codetour.editTour");
+  assert.doesNotMatch(host.panelHtml(), /data-action="editStep"/);
+  panel().receive({ type: "editStep" });
+  await host.vscode.commands.executeCommand("codetourIA.editTour");
   assert.equal(store.canEditTour, false);
   assert.equal(store.isEditing, false);
   assert.ok(host.messages.some(message => message.includes("cannot be edited")));
   assert.equal(storeStepDescription(0), "Locked content.");
-  await host.vscode.commands.executeCommand("codetour.endTour");
+  await host.vscode.commands.executeCommand("codetourIA.endTour");
 });

@@ -2,8 +2,8 @@
 
 > **CodeTour IA** is an actively maintained fork of
 > [microsoft/codetour](https://github.com/microsoft/codetour), which has been
-> unmaintained since August 2025. Every existing `.tour` file, tour and
-> `command:codetour.*` link remains fully compatible. See
+> unmaintained since August 2025. Existing `.tour` files remain supported.
+> Commands now use the independent `codetourIA.*` namespace. See
 > [MIGRATION.md](MIGRATION.md) to switch over.
 
 ## AI-generated tours
@@ -49,6 +49,23 @@ record or play back a tour:
 - [Navigating Tours](#navigating-tours)
 - [Maintaining Tours](#maintaining-tours)
 - [Reference](#reference)
+
+## Development
+
+Use Node.js **24.18.0** and npm **12.0.1**, pinned in `.nvmrc`,
+`.node-version` and `package.json`. With nvm, run `nvm install` and
+`nvm use`, then `npm install --global npm@12.0.1`.
+
+```bash
+npm ci
+npm ci --prefix packages/description-renderer
+npm ci --prefix packages/mcp-server
+npm test
+npm run package
+```
+
+Commit all three `package-lock.json` files when changing dependencies.
+See [CI and downloads](docs/ci.md) for platform builds and releases.
 
 ## Recording Tours
 
@@ -176,12 +193,12 @@ To make it simpler to embed shell commands into a step (e.g. to perform a build,
 
 #### Command Links
 
-In order to add more interactivity to a tour, you can include "command links" to a step's description. Command links are simply markdown links, that use the `command:` scheme (instead of `http:` / `https:`), and specify the name of a VS Code command, along with an optional query string that includes the needed command arguments. Using this syntax, you can call any command in VS Code, including both built-in commands (e.g. `vscode.open`), as well as commands that are contributed by extensions (e.g. `codetour.startTour`). For example, the following shows how to include commands with and without arguments.
+In order to add more interactivity to a tour, you can include "command links" to a step's description. Command links are simply markdown links, that use the `command:` scheme (instead of `http:` / `https:`), and specify the name of a VS Code command, along with an optional query string that includes the needed command arguments. Using this syntax, you can call any command in VS Code, including both built-in commands (e.g. `vscode.open`), as well as commands that are contributed by extensions (e.g. `codetourIA.startTour`). For example, the following shows how to include commands with and without arguments.
 
 ```markdown
 <!-- Call a command that doesn't require arguments-->
 
-[Start tour](command:codetour.startTour)
+[Start tour](command:codetourIA.startTour)
 
 <!-- Call a command that requires arguments-->
 
@@ -260,7 +277,7 @@ Within the `.tours` (or `.vscode/tours`) directory, you can organize your tour f
   - `line` - The 1-based line number that this step is associated with
   - `pattern` - A regular expression to associate the step with. This is only considered when the `line` property isn't set, and allows you to associate steps with line content as opposed to ordinal.
   - `title` - An optional title, which will be displayed as the step name in the `CodeTour` tree view.
-  - `commands` - An array of VS Code command strings, that indicate the name of a command (e.g. `codetour.endTour`) and any optional parameters to pass to it, specified as a query string array (eg. `codetour.endTour?[2]`).
+  - `commands` - An array of VS Code command strings, that indicate the name of a command (e.g. `codetourIA.endTour`) and any optional parameters to pass to it, specified as a query string array (eg. `codetourIA.endTour?[2]`).
   - `view` - The ID of a VS Code view that will be automatically focused when this step is navigated to.
 
 For an example, refer to the `.tours/tree.tour` file of this repository.

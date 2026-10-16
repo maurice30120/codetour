@@ -10,14 +10,14 @@ function legacyTransform(content: string): string {
   return content.replace(
     LEGACY_CODE_FENCE_PATTERN,
     (_, codeBlock) =>
-      `${_}\n↪ [Insert Code](command:codetour.insertCodeSnippet?${encodeURIComponent(
+      `${_}\n↪ [Insert Code](command:codetourIA.insertCodeSnippet?${encodeURIComponent(
         JSON.stringify([codeBlock])
       )} "Insert Code")`
   );
 }
 
 function insertCodeLink(codeBlock: string): string {
-  return `↪ [Insert Code](command:codetour.insertCodeSnippet?${encodeURIComponent(
+  return `↪ [Insert Code](command:codetourIA.insertCodeSnippet?${encodeURIComponent(
     JSON.stringify([codeBlock])
   )} "Insert Code")`;
 }

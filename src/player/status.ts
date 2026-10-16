@@ -3,7 +3,7 @@
 
 import { reaction } from "mobx";
 import * as vscode from "vscode";
-import { EXTENSION_NAME } from "../constants";
+import { COMMAND_PREFIX } from "../constants";
 import { store } from "../store";
 import { getTourTitle } from "../utils";
 
@@ -12,7 +12,7 @@ function createCurrentTourItem() {
     vscode.StatusBarAlignment.Left
   );
 
-  currentTourItem.command = `${EXTENSION_NAME}.resumeTour`;
+  currentTourItem.command = `${COMMAND_PREFIX}.resumeTour`;
   currentTourItem.color = new vscode.ThemeColor(
     "statusBarItem.prominentForeground"
   );

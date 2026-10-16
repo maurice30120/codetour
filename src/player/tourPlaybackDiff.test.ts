@@ -72,8 +72,8 @@ const tour = {
 };
 
 async function startTour() {
-  await host.vscode.commands.executeCommand("codetour.startTour", tour);
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.startTour", tour);
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
 }
 
 function activeAnchorType() {
@@ -139,7 +139,7 @@ test("a diff step opens the persisted Git comparison and marks only the modified
 });
 
 test("an unavailable diff follows the existing fallbacks and keeps the tour readable", async () => {
-  await host.vscode.commands.executeCommand("codetour.endTour");
+  await host.vscode.commands.executeCommand("codetourIA.endTour");
   await host.waitFor(() => store.activeTour === null);
 
   const diffCallsBefore = host.executedCommands.filter(
@@ -160,7 +160,7 @@ test("an unavailable diff follows the existing fallbacks and keeps the tour read
     ]
   };
   await host.vscode.commands.executeCommand(
-    "codetour.startTour",
+    "codetourIA.startTour",
     unavailableTour
   );
 
@@ -169,7 +169,7 @@ test("an unavailable diff follows the existing fallbacks and keeps the tour read
       message.includes("file unavailable: src/gone.ts")
     )
   );
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Gone diff"));
 
   // The step stays readable in the panel, without any anchor or comparison.
@@ -197,13 +197,13 @@ test("Next from the reading panel opens the diff in the code group", async () =>
   host.setFileContent("src/start.ts", "const start = true;");
   await host.vscode.window.showTextDocument(Uri.file("/workspace/src/start.ts"));
   registerPlayerModule(host.extensionContext);
-  await host.vscode.commands.executeCommand("codetour.startTour", {
+  await host.vscode.commands.executeCommand("codetourIA.startTour", {
     ...tour, steps: [
       { description: "Before the diff" },
       ...tour.steps
     ]
   });
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Before the diff"));
   const panel = host.livePanels("codetour.tour")[0];
   Object.defineProperty(panel, "viewColumn", { value: 2 });

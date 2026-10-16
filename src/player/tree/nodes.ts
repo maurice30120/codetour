@@ -8,7 +8,7 @@ import {
   TreeItemCollapsibleState,
   Uri
 } from "vscode";
-import { CONTENT_URI, EXTENSION_NAME, FS_SCHEME } from "../../constants";
+import { CONTENT_URI, COMMAND_PREFIX, FS_SCHEME } from "../../constants";
 import { CodeTour, store } from "../../store";
 import { progress } from "../../store/storage";
 import { getFileUri, getStepLabel, getWorkspaceUri } from "../../utils";
@@ -79,7 +79,7 @@ export class CodeTourStepNode extends TreeItem {
     }
 
     this.command = {
-      command: `${EXTENSION_NAME}.startTour`,
+      command: `${COMMAND_PREFIX}.startTour`,
       title: "Start Tour",
       arguments: [tour, stepNumber, workspaceRoot, tours]
     };

@@ -60,8 +60,8 @@ function seedWorkspace() {
 
 async function startTour() {
   seedWorkspace();
-  await host.vscode.commands.executeCommand("codetour.startTour", tour);
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.startTour", tour);
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() =>
     host.panelHtml().includes("Ask a question about this step")
   );
@@ -153,7 +153,7 @@ test("each step keeps its own conversation, feeding follow-ups and surviving ref
   assert.equal(lastChatUpdate().exchanges[1].question, "Et ensuite ?");
 
   // Another step starts an isolated conversation with its own target.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
   assert.doesNotMatch(host.panelHtml(), /id="step-chat-suggestions"/);
   chatPanel().receive({ type: "askQuestion", question: "Autre fichier ?" });
@@ -169,7 +169,7 @@ test("each step keeps its own conversation, feeding follow-ups and surviving ref
   assert.equal(lastChatUpdate().exchanges.length, 1);
 
   // Refreshing the first step's render keeps its conversation, unmixed.
-  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
   await host.waitFor(() =>
     host.panelHtml().includes("Première question") &&
     host.panelHtml().includes("Et ensuite ?")
@@ -264,7 +264,7 @@ test("a step without a displayed buffer reports the unavailable target, never a 
   registerPlayerModule(host.extensionContext);
   await startTour();
 
-  await host.vscode.commands.executeCommand("codetour.navigateToStep", 3);
+  await host.vscode.commands.executeCommand("codetourIA.navigateToStep", 3);
   await host.waitFor(() => host.panelHtml().includes("3 / 3"));
   chatPanel().receive({ type: "askQuestion", question: "Que dire sans code ?" });
   await host.waitFor(() =>
@@ -305,9 +305,9 @@ test("the responder's answer is rendered through the shared sanitizer", async ()
   assert.ok(!answerHtml.includes('href="javascript:'));
 
   // The re-rendered panel shows the same sanitized answer.
-  await host.vscode.commands.executeCommand("codetour.navigateToStep", 2);
+  await host.vscode.commands.executeCommand("codetourIA.navigateToStep", 2);
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
-  await host.vscode.commands.executeCommand("codetour.navigateToStep", 1);
+  await host.vscode.commands.executeCommand("codetourIA.navigateToStep", 1);
   await host.waitFor(() => host.panelHtml().includes("Tente une injection"));
   assert.ok(!host.panelHtml().includes("<script>alert"));
 
@@ -335,7 +335,7 @@ test("errors of the responder land in the chat without disturbing the reading", 
   assert.match(update.exchanges[0].answerHtml, /The answer to this question failed/);
 
   // Reading and navigation remain usable after the failure.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
   assert.match(host.panelHtml(), /class="step-chat"/);
 

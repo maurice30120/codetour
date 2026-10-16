@@ -10,7 +10,7 @@ import {
   workspace
 } from "vscode";
 import { CodeTour, store } from ".";
-import { EXTENSION_NAME, FS_SCHEME, FS_SCHEME_CONTENT } from "../constants";
+import { COMMAND_PREFIX, EXTENSION_NAME, FS_SCHEME, FS_SCHEME_CONTENT } from "../constants";
 import { startPlayer, stopPlayer } from "../player";
 import {
   endEditingSession,
@@ -310,5 +310,5 @@ export async function exportTour(tour: CodeTour) {
 }
 
 export async function recordTour(workspaceRoot: Uri) {
-  commands.executeCommand(`${EXTENSION_NAME}.recordTour`, workspaceRoot);
+  commands.executeCommand(`${COMMAND_PREFIX}.recordTour`, workspaceRoot);
 }

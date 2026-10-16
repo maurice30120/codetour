@@ -53,14 +53,16 @@ export function showTourWebview(): void {
           rendered.step !== store.activeTour.step || message?.token !== rendered.token ||
           message?.targetTourId !== store.activeTour.tour.id || message?.step !== rendered.step) return;
       try {
-        if (message.type === "previous" || message.type === "next") {
+        if (message.type === "editStep") {
+          if (store.canEditTour) await vscode.commands.executeCommand("codetourIA.editTour");
+        } else if (message.type === "previous" || message.type === "next") {
           const backward = message.type === "previous";
           const withinTour = backward ? rendered.step > 0 : rendered.step < rendered.active.tour.steps.length - 1;
           if (withinTour) {
-            await vscode.commands.executeCommand(backward ? "codetour.previousTourStep" : "codetour.nextTourStep");
+            await vscode.commands.executeCommand(backward ? "codetourIA.previousTourStep" : "codetourIA.nextTourStep");
           } else {
             const target = backward ? getPreviousTour() : getNextTour();
-            if (target) await vscode.commands.executeCommand(backward ? "codetour.startTourByTitle" : "codetour.finishTour", target.title);
+            if (target) await vscode.commands.executeCommand(backward ? "codetourIA.startTourByTitle" : "codetourIA.finishTour", target.title);
           }
         } else if (message.type === "openLink" && typeof message.href === "string") {
           await openDescriptionLink(message.href, rendered.active.workspaceRoot);
@@ -150,6 +152,7 @@ export async function renderTourStep(): Promise<void> {
     stepCount: tour.steps.length, stepTitle: step.title || `Step ${stepNumber + 1}`,
     anchorLabel: getStepAnchorLabel(step), description,
     questions: step.questions,
+    canEdit: store.canEditTour,
     chatExchanges: getStepChatExchanges(tour.id, stepNumber),
     chatResponding: getStepChatConversationView(tour.id, stepNumber).responding,
     previousTourTitle: getPreviousTour()?.title,
@@ -171,7 +174,7 @@ function getStepAnchorLabel(step: CodeTourStep): string {
     (step.display === "diff" ? " · Diff" : "");
 }
 
-const ALLOWED_COMMANDS = /^(codetour\.|vscode\.open$)/;
+const ALLOWED_COMMANDS = /^(codetourIA\.|vscode\.open$)/;
 
 function reviveCommandArgument(value: unknown): unknown {
   if (

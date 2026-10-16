@@ -566,3 +566,40 @@ test("question buttons send directly once, preserve the draft, and unlock after 
     exchanges: [{ question: "Pourquoi ?", answerHtml: "Erreur", failed: true }] } });
   assert.equal(button.disabled, false);
 });
+
+test("a clicked suggested question is masked until the step renders again", () => {
+  const html = createTourWebviewHtml({ ...baseModel(), questions: ["Pourquoi ?", "Comment ?"] }, "nonce");
+  const script = html.match(/<script nonce="nonce">([\s\S]*?)<\/script>/)![1];
+  const messages: unknown[] = [];
+  let click!: (event: unknown) => void;
+  let update!: (event: unknown) => void;
+  const button = { disabled: false, hidden: false, dataset: { action: "askQuestion", question: "Pourquoi ?" } };
+  const other = { disabled: false, hidden: false, dataset: { action: "askQuestion", question: "Comment ?" } };
+  const input = { value: "", disabled: false };
+  const submit = { disabled: false };
+  const suggestions = { hidden: false, children: [button, other] };
+  const elements: Record<string, unknown> = {
+    "step-chat-input": input, "step-chat-submit": submit, "step-chat-suggestions": suggestions
+  };
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({ postMessage: (message: unknown) => messages.push(message) }),
+    document: {
+      body: { dataset: { token: "nonce", tourId: baseModel().tourId, step: "1" } },
+      getElementById: (id: string) => elements[id] || null,
+      addEventListener: (_name: string, listener: typeof click) => { click = listener; }
+    },
+    window: { addEventListener: (_name: string, listener: typeof update) => { update = listener; } }
+  });
+  // Clicking a suggested question masks it immediately; the group hides
+  // only once every suggestion has been used.
+  click({ target: { closest: () => button } });
+  assert.equal(button.hidden, true);
+  assert.equal(other.hidden, false);
+  assert.equal(suggestions.hidden, false);
+  assert.equal(messages.length, 1);
+  update({ data: { type: "stepChat", responding: false, exchanges: [] } });
+  click({ target: { closest: () => other } });
+  assert.equal(other.hidden, true);
+  assert.equal(suggestions.hidden, true);
+  assert.equal(messages.length, 2);
+});

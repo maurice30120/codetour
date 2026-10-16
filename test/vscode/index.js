@@ -32,7 +32,7 @@ exports.run = async function () {
     assert.ok(extension, "CodeTour extension discovered");
     await extension.activate();
     const commands = await vscode.commands.getCommands(true);
-    assert.ok(commands.includes("codetour.showStepDescription"));
+    assert.ok(commands.includes("codetourIA.showStepDescription"));
     assert.ok(!commands.includes("codetour.togglePlaybackMode"));
     assert.ok(!commands.includes("codetour.prototypeWebview"), "Prototype command removed");
     checks.push("production commands registered");
@@ -46,7 +46,7 @@ exports.run = async function () {
     };
     const tourPath = vscode.Uri.parse(tour.id).fsPath;
     fs.writeFileSync(tourPath, JSON.stringify({...tour, id:undefined}, null, 2));
-    await vscode.commands.executeCommand("codetour.startTour", tour, 0, workspace);
+    await vscode.commands.executeCommand("codetourIA.startTour", tour, 0, workspace);
     await editorLine(0);
     await observe({ absent: true });
     checks.push("native playback opens real editor");
@@ -56,31 +56,31 @@ exports.run = async function () {
       assert.ok(await vscode.window.tabGroups.close(panelTab));
       await observe({ absent: true });
     }
-    await vscode.commands.executeCommand("codetour.showStepDescription");
+    await vscode.commands.executeCommand("codetourIA.showStepDescription");
     const first = await observe({ step: 0, text: "SMOKE_FIRST" });
     assert.deepEqual(first.match.buttons, [{action:"previous", disabled:true}, {action:"next", disabled:false}]);
     assert.equal(first.match.source, undefined, "Reading view has no source editor");
-    assert.equal(await vscode.commands.executeCommand("codetour._getActiveCommentBody"), undefined);
+    assert.equal(await vscode.commands.executeCommand("codetourIA._getActiveCommentBody"), undefined);
     await editorLine(0);
     checks.push("expanded action opens a single reading view with compact navigation");
     await observe({step:0, click:"next"});
     await observe({ step: 1, text: "SMOKE_SECOND" });
     await editorLine(1);
-    await vscode.commands.executeCommand("codetour.resumeTour");
+    await vscode.commands.executeCommand("codetourIA.resumeTour");
     await observe({ step: 1, text: "SMOKE_SECOND" });
     checks.push("extension navigation and resume update the real DOM and editor");
     await closeExpanded();
     for (let i = 0; i < 100; i++) {
-      const body = await vscode.commands.executeCommand("codetour._getActiveCommentBody");
+      const body = await vscode.commands.executeCommand("codetourIA._getActiveCommentBody");
       if (body && body.includes("SMOKE_SECOND")) break;
       await pause(100);
     }
-    assert.match(await vscode.commands.executeCommand("codetour._getActiveCommentBody"), /SMOKE_SECOND/);
-    await vscode.commands.executeCommand("codetour.showStepDescription");
+    assert.match(await vscode.commands.executeCommand("codetourIA._getActiveCommentBody"), /SMOKE_SECOND/);
+    await vscode.commands.executeCommand("codetourIA.showStepDescription");
     await observe({ step: 1, text: "SMOKE_SECOND" });
     checks.push("closing restores the native comment at the same step");
 
-    await vscode.commands.executeCommand("codetour.editTour");
+    await vscode.commands.executeCommand("codetourIA.editTour");
     await observe({ absent: true });
     let nativeSource;
     for (let i = 0; i < 100; i++) {
@@ -100,9 +100,9 @@ exports.run = async function () {
     ].join("\n\n");
     assert.ok(await nativeSource.edit(edit => edit.replace(new vscode.Range(0, 0, nativeSource.document.lineCount, 0), richDraft)));
     assert.equal(JSON.parse(fs.readFileSync(tourPath)).steps[1].description, "SMOKE_SECOND");
-    await vscode.commands.executeCommand("codetour.saveTourStep");
+    await vscode.commands.executeCommand("codetourIA.saveTourStep");
     assert.equal(JSON.parse(fs.readFileSync(tourPath)).steps[1].description, richDraft);
-    await vscode.commands.executeCommand("codetour.showStepDescription");
+    await vscode.commands.executeCommand("codetourIA.showStepDescription");
     await observe({ step: 1, text: "SAVED_REAL_UI", png: true, reading: true });
     checks.push("native editing saves exact Markdown and Mermaid for expanded reading");
 
@@ -118,7 +118,7 @@ exports.run = async function () {
     assert.equal(dark.match.progress, 2);
     checks.push("real light and dark narrow reading views render compact navigation without overflow");
 
-    await vscode.commands.executeCommand("codetour.endTour");
+    await vscode.commands.executeCommand("codetourIA.endTour");
     await observe({ absent: true });
     checks.push("end disposes real WebView");
     const refs = JSON.parse(fs.readFileSync(path.join(temp, "git-fixture.json")));
@@ -134,8 +134,8 @@ exports.run = async function () {
     const gitApi = (await vscode.extensions.getExtension("vscode.git").activate()).getAPI(1);
     for (let i = 0; i < 100 && !gitApi.getRepository(vscode.Uri.joinPath(workspace, "diff.js")); i++) await pause(100);
     assert.ok(gitApi.getRepository(vscode.Uri.joinPath(workspace, "diff.js")), "Real Git extension discovers isolated fixture repository");
-    await vscode.commands.executeCommand("codetour.startTour", diffTour, 0, workspace);
-    await vscode.commands.executeCommand("codetour.showStepDescription");
+    await vscode.commands.executeCommand("codetourIA.startTour", diffTour, 0, workspace);
+    await vscode.commands.executeCommand("codetourIA.showStepDescription");
     await observe({step:0, text:"SMOKE_DIFF"});
     let diffEditors;
     for (let i = 0; i < 100; i++) {
@@ -148,10 +148,10 @@ exports.run = async function () {
     assert.ok(snapshots.some(s => s.ref === refs.baseRef && s.text.includes("const revised = 1;")), "Original real Git snapshot");
     assert.ok(snapshots.some(s => s.ref === refs.headRef && s.text.includes("const revised = 2;")), "Modified real Git snapshot");
     checks.push("real Git diff opens exact original and modified revisions");
-    await vscode.commands.executeCommand("codetour.nextTourStep");
+    await vscode.commands.executeCommand("codetourIA.nextTourStep");
     await observe({step:1, text:"SMOKE_UNANCHORED_CONTENT"});
     checks.push("unanchored content step follows real diff playback");
-    await vscode.commands.executeCommand("codetour.endTour");
+    await vscode.commands.executeCommand("codetourIA.endTour");
     await observe({absent:true});
 
     fs.writeFileSync(path.join(temp, "result.json"), JSON.stringify({ ok: true, checks }));

@@ -1,0 +1,7 @@
+# Ground Tour Step Conversations in the displayed code
+
+A Tour Step Conversation receives the step description and a capture of the code target resolved for playback, rather than unconditionally reading the current workspace file from disk. Ordinary file and URI steps use the displayed buffer, including unsaved edits; commit-bound Changes Tour steps use their resolved Git snapshot, diff steps identify both sides by path and commit, and embedded-content steps use their virtual document. This preserves the relationship between the reader's question and the code being explained, at the cost of handling each playback target explicitly.
+
+Directory steps provide their declared path without substitute code, and view or explanation-only steps provide the description alone. An unavailable code target is reported as unavailable with its declared path when present; an unrelated visible editor must never silently stand in for it. When a diff cannot be resolved, context follows playback's single-target fallback rather than inventing a comparison.
+
+The webview identifies each question with the active render token, Tour and step, and the extension rejects stale messages so navigation cannot attach a question to a different step. This defines the initial context supplied to the agent, not a restriction to reading only that code: additional agent reads remain governed by the read-only ACP and workspace-confinement policies of ADRs 0013 and 0014.

@@ -148,7 +148,7 @@ function seedWorkspace() {
 
 async function startJourney() {
   seedWorkspace();
-  await host.vscode.commands.executeCommand("codetour.startTour", journeyTour);
+  await host.vscode.commands.executeCommand("codetourIA.startTour", journeyTour);
 }
 
 function panel() {
@@ -198,7 +198,7 @@ test("the journey starts in the native mode by default and toggles mid-tour", as
 
   // The public toggle switches the very same tour to the webview panel,
   // without restarting it or counting an extra toured step.
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => panelHtml().includes("1 / 6"), 5000);
 
   assert.equal(store.activeTour!.step, 0);
@@ -233,7 +233,7 @@ test("the multi-step journey reads files, diffs, directories and mermaid in the 
   assert.ok(!("hoverMessage" in type.options));
 
   // The public navigation command drives the panel through the selection.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => panelHtml().includes("2 / 6"), 5000);
   const selectionEditor = host.editorFor("src/player.ts")!;
   assert.equal(selectionEditor.selection.start.line, 5);
@@ -241,7 +241,7 @@ test("the multi-step journey reads files, diffs, directories and mermaid in the 
 
   // The diff step opens the persisted Git comparison and marks its
   // modified side only.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => panelHtml().includes("3 / 6"), 5000);
   assert.ok(
     host.executedCommands.some(([id]) => id === "vscode.diff"),
@@ -264,7 +264,7 @@ test("the multi-step journey reads files, diffs, directories and mermaid in the 
   );
 
   // The directory step reveals its target and invents no code marker.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => panelHtml().includes("4 / 6"), 5000);
   assert.ok(
     host.executedCommands.some(
@@ -278,7 +278,7 @@ test("the multi-step journey reads files, diffs, directories and mermaid in the 
   assert.ok(!anchorRanges("src/player.ts")?.length);
 
   // The step without a code anchor stays readable in the panel alone.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
   assert.match(panelHtml(), /class="anchor">Presentation</);
   assert.equal(
@@ -290,7 +290,7 @@ test("the multi-step journey reads files, diffs, directories and mermaid in the 
 
   // The panel's own buttons reach the last step, where the forward
   // navigation disables itself at the tour bound.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => panelHtml().includes("6 / 6"), 5000);
 
   // The whole journey recorded its progression once per step.
@@ -300,7 +300,7 @@ test("the multi-step journey reads files, diffs, directories and mermaid in the 
   assert.deepEqual([...progression].sort(), [0, 1, 2, 3, 4]);
 
   // The public backward command drives the panel again.
-  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
   await host.waitFor(() => panelHtml().includes("5 / 6"), 5000);
   assert.equal(store.activeTour!.step, 4);
 });
@@ -310,7 +310,7 @@ function sourceEditor() {
 }
 async function editSource(text: string) {
   const before = host.visibleTextEditors.filter(item => item.document.uri.scheme === "untitled").length;
-  await host.vscode.commands.executeCommand("codetour.editTour");
+  await host.vscode.commands.executeCommand("codetourIA.editTour");
   await host.waitFor(() => host.visibleTextEditors.filter(item => item.document.uri.scheme === "untitled").length > before);
   await host.waitFor(() => !!sourceEditor());
   const editor = sourceEditor()!;
@@ -321,21 +321,21 @@ test("editing an unanchored step from the extension saves and reopens expanded r
   await editSource("Journey edited wrap-up.");
   assert.equal(host.livePanels("codetour.tour").length, 0);
   assert.equal(store.isExpandedViewOpen, false);
-  await host.vscode.commands.executeCommand("codetour.saveTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.saveTourStep");
   assert.equal((await readTourFile() as { steps: { description: string }[] }).steps[4].description, "Journey edited wrap-up.");
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => panelHtml().includes("Journey edited wrap-up."));
   panel().dispose();
   await host.waitFor(() => host.liveThreads().length === 1);
   assert.equal(store.activeTour.step, 4);
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => panelHtml().includes("5 / 6"));
 });
 
 test("finishing resolves a native unsaved draft before removing the presentation", async () => {
   host.resetModals();
   await editSource("Final wrap-up draft.");
-  const finish = host.vscode.commands.executeCommand("codetour.finishTour");
+  const finish = host.vscode.commands.executeCommand("codetourIA.finishTour");
   await host.answerModal("Save");
   await finish;
   await host.waitFor(() => store.activeTour === null);
@@ -347,13 +347,13 @@ test("finishing resolves a native unsaved draft before removing the presentation
 });
 
 test("expanded reading of an unanchored step opens no synthetic document", async () => {
-  await host.vscode.commands.executeCommand("codetour.startTour", journeyTour, 4);
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.startTour", journeyTour, 4);
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => panelHtml().includes("5 / 6"));
   assert.match(panelHtml(), /class="anchor">Presentation</);
   assert.ok(!anchorRanges("src/player.ts")?.length);
   const documentsBefore = host.visibleTextEditors.length;
-  await host.vscode.commands.executeCommand("codetour.resumeTour");
+  await host.vscode.commands.executeCommand("codetourIA.resumeTour");
   assert.equal(host.visibleTextEditors.length, documentsBefore);
-  await host.vscode.commands.executeCommand("codetour.endTour");
+  await host.vscode.commands.executeCommand("codetourIA.endTour");
 });

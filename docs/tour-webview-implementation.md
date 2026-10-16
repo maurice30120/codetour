@@ -4,7 +4,7 @@ Comportement validé le 14 octobre 2026.
 
 Le tour démarre dans les commentaires natifs. « Show Expanded Description », disponible dans le commentaire, la barre de la vue CodeTour et la palette pendant la lecture, ouvre l’explication de l’étape active dans un panneau latéral. Il existe une seule disposition, issue de la vue A, sans sélecteur ni préférence de présentation.
 
-Le panneau affiche le titre du tour, la progression, le titre et la cible de l’étape, puis sa description avec Markdown, tableaux, images et Mermaid. Il ne contient aucune barre de navigation, aucun bouton d’édition, aucun éditeur Markdown ni lien Précédent/Suivant ajouté automatiquement. Les liens présents dans le contenu restent utilisables selon les règles de sécurité existantes.
+Le panneau affiche le titre du tour, la progression, le titre et la cible de l’étape, puis sa description avec Markdown, tableaux, images et Mermaid. Pour un tour modifiable, le bouton « Edit » déclenche la commande d’édition existante : le panneau se ferme et le brouillon s’ouvre dans l’éditeur Markdown natif. Le panneau n’intègre pas d’éditeur Markdown. Les liens présents dans le contenu restent utilisables selon les règles de sécurité existantes.
 
 La navigation passe par l’arbre, les commandes et les raccourcis de l’extension. Le panneau suit la même étape et la même progression. Les fichiers, sélections, motifs, répertoires, vues et diffs conservent leur résolution existante.
 

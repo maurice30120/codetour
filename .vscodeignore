@@ -12,7 +12,7 @@ CONTEXT.md
 docs/**
 .gitignore
 .space
-package.lock.json
+package-lock.json
 tsconfig.json
 tsconfig.test.json
 webpack.config.js
@@ -22,7 +22,6 @@ webpack.config.js
 .pi/**
 .scratch/**
 .vibe/**
-bun.lock
 rapport-difficultes-mcp-codetour.md
 .node-version
 .nvmrc

@@ -24,13 +24,13 @@ for (const codeColumn of [1, 2]) {
     const first = await host.vscode.window.showTextDocument(host.vscode.Uri.file("/workspace/src/first.ts"));
     Object.defineProperty(first, "viewColumn", { value: codeColumn });
     registerPlayerModule(host.extensionContext);
-    await host.vscode.commands.executeCommand("codetour.startTour", {
+    await host.vscode.commands.executeCommand("codetourIA.startTour", {
       id: "file:///workspace/.tours/columns.tour", title: "Columns", steps: [
         { file: "src/first.ts", line: 1, description: "First" },
         { file: "src/next.ts", line: 1, description: "Next file" }
       ]
     });
-    await host.vscode.commands.executeCommand("codetour.showStepDescription");
+    await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
     await host.waitFor(() => host.panelHtml().includes("First"));
     const panel = host.livePanels("codetour.tour")[0];
     const panelColumn = codeColumn + 1;

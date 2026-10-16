@@ -88,6 +88,7 @@ export interface TourWebviewModel {
   chatResponding?: boolean;
   previousTourTitle?: string;
   nextTourTitle?: string;
+  canEdit?: boolean;
 }
 
 /** The disclosure reporting the forbidden tools an answer ran. */
@@ -161,6 +162,8 @@ const READING_STYLES = `
     @media (prefers-reduced-motion: reduce) { .step-chat-status::before { animation: none; } }
     .step-chat-status { margin: 0 0 1.25em; padding: 0 .75em; font-style: italic; color: var(--vscode-descriptionForeground); }
     .step-chat-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1em; }
+    .step-chat-suggestions[hidden] { display: none; }
+    .step-chat-suggestion[hidden] { display: none; }
     .step-chat-suggestions button { max-width: 100%; white-space: normal; text-align: left; overflow-wrap: anywhere; }
     .step-chat-suggestions button:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
     .step-chat-input:disabled, .step-chat-suggestion:disabled, .step-chat-submit:disabled { opacity: .55; cursor: default; }
@@ -221,6 +224,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     <div class="tour-toolbar">
       <small>${escapeHtml(model.tourTitle)}</small>
       <nav class="tour-navigation" aria-label="Tour navigation">
+        ${model.canEdit ? '<button type="button" data-action="editStep" title="Edit this step in the Markdown editor">Edit</button>' : ""}
         <button type="button" data-action="previous" title="${escapeHtml(model.stepNumber > 0 ? "Previous step" : model.previousTourTitle ? `Previous tour: ${model.previousTourTitle}` : "No previous step")}"${previousEnabled ? "" : " disabled"}><span aria-hidden="true">←</span> Previous</button>
         <span class="tour-position" aria-label="Step ${position} of ${model.stepCount}">${position} / ${model.stepCount}</span>
         <button type="button" data-action="next" title="${escapeHtml(position < model.stepCount ? "Next step" : model.nextTourTitle ? `Next tour: ${model.nextTourTitle}` : "No next step")}"${nextEnabled ? "" : " disabled"}>Next <span aria-hidden="true">→</span></button>
@@ -326,7 +330,16 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       const button = event.target.closest("button[data-action]");
       if (button) {
         if (button.dataset.action === "askQuestion") {
-          if (!button.disabled) askQuestion(button.dataset.question);
+          if (!button.disabled) {
+            // A clicked suggested question stays hidden only until the step
+            // renders again; navigating away and back restores it.
+            button.hidden = true;
+            if (suggestionButtons.every(candidate => candidate.hidden)) {
+              const suggestions = document.getElementById("step-chat-suggestions");
+              if (suggestions) suggestions.hidden = true;
+            }
+            askQuestion(button.dataset.question);
+          }
           return;
         }
         if (!button.disabled) vscode.postMessage({ type: button.dataset.action, token: document.body.dataset.token,

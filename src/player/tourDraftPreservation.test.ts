@@ -99,13 +99,13 @@ function seedWorkspace() {
 async function startDraftTour() {
   seedWorkspace();
   store.tours = [tour, otherTour];
-  await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.vscode.commands.executeCommand("codetourIA.startTour", tour);
   await host.waitFor(() => host.liveThreads().length === 1);
 }
 
 async function enterEditingWithDraft(text: string) {
   const before = host.visibleTextEditors.filter(item => item.document.uri.scheme === "untitled").length;
-  await host.vscode.commands.executeCommand("codetour.editTour");
+  await host.vscode.commands.executeCommand("codetourIA.editTour");
   await host.waitFor(() => host.visibleTextEditors.filter(item => item.document.uri.scheme === "untitled").length > before);
   await host.waitFor(() => !!nativeSource());
   const editor = nativeSource()!;
@@ -166,7 +166,7 @@ preservationTest(
     await enterEditingWithDraft("Quick pick draft.");
 
     const navigation = host.vscode.commands.executeCommand(
-      "codetour.nextTourStep"
+      "codetourIA.nextTourStep"
     );
     await host.waitFor(() => host.modalPrompts().length === 1);
 
@@ -194,7 +194,7 @@ preservationTest(
     await enterEditingWithDraft("Exit draft.");
 
     const navigation = host.vscode.commands.executeCommand(
-      "codetour.nextTourStep"
+      "codetourIA.nextTourStep"
     );
     await host.waitFor(() => host.modalPrompts().length === 1);
 
@@ -224,7 +224,7 @@ preservationTest(
     await enterEditingWithDraft("Dismiss draft.");
 
     const navigation = host.vscode.commands.executeCommand(
-      "codetour.nextTourStep"
+      "codetourIA.nextTourStep"
     );
     await host.waitFor(() => host.modalPrompts().length === 1);
     host.respondToModal(undefined);
@@ -244,7 +244,7 @@ preservationTest(
     await enterEditingWithDraft("Discarded draft.");
 
     const navigation = host.vscode.commands.executeCommand(
-      "codetour.nextTourStep"
+      "codetourIA.nextTourStep"
     );
     await host.answerModal("Discard");
     await navigation;
@@ -274,7 +274,7 @@ preservationTest(
     await enterEditingWithDraft("Saved before leaving.");
 
     const navigation = host.vscode.commands.executeCommand(
-      "codetour.nextTourStep"
+      "codetourIA.nextTourStep"
     );
     await host.answerModal("Save");
     await navigation;
@@ -300,7 +300,7 @@ preservationTest(
     host.failWrite("/workspace/.tours/drafts.tour");
 
     const blocked = host.vscode.commands.executeCommand(
-      "codetour.nextTourStep"
+      "codetourIA.nextTourStep"
     );
     await host.answerModal("Save");
     await blocked;
@@ -317,7 +317,7 @@ preservationTest(
     // Once the write works again, the same draft saves and the exit proceeds.
     host.allowWrite("/workspace/.tours/drafts.tour");
     const retried = host.vscode.commands.executeCommand(
-      "codetour.nextTourStep"
+      "codetourIA.nextTourStep"
     );
     await host.answerModal("Save");
     await retried;
@@ -339,7 +339,7 @@ preservationTest(
     await startDraftTour();
     await enterEditingWithDraft("Link draft.");
     const byLink = host.vscode.commands.executeCommand(
-      "codetour.startTourByTitle",
+      "codetourIA.startTourByTitle",
       otherTour.title
     );
     await host.answerModal("Discard");
@@ -352,7 +352,7 @@ preservationTest(
     await startDraftTour();
     await enterEditingWithDraft("Resume draft.");
     const byResume = host.vscode.commands.executeCommand(
-      "codetour._startTourById",
+      "codetourIA._startTourById",
       tour.id,
       1
     );
@@ -365,7 +365,7 @@ preservationTest(
     // An explicit end proposes it as well, and saving ends the tour.
     await startDraftTour();
     await enterEditingWithDraft("Finish draft.");
-    const finish = host.vscode.commands.executeCommand("codetour.finishTour");
+    const finish = host.vscode.commands.executeCommand("codetourIA.finishTour");
     await host.answerModal("Save");
     await finish;
     await host.waitFor(() => store.activeTour === null);
@@ -379,7 +379,7 @@ preservationTest(
     // Cancelling the end keeps the tour and the draft.
     await startDraftTour();
     await enterEditingWithDraft("End-cancel draft.");
-    const end = host.vscode.commands.executeCommand("codetour.endTour");
+    const end = host.vscode.commands.executeCommand("codetourIA.endTour");
     await host.answerModal("Cancel");
     await end;
     assert.notEqual(store.activeTour, null);
@@ -395,11 +395,11 @@ preservationTest(
     await startDraftTour();
     await enterEditingWithDraft("Burst draft.");
 
-    const first = host.vscode.commands.executeCommand("codetour.nextTourStep");
+    const first = host.vscode.commands.executeCommand("codetourIA.nextTourStep");
     await host.waitFor(() => host.modalPrompts().length === 1);
 
     // A second exit action fired while the prompt is open is ignored.
-    const second = host.vscode.commands.executeCommand("codetour.nextTourStep");
+    const second = host.vscode.commands.executeCommand("codetourIA.nextTourStep");
     await new Promise(resolve => setTimeout(resolve, 200));
 
     host.respondToModal("Save");
@@ -433,17 +433,17 @@ preservationTest("no prompt appears without an unsaved draft", async () => {
   await startDraftTour();
 
   // No editing session at all: navigation is silent.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.liveThreads()[0]?.comments[0]?.body.value.includes("Registered second content."));
   assert.equal(host.modalPrompts().length, 0);
-  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
   await host.waitFor(() => host.liveThreads().length === 1);
 
   // Entering the editor without typing leaves the draft identical to the
   // registered content: no prompt either.
-  await host.vscode.commands.executeCommand("codetour.editTour");
+  await host.vscode.commands.executeCommand("codetourIA.editTour");
   await host.waitFor(() => !!nativeSource());
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => host.liveThreads()[0]?.comments[0]?.body.value.includes("Registered second content."));
   assert.equal(host.modalPrompts().length, 0);
   assert.equal(getStepDraft(tour.id, 0), undefined);
@@ -465,7 +465,7 @@ preservationTest("a programmatic tour end honours draft cancellation", async () 
 preservationTest("opening expanded reading resolves an unsaved native draft", async () => {
   await startDraftTour();
   await enterEditingWithDraft("Expanded draft.");
-  const opening = host.vscode.commands.executeCommand("codetour.showStepDescription");
+  const opening = host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.answerModal("Cancel");
   await opening;
   assert.equal(store.isExpandedViewOpen, false);
@@ -473,7 +473,7 @@ preservationTest("opening expanded reading resolves an unsaved native draft", as
   assert.equal(getStepDraft(tour.id, 0), "Expanded draft.");
   assert.equal(host.livePanels("codetour.tour").length, 0);
   host.respondToModal("Save");
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => host.panelHtml().includes("Expanded draft."));
   assert.equal(store.isEditing, false);
   assert.equal(getStepDraft(tour.id, 0), undefined);

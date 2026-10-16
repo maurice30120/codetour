@@ -7,7 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing GitHub release tag to build and attach VSIX files to
+        description: >-
+          Existing GitHub release tag to build and attach VSIX files to
         required: true
         type: string
 
@@ -26,11 +27,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout release tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
       - name: Install pinned npm
@@ -56,9 +57,10 @@ jobs:
         run: |
           if [[ -n "$VSCE_PAT" ]]; then
             vsix=(codetour-*.vsix)
-            npx --no-install vsce publish --packagePath "${vsix[0]}"
+            node_modules/.bin/vsce publish --packagePath "${vsix[0]}"
           else
-            echo "VSCE_PAT is not configured; download the VSIX from the GitHub release."
+            echo "VSCE_PAT is not configured; " \
+              "download the VSIX from the GitHub release."
           fi
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}

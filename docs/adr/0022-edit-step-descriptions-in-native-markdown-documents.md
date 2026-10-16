@@ -1,0 +1,7 @@
+# Edit Tour Step descriptions in native Markdown documents
+
+Editing an existing Tour Step opens a native VS Code Markdown document containing a draft separate from its saved description, rather than embedding another text editor in the Expanded Description View. The view offers an Edit button for editable Tours that invokes the extension's existing editing command and closes the reading panel; the extension verifies the active render identity and editing permission before accepting the request. This makes editing accessible from the reading surface while keeping document editing, saving and cancellation in one native workflow.
+
+Save Step and saving before leaving use the same snapshot operation. Navigation, reordering, ending a Tour and opening the expanded view share a Save/Discard/Cancel guard for modified drafts; failed writes preserve the draft, and typing during a write remains unsaved instead of being cleared by completion of an older save. Drafts follow the step object so reordering does not associate them with another step, and render or theme refreshes must not rewrite the active editing document.
+
+This extends the presentation boundary of ADR 0018: native VS Code documents provide Markdown editing without a second editor and synchronization protocol in the webview, at the cost of switching surfaces and explicitly managing draft lifecycles. Recording new Tours retains its native comment-editing workflow.

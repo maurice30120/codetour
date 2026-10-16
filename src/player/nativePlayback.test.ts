@@ -66,7 +66,7 @@ function seedWorkspace() {
 
 async function startTour() {
   seedWorkspace();
-  await host.vscode.commands.executeCommand("codetour.startTour", tour);
+  await host.vscode.commands.executeCommand("codetourIA.startTour", tour);
 }
 
 test("the native reader presents steps through comment threads", async () => {
@@ -87,7 +87,7 @@ test("the native reader presents steps through comment threads", async () => {
     thread.comments[0].body.value,
     /The player starts here\./
   );
-  assert.match(thread.comments[0].body.value, /command:codetour\.nextTourStep/);
+  assert.match(thread.comments[0].body.value, /command:codetourIA\.nextTourStep/);
   assert.equal(thread.contextValue, "hasNext");
   assert.equal(host.contexts.get("codetour:inTour"), true);
 
@@ -98,7 +98,7 @@ test("the native reader presents steps through comment threads", async () => {
   assert.equal(host.livePanels().length, 0);
 
   // Navigation reuses the same actions and progression as before.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() =>
     host.liveThreads()[0]?.comments[0]?.body.value.includes(
       "The selection anchors this rule."
@@ -111,7 +111,7 @@ test("the native reader presents steps through comment threads", async () => {
   );
   assert.equal(selectionThread.contextValue, "hasPrevious.hasNext");
 
-  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
   await host.waitFor(() =>
     host.liveThreads()[0]?.comments[0]?.body.value.includes(
       "The player starts here."
@@ -120,7 +120,7 @@ test("the native reader presents steps through comment threads", async () => {
   assert.equal(host.contexts.get("codetour:hasProgress"), true);
 
   // Finishing the tour removes the thread and the in-tour context.
-  await host.vscode.commands.executeCommand("codetour.finishTour");
+  await host.vscode.commands.executeCommand("codetourIA.finishTour");
   await host.waitFor(() => store.activeTour === null);
   assert.equal(host.liveThreads().length, 0);
   assert.equal(host.contexts.get("codetour:inTour"), false);
@@ -138,5 +138,5 @@ test("the native comment position preference preserves the source selection", as
   await host.waitFor(() => host.liveThreads()[0]?.comments.length === 1);
   assert.equal(host.liveThreads()[0].range.start.line, 1);
   assert.equal(host.editorFor("src/player.ts")!.selection.start.line, 2);
-  await host.vscode.commands.executeCommand("codetour.endTour");
+  await host.vscode.commands.executeCommand("codetourIA.endTour");
 });

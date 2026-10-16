@@ -200,10 +200,10 @@ function measureTextBox(element: Element): Box {
       const dy = coordinateOf(tspan.getAttribute("dy"), fontSize);
       if (explicitY !== undefined) {
         lineY = explicitY;
-      } else if (dy !== undefined) {
+      }
+      // SVG dy offsets the current position even when y resets it.
+      if (dy !== undefined) {
         lineY += dy;
-      } else {
-        lineY += fontSize * LINE_HEIGHT_FACTOR;
       }
       measureLine(tspan.textContent || "", lineY);
     }

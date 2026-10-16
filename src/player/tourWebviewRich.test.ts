@@ -87,8 +87,8 @@ function seedWorkspace() {
 
 async function startTour() {
   seedWorkspace();
-  await host.vscode.commands.executeCommand("codetour.startTour", tour);
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.startTour", tour);
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
 }
 
 function panelHtml() {
@@ -100,7 +100,7 @@ function diagramSrc(html: string): string | undefined {
 }
 
 async function goToMermaidStep() {
-  await host.vscode.commands.executeCommand("codetour.navigateToStep", 1);
+  await host.vscode.commands.executeCommand("codetourIA.navigateToStep", 1);
   await host.waitFor(() => !!diagramSrc(panelHtml()));
 }
 
@@ -124,7 +124,7 @@ test("a mermaid diagram renders in the reading panel with its caption as alt tex
 
 test("an invalid diagram falls back to the shared notice without hiding the rest", async () => {
 
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => panelHtml().includes("2 / 3"));
 
   const html = panelHtml();
@@ -136,7 +136,7 @@ test("an invalid diagram falls back to the shared notice without hiding the rest
 
 test("tables, images and tour references render through the shared pipeline", async () => {
 
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => panelHtml().includes("3 / 3"));
 
   const html = panelHtml();
@@ -144,7 +144,7 @@ test("tables, images and tour references render through the shared pipeline", as
   assert.match(html, /<td>Alpha<\/td>/);
   assert.match(html, /<img[^>]*src="https:\/\/example\.com\/logo\.png"/);
   assert.match(html, /alt="Logo"/);
-  assert.match(html, /href="command:codetour\.navigateToStep\?1"/);
+  assert.match(html, /href="command:codetourIA\.navigateToStep\?1"/);
   assert.match(html, /href="command:vscode\.open\?/);
   assert.match(html, /href="https:\/\/example\.com\/docs"/);
 });
@@ -152,7 +152,7 @@ test("tables, images and tour references render through the shared pipeline", as
 test("description links keep the shared permissions and need explicit clicks", async () => {
   const panel = host.livePanels("codetour.tour")[0]!;
   const stepLink = panelHtml().match(
-    /href="(command:codetour\.navigateToStep\?[^"]+)"/
+    /href="(command:codetourIA\.navigateToStep\?[^"]+)"/
   )![1];
 
   panel.receive({ type: "openLink", href: stepLink });
@@ -163,7 +163,7 @@ test("description links keep the shared permissions and need explicit clicks", a
   panel.receive({ type: "openLink" });
   panel.receive({ type: "unknown" });
 
-  await host.vscode.commands.executeCommand("codetour.navigateToStep", 3);
+  await host.vscode.commands.executeCommand("codetourIA.navigateToStep", 3);
   await host.waitFor(() => panelHtml().includes("3 / 3"));
 
   // External links open through the host, workspace files through vscode.open.
@@ -217,7 +217,7 @@ test("hot theme changes refresh the panel and its diagrams", async () => {
 test("rapid navigation during a mermaid render keeps the latest requested step", async () => {
   await goToMermaidStep();
 
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => panelHtml().includes("2 / 3"));
 
   // Let any delayed mermaid render settle: it must not replace the step the
@@ -233,9 +233,9 @@ test("closing the panel during a pending mermaid render keeps the latest request
 
   // Ask for the mermaid step again, then close the panel while its
   // presentation render is still pending.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
   await host.waitFor(() => panelHtml().includes("2 / 3"));
-  await host.vscode.commands.executeCommand("codetour.previousTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
   host.livePanels("codetour.tour")[0]!.dispose();
   await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -247,8 +247,8 @@ test("closing the panel during a pending mermaid render keeps the latest request
   assert.equal(host.livePanels("codetour.tour").length, 0);
 
   // The reader continues from the requested step.
-  await host.vscode.commands.executeCommand("codetour.nextTourStep");
-  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
+  await host.vscode.commands.executeCommand("codetourIA.showStepDescription");
   await host.waitFor(() => panelHtml().includes("2 / 3"));
   assert.match(panelHtml(), /<h1>Broken diagram<\/h1>/);
 });

@@ -40,7 +40,7 @@ export function generatePreviewContent(
   const transformed = content
     .replace(SHELL_SCRIPT_PATTERN, (_, script) => {
       const args = encodeURIComponent(JSON.stringify([script]));
-      const s = `> [${script}](command:codetour.sendTextToTerminal?${args} "Run \\"${script.replace(
+      const s = `> [${script}](command:codetourIA.sendTextToTerminal?${args} "Run \\"${script.replace(
         /"/g,
         "'"
       )}\\" in a terminal")`;
@@ -74,7 +74,7 @@ export function generatePreviewContent(
     .replace(TOUR_REFERENCE_PATTERN, (_, linkTitle, tourTitle, stepNumber) => {
       if (!tourTitle) {
         const title = linkTitle || `#${stepNumber}`;
-        return `[${title}](command:codetour.navigateToStep?${stepNumber} "Navigate to step #${stepNumber}")`;
+        return `[${title}](command:codetourIA.navigateToStep?${stepNumber} "Navigate to step #${stepNumber}")`;
       }
 
       const tours = context.tours || store.activeTour?.tours || store.tours;
@@ -87,7 +87,7 @@ export function generatePreviewContent(
         }
         const argsContent = encodeURIComponent(JSON.stringify(args));
         const title = linkTitle || tour.title;
-        return `[${title}](command:codetour.startTourByTitle?${argsContent} "Start \\"${tour.title}\\" tour")`;
+        return `[${title}](command:codetourIA.startTourByTitle?${argsContent} "Start \\"${tour.title}\\" tour")`;
       }
 
       return _;

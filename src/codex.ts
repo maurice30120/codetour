@@ -98,10 +98,10 @@ async function reportFailure(action: () => Promise<void>): Promise<void> {
 
 export function registerCodexCommands(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand("codetour.configureCodexMcp", () =>
+    vscode.commands.registerCommand("codetourIA.configureCodexMcp", () =>
       reportFailure(() => configureCodex(context))
     ),
-    vscode.commands.registerCommand("codetour.repairCodexMcp", () =>
+    vscode.commands.registerCommand("codetourIA.repairCodexMcp", () =>
       reportFailure(() => repairCodex(context))
     )
   );
