@@ -4,6 +4,7 @@ import {
   MAX_DIAGRAM_SOURCE_BYTES,
   diagramKindOf,
   evaluateDiagramFence,
+  findCaptionCandidateLine,
   findDiagramFences,
   matchDiagramCaption,
   renderMermaidDiagram,
@@ -67,21 +68,22 @@ function canonicalCaption(caption: string | undefined): string | undefined {
     : matchDiagramCaption(`**${caption}**`);
 }
 
-function nearestNonBlankLineBefore(
-  description: string,
-  offset: number
-): string | undefined {
-  // findDiagramFences keeps only the parsed caption, so when the parser does
-  // not match, the offending line is not retained on the fence. Re-derive it
-  // the same way the renderer's caption search walks lines: nearest preceding
-  // non-blank line before the fence.
-  const lines = description.slice(0, offset).split("\n");
-  for (let index = lines.length - 1; index >= 0; index--) {
-    if (lines[index].trim() !== "") {
-      return lines[index];
-    }
-  }
-  return undefined;
+// All "found" values in diagnostics are serialized the same way, so quoting
+// and escaping stay consistent across the caption, kind, and syntax messages.
+function serializeFound(value: string | undefined): string {
+  return value === undefined ? "undefined" : JSON.stringify(value);
+}
+
+// An invalid-syntax fence can be up to 20 KB; the diagnostic embeds only a
+// bounded excerpt so the message stays readable. Short sources are embedded
+// in full, unchanged.
+const FOUND_EXCERPT_LIMIT = 200;
+const TRUNCATION_MARKER = "…[truncated]";
+
+function foundSourceExcerpt(source: string): string {
+  return source.length > FOUND_EXCERPT_LIMIT
+    ? source.slice(0, FOUND_EXCERPT_LIMIT) + TRUNCATION_MARKER
+    : source;
 }
 
 async function validateDescription(
@@ -125,25 +127,22 @@ async function validateDescription(
             : "source";
       let message: string;
       if (evaluation.reason === "caption") {
-        const foundLine = nearestNonBlankLineBefore(description, fence.start);
-        const found =
-          foundLine === undefined ? "undefined" : JSON.stringify(foundLine);
+        // findDiagramFences keeps only the parsed caption, so when the parser
+        // does not match, the offending line is not retained on the fence.
+        // Re-derive it through the renderer's shared line walk.
+        const foundLine = findCaptionCandidateLine(description, fence.start);
         message =
           `the Mermaid fence at ${location} requires a nearest non-blank caption: ` +
-          `${CAPTION_GRAMMAR}; found: ${found}`;
+          `${CAPTION_GRAMMAR}; found: ${serializeFound(foundLine)}`;
       } else if (evaluation.reason === "size") {
         message =
           `the Mermaid source at ${location} is ${Buffer.byteLength(fence.source, "utf8")} bytes; ` +
           `the limit is ${MAX_DIAGRAM_SOURCE_BYTES} bytes`;
       } else {
         const detectedKind = diagramKindOf(fence.source);
-        const found =
-          detectedKind === undefined
-            ? "undefined"
-            : JSON.stringify(detectedKind);
         message =
           `the Mermaid source at ${location} uses an unsupported kind; ` +
-          `found: ${found}; ` +
+          `found: ${serializeFound(detectedKind)}; ` +
           `supported kinds are ${ALLOWED_DIAGRAM_KINDS.join(", ")}`;
       }
       issues.push({ path: fencePath(descriptionPath, index, field), message });
@@ -157,7 +156,7 @@ async function validateDescription(
         path: fencePath(descriptionPath, index, "source"),
         message:
           `the Mermaid source at ${location} has invalid Mermaid syntax; ` +
-          `found: ${JSON.stringify(fence.source)}`,
+          `found: ${serializeFound(foundSourceExcerpt(fence.source))}`,
       });
     }
   }

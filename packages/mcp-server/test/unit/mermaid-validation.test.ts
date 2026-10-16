@@ -109,6 +109,30 @@ test("an invalid Mermaid source reports the found source text", async () => {
   );
 });
 
+test("an invalid Mermaid source above the excerpt bound reports a bounded excerpt", async () => {
+  const junkSource = [
+    "flowchart TD",
+    ...Array.from(
+      { length: 200 },
+      (_, index) => `    junk line ${index} ${"x".repeat(78)} (((`
+    ),
+  ].join("\n");
+  assert.ok(junkSource.length > 20 * 1000);
+  assert.ok(Buffer.byteLength(junkSource, "utf8") <= 20 * 1024);
+  const issues = await validateMermaidDescriptions({
+    description: captionedDiagram("Request lifecycle", junkSource),
+  });
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].path, "description.mermaid[0].source");
+  assert.ok(
+    issues[0].message.startsWith(
+      "the Mermaid source at line 3, column 1 has invalid Mermaid syntax; found: "
+    )
+  );
+  assert.ok(issues[0].message.length < 300);
+  assert.ok(issues[0].message.includes("[truncated]"));
+});
+
 test("the tool guidance states the exact caption grammar with U+2014", () => {
   assert.ok(
     MERMAID_TOOL_GUIDANCE.includes(
