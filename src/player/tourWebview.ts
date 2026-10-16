@@ -17,6 +17,7 @@ import { getNextTour, getPreviousTour } from "./index";
 interface TourView {
   panel: vscode.WebviewPanel;
   version: number;
+  codeViewColumn: vscode.ViewColumn;
   rendered?: { active: ActiveTour; step: number; token: string };
 }
 
@@ -34,6 +35,8 @@ export function showTourWebview(): void {
         { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
         { enableScripts: true, localResourceRoots: [] }
       ),
+      codeViewColumn: vscode.window.activeTextEditor?.viewColumn ??
+        vscode.window.visibleTextEditors[0]?.viewColumn ?? vscode.ViewColumn.One,
       version: 0
     };
     view = current;
@@ -107,6 +110,21 @@ export function showTourWebview(): void {
     store.isExpandedViewOpen = true;
   }
   view.panel.reveal(undefined, true);
+}
+
+/** Keeps code navigation outside the reading panel, even when it has focus. */
+export function getTourCodeViewColumn(): vscode.ViewColumn | undefined {
+  if (!view) return undefined;
+  const panelColumn = view.panel.viewColumn;
+  const editors = vscode.window.visibleTextEditors;
+  const editor = editors.find(candidate =>
+    candidate.viewColumn === view!.codeViewColumn && candidate.viewColumn !== panelColumn
+  ) ?? editors.find(candidate => candidate.viewColumn !== panelColumn);
+  const column = editor?.viewColumn ??
+    (view.codeViewColumn !== panelColumn ? view.codeViewColumn : undefined) ??
+    (panelColumn === vscode.ViewColumn.One ? vscode.ViewColumn.Two : vscode.ViewColumn.One);
+  view.codeViewColumn = column;
+  return column;
 }
 
 /** Updates an existing panel; rendering can never reopen a closed panel. */

@@ -51,6 +51,7 @@ import { registerStatusBar } from "./status";
 import { registerNativeDraftEditor, isEditingSession } from "./stepEditing";
 import {
   disposeTourWebview,
+  getTourCodeViewColumn,
   renderTourStep,
   showTourWebview
 } from "./tourWebview";
@@ -553,7 +554,9 @@ async function presentCurrentStepInThread(
 }
 
 async function showDiff(diff: StepDiff, range: Range, selection: Selection, version: number) {
+  const viewColumn = getTourCodeViewColumn();
   await commands.executeCommand("vscode.diff", diff.original, diff.modified, diff.title, {
+    ...(viewColumn !== undefined ? { viewColumn } : {}),
     preserveFocus: false,
     preview: true,
     selection: selection || range
@@ -571,10 +574,15 @@ async function showDiff(diff: StepDiff, range: Range, selection: Selection, vers
 }
 
 async function showDocument(uri: Uri, range: Range, selection?: Selection, version = renderVersion) {
+  const viewColumn = getTourCodeViewColumn();
   const document =
     window.visibleTextEditors.find(
-      editor => editor.document.uri.toString() === uri.toString()
-    ) || (await window.showTextDocument(uri, { preserveFocus: true }));
+      editor => editor.document.uri.toString() === uri.toString() &&
+        (viewColumn === undefined || editor.viewColumn === viewColumn)
+    ) || (await window.showTextDocument(uri, {
+      preserveFocus: true,
+      ...(viewColumn !== undefined ? { viewColumn } : {})
+    }));
 
   if (version !== renderVersion || !store.activeTour) return;
 

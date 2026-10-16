@@ -372,14 +372,17 @@ class MockTextEditor {
   selection = new Selection(0, 0, 0, 0);
   readonly revealedRanges: Range[] = [];
   readonly decorations = new Map<TextEditorDecorationType, Range[]>();
+  readonly decorationOptions = new Map<TextEditorDecorationType, { range: Range; hoverMessage?: MarkdownString }[]>();
 
   constructor(
     readonly document: MockTextDocument,
     readonly viewColumn: number = ViewColumn.One
   ) {}
 
-  setDecorations(type: TextEditorDecorationType, ranges: Range[]): void {
-    this.decorations.set(type, ranges);
+  setDecorations(type: TextEditorDecorationType, ranges: (Range | { range: Range; hoverMessage?: MarkdownString })[]): void {
+    const options = ranges.map(value => value instanceof Range ? { range: value } : value);
+    this.decorationOptions.set(type, options);
+    this.decorations.set(type, options.map(value => value.range));
   }
 
   revealRange(range: Range, _revealType?: number): void {

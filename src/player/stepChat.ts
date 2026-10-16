@@ -87,6 +87,8 @@ export interface StepChatAnswerEvents {
    * chat displays it immediately, before the answer is complete.
    */
   onAnswerDelta?(delta: string): void;
+  onThoughtDelta?(delta: string): void;
+  onActivity?(message: string): void;
 }
 
 /** What the responder receives for a question. */
@@ -147,6 +149,7 @@ interface StoredExchange {
   // The raw answer feeds follow-up questions; the HTML feeds the chat.
   answerMarkdown: string;
   answerHtml: string;
+  activityHtml?: string;
   failed: boolean;
   // True while the responder is still answering this question: the
   // response-in-progress state of the chat.
@@ -170,6 +173,7 @@ function getConversation(tourId: string, step: number): StoredExchange[] {
 export interface StepChatExchangeView {
   question: string;
   answerHtml: string;
+  activityHtml?: string;
   failed?: boolean;
   // True while this question's answer is still streaming.
   pending?: boolean;
@@ -204,6 +208,7 @@ export function getStepChatConversationView(
     exchanges: conversation.map(exchange => ({
       question: exchange.question,
       answerHtml: exchange.answerHtml,
+      activityHtml: exchange.activityHtml,
       failed: exchange.failed || undefined,
       pending: exchange.pending || undefined,
       interrupted: exchange.interrupted || undefined
@@ -404,17 +409,32 @@ export async function askTourStepQuestion(
     );
   } else {
     let streamed = "";
+    let thought = "";
     try {
+      const context = await resolveStepContext(active);
+      // Stop can arrive while the displayed context is still being read.
+      if (exchange.interrupted) return view();
       const answerMarkdown = await responder.answer(
         {
           question,
-          context: await resolveStepContext(active),
+          context,
           history,
           workspaceRoot: active.workspaceRoot?.fsPath ?? ""
         },
         {
           // Every chunk is rendered through the shared sanitizer and
           // displayed on its own: the answer is readable as it streams.
+          onThoughtDelta: delta => {
+            if (exchange.interrupted) return;
+            thought += delta;
+            exchange.activityHtml = renderMarkdownToHtml(thought);
+            onProgress?.(view());
+          },
+          onActivity: message => {
+            if (exchange.interrupted) return;
+            exchange.activityHtml = renderMarkdownToHtml(message);
+            onProgress?.(view());
+          },
           onAnswerDelta: (delta: string) => {
             if (exchange.interrupted) {
               return;

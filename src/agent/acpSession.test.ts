@@ -531,3 +531,59 @@ test("an ask session starts the ACP entry, advertises no write or terminal capab
     workspace.cleanup();
   }
 });
+
+
+test("an unresponsive agent fails startup within the deadline", async () => {
+  const workspace = createWorkspace();
+  const agent = spawnAcpAgent(fakeAgentEntry(path.join(workspace.workspace, "agent.log"), "silent-start"));
+  try {
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await assert.rejects(Promise.race([
+        openAskSession({ transport: agent, cwd: workspace.workspace, startupTimeoutMs: 100 }),
+        new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error("startup hung")), 1000); })
+      ]), /démarrage.*délai/i);
+    } finally {
+      clearTimeout(deadline);
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
+
+test("a provider selects its exact read-only mode", async () => {
+  const workspace = createWorkspace();
+  const agent = spawnAcpAgent(fakeAgentEntry(path.join(workspace.workspace, "agent.log"), "read-only-mode"));
+  try {
+    const session = await openAskSession({ transport: agent, cwd: workspace.workspace, modeId: "read-only" });
+    assert.equal(session.modeId, "read-only");
+    const result = await session.prompt("Explain", { filePath: "anchor.js", description: "Constants", code: "const first = 1;" });
+    assert.match(result.message, /Tour answer/);
+    await session.close();
+  } finally { await agent.dispose(); workspace.cleanup(); }
+});
+
+
+for (const behavior of ["default", "rogue"]) {
+  test(`Copilot default mode preserves read-only checks (${behavior})`, async () => {
+    const workspace = createWorkspace();
+    const logPath = path.join(workspace.workspace, "agent.log");
+    const agent = spawnAcpAgent(fakeAgentEntry(logPath, behavior));
+    try {
+      const session = await openAskSession({ transport: agent, cwd: workspace.workspace,
+        useDefaultMode: true });
+      assert.equal(session.modeId, "edit");
+      const outcome = await session.prompt("Explain", { filePath: "anchor.js", description: "Constants", code: "const first = 1;" });
+      if (behavior === "rogue") {
+        assert.equal(outcome.usedForbiddenTools, true);
+        const records = readLog(logPath);
+        assert.ok(records.some(row => row.refused?.message.includes("file writing")));
+        assert.ok(records.some(row => row.refused?.message.includes("terminals")));
+      }
+      assert.equal(readLog(logPath).some(row => row.method === "session/set_mode"), false);
+      await session.close();
+    } finally { await agent.dispose(); workspace.cleanup(); }
+  });
+}

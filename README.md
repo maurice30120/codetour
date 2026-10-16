@@ -479,3 +479,19 @@ if (codeTourExtension) {
 ### Editing an existing step
 
 Use Edit in the CodeTour tree or comment toolbar. The extension opens an untitled Markdown draft document and restores inline comments if the expanded view was open. Typing updates the session draft. **CodeTour IA: Save Step** writes it to the `.tour` file; **Cancel Step Editing** discards it. The document's normal Save action does not save the tour. New-tour recording continues to use native comments. Navigation, reordering, ending the tour and opening expanded reading ask whether to save, discard or cancel when the active step has an unsaved draft.
+
+
+### Agents ACP pour les conversations d’étape
+
+Le chat essaie les agents installés dans cet ordre : **Vibe → Copilot → Codex → Claude Code**. Le premier agent fonctionnel est conservé pour la session de lecture. Une erreur de démarrage, de connexion, d’authentification ou une erreur avant le premier texte de réponse déclenche le repli vers le suivant. Après un début de réponse, l’erreur est affichée sans mélanger les réponses de deux agents. Arrêter une réponse empêche aussi le repli.
+
+| Agent | Exécutable sur le PATH de VS Code | Mode sélectionné |
+| --- | --- | --- |
+| Vibe | `vibe-acp` | Ask |
+| GitHub Copilot CLI | `copilot --acp --stdio` | Mode normal par défaut ; outils limités à `view`, `grep`, `glob` |
+| Codex | `codex-acp` | read-only |
+| Claude Code via Claude Agent ACP | `claude-agent-acp` | plan |
+
+Copilot nécessite le CLI authentifié. Codex et Claude nécessitent leur adaptateur ACP : `npm install -g @agentclientprotocol/codex-acp` ou `npm install -g @agentclientprotocol/claude-agent-acp`, puis l’authentification correspondante. CodeTour ne télécharge aucun agent et ne lance pas de connexion interactive. Copilot utilise directement son mode normal, avec refus d’écriture et d’exécution et vérification des outils exécutés. Les autres agents indisponibles ou n’annonçant pas le mode requis sont ignorés, avec 30 secondes maximum pour établir chaque session. L’activité du chat indique l’agent utilisé ; si tous échouent, une nouvelle question réessaie la liste.
+
+Références : [Copilot ACP](https://docs.github.com/en/copilot/reference/copilot-cli-reference/acp-server), [Codex ACP](https://github.com/agentclientprotocol/codex-acp), [Claude Agent ACP](https://github.com/agentclientprotocol/claude-agent-acp).

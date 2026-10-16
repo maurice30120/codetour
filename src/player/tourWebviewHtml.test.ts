@@ -222,14 +222,14 @@ test("the step chat submits questions with the step identity and renders chat up
     data: {
       type: "stepChat",
       exchanges: [
-        { question: '<script>alert(1)</script>', answerHtml: "<p>Réponse sûre.</p>" }
+        { question: '<script>alert(1)</script>', activityHtml: "<p>Analyse…</p>", answerHtml: "<p>Réponse sûre.</p>" }
       ]
     }
   });
   assert.equal(
     chatLog.innerHTML,
     '<li class="step-chat-question">&lt;script&gt;alert(1)&lt;/script&gt;</li>' +
-      '<li class="step-chat-answer"><p>Réponse sûre.</p></li>'
+      '<li class="step-chat-answer"><details class="step-chat-activity"><summary>Activité du modèle</summary><p>Analyse…</p></details><p>Réponse sûre.</p></li>'
   );
 
   // Malformed updates never touch the displayed conversation.
@@ -427,4 +427,14 @@ test("the step chat message handler reflects the streaming updates and unlocks t
     '<li class="step-chat-question">En flux ?</li>' +
       '<li class="step-chat-answer step-chat-interrupted"><p>Premier morceau</p><p class="step-chat-interrupted" role="status">Réponse interrompue.</p></li>'
   );
+});
+
+
+test("initial chat render exposes pending model activity", () => {
+  const html = createTourWebviewHtml({
+    ...baseModel(), chatResponding: true,
+    chatExchanges: [{ question: "Pourquoi ?", answerHtml: "", pending: true,
+      activityHtml: "<p>Analyse de la constante…</p>" }]
+  }, "activity-nonce");
+  assert.ok(html.includes('<details class="step-chat-activity" open><summary>Activité du modèle</summary><p>Analyse de la constante…</p></details>'));
 });

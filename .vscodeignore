@@ -30,6 +30,7 @@ MIGRATION.md
 ROADMAP.md
 skills-lock.json
 **/*.svg
+!images/anchor.svg
 dist/extension-web.js*
 dist/test/**
 

@@ -99,6 +99,7 @@ agent.onRequest(acp.methods.agent.initialize, context => {
     outcome: authRequired ? "auth-failed" : undefined,
     error: authRequired ? AUTH_ERROR_MESSAGE : undefined
   });
+  if (behavior === "silent-start") return new Promise<acp.InitializeResponse>(() => undefined);
   if (authRequired) {
     throw new acp.RequestError(-32001, AUTH_ERROR_MESSAGE);
   }
@@ -117,6 +118,9 @@ agent.onRequest(acp.methods.agent.session.new, context => {
   ];
   if (behavior === "no-ask-mode") {
     availableModes = [{ id: "edit", name: "Edit" }];
+  }
+  if (behavior === "read-only-mode") {
+    availableModes = [{ id: "edit", name: "Edit" }, { id: "read-only", name: "Read-only" }];
   }
   if (behavior === "ask-mode-by-name") {
     availableModes = [
@@ -167,6 +171,15 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
     });
 
   switch (behavior) {
+    case "prompt-fails":
+      throw new acp.RequestError(-32001, "Authentication required at prompt time");
+    case "partial-fails":
+      await chunk("Partial answer");
+      throw new acp.RequestError(-32001, "Connection lost after partial answer");
+    case "thinking":
+      await notify({ sessionUpdate: "agent_thought_chunk", content: { type: "text", text: "Analyse de la constante <script>unsafe</script>" } });
+      await chunk("Réponse finale.");
+      return { stopReason: "end_turn" } as acp.PromptResponse;
     case "mode-drift":
       // Leaves Ask mode in the middle of a turn; the client must notice
       // from the current_mode_update, not from the mode name it selected.

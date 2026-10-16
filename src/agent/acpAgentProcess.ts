@@ -11,6 +11,10 @@ export interface AcpAgentEntry {
   args?: string[];
   cwd: string;
   env?: Record<string, string>;
+  /** Exact provider mode id; defaults to Vibe Ask when omitted. */
+  modeId?: string;
+  /** Copilot: use its advertised default, with read-only tool filtering. */
+  useDefaultMode?: boolean;
 }
 
 /**
@@ -64,7 +68,7 @@ export function spawnAcpAgent(entry: AcpAgentEntry): AcpAgentProcess {
     if (child.exitCode === null && !child.killed) {
       child.kill("SIGTERM");
       const killTimeout = setTimeout(() => {
-        if (child.exitCode === null && !child.killed) {
+        if (child.exitCode === null && child.signalCode === null) {
           child.kill("SIGKILL");
         }
       }, 3000);

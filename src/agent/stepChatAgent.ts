@@ -12,7 +12,7 @@ import {
 /**
  * The Tour Step Conversation agent: the webview chat's responder built on
  * the ACP session layer. The agent is launched lazily by its installed ACP
- * entry on the first question — Vibe in production, the deterministic fake
+ * entry on the first question — a configured ACP provider or the deterministic fake
  * agent at the same process boundary in tests — kept for the whole reading
  * session, and its Ask mode is selected and verified by the session layer
  * before the first prompt.
@@ -24,6 +24,7 @@ export interface AcpStepChatResponderHooks {
    * to watch the transport; production passes no hooks.
    */
   onProcess?(agent: AcpAgentProcess): void;
+  startupTimeoutMs?: number;
 }
 
 export interface AcpStepChatResponder extends StepChatResponder {
@@ -61,7 +62,7 @@ export function createAcpStepChatResponder(
       const spawned = spawnAcpAgent(entry);
       agent = spawned;
       hooks.onProcess?.(spawned);
-      opening = openAskSession({ transport: spawned, cwd: entry.cwd }).then(
+      opening = openAskSession({ transport: spawned, cwd: entry.cwd, modeId: entry.modeId, useDefaultMode: entry.useDefaultMode, startupTimeoutMs: hooks.startupTimeoutMs }).then(
         opened => {
           if (myEpoch !== epoch) {
             opened.close().catch(() => undefined);
@@ -138,7 +139,9 @@ export function createAcpStepChatResponder(
           ]);
         }
         const myStopEpoch = stopEpoch;
+        events?.onActivity?.("Connexion à l’agent…");
         const current = await openSession(request);
+        events?.onActivity?.("Question envoyée, en attente du modèle…");
         // A stop that arrived while the agent was still starting targets
         // this very question: it is never prompted to the agent.
         if (myStopEpoch !== stopEpoch) {
@@ -167,11 +170,13 @@ export function createAcpStepChatResponder(
               // Every streamed chunk of the agent's answer is handed to the
               // chat as it arrives, so the reader never waits for the whole
               // generation to finish.
-              events?.onAnswerDelta
-                ? {
-                    onAssistantText: delta => events.onAnswerDelta?.(delta)
-                  }
-                : undefined,
+              {
+                onAssistantText: delta => events?.onAnswerDelta?.(delta),
+                onThoughtText: delta => events?.onThoughtDelta?.(delta),
+                onToolUse: tool => events?.onActivity?.(
+                  `${tool.title ?? tool.kind ?? "Outil"} (${tool.status ?? "en cours"})`
+                )
+              },
               request.history
             ),
             crashed

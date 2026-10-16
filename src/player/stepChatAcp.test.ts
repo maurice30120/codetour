@@ -92,6 +92,7 @@ interface StepChatUpdate {
   exchanges: {
     question: string;
     answerHtml: string;
+    activityHtml?: string;
     failed?: boolean;
     pending?: boolean;
     interrupted?: boolean;
@@ -838,4 +839,160 @@ test("closing the reading webview forgets every conversation and nothing is ever
 
   chatPanel().dispose();
   agent.cleanup();
+});
+
+
+test("thinking activity reaches the chat before the answer", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  registerAcpResponder(agent, "thinking");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    chatPanel().receive({ type: "askQuestion", question: "Explique la constante" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+    const progress = stepChatUpdates().find(update => update.responding &&
+      update.exchanges[0]?.activityHtml?.includes("Analyse de la constante"));
+    assert.ok(progress, "thinking must be visible before any answer text");
+    assert.equal(progress.exchanges[0].answerHtml, "");
+    assert.ok(!progress.exchanges[0].activityHtml!.includes("<script>"));
+    assert.match(lastChatUpdate().exchanges[0].answerHtml, /Réponse finale/);
+  } finally {
+    chatPanel().dispose();
+    agent.cleanup();
+  }
+});
+
+
+const { createFallbackStepChatResponder } = require("../agent/fallbackStepChatAgent");
+
+for (const failingBehavior of ["no-ask-mode", "prompt-fails", "silent-start"]) {
+  test(`ACP fallback skips ${failingBehavior} and keeps the working session`, async () => {
+    resetChatState();
+    const first = createAgentWorkspace();
+    const second = createAgentWorkspace();
+    setStepChatResponder(createFallbackStepChatResponder(() => [
+      { name: "Vibe", entry: fakeAgentEntry(first, failingBehavior) },
+      { name: "Copilot", entry: fakeAgentEntry(second) }
+    ], { startupTimeoutMs: failingBehavior === "silent-start" ? 1000 : 5000 }));
+    try {
+      registerPlayerModule(host.extensionContext);
+      await startTour();
+      chatPanel().receive({ type: "askQuestion", question: "Fallback ?" });
+      await waitForCompletedAnswer(update => update.exchanges.length === 1);
+      assert.match(lastChatUpdate().exchanges[0].answerHtml, /Tour answer/);
+      assert.ok(stepChatUpdates().some(update => update.exchanges[0]?.activityHtml?.includes("Copilot")));
+      chatPanel().receive({ type: "askQuestion", question: "Encore ?" });
+      await waitForCompletedAnswer(update => update.exchanges.length === 2);
+      assert.equal(readLog(first.logPath).filter(row => row.method === "initialize").length, 1);
+      assert.equal(promptCount(readLog(second.logPath)), 2);
+      assert.match(promptBlocks(readLog(second.logPath))[2].text, /Fallback/);
+    } finally {
+      chatPanel().dispose();
+      first.cleanup(); second.cleanup();
+    }
+  });
+}
+
+test("ACP fallback reports all failures and can retry after installing an agent", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  let installed = false;
+  setStepChatResponder(createFallbackStepChatResponder(() => installed
+    ? [{ name: "Vibe", entry: fakeAgentEntry(agent) }]
+    : ["Vibe", "Copilot", "Codex", "Claude Code"].map(name => ({ name,
+        entry: { command: "/missing/codetour-agent", cwd: agent.workspace } }))));
+  try {
+    registerPlayerModule(host.extensionContext); await startTour();
+    chatPanel().receive({ type: "askQuestion", question: "Sans agent ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+    assert.equal(lastChatUpdate().exchanges[0].failed, true);
+    for (const name of ["Vibe", "Copilot", "Codex", "Claude Code"]) {
+      assert.ok(lastChatUpdate().exchanges[0].answerHtml.includes(name));
+    }
+    installed = true;
+    chatPanel().receive({ type: "askQuestion", question: "Après installation ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 2);
+    assert.match(lastChatUpdate().exchanges[1].answerHtml, /Tour answer/);
+  } finally { chatPanel().dispose(); agent.cleanup(); }
+});
+
+test("ACP fallback never replaces an agent after answer text has streamed", async () => {
+  resetChatState();
+  const first = createAgentWorkspace(); const second = createAgentWorkspace();
+  setStepChatResponder(createFallbackStepChatResponder(() => [
+    { name: "Vibe", entry: fakeAgentEntry(first, "partial-fails") },
+    { name: "Copilot", entry: fakeAgentEntry(second) }
+  ]));
+  try {
+    registerPlayerModule(host.extensionContext); await startTour();
+    chatPanel().receive({ type: "askQuestion", question: "Partielle ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+    assert.ok(stepChatUpdates().some(update => update.exchanges[0]?.answerHtml.includes("Partial answer")));
+    assert.equal(lastChatUpdate().exchanges[0].failed, true);
+    assert.equal(readLog(second.logPath).length, 0);
+  } finally { chatPanel().dispose(); first.cleanup(); second.cleanup(); }
+});
+
+test("stopping during ACP startup never starts a fallback provider", async () => {
+  resetChatState();
+  const first = createAgentWorkspace(); const second = createAgentWorkspace();
+  setStepChatResponder(createFallbackStepChatResponder(() => [
+    { name: "Vibe", entry: fakeAgentEntry(first, "silent-start") },
+    { name: "Copilot", entry: fakeAgentEntry(second) }
+  ], { startupTimeoutMs: 200 }));
+  try {
+    registerPlayerModule(host.extensionContext); await startTour();
+    chatPanel().receive({ type: "askQuestion", question: "Arrêter ?" });
+    await host.waitFor(() => lastChatUpdate()?.responding === true);
+    chatPanel().receive({ type: "stopQuestion" });
+    await host.waitFor(() => lastChatUpdate()?.responding === false);
+    await new Promise(resolve => setTimeout(resolve, 350));
+    assert.equal(lastChatUpdate().exchanges[0].interrupted, true);
+    assert.equal(readLog(second.logPath).length, 0);
+  } finally { chatPanel().dispose(); first.cleanup(); second.cleanup(); }
+});
+
+
+for (const workingIndex of [0, 2, 3]) {
+  test(`ACP fallback reaches provider ${workingIndex + 1} in priority order`, async () => {
+    resetChatState();
+    const agent = createAgentWorkspace();
+    const attempted: string[] = [];
+    setStepChatResponder(createFallbackStepChatResponder(() =>
+      ["Vibe", "Copilot", "Codex", "Claude Code"].map((name, index) => ({ name,
+        entry: index === workingIndex ? fakeAgentEntry(agent)
+          : { command: "/missing/codetour-agent", cwd: agent.workspace }
+      }))));
+    try {
+      registerPlayerModule(host.extensionContext); await startTour();
+      chatPanel().receive({ type: "askQuestion", question: "Priorité ?" });
+      await waitForCompletedAnswer(update => update.exchanges.length === 1);
+      for (const update of stepChatUpdates()) {
+        const html = update.exchanges[0]?.activityHtml ?? "";
+        const match = html.match(/Connexion à (Vibe|Copilot|Codex|Claude Code)\u2026/);
+        if (match && !attempted.includes(match[1])) attempted.push(match[1]);
+      }
+      assert.deepEqual(attempted, ["Vibe", "Copilot", "Codex", "Claude Code"].slice(0, workingIndex + 1));
+      assert.match(lastChatUpdate().exchanges[0].answerHtml, /Tour answer/);
+    } finally { chatPanel().dispose(); agent.cleanup(); }
+  });
+}
+
+test("stopping after the handshake begins prevents timed-out startup from falling back", async () => {
+  resetChatState();
+  const first = createAgentWorkspace(); const second = createAgentWorkspace();
+  setStepChatResponder(createFallbackStepChatResponder(() => [
+    { name: "Vibe", entry: fakeAgentEntry(first, "silent-start") },
+    { name: "Copilot", entry: fakeAgentEntry(second) }
+  ], { startupTimeoutMs: 500 }));
+  try {
+    registerPlayerModule(host.extensionContext); await startTour();
+    chatPanel().receive({ type: "askQuestion", question: "Annuler le démarrage" });
+    await waitForLog(first.logPath, found => found.some(row => row.method === "initialize"));
+    chatPanel().receive({ type: "stopQuestion" });
+    await new Promise(resolve => setTimeout(resolve, 600));
+    assert.equal(lastChatUpdate().exchanges[0].interrupted, true);
+    assert.equal(readLog(second.logPath).length, 0);
+  } finally { chatPanel().dispose(); first.cleanup(); second.cleanup(); }
 });

@@ -229,3 +229,22 @@ test("a whole-file step invents no source logo", async () => {
   assert.ok(!anchorDecoration("src/player.ts")?.length);
   await host.vscode.commands.executeCommand("codetour.endTour");
 });
+
+
+test("the active anchor hover opens the existing webview and only trusts that command", async () => {
+  await startTour();
+  await host.waitFor(() => host.panelHtml().includes("1 / 3"));
+  const type = activeAnchorType()!;
+  const options = host.editorFor("src/player.ts")!.decorationOptions.get(type)!;
+  const hover = options[0].hoverMessage!;
+  assert.match(hover.value, /\[Ouvrir la webview\]\(command:codetour.showStepDescription/);
+  assert.deepEqual(hover.isTrusted, { enabledCommands: ["codetour.showStepDescription"] });
+  assert.ok(!hover.value.includes("The player starts here"), "the hover stays concise");
+  const panel = host.livePanels("codetour.tour")[0];
+  panel.revealed = false;
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  assert.equal(panel.revealed, true);
+  assert.equal(host.livePanels("codetour.tour").length, 1);
+  await host.vscode.commands.executeCommand("codetour.endTour");
+  assert.equal(host.editorFor("src/player.ts")!.decorationOptions.get(type)?.length, 0);
+});

@@ -59,6 +59,7 @@ export interface TourStepChatExchange {
   // The answer HTML is produced by the shared renderer and sanitizer, like
   // the description; the webview never renders raw responder Markdown.
   answerHtml: string;
+  activityHtml?: string;
   failed?: boolean;
   // True while this question's answer is still streaming: the answer is
   // readable as it grows, marked as not yet complete.
@@ -96,7 +97,7 @@ function renderStepChatLogHtml(
           exchange.failed ? " step-chat-error" : ""
         }${exchange.pending ? " step-chat-pending" : ""}${
           exchange.interrupted ? " step-chat-interrupted" : ""
-        }">${exchange.answerHtml}</li>`
+        }">${exchange.activityHtml ? `<details class="step-chat-activity"${exchange.pending ? " open" : ""}><summary>Activité du modèle</summary>${exchange.activityHtml}</details>` : ""}${exchange.answerHtml}</li>`
     )
     .join("");
 }
@@ -123,6 +124,11 @@ const READING_STYLES = `
     .step-chat-answer.step-chat-error { color: var(--vscode-errorForeground); border-left: 3px solid var(--vscode-errorForeground); }
     .step-chat-answer.step-chat-pending { color: var(--vscode-descriptionForeground); }
     .step-chat-interrupted { font-style: italic; }
+    .step-chat-activity { margin-bottom: 1em; color: var(--vscode-descriptionForeground); }
+    .step-chat-activity summary { cursor: pointer; }
+    .step-chat-status:not([hidden])::before { content: ""; display: inline-block; width: .7em; height: .7em; margin-right: .6em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: chat-spin 1s linear infinite; }
+    @keyframes chat-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .step-chat-status::before { animation: none; } }
     .step-chat-status { margin: 0 0 1.25em; padding: 0 .75em; font-style: italic; color: var(--vscode-descriptionForeground); }
     .step-chat-input:disabled, .step-chat-submit:disabled { opacity: .55; cursor: default; }
     .step-chat-form { display: flex; gap: 6px; }
@@ -232,6 +238,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
         log.innerHTML = message.exchanges.map(exchange =>
           '<li class="step-chat-question">' + escapeHtml(exchange.question) + "</li>" +
           '<li class="step-chat-answer' + (exchange.failed ? " step-chat-error" : "") + (exchange.pending ? " step-chat-pending" : "") + (exchange.interrupted ? " step-chat-interrupted" : "") + '">' +
+          (exchange.activityHtml ? '<details class="step-chat-activity"' + (exchange.pending ? ' open' : '') + '><summary>Activité du modèle</summary>' + exchange.activityHtml + '</details>' : '') +
           exchange.answerHtml + "</li>").join("");
       }
       // The response-in-progress state stays visible while the answer

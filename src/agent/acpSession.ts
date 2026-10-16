@@ -100,6 +100,7 @@ export interface PromptOutcome {
 export interface AskSessionEvents {
   /** Called for each assistant text chunk as it arrives. */
   onAssistantText?(delta: string): void;
+  onThoughtText?(delta: string): void;
   /** Called each time the agent starts or updates a tool call. */
   onToolUse?(tool: ExecutedToolUse): void;
 }
@@ -127,6 +128,9 @@ export interface AskSession {
 }
 
 export interface OpenAskSessionOptions {
+  startupTimeoutMs?: number;
+  modeId?: string;
+  useDefaultMode?: boolean;
   transport: AcpAgentTransport;
   cwd: string;
   /**
@@ -221,7 +225,7 @@ function buildPromptBlocks(
 
 /**
  * Opens a session with the ACP agent behind the given transport, selects and
- * verifies its Ask mode before any prompt, and returns the conversation.
+ * verifies its provider mode before any prompt, and returns the conversation.
  */
 export function openAskSession(
   options: OpenAskSessionOptions
@@ -279,8 +283,15 @@ export function openAskSession(
       throw new Error("The ACP agent exited before the session could start.");
     });
 
+    let startupTimer: ReturnType<typeof setTimeout>;
+    const startupDeadline = new Promise<never>((_, reject) => {
+      startupTimer = setTimeout(() => reject(new Error(
+        "Le démarrage de l’agent a dépassé le délai de connexion ACP (30 s). Vérifiez que l’agent ACP est installé et configuré."
+      )), options.startupTimeoutMs ?? 30_000);
+    });
+    // The deadline spans initialize, session/new and Ask mode selection.
     const guard = <T>(operation: Promise<T>): Promise<T> =>
-      Promise.race([operation, failFast]);
+      Promise.race([operation, failFast, startupDeadline]);
 
     function handleUpdate(params: acp.SessionNotification) {
       if (params.sessionId !== sessionId) {
@@ -292,6 +303,11 @@ export function openAskSession(
           if (update.content.type === "text" && turn) {
             turn.message += update.content.text;
             turn.events.onAssistantText?.(update.content.text);
+          }
+          break;
+        case "agent_thought_chunk":
+          if (update.content.type === "text" && turn) {
+            turn.events.onThoughtText?.(update.content.text);
           }
           break;
         case "tool_call":
@@ -377,7 +393,7 @@ export function openAskSession(
         if (currentModeId !== askModeId) {
           return Promise.reject(
             new Error(
-              `The agent is in "${currentModeId}" mode; the tour step conversation only prompts in Ask mode.`
+              `The agent is in "${currentModeId}" mode; the tour step conversation only prompts in Ask mode / selected read-only mode "${askModeId}".`
             )
           );
         }
@@ -460,17 +476,19 @@ export function openAskSession(
         const modes = newSession.modes;
         if (!modes) {
           throw new Error(
-            "The ACP agent did not announce session modes, so the Ask mode cannot be selected or verified."
+            "The ACP agent did not announce session modes, so the required mode cannot be selected or verified."
           );
         }
-        const askMode =
-          modes.availableModes.find(mode => mode.id === ASK_MODE_ID) ??
-          modes.availableModes.find(
-            mode => mode.name.toLowerCase() === ASK_MODE_NAME
-          );
+        const desiredModeId = options.modeId ?? ASK_MODE_ID;
+        const askMode = options.useDefaultMode
+          ? modes.availableModes.find(mode => mode.id === modes.currentModeId)
+          : modes.availableModes.find(mode => mode.id === desiredModeId) ??
+            (desiredModeId === ASK_MODE_ID
+              ? modes.availableModes.find(mode => mode.name.toLowerCase() === ASK_MODE_NAME)
+              : undefined);
         if (!askMode) {
           throw new Error(
-            `The ACP agent does not offer an Ask mode (offered: ${modes.availableModes
+            `The ACP agent does not offer an Ask mode${options.modeId ? ` / required mode "${options.modeId}"` : ""} (offered: ${modes.availableModes
               .map(mode => mode.id)
               .join(", ")}).`
           );
@@ -490,8 +508,14 @@ export function openAskSession(
         return undefined;
       })
       .then(
-        () => openResolve(sessionObject),
+        () => {
+          clearTimeout(startupTimer);
+          openResolve(sessionObject);
+        },
         (error: unknown) => {
+          clearTimeout(startupTimer);
+          connection.close();
+          options.transport.dispose().catch(() => undefined);
           // A vanished entry usually surfaces first as the SDK's generic
           // connection-closed rejection; give the reader a real cause.
           if (

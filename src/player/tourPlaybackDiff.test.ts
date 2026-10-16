@@ -189,3 +189,29 @@ test("an unavailable diff follows the existing fallbacks and keeps the tour read
     "no comparison is opened for the unavailable diff"
   );
 });
+
+
+test("Next from the reading panel opens the diff in the code group", async () => {
+  host.livePanels("codetour.tour").forEach(panel => panel.dispose());
+  host.visibleTextEditors.splice(0);
+  host.setFileContent("src/start.ts", "const start = true;");
+  await host.vscode.window.showTextDocument(Uri.file("/workspace/src/start.ts"));
+  registerPlayerModule(host.extensionContext);
+  await host.vscode.commands.executeCommand("codetour.startTour", {
+    ...tour, steps: [
+      { description: "Before the diff" },
+      ...tour.steps
+    ]
+  });
+  await host.vscode.commands.executeCommand("codetour.showStepDescription");
+  await host.waitFor(() => host.panelHtml().includes("Before the diff"));
+  const panel = host.livePanels("codetour.tour")[0];
+  Object.defineProperty(panel, "viewColumn", { value: 2 });
+  const before = host.executedCommands.length;
+  panel.receive({ type: "next" });
+  await host.waitFor(() => host.panelHtml().includes("Diff step"));
+  const call = host.executedCommands.slice(before).find(([id]) => id === "vscode.diff");
+  assert.ok(call);
+  assert.equal((call[1][3] as { viewColumn?: number }).viewColumn, 1);
+  panel.dispose();
+});
