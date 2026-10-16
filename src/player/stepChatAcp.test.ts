@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as nodeModule from "module";
 import * as path from "node:path";
@@ -165,7 +166,7 @@ async function waitForLog(
 interface AgentWorkspace {
   workspace: string;
   logPath: string;
-  cleanup: () => void;
+  cleanup: () => Promise<void>;
 }
 
 function createAgentWorkspace(): AgentWorkspace {
@@ -173,7 +174,9 @@ function createAgentWorkspace(): AgentWorkspace {
   return {
     workspace,
     logPath: path.join(workspace, "agent.log"),
-    cleanup: () => rmSync(workspace, { recursive: true, force: true })
+    // Panel disposal releases the agent asynchronously. Windows may keep its
+    // working directory locked briefly while the process exits.
+    cleanup: () => rm(workspace, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
   };
 }
 
@@ -250,7 +253,7 @@ test("follow-up questions carry the step's previous exchanges to the agent over 
   );
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("a step without displayed code is reported as unavailable to the agent, never substituted", async () => {
@@ -289,7 +292,7 @@ test("a step without displayed code is reported as unavailable to the agent, nev
   assert.match(lastChatUpdate().exchanges[0].answerHtml, /Tour answer, part two\./);
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("an agent launch failure lands in the chat and the next question retries", async () => {
@@ -322,7 +325,7 @@ test("an agent launch failure lands in the chat and the next question retries", 
   assert.match(lastChatUpdate().exchanges[1].answerHtml, /Tour answer, part two\./);
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("an agent authentication failure lands in the chat and the next question retries", async () => {
@@ -360,7 +363,7 @@ test("an agent authentication failure lands in the chat and the next question re
   assert.match(lastChatUpdate().exchanges[1].answerHtml, /Tour answer, part two\./);
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("a missing agent entry reports the launch failure in the chat and the reader keeps reading", async () => {
@@ -402,7 +405,7 @@ test("a missing agent entry reports the launch failure in the chat and the reade
   assert.match(lastChatUpdate().exchanges[1].answerHtml, /Impossible de lancer l'agent/);
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("an answer whose turn ran forbidden tools is flagged in the chat", async () => {
@@ -433,7 +436,7 @@ test("an answer whose turn ran forbidden tools is flagged in the chat", async ()
   ]);
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("a lost agent connection lands in the chat and the next question relaunches the agent", async () => {
@@ -462,7 +465,7 @@ test("a lost agent connection lands in the chat and the next question relaunches
   assert.match(lastChatUpdate().exchanges[1].answerHtml, /Tour answer, part two\./);
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("closing the reading webview releases the ACP agent process", async () => {
@@ -494,7 +497,7 @@ test("closing the reading webview releases the ACP agent process", async () => {
     )
   ]);
 
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("a step question reaches the ACP agent in Ask mode with the displayed context and its answer lands in the chat", async () => {
@@ -550,7 +553,7 @@ test("a step question reaches the ACP agent in Ask mode with the displayed conte
   assert.match(update.exchanges[0].answerHtml, /Tour answer, part two\./);
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("the fake agent's streamed chunks appear progressively in the chat with the in-progress state", async () => {
@@ -602,7 +605,7 @@ test("the fake agent's streamed chunks appear progressively in the chat with the
   assert.match(complete.exchanges[0].answerHtml, /Tour answer, part two\./);
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("the Stop button cancels the in-flight ACP exchange and a new question is answered immediately", async () => {
@@ -660,7 +663,7 @@ test("the Stop button cancels the in-flight ACP exchange and a new question is a
   assert.equal(answered.exchanges[0].interrupted, true);
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("each step keeps its own conversation over one agent session, unmixed across renders", async () => {
@@ -727,7 +730,7 @@ test("each step keeps its own conversation over one agent session, unmixed acros
   );
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("conversations are isolated by tour identity while the reading webview stays open", async () => {
@@ -803,7 +806,7 @@ test("conversations are isolated by tour identity while the reading webview stay
   );
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 test("closing the reading webview forgets every conversation and nothing is ever written to disk", async () => {
@@ -855,7 +858,7 @@ test("closing the reading webview forgets every conversation and nothing is ever
   assert.equal(host.fileWrites.length, 0);
 
   chatPanel().dispose();
-  agent.cleanup();
+  await agent.cleanup();
 });
 
 
@@ -876,7 +879,7 @@ test("thinking activity reaches the chat before the answer", async () => {
     assert.match(lastChatUpdate().exchanges[0].answerHtml, /Réponse finale/);
   } finally {
     chatPanel().dispose();
-    agent.cleanup();
+    await agent.cleanup();
   }
 });
 
@@ -931,7 +934,7 @@ test("ACP fallback reports all failures and can retry after installing an agent"
     chatPanel().receive({ type: "askQuestion", question: "Après installation ?" });
     await waitForCompletedAnswer(update => update.exchanges.length === 2);
     assert.match(lastChatUpdate().exchanges[1].answerHtml, /Tour answer/);
-  } finally { chatPanel().dispose(); agent.cleanup(); }
+  } finally { chatPanel().dispose(); await agent.cleanup(); }
 });
 
 test("ACP fallback never replaces an agent after answer text has streamed", async () => {
@@ -992,7 +995,7 @@ for (const workingIndex of [0, 2, 3]) {
       }
       assert.deepEqual(attempted, ["Vibe", "Copilot", "Codex", "Claude Code"].slice(0, workingIndex + 1));
       assert.match(lastChatUpdate().exchanges[0].answerHtml, /Tour answer/);
-    } finally { chatPanel().dispose(); agent.cleanup(); }
+    } finally { chatPanel().dispose(); await agent.cleanup(); }
   });
 }
 
@@ -1075,7 +1078,7 @@ test("cancelling the ACP queue rejects waiting questions and accepts a fresh que
     assert.equal(promptBlocksAt(records, 1)[0].text, "Fresh");
   } finally {
     await responder.dispose();
-    agent.cleanup();
+    await agent.cleanup();
   }
 });
 
@@ -1111,6 +1114,6 @@ test("a fresh question starts after cancelling an ACP agent that never acknowled
   } finally {
     clearTimeout(deadline);
     await responder.dispose();
-    agent.cleanup();
+    await agent.cleanup();
   }
 });
