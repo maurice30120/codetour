@@ -4,6 +4,14 @@ import { ActiveTour, CodeTourStep, store } from "../store";
 import { getTourTitle } from "../utils";
 import { renderPreviewDescription } from "./description";
 import { createTourWebviewHtml } from "./markdown";
+import {
+  askTourStepQuestion,
+  clearStepChatConversations,
+  getStepChatConversationView,
+  getStepChatExchanges,
+  stopTourStepQuestion,
+  type StepChatConversationView
+} from "./stepChat";
 import { getNextTour, getPreviousTour } from "./index";
 
 interface TourView {
@@ -33,6 +41,8 @@ export function showTourWebview(): void {
       if (view !== current) return;
       view = undefined;
       store.isExpandedViewOpen = false;
+      // The conversations live only as long as the reading webview.
+      clearStepChatConversations();
     });
     current.panel.webview.onDidReceiveMessage(async message => {
       const rendered = current.rendered;
@@ -51,6 +61,44 @@ export function showTourWebview(): void {
           }
         } else if (message.type === "openLink" && typeof message.href === "string") {
           await openDescriptionLink(message.href, rendered.active.workspaceRoot);
+        } else if (
+          message.type === "askQuestion" &&
+          typeof message.question === "string" &&
+          message.question.trim()
+        ) {
+          // Every streamed chunk of the answer is posted as it arrives, with
+          // the response-in-progress state; a question asked while the step's
+          // previous answer is still streaming is blocked inside the chat and
+          // produces no update.
+          const postChatView = (chatView: StepChatConversationView) => {
+            // A stale render (navigation while the answer was streaming) must
+            // not push a conversation into the step the reader now sees; the
+            // stored exchange resurfaces when its step is rendered again.
+            if (view !== current || current.rendered !== rendered) return;
+            void current.panel.webview.postMessage({
+              type: "stepChat",
+              ...chatView
+            });
+          };
+          await askTourStepQuestion(
+            rendered.active,
+            message.question.trim(),
+            postChatView
+          );
+        } else if (message.type === "stopQuestion") {
+          // The Arrêter button interrupts the step's answer in flight: the
+          // responder's ACP exchange is cancelled, the interrupted state is
+          // posted to the chat and a new question is accepted immediately.
+          const postChatView = (chatView: StepChatConversationView) => {
+            // A stale render (navigation while the answer was streaming) must
+            // not push a conversation into the step the reader now sees.
+            if (view !== current || current.rendered !== rendered) return;
+            void current.panel.webview.postMessage({
+              type: "stepChat",
+              ...chatView
+            });
+          };
+          stopTourStepQuestion(rendered.active, postChatView);
         }
       } catch {
         vscode.window.showErrorMessage("Unable to open this description link.");
@@ -83,6 +131,8 @@ export async function renderTourStep(): Promise<void> {
     tourTitle: getTourTitle(tour), tourId: tour.id, stepNumber,
     stepCount: tour.steps.length, stepTitle: step.title || `Step ${stepNumber + 1}`,
     anchorLabel: getStepAnchorLabel(step), description,
+    chatExchanges: getStepChatExchanges(tour.id, stepNumber),
+    chatResponding: getStepChatConversationView(tour.id, stepNumber).responding,
     previousTourTitle: getPreviousTour()?.title,
     nextTourTitle: getNextTour()?.title
   }, token);
