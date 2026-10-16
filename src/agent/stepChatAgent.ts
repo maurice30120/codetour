@@ -183,7 +183,9 @@ export function createAcpStepChatResponder(
             crashed
           ]);
         } catch (error) {
-          if (await transportGone()) {
+          // The SDK sees EOF before the OS necessarily emits process exit
+          // (notably on Windows). A closed ACP stream is already unusable.
+          if (messageOf(error) === "ACP connection closed" || await transportGone()) {
             releaseBrokenSession();
             throw new StepChatAgentUnavailableError(
               `The conversation agent connection was lost: ${messageOf(error)}`

@@ -439,10 +439,11 @@ test("an answer whose turn ran forbidden tools is flagged in the chat", async ()
   await agent.cleanup();
 });
 
-test("a lost agent connection lands in the chat and the next question relaunches the agent", async () => {
+for (const behavior of ["exit-mid-prompt-once", "close-stream-mid-prompt-once"]) {
+test(`a lost agent connection lands in the chat and the next question relaunches the agent (${behavior})`, async () => {
   resetChatState();
   const agent = createAgentWorkspace();
-  registerAcpResponder(agent, "exit-mid-prompt-once");
+  registerAcpResponder(agent, behavior);
 
   registerPlayerModule(host.extensionContext);
   await startTour();
@@ -467,6 +468,7 @@ test("a lost agent connection lands in the chat and the next question relaunches
   chatPanel().dispose();
   await agent.cleanup();
 });
+}
 
 test("closing the reading webview releases the ACP agent process", async () => {
   resetChatState();

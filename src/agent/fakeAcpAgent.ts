@@ -197,6 +197,7 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
       });
       await chunk("Answered from Edit mode.");
       return { stopReason: "end_turn" } as acp.PromptResponse;
+    case "close-stream-mid-prompt-once":
     case "exit-mid-prompt-once": {
       // The first prompt kills the agent process before answering; the
       // relaunched process answers the retry.
@@ -209,6 +210,11 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
         prompts = 1;
       }
       if (prompts < 2) {
+        if (behavior === "close-stream-mid-prompt-once") {
+          process.stdout.end();
+          // Keep the process alive after EOF to expose stream/exit ordering.
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
         process.exit(3);
       }
       await chunk("Tour answer, ");
