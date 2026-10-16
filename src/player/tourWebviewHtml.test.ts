@@ -45,10 +45,10 @@ test("createTourWebviewHtml renders the step chat field under the description", 
   const chatIndex = html.indexOf('class="step-chat"');
   assert.ok(descriptionIndex > 0);
   assert.ok(chatIndex > descriptionIndex);
-  assert.match(html, /<section class="step-chat" aria-label="Discussion de l'étape">/);
+  assert.match(html, /<section class="step-chat" aria-label="Step discussion">/);
   assert.match(html, /<form class="step-chat-form" id="step-chat-form">/);
   assert.match(html, /<input class="step-chat-input" id="step-chat-input" type="text"/);
-  assert.match(html, /aria-label="Question sur cette étape"/);
+  assert.match(html, /aria-label="Question about this step"/);
   assert.match(html, /<button type="submit" class="step-chat-submit"/);
 });
 
@@ -68,7 +68,7 @@ test("createTourWebviewHtml renders the step conversation with escaped questions
         },
         {
           question: "Et si le lecteur arrête ?",
-          answerHtml: '<p>Réponse partielle.</p><p class="step-chat-interrupted" role="status">Réponse interrompue.</p>',
+          answerHtml: '<p>Réponse partielle.</p><p class="step-chat-interrupted" role="status">Answer interrupted.</p>',
           interrupted: true
         }
       ]
@@ -90,6 +90,82 @@ test("createTourWebviewHtml renders the step conversation with escaped questions
   const stoppedQuestionIndex = html.indexOf("Et si le lecteur arrête ?");
   assert.ok(stoppedQuestionIndex > secondQuestionIndex);
   assert.match(html, /<li class="step-chat-answer step-chat-interrupted"><p>Réponse partielle.<\/p>/);
+});
+
+test("createTourWebviewHtml reports forbidden tools in a collapsed disclosure above the answer", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatExchanges: [
+        {
+          question: "Que fais-tu ?",
+          answerHtml: "<p>Je réponds.</p>",
+          forbiddenTools: [
+            {
+              title: "Editing the workspace anyway",
+              kind: "edit",
+              status: "completed"
+            }
+          ]
+        }
+      ]
+    },
+    "chat-nonce"
+  );
+
+  // The disclosure sits above the answer, closed on a completed answer,
+  // with the exact wording the reader clicks to open the tool calls.
+  assert.ok(html.includes(
+    '<details class="step-chat-forbidden"><summary>⚠️ The agent ran a forbidden tool during this answer</summary>' +
+    '<ul><li>Editing the workspace anyway · edit · completed</li></ul></details><p>Je réponds.</p>'
+  ));
+});
+
+test("createTourWebviewHtml counts several forbidden tools in the summary and falls back to the kind as label", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatExchanges: [
+        {
+          question: "Que fais-tu ?",
+          answerHtml: "<p>Je réponds.</p>",
+          forbiddenTools: [
+            { title: "Editing the workspace anyway", kind: "edit", status: "completed" },
+            { kind: "delete", status: "in_progress" }
+          ]
+        }
+      ]
+    },
+    "chat-nonce"
+  );
+
+  assert.ok(html.includes(
+    "<summary>⚠️ The agent ran 2 forbidden tools during this answer</summary>"
+  ));
+  assert.ok(html.includes(
+    "<ul><li>Editing the workspace anyway · edit · completed</li><li>delete · in_progress</li></ul>"
+  ));
+});
+
+test("createTourWebviewHtml keeps the forbidden tools disclosure open while the answer is pending", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatExchanges: [
+        {
+          question: "Que fais-tu ?",
+          answerHtml: "<p>Un morceau…</p>",
+          pending: true,
+          forbiddenTools: [
+            { title: "Editing the workspace anyway", kind: "edit", status: "completed" }
+          ]
+        }
+      ]
+    },
+    "chat-nonce"
+  );
+
+  assert.ok(html.includes('<details class="step-chat-forbidden" open>'));
 });
 
 test("createTourWebviewHtml keeps a rich description readable in a narrow panel", () => {
@@ -155,7 +231,7 @@ test("the reading view forwards only content links with the active step identity
   click({ target: { closest: () => ({ dataset: { action: "previous" }, disabled: true }) } });
   assert.equal(messages.length, 2);
 
-  // The Arrêter button of the chat stops the in-flight answer with the
+  // The Stop button of the chat stops the in-flight answer with the
   // same step identity as every other webview message.
   click({ target: { closest: () => ({ dataset: { action: "stopQuestion" }, disabled: false }) } });
   assert.deepEqual(JSON.parse(JSON.stringify(messages[2])), {
@@ -229,7 +305,7 @@ test("the step chat submits questions with the step identity and renders chat up
   assert.equal(
     chatLog.innerHTML,
     '<li class="step-chat-question">&lt;script&gt;alert(1)&lt;/script&gt;</li>' +
-      '<li class="step-chat-answer"><details class="step-chat-activity"><summary>Activité du modèle</summary><p>Analyse…</p></details><p>Réponse sûre.</p></li>'
+      '<li class="step-chat-answer"><details class="step-chat-activity"><summary>Model activity</summary><p>Analyse…</p></details><p>Réponse sûre.</p></li>'
   );
 
   // Malformed updates never touch the displayed conversation.
@@ -245,7 +321,7 @@ test("navigation disables absent neighbors and names linked tours at the boundar
   const last = createTourWebviewHtml({ ...baseModel(), stepNumber: 2 }, "nonce");
   assert.match(last, /data-action="next"[^>]* disabled/);
   const linked = createTourWebviewHtml({ ...baseModel(), stepNumber: 0, previousTourTitle: 'Intro "tour"' }, "nonce");
-  assert.match(linked, /Tour précédent : Intro &quot;tour&quot;/);
+  assert.match(linked, /Previous tour: Intro &quot;tour&quot;/);
   assert.doesNotMatch(linked, /data-action="previous"[^>]* disabled/);
 });
 
@@ -256,7 +332,7 @@ test("the step chat renders the response-in-progress state and locks the form wh
   // question field accepts new questions.
   assert.match(
     idle,
-    /<p class="step-chat-status" id="step-chat-status" hidden>Réponse en cours…<\/p>/
+    /<p class="step-chat-status" id="step-chat-status" hidden>Answer in progress…<\/p>/
   );
   assert.doesNotMatch(idle, /id="step-chat-input"[^>]* disabled/);
   assert.doesNotMatch(idle, /class="step-chat-submit"[^>]* disabled/);
@@ -280,7 +356,7 @@ test("the step chat renders the response-in-progress state and locks the form wh
   // streaming answer is readable, marked as still in progress.
   assert.match(
     responding,
-    /<p class="step-chat-status" id="step-chat-status">Réponse en cours…<\/p>/
+    /<p class="step-chat-status" id="step-chat-status">Answer in progress…<\/p>/
   );
   assert.match(
     responding,
@@ -290,14 +366,14 @@ test("the step chat renders the response-in-progress state and locks the form wh
   assert.match(responding, /class="step-chat-submit"[^>]*disabled/);
 });
 
-test("the step chat offers the Arrêter button only while an answer is in progress", () => {
+test("the step chat offers the Stop button only while an answer is in progress", () => {
   const idle = createTourWebviewHtml(baseModel(), "stop-nonce");
 
   // At rest no answer is in flight: there is nothing to interrupt, so the
   // stop button stays hidden and the form keeps accepting questions.
   assert.match(
     idle,
-    /<button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrompre la réponse en cours" hidden>Arrêter<\/button>/
+    /<button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrupt the current answer" hidden>Stop<\/button>/
   );
 
   // While an answer is in progress, the stop button becomes visible and
@@ -318,7 +394,7 @@ test("the step chat offers the Arrêter button only while an answer is in progre
   );
   assert.match(
     responding,
-    /<button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrompre la réponse en cours">Arrêter<\/button>/
+    /<button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrupt the current answer">Stop<\/button>/
   );
 });
 
@@ -367,7 +443,7 @@ test("the step chat message handler reflects the streaming updates and unlocks t
   assert.equal(chatStatus.hidden, false);
   assert.equal(chatInput.disabled, true);
   assert.equal(submitButton.disabled, true);
-  // While the answer streams, the Arrêter button is visible: the reader can
+  // While the answer streams, the Stop button is visible: the reader can
   // interrupt a request that has become useless.
   assert.equal(chatStop.hidden, false);
   assert.equal(
@@ -414,7 +490,7 @@ test("the step chat message handler reflects the streaming updates and unlocks t
       exchanges: [
         {
           question: "En flux ?",
-          answerHtml: '<p>Premier morceau</p><p class="step-chat-interrupted" role="status">Réponse interrompue.</p>',
+          answerHtml: '<p>Premier morceau</p><p class="step-chat-interrupted" role="status">Answer interrupted.</p>',
           interrupted: true
         }
       ]
@@ -425,7 +501,7 @@ test("the step chat message handler reflects the streaming updates and unlocks t
   assert.equal(
     chatLog.innerHTML,
     '<li class="step-chat-question">En flux ?</li>' +
-      '<li class="step-chat-answer step-chat-interrupted"><p>Premier morceau</p><p class="step-chat-interrupted" role="status">Réponse interrompue.</p></li>'
+      '<li class="step-chat-answer step-chat-interrupted"><p>Premier morceau</p><p class="step-chat-interrupted" role="status">Answer interrupted.</p></li>'
   );
 });
 
@@ -436,7 +512,7 @@ test("initial chat render exposes pending model activity", () => {
     chatExchanges: [{ question: "Pourquoi ?", answerHtml: "", pending: true,
       activityHtml: "<p>Analyse de la constante…</p>" }]
   }, "activity-nonce");
-  assert.ok(html.includes('<details class="step-chat-activity" open><summary>Activité du modèle</summary><p>Analyse de la constante…</p></details>'));
+  assert.ok(html.includes('<details class="step-chat-activity" open><summary>Model activity</summary><p>Analyse de la constante…</p></details>'));
 });
 
 

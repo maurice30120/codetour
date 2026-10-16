@@ -89,7 +89,7 @@ export function showTourWebview(): void {
             postChatView
           );
         } else if (message.type === "stopQuestion") {
-          // The Arrêter button interrupts the step's answer in flight: the
+          // The Stop button interrupts the step's answer in flight: the
           // responder's ACP exchange is cancelled, the interrupted state is
           // posted to the chat and a new question is accepted immediately.
           const postChatView = (chatView: StepChatConversationView) => {

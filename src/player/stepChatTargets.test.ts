@@ -171,7 +171,7 @@ async function startTourWithSteps(fileName: string, steps: CodeTourStep[]) {
   });
   await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() =>
-    host.panelHtml().includes("Poser une question sur cette étape")
+    host.panelHtml().includes("Ask a question about this step")
   );
 }
 

@@ -74,7 +74,7 @@ async function startTour() {
   await host.vscode.commands.executeCommand("codetour.startTour", tour);
   await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() =>
-    host.panelHtml().includes("Poser une question sur cette étape")
+    host.panelHtml().includes("Ask a question about this step")
   );
 }
 
@@ -93,6 +93,13 @@ interface StepChatUpdate {
     question: string;
     answerHtml: string;
     activityHtml?: string;
+    forbiddenTools?: {
+      toolCallId: string;
+      kind?: string;
+      status?: string;
+      title?: string;
+      forbidden: boolean;
+    }[];
     failed?: boolean;
     pending?: boolean;
     interrupted?: boolean;
@@ -299,7 +306,7 @@ test("an agent launch failure lands in the chat and the next question retries", 
   const failure = lastChatUpdate();
   assert.equal(failure.exchanges[0].failed, true);
   assert.match(failure.exchanges[0].answerHtml, /Impossible de lancer l'agent/);
-  assert.match(failure.exchanges[0].answerHtml, /relancera l'agent/);
+  assert.match(failure.exchanges[0].answerHtml, /restart the agent/);
 
   // The reader keeps reading and navigating without any agent.
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
@@ -336,7 +343,7 @@ test("an agent authentication failure lands in the chat and the next question re
   assert.equal(failure.exchanges[0].failed, true);
   assert.match(failure.exchanges[0].answerHtml, /Impossible de lancer l'agent/);
   assert.match(failure.exchanges[0].answerHtml, /Authentication required/);
-  assert.match(failure.exchanges[0].answerHtml, /relancera l'agent/);
+  assert.match(failure.exchanges[0].answerHtml, /restart the agent/);
 
   // Reading and navigation remain fully usable with no authenticated agent.
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
@@ -378,7 +385,7 @@ test("a missing agent entry reports the launch failure in the chat and the reade
   const failure = lastChatUpdate();
   assert.equal(failure.exchanges[0].failed, true);
   assert.match(failure.exchanges[0].answerHtml, /Impossible de lancer l'agent/);
-  assert.match(failure.exchanges[0].answerHtml, /relancera l'agent/);
+  assert.match(failure.exchanges[0].answerHtml, /restart the agent/);
 
   // Reading and navigation remain fully usable without any agent process.
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
@@ -409,11 +416,21 @@ test("an answer whose turn ran forbidden tools is flagged in the chat", async ()
   chatPanel().receive({ type: "askQuestion", question: "Tente l'interdit ?" });
   await waitForCompletedAnswer(update => update.exchanges.length === 1);
 
-  // The agent's answer is shown, but the forbidden tool use it ran despite
-  // the Ask mode name is not hidden from the reader.
+  // The agent's answer is shown, and the forbidden tool call it ran
+  // despite the Ask mode policy is reported to the reader as structured
+  // data instead of being reduced to a warning sentence.
   const exchange = lastChatUpdate().exchanges[0];
   assert.match(exchange.answerHtml, /I did it anyway\./);
-  assert.match(exchange.answerHtml, /outil interdit/);
+  assert.doesNotMatch(exchange.answerHtml, /forbidden tool/);
+  assert.deepEqual(exchange.forbiddenTools, [
+    {
+      toolCallId: "rogue-edit",
+      kind: "edit",
+      status: "completed",
+      title: "Editing the workspace anyway",
+      forbidden: true
+    }
+  ]);
 
   chatPanel().dispose();
   agent.cleanup();
@@ -434,9 +451,9 @@ test("a lost agent connection lands in the chat and the next question relaunches
   assert.equal(failure.exchanges[0].failed, true);
   assert.match(
     failure.exchanges[0].answerHtml,
-    /La connexion à l'agent de conversation a été perdue/
+    /The conversation agent connection was lost/
   );
-  assert.match(failure.exchanges[0].answerHtml, /relancera l'agent/);
+  assert.match(failure.exchanges[0].answerHtml, /restart the agent/);
 
   // The next question relaunches a fresh agent process and gets its answer.
   chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
@@ -588,7 +605,7 @@ test("the fake agent's streamed chunks appear progressively in the chat with the
   agent.cleanup();
 });
 
-test("the Arrêter button cancels the in-flight ACP exchange and a new question is answered immediately", async () => {
+test("the Stop button cancels the in-flight ACP exchange and a new question is answered immediately", async () => {
   resetChatState();
   const agent = createAgentWorkspace();
   registerAcpResponder(agent, "slow");
@@ -619,7 +636,7 @@ test("the Arrêter button cancels the in-flight ACP exchange and a new question 
   const stopped = lastChatUpdate();
   assert.equal(stopped.exchanges[0].interrupted, true);
   assert.match(stopped.exchanges[0].answerHtml, /Working/);
-  assert.match(stopped.exchanges[0].answerHtml, /Réponse interrompue/);
+  assert.match(stopped.exchanges[0].answerHtml, /Answer interrupted/);
 
   // A new question is accepted immediately, without reloading the webview,
   // and answered over the same agent session.
@@ -970,7 +987,7 @@ for (const workingIndex of [0, 2, 3]) {
       await waitForCompletedAnswer(update => update.exchanges.length === 1);
       for (const update of stepChatUpdates()) {
         const html = update.exchanges[0]?.activityHtml ?? "";
-        const match = html.match(/Connexion à (Vibe|Copilot|Codex|Claude Code)\u2026/);
+        const match = html.match(/Connecting to (Vibe|Copilot|Codex|Claude Code)\u2026/);
         if (match && !attempted.includes(match[1])) attempted.push(match[1]);
       }
       assert.deepEqual(attempted, ["Vibe", "Copilot", "Codex", "Claude Code"].slice(0, workingIndex + 1));

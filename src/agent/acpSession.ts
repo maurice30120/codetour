@@ -286,7 +286,7 @@ export function openAskSession(
     let startupTimer: ReturnType<typeof setTimeout>;
     const startupDeadline = new Promise<never>((_, reject) => {
       startupTimer = setTimeout(() => reject(new Error(
-        "Le démarrage de l’agent a dépassé le délai de connexion ACP (30 s). Vérifiez que l’agent ACP est installé et configuré."
+        "The agent exceeded the ACP connection timeout (30 s). Check that the ACP agent is installed and configured."
       )), options.startupTimeoutMs ?? 30_000);
     });
     // The deadline spans initialize, session/new and Ask mode selection.

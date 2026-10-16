@@ -542,7 +542,7 @@ test("an unresponsive agent fails startup within the deadline", async () => {
       await assert.rejects(Promise.race([
         openAskSession({ transport: agent, cwd: workspace.workspace, startupTimeoutMs: 100 }),
         new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error("startup hung")), 1000); })
-      ]), /démarrage.*délai/i);
+      ]), /exceeded the ACP connection timeout/i);
     } finally {
       clearTimeout(deadline);
     }

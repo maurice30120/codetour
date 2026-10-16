@@ -237,7 +237,7 @@ test("the active anchor hover opens the existing webview and only trusts that co
   const type = activeAnchorType()!;
   const options = host.editorFor("src/player.ts")!.decorationOptions.get(type)!;
   const hover = options[0].hoverMessage!;
-  assert.match(hover.value, /\[Ouvrir la webview\]\(command:codetour.showStepDescription/);
+  assert.match(hover.value, /\[Open the webview\]\(command:codetour.showStepDescription/);
   assert.deepEqual(hover.isTrusted, { enabledCommands: ["codetour.showStepDescription"] });
   assert.ok(!hover.value.includes("The player starts here"), "the hover stays concise");
   const panel = host.livePanels("codetour.tour")[0];

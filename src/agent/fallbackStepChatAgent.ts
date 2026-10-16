@@ -20,7 +20,7 @@ export function createFallbackStepChatResponder(
     async answer(request, events) {
       const attempt = generation;
       const answer = pending.then(async () => {
-        if (attempt !== generation) throw new Error("Réponse interrompue.");
+        if (attempt !== generation) throw new Error("Answer interrupted.");
         if (workspace !== request.workspaceRoot) {
           const previous = active;
           active = undefined;
@@ -31,12 +31,12 @@ export function createFallbackStepChatResponder(
         const providers = providersFor(request.workspaceRoot);
         const failed: string[] = [];
         for (; selected < providers.length; selected++) {
-          if (attempt !== generation) throw new Error("Réponse interrompue.");
+          if (attempt !== generation) throw new Error("Answer interrupted.");
           const provider = providers[selected];
           const current = active ?? createAcpStepChatResponder(() => provider.entry, hooks);
           active = current;
           let streamed = false;
-          events?.onActivity?.(`Connexion à ${provider.name}…`);
+          events?.onActivity?.(`Connecting to ${provider.name}…`);
           try {
             return await current.answer(request, {
               onAnswerDelta: delta => {

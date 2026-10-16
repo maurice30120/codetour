@@ -22,7 +22,7 @@ let activeAnchor: ActiveAnchor | undefined;
 function applyActiveAnchor(): void {
   vscode.window.visibleTextEditors.forEach(editor => {
     const link = new vscode.MarkdownString(
-      '[Ouvrir la webview](command:codetour.showStepDescription "Afficher cette étape")'
+      '[Open the webview](command:codetour.showStepDescription "Show this step")'
     );
     link.isTrusted = { enabledCommands: ["codetour.showStepDescription"] };
     const ranges =

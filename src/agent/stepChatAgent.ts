@@ -139,9 +139,9 @@ export function createAcpStepChatResponder(
           ]);
         }
         const myStopEpoch = stopEpoch;
-        events?.onActivity?.("Connexion à l’agent…");
+        events?.onActivity?.("Connecting to the agent…");
         const current = await openSession(request);
-        events?.onActivity?.("Question envoyée, en attente du modèle…");
+        events?.onActivity?.("Question sent, waiting for the model…");
         // A stop that arrived while the agent was still starting targets
         // this very question: it is never prompted to the agent.
         if (myStopEpoch !== stopEpoch) {
@@ -173,9 +173,10 @@ export function createAcpStepChatResponder(
               {
                 onAssistantText: delta => events?.onAnswerDelta?.(delta),
                 onThoughtText: delta => events?.onThoughtDelta?.(delta),
-                onToolUse: tool => events?.onActivity?.(
-                  `${tool.title ?? tool.kind ?? "Outil"} (${tool.status ?? "en cours"})`
-                )
+                // Each executed tool call is forwarded as it arrives: the
+                // chat owns the display policy for allowed and forbidden
+                // calls alike.
+                onToolUse: tool => events?.onToolUse?.(tool)
               },
               request.history
             ),
@@ -185,16 +186,10 @@ export function createAcpStepChatResponder(
           if (await transportGone()) {
             releaseBrokenSession();
             throw new StepChatAgentUnavailableError(
-              `La connexion à l'agent de conversation a été perdue : ${messageOf(error)}`
+              `The conversation agent connection was lost: ${messageOf(error)}`
             );
           }
           throw error;
-        }
-        if (outcome.usedForbiddenTools) {
-          return (
-            outcome.message +
-            "\n\n> ⚠️ L'agent a exécuté un outil interdit (écriture, suppression ou exécution) pendant cette réponse."
-          );
         }
         return outcome.message;
       })();

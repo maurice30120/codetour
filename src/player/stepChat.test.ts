@@ -63,7 +63,7 @@ async function startTour() {
   await host.vscode.commands.executeCommand("codetour.startTour", tour);
   await host.vscode.commands.executeCommand("codetour.showStepDescription");
   await host.waitFor(() =>
-    host.panelHtml().includes("Poser une question sur cette étape")
+    host.panelHtml().includes("Ask a question about this step")
   );
 }
 
@@ -81,6 +81,14 @@ interface StepChatUpdate {
   exchanges: {
     question: string;
     answerHtml: string;
+    activityHtml?: string;
+    forbiddenTools?: {
+      toolCallId: string;
+      kind?: string;
+      status?: string;
+      title?: string;
+      forbidden: boolean;
+    }[];
     failed?: boolean;
     pending?: boolean;
     interrupted?: boolean;
@@ -324,7 +332,7 @@ test("errors of the responder land in the chat without disturbing the reading", 
   const update = lastChatUpdate();
   assert.equal(update.exchanges[0].question, "Et si ça casse ?");
   assert.equal(update.exchanges[0].failed, true);
-  assert.match(update.exchanges[0].answerHtml, /La réponse à cette question a échoué/);
+  assert.match(update.exchanges[0].answerHtml, /The answer to this question failed/);
 
   // Reading and navigation remain usable after the failure.
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
@@ -346,7 +354,7 @@ test("asking without an injected responder explains it in the chat", async () =>
   const update = lastChatUpdate();
   assert.equal(update.exchanges[0].question, "Qui répond ?");
   assert.equal(update.exchanges[0].failed, true);
-  assert.match(update.exchanges[0].answerHtml, /Le répondant de cette étape n'est pas disponible/);
+  assert.match(update.exchanges[0].answerHtml, /This step's responder is not available/);
 
   chatPanel().dispose();
 });
@@ -440,7 +448,7 @@ test("stopping interrupts the in-flight answer, ignores its late completion and 
   assert.equal(stopped.exchanges[0].interrupted, true);
   assert.equal(stopped.exchanges[0].pending, undefined);
   assert.match(stopped.exchanges[0].answerHtml, /Un morceau/);
-  assert.match(stopped.exchanges[0].answerHtml, /Réponse interrompue/);
+  assert.match(stopped.exchanges[0].answerHtml, /Answer interrupted/);
   assert.equal(cancels, 1);
 
   // The late completion of the stopped answer is ignored: it never
@@ -603,6 +611,103 @@ test("the answer streams into the chat with a visible in-progress state and bloc
       answer: "Premier morceau et le second <script>alert(1)</script>."
     }
   ]);
+
+  setStepChatResponder(undefined);
+  chatPanel().dispose();
+});
+
+test("forbidden tools are reported live, stay after a stop, and allowed tools stay activity lines", async () => {
+  resetChatState();
+  const pendingAnswers: ((answer: string) => void)[] = [];
+  let cancels = 0;
+  // The responder runs an allowed read, then a forbidden edit, streams one
+  // chunk, and keeps the turn open until the test releases it.
+  setStepChatResponder({
+    answer: (
+      _request: unknown,
+      events?: {
+        onAnswerDelta?: (delta: string) => void;
+        onToolUse?: (tool: {
+          toolCallId: string;
+          kind?: string;
+          status?: string;
+          title?: string;
+          forbidden: boolean;
+        }) => void;
+      }
+    ) => {
+      events?.onToolUse?.({
+        toolCallId: "read-tool",
+        kind: "read",
+        status: "in_progress",
+        title: "Reading the displayed file",
+        forbidden: false
+      });
+      events?.onToolUse?.({
+        toolCallId: "rogue-edit",
+        kind: "edit",
+        status: "completed",
+        title: "Editing the workspace anyway",
+        forbidden: true
+      });
+      events?.onAnswerDelta?.("Un morceau ");
+      return new Promise<string>(resolve => {
+        pendingAnswers.push(resolve);
+      });
+    },
+    cancel: () => {
+      cancels++;
+    }
+  });
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  chatPanel().receive({ type: "askQuestion", question: "Et l'interdit ?" });
+
+  // While the answer is still in progress, the forbidden tool call is
+  // already reported on the pending exchange, and the allowed read stayed
+  // a plain line of model activity.
+  await host.waitFor(() =>
+    stepChatUpdates().some(
+      update =>
+        update.exchanges[0]?.pending === true &&
+        update.exchanges[0]?.forbiddenTools?.length === 1
+    )
+  );
+  const live = stepChatUpdates().find(
+    update => update.exchanges[0]?.forbiddenTools?.length === 1
+  )!;
+  assert.deepEqual(live.exchanges[0].forbiddenTools, [
+    {
+      toolCallId: "rogue-edit",
+      kind: "edit",
+      status: "completed",
+      title: "Editing the workspace anyway",
+      forbidden: true
+    }
+  ]);
+  assert.match(
+    live.exchanges[0].activityHtml ?? "",
+    /Reading the displayed file \(in_progress\)/
+  );
+
+  // The reader stops the answer: the forbidden tool call already seen is
+  // never erased from the reported history of the exchange.
+  chatPanel().receive({ type: "stopQuestion" });
+  await host.waitFor(() => lastChatUpdate().responding === false);
+  const stopped = lastChatUpdate()!;
+  assert.equal(stopped.exchanges[0].interrupted, true);
+  assert.deepEqual(stopped.exchanges[0].forbiddenTools, [
+    {
+      toolCallId: "rogue-edit",
+      kind: "edit",
+      status: "completed",
+      title: "Editing the workspace anyway",
+      forbidden: true
+    }
+  ]);
+  assert.equal(cancels, 1);
 
   setStepChatResponder(undefined);
   chatPanel().dispose();

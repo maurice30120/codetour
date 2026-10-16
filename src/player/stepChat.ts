@@ -68,10 +68,26 @@ export type StepChatContext =
       description: string;
     };
 
-/** One question of a step conversation, with the raw answer of the responder. */
+/**
+ * One question of a step conversation, with the raw answer of the responder.
+ */
 export interface StepChatHistoryEntry {
   question: string;
   answer: string;
+}
+
+/** A tool the agent executed while answering, as the chat displays it. */
+export interface StepChatToolUse {
+  toolCallId: string;
+  // The tool kind, as the agent declared it (read, edit, execute, ...).
+  kind?: string;
+  // The call's latest status (pending, in_progress, completed, failed).
+  status?: string;
+  // The agent's own title for the call, in the agent's language.
+  title?: string;
+  // True when the kind is forbidden in a Tour Step Conversation: the
+  // chat reports the call to the reader instead of hiding it.
+  forbidden: boolean;
 }
 
 /**
@@ -89,6 +105,12 @@ export interface StepChatAnswerEvents {
   onAnswerDelta?(delta: string): void;
   onThoughtDelta?(delta: string): void;
   onActivity?(message: string): void;
+  /**
+   * Called each time the agent starts or updates a tool call: the chat
+   * reports the forbidden ones to the reader as they happen, and keeps
+   * them visible after the answer completes or is stopped.
+   */
+  onToolUse?(tool: StepChatToolUse): void;
 }
 
 /** What the responder receives for a question. */
@@ -150,6 +172,9 @@ interface StoredExchange {
   answerMarkdown: string;
   answerHtml: string;
   activityHtml?: string;
+  // The forbidden tool calls executed during this answer, keyed by call
+  // and kept up to date while the answer streams.
+  forbiddenTools?: Map<string, StepChatToolUse>;
   failed: boolean;
   // True while the responder is still answering this question: the
   // response-in-progress state of the chat.
@@ -174,6 +199,9 @@ export interface StepChatExchangeView {
   question: string;
   answerHtml: string;
   activityHtml?: string;
+  // The forbidden tools the agent executed during this answer: reported
+  // live while the answer streams and kept after it completes or stops.
+  forbiddenTools?: StepChatToolUse[];
   failed?: boolean;
   // True while this question's answer is still streaming.
   pending?: boolean;
@@ -209,6 +237,10 @@ export function getStepChatConversationView(
       question: exchange.question,
       answerHtml: exchange.answerHtml,
       activityHtml: exchange.activityHtml,
+      forbiddenTools:
+        exchange.forbiddenTools && exchange.forbiddenTools.size > 0
+          ? [...exchange.forbiddenTools.values()]
+          : undefined,
       failed: exchange.failed || undefined,
       pending: exchange.pending || undefined,
       interrupted: exchange.interrupted || undefined
@@ -404,7 +436,7 @@ export async function askTourStepQuestion(
     complete(
       failedExchange(
         question,
-        "Le répondant de cette étape n'est pas disponible. La lecture du tour reste utilisable."
+        "This step's responder is not available. Tour reading stays usable."
       )
     );
   } else {
@@ -435,6 +467,22 @@ export async function askTourStepQuestion(
             exchange.activityHtml = renderMarkdownToHtml(message);
             onProgress?.(view());
           },
+          // A forbidden tool call is reported to the reader the moment it
+          // runs; an allowed one stays a plain line of model activity.
+          onToolUse: tool => {
+            if (exchange.interrupted) return;
+            if (tool.forbidden) {
+              const tools =
+                exchange.forbiddenTools ?? new Map<string, StepChatToolUse>();
+              tools.set(tool.toolCallId, tool);
+              exchange.forbiddenTools = tools;
+            } else {
+              exchange.activityHtml = renderMarkdownToHtml(
+                `${tool.title ?? tool.kind ?? "Tool"} (${tool.status ?? "in progress"})`
+              );
+            }
+            onProgress?.(view());
+          },
           onAnswerDelta: (delta: string) => {
             if (exchange.interrupted) {
               return;
@@ -457,14 +505,14 @@ export async function askTourStepQuestion(
         complete(
           failedExchange(
             question,
-            `${reason} Une nouvelle question relancera l'agent ; la lecture du tour reste utilisable.`
+            `${reason} A new question will restart the agent; tour reading stays usable.`
           )
         );
       } else {
         complete(
           failedExchange(
             question,
-            `La réponse à cette question a échoué (${reason}). La lecture du tour reste utilisable.`
+            `The answer to this question failed (${reason}). Tour reading stays usable.`
           )
         );
       }
@@ -518,7 +566,7 @@ export function stopTourStepQuestion(
 
 /** The displayed answer of a stopped exchange, with its interruption. */
 function interruptedAnswerHtml(streamedAnswer: string): string {
-  return `${streamedAnswer}<p class="step-chat-interrupted" role="status">Réponse interrompue.</p>`;
+  return `${streamedAnswer}<p class="step-chat-interrupted" role="status">Answer interrupted.</p>`;
 }
 
 function failedExchange(question: string, message: string): StoredExchange {

@@ -60,6 +60,9 @@ export interface TourStepChatExchange {
   // the description; the webview never renders raw responder Markdown.
   answerHtml: string;
   activityHtml?: string;
+  // The forbidden tools the agent executed during this answer: reported
+  // to the reader as they run and kept after the answer settles.
+  forbiddenTools?: { kind?: string; status?: string; title?: string }[];
   failed?: boolean;
   // True while this question's answer is still streaming: the answer is
   // readable as it grows, marked as not yet complete.
@@ -87,6 +90,29 @@ export interface TourWebviewModel {
   nextTourTitle?: string;
 }
 
+/** The disclosure reporting the forbidden tools an answer ran. */
+function renderForbiddenToolsHtml(exchange: TourStepChatExchange): string {
+  const tools = exchange.forbiddenTools ?? [];
+  if (tools.length === 0) {
+    return "";
+  }
+  const summary =
+    tools.length === 1
+      ? "⚠️ The agent ran a forbidden tool during this answer"
+      : `⚠️ The agent ran ${tools.length} forbidden tools during this answer`;
+  const items = tools
+    .map(tool => {
+      const parts = [tool.title ?? tool.kind ?? "Tool"];
+      if (tool.title && tool.kind) {
+        parts.push(tool.kind);
+      }
+      parts.push(tool.status ?? "in progress");
+      return `<li>${escapeHtml(parts.join(" · "))}</li>`;
+    })
+    .join("");
+  return `<details class="step-chat-forbidden"${exchange.pending ? " open" : ""}><summary>${summary}</summary><ul>${items}</ul></details>`;
+}
+
 function renderStepChatLogHtml(
   exchanges: TourStepChatExchange[] | undefined
 ): string {
@@ -98,7 +124,7 @@ function renderStepChatLogHtml(
           exchange.failed ? " step-chat-error" : ""
         }${exchange.pending ? " step-chat-pending" : ""}${
           exchange.interrupted ? " step-chat-interrupted" : ""
-        }">${exchange.activityHtml ? `<details class="step-chat-activity"${exchange.pending ? " open" : ""}><summary>Activité du modèle</summary>${exchange.activityHtml}</details>` : ""}${exchange.answerHtml}</li>`
+        }">${renderForbiddenToolsHtml(exchange)}${exchange.activityHtml ? `<details class="step-chat-activity"${exchange.pending ? " open" : ""}><summary>Model activity</summary>${exchange.activityHtml}</details>` : ""}${exchange.answerHtml}</li>`
     )
     .join("");
 }
@@ -127,6 +153,9 @@ const READING_STYLES = `
     .step-chat-interrupted { font-style: italic; }
     .step-chat-activity { margin-bottom: 1em; color: var(--vscode-descriptionForeground); }
     .step-chat-activity summary { cursor: pointer; }
+    .step-chat-forbidden { margin-bottom: 1em; color: var(--vscode-editorWarning-foreground); }
+    .step-chat-forbidden summary { cursor: pointer; }
+    .step-chat-forbidden ul { margin: .5em 0 0; padding-left: 1.25em; }
     .step-chat-status:not([hidden])::before { content: ""; display: inline-block; width: .7em; height: .7em; margin-right: .6em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: chat-spin 1s linear infinite; }
     @keyframes chat-spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { .step-chat-status::before { animation: none; } }
@@ -168,7 +197,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     .filter(question => typeof question === "string" && question.trim().length > 0)
     .slice(0, 4);
   const suggestions = questions.length
-    ? `<div class="step-chat-suggestions" id="step-chat-suggestions" role="group" aria-label="Questions suggérées">${questions.map(question =>
+    ? `<div class="step-chat-suggestions" id="step-chat-suggestions" role="group" aria-label="Suggested questions">${questions.map(question =>
         `<button type="button" class="step-chat-submit step-chat-suggestion" data-action="askQuestion" data-question="${escapeHtml(question.trim())}"${model.chatResponding ? " disabled" : ""}>${escapeHtml(question.trim())}</button>`
       ).join("")}</div>`
     : "";
@@ -191,10 +220,10 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
   <header>
     <div class="tour-toolbar">
       <small>${escapeHtml(model.tourTitle)}</small>
-      <nav class="tour-navigation" aria-label="Navigation du tour">
-        <button type="button" data-action="previous" title="${escapeHtml(model.stepNumber > 0 ? "Étape précédente" : model.previousTourTitle ? `Tour précédent : ${model.previousTourTitle}` : "Aucune étape précédente")}"${previousEnabled ? "" : " disabled"}><span aria-hidden="true">←</span> Précédent</button>
-        <span class="tour-position" aria-label="Étape ${position} sur ${model.stepCount}">${position} / ${model.stepCount}</span>
-        <button type="button" data-action="next" title="${escapeHtml(position < model.stepCount ? "Étape suivante" : model.nextTourTitle ? `Tour suivant : ${model.nextTourTitle}` : "Aucune étape suivante")}"${nextEnabled ? "" : " disabled"}>Suivant <span aria-hidden="true">→</span></button>
+      <nav class="tour-navigation" aria-label="Tour navigation">
+        <button type="button" data-action="previous" title="${escapeHtml(model.stepNumber > 0 ? "Previous step" : model.previousTourTitle ? `Previous tour: ${model.previousTourTitle}` : "No previous step")}"${previousEnabled ? "" : " disabled"}><span aria-hidden="true">←</span> Previous</button>
+        <span class="tour-position" aria-label="Step ${position} of ${model.stepCount}">${position} / ${model.stepCount}</span>
+        <button type="button" data-action="next" title="${escapeHtml(position < model.stepCount ? "Next step" : model.nextTourTitle ? `Next tour: ${model.nextTourTitle}` : "No next step")}"${nextEnabled ? "" : " disabled"}>Next <span aria-hidden="true">→</span></button>
       </nav>
     </div>
     <progress value="${position}" max="${model.stepCount}" aria-label="Tour progress"></progress>
@@ -202,24 +231,24 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
   <article>
     <h1>${escapeHtml(model.stepTitle)}</h1>${anchor}
     ${renderMarkdownToHtml(model.description)}
-    <section class="step-chat" aria-label="Discussion de l'étape">
+    <section class="step-chat" aria-label="Step discussion">
       <ol class="step-chat-log" id="step-chat-log">${renderStepChatLogHtml(
         model.chatExchanges
       )}</ol>
       <p class="step-chat-status" id="step-chat-status"${
         model.chatResponding ? "" : " hidden"
-      }>Réponse en cours…</p>
+      }>Answer in progress…</p>
       ${suggestions}
       <form class="step-chat-form" id="step-chat-form">
-        <input class="step-chat-input" id="step-chat-input" type="text" autocomplete="off" placeholder="Poser une question sur cette étape…" aria-label="Question sur cette étape"${
+        <input class="step-chat-input" id="step-chat-input" type="text" autocomplete="off" placeholder="Ask a question about this step…" aria-label="Question about this step"${
           model.chatResponding ? " disabled" : ""
         }>
         <button type="submit" class="step-chat-submit" id="step-chat-submit"${
           model.chatResponding ? " disabled" : ""
-        }>Envoyer</button>
-        <button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrompre la réponse en cours"${
+        }>Send</button>
+        <button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrupt the current answer"${
           model.chatResponding ? "" : " hidden"
-        }>Arrêter</button>
+        }>Stop</button>
       </form>
     </section>
   </article>
@@ -263,11 +292,30 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       if (!message || message.type !== "stepChat" || !Array.isArray(message.exchanges)) return;
       const log = document.getElementById("step-chat-log");
       if (log) {
-        log.innerHTML = message.exchanges.map(exchange =>
-          '<li class="step-chat-question">' + escapeHtml(exchange.question) + "</li>" +
-          '<li class="step-chat-answer' + (exchange.failed ? " step-chat-error" : "") + (exchange.pending ? " step-chat-pending" : "") + (exchange.interrupted ? " step-chat-interrupted" : "") + '">' +
-          (exchange.activityHtml ? '<details class="step-chat-activity"' + (exchange.pending ? ' open' : '') + '><summary>Activité du modèle</summary>' + exchange.activityHtml + '</details>' : '') +
-          exchange.answerHtml + "</li>").join("");
+        log.innerHTML = message.exchanges.map(exchange => {
+          const forbiddenTools = exchange.forbiddenTools ?? [];
+          const forbiddenHtml = forbiddenTools.length === 0
+            ? ""
+            : '<details class="step-chat-forbidden"' + (exchange.pending ? ' open' : '') + '><summary>'
+              + (forbiddenTools.length === 1
+                  ? '⚠️ The agent ran a forbidden tool during this answer'
+                  : '⚠️ The agent ran ' + forbiddenTools.length + ' forbidden tools during this answer')
+              + '</summary><ul>'
+              + forbiddenTools.map(tool => {
+                  const parts = [tool.title ?? tool.kind ?? "Tool"];
+                  if (tool.title && tool.kind) {
+                    parts.push(tool.kind);
+                  }
+                  parts.push(tool.status ?? "in progress");
+                  return '<li>' + escapeHtml(parts.join(" · ")) + '</li>';
+                }).join("")
+              + '</ul></details>';
+          return '<li class="step-chat-question">' + escapeHtml(exchange.question) + "</li>" +
+          '<li class="step-chat-answer' + (exchange.failed ? " step-chat-error" : "") + (exchange.pending ? " step-chat-pending" : "") + (exchange.interrupted ? " step-chat-interrupted" : "") + '">'
+          + forbiddenHtml
+          + (exchange.activityHtml ? '<details class="step-chat-activity"' + (exchange.pending ? ' open' : '') + '><summary>Model activity</summary>' + exchange.activityHtml + '</details>' : '')
+          + exchange.answerHtml + "</li>";
+        }).join("");
       }
       // The response-in-progress state stays visible while the answer
       // streams, and the form stays locked so no new question can be sent
