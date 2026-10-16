@@ -112,6 +112,9 @@ test("webview playback reads a step in a layout A panel with the logo alone at t
   assert.ok(decorations, "the active anchor decoration is applied");
   assert.equal(decorations!.length, 1);
   assert.equal(decorations![0].start.line, 2);
+  assert.equal(decorations![0].start.character, 0);
+  assert.equal(decorations![0].end.character, 0,
+    "the gutter marker must not span wrapped continuations of the anchor line");
   const type = activeAnchorType()!;
   assert.ok(!("hoverMessage" in type.options));
   const otherDecorations = [...host.editorFor("src/player.ts")!.decorations.entries()]

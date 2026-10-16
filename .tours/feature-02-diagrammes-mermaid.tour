@@ -1,0 +1,134 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Diagrammes Mermaid dans les tours et abandon de VS Code Web",
+  "description": "Cette fonctionnalité donne aux Tours CodeTour la capacité d'afficher des diagrammes Mermaid dans leurs descriptions. Un Tour Generator propose du source Mermaid dans un bloc balisé `mermaid`, précédé d'une légende visible ; le serveur MCP le valide hors ligne avec la version verrouillée de Mermaid, et le lecteur transforme chaque diagramme en une image PNG sensible au thème, transportée en mémoire jusqu'au commentaire affiché.\n\nLe rendu est confié à un nouveau paquet, `packages/description-renderer`, qui devient la couture unique entre une description Markdown et les surfaces de lecture. Ses règles — légende obligatoire, cinq types de diagrammes autorisés, au plus trois diagrammes par description, vingt kilo-octets par source — sont partagées à l'identique par la lecture et par la validation du serveur MCP, avec un mode strict sans réseau et une sanitisation du SVG en profondeur.\n\nCe socle s'accompagne d'un recentrage sur l'hôte d'extension Node : l'extension abandonne VS Code Web, supprime le bundle Web Worker et les shims navigateur, et expose le serveur MCP empaqueté directement depuis l'extension de bureau. Le binaire natif de rasterisation est préparé par plateforme, l'outillage de packaging vérifie le VSIX, et le socle Node et npm est épinglé pour des builds reproductibles.\n\nGenerated from the merge-base of `4547c1dd14a56d8c6247cce6ba7a7351c5344155` (`4547c1dd14a56d8c6247cce6ba7a7351c5344155`) to `c9d13c4cc8d712d3fc59506ac0cc141850582b1d`.",
+  "ref": "c9d13c4cc8d712d3fc59506ac0cc141850582b1d",
+  "baseRef": "4547c1dd14a56d8c6247cce6ba7a7351c5344155",
+  "steps": [
+    {
+      "title": "Vue d'ensemble : du générateur au commentaire affiché",
+      "description": "Cette fonctionnalité introduit le rendu des diagrammes Mermaid dans les Tours CodeTour. Un Tour Generator peut désormais proposer du source Mermaid dans un bloc balisé `mermaid`, précédé d'une légende visible de la forme `**Diagram — …**`. Le serveur MCP valide ce source hors ligne, avec la version exacte et verrouillée de Mermaid employée à la lecture, avant d'écrire le fichier de Tour. À la lecture, chaque diagramme accepté devient une image PNG adaptée au thème actif de VS Code, insérée directement dans le commentaire de l'étape.\n\n**Diagram — Vue d'ensemble du rendu Mermaid**\n\n```mermaid\nflowchart TD\n  A[Tour Generator] --> B[Serveur MCP]\n  B --> C{Validation hors ligne}\n  C -->|Erreur| D[Correction]\n  D --> B\n  C -->|OK| E[Fichier de tour]\n  E --> F[Lecteur CodeTour]\n  F --> G[PNG en memoire]\n  G --> H[Image dans le commentaire]\n```\n\nLe fil de ce Changes Tour suit la construction de la fonctionnalité : le nouveau paquet de rendu, la détection des blocs et des légendes, les règles partagées, le pipeline de rendu sécurisé, la validation côté serveur MCP, l'intégration dans les surfaces de lecture, l'abandon de VS Code Web, puis le packaging du binaire natif de rasterisation.",
+      "questions": [
+        "Pourquoi valider le source Mermaid côté serveur avant de l'écrire dans le Tour ?",
+        "Pourquoi transformer le SVG en PNG en mémoire plutôt que de conserver le SVG ?"
+      ]
+    },
+    {
+      "title": "Un paquet dédié au rendu des descriptions",
+      "description": "Le nouveau paquet `codetour-description-renderer` devient la couture unique entre une description Markdown et le contenu affiché. Son entrée principale, `renderDescription`, accepte une description complète et le thème effectif de VS Code, et renvoie le Markdown final où chaque bloc `mermaid` est remplacé par une image ou par un avertissement compact — jamais par le source.\n\nLe paquet exporte aussi la surface de règles partagée : les types de diagrammes autorisés, les limites par description et par source, et l'évaluation d'un bloc. C'est cette même surface que le serveur MCP consomme pour valider les propositions des agents, ce qui garantit que la génération et la lecture appliquent exactement les mêmes règles. Les dépendances sont épinglées à l'identique — Mermaid 11.12.2, jsdom 26.1.0 et resvg-js 2.6.2 — pour que chaque consommateur rende de la même façon.",
+      "questions": [
+        "Pourquoi les règles de diagrammes vivent-elles dans un paquet partagé plutôt que dans l'extension ?",
+        "Que change l'épinglage exact des dépendances pour la reproductibilité du rendu ?"
+      ],
+      "file": "packages/description-renderer/src/index.ts",
+      "pattern": "from \"./description\"",
+      "display": "diff"
+    },
+    {
+      "title": "Détection des blocs Mermaid et de leur légende",
+      "description": "`findDiagramFences` parcourt la description et repère chaque bloc de code dont l'info string est exactement `mermaid`. Un bloc retenu porte sa position, sa source et sa légende : la ligne non vide la plus proche au-dessus du bloc, si elle respecte la forme `**Diagram — …**`. Cette légende reste visible dans le Markdown et sert de texte alternatif à l'image rendue.\n\nUn bloc `mermaid` imbriqué dans une autre fence n'est pas détecté, et un bloc non fermé est signalé comme tel afin d'être remplacé par un avertissement plutôt que par une image. Ce découpage purement textuel prépare l'évaluation des règles et le remplacement en place, du dernier bloc au premier.",
+      "questions": [
+        "Pourquoi exiger une légende visible au-dessus du bloc plutôt qu'un paramètre dans le source Mermaid ?"
+      ],
+      "file": "packages/description-renderer/src/parse.ts",
+      "pattern": "findDiagramFences",
+      "display": "diff"
+    },
+    {
+      "title": "Les règles partagées : légende, taille et types autorisés",
+      "description": "`evaluateDiagramFence` applique dans un ordre fixe les trois règles d'un bloc : une légende valide, une source de vingt kilo-octets au plus, puis un type parmi `flowchart`, `sequenceDiagram`, `stateDiagram-v2`, `classDiagram` et `erDiagram`. Les alias comme `graph` sont refusés, et une description accepte au plus trois diagrammes.\n\nCes règles sont volontairement purement syntaxiques et sans dépendance, pour que le lecteur et le serveur MCP les évaluent à l'identique. La première règle violée décide du motif d'échec, et chaque bloc est évalué indépendamment : un diagramme refusé ne masque jamais ses voisins dans la même description.",
+      "questions": [
+        "Pourquoi restreindre les diagrammes à cinq types canoniques ?",
+        "Quel intérêt a un ordre d'évaluation déterministe entre légende, taille et type ?"
+      ],
+      "file": "packages/description-renderer/src/rules.ts",
+      "pattern": "export function evaluateDiagramFence",
+      "display": "diff"
+    },
+    {
+      "title": "Un pipeline de rendu strict, thémé et entièrement en mémoire",
+      "description": "`renderMermaidDiagram` configure Mermaid en mode strict, sans étiquettes HTML ni aucun accès réseau : aucune police, image ou configuration n'est chargée pendant le rendu. Mermaid produit un SVG sensible au thème — clair ou sombre — que le paquet nettoie une seconde fois en profondeur dans `sanitize.ts` (scripts, gestionnaires d'événements et références externes supprimés) avant de le rasteriser en PNG avec resvg.\n\nLe PNG est inséré dans le Markdown final sous la forme d'une URI de données image encodée en base64, car les URI SVG ne s'affichaient pas comme images dans les commentaires natifs de VS Code ; aucun fichier SVG ou PNG n'est jamais écrit dans le workspace. Les rendus réussis sont réutilisés depuis un cache en mémoire, indexé par source exacte, thème effectif et version du moteur, et un échec n'y entre jamais. Les dimensions du SVG sont normalisées avec des heuristiques de mesure bornées, car JSDOM n'offre pas de vraie mise en page SVG.",
+      "questions": [
+        "Pourquoi sanitiser un SVG que Mermaid a déjà produit en mode strict ?",
+        "Pourquoi vider entièrement le cache au changement de thème plutôt que d'invalider les entrées une par une ?"
+      ],
+      "file": "packages/description-renderer/src/render.ts",
+      "pattern": "securityLevel: \"strict\"",
+      "display": "diff"
+    },
+    {
+      "title": "La validation Mermaid côté serveur MCP",
+      "description": "Le serveur MCP valide désormais le Markdown Mermaid des propositions avant d'écrire un Tour. `validateMermaidDescriptions` réutilise le paquet de rendu : chaque bloc est analysé avec `findDiagramFences`, évalué par les règles partagées, puis réellement rendu avec le moteur verrouillé pour vérifier sa syntaxe — le PNG produit est volontairement ignoré, cet appel est la couture de validation hors ligne du serveur.\n\nToutes les erreurs sont agrégées avec leur description, leur rang de bloc et leur position ligne et colonne, et le Tour précédent est conservé dès qu'une erreur est trouvée. Un guide d'écriture, `MERMAID_TOOL_GUIDANCE`, est annexé à la description des deux outils MCP afin que l'agent sache doser l'usage des diagrammes et respecter la légende obligatoire.",
+      "questions": [
+        "Pourquoi valider par un rendu réel plutôt que par une simple analyse syntaxique ?",
+        "Que garantit l'usage du même moteur Mermaid pour la validation et pour la lecture ?"
+      ],
+      "file": "packages/mcp-server/src/mermaid-validation.ts",
+      "pattern": "offline syntax-validation seam",
+      "display": "diff"
+    },
+    {
+      "title": "Le rendu intégré à la lecture des étapes",
+      "description": "Les transformations d'aperçu du lecteur quittent `src/player/index.ts` pour un module dédié, et gagnent une étape préalable : `renderPreviewDescription` rend d'abord les diagrammes Mermaid de la description, puis applique les transformations existantes (liens de commandes, références de fichiers, liens vers d'autres Tours). Cet ordre empêche le source d'un diagramme d'être confondu avec du code insérable.\n\nLe thème effectif, clair ou sombre, est déduit du thème de couleur actif de VS Code et traversé jusqu'au rendu. Toutes les surfaces de lecture passent par cette même entrée : le commentaire d'une étape, les infobulles de l'arbre et les aperçus partagent ainsi le même pipeline de transformation.",
+      "questions": [
+        "Pourquoi rendre les diagrammes avant les transformations d'aperçu et pas après ?"
+      ],
+      "file": "src/player/description.ts",
+      "pattern": "renderPreviewDescription",
+      "display": "diff"
+    },
+    {
+      "title": "Un rendu asynchrone protégé contre les courses",
+      "description": "Rendre une étape devient asynchrone, car le rendu Mermaid attend le moteur et la rasterisation. `renderCurrentStep` incrémente donc un compteur de version à chaque appel, et chaque suite asynchrone vérifie qu'elle est toujours le rendu courant et que l'étape affichée n'a pas changé ; un rendu dépassé dispose de son fil de commentaire et s'arrête silencieusement.\n\nLe changement de thème exploite ce même chemin : le fournisseur d'arbre appelle un rappel fourni par le lecteur, qui vide le cache des rendus et relance le rendu de l'étape active. Les diagrammes déjà affichés se régénèrent donc à la demande, sans jamais mélanger deux thèmes dans un même commentaire.",
+      "questions": [
+        "Quels symptômes visibles apparaîtraient sans la protection du compteur de requêtes ?",
+        "Pourquoi vider le cache au changement de thème plutôt que de régénérer immédiatement tous les diagrammes ?"
+      ],
+      "file": "src/player/index.ts",
+      "pattern": "let renderVersion = 0",
+      "display": "diff"
+    },
+    {
+      "title": "L'arbre des Tours et le changement de thème",
+      "description": "Le fournisseur d'arbre s'abonne au changement de thème de couleur actif : il prévient le lecteur, puis rafraîchit l'arbre. Les infobulles des nœuds passent désormais par `renderPreviewDescription`, donc le survol d'une étape ou d'une visite affiche un aperçu où les diagrammes sont déjà des images thémées, et où la description d'une visite est elle aussi transformée.\n\nLe fournisseur retourne un objet jetable qui libère l'abonnement au thème et la vue ; c'est le module du lecteur qui orchestre ce cycle de vie en enregistrant le rappel de vidage de cache.",
+      "questions": [
+        "Pourquoi recalculer les infobulles au changement de thème plutôt que de les garder en cache ?"
+      ],
+      "file": "src/player/tree/index.ts",
+      "pattern": "onDidChangeActiveColorTheme",
+      "display": "diff"
+    },
+    {
+      "title": "Insert Code contourne les blocs Mermaid",
+      "description": "La transformation « Insert Code » des blocs de code devient un module dédié qui connaît les fences : chaque bloc de code d'un aperçu reçoit son lien d'insertion, sauf les blocs `mermaid`, qui sont expressément contournés. Le source d'un diagramme n'est donc jamais proposé comme code insérable, et ne peut pas non plus être absorbé dans la charge d'un autre bloc.\n\nUn parcours de secours historique subsiste pour les contenus dont les fences ne se repèrent pas ligne par ligne ; la transformation reste donc sûre pour les Tours plus anciens.",
+      "questions": [
+        "Quel risque concret y avait-il à insérer le source d'un diagramme Mermaid dans l'éditeur ?"
+      ],
+      "file": "src/player/insertCode.ts",
+      "pattern": "Mermaid fences are bypassed",
+      "display": "diff"
+    },
+    {
+      "title": "L'abandon de VS Code Web et le serveur MCP intégré",
+      "description": "L'extension se recentre sur l'hôte d'extension Node de VS Code. Les intégrations de bureau — exposition du serveur MCP empaqueté et commandes Codex — sont regroupées derrière `registerDesktopIntegrations`, qui ne s'active que pour l'interface de bureau ; les shims navigateur et le bundle Web Worker disparaissent du build, et l'outillage de packaging vérifie qu'aucun artefact web n'atteint le VSIX (ADR 0008).\n\nLe serveur MCP est désormais exposé par l'extension elle-même : un fournisseur de définitions MCP enregistre, pour chaque dossier du workspace, le binaire `mcp-server` empaqueté dans l'extension, démarré avec le runtime Node d'VS Code dans le répertoire du dossier. La propriété `isWeb` du contexte d'expression vaut désormais toujours faux ; le bureau reste utilisable en local et à travers les hôtes distants SSH, conteneurs et Codespaces.",
+      "questions": [
+        "Qu'est-ce que l'abandon du web simplifie dans le rendu Mermaid ?",
+        "Pourquoi exposer le serveur MCP depuis l'extension plutôt que de demander une installation séparée ?"
+      ],
+      "file": "src/desktopIntegration.ts",
+      "pattern": "registerDesktopIntegrations",
+      "display": "diff"
+    },
+    {
+      "title": "Le packaging du binaire natif et l'outillage",
+      "description": "La rasterisation repose sur resvg-js, une dépendance à code natif livrée par plateforme. `prepare-resvg-runtime.js` installe le paquet binaire correspondant à la cible — six couples plateforme et architecture — et copie le module natif attendu dans l'arbre d'exécution ; le build webpack externalise la dépendance et la résout au chargement, car l'inclure naïvement gonflait le VSIX d'environ 38 Mo et plus de 9 000 fichiers.\n\nAutour de cette préparation s'ajuste tout un outillage : l'empaquetage de l'extension, la vérification du VSIX, la mise en scène du paquet de rendu pour le serveur MCP, et des tests compilés multi-plateformes dans les flux GitHub. Le socle Node 24.18.0 et npm 12.0.1 est épinglé partout — nvmrc, Volta, gestionnaire de paquets et flux de travail — pour des builds reproductibles (ADR 0009), et l'empaquetage explicite de la rasterisation par plateforme reste différé à une décision propre (ADR 0007).",
+      "questions": [
+        "Pourquoi externaliser le module natif du bundle plutôt que de l'embarquer ?",
+        "Quelles déclarations faut-il modifier ensemble lors d'un changement de version de Node ?"
+      ],
+      "file": "scripts/prepare-resvg-runtime.js",
+      "pattern": "resvgjs.darwin-arm64.node",
+      "display": "diff"
+    }
+  ]
+}

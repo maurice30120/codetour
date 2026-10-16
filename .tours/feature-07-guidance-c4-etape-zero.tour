@@ -1,0 +1,117 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Guidance C4 pour l'étape zéro des Project Tours",
+  "description": "Cette fonctionnalité apprend au serveur MCP de CodeTour à encadrer la première étape — l'étape d'orientation — des Project Tours : tout parcours d'un projet doit désormais s'ouvrir sur une étape d'orientation sans ancre, structurée selon le modèle C4 — diagramme de contexte, diagramme de conteneurs uniquement lorsque des frontières réelles existent, puis correspondance entre zones et répertoires du workspace.\n\nLe serveur ne se contente pas de prescrire : il émet des avertissements consultatifs lorsque la première étape porte un localisateur, ne contient aucun diagramme, ou quand son premier diagramme dépasse la limite de lisibilité. Le travail couvre le contrat de l'outil dans le serveur, la validation partagée avec le moteur de rendu, la documentation README, un exemple complet de tour C4, des tests unitaires et d'intégration, ainsi qu'une correction finale issue de la revue.\n\nGenerated from the merge-base of `bf0c139432f19e6befd7b6d19baffe3eb996442a` (`bf0c139432f19e6befd7b6d19baffe3eb996442a`) to `f22f158aa2b6efc016ecb1cdd1578dbb68a0d332`.",
+  "ref": "f22f158aa2b6efc016ecb1cdd1578dbb68a0d332",
+  "baseRef": "bf0c139432f19e6befd7b6d19baffe3eb996442a",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour IA aide les développeurs à comprendre un codebase grâce à des parcours guidés générés par un agent IA. Jusqu'ici, un Project Tour pouvait s'ouvrir directement sur une ancre de code ; cette fonctionnalité impose désormais une étape d'orientation sans localisateur, structurée selon le modèle C4, et le serveur MCP vérifie cette forme par des avertissements consultatifs.\n\n**Diagram — Vue d'ensemble**\n\n```mermaid\nflowchart TD\n  A[Agent IA] --> B[Serveur MCP]\n  B --> C{Etape d'orientation valide}\n  C -->|Oui| D[Tour oriente C4]\n  C -->|Avertissement| E[Agent ajuste]\n  E --> B\n```\n\nLe fil de la fonctionnalité traverse quatre zones : la guidance du contrat exposée aux agents dans `packages/mcp-server/src/server.ts`, les avertissements de validation dans `packages/mcp-server/src/validation.ts`, la documentation et l'exemple complet dans `packages/mcp-server/README.md` et `docs/project-tour-example.md`, enfin les tests dans `packages/mcp-server/test/`.",
+      "questions": [
+        "Pourquoi l'étape d'orientation doit-elle être libre de tout localisateur ?",
+        "En quoi le modèle C4 distingue-t-il un acteur, un système et un conteneur ?",
+        "Que se passe-t-il si le premier diagramme dépasse la limite de lisibilité ?"
+      ]
+    },
+    {
+      "title": "Le contrat d'étape zéro exposé aux agents",
+      "description": "La constante `PROJECT_TOUR_ORIENTATION_GUIDANCE`, jointe à `PROJECT_TOUR_DESCRIPTION`, est le texte que tout agent appelant l'outil `create_project_tour` reçoit avant de rédiger. Elle impose une première étape d'orientation explicitement titrée (par exemple « Overview ») et sans localisateur.\n\nLa description de cette étape suit un ordre précis : deux ou trois phrases sur ce que le système fait et pour qui ; un diagramme Mermaid introduit par la légende exacte **Diagram — Context view** montrant acteurs, système étudié et systèmes externes, chaque arête nommant un verbe d'interaction et son mécanisme ; un second diagramme **Diagram — Containers** uniquement lorsque le projet compte plus d'une frontière d'exécution ou de stockage réelle ; enfin une correspondance courte entre zones et répertoires du workspace, reliée aux étapes suivantes.\n\nLa guidance fixe strictement le vocabulaire C4 : un acteur est une personne dans un rôle avec son besoin ; un système livre de la valeur et un dépôt n'en est pas automatiquement un ; un système externe est hors de la frontière décrite ; un conteneur est une application ou un entrepôt avec une frontière d'exécution ou de stockage — pas un conteneur Docker. Un répertoire, un paquet ou un import ne crée jamais une frontière à lui seul, et l'agent doit décrire le design existant plutôt qu'une refonte proposée, en exprimant l'incertitude au lieu d'inventer des boîtes.",
+      "questions": [
+        "Pourquoi le second diagramme n'est-il exigé que lorsque plusieurs frontières réelles existent ?",
+        "Comment la guidance empêche-t-elle un agent d'inventer des boîtes sans preuve dans le code ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "const PROJECT_TOUR_ORIENTATION_GUIDANCE =",
+      "display": "diff"
+    },
+    {
+      "title": "Des avertissements câblés dans le flux de création",
+      "description": "Dans `handleCreateProjectTour`, le tableau des avertissements agrège désormais `stepLimitWarnings` et la nouvelle fonction `orientationStepWarnings`. Les avertissements restent consultatifs : une proposition concernée passe quand même au statut « validated » en répétition puis « created » en écriture réelle.\n\nCe choix de conception laisse à l'agent une seule passe de correction : le serveur signale en une réponse tout ce qui dévie de la forme attendue, sans bloquer la création. Le mode répétition (dry run) permet de répéter le contenu complet avant de remplacer le tour précédent.",
+      "questions": [
+        "Quelle est la différence entre un avertissement consultatif et un rejet ?",
+        "Pourquoi ces avertissements sont-ils absents du flux du Changes Tour ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "\\.\\.\\.orientationStepWarnings\\(finalSteps\\),",
+      "display": "diff"
+    },
+    {
+      "title": "orientationStepWarnings : deux codes d'avertissement",
+      "description": "La fonction exportée `orientationStepWarnings` inspecte la première étape et retourne jusqu'à deux avertissements. `ORIENTATION_STEP_MISSING_OVERVIEW` est émis si la première étape porte un localisateur ou si sa description ne contient aucune clôture de diagramme Mermaid ; `ORIENTATION_STEP_DIAGRAM_TOO_LARGE` est émis si le premier diagramme dépasse la limite recommandée (`MAX_RECOMMENDED_DIAGRAM_NODES`, douze nœuds).\n\nLes clôtures sont détectées par `findDiagramFences`, importé du paquet `codetour-description-renderer` : la validation et le rendu partagent ainsi le même parseur Mermaid hors ligne, et acceptent exactement la même syntaxe.",
+      "questions": [
+        "Pourquoi réutiliser findDiagramFences du renderer plutôt qu'un parseur dédié ?",
+        "À partir de quel seuil un diagramme d'orientation est-il jugé trop grand ?"
+      ],
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "export function orientationStepWarnings",
+      "display": "diff"
+    },
+    {
+      "title": "diagramNodeCount : une heuristique de lisibilité",
+      "description": "Le comptage des nœuds est une heuristique volontairement simple : elle rassemble les identifiants déclarés comme sous-graphes, nœuds entre crochets ou parenthèses, et extrémités d'arêtes, dans un ensemble distinct. Ce n'est pas un parseur Mermaid complet et il ne rejette volontairement aucun diagramme.\n\nLa correction finale de revue (commit f22f158) a durci cette heuristique : les étiquettes d'arêtes sont d'abord retirées (texte entre barres verticales, texte après les deux points de l'extrémité), puis chaque ligne est découpée sur les flèches et seul le premier identifiant de chaque segment est retenu. Les mots présents dans les étiquettes ne sont donc plus jamais comptés comme des nœuds, et les extrémités gauches étiquetées sont reconnues.",
+      "questions": [
+        "Pourquoi les étiquettes d'arêtes ne doivent-elles pas gonfler le compte de nœuds ?",
+        "Quelles limites cette heuristique accepte-t-elle explicitement ?"
+      ],
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "function diagramNodeCount",
+      "display": "diff"
+    },
+    {
+      "title": "Le vocabulaire C4 documenté dans le README",
+      "description": "La section `create_project_tour` du README du serveur MCP décrit désormais la forme attendue : première étape explicitement titrée sans localisateur, deux ou trois phrases de contexte, diagramme **Diagram — Context view**, second diagramme uniquement si le code établit plusieurs frontières réelles, puis correspondance des zones vers les répertoires avec des liens Markdown relatifs.\n\nLe paragraphe « The full C4 wording » renvoie désormais au contrat de l'outil `create_project_tour` comme source autoritaire du vocabulaire C4 — acteur, système, système externe, conteneur — que le README ne duplique plus ; il documente les deux avertissements consultatifs (`ORIENTATION_STEP_MISSING_OVERVIEW`, `ORIENTATION_STEP_DIAGRAM_TOO_LARGE`) qui appuient cette guidance côté serveur. Le message d'exemple à adresser à l'agent demande une étape d'orientation sans ancre.",
+      "questions": [
+        "Pourquoi un dossier ou un paquet seul ne constitue-t-il pas une frontière ?",
+        "Comment la documentation motive-t-elle la limite d'environ douze nœuds par diagramme ?"
+      ],
+      "file": "packages/mcp-server/README.md",
+      "pattern": "The full C4 wording",
+      "display": "diff"
+    },
+    {
+      "title": "Un exemple complet de Project Tour C4",
+      "description": "Le nouveau document `docs/project-tour-example.md` montre le contenu intégral d'un fichier `.tours/project.tour` conforme. Sa première étape, sans `file` ni `directory`, enchaîne les deux diagrammes C4 — acteurs et contexte, puis conteneurs avec un sous-graphe par frontière — suivis de la correspondance entre zones du workspace et répertoires visités ensuite.\n\nLes étapes suivantes de l'exemple s'ancrent sur des motifs courts et stables plutôt que sur des numéros de ligne : une déclaration de constante, un nom de fonction exportée. Le texte sous l'exemple justifie chaque choix, notamment pourquoi l'étape d'orientation n'ouvre pas de fichier et pourquoi une ancre par motif survit mieux aux éditions.",
+      "questions": [
+        "Pourquoi l'étape d'orientation de l'exemple ne porte-t-elle aucune ancre ?",
+        "En quoi un motif stable est-il plus durable qu'un numéro de ligne ?"
+      ],
+      "file": "docs/project-tour-example.md",
+      "pattern": "^# Exemple de Project Tour avec vue C4",
+      "display": "diff"
+    },
+    {
+      "title": "Tests unitaires des avertissements",
+      "description": "Les tests unitaires de `validation.test.ts` couvrent les deux volets de `orientationStepWarnings`. L'acceptation est vérifiée avec une orientation sans localisateur contenant une clôture Mermaid ; les avertissements sont vérifiés lorsqu'une première étape porte un localisateur, lorsqu'elle ne contient aucune clôture, et lorsque le premier diagramme dépasse la limite recommandée de douze nœuds.\n\nLe test final, ajouté par la correction de revue, s'assure que les étiquettes d'arêtes (`passe les commandes (HTTPS)`, `enregistre les tours`) ne sont pas comptées comme des nœuds : c'est la régression du nouveau découpage de `diagramNodeCount`.",
+      "questions": [
+        "Quel cas d'acceptation prouve qu'une orientation valide ne produit aucun avertissement ?",
+        "Que vérifie exactement la régression sur les étiquettes d'arêtes ?"
+      ],
+      "file": "packages/mcp-server/test/unit/validation.test.ts",
+      "pattern": "accepts a locator-free Mermaid overview",
+      "display": "diff"
+    },
+    {
+      "title": "Le tour par défaut déclenche désormais l'avertissement",
+      "description": "Côté intégration, le test du Project Tour par défaut attend maintenant le code `ORIENTATION_STEP_MISSING_OVERVIEW` : ses étapes portent des localisateurs et aucun diagramme, ce qui illustre le nouveau comportement standard du serveur.\n\nUn test dédié confirme que les avertissements restent consultatifs : une proposition dont la première étape porte un `file` reçoit bien `ORIENTATION_STEP_MISSING_OVERVIEW` tout en gardant le statut « created », et le fichier écrit reste valide vis-à-vis du schéma CodeTour.",
+      "questions": [
+        "Pourquoi le tour par défaut du test est-il un bon témoin du nouvel avertissement ?",
+        "Quels éléments la réponse doit-elle conserver malgré l'avertissement ?"
+      ],
+      "file": "packages/mcp-server/test/integration/project-tour.test.ts",
+      "pattern": "returns advisory orientation step warnings",
+      "display": "diff"
+    },
+    {
+      "title": "Le Changes Tour reste hors périmètre",
+      "description": "Un test d'intégration dédié verrouille la frontière de la fonctionnalité : les avertissements d'étape d'orientation ne sont câblés que dans le flux `create_project_tour`. Un Changes Tour dont la première étape n'a ni localisateur ni diagramme reste strictement exempt d'avertissement.\n\nLa correction finale de revue a d'ailleurs rétabli le nom d'origine du test du SHA de tête et déplacé cette assertion dans son propre test, pour que la non-régression du Changes Tour soit prouvée indépendamment plutôt qu'en passager d'un test existant.",
+      "questions": [
+        "Pourquoi les avertissements d'étape zéro ne s'appliquent-ils pas au Changes Tour ?",
+        "Quel risque couvrait le fait de placer cette assertion dans un test existant ?"
+      ],
+      "file": "packages/mcp-server/test/integration/changes-tour.test.ts",
+      "pattern": "without Project Tour orientation step warnings",
+      "display": "diff"
+    }
+  ]
+}

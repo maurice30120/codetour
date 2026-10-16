@@ -1,0 +1,117 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Distribution VSIX en CI et répétition dryRun du serveur MCP",
+  "description": "Cette fonctionnalité tient en deux volets complémentaires. Le premier ajuste la CI pour que les builds du plugin restent gratuits : le workflow Test ne stocke plus rien, le workflow Release distribue le VSIX via les releases GitHub, et les deux suspendent leurs jobs si le dépôt devient privé. Le second donne au serveur MCP un mode de répétition où l'agent valide une proposition de tour complète (dryRun) sans jamais écrire le fichier.\n\nCôté CI, le workflow Test abandonne l'upload d'artefacts et le cache npm ; le workflow Release se déclenche sur une release publiée ou une exécution manuelle avec un tag, construit le VSIX de chaque plateforme et l'attache à cette release via la commande gh. La publication sur le VS Marketplace n'a lieu que si le secret VSCE_PAT est configuré, et la documentation docs/ci.md explique où télécharger un VSIX.\n\nCôté serveur MCP, l'argument dryRun exécute la validation complète (contrôles Git, ancres, Mermaid, règles) puis répond avec le statut validated sans écrire le fichier. Les descriptions des outils guident désormais l'agent vers un flux recommandé : inspecter le code réel, répéter avec dryRun, corriger, puis écrire.\n\nGenerated from the merge-base of `1b36d396fe719285270a9ef884523dcaf19eef8a` (`1b36d396fe719285270a9ef884523dcaf19eef8a`) to `0af1642d6325b7d50d998c8a58cb4f4a718ed2a2`.",
+  "ref": "0af1642d6325b7d50d998c8a58cb4f4a718ed2a2",
+  "baseRef": "1b36d396fe719285270a9ef884523dcaf19eef8a",
+  "steps": [
+    {
+      "title": "Vue d'ensemble de la fonctionnalité",
+      "description": "Cette modification relie deux volets complémentaires. Le premier ajuste la CI pour que les builds du plugin restent gratuits : le workflow Test se limite à vérifier, le workflow Release distribue le VSIX via les releases GitHub, et les deux suspendent leurs jobs si le dépôt devient privé. Le second donne au serveur MCP un mode de répétition : l'agent valide une proposition de tour complète (dryRun) sans écrire le fichier.\n\nLe schéma suivant relie les deux volets : la boucle d'écriture du serveur MCP à gauche, les chemins de distribution du VSIX à droite.\n\n**Diagram — Boucle dryRun du serveur MCP et distribution du VSIX**\n\n```mermaid\nflowchart TD\n  A[Agent IA] --> B[Serveur MCP]\n  B --> C{dryRun actif}\n  C -->|Oui| D[Statut validated sans ecriture]\n  C -->|Non| E[Ecriture du fichier tour]\n  F[Push ou PR] --> G[Workflow Test]\n  H[Release publiee] --> I[Workflow Release]\n  I --> J[VSIX attache a la release]\n```\n\nToutes les ancres des étapes suivantes se vérifient dans l'état headRef du dépôt.",
+      "questions": [
+        "Pourquoi séparer la vérification du build (workflow Test) de la distribution du VSIX (workflow Release) ?",
+        "Quelles garanties la répétition dryRun apporte-t-elle avant de remplacer un tour existant ?"
+      ]
+    },
+    {
+      "title": "Le workflow Test sous contrainte de budget",
+      "description": "Le workflow Test garde son rôle de vérification — tests et empaquetage du VSIX pour Linux, macOS et Windows — mais renonce à stocker quoi que ce soit. L'upload d'artefact des VSIX et le cache npm de setup-node ont été retirés, ce qui supprime la part facturable du stockage Actions.\n\nTrois garde-fous encadrent l'exécution : une permission explicite contents en lecture seule, un groupe de concurrence qui annule les runs obsolètes d'une même référence, et une condition qui saute le job si le dépôt devient privé, les runners hébergés n'étant gratuits que pour un dépôt public. Un délai maximal de 30 minutes borne chaque run.",
+      "questions": [
+        "Que devient un run déjà démarré si le dépôt passe en privé ?",
+        "Pourquoi retirer le cache npm en même temps que l'upload d'artefact ?"
+      ],
+      "file": ".github/workflows/test.yml",
+      "pattern": "cancel-in-progress: true",
+      "display": "diff"
+    },
+    {
+      "title": "Déclencheurs et extraction du tag de release",
+      "description": "Le workflow Release se déclenche désormais quand une release est publiée (published au lieu de created) et accepte aussi une exécution manuelle via workflow_dispatch avec le tag d'une release existante. L'étape de checkout utilise ce tag comme référence, si bien que le VSIX est construit exactement depuis l'état publié plutôt que depuis la pointe d'une branche.\n\nLa permission contents en écriture remonte au niveau du workflow, et le même garde-fou que le workflow Test saute le job sur un dépôt privé, avec un délai maximal de 30 minutes.",
+      "questions": [
+        "Pourquoi déclencher sur published plutôt que sur created ?",
+        "Quel intérêt a l'exécution manuelle avec un tag pour une release déjà publiée ?"
+      ],
+      "file": ".github/workflows/release.yml",
+      "pattern": "Checkout release tag",
+      "display": "diff"
+    },
+    {
+      "title": "Attachement du VSIX à la release GitHub",
+      "description": "L'action tierce d'upload est remplacée par la commande gh release upload, exécutée avec le jeton du workflow et l'option --clobber : une ré-exécution remplace proprement les fichiers déjà attachés au lieu de dupliquer les assets.\n\nContrairement aux artefacts Actions, les fichiers d'une release ne consomment pas de stockage facturable, ce qui rend cette distribution compatible avec l'objectif de builds gratuits.",
+      "questions": [
+        "À quoi sert l'option --clobber lors d'une ré-exécution du workflow ?",
+        "Pourquoi les assets d'une release ne posent-ils pas le même problème de coût que les artefacts Actions ?"
+      ],
+      "file": ".github/workflows/release.yml",
+      "pattern": "gh release upload --clobber",
+      "display": "diff"
+    },
+    {
+      "title": "Publication Marketplace strictement conditionnelle",
+      "description": "Seul un vrai événement release peut publier sur le VS Marketplace, et encore uniquement si le secret VSCE_PAT est configuré. Sinon, le job imprime un message invitant à télécharger le VSIX depuis la release GitHub et se termine avec succès : la distribution reste possible sans aucun secret.\n\nL'option --no-install de npx garantit que vsce provient des dépendances déjà installées plutôt que d'un téléchargement à la volée.",
+      "questions": [
+        "Pourquoi le workflow préfère-t-il un simple message plutôt qu'un échec quand VSCE_PAT est absent ?",
+        "Pourquoi restreindre la publication Marketplace à l'événement release ?"
+      ],
+      "file": ".github/workflows/release.yml",
+      "pattern": "vsce publish --packagePath",
+      "display": "diff"
+    },
+    {
+      "title": "Documentation du nouveau modèle de téléchargement",
+      "description": "Ce nouveau document énonce le contrat utilisateur : le workflow Test vérifie le VSIX sans le conserver, et pour installer le plugin il faut passer par une release GitHub, télécharger le fichier correspondant à sa plateforme dans la section Assets, puis utiliser « Install from VSIX... » dans VS Code.\n\nIl documente aussi la ré-exécution manuelle (Actions, puis Release, puis Run workflow avec un tag), qui attache des VSIX sans publier sur le Marketplace, et justifie le modèle retenu : aucun artefact ni cache Actions, des assets de release hors stockage facturable, et des jobs suspendus si le dépôt devient privé.",
+      "questions": [
+        "Comment un utilisateur reconstruit-il un VSIX pour une release déjà publiée ?",
+        "Quels arguments de facturation le document avance-t-il pour ce modèle de distribution ?"
+      ],
+      "file": "docs/ci.md",
+      "pattern": "Plugin CI and downloads",
+      "display": "diff"
+    },
+    {
+      "title": "La répétition dryRun côté serveur MCP",
+      "description": "Une fois toutes les vérifications passées — résolution de la base, correspondance du HEAD, ancres contre headRef, renommages, Mermaid — les deux gestionnaires d'outils inspectent `params.dryRun`. Quand il vaut true, ils renvoient via `validatedResponse` un résultat de statut `validated` (nombre d'étapes et avertissements) au lieu d'écrire le fichier, même si la proposition est valide.\n\n`validatedResponse` construit aussi le message textuel en listant chaque avertissement avec son code, afin que l'agent corrige sa proposition avant l'appel d'écriture. Le paramètre est validé comme booléen strict — toute autre valeur produit une issue sur le chemin `dryRun` — et déclaré connu dans les deux outils pour éviter un rejet de champ inconnu ; le statut `validated` rejoint l'union `ToolResult` dans `types.ts` à côté de `created` et `error`.",
+      "questions": [
+        "Quelles vérifications s'exécutent-elles encore en dryRun avant le court-circuit ?",
+        "En quoi la réponse de statut validated diffère-t-elle de la réponse de statut created ?",
+        "Pourquoi valider dryRun comme booléen strict plutôt que d'accepter plusieurs formes de valeur ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "function validatedResponse",
+      "display": "diff"
+    },
+    {
+      "title": "Guidance agent enrichie dans les descriptions d'outils",
+      "description": "Les descriptions des outils create_project_tour et create_changes_tour intègrent désormais un flux de travail recommandé : explorer le code réel avant d'écrire (pour un Changes Tour, le diff du merge-base à headRef et ses tests, jamais les seuls messages de commit), appeler avec dryRun true pour répéter, corriger les problèmes signalés, puis rappeler sans dryRun pour persister.\n\nPour un Project Tour, la guidance insiste sur l'orientation initiale du lecteur et une route cohérente plutôt qu'un inventaire plat de fichiers. Pour un Changes Tour, elle impose d'expliquer chaque changement majeur (quoi, comment, effet observable), d'ancrer la discussion aux lignes modifiées et de ne jamais affirmer que des tests passent sans les avoir exécutés.",
+      "questions": [
+        "Pourquoi recommander d'inspecter le diff réel plutôt que les messages de commit ?",
+        "Que doit faire l'agent si le HEAD a bougé entre la répétition et l'écriture ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "inspect the actual comparison before writing",
+      "display": "diff"
+    },
+    {
+      "title": "Tests de répétition du Project Tour",
+      "description": "Trois tests d'intégration couvrent le mode répétition côté Project Tour. Le premier écrit un tour de référence, répète une nouvelle proposition avec dryRun, puis vérifie que la réponse porte le statut validated et que le fichier existant contient toujours le tour d'origine.\n\nLe deuxième confirme qu'une proposition invalide en dryRun échoue avec le code INVALID_PROPOSAL tout en préservant le tour précédent. Le troisième rejette une valeur dryRun non booléenne avec une issue sur le chemin dryRun.",
+      "questions": [
+        "Comment le test vérifie-t-il que le tour existant n'est pas remplacé par la répétition ?",
+        "Pourquoi tester aussi le rejet d'une proposition invalide en dryRun ?"
+      ],
+      "file": "packages/mcp-server/test/integration/project-tour.test.ts",
+      "pattern": "dryRun validates a proposal without writing the tour file",
+      "display": "diff"
+    },
+    {
+      "title": "Tests de répétition du Changes Tour",
+      "description": "Côté Changes Tour, un test écrit un tour initial puis répète une proposition avec dryRun, en vérifiant le statut validated, le nombre d'étapes et l'absence de chemin écrit — le fichier conservé reste celui de l'original.\n\nLe second test confirme que la répétition ne contourne pas les contrôles Git : un headRef qui ne correspond pas au HEAD échoue toujours avec le code STALE_HEAD, et le test vérifie qu'aucun fichier de tour n'a été créé au passage.",
+      "questions": [
+        "Pourquoi le code STALE_HEAD doit-il échouer même en dryRun ?",
+        "Comment le test s'assure-t-il qu'aucun fichier n'a été créé ?"
+      ],
+      "file": "packages/mcp-server/test/integration/changes-tour.test.ts",
+      "pattern": "dryRun still fails with STALE_HEAD",
+      "display": "diff"
+    }
+  ]
+}

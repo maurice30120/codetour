@@ -1,0 +1,103 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Le serveur MCP CodeTour : tours générés par IA",
+  "description": "Cette fonctionnalité introduit `packages/mcp-server`, un serveur MCP local qui permet à un agent IA de générer des Tours CodeTour de façon déterministe. L'agent analyse le workspace et rédige les explications ; le serveur valide chaque proposition, applique les règles Git et de sécurité, puis écrit le fichier réservé de façon atomique.\n\nLe socle couvre l'ensemble du cycle : un serveur `stdio` confiné à un seul workspace, deux outils spécialisés (`create_project_tour` et `create_changes_tour`), un moteur de validation déterministe des ancres, une politique Git stricte pour les Changes Tours, et une persistance qui préserve toujours l'ancien Tour en cas d'échec.\n\nLe contenu généré respecte un sous-ensemble V1 strict du format CodeTour : Markdown explicatif uniquement, sans URI actives ni capacités interactives, afin qu'un Tour généré ne puisse déclencher aucune action dans l'éditeur ou le terminal.\n\nGenerated from the merge-base of `29955a004445d3fd2ad5df35dd00f9cc0400ba7d` (`29955a004445d3fd2ad5df35dd00f9cc0400ba7d`) to `4547c1dd14a56d8c6247cce6ba7a7351c5344155`.",
+  "ref": "4547c1dd14a56d8c6247cce6ba7a7351c5344155",
+  "baseRef": "29955a004445d3fd2ad5df35dd00f9cc0400ba7d",
+  "steps": [
+    {
+      "title": "Vue d'ensemble : de l'agent IA au fichier .tour",
+      "description": "Cette fonctionnalité introduit `packages/mcp-server`, un serveur MCP local qui permet à un agent IA de générer des Tours CodeTour de façon déterministe. L'agent analyse le workspace et rédige les explications ; le serveur, lui, valide chaque proposition puis écrit le fichier réservé correspondant dans `.tours/`.\n\nDeux outils sont exposés sur le transport `stdio` : `create_project_tour` écrit un Project Tour dans `.tours/project.tour`, et `create_changes_tour` écrit un Changes Tour dans `.tours/changes.tour`. En cas d'erreur, l'ancien Tour est toujours conservé : une génération ratée ne détruit jamais une explication utile.\n\n**Diagram — Vue d'ensemble du serveur MCP**\n\n```mermaid\nflowchart TD\n  A[Agent IA] --> B[Serveur codetour-mcp]\n  B --> C{Validation}\n  C -->|Erreurs| D[Reponse avec issues]\n  D --> A\n  C -->|OK| E[Ecriture atomique]\n  E --> F[Fichier .tours]\n  F --> G[Lecteur VS Code]\n```\n\nLe fil de ce Changes Tour suit la construction du serveur : démarrage confiné au workspace, exposition des deux outils, politique Git du Changes Tour, moteur de validation des ancres, persistance atomique, compatibilité avec le schéma CodeTour, puis tests et documentation.",
+      "questions": [
+        "Pourquoi confier la validation et l'écriture à un serveur déterministe plutôt que de laisser l'agent écrire le fichier directement ?",
+        "Quelle est la différence entre un Project Tour et un Changes Tour ?"
+      ]
+    },
+    {
+      "title": "Un serveur confiné à un seul workspace",
+      "description": "Le binaire `codetour-mcp` démarre dans `cli.ts`. Le serveur traite un seul workspace : le répertoire de travail du processus par défaut — que tout client MCP peut régler sans argument propriétaire —, ou le répertoire passé par la surcharge explicite `--workspace-root`, réservée aux clients qui ne contrôlent pas le répertoire de travail.\n\nAvant de démarrer, `createContext` vérifie que la racine est un répertoire accessible et résout le chemin réel : chaque vérification de confinement compare ensuite des chemins réels, ce qui empêche un lien symbolique de sortir de la racine configurée. Un argument inconnu, une valeur manquante ou vide interrompt le processus avec le message d'usage complet.\n\nLa communication passe uniquement par le transport `stdio` de MCP ; le serveur n'effectue aucun accès réseau.",
+      "file": "packages/mcp-server/src/cli.ts",
+      "pattern": "Usage: codetour-mcp \\[--workspace-root <directory>\\]",
+      "display": "diff"
+    },
+    {
+      "title": "Deux outils MCP spécialisés",
+      "description": "`createServer` enregistre exactement deux outils : `create_project_tour` et `create_changes_tour`. Les destinations sont fixes et réservées (`.tours/project.tour` et `.tours/changes.tour`) : chaque génération remplace le Tour précédent du même type, ce qui garantit un flux prévisible en une seule opération (ADR 0002).\n\nLes schémas d'entrée sont volontairement permissifs : un schéma strict serait rejeté par le SDK MCP avant que le serveur puisse répondre, ce qui casserait l'exigence d'agrégation des erreurs. La validation complète, champ par champ, est donc déléguée au moteur de `validation.ts`, et toutes les erreurs remontent dans une seule réponse structurée (`status`, `code`, `issues`).",
+      "questions": [
+        "Pourquoi les schémas d'entrée MCP sont-ils permissifs au lieu d'être stricts ?",
+        "Que devient l'ancien fichier de Tour si une validation échoue ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "export function createServer",
+      "display": "diff"
+    },
+    {
+      "title": "La politique Git du Changes Tour",
+      "description": "`handleCreateChangesTour` orchestre les règles Git propres aux Changes Tours. `headRef` doit être le SHA complet du HEAD courant : sinon l'outil échoue avec `STALE_HEAD`, car une explication ne doit jamais décrire un état que le lecteur ne pourra pas relire. Le SHA de base est résolu, puis le merge-base est calculé pour délimiter la plage analysée.\n\nSans aucun changement committé, l'outil répond `NO_CHANGES` et conserve l'ancien Tour : une visite vide ne remplace jamais une visite utile. Les changements non committés sont exclus par défaut et signalés par l'avertissement `UNCOMMITTED_CHANGES_EXCLUDED` ; les inclure explicitement produit un Tour sans `ref`, car il décrit un état local non reproductible.\n\nLa description est enrichie automatiquement de la provenance (base, merge-base, tête), et HEAD est relu juste avant la persistance : si la branche a avancé pendant l'analyse, l'écriture est refusée plutôt que de figer une explication obsolète.",
+      "questions": [
+        "Pourquoi `headRef` doit-il correspondre exactement au HEAD courant ?",
+        "Pourquoi HEAD est-il relu juste avant l'écriture du fichier ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleCreateChangesTour",
+      "display": "diff"
+    },
+    {
+      "title": "Le moteur de validation des étapes",
+      "description": "Chaque étape passe par `validateStep`. Une étape peut être purement explicative, sans ancre ; avec un localisateur, elle accepte au plus un fichier ou un répertoire. `line`, `pattern` et `selection` ne sont valides qu'avec un fichier, et `line` et `pattern` sont mutuellement exclusifs.\n\nLe motif (`pattern`) doit compiler, rester court et correspondre à exactement une occurrence du fichier ancré : il identifie ainsi de façon stable l'élément expliqué. Les bornes de lignes et de sélections sont vérifiées contre le contenu réel du fichier.\n\nLe Markdown n'accepte que des liens et images HTTPS ordinaires : les schémas d'URI actifs sont refusés partout (ADR 0003), de même que tout champ inconnu tel que `when`, `commands` ou `uri` — le serveur n'accepte qu'un sous-ensemble V1 strict du format CodeTour.",
+      "questions": [
+        "Pourquoi exiger exactement une occurrence pour un motif d'ancrage ?",
+        "Pourquoi la V1 refuse-t-elle les schémas d'URI actifs dans le Markdown généré ?"
+      ],
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "function validateStep\\(",
+      "display": "diff"
+    },
+    {
+      "title": "Confiner chaque ancre au workspace",
+      "description": "`checkAnchor` vérifie chaque ancre avant toute lecture : le chemin doit être relatif à la racine du workspace, exister réellement, et sa résolution en chemin réel doit rester dans la racine. Un lien symbolique qui s'échappe du workspace est refusé, ce qui empêche une proposition de lire ou d'écrire en dehors du périmètre autorisé.\n\nLa lecture du contenu ancré n'a lieu qu'après cette vérification de confinement. Les tests d'intégration de sécurité (`test/integration/security.test.ts`) rejouent les tentatives d'évasion par lien symbolique et les schémas d'URI interdits pour garantir ces garanties.",
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "function checkAnchor\\(",
+      "display": "diff"
+    },
+    {
+      "title": "Lire l'état Git du workspace",
+      "description": "Toutes les opérations Git du serveur passent par un unique `execFile` à tampon borné, exécuté dans le workspace configuré : merge-base, HEAD, branche courante, fichiers modifiés et changements non committés.\n\n`uncommittedChanges` analyse le `git status --porcelain`, convertit les chemins du dépôt en chemins relatifs au workspace et ignore les deux fichiers de Tour réservés : une génération précédente ne doit pas faire apparaître le workspace comme sale et déclencher son propre avertissement.",
+      "file": "packages/mcp-server/src/git.ts",
+      "pattern": "export async function uncommittedChanges\\(",
+      "display": "diff"
+    },
+    {
+      "title": "Persister sans jamais casser l'existant",
+      "description": "L'écriture est atomique : le contenu est d'abord écrit dans un fichier temporaire du même répertoire, synchronisé sur disque, puis renommé sur la destination. Un échec ne laisse jamais de fichier partiellement écrit, et l'ancien Tour survit à toute génération ratée.\n\nLe répertoire de sortie est lui aussi confiné : son chemin réel est résolu avant l'écriture et doit rester dans la racine du workspace, faute de quoi `OutputPathError` interrompt l'opération.",
+      "questions": [
+        "Pourquoi passer par un fichier temporaire puis un renommage plutôt qu'une écriture directe ?",
+        "Que se passerait-il si le serveur écrivait directement le fichier de Tour ?"
+      ],
+      "file": "packages/mcp-server/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic\\(",
+      "display": "diff"
+    },
+    {
+      "title": "Compatible avec le schéma CodeTour",
+      "description": "La validation est à deux niveaux : le serveur applique d'abord son schéma d'entrée strict (champs autorisés, ancres vérifiées), puis garantit que le Tour produit reste compatible avec le schéma CodeTour général (draft-04) via Ajv. Le fichier écrit reste ainsi consommable par l'extension CodeTour existante, sans que le serveur puisse produire un format invalide.",
+      "file": "packages/mcp-server/src/codetour-schema.ts",
+      "pattern": "ajv\\.compile\\(codetourSchema\\)",
+      "display": "diff"
+    },
+    {
+      "title": "Une suite de tests qui rejoue les scénarios réels",
+      "description": "Les tests d'intégration construisent de vrais dépôts Git temporaires et rejouent chaque scénario du Changes Tour : `STALE_HEAD` quand HEAD a bougé pendant l'analyse, `NO_CHANGES` qui préserve l'ancien Tour, avertissements sur le workspace sale, branches de suppression expliquées sans ancre, workspace réduit à un sous-répertoire du dépôt, et agrégation de toutes les erreurs de validation en une seule réponse.\n\nLes tests unitaires (`test/unit/validation.test.ts`) couvrent le moteur de validation champ par champ, et `test/integration/security.test.ts` les schémas d'URI interdits et le confinement des ancres.",
+      "file": "packages/mcp-server/test/integration/changes-tour.test.ts",
+      "pattern": "fails with STALE_HEAD when HEAD moved since the analysis",
+      "display": "diff"
+    },
+    {
+      "title": "Configurer et utiliser le serveur",
+      "description": "Le README documente l'installation et la configuration : `npm install` puis `npm test` compilent et vérifient le package, et le binaire `codetour-mcp` s'enregistre auprès d'un client MCP avec `--workspace-root`. L'exemple d'enregistrement dans Codex montre comment le serveur démarre automatiquement en `stdio` quand un client en a besoin.\n\nLes décisions structurantes de la fonctionnalité sont consignées dans les ADR 0002 à 0005 (destinations stables, contenu V1 sûr, politiques de références Git par type de Tour, serveur confiné au workspace), et le Project Tour de planification de `.tours/project.tour` garde la trace de l'intention initiale du projet.",
+      "file": "packages/mcp-server/README.md",
+      "pattern": "codex mcp add codetour",
+      "display": "diff"
+    }
+  ]
+}

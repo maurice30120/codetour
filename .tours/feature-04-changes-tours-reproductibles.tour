@@ -1,0 +1,130 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Changes Tours reproductibles et affichage des diffs",
+  "description": "Cette fonctionnalité rend les Changes Tours reproductibles : le serveur MCP codetour-mcp analyse les changements commités entre le merge-base d'une référence de base et le HEAD du dépôt, valide chaque ancre contre l'instantané du commit de tête, puis écrit un tour contenant les métadonnées `ref` et `baseRef`.\n\nLe lecteur VS Code ouvre ensuite chaque étape ancrée sur un fichier modifié sous forme de diff natif entre les deux révisions, avec un repli gracieux sur le fichier courant si une révision devient indisponible.\n\nLe durcissement couvre la résolution des références Git, la gestion des fichiers renommés et supprimés, la détection des changements locaux non commités, et les modes d'échec Git.\n\nGenerated from the merge-base of `91e5c86fd996e07e28fe9f2489f9e206140b38af` (`91e5c86fd996e07e28fe9f2489f9e206140b38af`) to `1b36d396fe719285270a9ef884523dcaf19eef8a`.",
+  "ref": "1b36d396fe719285270a9ef884523dcaf19eef8a",
+  "baseRef": "91e5c86fd996e07e28fe9f2489f9e206140b38af",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "Un Tour Generator peut désormais proposer un Changes Tour reproductible : le serveur MCP analyse le diff commité entre le merge-base d'une référence de base et le commit de tête du dépôt, valide les ancres des étapes contre l'instantané de ce commit, puis écrit `.tours/changes.tour` avec les métadonnées `ref` et `baseRef`. Le lecteur VS Code affiche ensuite chaque étape ancrée sur un fichier modifié comme un diff natif entre les deux révisions.\n\n**Diagram — Context view**\n```mermaid\nflowchart TD\n  A[Agent IA] --> B[Serveur MCP]\n  B --> C{HEAD identique}\n  C -->|oui| D[merge-base]\n  D --> E[Ancres du commit]\n  E --> F[changes.tour]\n  C -->|non| I[Erreur STALE_HEAD]\n  F --> G[Lecteur VS Code]\n  G --> H[Diff natif]\n```\n\nLe travail se répartit en deux zones : `packages/mcp-server/src` côté génération (outils MCP, Git, validation, persistance) et `src/player` avec `src/store` côté lecture et affichage des diffs dans l'éditeur.",
+      "questions": [
+        "Pourquoi le tour persiste-t-il le SHA du merge-base plutôt que la référence de base fournie ?",
+        "Que se passe-t-il si le HEAD du dépôt a avancé depuis l'analyse de l'agent ?",
+        "Comment le lecteur réagit-il si une révision du diff devient indisponible ?"
+      ]
+    },
+    {
+      "title": "Orchestration de create_changes_tour",
+      "description": "Le gestionnaire de l'outil `create_changes_tour` orchestre toute la génération. Il refuse d'abord tout `headRef` qui ne serait pas exactement le SHA du HEAD courant (erreur `STALE_HEAD`), résout la référence de base en SHA complet, puis calcule le merge-base des deux révisions : c'est ce SHA, et non la référence d'origine, qui est persisté dans `baseRef`.\n\nToutes les erreurs sont agrégées en une seule réponse pour que l'agent corrige la proposition en un seul cycle. Le paramètre optionnel `workspacePath` peut resserrer l'espace de travail sur un sous-répertoire via `selectContext`, sans jamais pouvoir sortir de la racine configurée.\n\nJuste avant la persistance atomique dans `.tours/changes.tour`, le serveur relit une dernière fois le HEAD : s'il a avancé pendant les lectures Git, l'analyse est déclarée périmée et le tour précédent est préservé. La description finale est enrichie automatiquement d'une ligne de provenance indiquant le merge-base et le commit de tête analysés.",
+      "questions": [
+        "Pourquoi headRef doit-il être le SHA complet du HEAD courant, et que renvoie le serveur sinon ?",
+        "Pourquoi le serveur relit-il HEAD une seconde fois juste avant d'écrire le fichier ?",
+        "Quel avertissement reçoit-on quand des changements locaux non commités existent ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleCreateChangesTour",
+      "display": "diff"
+    },
+    {
+      "title": "Résolution sûre des références Git",
+      "description": "Toute référence fournie par l'agent est d'abord résolue en SHA complet de commit via `git rev-parse --verify` avec le suffixe `^{commit}`. Seul un SHA vérifié est ensuite passé comme argument positionnel aux invocations Git : une chaîne brute pourrait sinon être interprétée comme une option et modifier le comportement de la commande.\n\nLa couche de validation rejette en amont toute référence commençant par un tiret, ce qui garantit que l'argument composé ne peut jamais être analysé comme une option. Le merge-base est ensuite calculé entre le SHA de base résolu et le commit de tête ; un échec de résolution remonte l'erreur `INVALID_BASE_REF` en préservant le tour existant.",
+      "questions": [
+        "Pourquoi suffixer la référence avec ^{commit} avant de la passer à git ?",
+        "Quel risque d'injection l'argument composé élimine-t-il ?"
+      ],
+      "file": "packages/mcp-server/src/git.ts",
+      "pattern": "export async function resolveCommit",
+      "display": "diff"
+    },
+    {
+      "title": "Ancres validées contre le commit, pas le checkout",
+      "description": "Les ancres des étapes d'un Changes Tour commité ne sont jamais lues dans le répertoire de travail : le serveur parcourt l'arbre du commit avec `git ls-tree --full-tree -r -t -z`, puis ne charge avec `git cat-file` que les blobs des fichiers réellement demandés par les étapes.\n\nLes modes de l'arbre distinguent les fichiers ordinaires (100644 ou 100755) des liens symboliques et des sous-modules, ce qui empêche une ancre de pointer vers un chemin qui n'est pas un fichier normal dans le commit analysé. Le préfixe de l'espace de travail, obtenu par `git rev-parse --show-prefix`, gère le cas d'un serveur configuré dans un sous-répertoire du dépôt.\n\nCe choix rend le tour reproductible : des modifications locales exclues, des suppressions ou des liens symboliques du checkout ne peuvent pas fausser la validation des ancres, puisque seule la version du commit de tête fait foi.",
+      "questions": [
+        "Pourquoi lire les ancres dans l'arbre du commit plutôt que dans le répertoire de travail ?",
+        "Comment les liens symboliques et les sous-modules sont-ils exclus des ancres ?"
+      ],
+      "file": "packages/mcp-server/src/git.ts",
+      "pattern": "export async function readCommitAnchors",
+      "display": "diff"
+    },
+    {
+      "title": "Gestion des fichiers renommés",
+      "description": "Entre le merge-base et le commit de tête, `git diff --name-status --find-renames -z` produit la liste des renommages. La fonction construit une carte du chemin à tête vers l'ancien chemin, restreinte au préfixe de l'espace de travail.\n\nCôté serveur, chaque étape ancrée sur un fichier renommé reçoit automatiquement un `baseFile` : l'étape nomme le chemin à tête, et le serveur fournit le chemin d'origine. Si l'agent propose lui-même un `baseFile`, il doit correspondre exactement au renommage détecté, sinon la validation le rejette.\n\nCôté lecteur, le titre du diff affiche la transition `ancien → nouveau` pour que le lecteur comprenne qu'il regarde le même fichier déplacé.",
+      "questions": [
+        "Qui fournit le baseFile d'une étape ancrée sur un fichier renommé ?",
+        "Que vérifie le serveur quand l'agent propose un baseFile lui-même ?"
+      ],
+      "file": "packages/mcp-server/src/git.ts",
+      "pattern": "export async function renamedFiles",
+      "display": "diff"
+    },
+    {
+      "title": "Détection des changements locaux non commités",
+      "description": "`git status --porcelain=v1 --untracked-files=normal` liste les modifications indexées, non indexées et non suivies, filtrées par le préfixe de l'espace de travail. Par défaut, ces changements locaux sont exclus de l'analyse et signalés par l'avertissement `UNCOMMITTED_CHANGES_EXCLUDED`.\n\nLes deux fichiers de tour réservés (`.tours/project.tour` et `.tours/changes.tour`) sont ignorés : une génération précédente ne doit pas déclencher l'avertissement d'espace de travail sale pour ses propres sorties. Un répertoire `.tours` non suivi n'est ignoré que s'il ne contient que ces fichiers réservés.\n\nAvec `includeUncommittedChanges`, les changements locaux sont inclus, les ancres sont validées contre le répertoire de travail, et le tour perd `ref`, `baseRef` et les métadonnées de diff : il décrit alors un état local non reproductible depuis Git.",
+      "questions": [
+        "Pourquoi les fichiers de tour réservés sont-ils exclus de la détection ?",
+        "Que perd le tour quand les changements non commités sont inclus ?"
+      ],
+      "file": "packages/mcp-server/src/git.ts",
+      "pattern": "export async function uncommittedChanges",
+      "display": "diff"
+    },
+    {
+      "title": "Validation durcie des propositions",
+      "description": "Les motifs d'ancrage sont plafonnés à 200 caractères, et la bibliothèque `safe-regex2` rejette ceux qui peuvent provoquer un retour arrière catastrophique : une expression régulière forgée ne peut plus suspendre le serveur en étant appliquée à un fichier entier. Le motif doit toujours correspondre exactement une fois dans le fichier ancré.\n\nLe type `AnchorSource` distingue trois régimes de validation : contre le répertoire de travail, contre la structure seule, ou contre les ancres du commit. `checkRelativeAnchor` confine les chemins relatifs (pas de chemin absolu, pas de traversée `..`, pas de caractère NUL) avant toute lecture.\n\n`checkCommitAnchor` vérifie ensuite que le chemin existe bien dans le commit analysé et qu'il est du type attendu, fichier ou répertoire, ce qui distingue une ancre introuvable d'un fichier supprimé entre les deux révisions.",
+      "questions": [
+        "Pourquoi limiter la longueur des motifs d'ancrage ?",
+        "Quelle est la différence entre une ancre introuvable et un fichier supprimé ?"
+      ],
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "export const MAX_PATTERN_LENGTH",
+      "display": "diff"
+    },
+    {
+      "title": "Construction du diff côté lecteur",
+      "description": "`getStepDiff` ne s'applique qu'aux étapes de diff ancrées sur un fichier, sans contenu ni URI, et dont le tour porte des `ref` et `baseRef` de 40 caractères hexadécimaux. Les deux commits sont d'abord résolus explicitement : un chemin introuvable ne peut être interprété comme un fichier ajouté qu'une fois les révisions garanties accessibles.\n\nLe côté modifié est un URI Git du fichier au commit de tête, ouvert pour vérifier qu'il s'agit bien d'un fichier ordinaire. Le côté original pointe vers le `baseFile`, ou le fichier lui-même, au commit de base ; si l'objet est introuvable sans renommage, le lecteur fabrique un contenu vide étiqueté « added », ce qui matérialise un fichier créé entre les deux révisions.\n\nLe titre du diff indique le chemin, avec la transition en cas de renommage, et les deux révisions. En cas d'échec, la fonction rend silencieusement `undefined` et le lecteur retombe sur la navigation ordinaire.",
+      "questions": [
+        "Comment un fichier nouvellement ajouté est-il représenté dans le diff ?",
+        "Pourquoi résoudre les deux commits avant d'interpréter un chemin introuvable ?"
+      ],
+      "file": "src/player/diff.ts",
+      "pattern": "export async function getStepDiff",
+      "display": "diff"
+    },
+    {
+      "title": "Rendu d'une étape en diff natif",
+      "description": "Le lecteur remplace son ancien compteur de requêtes par un `renderVersion` incrémenté à chaque rendu : toute réponse obsolète est abandonnée avant de créer ou d'afficher un fil de commentaire. Pour une étape de diff, le fil de commentaire est attaché au côté modifié du diff ouvert par la commande `vscode.diff`, avec la sélection révélée dans l'éditeur.\n\nLa chaîne de repli est graduelle : si l'instantané du commit est indisponible, le lecteur retente avec le fichier courant du répertoire de travail ; si celui-ci est aussi introuvable, un contenu de repli s'affiche avec un avertissement permettant de continuer le tour. Un échec de l'ouverture du diff relance le rendu sur le fichier courant.\n\nLa réaction d'état observe désormais `ref`, `baseRef`, `file`, `baseFile` et `display` des étapes, pour que la modification du fichier de tour rafraîchisse immédiatement l'étape affichée, y compris lors d'un basculement entre diff et fichier simple.",
+      "questions": [
+        "À quoi sert le compteur renderVersion ?",
+        "Que se passe-t-il si l'instantané du commit devient indisponible ?",
+        "Pourquoi la commande vscode.diff est-elle utilisée plutôt qu'un simple affichage de document ?"
+      ],
+      "file": "src/player/index.ts",
+      "pattern": "async function showDiff",
+      "display": "diff"
+    },
+    {
+      "title": "Modèle de données du tour et export",
+      "description": "Le modèle d'étape gagne `baseFile`, le chemin d'origine d'un renommage, et `display`, à ce jour uniquement la valeur `diff`. Le modèle de tour gagne `baseRef`, la révision de base du diff persistée à côté de `ref`.\n\nÀ l'export d'un tour, les étapes de diff sont figées via `getStepSnapshotUri` au commit `ref` : le contenu exporté devient portable même si la révision disparaît ensuite du dépôt.\n\nL'export supprime `display`, `baseFile` et `baseRef` du JSON produit, puisque le tour exporté n'est plus un diff adossé à deux révisions Git.",
+      "questions": [
+        "Pourquoi l'export fige-t-il le contenu des étapes de diff ?",
+        "Quels champs l'export supprime-t-il et pourquoi ?"
+      ],
+      "file": "src/store/index.ts",
+      "pattern": "baseRef",
+      "display": "diff"
+    },
+    {
+      "title": "Couverture d'intégration",
+      "description": "Ce nouveau jeu de tests vérifie qu'un Changes Tour peut être créé dans un dépôt explicitement sélectionné par `workspacePath` sous une racine non Git, et que le fichier de tour est écrit dans le dépôt sélectionné, jamais à la racine ni dans un dépôt voisin. Les chemins d'accès invalides ou s'échappant de la racine sont rejetés sans remplacer les tours existants.\n\nLes autres suites exécutent le vrai serveur par appel d'outil sur stdio, sans simuler ses réponses : `changes-tour.test.ts` couvre la persistance de `ref` et `baseRef`, les erreurs `STALE_HEAD`, `NO_CHANGES` et `INVALID_BASE_REF`, l'exclusion des changements non commités et la tolérance des branches à suppressions seules ; `security.test.ts` couvre les schémas d'URI interdits dans les descriptions.",
+      "questions": [
+        "Que garantit le test sur un dépôt sélectionné sous une racine non Git ?",
+        "Pourquoi les tests exécutent-ils le vrai serveur plutôt qu'une simulation ?"
+      ],
+      "file": "packages/mcp-server/test/integration/workspace-path.test.ts",
+      "pattern": "creates a changes tour in an explicitly selected repository below a non-Git workspace",
+      "display": "diff"
+    }
+  ]
+}

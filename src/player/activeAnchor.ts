@@ -21,6 +21,9 @@ let activeAnchor: ActiveAnchor | undefined;
 
 function applyActiveAnchor(): void {
   vscode.window.visibleTextEditors.forEach(editor => {
+    const line = activeAnchor
+      ? Math.min(activeAnchor.range.start.line, editor.document.lineCount - 1)
+      : 0;
     const link = new vscode.MarkdownString(
       '[Open the webview](command:codetourIA.showStepDescription "Show this step")'
     );
@@ -28,7 +31,7 @@ function applyActiveAnchor(): void {
     const ranges =
       activeAnchor &&
       editor.document.uri.toString() === activeAnchor.uri.toString()
-        ? [{ range: editor.document.lineAt(Math.min(activeAnchor.range.start.line, editor.document.lineCount - 1)).range, hoverMessage: link }]
+        ? [{ range: new vscode.Range(line, 0, line, 0), hoverMessage: link }]
         : [];
     editor.setDecorations(ACTIVE_ANCHOR_DECORATOR, ranges);
   });
