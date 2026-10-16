@@ -438,3 +438,55 @@ test("initial chat render exposes pending model activity", () => {
   }, "activity-nonce");
   assert.ok(html.includes('<details class="step-chat-activity" open><summary>Activité du modèle</summary><p>Analyse de la constante…</p></details>'));
 });
+
+
+test("suggested questions are optional, escaped, capped at four and disabled while responding", () => {
+  assert.doesNotMatch(createTourWebviewHtml(baseModel(), "nonce"), /id="step-chat-suggestions"/);
+  const html = createTourWebviewHtml({ ...baseModel(), chatResponding: true,
+    questions: ['Pourquoi "<script>" ?', "Deux ?", "Trois ?", "Quatre ?", "Cinq ?"]
+  }, "nonce");
+  assert.equal((html.match(/data-question=/g) || []).length, 4);
+  assert.match(html, /data-question="Pourquoi &quot;&lt;script&gt;&quot; \?" disabled/);
+  assert.doesNotMatch(html, /Cinq \?/);
+});
+
+test("question buttons send directly once, preserve the draft, and unlock after completion or failure", () => {
+  const html = createTourWebviewHtml({ ...baseModel(), questions: ["Pourquoi ?"] }, "nonce");
+  const script = html.match(/<script nonce="nonce">([\s\S]*?)<\/script>/)![1];
+  const messages: unknown[] = [];
+  let click!: (event: unknown) => void;
+  let update!: (event: unknown) => void;
+  const button = { disabled: false, dataset: { action: "askQuestion", question: "Pourquoi ?" } };
+  const input = { value: "Mon brouillon", disabled: false };
+  const submit = { disabled: false };
+  const elements: Record<string, unknown> = {
+    "step-chat-input": input, "step-chat-submit": submit,
+    "step-chat-suggestions": { children: [button] }
+  };
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({ postMessage: (message: unknown) => messages.push(message) }),
+    document: {
+      body: { dataset: { token: "nonce", tourId: baseModel().tourId, step: "1" } },
+      getElementById: (id: string) => elements[id] || null,
+      addEventListener: (_name: string, listener: typeof click) => { click = listener; }
+    },
+    window: { addEventListener: (_name: string, listener: typeof update) => { update = listener; } }
+  });
+  const press = () => click({ target: { closest: () => button } });
+  press();
+  press();
+  assert.deepEqual(JSON.parse(JSON.stringify(messages)), [{ type: "askQuestion", question: "Pourquoi ?",
+    token: "nonce", targetTourId: baseModel().tourId, step: 1 }]);
+  assert.equal(input.value, "Mon brouillon");
+  assert.equal(button.disabled, true);
+  assert.equal(submit.disabled, true);
+  update({ data: { type: "stepChat", responding: true, exchanges: [] } });
+  assert.equal(button.disabled, true);
+  update({ data: { type: "stepChat", responding: false, exchanges: [] } });
+  assert.equal(button.disabled, false);
+  press();
+  assert.equal(messages.length, 2);
+  update({ data: { type: "stepChat", responding: false,
+    exchanges: [{ question: "Pourquoi ?", answerHtml: "Erreur", failed: true }] } });
+  assert.equal(button.disabled, false);
+});

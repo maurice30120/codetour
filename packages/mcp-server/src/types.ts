@@ -11,6 +11,7 @@ export interface Selection {
 export interface TourStep {
   title?: string;
   description: string;
+  questions?: string[];
   file?: string;
   baseFile?: string;
   display?: "diff";

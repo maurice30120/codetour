@@ -330,3 +330,30 @@ test("content-only steps without any anchor are allowed", () => {
 test("the recommended step maximum is fifteen", () => {
   assert.equal(MAX_RECOMMENDED_STEPS, 15);
 });
+
+
+test("step questions are optional and preserve up to four contextual prompts", () => {
+  const root = tempDir();
+  try {
+    const questions = [" Why? ", "Which caller?", "Which tests?", "Which limit?"];
+    const result = validate([{ description: "Step", questions }, { description: "Legacy step" }], root);
+    assert.deepEqual(result.issues, []);
+    assert.ok(result.steps);
+    assert.deepEqual(result.steps[0].questions, questions.map(question => question.trim()));
+    assert.equal(result.steps[1].questions, undefined);
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("step questions reject excessive, empty and non-string suggestions", () => {
+  const root = tempDir();
+  try {
+    for (const questions of ["Why?", Array(5).fill("Why?"), [""], ["   "], [42], [null]]) {
+      const result = validate([{ description: "Step", questions }], root);
+      assert.ok(result.issues.some(issue => issue.path.startsWith("steps[0].questions")));
+    }
+  } finally {
+    rmrf(root);
+  }
+});

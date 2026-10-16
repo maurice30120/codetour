@@ -26,6 +26,7 @@ import {
 export const STEP_FIELDS = [
   "title",
   "description",
+  "questions",
   "file",
   "baseFile",
   "display",
@@ -311,6 +312,23 @@ function validateStep(
 
   const title = isOptionalString(raw, "title", `${base}.title`, issues);
 
+  let questions: string[] | undefined;
+  if (raw.questions !== undefined) {
+    if (!Array.isArray(raw.questions) || raw.questions.length > 4) {
+      issues.push({ path: `${base}.questions`, message: "must be an array of at most 4 non-empty strings" });
+    } else {
+      const validatedQuestions: string[] = [];
+      raw.questions.forEach((question, questionIndex) => {
+        if (typeof question !== "string" || !question.trim()) {
+          issues.push({ path: `${base}.questions[${questionIndex}]`, message: "must be a non-empty string" });
+        } else {
+          validatedQuestions.push(question.trim());
+        }
+      });
+      questions = validatedQuestions;
+    }
+  }
+
   const file = isOptionalString(raw, "file", `${base}.file`, issues);
   const baseFile = isOptionalString(raw, "baseFile", `${base}.baseFile`, issues);
   const directory = isOptionalString(raw, "directory", `${base}.directory`, issues);
@@ -483,6 +501,7 @@ function validateStep(
     step: {
       title,
       description: description as string,
+      ...(questions !== undefined ? { questions } : {}),
       file,
       baseFile,
       display,

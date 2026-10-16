@@ -32,6 +32,7 @@ const tour = {
   steps: [
     {
       title: "Player entry",
+      questions: ["Pourquoi ce point d’entrée ?"],
       description: "Le lecteur démarre ici.\n\nBienvenue dans le lecteur.",
       file: "src/player.ts",
       line: 3
@@ -119,6 +120,7 @@ test("each step keeps its own conversation, feeding follow-ups and surviving ref
 
   registerPlayerModule(host.extensionContext);
   await startTour();
+  assert.match(host.panelHtml(), /data-question="Pourquoi ce point d’entrée \?"/);
 
   chatPanel().receive({ type: "askQuestion", question: "Première question ?" });
   // The answer must complete before a follow-up can be sent: a question
@@ -145,6 +147,7 @@ test("each step keeps its own conversation, feeding follow-ups and surviving ref
   // Another step starts an isolated conversation with its own target.
   await host.vscode.commands.executeCommand("codetour.nextTourStep");
   await host.waitFor(() => host.panelHtml().includes("2 / 3"));
+  assert.doesNotMatch(host.panelHtml(), /id="step-chat-suggestions"/);
   chatPanel().receive({ type: "askQuestion", question: "Autre fichier ?" });
   await host.waitFor(
     () =>

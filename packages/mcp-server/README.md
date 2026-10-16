@@ -381,3 +381,17 @@ node --test --test-name-pattern="STALE_HEAD" \
 Integration tests create isolated temporary workspaces and Git repositories
 and remove them after each scenario. The packaging smoke test stays local and
 does not publish anything to npm.
+
+
+### Suggested step questions
+
+Both creation tools accept an optional `questions` array on each step, with up to four non-empty strings. Prefer three or four concise questions tied to the step's explanation, in the same language. For example:
+
+```json
+{
+  "description": "This entry point starts the player.",
+  "questions": ["What starts the player?", "How are navigation errors handled?", "Which tests cover this path?"]
+}
+```
+
+The Expanded Description View displays these as buttons that immediately send the selected question to the ACP step conversation. Buttons are disabled while an answer is in progress. Steps without questions display no suggestions.

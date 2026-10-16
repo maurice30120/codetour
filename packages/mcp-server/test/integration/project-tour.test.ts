@@ -647,3 +647,27 @@ test("rejects a non-boolean dryRun", async () => {
     rmrf(root);
   }
 });
+
+
+test("persists suggested questions and preserves the tour when there are more than four", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const questions = ["Why this entry point?", "What calls it?", "Which tests cover it?"];
+      const response = await callTool(client, "create_project_tour", {
+        steps: [{ description: "Entry point.", questions }],
+      });
+      assert.equal(response.isError, false, response.text);
+      const tour = readTourFile(root, ".tours/project.tour");
+      assert.deepEqual((tour.steps as { questions: string[] }[])[0].questions, questions);
+      assert.ok(tourFileValidAgainstSchema(root, ".tours/project.tour"));
+      const rejected = await callTool(client, "create_project_tour", {
+        steps: [{ description: "Replacement.", questions: Array(5).fill("Why?") }],
+      });
+      assert.equal(rejected.isError, true);
+      assert.deepEqual(readTourFile(root, ".tours/project.tour"), tour);
+    });
+  } finally {
+    rmrf(root);
+  }
+});

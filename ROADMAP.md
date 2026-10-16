@@ -68,6 +68,8 @@ Explain the intent, implementation, and impact of the changes since the divergen
 
 ## Later
 
+- [ ] Offer branching Tours so readers can choose which topic to explore next according to their interests.
+- [ ] Display Tour Steps on an interactive map of files and their relationships, with direct navigation to each step.
 - [ ] Study Tour history without calling into question the stable generated files of the current version.
 - [ ] Evaluate interactive and conditional Tours with explicit security rules.
 - [ ] Collect local, anonymous metrics on generation errors before any possible telemetry.

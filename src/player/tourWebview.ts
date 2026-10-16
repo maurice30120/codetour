@@ -149,6 +149,7 @@ export async function renderTourStep(): Promise<void> {
     tourTitle: getTourTitle(tour), tourId: tour.id, stepNumber,
     stepCount: tour.steps.length, stepTitle: step.title || `Step ${stepNumber + 1}`,
     anchorLabel: getStepAnchorLabel(step), description,
+    questions: step.questions,
     chatExchanges: getStepChatExchanges(tour.id, stepNumber),
     chatResponding: getStepChatConversationView(tour.id, stepNumber).responding,
     previousTourTitle: getPreviousTour()?.title,

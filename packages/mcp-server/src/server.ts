@@ -64,6 +64,10 @@ const PROJECT_TOUR_PATH = ".tours/project.tour";
 const CHANGES_TOUR_PATH = ".tours/changes.tour";
 
 const MARKDOWN_WRITING_GUIDANCE =
+  "Each step may include an optional questions array of at most four non-empty strings. " +
+  "When useful, propose three or four concise questions specific to that step, in the same language as the user's request. " +
+  "These appear as buttons that immediately send the question to the read-only ACP step conversation, " +
+  "which answers in the language of the question asked and asks a clarifying question when it does not understand. " +
   "Write the Tour-level description and every step description as readable Markdown. " +
   "Split distinct ideas into short paragraphs separated by blank lines (`\n\n`), because " +
   "a single newline (`\n`) is a Markdown soft break and may render as a space. Use a short " +
@@ -89,13 +93,13 @@ const PROJECT_TOUR_WORKFLOW_GUIDANCE =
   "survives edits. One step covers one idea; prefer several focused steps over one long paragraph. ";
 
 const PROJECT_TOUR_ORIENTATION_GUIDANCE =
-  "The first step must be an orientation step with an explicit title such as \"Vue d'ensemble\" " +
+  "The first step must be an orientation step with an explicit title such as \"Overview\" " +
   "and no locator: omit both file and directory. Structure its description in this order: " +
   "(1) two or three sentences explaining what the system does and for whom; " +
-  "(2) a Mermaid flowchart introduced by the exact caption **Diagram — Vue contexte**, showing " +
+  "(2) a Mermaid flowchart introduced by the exact caption **Diagram — Context view**, showing " +
   "the actors, the system under study, and external systems; every edge must state an interaction " +
-  "verb and its mechanism, for example `Client --> API: passe les commandes (HTTPS)`; " +
-  "(3) a second Mermaid flowchart introduced by the exact caption **Diagram — Conteneurs**, but only " +
+  "verb and its mechanism, for example `Client --> API: places orders (HTTPS)`; " +
+  "(3) a second Mermaid flowchart introduced by the exact caption **Diagram — Containers**, but only " +
   "when the project has more than one execution or storage boundary—otherwise omit it and never draw " +
   "a boundary that does not exist; (4) a short zone-to-workspace-directory mapping with relative " +
   "Markdown links to the relevant directories, connecting the map to the following steps. " +

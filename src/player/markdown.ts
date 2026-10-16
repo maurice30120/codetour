@@ -78,6 +78,7 @@ export interface TourWebviewModel {
   stepTitle: string;
   anchorLabel?: string;
   description: string;
+  questions?: string[];
   chatExchanges?: TourStepChatExchange[];
   // True while the step's latest question is still being answered: the
   // response-in-progress state is visible and the form is locked.
@@ -130,7 +131,10 @@ const READING_STYLES = `
     @keyframes chat-spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { .step-chat-status::before { animation: none; } }
     .step-chat-status { margin: 0 0 1.25em; padding: 0 .75em; font-style: italic; color: var(--vscode-descriptionForeground); }
-    .step-chat-input:disabled, .step-chat-submit:disabled { opacity: .55; cursor: default; }
+    .step-chat-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1em; }
+    .step-chat-suggestions button { max-width: 100%; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+    .step-chat-suggestions button:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
+    .step-chat-input:disabled, .step-chat-suggestion:disabled, .step-chat-submit:disabled { opacity: .55; cursor: default; }
     .step-chat-form { display: flex; gap: 6px; }
     .step-chat-input { flex: 1 1 auto; min-width: 0; padding: 4px 6px; border: 1px solid var(--vscode-input-border, transparent); border-radius: 3px; font: inherit; color: var(--vscode-input-foreground); background: var(--vscode-input-background); }
     .step-chat-input:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
@@ -160,6 +164,14 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
   const position = model.stepNumber + 1;
   const anchor = model.anchorLabel
     ? `<p class="anchor">${escapeHtml(model.anchorLabel)}</p>` : "";
+  const questions = (model.questions ?? [])
+    .filter(question => typeof question === "string" && question.trim().length > 0)
+    .slice(0, 4);
+  const suggestions = questions.length
+    ? `<div class="step-chat-suggestions" id="step-chat-suggestions" role="group" aria-label="Questions suggérées">${questions.map(question =>
+        `<button type="button" class="step-chat-submit step-chat-suggestion" data-action="askQuestion" data-question="${escapeHtml(question.trim())}"${model.chatResponding ? " disabled" : ""}>${escapeHtml(question.trim())}</button>`
+      ).join("")}</div>`
+    : "";
   const previousEnabled = model.stepNumber > 0 || !!model.previousTourTitle;
   const nextEnabled = position < model.stepCount || !!model.nextTourTitle;
   return `<!DOCTYPE html>
@@ -197,11 +209,12 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       <p class="step-chat-status" id="step-chat-status"${
         model.chatResponding ? "" : " hidden"
       }>Réponse en cours…</p>
+      ${suggestions}
       <form class="step-chat-form" id="step-chat-form">
         <input class="step-chat-input" id="step-chat-input" type="text" autocomplete="off" placeholder="Poser une question sur cette étape…" aria-label="Question sur cette étape"${
           model.chatResponding ? " disabled" : ""
         }>
-        <button type="submit" class="step-chat-submit"${
+        <button type="submit" class="step-chat-submit" id="step-chat-submit"${
           model.chatResponding ? " disabled" : ""
         }>Envoyer</button>
         <button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrompre la réponse en cours"${
@@ -220,14 +233,29 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     const chatSubmit = document.getElementById("step-chat-submit");
     const chatStatus = document.getElementById("step-chat-status");
     const chatStop = document.getElementById("step-chat-stop");
+    const suggestionButtons = Array.from(document.getElementById("step-chat-suggestions")?.children || []);
+    let chatResponding = ${model.chatResponding === true};
+    const setResponding = responding => {
+      chatResponding = responding;
+      if (chatStatus) chatStatus.hidden = !responding;
+      if (chatInput) chatInput.disabled = responding;
+      if (chatSubmit) chatSubmit.disabled = responding;
+      suggestionButtons.forEach(button => { button.disabled = responding; });
+      if (chatStop) chatStop.hidden = !responding;
+    };
+    const askQuestion = question => {
+      if (chatResponding || !question || !question.trim()) return;
+      setResponding(true);
+      vscode.postMessage({ type: "askQuestion", question: question.trim(), token: document.body.dataset.token,
+        targetTourId: document.body.dataset.tourId, step: Number(document.body.dataset.step) });
+    };
     if (chatForm && chatInput) {
       chatForm.addEventListener("submit", event => {
         event.preventDefault();
         const question = (chatInput.value || "").trim();
-        if (!question) return;
+        if (!question || chatResponding) return;
         chatInput.value = "";
-        vscode.postMessage({ type: "askQuestion", question, token: document.body.dataset.token,
-          targetTourId: document.body.dataset.tourId, step: Number(document.body.dataset.step) });
+        askQuestion(question);
       });
     }
     window.addEventListener("message", event => {
@@ -244,17 +272,15 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       // The response-in-progress state stays visible while the answer
       // streams, and the form stays locked so no new question can be sent
       // before the current answer completes.
-      const responding = message.responding === true;
-      if (chatStatus) chatStatus.hidden = !responding;
-      if (chatInput) chatInput.disabled = responding;
-      if (chatSubmit) chatSubmit.disabled = responding;
-      // The Arrêter button exists only for the in-progress answer: it
-      // disappears as soon as no answer is in flight anymore.
-      if (chatStop) chatStop.hidden = !responding;
+      setResponding(message.responding === true);
     });
     document.addEventListener("click", event => {
       const button = event.target.closest("button[data-action]");
       if (button) {
+        if (button.dataset.action === "askQuestion") {
+          if (!button.disabled) askQuestion(button.dataset.question);
+          return;
+        }
         if (!button.disabled) vscode.postMessage({ type: button.dataset.action, token: document.body.dataset.token,
           targetTourId: document.body.dataset.tourId, step: Number(document.body.dataset.step) });
         return;

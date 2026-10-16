@@ -12,6 +12,7 @@ export interface CodeTourStepPosition {
 export interface CodeTourStep {
   title?: string;
   description: string;
+  questions?: string[];
   icon?: string;
 
   // A step guides the reader to a single type of destination: a file,
