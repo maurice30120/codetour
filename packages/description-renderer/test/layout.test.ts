@@ -21,3 +21,43 @@ test("wide diagrams fit native comments and leave space around their content", a
   assert.ok(x + width - content.x - content.width >= 24, "no right breathing room");
   assert.ok(y + height - content.y - content.height >= 24, "no bottom breathing room");
 });
+
+test("a decision diamond reserves its own vertical space in the layout", async () => {
+  const source = [
+    "flowchart TD",
+    "  A[Agent IA] --> B[Serveur MCP]",
+    "  B --> C{HEAD identique}",
+    "  C -->|oui| D[merge-base]",
+    "  C -->|non| I[Erreur STALE_HEAD]"
+  ].join("\n");
+  const { svg } = await renderMermaidDiagram(source, "light");
+
+  // Each node group carries its layout position; each shape is measured with
+  // the production getBBox() Mermaid feeds to its layout engine, so a shape
+  // the polyfill cannot measure (the pre-fix polygon case) is caught here
+  // rather than silently reading as an empty box.
+  const document = parseSvgDocument(svg);
+  const spans = new Map<string, { top: number; bottom: number; height: number }>();
+  for (const node of Array.from(document.querySelectorAll("g.node"))) {
+    const letter = (node.getAttribute("id") || "").match(/flowchart-([A-Z])-/)?.[1];
+    const ty = Number(
+      (node.getAttribute("transform") || "").match(/translate\([^,]+,\s*([^)]+)\)/)?.[1]
+    );
+    const shape = node.firstElementChild as unknown as
+      | { getBBox(): { y: number; height: number } }
+      | null;
+    if (!letter || !shape || shape.getBBox === undefined || isNaN(ty)) {
+      continue;
+    }
+    const box = shape.getBBox();
+    spans.set(letter, { top: ty + box.y, bottom: ty + box.y + box.height, height: box.height });
+  }
+
+  assert.ok(spans.has("C"), "the decision node was not found in the SVG");
+  assert.ok(spans.has("B"), "the node above the decision was not found in the SVG");
+  assert.ok(spans.get("C")!.height > 0, "the decision diamond measures as an empty box");
+  assert.ok(
+    spans.get("C")!.top >= spans.get("B")!.bottom,
+    "the decision diamond overlaps the node above it"
+  );
+});
