@@ -10,13 +10,22 @@ import {
 } from "codetour-description-renderer";
 import { Issue } from "./types";
 
+// The exact caption grammar shared by the caption diagnostic and the tool
+// guidance: a single bold line of the form **Diagram — <descriptive text>**,
+// with a literal em dash (U+2014) and "…" used only as shorthand for the
+// descriptive text, never as a literal ellipsis.
+const CAPTION_GRAMMAR =
+  "a single bold line of the form **Diagram — <descriptive text>**, with a literal em dash " +
+  "(U+2014) between Diagram and the descriptive text, and the … in the shorthand " +
+  "**Diagram — …** is a placeholder for descriptive text, not a literal ellipsis";
+
 const MERMAID_TOOL_GUIDANCE =
   `Use Mermaid when it materially clarifies a relationship, flow, state, sequence, class, or entity. ` +
   `For architecture, workflow, lifecycle, or multi-module Tours, include at least one Mermaid diagram ` +
   `when it can summarize relationships spanning several steps. Omit diagrams only when the Tour has ` +
   `no meaningful relationship, flow, state transition, or sequence to visualize. ` +
-  "If you use one, put the nearest non-blank line before a bare ```mermaid fence in the form " +
-  "**Diagram — …**; keep that caption visible and descriptive. " +
+  "If you use one, put a caption before a bare ```mermaid fence as the nearest non-blank line: " +
+  `${CAPTION_GRAMMAR}. Keep that caption visible and descriptive. ` +
   `Only these Mermaid kinds are allowed: ${ALLOWED_DIAGRAM_KINDS.join(", ")}. ` +
   `Each description accepts at most ${MAX_DIAGRAMS_PER_DESCRIPTION} Mermaid fences, each source is limited to ` +
   `${MAX_DIAGRAM_SOURCE_BYTES / 1024} KB, and every source must have valid Mermaid syntax. ` +
@@ -56,6 +65,23 @@ function canonicalCaption(caption: string | undefined): string | undefined {
   return caption === undefined
     ? undefined
     : matchDiagramCaption(`**${caption}**`);
+}
+
+function nearestNonBlankLineBefore(
+  description: string,
+  offset: number
+): string | undefined {
+  // findDiagramFences keeps only the parsed caption, so when the parser does
+  // not match, the offending line is not retained on the fence. Re-derive it
+  // the same way the renderer's caption search walks lines: nearest preceding
+  // non-blank line before the fence.
+  const lines = description.slice(0, offset).split("\n");
+  for (let index = lines.length - 1; index >= 0; index--) {
+    if (lines[index].trim() !== "") {
+      return lines[index];
+    }
+  }
+  return undefined;
 }
 
 async function validateDescription(
@@ -99,9 +125,12 @@ async function validateDescription(
             : "source";
       let message: string;
       if (evaluation.reason === "caption") {
+        const foundLine = nearestNonBlankLineBefore(description, fence.start);
+        const found =
+          foundLine === undefined ? "undefined" : JSON.stringify(foundLine);
         message =
-          `the Mermaid fence at ${location} requires a nearest non-blank caption matching ` +
-          "**Diagram — …**";
+          `the Mermaid fence at ${location} requires a nearest non-blank caption: ` +
+          `${CAPTION_GRAMMAR}; found: ${found}`;
       } else if (evaluation.reason === "size") {
         message =
           `the Mermaid source at ${location} is ${Buffer.byteLength(fence.source, "utf8")} bytes; ` +
