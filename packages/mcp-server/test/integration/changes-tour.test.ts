@@ -396,6 +396,67 @@ test("ignores the reserved tour files when detecting a dirty workspace", async (
   }
 });
 
+test("ignores untracked tour images when detecting a dirty workspace", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    writeFile(root, ".tours/project.tour", "{ generated earlier }");
+    writeFile(root, ".tours/images/changes/diagram.png", "image bytes");
+    writeFile(root, ".tours/images/changes/nested/shot.jpeg", "image bytes");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.ok(!warningCodes(response).includes("UNCOMMITTED_CHANGES_EXCLUDED"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("ignores staged and individually listed tour images when detecting a dirty workspace", async () => {
+  const { root, baseSha } = await setupRepo();
+  try {
+    await commitFile(root, ".tours/project.tour", "{ generated earlier }", "track project tour");
+    const head = await headSha(root);
+    writeFile(root, ".tours/images/changes/diagram.png", "image bytes");
+    writeFile(root, ".tours/images/changes/staged.png", "image bytes");
+    await git(["add", ".tours/images/changes/staged.png"], root);
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.ok(!warningCodes(response).includes("UNCOMMITTED_CHANGES_EXCLUDED"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("still warns about real code changes alongside tour images", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    writeFile(root, ".tours/images/changes/diagram.png", "image bytes");
+    writeFile(root, "untracked.txt", "local work");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.ok(warningCodes(response).includes("UNCOMMITTED_CHANGES_EXCLUDED"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("includes uncommitted changes explicitly and drops the ref", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
