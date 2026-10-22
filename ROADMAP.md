@@ -58,6 +58,24 @@ Expliquer l’intention, l’implémentation et les effets des changements depui
 - [ ] Vérifier les Tours générés sur plusieurs structures de dépôts représentatives.
 - [ ] Compléter la validation sans écriture (`dryRun`) existante par une prévisualisation lisible et une confirmation du remplacement d’un Tour généré existant.
 
+### Questions suggérées au fil de la discussion
+
+Les boutons de questions de la webview peuvent devenir moins pertinents lorsque la Tour Step Conversation avance ou change de sujet. Explorer leur actualisation sans figer la solution à ce stade.
+
+- [ ] Évaluer la régénération des questions suggérées après chaque réponse, en tenant compte des échanges récents et du sujet courant.
+- [ ] Comparer ce renouvellement avec le masquage des suggestions devenues obsolètes ; éviter de reproposer des questions déjà traitées et permettre de ne rien afficher lorsqu’aucune relance n’est utile.
+
+### Format des images au moment de l’appel MCP
+
+**Priorité : moyenne. Catégorie : navigation et économie d’outils.**
+
+Le format des images locales est déjà décrit dans le guide utilisateur. Le rendre visible au point d’usage doit éviter au Tour Generator d’explorer le renderer ou de supposer une solution en base64 avant de consulter cette référence ciblée.
+
+- [ ] Ajouter aux consignes Markdown partagées par les descriptions des outils, dans [`packages/mcp-server/src/server.ts`](packages/mcp-server/src/server.ts), une indication courte : « Images locales : `![Schéma](./docs/schema.png)`, chemin depuis la racine du workspace. Une étape purement illustrée n’a pas d’ancre de code. »
+- [ ] Pointer vers la section [File References du guide utilisateur](docs/user-guide.md#file-references) pour les détails ; conserver le PNG dans le dépôt et une référence courte dans la description du Tour Step.
+- [ ] Garder ce renseignement au point d’usage, sans ajouter de règle globale à `AGENTS.md` ni recopier le guide dans un nouveau skill.
+- [ ] Évaluer un avertissement ciblé lorsqu’une image fournie par l’auteur est encodée en base64, pour conseiller la référence locale sans interdire le transport base64 des diagrammes générés par le lecteur.
+
 ### Compléments aux tests de l’extension VS Code
 
 - [ ] Poursuivre l’extraction de la logique métier encore couplée à VS Code lorsque cela simplifie les tests ; les tests actuels s’exécutent déjà sans lancer l’éditeur.
