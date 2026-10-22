@@ -457,6 +457,35 @@ test("still warns about real code changes alongside tour images", async () => {
   }
 });
 
+test("keeps untracked tour images out of the snapshot even when uncommitted changes are included", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    writeFile(root, ".tours/images/changes/diagram.png", "image bytes");
+    writeFile(root, ".tours/images/changes/nested/shot.jpeg", "image bytes");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        includeUncommittedChanges: true,
+        steps: [{ description: "The feature.", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.ok(
+        !warningCodes(response).includes("UNCOMMITTED_CHANGES_INCLUDED"),
+        "tour images must not count as uncommitted changes"
+      );
+    });
+    // The persisted comparison stays a SHA pair: images are read from the
+    // working tree only and never enter the diff the tour describes.
+    const tour = readTourFile(root, ".tours/changes.tour");
+    assert.equal(tour.ref, head);
+    assert.equal(tour.baseRef, baseSha);
+    assert.ok(!JSON.stringify(tour).includes("images"));
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("includes uncommitted changes explicitly and drops the ref", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
