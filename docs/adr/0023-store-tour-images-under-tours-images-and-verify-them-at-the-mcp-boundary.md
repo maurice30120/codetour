@@ -12,5 +12,5 @@ At read time the player inlines the referenced image bytes as a data URI through
 
 ## Consequences
 
-- `toursDirectoryOnlyContainsTours` and the untracked-`.tours` handling in `packages/mcp-server/src/git.ts` must accept `.tours/images/**` alongside `.tour` files.
+- `toursDirectoryOnlyContainsGenerationArtifacts` and the untracked-`.tours` handling in `packages/mcp-server/src/git.ts` must accept `.tours/images/**` alongside `.tour` files.
 - Orphaned images accumulate under `.tours/images/` across regenerations; pruning is deliberately out of scope for now.

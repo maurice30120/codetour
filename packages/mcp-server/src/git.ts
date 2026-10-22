@@ -191,7 +191,7 @@ export function normalizeSlashes(value: string): string {
 // Any `.tour` file under `.tours/`, and any file under `.tours/images/`, is a
 // Tour generation artifact: a previous generation must not trigger its own
 // dirty workspace warning.
-function isTourFile(workspacePath: string): boolean {
+function isGenerationArtifact(workspacePath: string): boolean {
   return (
     (workspacePath.startsWith(".tours/") && workspacePath.endsWith(".tour")) ||
     workspacePath.startsWith(".tours/images/")
@@ -228,11 +228,14 @@ export async function uncommittedChanges(
     let workspacePath = normalizeSlashes(repoPath).slice(prefix.length);
     if (status === "??" && workspacePath.endsWith("/")) {
       const directory = workspacePath.slice(0, -1);
-      if (directory === ".tours" && toursDirectoryOnlyContainsTours(ctx, directory)) {
+      if (
+        directory === ".tours" &&
+        toursDirectoryOnlyContainsGenerationArtifacts(ctx, directory)
+      ) {
         continue;
       }
     }
-    if (isTourFile(workspacePath)) {
+    if (isGenerationArtifact(workspacePath)) {
       continue;
     }
     entries.push({ path: workspacePath, status });
@@ -243,7 +246,7 @@ export async function uncommittedChanges(
 // An untracked `.tours` directory appears as one `?? .tours/` entry in normal
 // mode. Ignore it only when its contents are limited to Tour files and Tour
 // Images under `images/` (generation artifacts).
-function toursDirectoryOnlyContainsTours(
+function toursDirectoryOnlyContainsGenerationArtifacts(
   ctx: WorkspaceContext,
   directory: string
 ): boolean {
