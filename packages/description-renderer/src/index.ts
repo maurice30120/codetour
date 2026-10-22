@@ -1,4 +1,5 @@
 export { renderDescription } from "./description";
+export type { DescriptionRenderOptions, ImageBytesResolver } from "./images";
 export {
   clearMermaidRenderCache,
   DESCRIPTION_RENDERER_VERSION,

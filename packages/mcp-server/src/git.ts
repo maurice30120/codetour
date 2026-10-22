@@ -188,15 +188,19 @@ export function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, "/");
 }
 
-// Any `.tour` file under `.tours/` is a Tour artifact: a previous generation
-// must not trigger its own dirty workspace warning.
+// Any `.tour` file under `.tours/`, and any file under `.tours/images/`, is a
+// Tour generation artifact: a previous generation must not trigger its own
+// dirty workspace warning.
 function isTourFile(workspacePath: string): boolean {
-  return workspacePath.startsWith(".tours/") && workspacePath.endsWith(".tour");
+  return (
+    (workspacePath.startsWith(".tours/") && workspacePath.endsWith(".tour")) ||
+    workspacePath.startsWith(".tours/images/")
+  );
 }
 
-// Staged, unstaged, and untracked workspace changes, except for Tour files
-// under `.tours/`: a previous generation must not trigger its own dirty
-// workspace warning.
+// Staged, unstaged, and untracked workspace changes, except for Tour
+// generation artifacts under `.tours/`: a previous generation must not
+// trigger its own dirty workspace warning.
 export async function uncommittedChanges(
   ctx: WorkspaceContext
 ): Promise<UncommittedEntry[]> {
@@ -237,20 +241,31 @@ export async function uncommittedChanges(
 }
 
 // An untracked `.tours` directory appears as one `?? .tours/` entry in normal
-// mode. Ignore it only when its contents are limited to Tour files.
+// mode. Ignore it only when its contents are limited to Tour files and Tour
+// Images under `images/` (generation artifacts).
 function toursDirectoryOnlyContainsTours(
   ctx: WorkspaceContext,
   directory: string
 ): boolean {
   const absolute = path.resolve(ctx.root, directory);
-  let files: string[];
+  let entries: fs.Dirent[] = [];
   try {
-    files = fs.readdirSync(absolute, { recursive: true }) as string[];
+    entries = fs.readdirSync(absolute, {
+      recursive: true,
+      withFileTypes: true,
+    }) as fs.Dirent[];
   } catch {
     return false;
   }
+  // Intermediate directories are listed as well; only files can disqualify.
+  const files = entries.filter((entry) => entry.isFile());
   return (
     files.length > 0 &&
-    files.every((file) => normalizeSlashes(file).endsWith(".tour"))
+    files.every((entry) => {
+      const file = normalizeSlashes(
+        path.relative(absolute, path.join(entry.parentPath, entry.name))
+      );
+      return file.endsWith(".tour") || file.startsWith("images/");
+    })
   );
 }
