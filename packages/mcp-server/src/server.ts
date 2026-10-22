@@ -372,9 +372,12 @@ async function handleCreateProjectTour(
   const mermaidIssues = await validateMermaidDescriptions(args);
   const selected = selectContext(defaultContext, params?.workspacePath);
   const ctx = selected.context ?? defaultContext;
+  // Image references are workspace-root relative, the same base the player
+  // inlines them from, so an accepted reference always renders; step anchors
+  // keep the selected context root.
   const imageIssues = validateImageDescriptions(
     args,
-    ctx,
+    defaultContext,
     tourImageDirectoryName("project", params?.fileName)
   );
   if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
@@ -460,9 +463,12 @@ async function handleCreateChangesTour(
   const mermaidIssues = await validateMermaidDescriptions(args);
   const selected = selectContext(defaultContext, params?.workspacePath);
   const ctx = selected.context ?? defaultContext;
+  // Image references are workspace-root relative, the same base the player
+  // inlines them from, so an accepted reference always renders; step anchors
+  // keep the selected context root.
   const imageIssues = validateImageDescriptions(
     args,
-    ctx,
+    defaultContext,
     tourImageDirectoryName("changes", params?.fileName)
   );
   if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {

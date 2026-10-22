@@ -503,3 +503,70 @@ test("dryRun validates image references without writing the tour file", async ()
     rmrf(root);
   }
 });
+
+test("rejects a local image reference whose path contains spaces when the file is missing", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        steps: [
+          {
+            description:
+              "See ![the arch](.tours/images/project/my arch.png).",
+          },
+        ],
+      });
+      assert.equal(response.isError, true, response.text);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.deepEqual(issuePaths(response), [
+        "steps[0].description.image[0]",
+      ]);
+      assert.ok(
+        structuredIssues(response)[0].message.includes(
+          ".tours/images/project/my arch.png"
+        )
+      );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("accepts an existing local image whose path contains spaces", async () => {
+  const root = tempDir();
+  try {
+    writeImageFile(root, ".tours/images/project/my arch.png", TINY_PNG);
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        steps: [
+          {
+            description:
+              "See ![the arch](.tours/images/project/my arch.png).",
+          },
+        ],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.equal(response.structured.status, "created");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("validates image references against the workspace root, not the selected workspacePath", async () => {
+  const root = tempDir();
+  try {
+    writeImageFile(root, "docs/logo.png", TINY_PNG);
+    fs.mkdirSync(path.join(root, "subdir"));
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_project_tour", {
+        workspacePath: "subdir",
+        steps: [{ description: "See ![the logo](docs/logo.png)." }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.equal(response.structured.status, "created");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
