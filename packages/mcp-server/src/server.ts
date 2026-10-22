@@ -40,6 +40,11 @@ import {
   MERMAID_TOOL_GUIDANCE,
   validateMermaidDescriptions,
 } from "./mermaid-validation";
+import {
+  IMAGE_TOOL_GUIDANCE,
+  tourImageDirectoryName,
+  validateImageDescriptions,
+} from "./image-validation";
 import packageJson from "../package.json";
 
 // MCP V1 exposes exactly two tools: `create_project_tour` and
@@ -165,7 +170,8 @@ const PROJECT_TOUR_DESCRIPTION =
   "Optional workspacePath selects a directory relative to the configured workspace root for this call. " +
   "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. " +
   MARKDOWN_WRITING_GUIDANCE +
-  MERMAID_TOOL_GUIDANCE;
+  MERMAID_TOOL_GUIDANCE +
+  IMAGE_TOOL_GUIDANCE;
 
 const CHANGES_TOUR_DESCRIPTION =
   "Create a CodeTour guided review of the current branch's changes from the merge-base of a base " +
@@ -218,7 +224,8 @@ const CHANGES_TOUR_DESCRIPTION =
   "Optional workspacePath selects a repository or subdirectory relative to the configured workspace root for this call. " +
   "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. " +
   MARKDOWN_WRITING_GUIDANCE +
-  MERMAID_TOOL_GUIDANCE;
+  MERMAID_TOOL_GUIDANCE +
+  IMAGE_TOOL_GUIDANCE;
 
 const warningSchema = z.object({
   code: z.string(),
@@ -363,8 +370,15 @@ async function handleCreateProjectTour(
   // responding so the agent can correct the proposal in one cycle.
   const { params, issues: paramIssues } = validateProjectParams(args);
   const mermaidIssues = await validateMermaidDescriptions(args);
+  const selected = selectContext(defaultContext, params?.workspacePath);
+  const ctx = selected.context ?? defaultContext;
+  const imageIssues = validateImageDescriptions(
+    args,
+    ctx,
+    tourImageDirectoryName("project", params?.fileName)
+  );
   if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    if (mermaidIssues.length === 0) {
+    if (mermaidIssues.length === 0 && imageIssues.length === 0) {
       return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
     }
     return errorResponse(
@@ -372,13 +386,12 @@ async function handleCreateProjectTour(
       "The create_project_tour arguments are invalid.",
       [
         ...mermaidIssues,
+        ...imageIssues,
         { path: "steps", message: "is required and must contain at least one step" }
       ]
     );
   }
-  const selected = selectContext(defaultContext, params?.workspacePath);
-  const ctx = selected.context ?? defaultContext;
-  const allIssues = [...paramIssues, ...mermaidIssues, ...selected.issues];
+  const allIssues = [...paramIssues, ...mermaidIssues, ...selected.issues, ...imageIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx,
@@ -445,8 +458,15 @@ async function handleCreateChangesTour(
   // validation errors before responding.
   const { params, issues: paramIssues } = validateChangesParams(args);
   const mermaidIssues = await validateMermaidDescriptions(args);
+  const selected = selectContext(defaultContext, params?.workspacePath);
+  const ctx = selected.context ?? defaultContext;
+  const imageIssues = validateImageDescriptions(
+    args,
+    ctx,
+    tourImageDirectoryName("changes", params?.fileName)
+  );
   if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    if (mermaidIssues.length === 0) {
+    if (mermaidIssues.length === 0 && imageIssues.length === 0) {
       return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
     }
     return errorResponse(
@@ -454,13 +474,12 @@ async function handleCreateChangesTour(
       "The create_changes_tour arguments are invalid.",
       [
         ...mermaidIssues,
+        ...imageIssues,
         { path: "steps", message: "is required and must contain at least one step" }
       ]
     );
   }
-  const selected = selectContext(defaultContext, params?.workspacePath);
-  const ctx = selected.context ?? defaultContext;
-  const allIssues = [...paramIssues, ...mermaidIssues, ...selected.issues];
+  const allIssues = [...paramIssues, ...mermaidIssues, ...selected.issues, ...imageIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx, { kind: "structure" });
