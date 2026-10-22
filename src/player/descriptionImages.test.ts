@@ -85,6 +85,16 @@ test("missing local images render a compact warning through the shared pipeline"
   }
 });
 
+test("local images never leak a local path when no workspace is found", async () => {
+  const content = await renderPreviewDescription(
+    "![Architecture](.tours/images/project/architecture.png)"
+  );
+
+  assert.ok(content.includes("referenced image could not be loaded"));
+  assert.ok(!content.includes(".tours/images/project/architecture.png"));
+  assert.ok(!content.includes("file://"));
+});
+
 test("references escaping the workspace are never inlined", async () => {
   const readPaths: string[] = [];
   const restore = patchReadFile(async uri => {

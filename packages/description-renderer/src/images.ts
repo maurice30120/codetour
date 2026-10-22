@@ -8,7 +8,7 @@
 const URI_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 
 const LOCAL_IMAGE_PATTERN =
-  /!\[([^\]]*(?:\[[^\]]*\][^\]]*)*)\]\(([^)\s]+)\)/g;
+  /!\[([^\]]*(?:\[[^\]]*\][^\]]*)*)\]\(([^)]+)\)/g;
 
 const FENCE_OPEN_PATTERN = /^\s*```/;
 
@@ -56,7 +56,8 @@ function findImageReferencesOutsideFences(
     }
 
     for (const match of line.matchAll(LOCAL_IMAGE_PATTERN)) {
-      const [text, alt, path] = match;
+      const [text, alt, rawPath] = match;
+      const path = rawPath.trim();
       if (!isLocalReference(path)) {
         continue;
       }
@@ -110,7 +111,9 @@ export function imageMimeType(
   return undefined;
 }
 
-function escapeAltText(alt: string): string {
+// Shared with the Mermaid caption replacement: both produce Markdown image
+// alt text, where raw brackets could break out of the construct.
+export function escapeAltText(alt: string): string {
   return alt.replace(/([\[\]])/g, "\\$1");
 }
 

@@ -102,10 +102,39 @@ test("renderDescription leaves HTTPS images untouched when a resolver is supplie
   assert.equal(content, description);
 });
 
-test("renderDescription keeps local images unchanged without a resolver", async () => {
+test("renderDescription renders a compact warning for local images without a resolver", async () => {
   const description = "![Architecture](.tours/images/project/architecture.png)";
 
-  assert.equal(await renderDescription(description, "light"), description);
+  const content = await renderDescription(description, "light");
+
+  assertNotice(content, IMAGE_NOTICE_MARKER);
+  assert.ok(!content.includes(".tours/images/project/architecture.png"));
+});
+
+test("renderDescription inlines a local image whose path contains spaces", async () => {
+  const description =
+    "![Architecture](.tours/images/project/my architecture.png)";
+
+  const content = await renderDescription(description, "light", {
+    resolveImageBytes: imageResolver({
+      ".tours/images/project/my architecture.png": SAMPLE_PNG_BYTES
+    })
+  });
+
+  const bytes = extractImageDataUri(content, "Architecture", "png");
+  assert.ok(bytes.equals(SAMPLE_PNG_BYTES));
+  assert.ok(!content.includes(".tours/images/project/my architecture.png"));
+});
+
+test("renderDescription renders a compact warning for a titled local image reference", async () => {
+  const description = '![Badge](.tours/images/project/badge.png "Official")';
+
+  const content = await renderDescription(description, "light", {
+    resolveImageBytes: imageResolver({})
+  });
+
+  assertNotice(content, IMAGE_NOTICE_MARKER);
+  assert.ok(!content.includes(".tours/images/project/badge.png"));
 });
 
 test("renderDescription escapes brackets in the alt text of an inlined image", async () => {

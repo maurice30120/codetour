@@ -5,6 +5,9 @@ import {
 } from "./render";
 import {
   DescriptionRenderOptions,
+  ImageBytesResolver,
+  escapeAltText,
+  findLocalImageReferences,
   inlineLocalImages
 } from "./images";
 import {
@@ -24,17 +27,21 @@ const RENDER_FAILURE_NOTICES: Record<DiagramRuleReason | "render" | "count", str
   render: "> ⚠️ The Mermaid diagram could not be rendered."
 };
 
-function escapeAltText(caption: string): string {
-  return caption.replace(/([[\]])/g, "\\$1");
-}
-
 export async function renderDescription(
   description: string,
   theme: DescriptionTheme,
   options: DescriptionRenderOptions = {}
 ): Promise<string> {
+  // Without a resolver no local image can be inlined: every local reference
+  // must still resolve to a data URI or the compact warning, because a local
+  // path left in the output would be stripped by the reading surfaces.
+  const resolveImageBytes: ImageBytesResolver =
+    options.resolveImageBytes ?? (async () => undefined);
   const fences = findDiagramFences(description);
-  if (fences.length === 0 && !options.resolveImageBytes) {
+  if (
+    fences.length === 0 &&
+    findLocalImageReferences(description).length === 0
+  ) {
     return description;
   }
 
@@ -67,9 +74,5 @@ export async function renderDescription(
       content.slice(0, fence.start) + replacement + content.slice(fence.end);
   }
 
-  if (options.resolveImageBytes) {
-    content = await inlineLocalImages(content, options.resolveImageBytes);
-  }
-
-  return content;
+  return inlineLocalImages(content, resolveImageBytes);
 }
