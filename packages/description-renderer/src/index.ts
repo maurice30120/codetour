@@ -1,5 +1,7 @@
 export { renderDescription } from "./description";
 export type { DescriptionRenderOptions, ImageBytesResolver } from "./images";
+export { findLocalImageReferences, imageMimeType } from "./images";
+export type { ImageReference } from "./images";
 export {
   clearMermaidRenderCache,
   DESCRIPTION_RENDERER_VERSION,

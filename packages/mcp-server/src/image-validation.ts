@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { findLocalImageReferences, imageMimeType } from "codetour-description-renderer";
 import { normalizeSlashes } from "./git";
 import { Issue, WorkspaceContext } from "./types";
 
@@ -14,10 +15,8 @@ const TOUR_IMAGES_DIRECTORY = ".tours/images";
 // time, so a large file would slow every reading surface down.
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
-const PNG_SIGNATURE = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-]);
-const JPEG_SIGNATURE = Buffer.from([0xff, 0xd8, 0xff]);
+// How many leading bytes decide the image type: PNG needs 8, JPEG 3.
+const MAGIC_BYTES = 8;
 
 // Storage and validation rules for local images, stated at the point of use so
 // the agent complies before calling (the server only verifies; it never
@@ -35,32 +34,6 @@ export const IMAGE_TOOL_GUIDANCE =
   "other formats are rejected), and be at most 2 MB; a failing reference rejects the tour " +
   "with the offending path.";
 
-// Every Markdown image reference in a validated description, fenced code
-// blocks excluded: an image syntax inside a fence is a code sample, not a
-// reference the reader will see rendered.
-const IMAGE_REFERENCE_PATTERN =
-  /!\[[^\]]*\]\(\s*(?:<([^>]*)>|([^)\s]+))(?:\s+"[^"]*")?\s*\)/g;
-
-function stripCodeFences(description: string): string {
-  return description
-    .replace(/```[\s\S]*?```/g, "")
-    .replace(/```[\s\S]*$/g, "");
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-// A reference is a local image when its URL carries no URI scheme: `https:`
-// and `data:` images keep their existing behavior, and single-letter
-// "schemes" stay local so Windows drive paths reach the absolute-path check.
-function isLocalImagePath(url: string): boolean {
-  if (url === "" || url.startsWith("#")) {
-    return false;
-  }
-  return !/^[a-zA-Z][a-zA-Z0-9+.-]+:/.test(url);
-}
-
 // The directory a Tour owns its images in: the fileName without the `.tour`
 // suffix, with the reserved Tours mapping to `project` and `changes`.
 export function tourImageDirectoryName(
@@ -72,32 +45,14 @@ export function tourImageDirectoryName(
     : fileName.replace(/\.tour$/, "");
 }
 
-interface ImageReference {
-  url: string;
-}
-
-function findImageReferences(description: string): ImageReference[] {
-  const references: ImageReference[] = [];
-  for (const match of stripCodeFences(description).matchAll(
-    IMAGE_REFERENCE_PATTERN
-  )) {
-    const url = match[1] ?? match[2];
-    if (url !== undefined && isLocalImagePath(url)) {
-      references.push({ url });
-    }
-  }
-  return references;
-}
-
 // Resolve the reference against the workspace root and report the first rule
 // it violates. The message names the exact offending reference so the agent
 // can fix it without guessing.
 function imageReferenceIssue(
-  reference: ImageReference,
+  url: string,
   ctx: WorkspaceContext,
   tourName: string
 ): string | undefined {
-  const url = reference.url;
   if (url.includes("\0")) {
     return "must be a relative path without NUL characters";
   }
@@ -151,18 +106,14 @@ function imageReferenceIssue(
   return undefined;
 }
 
+// The same magic-byte decision the description-renderer applies when the
+// player inlines image bytes, read from the file's first bytes.
 function isPngOrJpeg(realPath: string): boolean {
-  const header = Buffer.alloc(PNG_SIGNATURE.length);
+  const header = Buffer.alloc(MAGIC_BYTES);
   const fd = fs.openSync(realPath, "r");
   try {
-    const read = fs.readSync(fd, header, 0, header.length, 0);
-    if (read < JPEG_SIGNATURE.length) {
-      return false;
-    }
-    return (
-      header.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE) ||
-      header.subarray(0, JPEG_SIGNATURE.length).equals(JPEG_SIGNATURE)
-    );
+    fs.readSync(fd, header, 0, header.length, 0);
+    return imageMimeType(header) !== undefined;
   } finally {
     fs.closeSync(fd);
   }
@@ -171,6 +122,10 @@ function isPngOrJpeg(realPath: string): boolean {
 // Scan every description the server validates (the Tour-level description and
 // each step description) for local image references, mirroring the Mermaid
 // scan: all failures aggregate into one INVALID_PROPOSAL response.
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function validateImageDescriptions(
   raw: unknown,
   ctx: WorkspaceContext,
@@ -198,13 +153,17 @@ export function validateImageDescriptions(
 
   const issues: Issue[] = [];
   for (const description of descriptions) {
-    const references = findImageReferences(description.value);
+    // The renderer's own reference grammar decides what counts as a local
+    // image, so a reference the player would inline is exactly a reference
+    // validated here (code fences excluded, schemes skipped).
+    const references = findLocalImageReferences(description.value);
     for (let index = 0; index < references.length; index++) {
-      const reason = imageReferenceIssue(references[index], ctx, tourName);
+      const url = references[index].path;
+      const reason = imageReferenceIssue(url, ctx, tourName);
       if (reason !== undefined) {
         issues.push({
           path: `${description.path}.image[${index}]`,
-          message: `the image reference "${references[index].url}" ${reason}`,
+          message: `the image reference "${url}" ${reason}`,
         });
       }
     }
