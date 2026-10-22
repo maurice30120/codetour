@@ -4,6 +4,10 @@ import {
   renderMermaidDiagram
 } from "./render";
 import {
+  DescriptionRenderOptions,
+  inlineLocalImages
+} from "./images";
+import {
   DiagramRuleReason,
   MAX_DIAGRAMS_PER_DESCRIPTION,
   evaluateDiagramFence
@@ -26,10 +30,11 @@ function escapeAltText(caption: string): string {
 
 export async function renderDescription(
   description: string,
-  theme: DescriptionTheme
+  theme: DescriptionTheme,
+  options: DescriptionRenderOptions = {}
 ): Promise<string> {
   const fences = findDiagramFences(description);
-  if (fences.length === 0) {
+  if (fences.length === 0 && !options.resolveImageBytes) {
     return description;
   }
 
@@ -60,6 +65,10 @@ export async function renderDescription(
 
     content =
       content.slice(0, fence.start) + replacement + content.slice(fence.end);
+  }
+
+  if (options.resolveImageBytes) {
+    content = await inlineLocalImages(content, options.resolveImageBytes);
   }
 
   return content;
