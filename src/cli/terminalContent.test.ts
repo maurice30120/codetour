@@ -73,7 +73,7 @@ test("Mermaid uses the shared rasterizer, never a raw terminal code fence", () =
     "flowchart LR",
     " A --> B",
     "```"
-  ].join("\\n");
+  ].join("\n");
   const fixture = JSON.stringify(tour(source));
   const script = [
     "const {renderTerminalDescription} = require(process.argv[1]);",
@@ -84,7 +84,7 @@ test("Mermaid uses the shared rasterizer, never a raw terminal code fence", () =
     "   process.exitCode = 1;",
     " }",
     "}).catch(err => { console.error(err); process.exitCode = 1; }).finally(() => process.exit(process.exitCode || 0));"
-  ].join("\\n");
+  ].join("\n");
   const result = spawnSync(process.execPath,
     ["-e", script, path.resolve(__dirname, "terminalContent.js")], {
       encoding: "utf8", timeout: 60000
