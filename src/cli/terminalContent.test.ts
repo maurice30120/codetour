@@ -62,10 +62,12 @@ test("the reached step stops instead of silently degrading unsupported CSS or mi
   }
 });
 
-test("Mermaid uses the shared rasterizer, never a raw terminal code fence", () => {
-  // Mermaid creates a DOM runtime and native rasterizer. Exercise the real
-  // renderer in a bounded child process so its timers cannot pin the serial
-  // CodeTour test harness after the assertions finish.
+test("Mermaid is shown as its validated source, never as an unreadable raster", () => {
+  // A terminal cell paints one image pixel per column: a rasterized diagram
+  // becomes illegible blocks. Without a terminal diagram renderer the reader
+  // shows the authoritative Mermaid source in a dedicated code block
+  // (ADR 0024). Mermaid creates a DOM runtime and native rasterizer, so
+  // exercise the real renderer in a bounded child process.
   const source = [
     "**Diagram — Processing**",
     "",
@@ -79,8 +81,46 @@ test("Mermaid uses the shared rasterizer, never a raw terminal code fence", () =
     "const {renderTerminalDescription} = require(process.argv[1]);",
     "const fixture = " + fixture + ";",
     "renderTerminalDescription(fixture, 0, process.cwd()).then(html => {",
-    " if (!html.includes('data:image/png;base64,') || html.includes('language-mermaid')) {",
-    "   process.stderr.write('Expected rasterized Mermaid PNG, received ' + html.slice(0, 300));",
+    " if (html.includes('data:image/png;base64,')) {",
+    "   process.stderr.write('Expected Mermaid source, received a rasterized PNG');",
+    "   process.exitCode = 1;",
+    " }",
+    " if (!html.includes('language-mermaid-source') || !html.includes('A --&gt; B')) {",
+    "   process.stderr.write('Expected the Mermaid source block, received ' + html.slice(0, 300));",
+    "   process.exitCode = 1;",
+    " }",
+    "}).catch(err => { console.error(err); process.exitCode = 1; }).finally(() => process.exit(process.exitCode || 0));"
+  ].join("\n");
+  const result = spawnSync(process.execPath,
+    ["-e", script, path.resolve(__dirname, "terminalContent.js")], {
+      encoding: "utf8", timeout: 60000
+    });
+  assert.equal(result.status, 0, (result.stderr || "") +
+    (result.error ? String(result.error) : ""));
+});
+
+test("an available terminal renderer replaces the source with a drawing", () => {
+  const source = [
+    "**Diagram — Processing**",
+    "",
+    "```mermaid",
+    "flowchart LR",
+    " A --> B",
+    "```"
+  ].join("\n");
+  const fixture = JSON.stringify(tour(source));
+  const script = [
+    "const {renderTerminalDescription} = require(process.argv[1]);",
+    "const fixture = " + fixture + ";",
+    "const drawing = '┌───┐    ┌───┐\\n│   │    │   │\\n│ A ├───►│ B │\\n│   │    │   │\\n└───┘    └───┘';",
+    "const options = { width: 80, renderDiagramText: async () => drawing };",
+    "renderTerminalDescription(fixture, 0, process.cwd(), options).then(html => {",
+    " if (!html.includes('language-diagram') || !html.includes('A ├───►')) {",
+    "   process.stderr.write('Expected the terminal drawing, received ' + html.slice(0, 400));",
+    "   process.exitCode = 1;",
+    " }",
+    " if (html.includes('language-mermaid-source')) {",
+    "   process.stderr.write('The source block must be replaced by the drawing');",
     "   process.exitCode = 1;",
     " }",
     "}).catch(err => { console.error(err); process.exitCode = 1; }).finally(() => process.exit(process.exitCode || 0));"

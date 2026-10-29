@@ -121,6 +121,16 @@ export function findImageLine(markdown: string, altText: string): string {
   return line;
 }
 
+/** Decode the SVG data URI a real HTML surface receives into its markup. */
+export function extractSvgDataUri(markdown: string, altText: string): string {
+  const line = findImageLine(markdown, altText);
+  const dataUri = line.match(/\(data:image\/svg\+xml;base64,([A-Za-z0-9+/=]+)\)/);
+  if (!dataUri) {
+    throw new Error(`Expected an SVG data URI in:\n${line.slice(0, 200)}`);
+  }
+  return Buffer.from(dataUri[1], "base64").toString("utf8");
+}
+
 export const FLOWCHART_SOURCE = [
   "flowchart TD",
   "    Client --> Gateway --> Service",

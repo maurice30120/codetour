@@ -1,42 +1,61 @@
 import type { CodeTour } from "../store";
 import { escapeHtml, renderMarkdownToHtml } from "../player/markdown";
+import { palette } from "./palette";
 import type { ReadonlyStepContext } from "./stepContext";
 
+export interface StandaloneHtmlOptions {
+  /**
+   * Renders one step description before Markdown conversion, so Mermaid
+   * diagrams and local images become self-contained data URIs (ADR 0007).
+   */
+  renderStepDescription?: (description: string) => Promise<string>;
+}
+
 /** A read-only, self-contained HTML playback document: no extension, server or IPC. */
-export function createStandaloneTourHtml(
+export async function createStandaloneTourHtml(
   tour: CodeTour,
-  contexts: ReadonlyStepContext[] = []
-): string {
-  const steps = tour.steps.map((step, index) => ({
+  contexts: ReadonlyStepContext[] = [],
+  options: StandaloneHtmlOptions = {}
+): Promise<string> {
+  const renderStepDescription = options.renderStepDescription ??
+    ((description: string) => Promise.resolve(description));
+  const steps = await Promise.all(tour.steps.map(async (step, index) => ({
     title: step.title || "Step " + (index + 1),
-    descriptionHtml: renderMarkdownToHtml(step.description || ""),
+    descriptionHtml: renderMarkdownToHtml(
+      await renderStepDescription(step.description || "")
+    ),
     anchor: step.file || step.uri || step.directory || step.view || "",
     line: step.line,
     contextHtml: renderContextHtml(contexts[index])
-  }));
+  })));
 
   // Escape '<' so tour-authored text cannot end the embedded script tag.
   const serialized = JSON.stringify(steps).replace(/</g, "\\u003c");
   const style = [
     "*,*::before,*::after{box-sizing:border-box}",
-    "body{margin:0;background:#161b22;color:#e6edf3;font:16px/1.6 system-ui,sans-serif}",
-    "header{position:sticky;top:0;padding:16px 24px;border-bottom:1px solid #30363d;background:#161b22}",
+    // The same OpenCode palette as the terminal reader (ADR 0027).
+    `body{margin:0;background:${palette.background};color:${palette.text};font:16px/1.6 system-ui,sans-serif}`,
+    `header{position:sticky;top:0;padding:16px 24px;border-bottom:1px solid ${palette.element};background:${palette.background}}`,
     "main{max-width:840px;margin:32px auto;padding:0 24px}",
     "nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap}",
     "nav strong{flex:1 1 240px}",
-    "button{padding:7px 14px;background:#303b50;color:#fff;border:1px solid #63728c;border-radius:5px;cursor:pointer}",
+    `button{padding:7px 14px;background:${palette.element};color:${palette.text};border:1px solid ${palette.borderStrong};border-radius:5px;cursor:pointer}`,
     "button:disabled{opacity:.45;cursor:default}",
-    "progress{display:block;width:100%;margin-top:12px;accent-color:#59baff}",
-    "h1{line-height:1.3}",
-    "#anchor{color:#aab8ca;font-family:ui-monospace,monospace;font-size:13px}",
-    "a{color:#79c0ff}pre{overflow:auto;padding:14px;background:#0d1117}",
+    `progress{display:block;width:100%;margin-top:12px;accent-color:${palette.primary}}`,
+    `h1{line-height:1.3;color:${palette.primary}}`,
+    `h2{color:${palette.accent}}`,
+    `#anchor{color:${palette.muted};font-family:ui-monospace,monospace;font-size:13px}`,
+    `a{color:${palette.primary}}pre{overflow:auto;padding:14px;background:${palette.panel}}`,
     "img{max-width:100%}table{border-collapse:collapse;display:block;overflow-x:auto}",
-    "td,th{border:1px solid #30363d;padding:6px 10px}",
-    ".code-context{margin-top:30px;border-top:1px solid #30363d;padding-top:12px}",
+    `td,th{border:1px solid ${palette.border};padding:6px 10px}`,
+    `.code-context{margin-top:30px;border-top:1px solid ${palette.element};padding-top:12px}`,
     ".code-context pre{white-space:pre;overflow:auto}",
-    ".diff-add{color:#56d364}.diff-remove{color:#ff7b72}",
-    ".diff-hunk{color:#79c0ff}",
-    "#done{padding:24px;border:1px solid #63728c;border-radius:8px}",
+    ".diff-line{min-height:1.6em}",
+    `.diff-context{color:${palette.faint}}`,
+    `.diff-add{color:${palette.diffAdded};background:${palette.diffAddedBackground}}`,
+    `.diff-remove{color:${palette.diffRemoved};background:${palette.diffRemovedBackground}}`,
+    `.diff-hunk{color:${palette.diffHunk};background:${palette.element}}`,
+    `#done{padding:24px;border:1px solid ${palette.borderStrong};border-radius:8px}`,
     "[hidden]{display:none!important}"
   ].join("");
   const script = [
@@ -91,11 +110,14 @@ function renderContextHtml(context?: ReadonlyStepContext): string {
   }
   const body = context.kind === "diff"
     ? (context.text || "").split("\n").map(line => {
-        const klass = line.startsWith("+") && !line.startsWith("+++") ? "diff-add" :
-          line.startsWith("-") && !line.startsWith("---") ? "diff-remove" :
-          line.startsWith("@@") ? "diff-hunk" : "";
-        return '<span class="' + klass + '">' + escapeHtml(line) + '</span>';
-      }).join("\n")
+        const klass = line.startsWith("+") && !line.startsWith("+++") ? " diff-add" :
+          line.startsWith("-") && !line.startsWith("---") ? " diff-remove" :
+          line.startsWith("@@") ? " diff-hunk" : " diff-context";
+        // One block per diff row so the tinted background covers the whole
+        // line instead of only the glyphs of the line.
+        return '<div class="diff-line' + klass + '">' +
+          (escapeHtml(line) || " ") + '</div>';
+      }).join("")
     : escapeHtml(context.text || "");
   return '<section class="code-context" aria-label="Read-only source"><h2>' +
     label + '</h2><pre><code>' + body + '</code></pre></section>';

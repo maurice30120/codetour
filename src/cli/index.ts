@@ -7,8 +7,10 @@ import * as path from "path";
 import { pathToFileURL } from "url";
 import type { CodeTour } from "../store";
 import { discoverToursFromRoot, visibleTours } from "../core/tourDiscovery";
+import { renderDescription } from "codetour-description-renderer";
 import { createStandaloneTourHtml } from "./html";
 import { resolveReadonlyStepContext } from "./stepContext";
+import { readTourImages } from "./stepImages";
 import { launchTerminalReader } from "./terminalLauncher";
 import { runTerminalTour } from "./terminal";
 import { fileURLToPath } from "node:url";
@@ -155,7 +157,18 @@ async function main(): Promise<void> {
   const output = process.env.CODETOUR_TEST_HTML_OUTPUT ||
     path.join(os.tmpdir(), "codetour-" + randomUUID() + ".html");
   const contexts = tour.steps.map(step => resolveReadonlyStepContext(root, tour, step));
-  await fs.writeFile(output, createStandaloneTourHtml(tour, contexts), "utf8");
+  const html = await createStandaloneTourHtml(tour, contexts, {
+    // The browser is a real HTML surface: the sanitized SVG stays sharp at
+    // every zoom level, unlike the terminal's half-block preview (ADR 0024).
+    renderStepDescription: async description => {
+      const { images } = await readTourImages(root, description);
+      return renderDescription(description, "dark", {
+        diagramFormat: "svg",
+        resolveImageBytes: imagePath => images.get(imagePath)
+      });
+    }
+  });
+  await fs.writeFile(output, html, "utf8");
   if (!process.env.CODETOUR_TEST_HTML_OUTPUT) {
     await openFileInBrowser(output);
   }

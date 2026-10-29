@@ -24,8 +24,16 @@ export type ImageBytesResolver = (
   path: string
 ) => Promise<Uint8Array | undefined> | Uint8Array | undefined;
 
+/**
+ * The image format a Markdown reading surface receives. Native comments
+ * require PNG (ADR 0007); a real HTML surface can embed the sanitized SVG
+ * instead, which stays sharp at every zoom level and on Retina displays.
+ */
+export type DiagramImageFormat = "png" | "svg";
+
 export interface DescriptionRenderOptions {
   resolveImageBytes?: ImageBytesResolver;
+  diagramFormat?: DiagramImageFormat;
 }
 
 export interface ImageReference {

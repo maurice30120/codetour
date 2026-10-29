@@ -64,6 +64,42 @@ test("the real TermDOM reader supports a pseudo-terminal and keyboard-driven fin
   }
 });
 
+test("the reader scrolls a Step longer than one screenful", {
+  skip: process.platform !== "linux"
+}, () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "codetour-terminal-scroll-"));
+  try {
+    initGitWorktree(dir);
+    const tourPath = path.join(dir, "tour.tour");
+    const paragraphs = Array.from({ length: 200 },
+      (_, index) => "Paragraph line " + String(index).padStart(3, "0") + ".");
+    writeFileSync(tourPath, JSON.stringify({
+      title: "Long Step",
+      steps: [{ title: "Long", description: paragraphs.join("\n\n") }]
+    }));
+    // One page is a screenful, so only repeated paging can paint the last
+    // paragraph: the first frame shows the beginning of the description only.
+    const paging = "(sleep 2; " +
+      Array.from({ length: 30 }, () => "printf ' '; sleep 0.2;").join(" ") +
+      " printf q)";
+    const command = [
+      paging,
+      "| timeout -k 1s 15s script -q -e -c",
+      "'" + process.execPath + " " + cli + " --internal-tour " + tourPath + "'",
+      "/dev/null"
+    ].join(" ");
+    const result = spawnSync("bash", ["-lc", command], {
+      encoding: "utf8", timeout: 20000,
+      env: { ...process.env, TERM: "xterm-256color", CI: "true" }
+    });
+    assert.equal(result.status, 0, (result.stderr || "") + "\n" +
+      (result.stdout || "").slice(-1200));
+    assert.match(result.stdout, /Paragraph line 199\./);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("reaching unsupported terminal content stops the whole Tour with a nonzero exit", {
   skip: process.platform !== "linux"
 }, () => {
