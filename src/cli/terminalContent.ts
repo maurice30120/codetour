@@ -1,5 +1,3 @@
-import { readFile } from "node:fs/promises";
-import * as path from "node:path";
 import {
   evaluateDiagramFence,
   findDiagramFences,
@@ -11,6 +9,7 @@ import {
 } from "codetour-description-renderer";
 import { renderMarkdownToHtml } from "../player/markdown";
 import type { CodeTour, CodeTourStep } from "../store";
+import { readWorkspaceImage } from "./localImage";
 
 /**
  * Fail the entire terminal Tour on the reached step, never prevalidate future
@@ -65,20 +64,12 @@ export async function renderTerminalDescription(
   const localImages = new Map<string, Uint8Array>();
   for (const ref of findLocalImageReferences(source)) {
     const imagePath = ref.path;
-    if (path.isAbsolute(imagePath) || imagePath.split(/[\\/]/).includes("..")) {
-      fail("image", "unsafe path: " + imagePath);
-    }
-    try {
-      const absolute = path.resolve(root, imagePath);
-      const bytes = await readFile(absolute);
-      if (!imageMimeType(bytes)) fail("image", "not a supported PNG/JPEG: " + imagePath);
-      if (bytes.length > 2 * 1024 * 1024) fail("image", "exceeds 2 MB: " + imagePath);
-      localImages.set(imagePath, bytes);
-    } catch (error) {
-      if (error instanceof TerminalStepRenderError) throw error;
-      fail("image", "cannot read " + imagePath + ": " +
-        (error instanceof Error ? error.message : String(error)));
-    }
+    const bytes = await readWorkspaceImage(root, imagePath);
+    if (!bytes) return fail("image", "cannot read workspace image: " + imagePath);
+    if (!imageMimeType(bytes)) fail("image", "not a supported PNG/JPEG: " + imagePath);
+    if (bytes.length > 2 * 1024 * 1024) fail("image", "exceeds 2 MB: " + imagePath);
+    localImages.set(imagePath, bytes);
+
   }
   try {
     const rendered = await renderDescription(source, "dark", {

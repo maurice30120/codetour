@@ -121,7 +121,7 @@ The diagram shows desired component boundaries, not proof that the existing code
 - Check each Tour Step when the reader reaches it, **not** by prevalidating all steps at startup.
 - If TermDOM cannot correctly render the reached step, **stop the entire Tour** immediately. Do not silently reduce the content to plain text, skip the step, switch to HTML or continue.
 - Report the Tour identity, step index/title, affected content type and useful underlying failure details. Return a failure result observable by automated tests.
-- This fail-fast policy applies to terminal rendering only; do not change the behavior of the existing VS Code/HTML renderer.
+- This fail-fast policy applies to terminal rendering only, including an unavailable persisted Git diff. Existing VS Code playback retains the single-target fallback specified by ADR 0020; the HTML renderer also keeps its existing behavior.
 - The POC is intended to discover real TermDOM limitations; fixes in CodeTour or upstream contributions to TermDOM may follow, but automatic fallback is explicitly out of scope.
 
 ## Testing Decisions

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
@@ -174,5 +174,36 @@ test("a selected discovered Tour identity opens the requested tour", () => {
     const rejected = run(root, ["--internal-tour-id", "file:///outside.tour"], output);
     assert.notEqual(rejected.status, 0);
     assert.match(rejected.stderr, /no longer available/);
+  } finally { rmSync(root, {recursive:true, force:true}); }
+});
+
+
+test("CLI selects a Tour by a filename containing spaces and Unicode", () => {
+  const { root } = fixture();
+  try {
+    writeFileSync(path.join(root, ".tours", "guide été.tour"), JSON.stringify({
+      title: "A different title", steps: [{description: "Filename selection"}]
+    }));
+    const output = path.join(root, "output.html");
+    const result = run(root, ["guide été"], output);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(readFileSync(output, "utf8"), /Filename selection/);
+  } finally { rmSync(root, {recursive: true, force: true}); }
+});
+
+
+test("macOS CLI reports a failing graphical launcher", {skip: process.platform !== "darwin"}, () => {
+  const { root } = fixture();
+  try {
+    const bin = path.join(root, "bin"); mkdirSync(bin);
+    const launcher = path.join(bin, "open"); writeFileSync(launcher, "#!/bin/sh\nexit 42\n"); chmodSync(launcher, 0o755);
+    for (const renderer of ["html", "terminal"]) {
+      const env: NodeJS.ProcessEnv = { ...process.env, PATH: bin + path.delimiter + process.env.PATH };
+      delete env.CODETOUR_TEST_HTML_OUTPUT;
+      const result = spawnSync(process.execPath, [cli, "architecture", "--renderer", renderer], {cwd: root, encoding: "utf8", env});
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /launcher failed: 42/i);
+      assert.doesNotMatch(result.stdout, /CodeTour: opened/);
+    }
   } finally { rmSync(root, {recursive:true, force:true}); }
 });

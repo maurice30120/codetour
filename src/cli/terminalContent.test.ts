@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import { spawnSync } from "node:child_process";
 import * as assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { CodeTour } from "../store";
@@ -91,4 +91,16 @@ test("Mermaid uses the shared rasterizer, never a raw terminal code fence", () =
     });
   assert.equal(result.status, 0, (result.stderr || "") +
     (result.error ? String(result.error) : ""));
+});
+
+
+test("terminal rejects a local image symlink that escapes the workspace", { skip: process.platform === "win32" }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "codetour-confined-"));
+  const outside = mkdtempSync(path.join(os.tmpdir(), "codetour-outside-"));
+  try {
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lO0AAAAASUVORK5CYII=", "base64");
+    writeFileSync(path.join(outside, "secret.png"), png);
+    symlinkSync(outside, path.join(root, "link"));
+    await assert.rejects(renderTerminalDescription(tour("![Private](link/secret.png)"), 0, root), /image.*cannot read/);
+  } finally { rmSync(root, {recursive:true,force:true}); rmSync(outside, {recursive:true,force:true}); }
 });
