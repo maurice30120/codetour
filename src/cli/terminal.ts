@@ -1,6 +1,6 @@
 import type { CodeTour } from "../store";
 import { escapeHtml } from "../player/markdown";
-import { renderTerminalDescription } from "./terminalContent";
+import { renderTerminalDescription, TerminalStepRenderError } from "./terminalContent";
 import { resolveReadonlyStepContext } from "./stepContext";
 
 /**
@@ -80,6 +80,10 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
     article.innerHTML = "<h1>" + escapeHtml(step.title || "Step " + (current + 1)) +
       "</h1>" + label + descriptionHtml;
     const context = resolveReadonlyStepContext(root, tour, step);
+    if (step.display === "diff" && context.kind !== "diff") {
+      throw new TerminalStepRenderError(tour, current, "Git diff",
+        "persisted base/head snapshot or file comparison unavailable");
+    }
     if (context.kind === "diff" || context.kind === "code" ||
         context.kind === "unavailable") {
       const section = document.createElement("section");
