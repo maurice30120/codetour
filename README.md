@@ -140,8 +140,8 @@ response. You can stop an answer in progress.
 
 ## Try the standalone readers
 
-The standalone CLI is a preview and needs Git, Node.js 24.18.0 and npm 12.0.1. It reads existing Tours from a Git worktree; it does not
-create a Tour. Conversations in these standalone readers are deferred. The
+The standalone CLI is a preview and needs Git, Node.js 24.18.0 and npm 12.0.1.
+It reads existing Tours from a Git worktree; it does not create a Tour. Conversations in these standalone readers are deferred. The
 existing VS Code conversation experience remains available.
 
 From this checkout, install the development dependencies as shown below and
@@ -175,10 +175,30 @@ finish. Check that the explanation and relevant source or diff correspond to
 the same Tour Step in both interfaces. Keep the invoking terminal open if using
 the interactive Tour selection prompt.
 
+### Try the experimental Copilot adapter
+
+After building the CLI, follow the [Copilot adapter setup](docs/copilot-cli-adapter.md)
+to make the extension available to Copilot CLI, then start Copilot from a Git
+worktree containing Tours:
+
+```bash
+export CODETOUR_CLI="$CODETOUR_ROOT/dist/cli.js"
+copilot --experimental
+```
+
+Inside Copilot, try `/codetour` to select a Tour, or use `/codetour project
+--renderer terminal` to request a specific Tour in the terminal. HTML is the
+default; `--renderer html` selects it explicitly. The adapter uses an
+experimental Copilot API. Its automated tests pass, but a real Copilot launch,
+argument forwarding, and reader survival after Copilot exits have not yet been
+validated; availability can depend on the installed Copilot version.
+
 For automated checks, run `npm test` from the CodeTour checkout. The real VS
 Code extension smoke tests are separate; see the desktop smoke-test guide below.
-Platform packaging and real Copilot integration have separate acceptance checks;
-a successful development launch alone does not establish them.
+To build and test a reader distribution that includes its own runtime, see the
+[standalone distribution guide](docs/standalone-distribution.md). Packaging and
+real Copilot integration have separate acceptance checks; a successful
+development launch alone does not establish them.
 
 ## Record and share your own tours
 
