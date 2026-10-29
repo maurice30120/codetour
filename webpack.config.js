@@ -20,6 +20,7 @@ const config = {
     child_process: "commonjs child_process",
     util: "commonjs util",
     "@resvg/resvg-js": RESVG_EXTERNAL,
+    "@b9g/termdom": "commonjs @b9g/termdom",
     ...OPTIONAL_NATIVE_EXTERNALS
   },
   resolve: {
