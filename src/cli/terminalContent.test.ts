@@ -53,7 +53,7 @@ test("the reached step stops instead of silently degrading unsupported CSS or mi
       /Tour 'POC Demo'.*step 1.*image.*cannot read/
     );
     await assert.rejects(
-      renderTerminalDescription(tour("Diagram — Incomplete\n\n\x60\x60\x60mermaid\nflowchart LR\nA-->B"), 0, root),
+      renderTerminalDescription(tour("**Diagram — Incomplete**\n\n\x60\x60\x60mermaid\nflowchart LR\nA-->B"), 0, root),
       /Mermaid.*not closed/
     );
   } finally {
@@ -65,7 +65,7 @@ test("Mermaid uses the shared rasterizer, never a raw terminal code fence", asyn
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-mermaid-"));
   try {
     const html = await renderTerminalDescription(tour(
-      "Diagram — Processing\n\n\x60\x60\x60mermaid\nflowchart LR\n A --> B\n\x60\x60\x60"
+      "**Diagram — Processing**\n\n\x60\x60\x60mermaid\nflowchart LR\n A --> B\n\x60\x60\x60"
     ), 0, root);
     assert.match(html, /data:image\/png;base64,/);
     assert.doesNotMatch(html, /language-mermaid/);
