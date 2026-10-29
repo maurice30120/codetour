@@ -140,8 +140,7 @@ response. You can stop an answer in progress.
 
 ## Try the standalone readers
 
-The standalone CLI is a preview and needs Git and the development Node.js and
-npm versions above. It reads existing Tours from a Git worktree; it does not
+The standalone CLI is a preview and needs Git, Node.js 24.18.0 and npm 12.0.1. It reads existing Tours from a Git worktree; it does not
 create a Tour. Conversations in these standalone readers are deferred. The
 existing VS Code conversation experience remains available.
 
