@@ -59,3 +59,18 @@ test("tour-provided text cannot escape the generated HTML script", () => {
   assert.match(html, /&lt;Unsafe&gt;/);
   assert.equal((html.match(/<script>/g) ?? []).length, 1);
 });
+
+test("standalone HTML renders read-only code and Git diff without raw injection", () => {
+  const tour = {
+    id: "changes",
+    title: "Changes",
+    steps: [{ title: "Context", description: "Read this", file: "src/a.ts", display: "diff" as const }]
+  };
+  const html = createStandaloneTourHtml(tour, [{
+    kind: "diff", label: "src/a.ts", text: "@@ -1 +1 @@\n-old\n+<script>bad</script>\n"
+  }]);
+  assert.match(html, /diff-add/);
+  assert.match(html, /Read-only source/);
+  assert.ok(!html.includes("+<script>bad</script>"));
+  assert.match(html, /&lt;script&gt;bad&lt;\/script&gt;/);
+});
