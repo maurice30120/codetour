@@ -4,7 +4,7 @@
 import { comparer, runInAction, set } from "mobx";
 import * as os from "os";
 import * as vscode from "vscode";
-import { CodeTour, store } from ".";
+import { store } from ".";
 import { EXTENSION_NAME } from "../constants";
 import {
   discoverToursFromRoot,
