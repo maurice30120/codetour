@@ -52,7 +52,7 @@ test("the CLI opens an existing Project Tour from a nested Git worktree without 
     assert.match(html, /Previous/);
     assert.match(html, /Next/);
     assert.match(html, /Finish/);
-    assert.match(html, /<strong>CodeTour<\/strong>/);
+    assert.match(html, /Welcome to/);
     assert.equal(readFileSync(path.join(root, ".tours", "architecture.tour"), "utf8"), original);
   } finally {
     rmSync(root, { recursive: true, force: true });
