@@ -1,43 +1,18 @@
-name: Test
-
+name: Resolve TermDOM lockfile (temporary)
 on:
   push:
-  pull_request:
-
+    branches: [feature/spec-71-ticket-03]
 permissions:
   contents: read
-
-concurrency:
-  group: test-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  test:
-    # Standard hosted runners are free only while the repository is public.
-    if: github.event.repository.private == false
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+  lock:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: .nvmrc
-      - name: Install pinned npm
-        run: npm install --global npm@12.0.1
-        working-directory: ${{ runner.temp }}
-      - name: Verify toolchain
-        run: node --version && npm --version
-      - name: Generate TermDOM dependency lockfile
-        run: npm install --package-lock-only --ignore-scripts
-      - name: Export resolved lockfile in base64 chunks
-        if: runner.os == 'Linux'
+      - run: npm install --global npm@12.0.1
+      - run: npm install --package-lock-only --ignore-scripts
+      - name: Emit resolved lockfile
         run: node -e "const fs=require('node:fs');const s=fs.readFileSync('package-lock.json').toString('base64');for(let i=0;i<s.length;i+=4000)console.log('SPEC71LOCK='+s.slice(i,i+4000));"
-      - run: npm ci
-      - run: npm ci --prefix packages/description-renderer
-      - run: npm ci --prefix packages/mcp-server
-      - run: npm run test
-      - run: npm run package
