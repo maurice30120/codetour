@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { randomUUID } from "crypto";
+import { renderDescription } from "codetour-description-renderer";
 import { execFileSync, spawn } from "child_process";
 import { promises as fs } from "fs";
 import * as os from "os";
@@ -155,7 +156,25 @@ async function main(): Promise<void> {
   const output = process.env.CODETOUR_TEST_HTML_OUTPUT ||
     path.join(os.tmpdir(), "codetour-" + randomUUID() + ".html");
   const contexts = tour.steps.map(step => resolveReadonlyStepContext(root, tour, step));
-  await fs.writeFile(output, createStandaloneTourHtml(tour, contexts), "utf8");
+  const realRoot = await fs.realpath(root);
+  const steps = [];
+  for (const step of tour.steps) {
+    const description = await renderDescription(step.description || "", "dark", {
+      resolveImageBytes: async imagePath => {
+        if (path.isAbsolute(imagePath) || imagePath.split(/[\\/]/).includes("..")) return undefined;
+        try {
+          const realImage = await fs.realpath(path.resolve(realRoot, imagePath));
+          const relative = path.relative(realRoot, realImage);
+          if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) return undefined;
+          return await fs.readFile(realImage);
+        } catch {
+          return undefined;
+        }
+      }
+    });
+    steps.push({ ...step, description });
+  }
+  await fs.writeFile(output, createStandaloneTourHtml({ ...tour, steps }, contexts), "utf8");
   if (!process.env.CODETOUR_TEST_HTML_OUTPUT) {
     await openFileInBrowser(output);
   }
