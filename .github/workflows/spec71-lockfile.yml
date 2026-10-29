@@ -1,12 +1,13 @@
 name: Regenerate Spec71 TermDOM lockfile
-on:
+'on':
   push:
-    branches: [feature/spec-71-ticket-03]
+    branches:
+      - feature/spec-71-ticket-03
 permissions:
   contents: write
 jobs:
   lockfile:
-    if: github.event.head_commit.message != 'chore(spec71): regenerate TermDOM lockfile'
+    if: ${{ github.event.head_commit.message != 'chore(spec71): regenerate TermDOM lockfile' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
