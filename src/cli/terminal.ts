@@ -1,6 +1,7 @@
 import type { CodeTour } from "../store";
 import { escapeHtml } from "../player/markdown";
 import { renderTerminalDescription } from "./terminalContent";
+import { resolveReadonlyStepContext } from "./stepContext";
 
 /**
  * The renderer runs in a dedicated terminal process. Only TermDOM owns the
@@ -41,7 +42,13 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
     "blockquote { border-left: 1px solid #808080; padding-left: 1ch; }",
     "table { margin: 1ch 0; }",
     ".anchor { color: #a6a6a6; }",
-    "button { color: #ffffff; background-color: #234662; padding: 0 1ch; }"
+    "button { color: #ffffff; background-color: #234662; padding: 0 1ch; }",
+    ".source { margin-top: 1ch; padding-top: 1ch; border-top: 1px solid #4a5862; }",
+    ".source-label { color: #ffd980; font-weight: bold; }",
+    ".source-line { white-space: pre; }",
+    ".diff-add { color: #80e89d; }",
+    ".diff-remove { color: #ff9090; }",
+    ".diff-hunk { color: #80cbff; }"
   ].join("\n");
   document.head.appendChild(css);
 
@@ -72,6 +79,31 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
       (step.line ? ":" + step.line : "") + "</p>" : "";
     article.innerHTML = "<h1>" + escapeHtml(step.title || "Step " + (current + 1)) +
       "</h1>" + label + descriptionHtml;
+    const context = resolveReadonlyStepContext(root, tour, step);
+    if (context.kind === "diff" || context.kind === "code" ||
+        context.kind === "unavailable") {
+      const section = document.createElement("section");
+      section.className = "source";
+      const title = document.createElement("h2");
+      title.className = "source-label";
+      title.textContent = context.label || "Source context";
+      section.appendChild(title);
+      const content = context.kind === "unavailable"
+        ? context.diagnostic || "Target unavailable"
+        : context.text || "";
+      for (const line of content.split("\\n")) {
+        const row = document.createElement("div");
+        row.className = "source-line";
+        if (context.kind === "diff") {
+          if (line.startsWith("+") && !line.startsWith("+++")) row.classList.add("diff-add");
+          if (line.startsWith("-") && !line.startsWith("---")) row.classList.add("diff-remove");
+          if (line.startsWith("@@")) row.classList.add("diff-hunk");
+        }
+        row.textContent = line || " ";
+        section.appendChild(row);
+      }
+      article.appendChild(section);
+    }
     footer.textContent = "←/→ previous/next · j/k scroll · PgUp/PgDn page · q finish";
     window.scrollBy(0, -document.body.scrollHeight);
   }
