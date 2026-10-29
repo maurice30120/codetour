@@ -1,13 +1,18 @@
 import type { CodeTour } from "../store";
 import { escapeHtml, renderMarkdownToHtml } from "../player/markdown";
+import type { ReadonlyStepContext } from "./stepContext";
 
 /** A read-only, self-contained HTML playback document: no extension, server or IPC. */
-export function createStandaloneTourHtml(tour: CodeTour): string {
+export function createStandaloneTourHtml(
+  tour: CodeTour,
+  contexts: ReadonlyStepContext[] = []
+): string {
   const steps = tour.steps.map((step, index) => ({
     title: step.title || "Step " + (index + 1),
     descriptionHtml: renderMarkdownToHtml(step.description || ""),
     anchor: step.file || step.uri || step.directory || step.view || "",
-    line: step.line
+    line: step.line,
+    contextHtml: renderContextHtml(contexts[index])
   }));
 
   // Escape '<' so tour-authored text cannot end the embedded script tag.
@@ -27,6 +32,10 @@ export function createStandaloneTourHtml(tour: CodeTour): string {
     "a{color:#79c0ff}pre{overflow:auto;padding:14px;background:#0d1117}",
     "img{max-width:100%}table{border-collapse:collapse;display:block;overflow-x:auto}",
     "td,th{border:1px solid #30363d;padding:6px 10px}",
+    ".code-context{margin-top:30px;border-top:1px solid #30363d;padding-top:12px}",
+    ".code-context pre{white-space:pre;overflow:auto}",
+    ".diff-add{color:#56d364}.diff-remove{color:#ff7b72}",
+    ".diff-hunk{color:#79c0ff}",
     "#done{padding:24px;border:1px solid #63728c;border-radius:8px}",
     "[hidden]{display:none!important}"
   ].join("");
@@ -40,6 +49,7 @@ export function createStandaloneTourHtml(tour: CodeTour): string {
     "$('title').textContent=step.title;",
     "$('anchor').textContent=step.anchor+(step.line?' : '+step.line:'');",
     "$('description').innerHTML=step.descriptionHtml;",
+    "$('code').innerHTML=step.contextHtml;",
     "$('position').textContent=(index+1)+' / '+steps.length;",
     "$('progress').value=index+1;",
     "$('previous').disabled=index===0;",
@@ -66,7 +76,27 @@ export function createStandaloneTourHtml(tour: CodeTour): string {
     '<button id="finish">Finish</button></nav>' +
     '<progress id="progress" max="' + steps.length + '" value="1"></progress></header>' +
     '<main><article id="article"><h1 id="title"></h1><p id="anchor"></p>' +
-    '<section id="description"></section></article>' +
+    '<section id="description"></section><section id="code"></section></article>' +
     '<section id="done" hidden>Tour complete. You can close this window.</section></main>' +
     '<script>' + script + '</script></body></html>';
+}
+
+/** Render Git's authoritative unified diff without recomputing comparisons. */
+function renderContextHtml(context?: ReadonlyStepContext): string {
+  if (!context || context.kind === "none" || context.kind === "directory") return "";
+  const label = escapeHtml(context.label || "Source context");
+  if (context.kind === "unavailable") {
+    return '<section class="code-context"><h2>' + label + '</h2><p>' +
+      escapeHtml(context.diagnostic || "Target unavailable") + '</p></section>';
+  }
+  const body = context.kind === "diff"
+    ? (context.text || "").split("\\n").map(line => {
+        const klass = line.startsWith("+") && !line.startsWith("+++") ? "diff-add" :
+          line.startsWith("-") && !line.startsWith("---") ? "diff-remove" :
+          line.startsWith("@@") ? "diff-hunk" : "";
+        return '<span class="' + klass + '">' + escapeHtml(line) + '</span>';
+      }).join("\\n")
+    : escapeHtml(context.text || "");
+  return '<section class="code-context" aria-label="Read-only source"><h2>' +
+    label + '</h2><pre><code>' + body + '</code></pre></section>';
 }
