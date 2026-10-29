@@ -138,6 +138,49 @@ If an agent fails before producing answer text, CodeTour tries the next provider
 Once an answer has started, it reports an error without mixing in another agent’s
 response. You can stop an answer in progress.
 
+## Try the standalone readers
+
+The standalone CLI is a preview and needs Git and the development Node.js and
+npm versions above. It reads existing Tours from a Git worktree; it does not
+create a Tour. Conversations in these standalone readers are deferred. The
+existing VS Code conversation experience remains available.
+
+From this checkout, install the development dependencies as shown below and
+build the CLI:
+
+```bash
+npm ci
+npm ci --prefix packages/description-renderer
+npm ci --prefix packages/mcp-server
+npm run build
+CODETOUR_ROOT="$PWD"
+```
+
+Then change to a Git worktree that contains an existing Tour (or stay in this
+checkout if it contains one). The CLI discovers Tours from the repository root,
+even when invoked from a subdirectory. Omit the Tour name for the selection
+prompt, or replace `project` below with a Tour title or file name without the
+`.tour` extension. Quote titles containing spaces.
+
+```bash
+cd /path/to/repository
+node "$CODETOUR_ROOT/dist/cli.js" project --renderer html
+node "$CODETOUR_ROOT/dist/cli.js" project --renderer terminal
+```
+
+The HTML command opens a browser page; use **Next**, **Previous** and **Finish**
+to check the steps and their code context. HTML is the default when `--renderer`
+is omitted. The terminal command opens an independent terminal window: use
+`n`/`p` or the arrow keys to move between steps, `j`/`k` to scroll, and `q` to
+finish. Check that the explanation and relevant source or diff correspond to
+the same Tour Step in both interfaces. Keep the invoking terminal open if using
+the interactive Tour selection prompt.
+
+For automated checks, run `npm test` from the CodeTour checkout. The real VS
+Code extension smoke tests are separate; see the desktop smoke-test guide below.
+Platform packaging and real Copilot integration have separate acceptance checks;
+a successful development launch alone does not establish them.
+
 ## Record and share your own tours
 
 Run **CodeTour IA: Record Tour**, open a file, and add explanations at the lines
