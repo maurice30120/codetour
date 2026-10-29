@@ -1,15 +1,21 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
 const cli = path.resolve(__dirname, "../../cli.js");
 
+function initGitWorktree(dir: string): void {
+  execFileSync("git", ["init", "-q"], { cwd: dir, stdio: "ignore" });
+}
+
+
 test("the detached reader entry rejects a non-TTY host without hiding the error", () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "codetour-terminal-host-"));
   try {
+    initGitWorktree(dir);
     const tourPath = path.join(dir, "tour.tour");
     writeFileSync(tourPath, JSON.stringify({
       title: "Playback", steps: [{ title: "Introduction", description: "Hello TermDOM" }]
@@ -29,6 +35,7 @@ test("the real TermDOM reader supports a pseudo-terminal and keyboard-driven fin
 }, () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "codetour-terminal-pty-"));
   try {
+    initGitWorktree(dir);
     const tourPath = path.join(dir, "tour.tour");
     writeFileSync(tourPath, JSON.stringify({
       title: "Playback",
@@ -62,6 +69,7 @@ test("reaching unsupported terminal content stops the whole Tour with a nonzero 
 }, () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "codetour-terminal-failfast-"));
   try {
+    initGitWorktree(dir);
     const tourPath = path.join(dir, "tour.tour");
     writeFileSync(tourPath, JSON.stringify({
       title: "Blocked Tour",
