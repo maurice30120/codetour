@@ -90,6 +90,6 @@ export async function renderTerminalDescription(
     return renderMarkdownToHtml(rendered);
   } catch (error) {
     if (error instanceof TerminalStepRenderError) throw error;
-    fail("rich content", error instanceof Error ? error.message : String(error));
+    return fail("rich content", error instanceof Error ? error.message : String(error));
   }
 }
