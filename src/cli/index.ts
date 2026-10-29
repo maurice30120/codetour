@@ -93,16 +93,17 @@ async function pickTour(tours: CodeTour[], requested?: string): Promise<CodeTour
   console.log("Select an existing CodeTour:");
   tours.forEach((tour, index) => console.log("  " + (index + 1) + ". " + tour.title));
   const answer = await new Promise<string>((resolve, reject) => {
-    const readline = require("readline").createInterface({
-      input: process.stdin, output: process.stdout
-    });
-    readline.question("Tour number: ", (value: string) => {
-      readline.close();
+    const readline = require("readline").createInterface({ input: process.stdin });
+    let answered = false;
+    process.stdout.write("Tour number: ");
+    readline.once("line", (value: string) => {
+      answered = true;
       resolve(value);
+      readline.close();
     });
-    readline.on("close", () => reject(new Error("Tour selection cancelled.")));
-  }).catch(error => {
-    throw error;
+    readline.once("close", () => {
+      if (!answered) reject(new Error("Tour selection cancelled."));
+    });
   });
   const selection = Number(answer);
   if (!Number.isInteger(selection) || selection < 1 || selection > tours.length) {
