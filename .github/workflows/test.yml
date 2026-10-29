@@ -31,6 +31,11 @@ jobs:
         working-directory: ${{ runner.temp }}
       - name: Verify toolchain
         run: node --version && npm --version
+      - name: Generate TermDOM dependency lockfile
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Export resolved lockfile in base64 chunks
+        if: runner.os == 'Linux'
+        run: node -e "const fs=require('node:fs');const s=fs.readFileSync('package-lock.json').toString('base64');for(let i=0;i<s.length;i+=4000)console.log('SPEC71LOCK='+s.slice(i,i+4000));"
       - run: npm ci
       - run: npm ci --prefix packages/description-renderer
       - run: npm ci --prefix packages/mcp-server
