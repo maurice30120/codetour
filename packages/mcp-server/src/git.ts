@@ -179,11 +179,6 @@ export async function workspacePrefix(ctx: WorkspaceContext): Promise<string> {
   return result.code === 0 ? result.stdout.trim() : "";
 }
 
-export const RESERVED_TOUR_FILES = [
-  ".tours/project.tour",
-  ".tours/changes.tour",
-];
-
 export interface UncommittedEntry {
   path: string;
   status: string;
@@ -193,9 +188,19 @@ export function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, "/");
 }
 
-// Staged, unstaged, and untracked workspace changes, except for the two
-// reserved Tour files: a previous generation must not trigger its own dirty
-// workspace warning.
+// Any `.tour` file under `.tours/`, and any file under `.tours/images/`, is a
+// Tour generation artifact: a previous generation must not trigger its own
+// dirty workspace warning.
+function isGenerationArtifact(workspacePath: string): boolean {
+  return (
+    (workspacePath.startsWith(".tours/") && workspacePath.endsWith(".tour")) ||
+    workspacePath.startsWith(".tours/images/")
+  );
+}
+
+// Staged, unstaged, and untracked workspace changes, except for Tour
+// generation artifacts under `.tours/`: a previous generation must not
+// trigger its own dirty workspace warning.
 export async function uncommittedChanges(
   ctx: WorkspaceContext
 ): Promise<UncommittedEntry[]> {
@@ -223,11 +228,14 @@ export async function uncommittedChanges(
     let workspacePath = normalizeSlashes(repoPath).slice(prefix.length);
     if (status === "??" && workspacePath.endsWith("/")) {
       const directory = workspacePath.slice(0, -1);
-      if (directory === ".tours" && toursDirectoryOnlyContainsReserved(ctx, directory)) {
+      if (
+        directory === ".tours" &&
+        toursDirectoryOnlyContainsGenerationArtifacts(ctx, directory)
+      ) {
         continue;
       }
     }
-    if (RESERVED_TOUR_FILES.includes(workspacePath)) {
+    if (isGenerationArtifact(workspacePath)) {
       continue;
     }
     entries.push({ path: workspacePath, status });
@@ -236,25 +244,31 @@ export async function uncommittedChanges(
 }
 
 // An untracked `.tours` directory appears as one `?? .tours/` entry in normal
-// mode. Ignore it only when its contents are limited to the reserved Tour
-// files.
-function toursDirectoryOnlyContainsReserved(
+// mode. Ignore it only when its contents are limited to Tour files and Tour
+// Images under `images/` (generation artifacts).
+function toursDirectoryOnlyContainsGenerationArtifacts(
   ctx: WorkspaceContext,
   directory: string
 ): boolean {
   const absolute = path.resolve(ctx.root, directory);
-  let files: string[];
+  let entries: fs.Dirent[] = [];
   try {
-    files = fs.readdirSync(absolute, { recursive: true }) as string[];
+    entries = fs.readdirSync(absolute, {
+      recursive: true,
+      withFileTypes: true,
+    }) as fs.Dirent[];
   } catch {
     return false;
   }
+  // Intermediate directories are listed as well; only files can disqualify.
+  const files = entries.filter((entry) => entry.isFile());
   return (
     files.length > 0 &&
-    files.every((file) =>
-      RESERVED_TOUR_FILES.includes(
-        normalizeSlashes(path.posix.join(directory, file))
-      )
-    )
+    files.every((entry) => {
+      const file = normalizeSlashes(
+        path.relative(absolute, path.join(entry.parentPath, entry.name))
+      );
+      return file.endsWith(".tour") || file.startsWith("images/");
+    })
   );
 }

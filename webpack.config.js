@@ -20,6 +20,7 @@ const config = {
     child_process: "commonjs child_process",
     util: "commonjs util",
     "@resvg/resvg-js": RESVG_EXTERNAL,
+    "@b9g/termdom": "commonjs @b9g/termdom",
     ...OPTIONAL_NATIVE_EXTERNALS
   },
   resolve: {
@@ -88,4 +89,14 @@ const mcpConfig = {
   }
 };
 
-module.exports = [nodeConfig, mcpConfig];
+const cliConfig = {
+  ...nodeConfig,
+  entry: "./src/cli/index.ts",
+  output: { ...nodeConfig.output, filename: "cli.js" },
+  plugins: [
+    ...nodeConfig.plugins,
+    new webpack.BannerPlugin({ banner: "#!/usr/bin/env node", raw: true, entryOnly: true })
+  ]
+};
+
+module.exports = [nodeConfig, mcpConfig, cliConfig];
