@@ -138,7 +138,7 @@ async function main(): Promise<void> {
     if (process.argv.length !== 4) throw new Error("Internal terminal runner requires one Tour path.");
     const source = JSON.parse(await fs.readFile(process.argv[3], "utf8")) as CodeTour;
     source.id = pathToFileURL(process.argv[3]).toString();
-    runTerminalTour(source);
+    await runTerminalTour(source, repositoryRoot(path.dirname(process.argv[3])));
     return;
   }
   const options = parseArguments(process.argv.slice(2));
