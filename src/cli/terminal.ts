@@ -91,7 +91,7 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
       const content = context.kind === "unavailable"
         ? context.diagnostic || "Target unavailable"
         : context.text || "";
-      for (const line of content.split("\\n")) {
+      for (const line of content.split("\n")) {
         const row = document.createElement("div");
         row.className = "source-line";
         if (context.kind === "diff") {
