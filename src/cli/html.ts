@@ -90,12 +90,12 @@ function renderContextHtml(context?: ReadonlyStepContext): string {
       escapeHtml(context.diagnostic || "Target unavailable") + '</p></section>';
   }
   const body = context.kind === "diff"
-    ? (context.text || "").split("\\n").map(line => {
+    ? (context.text || "").split("\n").map(line => {
         const klass = line.startsWith("+") && !line.startsWith("+++") ? "diff-add" :
           line.startsWith("-") && !line.startsWith("---") ? "diff-remove" :
           line.startsWith("@@") ? "diff-hunk" : "";
         return '<span class="' + klass + '">' + escapeHtml(line) + '</span>';
-      }).join("\\n")
+      }).join("\n")
     : escapeHtml(context.text || "");
   return '<section class="code-context" aria-label="Read-only source"><h2>' +
     label + '</h2><pre><code>' + body + '</code></pre></section>';
