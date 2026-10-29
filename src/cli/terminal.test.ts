@@ -48,7 +48,7 @@ test("the real TermDOM reader supports a pseudo-terminal and keyboard-driven fin
     // TermDOM has attached. This exercises the bundled public reader.
     const command = [
       "(sleep 2; printf '\\033[Cq')",
-      "| script -q -e -c",
+      "| timeout -k 1s 10s script -q -e -c",
       "'" + process.execPath + " " + cli + " --internal-tour " + tourPath + "'",
       "/dev/null"
     ].join(" ");
@@ -83,7 +83,7 @@ test("reaching unsupported terminal content stops the whole Tour with a nonzero 
     // mistakenly continues. A failure must already have stopped the Tour.
     const command = [
       "(sleep 2; printf '\\033[C'; sleep 3; printf q)",
-      "| script -q -e -c",
+      "| timeout -k 1s 10s script -q -e -c",
       "'" + process.execPath + " " + cli + " --internal-tour " + tourPath + "'",
       "/dev/null"
     ].join(" ");
