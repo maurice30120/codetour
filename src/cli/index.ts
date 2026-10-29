@@ -12,6 +12,7 @@ import { createStandaloneTourHtml } from "./html";
 import { resolveReadonlyStepContext } from "./stepContext";
 import { launchTerminalReader } from "./terminalLauncher";
 import { runTerminalTour } from "./terminal";
+import { readWorkspaceImage } from "./localImage";
 import { fileURLToPath } from "node:url";
 
 interface Arguments { tourName?: string; renderer: "html" | "terminal"; }
@@ -85,7 +86,7 @@ async function pickTour(tours: CodeTour[], requested?: string): Promise<CodeTour
   if (requested) {
     const matches = tours.filter(tour =>
       tour.title === requested ||
-      path.basename(new URL(tour.id).pathname, ".tour") === requested
+      path.basename(fileURLToPath(tour.id), ".tour") === requested
     );
     if (matches.length !== 1) {
       throw new Error("Tour '" + requested + "' not found or ambiguous. Available Tours: " +
@@ -128,18 +129,19 @@ async function openFileInBrowser(file: string): Promise<void> {
       : [file];
 
   await new Promise<void>((resolve, reject) => {
-    const process = spawn(command, args, { detached: true, stdio: "ignore" });
-    process.once("error", reject);
-    process.once("spawn", () => { process.unref(); resolve(); });
+    const child = spawn(command, args, { detached: true, stdio: "ignore" });
+    child.once("error", reject);
+    child.once("exit", (code, signal) => code === 0 ? resolve() :
+      reject(new Error("Browser launcher failed: " + (signal || code))));
   });
 }
 
 async function main(): Promise<void> {
   if (process.argv[2] === "--internal-tour") {
-    if (process.argv.length !== 4) throw new Error("Internal terminal runner requires one Tour path.");
+    if (process.argv.length !== 4 && process.argv.length !== 5) throw new Error("Internal terminal runner requires a Tour path and optional workspace root.");
     const source = JSON.parse(await fs.readFile(process.argv[3], "utf8")) as CodeTour;
     source.id = pathToFileURL(process.argv[3]).toString();
-    await runTerminalTour(source, repositoryRoot(path.dirname(process.argv[3])));
+    await runTerminalTour(source, repositoryRoot(process.argv[4] || path.dirname(process.argv[3])));
     return;
   }
   const args = process.argv.slice(2);
@@ -164,7 +166,7 @@ async function main(): Promise<void> {
   const tour = selected ?? await pickTour(tours, options.tourName);
 
   if (options.renderer === "terminal") {
-    await launchTerminalReader(fileURLToPath(tour.id));
+    await launchTerminalReader(fileURLToPath(tour.id), root);
     console.log("CodeTour: opened independent terminal reader for " + tour.title);
     return;
   }
@@ -172,21 +174,10 @@ async function main(): Promise<void> {
   const output = process.env.CODETOUR_TEST_HTML_OUTPUT ||
     path.join(os.tmpdir(), "codetour-" + randomUUID() + ".html");
   const contexts = tour.steps.map(step => resolveReadonlyStepContext(root, tour, step));
-  const realRoot = await fs.realpath(root);
   const steps = [];
   for (const step of tour.steps) {
     const description = await renderDescription(step.description || "", "dark", {
-      resolveImageBytes: async imagePath => {
-        if (path.isAbsolute(imagePath) || imagePath.split(/[\\/]/).includes("..")) return undefined;
-        try {
-          const realImage = await fs.realpath(path.resolve(realRoot, imagePath));
-          const relative = path.relative(realRoot, realImage);
-          if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) return undefined;
-          return await fs.readFile(realImage);
-        } catch {
-          return undefined;
-        }
-      }
+      resolveImageBytes: imagePath => readWorkspaceImage(root, imagePath)
     });
     steps.push({ ...step, description });
   }

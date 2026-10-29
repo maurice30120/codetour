@@ -6,10 +6,30 @@ import { fileURLToPath } from "node:url";
 // The CLI remains the sole owner of discovery, selection and rendering.
 function command() {
   const configured = process.env.CODETOUR_CLI;
-  if (configured) return configured.endsWith(".js") ? [process.execPath, configured] : [configured];
+  if (configured) return resolveCommand(configured);
   const projectCli = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../dist/cli.js");
   if (existsSync(projectCli)) return [process.execPath, projectCli];
+  if (process.platform === "win32") {
+    for (const directory of (process.env.PATH || "").split(path.delimiter)) {
+      const launcher = path.join(directory || ".", "codetour.cmd");
+      if (existsSync(launcher)) return resolveCommand(launcher);
+    }
+  }
   return ["codetour"];
+}
+
+function resolveCommand(configured) {
+  if (configured.toLowerCase().endsWith(".js")) return [process.execPath, configured];
+  if (configured.toLowerCase().endsWith(".cmd")) {
+    // Distributions place the runtime and CLI beside codetour.cmd. Avoid a
+    // shell entirely: paths and Tour titles remain individual arguments.
+    const directory = path.dirname(path.resolve(configured));
+    const runtime = path.join(directory, "node.exe");
+    const cli = path.join(directory, "dist", "cli.js");
+    if (!existsSync(runtime) || !existsSync(cli)) throw new Error("Configured .cmd is not a complete CodeTour distribution.");
+    return [runtime, cli];
+  }
+  return [configured];
 }
 
 function parse(raw) {

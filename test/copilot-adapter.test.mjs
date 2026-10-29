@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, copyFileSync, symlinkSync, cpSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { runCodeTourCommand } from "../.github/extensions/codetour/adapter.mjs";
@@ -48,6 +48,37 @@ test("missing UI capability is reported without launching a reader", async () =>
     assert.match(messages.join("\n"), /requires an interactive Copilot session/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+
+test("a packaged .cmd path uses its bundled runtime without shell interpretation", async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "codetour-adapter-command-"));
+  const previousCli = process.env.CODETOUR_CLI;
+  const previousOutput = process.env.CODETOUR_TEST_HTML_OUTPUT;
+  try {
+    execFileSync("git", ["init", "-q", root]);
+    mkdirSync(path.join(root, ".tours"));
+    writeFileSync(path.join(root, ".tours", "a.tour"), JSON.stringify({title:"Safe",steps:[{description:"Package works"}]}));
+    const pkg = path.join(root, "package & data");
+    mkdirSync(path.join(pkg, "dist"), {recursive:true});
+    if (process.platform === "win32") copyFileSync(process.execPath, path.join(pkg, "node.exe"));
+    else symlinkSync(process.execPath, path.join(pkg, "node.exe"));
+    copyFileSync(path.resolve("dist/cli.js"), path.join(pkg, "dist", "cli.js"));
+    cpSync(path.resolve("dist/resvg-runtime"), path.join(pkg, "dist", "resvg-runtime"), {recursive:true});
+    const cmd = path.join(pkg, "codetour.cmd");
+    writeFileSync(cmd, "@echo off\r\nexit /b 12\r\n");
+    process.env.CODETOUR_CLI = cmd;
+    process.env.CODETOUR_TEST_HTML_OUTPUT = path.join(root, "result.html");
+    const messages = [];
+    await runCodeTourCommand({capabilities:{},log:async text => messages.push(text)}, "Safe", root);
+    for (let i = 0; i < 100 && !existsSync(process.env.CODETOUR_TEST_HTML_OUTPUT); i++) await delay(50);
+    assert.ok(existsSync(process.env.CODETOUR_TEST_HTML_OUTPUT), messages.join("\n"));
+    assert.match(readFileSync(process.env.CODETOUR_TEST_HTML_OUTPUT, "utf8"), /Package works/);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+    if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
     rmSync(root, {recursive:true, force:true});
   }
 });
