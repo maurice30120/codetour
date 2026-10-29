@@ -88,4 +88,10 @@ const mcpConfig = {
   }
 };
 
-module.exports = [nodeConfig, mcpConfig];
+const cliConfig = {
+  ...nodeConfig,
+  entry: "./src/cli/index.ts",
+  output: { ...nodeConfig.output, filename: "cli.js" }
+};
+
+module.exports = [nodeConfig, mcpConfig, cliConfig];
