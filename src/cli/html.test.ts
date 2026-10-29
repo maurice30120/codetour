@@ -16,7 +16,7 @@ test("standalone playback navigates and finishes entirely in memory", () => {
   assert.ok(script);
 
   const elements: Record<string, any> = {};
-  for (const id of ["title", "description", "anchor", "position", "progress",
+  for (const id of ["title", "description", "code", "anchor", "position", "progress",
     "previous", "next", "finish", "article", "done"]) {
     elements[id] = {
       textContent: "", innerHTML: "", disabled: false, hidden: false, value: 0,
