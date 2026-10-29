@@ -88,3 +88,30 @@ test("CLI errors do not write or launch", () => {
     rmSync(empty, { recursive: true, force: true });
   }
 });
+
+
+test("the Copilot adapter can list discoverable Tours without a TTY", () => {
+  const { root } = fixture();
+  try {
+    const result = run(path.join(root, "nested", "deep"), ["--internal-list-tours"]);
+    assert.equal(result.status, 0, result.stderr);
+    const tours = JSON.parse(result.stdout);
+    assert.deepEqual(tours.map((tour: {title: string}) => tour.title), ["Architecture", "Other"]);
+    assert.ok(tours.every((tour: {id: string}) => tour.id.startsWith("file:")));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+
+test("a selected discovered Tour identity opens the requested tour", () => {
+  const { root } = fixture();
+  try {
+    const output = path.join(root, "identity.html");
+    const list = JSON.parse(run(root, ["--internal-list-tours"]).stdout);
+    const result = run(root, ["--internal-tour-id", list[1].id, "--renderer", "html"], output);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(readFileSync(output, "utf8"), /Other explanation/);
+    const rejected = run(root, ["--internal-tour-id", "file:///outside.tour"], output);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /no longer available/);
+  } finally { rmSync(root, {recursive:true, force:true}); }
+});
