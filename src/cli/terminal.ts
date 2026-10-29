@@ -1,11 +1,12 @@
 import type { CodeTour } from "../store";
-import { renderMarkdownToHtml, escapeHtml } from "../player/markdown";
+import { escapeHtml } from "../player/markdown";
+import { renderTerminalDescription } from "./terminalContent";
 
 /**
  * The renderer runs in a dedicated terminal process. Only TermDOM owns the
  * terminal DOM and input; CodeTour keeps the step state in this process.
  */
-export function runTerminalTour(tour: CodeTour): void {
+export async function runTerminalTour(tour: CodeTour, root: string): Promise<void> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error("TermDOM requires an interactive terminal (TTY).");
   }
@@ -22,8 +23,7 @@ export function runTerminalTour(tour: CodeTour): void {
   const term = new TermDOM({
     scripting: "none",
     ptyEmbeds: "none",
-    csp: "default-src 'none'; img-src data: https:",
-    onError: "throw"
+    csp: "default-src 'none'; img-src data: https:"
   });
   term.attach();
 
@@ -55,33 +55,43 @@ export function runTerminalTour(tour: CodeTour): void {
 
   let current = 0;
   let finished = false;
-  function render(): void {
+  let version = 0;
+  async function render(): Promise<void> {
     if (finished) return;
     const step = tour.steps[current];
+    const request = ++version;
     if (!step) {
       article.textContent = "This Tour has no steps.";
       return;
     }
+    const descriptionHtml = await renderTerminalDescription(tour, current, root);
+    if (finished || request !== version) return;
     header.textContent = tour.title + " · " + (current + 1) + "/" + tour.steps.length;
     const anchor = step.file || step.uri || step.directory || step.view || "";
     const label = anchor ? '<p class="anchor">' + escapeHtml(anchor) +
       (step.line ? ":" + step.line : "") + "</p>" : "";
     article.innerHTML = "<h1>" + escapeHtml(step.title || "Step " + (current + 1)) +
-      "</h1>" + label + renderMarkdownToHtml(step.description);
+      "</h1>" + label + descriptionHtml;
     footer.textContent = "←/→ previous/next · j/k scroll · PgUp/PgDn page · q finish";
     window.scrollBy(0, -document.body.scrollHeight);
   }
   function close(): void {
     finished = true;
+    ++version;
     term.window.close();
+  }
+  function fatal(error: unknown): void {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+    close();
   }
   document.addEventListener("keydown", (event: KeyboardEvent) => {
     const key = event.key;
     if (key === "q" || key === "Escape") close();
     else if ((key === "ArrowRight" || key === "n") && current < tour.steps.length - 1) {
-      current++; render();
+      current++; void render().catch(fatal);
     } else if ((key === "ArrowLeft" || key === "p") && current > 0) {
-      current--; render();
+      current--; void render().catch(fatal);
     } else if (key === "j" || key === "ArrowDown") window.scrollBy(0, 1);
     else if (key === "k" || key === "ArrowUp") window.scrollBy(0, -1);
     else if (key === "PageDown" || key === " ") window.scrollBy(0, Math.max(1, window.innerHeight - 3));
@@ -94,6 +104,11 @@ export function runTerminalTour(tour: CodeTour): void {
     article.textContent = "Tour has no steps. Press q to quit.";
     footer.textContent = "q finish";
   } else {
-    render();
+    try {
+      await render();
+    } catch (error) {
+      close();
+      throw error;
+    }
   }
 }
