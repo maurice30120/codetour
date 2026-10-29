@@ -8,6 +8,7 @@ import { pathToFileURL } from "url";
 import type { CodeTour } from "../store";
 import { discoverToursFromRoot, visibleTours } from "../core/tourDiscovery";
 import { createStandaloneTourHtml } from "./html";
+import { resolveReadonlyStepContext } from "./stepContext";
 
 interface Arguments { tourName?: string; renderer: "html" | "terminal"; }
 
@@ -141,7 +142,8 @@ async function main(): Promise<void> {
 
   const output = process.env.CODETOUR_TEST_HTML_OUTPUT ||
     path.join(os.tmpdir(), "codetour-" + randomUUID() + ".html");
-  await fs.writeFile(output, createStandaloneTourHtml(tour), "utf8");
+  const contexts = tour.steps.map(step => resolveReadonlyStepContext(root, tour, step));
+  await fs.writeFile(output, createStandaloneTourHtml(tour, contexts), "utf8");
   if (!process.env.CODETOUR_TEST_HTML_OUTPUT) {
     await openFileInBrowser(output);
   }
