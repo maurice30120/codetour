@@ -9,6 +9,9 @@ import type { CodeTour } from "../store";
 import { discoverToursFromRoot, visibleTours } from "../core/tourDiscovery";
 import { createStandaloneTourHtml } from "./html";
 import { resolveReadonlyStepContext } from "./stepContext";
+import { launchTerminalReader } from "./terminalLauncher";
+import { runTerminalTour } from "./terminal";
+import { fileURLToPath } from "node:url";
 
 interface Arguments { tourName?: string; renderer: "html" | "terminal"; }
 
@@ -131,13 +134,22 @@ async function openFileInBrowser(file: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  if (process.argv[2] === "--internal-tour") {
+    if (process.argv.length !== 4) throw new Error("Internal terminal runner requires one Tour path.");
+    const source = JSON.parse(await fs.readFile(process.argv[3], "utf8")) as CodeTour;
+    source.id = pathToFileURL(process.argv[3]).toString();
+    runTerminalTour(source);
+    return;
+  }
   const options = parseArguments(process.argv.slice(2));
   const root = repositoryRoot(process.cwd());
   const tours = await discover(root);
   const tour = await pickTour(tours, options.tourName);
 
   if (options.renderer === "terminal") {
-    throw new Error("TermDOM terminal playback is not implemented yet (ticket 03).");
+    await launchTerminalReader(fileURLToPath(tour.id));
+    console.log("CodeTour: opened independent terminal reader for " + tour.title);
+    return;
   }
 
   const output = process.env.CODETOUR_TEST_HTML_OUTPUT ||
