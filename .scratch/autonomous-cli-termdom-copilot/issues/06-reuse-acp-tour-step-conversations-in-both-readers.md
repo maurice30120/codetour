@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Open an existing Project Tour from the standalone CLI; 03 — Play a Tour in an independent TermDOM terminal window.
 
-**Status:** ready-for-agent
+**Status:** deferred to a later phase; not a blocker for the current delivery. The standalone functionality is not implemented. Existing VS Code ACP behavior remains unchanged.
 
 - [ ] Both Playback Surfaces expose the existing Tour Step Conversation and suggested questions using the current ACP provider negotiation and Ask/read-only policy.
 - [ ] The agent sees only the step's correctly resolved description and displayed code/diff context, including persisted Git snapshots where applicable.
