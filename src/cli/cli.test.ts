@@ -88,3 +88,65 @@ test("CLI errors do not write or launch", () => {
     rmSync(empty, { recursive: true, force: true });
   }
 });
+
+
+test("standalone HTML shows referenced Git snapshot rather than a dirty worktree", () => {
+  const { root } = fixture();
+  try {
+    const git = (...args: string[]) => {
+      const result = spawnSync("git", args, {cwd: root, encoding: "utf8"});
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.trim();
+    };
+    writeFileSync(path.join(root, "code.ts"), "export const historical = 42;\n");
+    git("add", "code.ts");
+    git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "snapshot");
+    const ref = git("rev-parse", "HEAD");
+    writeFileSync(path.join(root, "code.ts"), "export const dirty = 99;\n");
+    git("add", "code.ts");
+    git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "later");
+    writeFileSync(path.join(root, ".tours", "snapshot.tour"), JSON.stringify({
+      title: "Snapshot", ref, steps: [{title: "Code", file: "code.ts", line: 1, description: "Example"}]
+    }));
+    const output = path.join(root, "snapshot.html");
+    const result = run(root, ["snapshot"], output);
+    assert.equal(result.status, 0, result.stderr);
+    const html = readFileSync(output, "utf8");
+    assert.match(html, /historical = 42/);
+    assert.doesNotMatch(html, /dirty = 99/);
+  } finally { rmSync(root, {recursive: true, force: true}); }
+});
+
+
+test("standalone HTML inlines an image from the Tour workspace", () => {
+  const { root } = fixture();
+  try {
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/6T8AAAAASUVORK5CYII=", "base64");
+    writeFileSync(path.join(root, "image.png"), png);
+    writeFileSync(path.join(root, ".tours", "image.tour"), JSON.stringify({
+      title: "Image", steps: [{title: "Picture", description: "![Example](./image.png)"}]
+    }));
+    const output = path.join(root, "image.html");
+    const result = run(root, ["image"], output);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(readFileSync(output, "utf8"), /data:image\/png;base64,/);
+  } finally { rmSync(root, {recursive: true, force: true}); }
+});
+
+
+test("standalone HTML renders Mermaid as a PNG", { timeout: 30000 }, () => {
+  const { root } = fixture();
+  try {
+    writeFileSync(path.join(root, ".tours", "diagram.tour"), JSON.stringify({
+      title: "Diagram", steps: [{title: "Chart", description:
+        "**Diagram — Flow**\n\n```mermaid\nflowchart TD\nA[Start] --> B[End]\n```"}]
+    }));
+    const output = path.join(root, "diagram.html");
+    const result = spawnSync(process.execPath, [cli, "diagram"], {
+      cwd: root, encoding: "utf8", timeout: 25000,
+      env: { ...process.env, CODETOUR_TEST_HTML_OUTPUT: output }
+    });
+    assert.equal(result.status, 0, result.stderr || String(result.error));
+    assert.match(readFileSync(output, "utf8"), /data:image\/png;base64,/);
+  } finally { rmSync(root, {recursive: true, force: true}); }
+});
