@@ -77,3 +77,13 @@ test("inline identifiers are spoken as ordinary words", () => {
   assert.equal(prepareNarrationText("call `prepare_text` on some_var now"),
     "call prepare_text on some_var now");
 });
+
+test("reference images use the image substitution without reading their label or target", () => {
+  assert.equal(prepareNarrationText("Before ![screen][shot] and ![shot][] and ![shot].\n\n[shot]: images/screen.png"),
+    "Before Voir image and Voir image and Voir image.");
+});
+
+test("a code fence closes only with its own marker and at least its opening length", () => {
+  assert.equal(prepareNarrationText("````js\n~~~\nsecretCall()\n```\nstillCode()\n````\nAfter."),
+    "Bloc de code\nAfter.");
+});

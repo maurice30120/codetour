@@ -14,6 +14,7 @@ const FENCE_CLOSE_PATTERN = /^\s{0,3}(`{3,}|~{3,})[ \t]*$/;
 /** `[label]: destination` lines exist only to resolve reference links. */
 const LINK_DEFINITION_PATTERN = /^\s{0,3}\[[^\]]+\]:\s*\S/;
 const IMAGE_PATTERN = /!\[[^\]]*\]\([^)]*\)/g;
+const REFERENCE_IMAGE_PATTERN = /!\[([^\]]*)\](?:\[([^\]]*)\])?/g;
 const INLINE_LINK_PATTERN = /\[([^\]]+)\]\([^)]*\)/g;
 const REFERENCE_LINK_PATTERN = /\[([^\]]+)\]\[[^\]]*\]/g;
 const HTML_TAG_PATTERN = /<\/?[a-zA-Z][^>]*>/g;
@@ -47,12 +48,15 @@ function opensDiagram(line: string): boolean {
 }
 
 /** One prose line with every formatting marker removed, in speaking order. */
-function speakProseLine(line: string): string {
+function speakProseLine(line: string, imageReferences: Set<string>): string {
   if (LINK_DEFINITION_PATTERN.test(line)) return "";
   let text = line
     // Images and links are spoken as their visible meaning, never their
     // target: the reader sees the picture and the label, not the URL.
     .replace(IMAGE_PATTERN, IMAGE_SPOKEN_TEXT)
+    .replace(REFERENCE_IMAGE_PATTERN, (image, label: string, reference: string | undefined) =>
+      imageReferences.has((reference || label).trim().replace(/\s+/g, " ").toLowerCase())
+        ? IMAGE_SPOKEN_TEXT : image)
     .replace(INLINE_LINK_PATTERN, "$1")
     .replace(REFERENCE_LINK_PATTERN, "$1")
     // Inline code identifiers become ordinary words.
@@ -89,18 +93,24 @@ function speakProseLine(line: string): string {
  */
 export function prepareNarrationText(description: string): string {
   const spoken: string[] = [];
-  let insideFence = false;
+  const imageReferences = new Set(Array.from(description.matchAll(/^\s{0,3}\[([^\]]+)\]:\s*\S/gm),
+    match => match[1].trim().replace(/\s+/g, " ").toLowerCase()));
+  let openingFence: string | undefined;
   for (const line of description.split("\n")) {
-    if (insideFence) {
-      if (FENCE_CLOSE_PATTERN.test(line)) insideFence = false;
+    if (openingFence) {
+      const closingFence = line.match(FENCE_CLOSE_PATTERN)?.[1];
+      if (closingFence?.[0] === openingFence[0] && closingFence.length >= openingFence.length) {
+        openingFence = undefined;
+      }
       continue;
     }
-    if (FENCE_OPEN_PATTERN.test(line)) {
-      insideFence = true;
+    const fence = line.match(FENCE_OPEN_PATTERN);
+    if (fence) {
+      openingFence = fence[1];
       spoken.push(opensDiagram(line) ? DIAGRAM_SPOKEN_TEXT : CODE_SPOKEN_TEXT);
       continue;
     }
-    const text = speakProseLine(line);
+    const text = speakProseLine(line, imageReferences);
     // Paragraph breaks add nothing the voice needs: one line is one pause.
     if (!text) continue;
     spoken.push(text);
