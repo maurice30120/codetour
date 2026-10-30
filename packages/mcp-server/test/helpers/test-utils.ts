@@ -99,6 +99,27 @@ export function writeFile(workspaceRoot: string, relativePath: string, content: 
   fs.writeFileSync(target, content);
 }
 
+// `path.relative` joins entries with the platform separator ("\" on Windows),
+// while the reserved Tour paths listings are compared against are
+// forward-slash strings (".tours/project.tour", see src/server.ts).
+// Normalizing to "/" keeps those comparisons platform-independent (#84).
+export function toForwardSlashes(relativePath: string, separator: string = path.sep): string {
+  return relativePath.split(separator).join("/");
+}
+
+export function listFilesRecursively(root: string): string[] {
+  const entries: string[] = [];
+  const walk = (directory: string) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const entryPath = path.join(directory, entry.name);
+      entries.push(toForwardSlashes(path.relative(root, entryPath)));
+      if (entry.isDirectory()) walk(entryPath);
+    }
+  };
+  walk(root);
+  return entries.sort();
+}
+
 export async function initGitRepo(dir: string, branch = "main"): Promise<void> {
   await git(["init", "-b", branch], dir);
   await git(["config", "user.email", "test@example.com"], dir);

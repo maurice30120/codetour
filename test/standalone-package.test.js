@@ -25,7 +25,10 @@ function listFilesRecursively(rootDirectory) {
   const walk = directory => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const entryPath = path.join(directory, entry.name);
-      entries.push(path.relative(rootDirectory, entryPath));
+      // Windows path.relative joins with "\" while the expected entries are
+      // forward-slash strings; normalize like the MCP package's test helper
+      // (packages/mcp-server/test/helpers/test-utils.ts, issue #84).
+      entries.push(path.relative(rootDirectory, entryPath).split(path.sep).join("/"));
       if (entry.isDirectory()) walk(entryPath);
     }
   };

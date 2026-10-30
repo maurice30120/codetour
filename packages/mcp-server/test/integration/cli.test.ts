@@ -7,6 +7,7 @@ import { runMcpCli } from "../../src/cli";
 import {
   CLI_PATH,
   callTool,
+  listFilesRecursively,
   rmrf,
   startServer,
   stopServer,
@@ -21,19 +22,6 @@ const serverVersion = JSON.parse(
 // The standalone CLI bundle (the `codetour mcp` dev seam). Built by the
 // repository root `npm run build`; the tests below skip when it is absent.
 const cliBundle = path.join(packageRoot, "..", "..", "dist", "cli.js");
-
-function listFilesRecursively(root: string): string[] {
-  const entries: string[] = [];
-  const walk = (directory: string) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const entryPath = path.join(directory, entry.name);
-      entries.push(path.relative(root, entryPath));
-      if (entry.isDirectory()) walk(entryPath);
-    }
-  };
-  walk(root);
-  return entries.sort();
-}
 
 test("the programmatic entry reports help on the out sink and returns 0", async () => {
   const out: string[] = [];
