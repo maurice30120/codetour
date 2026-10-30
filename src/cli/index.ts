@@ -8,6 +8,7 @@ import { pathToFileURL } from "url";
 import type { CodeTour } from "../store";
 import { discoverToursFromRoot, visibleTours } from "../core/tourDiscovery";
 import { renderDescription } from "codetour-description-renderer";
+import { runMcpCli } from "codetour-mcp";
 import { createStandaloneTourHtml } from "./html";
 import { resolveReadonlyStepContext } from "./stepContext";
 import { readTourImages } from "./stepImages";
@@ -137,6 +138,14 @@ async function openFileInBrowser(file: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // `mcp` is a reserved command token, dispatched before Tour discovery,
+  // renderer parsing and Git worktree detection: the MCP server starts in
+  // any directory, Git or not, and every remaining argument is forwarded.
+  if (process.argv[2] === "mcp") {
+    const exitCode = await runMcpCli(process.argv.slice(3));
+    if (exitCode !== 0) process.exit(exitCode);
+    return;
+  }
   if (process.argv[2] === "--internal-tour") {
     if (process.argv.length !== 4 && process.argv.length !== 5) throw new Error("Internal terminal runner requires a Tour path and optional workspace root.");
     const source = JSON.parse(await fs.readFile(process.argv[3], "utf8")) as CodeTour;
