@@ -208,6 +208,7 @@ relevant directories and files.
 | `baseRef`             | string   | yes      | Git ref the branch diverged from.                             |
 | `headRef`             | string   | yes      | Full 40-character SHA of the analyzed commit; must equal the current `HEAD`. |
 | `includeUncommittedChanges` | boolean  | no       | Include uncommitted changes explicitly (default `false`).     |
+| `reviewMode`         | string   | no       | `"neutral"` (default) or `"critical"`; for `"critical"` read the `codetour://review/critical-instructions` resource before writing the steps. Not persisted in the tour file. |
 | `title`              | string   | no       | Defaults to `Changes on <branch>`.                            |
 | `description`        | string   | no       | Optional description; provenance is always appended.          |
 | `steps`              | object[] | yes      | Non-empty list of steps (see below).                          |
@@ -215,6 +216,16 @@ relevant directories and files.
 
 A good Changes Tour covers the intent of the changes, the major
 modifications, their impact, and the relevant tests.
+
+The server also exposes one resource, `codetour://review/critical-instructions`,
+which serves the critical review skill pack (the CodeTour adaptation of Matt
+Pocock's `code-review` skill, the upstream text verbatim, its source revision,
+and the MIT license). An agent generating a critical Changes Tour must read it
+before writing any step; see [the critical review skill
+documentation](../../docs/critical-review-skill.md) for provenance, licensing,
+contents, and limits. Omitting `reviewMode` keeps the neutral, factual
+behavior; the server never asks a conversational question, so direct callers
+always get the neutral default.
 
 A committed-only Changes Tour is reproducible: the resolved merge-base SHA is
 persisted in `baseRef` and the analyzed head SHA in `ref`. File steps are

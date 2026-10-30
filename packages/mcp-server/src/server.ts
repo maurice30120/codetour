@@ -45,6 +45,10 @@ import {
   tourImageDirectoryName,
   validateImageDescriptions,
 } from "./image-validation";
+import {
+  CRITICAL_REVIEW_RESOURCE_URI,
+  criticalReviewSkillPack,
+} from "./review-skill";
 import packageJson from "../package.json";
 
 // MCP V1 exposes exactly two tools: `create_project_tour` and
@@ -61,6 +65,16 @@ import packageJson from "../package.json";
 const CODETOUR_SCHEMA_URI = "https://aka.ms/codetour-schema";
 const SERVER_NAME = "codetour-mcp";
 const SERVER_VERSION = packageJson.version;
+
+// The server never asks a conversational question: an external MCP client
+// that calls create_changes_tour directly gets the neutral default, and the
+// critical instructions remain reachable through this resource.
+const CRITICAL_REVIEW_RESOURCE_NAME = "critical-review-instructions";
+const CRITICAL_REVIEW_RESOURCE_DESCRIPTION =
+  "Instructions for generating a Changes Tour with reviewMode \"critical\": " +
+  "the CodeTour adaptation of Matt Pocock's code-review skill, the upstream " +
+  "skill text (verbatim, MIT), its source revision, and the license. Read " +
+  "this resource in full before writing the tour steps.";
 
 // Fixed destinations reserved for generated Tours. They are replaced only
 // after complete validation and ignored while detecting a dirty workspace (see
@@ -139,6 +153,23 @@ const CHANGES_TOUR_WORKFLOW_GUIDANCE =
   "discussion at the changed lines; report test coverage factually and never claim tests passed " +
   "without having run them; explain deleted files with no-locator steps. ";
 
+const REVIEW_MODE_GUIDANCE =
+  "Review mode: an optional reviewMode argument selects how the Changes Tour reviews the " +
+  "changes, and only two modes exist. \"neutral\" (the default, also when the argument is " +
+  "omitted) is the factual mode described above: explain the changes, judge nothing. " +
+  "\"critical\" additionally integrates code-review findings into the tour: read the resource " +
+  `${CRITICAL_REVIEW_RESOURCE_URI} in full BEFORE writing any step — it contains the CodeTour ` +
+  "adaptation of Matt Pocock's code-review skill (upstream text, MIT, source revision included), " +
+  "which requires a systematic Standards axis (documented repo rules first, demonstrated " +
+  "violations distinguished from heuristic risks, nothing recycled that a tool already " +
+  "guarantees), a Spec axis only when a spec source is actually found (otherwise the tour " +
+  "states that the Spec axis was not evaluated), findings labeled **Standards:** or **Spec:** " +
+  "and anchored at the changed lines they concern, every step keeping its factual explanation, " +
+  "and nothing invented — no defects, requirements, specs, or test results. The mode is " +
+  "generation data: it is not persisted in the tour file. This server never asks which mode " +
+  "you want: a client driving an interactive user decides the mode before the analysis starts, " +
+  "and callers invoking the tool directly keep the neutral default. ";
+
 const PROJECT_TOUR_DESCRIPTION =
   "Create a CodeTour guided walkthrough for understanding a codebase. Use this tool for onboarding " +
   "or explaining the project's architecture and execution flows. Read the relevant source before " +
@@ -192,6 +223,7 @@ const CHANGES_TOUR_DESCRIPTION =
   "Use unchanged code only when it supplies essential context. Do not claim tests passed without " +
   "verification; distinguish observed behavior from intended behavior. " +
   CHANGES_TOUR_WORKFLOW_GUIDANCE +
+  REVIEW_MODE_GUIDANCE +
   "Input: baseRef (required Git reference), headRef (required full 40-character commit SHA equal to " +
   "the current HEAD), a required non-empty steps array, optional title (default: \"Changes on <branch>\"), " +
   "optional description, optional fileName, and includeUncommittedChanges (optional boolean, default false). " +
@@ -307,6 +339,12 @@ const changesToolInputSchema = z
     baseRef: z.unknown().optional(),
     headRef: z.unknown().optional(),
     includeUncommittedChanges: z.unknown().optional(),
+    reviewMode: z
+      .unknown()
+      .optional()
+      .describe(
+        `Optional review mode: "neutral" (default) or "critical". For "critical", read the ${CRITICAL_REVIEW_RESOURCE_URI} resource before writing the steps.`
+      ),
   })
   .passthrough();
 
@@ -314,7 +352,29 @@ export function createServer(workspaceRoot: string): McpServer {
   const ctx = createContext(workspaceRoot);
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
-    { capabilities: { tools: {} } }
+    { capabilities: { tools: {}, resources: {} } }
+  );
+
+  // The critical review skill pack is served as a resource so an agent can
+  // read it before writing any step. The embedded strings guarantee it is
+  // available offline in every distribution; no download or plugin is
+  // needed for the critical mode.
+  server.registerResource(
+    CRITICAL_REVIEW_RESOURCE_NAME,
+    CRITICAL_REVIEW_RESOURCE_URI,
+    {
+      description: CRITICAL_REVIEW_RESOURCE_DESCRIPTION,
+      mimeType: "text/markdown",
+    },
+    () => ({
+      contents: [
+        {
+          uri: CRITICAL_REVIEW_RESOURCE_URI,
+          mimeType: "text/markdown",
+          text: criticalReviewSkillPack(),
+        },
+      ],
+    })
   );
 
   server.registerTool(
