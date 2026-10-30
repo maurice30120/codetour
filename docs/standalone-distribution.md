@@ -77,7 +77,7 @@ is the stable launch contract for future agent adapters, alongside the
 existing `codetour-mcp` npm binary.
 
 The MCP server is embedded once inside `dist/cli.js` and enforced by the
-packager (see ADR 0029): the artifact never ships a second server entry.
+packager (see ADR 0030): the artifact never ships a second server entry.
 Project Tours work before the workspace is a Git repository. Changes Tours,
 merge-base resolution, head validation and historical snapshots still require
 Git on PATH, exactly as the reader does.
