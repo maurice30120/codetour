@@ -7,29 +7,69 @@ import path from "node:path";
 import { runCodeTourCommand, codeTourMcpServer } from "../.github/extensions/codetour/adapter.mjs";
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+function processIsRunning(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error.code === "ESRCH") return false;
+    throw error;
+  }
+}
+
 test("Copilot selection forwards the selected Tour to the real standalone HTML CLI", async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-copilot-adapter-"));
   const previousCli = process.env.CODETOUR_CLI;
+  const previousRealCli = process.env.CODETOUR_REAL_CLI;
   const previousOutput = process.env.CODETOUR_TEST_HTML_OUTPUT;
+  const previousReaderPid = process.env.CODETOUR_TEST_READER_PID;
   try {
     execFileSync("git", ["init", "-q", root]);
     mkdirSync(path.join(root, ".tours"));
     for (const [name, title] of [["a", "First Tour"], ["b", "Second Tour"]])
       writeFileSync(path.join(root, ".tours", `${name}.tour`), JSON.stringify({title, steps:[{description: `Content for ${title}`}]}));
-    process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+    const wrapper = path.join(root, "reader-wrapper.js");
+    const readerPid = path.join(root, "reader.pid");
+    // Keep a process whose cwd is the temporary workspace alive after the
+    // HTML file is written. Windows cannot remove that workspace until this
+    // reader process has exited, so the test waits for the PID to disappear.
+    writeFileSync(wrapper, [
+      'const { spawnSync } = require("node:child_process");',
+      'const { writeFileSync } = require("node:fs");',
+      'const result = spawnSync(process.execPath, [process.env.CODETOUR_REAL_CLI, ...process.argv.slice(2)], { stdio: "inherit" });',
+      'if (process.argv.includes("--internal-tour-id")) writeFileSync(process.env.CODETOUR_TEST_READER_PID, String(process.pid));',
+      'const finish = () => {',
+      '  process.exit(result.status ?? 1);',
+      '};',
+      'if (process.argv.includes("--internal-tour-id")) setTimeout(finish, 500); else finish();'
+    ].join("\n"));
+    process.env.CODETOUR_CLI = wrapper;
+    process.env.CODETOUR_REAL_CLI = path.resolve("dist/cli.js");
     const output = path.join(root, "result.html");
     process.env.CODETOUR_TEST_HTML_OUTPUT = output;
+    process.env.CODETOUR_TEST_READER_PID = readerPid;
     const messages = [];
     const session = {capabilities:{ui:{elicitation:true}}, ui:{select: async (prompt, choices) => prompt === "Read or generate a CodeTour?" ? "Read" : choices[1]},
       log: async message => messages.push(message)};
     await runCodeTourCommand(session, "", root);
-    for (let i = 0; i < 100 && !existsSync(output); i++) await delay(50);
+    for (let i = 0; i < 100 && (!existsSync(output) || !existsSync(readerPid)); i++) await delay(50);
     assert.ok(existsSync(output), messages.join("\n"));
+    assert.ok(existsSync(readerPid), "the selected reader process should report its PID");
+    const pid = Number(readFileSync(readerPid, "utf8"));
+    assert.ok(Number.isSafeInteger(pid) && pid > 0, "the reader PID must be valid");
+    assert.ok(processIsRunning(pid), "the fixture must keep the reader alive after writing HTML");
+    const deadline = Date.now() + 5000;
+    while (processIsRunning(pid)) {
+      assert.ok(Date.now() < deadline, "the selected reader process must exit before workspace cleanup");
+      await delay(25);
+    }
     assert.match(readFileSync(output, "utf8"), /Second Tour/);
     assert.match(messages.join("\n"), /Starting CodeTour: Second Tour/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+    if (previousRealCli === undefined) delete process.env.CODETOUR_REAL_CLI; else process.env.CODETOUR_REAL_CLI = previousRealCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
+    if (previousReaderPid === undefined) delete process.env.CODETOUR_TEST_READER_PID; else process.env.CODETOUR_TEST_READER_PID = previousReaderPid;
     rmSync(root, {recursive:true, force:true});
   }
 });
