@@ -2,6 +2,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createContext } from "./context";
 import { createServer } from "./server";
 import packageJson from "../package.json";
+import * as fs from "node:fs";
 
 // Reusable programmatic entry for the MCP server command line. The
 // `codetour-mcp` npm binary (src/main.ts), the extension's bundled server and
@@ -109,6 +110,9 @@ export async function runMcpCli(
   // Verify the workspace before starting, so failures are clear.
   try {
     createContext(workspaceRoot);
+    fs.accessSync(workspaceRoot, fs.constants.R_OK | fs.constants.X_OK);
+    // Probe actual enumeration as well: Windows access() does not check ACLs.
+    fs.readdirSync(workspaceRoot);
   } catch {
     io.err(
       `Error: the workspace is not an accessible directory: ${workspaceRoot}`
