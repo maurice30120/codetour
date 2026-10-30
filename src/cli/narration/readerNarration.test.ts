@@ -1,6 +1,6 @@
 import { after, before, test } from "node:test";
 import * as assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -60,6 +60,51 @@ function readTourWithKeys(keys: string[], env: NodeJS.ProcessEnv): ReaderSession
     env: { ...process.env, TERM: "xterm-256color", CI: "true", ...env }
   });
   return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
+}
+
+/** Send each key only once its preceding observable output has appeared. */
+function readTourUntil(actions: { output: string; key: string }[], env: NodeJS.ProcessEnv): Promise<ReaderSession> {
+  const reader = [process.execPath, cli, "--internal-tour", tourPath];
+  const args = process.platform === "darwin"
+    ? ["-q", "/dev/null", ...reader]
+    : ["-q", "-e", "-c", reader.map(arg => "'" + arg.replace(/'/g, "'\\''") + "'").join(" "), "/dev/null"];
+  return new Promise((resolve, reject) => {
+    // BSD script requires a pipe or terminal on stdin; Node's socketpair is
+    // unsuitable. cat supplies that pipe while preserving interactive input.
+    const command = "cat | script " + args.map(arg => "'" + arg.replace(/'/g, "'\\''") + "'").join(" ");
+    const child = spawn("bash", ["-c", command], {
+      env: { ...process.env, TERM: "xterm-256color", CI: "true", ...env }
+    });
+    let stdout = "";
+    let stderr = "";
+    let cursor = 0;
+    let next = 0;
+    const deadline = setTimeout(() => {
+      child.stdin.end("q");
+      child.kill("SIGKILL");
+      reject(new Error((actions[next]
+        ? "Reader did not display " + actions[next].output
+        : "Reader did not close") + "\n" + stdout.slice(-2000)));
+    }, 15000);
+    child.stdout.on("data", data => {
+      stdout += data.toString();
+      const action = actions[next];
+      if (!action) return;
+      const found = stdout.indexOf(action.output, cursor);
+      if (found < 0) return;
+      cursor = found + action.output.length;
+      next++;
+      child.stdin.write(action.key);
+      if (next === actions.length) child.stdin.end();
+    });
+    child.stderr.on("data", data => { stderr += data.toString(); });
+    child.once("error", error => { clearTimeout(deadline); reject(error); });
+    child.once("close", status => {
+      clearTimeout(deadline);
+      child.stdin.destroy();
+      resolve({ status, stdout, stderr });
+    });
+  });
 }
 
 async function assertProcessesExited(lines: string[]): Promise<void> {
@@ -180,8 +225,11 @@ test("scrolling and opening the chat never restart the narration", {
 test("a failing speech engine warns without blocking the reader", {
   skip: process.platform === "win32"
 }, async () => {
-  const session = readTourWithKeys(["v", "\\033[C"],
-    { CODETOUR_SPEECH_COMMAND: failingSpeech });
+  const session = await readTourUntil([
+    { output: "VOICE OFF", key: "v" },
+    { output: "Narration failed", key: "\u001b[C" },
+    { output: "Middle", key: "q" }
+  ], { CODETOUR_SPEECH_COMMAND: failingSpeech });
   assert.equal(session.status, 0, session.stderr + "\n" + session.stdout.slice(-1500));
   assert.match(session.stdout, /VOICE ON/);
   assert.match(session.stdout, /Narration failed/);

@@ -6,7 +6,8 @@ import signal
 import sys
 import time
 
-launcher, tour = sys.argv[1:]
+launcher, tour = sys.argv[1:3]
+expected = [value.encode() for value in sys.argv[3:]]
 pid, fd = pty.fork()
 if pid == 0:
     os.environ["TERM"] = "xterm-256color"
@@ -23,7 +24,7 @@ try:
                 output.extend(os.read(fd, 65536))
             except OSError:
                 pass
-        if not sent and b"Introduction" in output:
+        if not sent and b"Introduction" in output and all(marker in output for marker in expected):
             os.write(fd, b"q")
             sent = True
         done, result = os.waitpid(pid, os.WNOHANG)
