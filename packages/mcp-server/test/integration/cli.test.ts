@@ -18,6 +18,22 @@ const packageRoot = path.join(__dirname, "..", "..", "..");
 const serverVersion = JSON.parse(
   fs.readFileSync(path.join(packageRoot, "package.json"), "utf8")
 ).version as string;
+// The standalone CLI bundle (the `codetour mcp` dev seam). Built by the
+// repository root `npm run build`; the tests below skip when it is absent.
+const cliBundle = path.join(packageRoot, "..", "..", "dist", "cli.js");
+
+function listFilesRecursively(root: string): string[] {
+  const entries: string[] = [];
+  const walk = (directory: string) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const entryPath = path.join(directory, entry.name);
+      entries.push(path.relative(root, entryPath));
+      if (entry.isDirectory()) walk(entryPath);
+    }
+  };
+  walk(root);
+  return entries.sort();
+}
 
 test("the programmatic entry reports help on the out sink and returns 0", async () => {
   const out: string[] = [];
@@ -179,3 +195,104 @@ test("an inaccessible --workspace-root fails at startup with a clear error", () 
     rmrf(root);
   }
 });
+
+test(
+  "the codetour mcp subcommand serves both tools through the CLI bundle",
+  { skip: fs.existsSync(cliBundle) ? false : "build the repository root first (npm run build)" },
+  async () => {
+    // Dev seam for the standalone distribution: `node dist/cli.js mcp` in a
+    // Tour Workspace that is not a Git repository.
+    const root = tempDir("codetour-cli-mcp-");
+    let client;
+    try {
+      writeFile(root, "hello.txt", "hello workspace\n");
+      const before = listFilesRecursively(root);
+      client = await startServer(root, {}, ["mcp"], cliBundle);
+      const tools = await client.listTools();
+      assert.deepEqual(
+        tools.tools.map(tool => tool.name).sort(),
+        ["create_changes_tour", "create_project_tour"]
+      );
+      const response = await callTool(client, "create_project_tour", {
+        title: "Subcommand Tour",
+        steps: [{ file: "hello.txt", description: "Created through the codetour mcp subcommand." }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.equal(response.structured.status, "created");
+      assert.equal(response.structured.path, ".tours/project.tour");
+      // The session wrote exactly the reserved Tour file and nothing else.
+      const after = listFilesRecursively(root);
+      assert.deepEqual(
+        after.filter(entry => !before.includes(entry)),
+        [".tours", ".tours/project.tour"]
+      );
+    } finally {
+      if (client) await stopServer(client);
+      rmrf(root);
+    }
+  }
+);
+
+test(
+  "the CLI bundle forwards --workspace-root to the MCP entry",
+  { skip: fs.existsSync(cliBundle) ? false : "build the repository root first (npm run build)" },
+  async () => {
+    const root = tempDir("codetour-cli-mcp-");
+    const elsewhere = tempDir("codetour-cli-mcp-");
+    let client;
+    try {
+      writeFile(root, "hello.txt", "hello workspace\n");
+      client = await startServer(elsewhere, {}, ["mcp", "--workspace-root", root], cliBundle);
+      const response = await callTool(client, "create_project_tour", {
+        steps: [{ file: "hello.txt", description: "Anchored inside the workspace passed to --workspace-root." }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.ok(fs.existsSync(`${root}/.tours/project.tour`));
+      assert.ok(!fs.existsSync(`${elsewhere}/.tours/project.tour`));
+    } finally {
+      if (client) await stopServer(client);
+      rmrf(root);
+      rmrf(elsewhere);
+    }
+  }
+);
+
+test(
+  "the mcp path of the CLI bundle needs no node_modules beyond its shipped closure",
+  { skip: fs.existsSync(cliBundle) ? false : "build the repository root first (npm run build)" },
+  async () => {
+    // A directory holding only the bundle, the rasterizer runtime and the
+    // punycode closure: if the MCP path required vscode, @b9g/termdom or any
+    // other package, the session would fail to start here.
+    const bare = tempDir("codetour-cli-bare-");
+    const root = tempDir("codetour-cli-bare-workspace-");
+    let client;
+    try {
+      fs.copyFileSync(cliBundle, path.join(bare, "cli.js"));
+      fs.cpSync(
+        path.join(packageRoot, "..", "..", "dist", "resvg-runtime"),
+        path.join(bare, "resvg-runtime"),
+        { recursive: true }
+      );
+      fs.mkdirSync(path.join(bare, "node_modules"), { recursive: true });
+      fs.cpSync(
+        path.join(packageRoot, "..", "..", "node_modules", "punycode"),
+        path.join(bare, "node_modules", "punycode"),
+        { recursive: true }
+      );
+      writeFile(root, "hello.txt", "hello bare bundle\n");
+      const entry = path.join(bare, "cli.js");
+      client = await startServer(root, {}, ["mcp"], entry);
+      const response = await callTool(client, "create_project_tour", {
+        title: "Bare Bundle Tour",
+        steps: [{ file: "hello.txt", description: "The MCP path carries no hidden dependency." }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.ok(fs.existsSync(`${root}/.tours/project.tour`));
+    } finally {
+      if (client) await stopServer(client);
+      rmrf(bare);
+      rmrf(root);
+    }
+  }
+);
