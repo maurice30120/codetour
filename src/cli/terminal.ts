@@ -1,5 +1,7 @@
 import type { CodeTour } from "../store";
 import { escapeHtml, renderMarkdownToHtml } from "../player/markdown";
+import { NarrationController } from "./narration/NarrationController";
+import { createSystemSpeech } from "./narration/SystemSpeech";
 import { palette } from "./palette";
 import { renderTerminalDescription, TerminalStepRenderError } from "./terminalContent";
 import { resolveReadonlyStepContext } from "./stepContext";
@@ -224,6 +226,24 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
   let asking = false;
   let draft = "";
   let responding = false;
+  // Optional voice narration (spec #79): off for every session, nothing
+  // persisted. The controller owns the speech engine, never TermDOM.
+  /** The Step the voice last spoke; only real Step changes narrate again. */
+  let lastNarrated = -1;
+  /** The latest nonblocking narration failure, shown until speech recovers. */
+  let speechWarning: string | undefined;
+  const narration = new NarrationController({
+    engine: createSystemSpeech(),
+    onWarning: message => {
+      speechWarning = message;
+      updateStatus();
+    },
+    onSpeaking: () => {
+      if (!speechWarning) return;
+      speechWarning = undefined;
+      updateStatus();
+    }
+  });
 
   function updateStatus(): void {
     mode.textContent = asking ? "ASK" : responding ? "WAIT" : "READ";
@@ -238,10 +258,38 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
       hints.textContent = " " + keys.join(" · ");
     }
     const segments: string[] = [];
+    // The discrete narration state of the session, first in the row so a
+    // narrow terminal cuts the least important segments, never it (spec #79).
+    segments.push(narration.isEnabled() ? "VOICE ON" : "VOICE OFF");
+    if (speechWarning) segments.push(speechWarning);
     if (chat.provider) segments.push(chat.provider.name.toLowerCase());
     const count = conversations.exchanges(current).length;
     if (count) segments.push(exchangesLabel(count));
-    statusRight.textContent = segments.join(" · ");
+    // The status line is one row shared with the key hints: the right side
+    // yields first, and its first segments are the ones that must survive.
+    statusRight.textContent = fit(segments.join(" · "),
+      Math.max(30, layout.columns - (layout.compactHints ? 48 : 72)));
+  }
+
+  /**
+   * Narrate the displayed Step's description. The reader supplies the
+   * description explicitly and only on real Step changes: a re-render of the
+   * same Step (resize, scroll, repaint, the chat) never restarts the voice,
+   * and narration is never triggered from `render()` itself (spec #79).
+   */
+  function narrateCurrentStep(reread: boolean): void {
+    if (!narration.isEnabled()) return;
+    if (!reread && current === lastNarrated) return;
+    lastNarrated = current;
+    narration.onStepChanged(tour.steps[current]?.description ?? "");
+  }
+
+  function toggleVoice(): void {
+    narration.setEnabled(!narration.isEnabled());
+    // Turning the voice on reads the currently displayed Step immediately;
+    // turning it off has already cut the speech inside the controller.
+    if (narration.isEnabled()) narrateCurrentStep(true);
+    updateStatus();
   }
 
   /** One screenful of the Step box, measured in the scroller's own units. */
@@ -526,9 +574,27 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
     // The scroller is the Step box, not the fullscreen document (ADR 0025).
     article.scrollTop = 0;
   }
+  /**
+   * Move to another Step. The previous narration is cut at the keypress; the
+   * new one is committed only for the Step this navigation actually displays —
+   * a superseded or failed render narrates nothing, and `render()` itself
+   * never starts the voice (spec #79).
+   */
+  function goToStep(next: number): void {
+    current = next;
+    narration.interrupt();
+    const requestBase = version;
+    void render().then(() => {
+      // Another render (a later navigation, a resize) superseded this one.
+      if (finished || version !== requestBase + 1) return;
+      narrateCurrentStep(false);
+    }).catch(fatal);
+  }
   async function close(): Promise<void> {
     finished = true;
     ++version;
+    // Speech stops and its subprocess is released, fatal error paths included.
+    await narration.dispose();
     await chat.dispose();
     await term.dispose();
   }
@@ -603,9 +669,15 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
       if (question && !responding) void ask(question);
       else return;
     } else if ((key === "ArrowRight" || key === "n") && current < tour.steps.length - 1) {
-      current++; void render().catch(fatal);
+      goToStep(current + 1);
     } else if ((key === "ArrowLeft" || key === "p") && current > 0) {
-      current--; void render().catch(fatal);
+      goToStep(current - 1);
+    } else if (key === "v" || key === "V") {
+      // A single unmodified V toggles the voice: Ctrl+V, Cmd+V and Alt+V are
+      // not the narration shortcut (spec #79). A "v" typed in the chat prompt
+      // has already been kept as text by the asking branch above.
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      toggleVoice();
     } else if (key === "j" || key === "ArrowDown") article.scrollTop += 1;
     else if (key === "k" || key === "ArrowUp") article.scrollTop -= 1;
     else if (key === "PageDown" || key === " ") article.scrollTop += pageRows();
