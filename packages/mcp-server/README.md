@@ -49,7 +49,7 @@ start the server from a workspace:
 
 ```bash
 cd /path/to/workspace
-node /path/to/codetour/packages/mcp-server/dist/src/cli.js
+node /path/to/codetour/packages/mcp-server/dist/src/main.js
 ```
 
 The process speaks MCP over `stdio` and silently waits for requests from an
@@ -89,7 +89,7 @@ as in the example below. Once connected, the client automatically discovers
   "mcpServers": {
     "codetour": {
       "command": "node",
-      "args": ["/path/to/codetour/packages/mcp-server/dist/src/cli.js"],
+      "args": ["/path/to/codetour/packages/mcp-server/dist/src/main.js"],
       "cwd": "/path/to/workspace"
     }
   }

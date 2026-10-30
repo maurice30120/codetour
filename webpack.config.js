@@ -77,7 +77,7 @@ const nodeConfig = {
 const mcpConfig = {
   mode: "production",
   target: "node18",
-  entry: "./packages/mcp-server/dist/src/cli.js",
+  entry: "./packages/mcp-server/dist/src/main.js",
   externals: {
     "@resvg/resvg-js": RESVG_EXTERNAL,
     ...OPTIONAL_NATIVE_EXTERNALS

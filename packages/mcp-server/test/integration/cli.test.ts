@@ -2,6 +2,8 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as path from "node:path";
+import { runMcpCli } from "../../src/cli";
 import {
   CLI_PATH,
   callTool,
@@ -11,6 +13,88 @@ import {
   tempDir,
   writeFile,
 } from "../helpers/test-utils";
+
+const packageRoot = path.join(__dirname, "..", "..", "..");
+const serverVersion = JSON.parse(
+  fs.readFileSync(path.join(packageRoot, "package.json"), "utf8")
+).version as string;
+
+test("the programmatic entry reports help on the out sink and returns 0", async () => {
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = await runMcpCli(["--help"], {
+    out: text => out.push(text),
+    err: text => err.push(text),
+  });
+  assert.equal(code, 0);
+  assert.equal(err.length, 0);
+  assert.match(out.join("\n"), new RegExp(`codetour-mcp v${serverVersion}`));
+  assert.match(out.join("\n"), /--workspace-root <dir>/);
+});
+
+test("the programmatic entry reports the MCP server version", async () => {
+  const out: string[] = [];
+  const code = await runMcpCli(["--version"], {
+    out: text => out.push(text),
+    err: () => assert.fail("version must not write diagnostics"),
+  });
+  assert.equal(code, 0);
+  assert.deepEqual(out, [serverVersion]);
+});
+
+test("the programmatic entry rejects an unknown argument on the err sink", async () => {
+  const err: string[] = [];
+  const code = await runMcpCli(["--bogus"], {
+    out: () => assert.fail("an argument error must not write to out"),
+    err: text => err.push(text),
+  });
+  assert.equal(code, 1);
+  assert.match(err.join("\n"), /Unknown argument: --bogus/);
+  assert.match(err.join("\n"), /Usage: codetour-mcp/);
+});
+
+test("the programmatic entry reports a missing --workspace-root value", async () => {
+  const err: string[] = [];
+  const code = await runMcpCli(["--workspace-root"], {
+    out: () => assert.fail("an argument error must not write to out"),
+    err: text => err.push(text),
+  });
+  assert.equal(code, 1);
+  assert.match(err.join("\n"), /Missing value for --workspace-root/);
+});
+
+test("the programmatic entry reports an inaccessible workspace before the protocol", async () => {
+  const root = tempDir();
+  try {
+    const err: string[] = [];
+    const code = await runMcpCli(["--workspace-root", `${root}/missing`], {
+      out: () => assert.fail("a workspace failure must not write to out"),
+      err: text => err.push(text),
+    });
+    assert.equal(code, 1);
+    assert.match(err.join("\n"), /not an accessible directory/);
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("the codetour-mcp binary prints help and version with a zero exit code", () => {
+  const help = spawnSync(process.execPath, [CLI_PATH, "--help"], {
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /Usage: codetour-mcp/);
+  assert.equal(help.stderr, "");
+
+  const version = spawnSync(process.execPath, [CLI_PATH, "--version"], {
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  assert.equal(version.status, 0, version.stderr);
+  assert.equal(version.stdout.trim(), serverVersion);
+  assert.equal(version.stderr, "");
+});
 
 test("--workspace-root serves a directory other than the process working directory", async () => {
   const root = tempDir();

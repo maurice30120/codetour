@@ -8,7 +8,8 @@ import { git } from "../../src/git";
 
 export { git };
 
-export const CLI_PATH = path.join(__dirname, "..", "..", "src", "cli.js");
+// The executable wrapper (dist/src/main.js), not the programmatic entry.
+export const CLI_PATH = path.join(__dirname, "..", "..", "src", "main.js");
 
 export interface ToolResponse {
   isError: boolean;
