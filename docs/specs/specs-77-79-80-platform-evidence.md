@@ -36,9 +36,10 @@ Exécutées le 30 octobre 2026 sur macOS arm64, depuis la branche
   ainsi supprimée sans délai arbitraire; les assertions de remplacement à la
   navigation et d'absence de relance après redraw/scroll restent actives.
   Exiger plusieurs exécutions macOS consécutives vertes sur #82.
-- **#84 — MCP Windows :** la cause était la différence de séparateurs renvoyée
-  par `path.relative`. Le chemin exposé par l'outil est normalisé en `/` et
-  l'assertion vérifie toujours les deux outils MCP.
+- **#84 — MCP Windows :** le helper de test construisait les chemins attendus
+  avec `path.relative`, donc avec `\\` sous Windows, alors que le contrat
+  expose les chemins de workspace avec `/`. Le helper normalise ses entrées;
+  les valeurs attendues et l'assertion des deux outils MCP restent inchangées.
 - **#86 — scroll Ubuntu :** le test décode les séquences du terminal en écran
   de 80×24 et vérifie que la dernière ligne attendue est visible après le
   défilement, tandis que le début du contenu n'est plus visible.
