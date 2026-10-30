@@ -67,6 +67,10 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
     else symlinkSync(process.execPath, path.join(pkg, "node.exe"));
     copyFileSync(path.resolve("dist/cli.js"), path.join(pkg, "dist", "cli.js"));
     cpSync(path.resolve("dist/resvg-runtime"), path.join(pkg, "dist", "resvg-runtime"), {recursive:true});
+    // The CLI bundle requires the userland punycode package instead of the
+    // deprecated core module; a packaged layout ships it as a closure.
+    mkdirSync(path.join(pkg, "dist", "node_modules"), {recursive:true});
+    cpSync(path.resolve("node_modules/punycode"), path.join(pkg, "dist", "node_modules", "punycode"), {recursive:true});
     const cmd = path.join(pkg, "codetour.cmd");
     writeFileSync(cmd, "@echo off\r\nexit /b 12\r\n");
     process.env.CODETOUR_CLI = cmd;
