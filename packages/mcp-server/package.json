@@ -21,6 +21,7 @@
     "dist/package.json",
     "dist/schema.json",
     "schema.json",
+    "review-skill",
     "README.md",
     "LICENSE.txt"
   ],
