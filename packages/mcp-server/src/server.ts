@@ -40,6 +40,15 @@ import {
   MERMAID_TOOL_GUIDANCE,
   validateMermaidDescriptions,
 } from "./mermaid-validation";
+import {
+  IMAGE_TOOL_GUIDANCE,
+  tourImageDirectoryName,
+  validateImageDescriptions,
+} from "./image-validation";
+import {
+  CRITICAL_REVIEW_RESOURCE_URI,
+  criticalReviewSkillPack,
+} from "./review-skill";
 import packageJson from "../package.json";
 
 // MCP V1 exposes exactly two tools: `create_project_tour` and
@@ -57,11 +66,27 @@ const CODETOUR_SCHEMA_URI = "https://aka.ms/codetour-schema";
 const SERVER_NAME = "codetour-mcp";
 const SERVER_VERSION = packageJson.version;
 
+// The server never asks a conversational question: an external MCP client
+// that calls create_changes_tour directly gets the neutral default, and the
+// critical instructions remain reachable through this resource.
+const CRITICAL_REVIEW_RESOURCE_NAME = "critical-review-instructions";
+const CRITICAL_REVIEW_RESOURCE_DESCRIPTION =
+  "Instructions for generating a Changes Tour with reviewMode \"critical\": " +
+  "the CodeTour adaptation of Matt Pocock's code-review skill, the upstream " +
+  "skill text (verbatim, MIT), its source revision, and the license. Read " +
+  "this resource in full before writing the tour steps.";
+
 // Fixed destinations reserved for generated Tours. They are replaced only
 // after complete validation and ignored while detecting a dirty workspace (see
 // git.ts).
 const PROJECT_TOUR_PATH = ".tours/project.tour";
 const CHANGES_TOUR_PATH = ".tours/changes.tour";
+
+// A custom `fileName` is always confined to the `.tours` directory next to the
+// reserved destinations; without one the reserved default applies.
+function tourTargetPath(defaultPath: string, fileName?: string): string {
+  return fileName === undefined ? defaultPath : `.tours/${fileName}`;
+}
 
 const MARKDOWN_WRITING_GUIDANCE =
   "Each step may include an optional questions array of at most four non-empty strings. " +
@@ -128,6 +153,23 @@ const CHANGES_TOUR_WORKFLOW_GUIDANCE =
   "discussion at the changed lines; report test coverage factually and never claim tests passed " +
   "without having run them; explain deleted files with no-locator steps. ";
 
+const REVIEW_MODE_GUIDANCE =
+  "Review mode: an optional reviewMode argument selects how the Changes Tour reviews the " +
+  "changes, and only two modes exist. \"neutral\" (the default, also when the argument is " +
+  "omitted) is the factual mode described above: explain the changes, judge nothing. " +
+  "\"critical\" additionally integrates code-review findings into the tour: read the resource " +
+  `${CRITICAL_REVIEW_RESOURCE_URI} in full BEFORE writing any step — it contains the CodeTour ` +
+  "adaptation of Matt Pocock's code-review skill (upstream text, MIT, source revision included), " +
+  "which requires a systematic Standards axis (documented repo rules first, demonstrated " +
+  "violations distinguished from heuristic risks, nothing recycled that a tool already " +
+  "guarantees), a Spec axis only when a spec source is actually found (otherwise the tour " +
+  "states that the Spec axis was not evaluated), findings labeled **Standards:** or **Spec:** " +
+  "and anchored at the changed lines they concern, every step keeping its factual explanation, " +
+  "and nothing invented — no defects, requirements, specs, or test results. The mode is " +
+  "generation data: it is not persisted in the tour file. This server never asks which mode " +
+  "you want: a client driving an interactive user decides the mode before the analysis starts, " +
+  "and callers invoking the tool directly keep the neutral default. ";
+
 const PROJECT_TOUR_DESCRIPTION =
   "Create a CodeTour guided walkthrough for understanding a codebase. Use this tool for onboarding " +
   "or explaining the project's architecture and execution flows. Read the relevant source before " +
@@ -139,8 +181,10 @@ const PROJECT_TOUR_DESCRIPTION =
   "requested audience and scope. " +
   PROJECT_TOUR_WORKFLOW_GUIDANCE +
   PROJECT_TOUR_ORIENTATION_GUIDANCE +
-  "Input: a required non-empty steps array, an optional title (default: \"Project Overview\"), and " +
-  "an optional description summarizing the tour. Each step requires a Markdown description and may " +
+  "Input: a required non-empty steps array, an optional title (default: \"Project Overview\"), an " +
+  "optional description summarizing the tour, and an optional fileName: a bare file name (no path " +
+  "separators) under which the tour is written inside .tours/, with the .tour suffix appended when " +
+  "absent. Omit fileName to write the reserved .tours/project.tour. Each step requires a Markdown description and may " +
   "have a title. Use at most one locator per step: file or directory, relative to the workspace root. " +
   "Anchor code explanations to the relevant file and location; use a directory for structural " +
   "orientation, or no locator for general context. File steps may use line (1-based), pattern " +
@@ -148,8 +192,8 @@ const PROJECT_TOUR_DESCRIPTION =
   "with 1-based line and character). line and pattern are mutually exclusive. Prefer a short, " +
   "stable pattern when it identifies the intended code reliably; otherwise use a verified line. " +
   "Project Tours use ordinary file navigation and anchors are checked against the current workspace. " +
-  "You author the complete content; the server validates it and atomically writes .tours/project.tour, " +
-  "replacing the previous Project Tour only on success. Validation issues are returned together; " +
+  "You author the complete content; the server validates it and atomically writes the tour file, " +
+  "replacing the previous file at that destination only on success. Validation issues are returned together; " +
   "correct the reported issues before retrying. Failure preserves the previous tour. " +
   "Pass dryRun true to rehearse a complete proposal: the same validation runs (anchors, Mermaid, rules), " +
   "the response reports status \"validated\" with the same warnings, and no file is written even when " +
@@ -157,7 +201,8 @@ const PROJECT_TOUR_DESCRIPTION =
   "Optional workspacePath selects a directory relative to the configured workspace root for this call. " +
   "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. " +
   MARKDOWN_WRITING_GUIDANCE +
-  MERMAID_TOOL_GUIDANCE;
+  MERMAID_TOOL_GUIDANCE +
+  IMAGE_TOOL_GUIDANCE;
 
 const CHANGES_TOUR_DESCRIPTION =
   "Create a CodeTour guided review of the current branch's changes from the merge-base of a base " +
@@ -178,9 +223,12 @@ const CHANGES_TOUR_DESCRIPTION =
   "Use unchanged code only when it supplies essential context. Do not claim tests passed without " +
   "verification; distinguish observed behavior from intended behavior. " +
   CHANGES_TOUR_WORKFLOW_GUIDANCE +
+  REVIEW_MODE_GUIDANCE +
   "Input: baseRef (required Git reference), headRef (required full 40-character commit SHA equal to " +
   "the current HEAD), a required non-empty steps array, optional title (default: \"Changes on <branch>\"), " +
-  "optional description, and includeUncommittedChanges (optional boolean, default false). " +
+  "optional description, optional fileName, and includeUncommittedChanges (optional boolean, default false). " +
+  "fileName is a bare file name (no path separators) under which the tour is written inside .tours/, " +
+  "with the .tour suffix appended when absent; omit it to write the reserved .tours/changes.tour. " +
   "Each step requires a Markdown description and may have a title. Use at most one workspace-relative " +
   "locator: file or directory. File steps may use line (1-based), pattern (a regular expression " +
   "matching exactly once), or selection (start/end positions with 1-based line and character). " +
@@ -199,8 +247,8 @@ const CHANGES_TOUR_DESCRIPTION =
   "clean, the tour remains a committed comparison. If a saved diff's revisions or file become " +
   "unavailable, the reader falls back to the current file. " +
   "You author the complete content; the server validates it, adds comparison provenance to the " +
-  "description, and atomically writes .tours/changes.tour, replacing the previous Changes Tour only " +
-  "on success. Failure preserves it. Correct reported validation issues before retrying; if HEAD " +
+  "description, and atomically writes the tour file, replacing the previous file at that destination " +
+  "only on success. Failure preserves it. Correct reported validation issues before retrying; if HEAD " +
   "changed, re-analyze the comparison and submit the new SHA with matching content. " +
   "Pass dryRun true to rehearse the proposal: the Git checks (HEAD match, base resolution, merge-base, " +
   "anchors against headRef) and the same validation still run, the response reports status \"validated\" " +
@@ -208,7 +256,8 @@ const CHANGES_TOUR_DESCRIPTION =
   "Optional workspacePath selects a repository or subdirectory relative to the configured workspace root for this call. " +
   "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. " +
   MARKDOWN_WRITING_GUIDANCE +
-  MERMAID_TOOL_GUIDANCE;
+  MERMAID_TOOL_GUIDANCE +
+  IMAGE_TOOL_GUIDANCE;
 
 const warningSchema = z.object({
   code: z.string(),
@@ -238,6 +287,12 @@ const projectToolInputSchema = z
       .describe(
         "Optional readable Markdown overview; separate distinct ideas with blank lines between paragraphs."
       ),
+    fileName: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional bare file name (no path separators) under which the tour is written inside .tours/; the .tour suffix is appended when absent."
+      ),
     dryRun: z
       .unknown()
       .optional()
@@ -263,6 +318,12 @@ const changesToolInputSchema = z
       .describe(
         "Optional readable Markdown overview; separate distinct ideas with blank lines between paragraphs."
       ),
+    fileName: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional bare file name (no path separators) under which the tour is written inside .tours/; the .tour suffix is appended when absent."
+      ),
     dryRun: z
       .unknown()
       .optional()
@@ -278,6 +339,12 @@ const changesToolInputSchema = z
     baseRef: z.unknown().optional(),
     headRef: z.unknown().optional(),
     includeUncommittedChanges: z.unknown().optional(),
+    reviewMode: z
+      .unknown()
+      .optional()
+      .describe(
+        `Optional review mode: "neutral" (default) or "critical". For "critical", read the ${CRITICAL_REVIEW_RESOURCE_URI} resource before writing the steps.`
+      ),
   })
   .passthrough();
 
@@ -285,7 +352,29 @@ export function createServer(workspaceRoot: string): McpServer {
   const ctx = createContext(workspaceRoot);
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
-    { capabilities: { tools: {} } }
+    { capabilities: { tools: {}, resources: {} } }
+  );
+
+  // The critical review skill pack is served as a resource so an agent can
+  // read it before writing any step. The embedded strings guarantee it is
+  // available offline in every distribution; no download or plugin is
+  // needed for the critical mode.
+  server.registerResource(
+    CRITICAL_REVIEW_RESOURCE_NAME,
+    CRITICAL_REVIEW_RESOURCE_URI,
+    {
+      description: CRITICAL_REVIEW_RESOURCE_DESCRIPTION,
+      mimeType: "text/markdown",
+    },
+    () => ({
+      contents: [
+        {
+          uri: CRITICAL_REVIEW_RESOURCE_URI,
+          mimeType: "text/markdown",
+          text: criticalReviewSkillPack(),
+        },
+      ],
+    })
   );
 
   server.registerTool(
@@ -341,8 +430,18 @@ async function handleCreateProjectTour(
   // responding so the agent can correct the proposal in one cycle.
   const { params, issues: paramIssues } = validateProjectParams(args);
   const mermaidIssues = await validateMermaidDescriptions(args);
+  const selected = selectContext(defaultContext, params?.workspacePath);
+  const ctx = selected.context ?? defaultContext;
+  // Image references are workspace-root relative, the same base the player
+  // inlines them from, so an accepted reference always renders; step anchors
+  // keep the selected context root.
+  const imageIssues = validateImageDescriptions(
+    args,
+    defaultContext,
+    tourImageDirectoryName("project", params?.fileName)
+  );
   if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    if (mermaidIssues.length === 0) {
+    if (mermaidIssues.length === 0 && imageIssues.length === 0) {
       return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
     }
     return errorResponse(
@@ -350,13 +449,12 @@ async function handleCreateProjectTour(
       "The create_project_tour arguments are invalid.",
       [
         ...mermaidIssues,
+        ...imageIssues,
         { path: "steps", message: "is required and must contain at least one step" }
       ]
     );
   }
-  const selected = selectContext(defaultContext, params?.workspacePath);
-  const ctx = selected.context ?? defaultContext;
-  const allIssues = [...paramIssues, ...mermaidIssues, ...selected.issues];
+  const allIssues = [...paramIssues, ...mermaidIssues, ...selected.issues, ...imageIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx,
@@ -395,16 +493,17 @@ async function handleCreateProjectTour(
     steps: finalSteps,
   };
 
-  const writeFailure = await persistTour(ctx, PROJECT_TOUR_PATH, tour);
+  const targetPath = tourTargetPath(PROJECT_TOUR_PATH, params.fileName);
+  const writeFailure = await persistTour(ctx, targetPath, tour);
   if (writeFailure) {
     return writeFailure;
   }
 
   return successResponse(
-    normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, PROJECT_TOUR_PATH))),
+    normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, targetPath))),
     finalSteps.length,
     warnings,
-    `Created Project Tour at ${PROJECT_TOUR_PATH} with ${finalSteps.length} step(s).`
+    `Created Project Tour at ${targetPath} with ${finalSteps.length} step(s).`
   );
 }
 
@@ -422,8 +521,18 @@ async function handleCreateChangesTour(
   // validation errors before responding.
   const { params, issues: paramIssues } = validateChangesParams(args);
   const mermaidIssues = await validateMermaidDescriptions(args);
+  const selected = selectContext(defaultContext, params?.workspacePath);
+  const ctx = selected.context ?? defaultContext;
+  // Image references are workspace-root relative, the same base the player
+  // inlines them from, so an accepted reference always renders; step anchors
+  // keep the selected context root.
+  const imageIssues = validateImageDescriptions(
+    args,
+    defaultContext,
+    tourImageDirectoryName("changes", params?.fileName)
+  );
   if (rawSteps === undefined || (Array.isArray(rawSteps) && rawSteps.length === 0)) {
-    if (mermaidIssues.length === 0) {
+    if (mermaidIssues.length === 0 && imageIssues.length === 0) {
       return errorResponse("TOUR_STEPS_REQUIRED", "A tour requires at least one step.");
     }
     return errorResponse(
@@ -431,13 +540,12 @@ async function handleCreateChangesTour(
       "The create_changes_tour arguments are invalid.",
       [
         ...mermaidIssues,
+        ...imageIssues,
         { path: "steps", message: "is required and must contain at least one step" }
       ]
     );
   }
-  const selected = selectContext(defaultContext, params?.workspacePath);
-  const ctx = selected.context ?? defaultContext;
-  const allIssues = [...paramIssues, ...mermaidIssues, ...selected.issues];
+  const allIssues = [...paramIssues, ...mermaidIssues, ...selected.issues, ...imageIssues];
   let steps: TourStep[] | undefined;
   if (Array.isArray(rawSteps)) {
     const validated = validateSteps(rawSteps, ctx, { kind: "structure" });
@@ -630,16 +738,17 @@ async function handleCreateChangesTour(
     );
   }
 
-  const writeFailure = await persistTour(ctx, CHANGES_TOUR_PATH, tour);
+  const targetPath = tourTargetPath(CHANGES_TOUR_PATH, params.fileName);
+  const writeFailure = await persistTour(ctx, targetPath, tour);
   if (writeFailure) {
     return writeFailure;
   }
 
   return successResponse(
-    normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, CHANGES_TOUR_PATH))),
+    normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, targetPath))),
     finalSteps.length,
     warnings,
-    `Created Changes Tour at ${CHANGES_TOUR_PATH} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`
+    `Created Changes Tour at ${targetPath} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`
   );
 }
 

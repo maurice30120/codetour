@@ -25,14 +25,18 @@ export interface ProjectParams {
   workspacePath?: string;
   title?: string;
   description?: string;
+  fileName?: string;
   dryRun?: boolean;
   steps?: unknown[];
 }
+
+export type ReviewMode = "neutral" | "critical";
 
 export interface ChangesParams extends ProjectParams {
   baseRef?: string;
   headRef?: string;
   includeUncommittedChanges?: boolean;
+  reviewMode?: ReviewMode;
 }
 
 export interface TourFile {

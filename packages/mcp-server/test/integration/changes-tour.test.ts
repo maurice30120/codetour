@@ -8,6 +8,7 @@ import {
   git,
   headSha,
   initGitRepo,
+  issuePaths,
   readTourFile,
   rmrf,
   structuredCode,
@@ -395,6 +396,96 @@ test("ignores the reserved tour files when detecting a dirty workspace", async (
   }
 });
 
+test("ignores untracked tour images when detecting a dirty workspace", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    writeFile(root, ".tours/project.tour", "{ generated earlier }");
+    writeFile(root, ".tours/images/changes/diagram.png", "image bytes");
+    writeFile(root, ".tours/images/changes/nested/shot.jpeg", "image bytes");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.ok(!warningCodes(response).includes("UNCOMMITTED_CHANGES_EXCLUDED"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("ignores staged and individually listed tour images when detecting a dirty workspace", async () => {
+  const { root, baseSha } = await setupRepo();
+  try {
+    await commitFile(root, ".tours/project.tour", "{ generated earlier }", "track project tour");
+    const head = await headSha(root);
+    writeFile(root, ".tours/images/changes/diagram.png", "image bytes");
+    writeFile(root, ".tours/images/changes/staged.png", "image bytes");
+    await git(["add", ".tours/images/changes/staged.png"], root);
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.ok(!warningCodes(response).includes("UNCOMMITTED_CHANGES_EXCLUDED"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("still warns about real code changes alongside tour images", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    writeFile(root, ".tours/images/changes/diagram.png", "image bytes");
+    writeFile(root, "untracked.txt", "local work");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.ok(warningCodes(response).includes("UNCOMMITTED_CHANGES_EXCLUDED"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("keeps untracked tour images out of the snapshot even when uncommitted changes are included", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    writeFile(root, ".tours/images/changes/diagram.png", "image bytes");
+    writeFile(root, ".tours/images/changes/nested/shot.jpeg", "image bytes");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        includeUncommittedChanges: true,
+        steps: [{ description: "The feature.", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.ok(
+        !warningCodes(response).includes("UNCOMMITTED_CHANGES_INCLUDED"),
+        "tour images must not count as uncommitted changes"
+      );
+    });
+    // The persisted comparison stays a SHA pair: images are read from the
+    // working tree only and never enter the diff the tour describes.
+    const tour = readTourFile(root, ".tours/changes.tour");
+    assert.equal(tour.ref, head);
+    assert.equal(tour.baseRef, baseSha);
+    assert.ok(!JSON.stringify(tour).includes("images"));
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("includes uncommitted changes explicitly and drops the ref", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
@@ -761,6 +852,151 @@ test("dryRun still fails with STALE_HEAD when headRef does not match HEAD", asyn
       false,
       "dryRun must not create the tour file"
     );
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("writes the tour under the provided fileName with the suffix appended", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        fileName: "pr58-2-agent-providers",
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.equal(response.structured.path, ".tours/pr58-2-agent-providers.tour");
+    });
+    const tour = readTourFile(root, ".tours/pr58-2-agent-providers.tour");
+    assert.equal(tour.ref, head);
+    assert.equal(tour.baseRef, baseSha);
+    assert.ok(tourFileValidAgainstSchema(root, ".tours/pr58-2-agent-providers.tour"));
+    assert.equal(fs.existsSync(path.join(root, ".tours/changes.tour")), false);
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("does not double-append the .tour suffix when fileName already has it", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        fileName: "slice.tour",
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false, response.text);
+      assert.equal(response.structured.path, ".tours/slice.tour");
+    });
+    assert.ok(tourFileValidAgainstSchema(root, ".tours/slice.tour"));
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("rejects a fileName with a path separator", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        fileName: "../escaped.tour",
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.ok(issuePaths(response).includes("fileName"));
+    });
+    assert.equal(fs.existsSync(path.join(root, ".tours/escaped.tour")), false);
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("rejects an empty fileName and reports it in dryRun too", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        fileName: "   ",
+        dryRun: true,
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "INVALID_PROPOSAL");
+      assert.ok(issuePaths(response).includes("fileName"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("replaces the previous tour at a custom fileName only on success", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const first = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        fileName: "slice",
+        steps: [{ description: "Original.", file: "feature.txt" }],
+      });
+      assert.equal(first.isError, false);
+      const before = readTourFile(root, ".tours/slice.tour");
+
+      const failed = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        fileName: "slice",
+        steps: [
+          {
+            description: captionedDiagram("Broken", INVALID_FLOWCHART_SOURCE),
+          },
+        ],
+      });
+      assert.equal(failed.isError, true);
+      assert.deepEqual(readTourFile(root, ".tours/slice.tour"), before);
+
+      const second = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        fileName: "slice",
+        steps: [{ description: "Replacement.", file: "feature.txt" }],
+      });
+      assert.equal(second.isError, false);
+      const after = readTourFile(root, ".tours/slice.tour");
+      assert.equal(
+        ((after.steps as unknown[])[0] as { description: string }).description,
+        "Replacement."
+      );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("ignores custom tour files when detecting a dirty workspace", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    writeFile(root, ".tours/pr58-2-agent-providers.tour", "{ generated earlier }");
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        fileName: "entry",
+        steps: [{ description: "d", file: "feature.txt" }],
+      });
+      assert.equal(response.isError, false);
+      assert.ok(!warningCodes(response).includes("UNCOMMITTED_CHANGES_EXCLUDED"));
+    });
   } finally {
     rmrf(root);
   }
