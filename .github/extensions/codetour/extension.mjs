@@ -1,8 +1,8 @@
 import { joinSession } from "@github/copilot-sdk/extension";
-import { runCodeTourCommand } from "./adapter.mjs";
+import { runCodeTourCommand, codeTourMcpServer } from "./adapter.mjs";
 
-const session = await joinSession({commands: [{
+const session = await joinSession({mcpServers: {codetour: codeTourMcpServer()}, commands: [{
   name: "codetour",
-  description: "Open an existing CodeTour: /codetour [tour] [--renderer html|terminal]",
+  description: "Read or generate a CodeTour: /codetour [tour] or /codetour generate project|changes [neutral|critical]",
   handler: async ctx => runCodeTourCommand(session, ctx.args)
 }]});

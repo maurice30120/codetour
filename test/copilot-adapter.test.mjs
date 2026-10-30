@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, copyFileSync, symlinkSync, cpSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { runCodeTourCommand } from "../.github/extensions/codetour/adapter.mjs";
+import { runCodeTourCommand, codeTourMcpServer } from "../.github/extensions/codetour/adapter.mjs";
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 test("Copilot selection forwards the selected Tour to the real standalone HTML CLI", async () => {
@@ -20,7 +20,7 @@ test("Copilot selection forwards the selected Tour to the real standalone HTML C
     const output = path.join(root, "result.html");
     process.env.CODETOUR_TEST_HTML_OUTPUT = output;
     const messages = [];
-    const session = {capabilities:{ui:{elicitation:true}}, ui:{select: async (_prompt, choices) => choices[1]},
+    const session = {capabilities:{ui:{elicitation:true}}, ui:{select: async (prompt, choices) => prompt === "Read or generate a CodeTour?" ? "Read" : choices[1]},
       log: async message => messages.push(message)};
     await runCodeTourCommand(session, "", root);
     for (let i = 0; i < 100 && !existsSync(output); i++) await delay(50);
@@ -84,5 +84,89 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
     rmSync(root, {recursive:true, force:true});
+  }
+});
+
+
+test("generation chooses the review mode before handing analysis to the host", async () => {
+  const events = [];
+  const answers = ["Generate", "Changes Tour", "Neutral"];
+  await runCodeTourCommand({
+    capabilities: {ui: {elicitation: true}},
+    ui: {select: async (prompt) => { events.push(prompt); return answers.shift(); }},
+    send: async options => { events.push("send"); assert.match(options.prompt, /create_changes_tour/); assert.match(options.prompt, /reviewMode.*neutral/); },
+    log: async message => { events.push(message); }
+  }, "");
+  assert.deepEqual(events.slice(0, 4), ["Read or generate a CodeTour?", "Which type of Tour?", "Neutral or critical?", "send"]);
+});
+
+
+test("critical generation receives the real shared offline skill before analysis", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    let sent;
+    const logs = [];
+    await runCodeTourCommand({capabilities:{}, send: async options => {sent=options;}, log: async message => logs.push(message)}, "generate changes critical");
+    assert.ok(sent, logs.join("\n"));
+    assert.match(sent.prompt, /reviewMode: "critical"/);
+    assert.match(sent.prompt, /Matt Pocock/);
+    assert.match(sent.prompt, /Standards/);
+    assert.match(sent.prompt, /Spec/);
+    assert.match(sent.prompt, /MIT License/);
+    assert.match(sent.prompt, /before.*analys/i);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+  }
+});
+
+
+test("an explicit Project Tour bypasses review choices and uses the existing tool", async () => {
+  const prompts = [];
+  await runCodeTourCommand({capabilities:{}, send: async ({prompt}) => prompts.push(prompt), log: async text => assert.fail(text)}, "generate project");
+  assert.equal(prompts.length, 1);
+  assert.match(prompts[0], /create_project_tour/);
+  assert.doesNotMatch(prompts[0], /reviewMode|critical-instructions/);
+});
+
+for (const cancelAt of [0, 1, 2]) test(`cancelling generation choice ${cancelAt + 1} never starts analysis`, async () => {
+  const choices = ["Generate", "Changes Tour", "Critical"];
+  let count = 0;
+  await runCodeTourCommand({capabilities:{ui:{elicitation:true}},
+    ui:{select:async () => count++ === cancelAt ? null : choices[count - 1]},
+    send: async () => assert.fail("Analysis started after cancellation"), log:async text => assert.fail(text)}, "");
+  assert.equal(count, cancelAt + 1);
+});
+
+test("invalid and unavailable generation choices fail without silently creating Tours", async () => {
+  for (const raw of ["generate changes invented", "generate project critical", "generate"]) {
+    const errors = [];
+    await runCodeTourCommand({capabilities:{}, send:async () => assert.fail("Unexpected generation"), log:async text => errors.push(text)}, raw);
+    assert.equal(errors.length, 1);
+  }
+});
+
+test("an unavailable shared skill prevents critical analysis", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.join(os.tmpdir(), "codetour-missing-executable");
+  try {
+    const errors = [];
+    await runCodeTourCommand({send:async () => assert.fail("Critical generation without instructions"), log:async text => errors.push(text)}, "generate changes critical");
+    assert.match(errors.join("\n"), /ENOENT/);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+  }
+});
+
+test("the Copilot host registers the shared standalone MCP with the selected workspace", () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    const server = codeTourMcpServer("/tmp/workspace with spaces");
+    assert.equal(server.command, "node");
+    assert.deepEqual(server.args, [process.env.CODETOUR_CLI, "mcp", "--workspace-root", "/tmp/workspace with spaces"]);
+    assert.equal(server.workingDirectory, "/tmp/workspace with spaces");
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
   }
 });
