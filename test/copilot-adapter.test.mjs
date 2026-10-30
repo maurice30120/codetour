@@ -17,6 +17,17 @@ function processIsRunning(pid) {
   }
 }
 
+function writeTrackedReaderWrapper(file) {
+  writeFileSync(file, [
+    'const { spawnSync } = require("node:child_process");',
+    'const { writeFileSync } = require("node:fs");',
+    'const result = spawnSync(process.execPath, [process.env.CODETOUR_REAL_CLI, ...process.argv.slice(2)], { stdio: "inherit" });',
+    'if (process.argv.includes("--internal-tour-id")) writeFileSync(process.env.CODETOUR_TEST_READER_PID, String(process.pid));',
+    'const finish = () => process.exit(result.status ?? 1);',
+    'if (process.argv.includes("--internal-tour-id")) setTimeout(finish, 500); else finish();'
+  ].join("\n"));
+}
+
 test("Copilot selection forwards the selected Tour to the real standalone HTML CLI", async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-copilot-adapter-"));
   const previousCli = process.env.CODETOUR_CLI;
@@ -33,16 +44,7 @@ test("Copilot selection forwards the selected Tour to the real standalone HTML C
     // Keep a process whose cwd is the temporary workspace alive after the
     // HTML file is written. Windows cannot remove that workspace until this
     // reader process has exited, so the test waits for the PID to disappear.
-    writeFileSync(wrapper, [
-      'const { spawnSync } = require("node:child_process");',
-      'const { writeFileSync } = require("node:fs");',
-      'const result = spawnSync(process.execPath, [process.env.CODETOUR_REAL_CLI, ...process.argv.slice(2)], { stdio: "inherit" });',
-      'if (process.argv.includes("--internal-tour-id")) writeFileSync(process.env.CODETOUR_TEST_READER_PID, String(process.pid));',
-      'const finish = () => {',
-      '  process.exit(result.status ?? 1);',
-      '};',
-      'if (process.argv.includes("--internal-tour-id")) setTimeout(finish, 500); else finish();'
-    ].join("\n"));
+    writeTrackedReaderWrapper(wrapper);
     process.env.CODETOUR_CLI = wrapper;
     process.env.CODETOUR_REAL_CLI = path.resolve("dist/cli.js");
     const output = path.join(root, "result.html");
@@ -96,7 +98,9 @@ test("missing UI capability is reported without launching a reader", async () =>
 test("a packaged .cmd path uses its bundled runtime without shell interpretation", async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-adapter-command-"));
   const previousCli = process.env.CODETOUR_CLI;
+  const previousRealCli = process.env.CODETOUR_REAL_CLI;
   const previousOutput = process.env.CODETOUR_TEST_HTML_OUTPUT;
+  const previousReaderPid = process.env.CODETOUR_TEST_READER_PID;
   try {
     execFileSync("git", ["init", "-q", root]);
     mkdirSync(path.join(root, ".tours"));
@@ -105,7 +109,9 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
     mkdirSync(path.join(pkg, "dist"), {recursive:true});
     if (process.platform === "win32") copyFileSync(process.execPath, path.join(pkg, "node.exe"));
     else symlinkSync(process.execPath, path.join(pkg, "node.exe"));
-    copyFileSync(path.resolve("dist/cli.js"), path.join(pkg, "dist", "cli.js"));
+    const realCli = path.join(pkg, "dist", "real-cli.js");
+    copyFileSync(path.resolve("dist/cli.js"), realCli);
+    writeTrackedReaderWrapper(path.join(pkg, "dist", "cli.js"));
     cpSync(path.resolve("dist/resvg-runtime"), path.join(pkg, "dist", "resvg-runtime"), {recursive:true});
     // The CLI bundle requires the userland punycode package instead of the
     // deprecated core module; a packaged layout ships it as a closure.
@@ -113,16 +119,30 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
     cpSync(path.resolve("node_modules/punycode"), path.join(pkg, "dist", "node_modules", "punycode"), {recursive:true});
     const cmd = path.join(pkg, "codetour.cmd");
     writeFileSync(cmd, "@echo off\r\nexit /b 12\r\n");
+    const readerPid = path.join(root, "reader.pid");
     process.env.CODETOUR_CLI = cmd;
+    process.env.CODETOUR_REAL_CLI = realCli;
     process.env.CODETOUR_TEST_HTML_OUTPUT = path.join(root, "result.html");
+    process.env.CODETOUR_TEST_READER_PID = readerPid;
     const messages = [];
     await runCodeTourCommand({capabilities:{},log:async text => messages.push(text)}, "Safe", root);
-    for (let i = 0; i < 100 && !existsSync(process.env.CODETOUR_TEST_HTML_OUTPUT); i++) await delay(50);
+    for (let i = 0; i < 100 && (!existsSync(process.env.CODETOUR_TEST_HTML_OUTPUT) || !existsSync(readerPid)); i++) await delay(50);
     assert.ok(existsSync(process.env.CODETOUR_TEST_HTML_OUTPUT), messages.join("\n"));
+    assert.ok(existsSync(readerPid), "the packaged reader should report its PID before cleanup");
+    const pid = Number(readFileSync(readerPid, "utf8"));
+    assert.ok(Number.isSafeInteger(pid) && pid > 0, "the packaged reader PID must be valid");
+    assert.ok(processIsRunning(pid), "the fixture must keep the packaged reader alive after writing HTML");
+    const deadline = Date.now() + 5000;
+    while (processIsRunning(pid)) {
+      assert.ok(Date.now() < deadline, "the packaged reader must exit before workspace cleanup");
+      await delay(25);
+    }
     assert.match(readFileSync(process.env.CODETOUR_TEST_HTML_OUTPUT, "utf8"), /Package works/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+    if (previousRealCli === undefined) delete process.env.CODETOUR_REAL_CLI; else process.env.CODETOUR_REAL_CLI = previousRealCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
+    if (previousReaderPid === undefined) delete process.env.CODETOUR_TEST_READER_PID; else process.env.CODETOUR_TEST_READER_PID = previousReaderPid;
     rmSync(root, {recursive:true, force:true});
   }
 });
