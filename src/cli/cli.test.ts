@@ -134,7 +134,7 @@ test("standalone HTML inlines an image from the Tour workspace", () => {
 });
 
 
-test("standalone HTML renders Mermaid as a PNG", { timeout: 30000 }, () => {
+test("standalone HTML renders Mermaid as a sanitized SVG", { timeout: 30000 }, () => {
   const { root } = fixture();
   try {
     writeFileSync(path.join(root, ".tours", "diagram.tour"), JSON.stringify({
@@ -147,7 +147,9 @@ test("standalone HTML renders Mermaid as a PNG", { timeout: 30000 }, () => {
       env: { ...process.env, CODETOUR_TEST_HTML_OUTPUT: output }
     });
     assert.equal(result.status, 0, result.stderr || String(result.error));
-    assert.match(readFileSync(output, "utf8"), /data:image\/png;base64,/);
+    // The browser is a real HTML surface: the diagram travels as a sanitized
+    // SVG data URI (ADR 0024), sharp at every zoom level, not a PNG.
+    assert.match(readFileSync(output, "utf8"), /data:image\/svg\+xml;base64,/);
   } finally { rmSync(root, {recursive: true, force: true}); }
 });
 
