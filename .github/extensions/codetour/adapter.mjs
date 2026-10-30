@@ -150,7 +150,9 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
         const instructions = await criticalInstructions(cwd);
         prompt += `\nBefore any analysis or drafting, follow these shared CodeTour review instructions, retrieved from codetour://review/critical-instructions:\n\n${instructions}`;
       }
-      await session.send({prompt, mode: "enqueue"});
+      // The slash command has completed its choices; start the requested run now.
+      // Enqueue leaves explicit commands waiting for another Enter on CLI 1.0.105.
+      await session.send({prompt, mode: "immediate"});
       return;
     }
     const { title, renderer } = parse(input);

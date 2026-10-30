@@ -91,13 +91,17 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
 test("generation chooses the review mode before handing analysis to the host", async () => {
   const events = [];
   const answers = ["Generate", "Changes Tour", "Neutral"];
+  let sent;
   await runCodeTourCommand({
     capabilities: {ui: {elicitation: true}},
     ui: {select: async (prompt) => { events.push(prompt); return answers.shift(); }},
-    send: async options => { events.push("send"); assert.match(options.prompt, /create_changes_tour/); assert.match(options.prompt, /reviewMode.*neutral/); },
+    send: async options => { events.push("send"); sent = options; },
     log: async message => { events.push(message); }
   }, "");
-  assert.deepEqual(events.slice(0, 4), ["Read or generate a CodeTour?", "Which type of Tour?", "Neutral or critical?", "send"]);
+  assert.deepEqual(events, ["Read or generate a CodeTour?", "Which type of Tour?", "Neutral or critical?", "send"]);
+  assert.equal(sent.mode, "immediate", "a completed command must start generation without an extra Enter");
+  assert.match(sent.prompt, /create_changes_tour/);
+  assert.match(sent.prompt, /reviewMode.*neutral/);
 });
 
 
