@@ -230,6 +230,9 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
   // persisted. The controller owns the speech engine, never TermDOM.
   /** The Step the voice last spoke; only real Step changes narrate again. */
   let lastNarrated = -1;
+  /** A requested Step can still be rendering while the preceding one is visible. */
+  let displayedStep = -1;
+  let pendingNarration = false;
   /** The latest nonblocking narration failure, shown until speech recovers. */
   let speechWarning: string | undefined;
   const narration = new NarrationController({
@@ -277,18 +280,26 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
    * same Step (resize, scroll, repaint, the chat) never restarts the voice,
    * and narration is never triggered from `render()` itself (spec #79).
    */
-  function narrateCurrentStep(reread: boolean): void {
-    if (!narration.isEnabled()) return;
-    if (!reread && current === lastNarrated) return;
-    lastNarrated = current;
-    narration.onStepChanged(tour.steps[current]?.description ?? "");
+  function narrateDisplayedStep(reread: boolean): void {
+    if (!narration.isEnabled() || displayedStep < 0) return;
+    if (!reread && displayedStep === lastNarrated) return;
+    lastNarrated = displayedStep;
+    narration.onStepChanged(tour.steps[displayedStep]?.description ?? "");
+  }
+
+  function narrateCommittedStep(): void {
+    if (finished || !pendingNarration || displayedStep !== current) return;
+    pendingNarration = false;
+    narrateDisplayedStep(false);
   }
 
   function toggleVoice(): void {
     narration.setEnabled(!narration.isEnabled());
-    // Turning the voice on reads the currently displayed Step immediately;
-    // turning it off has already cut the speech inside the controller.
-    if (narration.isEnabled()) narrateCurrentStep(true);
+    // Turning the voice on reads the displayed Step immediately, unless a
+    // navigation is still rendering: its pendingNarration defers speech until
+    // the render succeeds, so a Step that fails validation is never spoken.
+    // Turning the voice off has already cut the speech inside the controller.
+    if (narration.isEnabled() && displayedStep === current) narrateDisplayedStep(true);
     updateStatus();
   }
 
@@ -573,6 +584,7 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
     updateStatus();
     // The scroller is the Step box, not the fullscreen document (ADR 0025).
     article.scrollTop = 0;
+    displayedStep = current;
   }
   /**
    * Move to another Step. The previous narration is cut at the keypress; the
@@ -582,13 +594,9 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
    */
   function goToStep(next: number): void {
     current = next;
+    pendingNarration = true;
     narration.interrupt();
-    const requestBase = version;
-    void render().then(() => {
-      // Another render (a later navigation, a resize) superseded this one.
-      if (finished || version !== requestBase + 1) return;
-      narrateCurrentStep(false);
-    }).catch(fatal);
+    void render().then(narrateCommittedStep).catch(fatal);
   }
   async function close(): Promise<void> {
     finished = true;
@@ -623,6 +631,7 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
       const redraw = render();
       const redrawVersion = version;
       void redraw.then(() => {
+        narrateCommittedStep();
         if (finished || version !== redrawVersion) return;
         article.scrollTop = Math.min(scrollTop,
           Math.max(0, article.scrollHeight - article.clientHeight));
@@ -694,6 +703,7 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
   } else {
     try {
       await render();
+      narrateCommittedStep();
     } catch (error) {
       await close();
       throw error;
