@@ -1001,4 +1001,3 @@ test("ignores custom tour files when detecting a dirty workspace", async () => {
     rmrf(root);
   }
 });
-
