@@ -62,8 +62,10 @@ function readTourWithKeys(keys: string[], env: NodeJS.ProcessEnv): ReaderSession
   return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
 }
 
-/** Send each key only once its preceding observable output has appeared. */
-function readTourUntil(actions: { output: string; key: string }[], env: NodeJS.ProcessEnv): Promise<ReaderSession> {
+type ReaderAction = { output: string; key: string } | { frame: true; key: string };
+
+/** Send each key after its matching output has completed a synchronized TermDOM frame. */
+function readTourUntil(actions: ReaderAction[], env: NodeJS.ProcessEnv): Promise<ReaderSession> {
   const reader = [process.execPath, cli, "--internal-tour", tourPath];
   const args = process.platform === "darwin"
     ? ["-q", "/dev/null", ...reader]
@@ -79,23 +81,40 @@ function readTourUntil(actions: { output: string; key: string }[], env: NodeJS.P
     let stderr = "";
     let cursor = 0;
     let next = 0;
+    const frameEnd = "\x1b[?2026l";
+    const advance = (): void => {
+      while (next < actions.length) {
+        const action = actions[next];
+        let end = -1;
+        if ("frame" in action) {
+          end = stdout.indexOf(frameEnd, cursor);
+        } else {
+          const found = stdout.indexOf(action.output, cursor);
+          if (found < 0) return;
+          end = stdout.indexOf(frameEnd, found + action.output.length);
+        }
+        if (end < 0) return;
+        cursor = end + frameEnd.length;
+        next++;
+        child.stdin.write(action.key);
+        if (next === actions.length) {
+          child.stdin.end();
+          return;
+        }
+      }
+    };
     const deadline = setTimeout(() => {
       child.stdin.end("q");
       child.kill("SIGKILL");
-      reject(new Error((actions[next]
-        ? "Reader did not display " + actions[next].output
-        : "Reader did not close") + "\n" + stdout.slice(-2000)));
+      const action = actions[next];
+      const waitingFor = action
+        ? "Reader did not display " + ("output" in action ? action.output : "the next screen frame")
+        : "Reader did not close";
+      reject(new Error(waitingFor + "\n" + stdout.slice(-2000)));
     }, 15000);
     child.stdout.on("data", data => {
       stdout += data.toString();
-      const action = actions[next];
-      if (!action) return;
-      const found = stdout.indexOf(action.output, cursor);
-      if (found < 0) return;
-      cursor = found + action.output.length;
-      next++;
-      child.stdin.write(action.key);
-      if (next === actions.length) child.stdin.end();
+      advance();
     });
     child.stderr.on("data", data => { stderr += data.toString(); });
     child.once("error", error => { clearTimeout(deadline); reject(error); });
@@ -207,11 +226,26 @@ test("rapid navigation narrates only the steps actually displayed", {
 }, async () => {
   // Both right-arrows arrive before any render completes, so the middle Step
   // is never displayed: the voice must skip it, not queue or double anyone.
+  // The initial toggle waits for the rendered OFF state instead of guessing
+  // that TermDOM attached within a fixed delay.
   const { env, log } = speechSession();
-  const session = readTourWithKeys(["v", "\\033[C\\033[C"], env);
+  const finalDescription = "THIRDSPOKEN";
+  writeFileSync(tourPath, JSON.stringify({ ...TOUR, steps: [
+    ...TOUR.steps.slice(0, 2), { ...TOUR.steps[2], description: finalDescription }
+  ] }));
+  let session: ReaderSession;
+  try {
+    session = await readTourUntil([
+      { output: "VOICE OFF", key: "v" },
+      { output: "VOICE ON", key: "\u001b[C\u001b[C" },
+      { output: finalDescription, key: "q" }
+    ], env);
+  } finally {
+    writeFileSync(tourPath, JSON.stringify(TOUR));
+  }
   assert.equal(session.status, 0, session.stderr + "\n" + session.stdout.slice(-1500));
   assert.deepEqual(log().map(line => line.slice(line.indexOf(" ") + 1)),
-    ["First spoken description", "Third spoken description"]);
+    ["First spoken description", finalDescription]);
   await assertProcessesExited(log());
 });
 
@@ -233,12 +267,27 @@ test("scrolling and opening the chat never restart the narration", {
   skip: process.platform === "win32"
 }, async () => {
   const { env, log } = speechSession();
-  const session = readTourWithKeys(["v", "j", "k", " ", "a", "\\033"],
-    { ...env, CODETOUR_ACP_COMMAND: "/bin/echo" });
+  const description = "First spoken description " +
+    Array.from({ length: 80 }, (_, index) => "scrollable line " + index).join(" ");
+  writeFileSync(tourPath, JSON.stringify({ ...TOUR, steps: [
+    { ...TOUR.steps[0], description }, ...TOUR.steps.slice(1)
+  ] }));
+  let session: ReaderSession;
+  try {
+    session = await readTourUntil([
+      { output: "VOICE OFF", key: "v" },
+      { output: "VOICE ON", key: "j" },
+      { frame: true, key: "a" },
+      { output: "ASK", key: "\u001b" },
+      { output: "READ", key: "q" }
+    ], { ...env, CODETOUR_ACP_COMMAND: "/bin/echo" });
+  } finally {
+    writeFileSync(tourPath, JSON.stringify(TOUR));
+  }
   assert.equal(session.status, 0, session.stderr + "\n" + session.stdout.slice(-1500));
   assert.match(session.stdout, /VOICE ON/);
-  assert.deepEqual(log().map(line => line.slice(line.indexOf(" ") + 1)),
-    ["First spoken description"]);
+  assert.equal(log().length, 1, "scrolling and chat redraw must not start another utterance");
+  assert.ok(log()[0].includes("First spoken description"));
   await assertProcessesExited(log());
 });
 
