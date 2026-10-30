@@ -8,7 +8,8 @@ import { git } from "../../src/git";
 
 export { git };
 
-export const CLI_PATH = path.join(__dirname, "..", "..", "src", "cli.js");
+// The executable wrapper (dist/src/main.js), not the programmatic entry.
+export const CLI_PATH = path.join(__dirname, "..", "..", "src", "main.js");
 
 export interface ToolResponse {
   isError: boolean;
@@ -19,7 +20,8 @@ export interface ToolResponse {
 export async function startServer(
   workspaceRoot: string,
   envOverrides: Record<string, string> = {},
-  serverArgs: string[] = []
+  serverArgs: string[] = [],
+  entry: string = CLI_PATH
 ): Promise<Client> {
   const client = new Client(
     { name: "codetour-mcp-test-client", version: "0.0.0" },
@@ -27,7 +29,7 @@ export async function startServer(
   );
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [CLI_PATH, ...serverArgs],
+    args: [entry, ...serverArgs],
     cwd: workspaceRoot,
     env: {
       ...Object.fromEntries(

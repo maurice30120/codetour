@@ -1,11 +1,14 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync, existsSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
 const cli = path.resolve(__dirname, "../../cli.js");
+const mcpServerVersion = JSON.parse(
+  readFileSync(path.resolve(__dirname, "../../../packages/mcp-server/package.json"), "utf8")
+).version as string;
 
 function fixture() {
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-cli-e2e-"));
@@ -193,6 +196,80 @@ test("CLI selects a Tour by a filename containing spaces and Unicode", () => {
   } finally { rmSync(root, {recursive: true, force: true}); }
 });
 
+
+test("the mcp subcommand starts the MCP server outside any Git worktree", () => {
+  const empty = mkdtempSync(path.join(os.tmpdir(), "codetour-mcp-nogit-"));
+  try {
+    const version = run(empty, ["mcp", "--version"]);
+    assert.equal(version.status, 0, version.stderr);
+    assert.equal(version.stdout.trim(), mcpServerVersion);
+    assert.equal(version.stderr, "");
+    const help = run(empty, ["mcp", "--help"]);
+    assert.equal(help.status, 0, help.stderr);
+    assert.match(help.stdout, /Usage: codetour-mcp/);
+    assert.equal(help.stderr, "");
+  } finally {
+    rmSync(empty, { recursive: true, force: true });
+  }
+});
+
+test("the mcp subcommand forwards arguments and fails before the protocol starts", () => {
+  const { root } = fixture();
+  try {
+    const unknown = run(root, ["mcp", "--bogus"]);
+    assert.notEqual(unknown.status, 0);
+    assert.match(unknown.stderr, /Unknown argument: --bogus/);
+    assert.equal(unknown.stdout, "");
+
+    const missing = run(root, ["mcp", "--workspace-root"]);
+    assert.notEqual(missing.status, 0);
+    assert.match(missing.stderr, /Missing value for --workspace-root/);
+    assert.equal(missing.stdout, "");
+
+    const inaccessible = run(root, ["mcp", "--workspace-root", path.join(root, "missing")]);
+    assert.notEqual(inaccessible.status, 0);
+    assert.match(inaccessible.stderr, /not an accessible directory/);
+    assert.equal(inaccessible.stdout, "");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the mcp subcommand does not discover Tours or open the reader", () => {
+  const { root } = fixture();
+  try {
+    const output = path.join(root, "never-written.html");
+    const result = run(root, ["mcp", "--version"], output);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), mcpServerVersion);
+    assert.equal(existsSync(output), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("mcp is a reserved token; a Tour titled mcp stays selectable interactively", () => {
+  const { root } = fixture();
+  try {
+    writeFileSync(path.join(root, ".tours", "reserved.tour"), JSON.stringify({
+      title: "mcp",
+      steps: [{ title: "Reserved", description: "A Tour named like the command." }]
+    }));
+    // The token always starts the MCP server, never the Tour titled mcp.
+    const server = run(root, ["mcp", "--version"]);
+    assert.equal(server.status, 0, server.stderr);
+    assert.equal(server.stdout.trim(), mcpServerVersion);
+    // The Tour titled mcp remains reachable through the numbered prompt.
+    const listed = JSON.parse(run(root, ["--internal-list-tours"]).stdout) as { title: string }[];
+    const selection = String(listed.findIndex(tour => tour.title === "mcp") + 1);
+    const output = path.join(root, "reserved.html");
+    const opened = run(root, [], output, selection + "\n");
+    assert.equal(opened.status, 0, opened.stderr);
+    assert.match(readFileSync(output, "utf8"), /A Tour named like the command/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("macOS CLI reports a failing graphical launcher", {skip: process.platform !== "darwin"}, () => {
   const { root } = fixture();

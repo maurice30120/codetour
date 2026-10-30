@@ -141,7 +141,8 @@ response. You can stop an answer in progress.
 ## Try the standalone readers
 
 The standalone CLI is a preview and needs Git, Node.js 24.18.0 and npm 12.0.1.
-It reads existing Tours from a Git worktree; it does not create a Tour.
+It reads existing Tours from a Git worktree, and `codetour mcp` starts the
+same MCP server as the extension so an agent can create Tours outside VS Code.
 Conversations in these standalone readers are deferred. The existing VS Code
 conversation experience remains available.
 
@@ -175,6 +176,18 @@ is omitted. The terminal command opens an independent terminal window: use
 finish. Check that the explanation and relevant source or diff correspond to
 the same Tour Step in both interfaces. Keep the invoking terminal open if using
 the interactive Tour selection prompt.
+
+The CLI bundle also embeds the MCP server, so from any workspace (Git or not):
+
+```bash
+cd /path/to/workspace
+node "$CODETOUR_ROOT/dist/cli.js" mcp
+```
+
+The process speaks MCP over stdio with the same two tools as the extension;
+the working directory is the Tour Workspace, or pass `--workspace-root`. See
+the [standalone distribution guide](docs/standalone-distribution.md) for
+packaged-launcher client configuration.
 
 ### Try the experimental Copilot adapter
 

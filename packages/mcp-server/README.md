@@ -49,7 +49,7 @@ start the server from a workspace:
 
 ```bash
 cd /path/to/workspace
-node /path/to/codetour/packages/mcp-server/dist/src/cli.js
+node /path/to/codetour/packages/mcp-server/dist/src/main.js
 ```
 
 The process speaks MCP over `stdio` and silently waits for requests from an
@@ -78,6 +78,16 @@ pass the workspace explicitly instead:
 codetour-mcp --workspace-root /path/to/workspace
 ```
 
+The standalone CodeTour distribution exposes the same server through its
+packaged launcher, without a global Node.js installation:
+
+```bash
+/path/to/codetour-distribution/codetour mcp [--workspace-root /path/to/workspace]
+```
+
+See the [standalone distribution guide](../../docs/standalone-distribution.md)
+for the packaged-launcher client configuration shape.
+
 Finally, configure your MCP client with the command and its working directory,
 as in the example below. Once connected, the client automatically discovers
 `create_project_tour` and `create_changes_tour`.
@@ -89,7 +99,7 @@ as in the example below. Once connected, the client automatically discovers
   "mcpServers": {
     "codetour": {
       "command": "node",
-      "args": ["/path/to/codetour/packages/mcp-server/dist/src/cli.js"],
+      "args": ["/path/to/codetour/packages/mcp-server/dist/src/main.js"],
       "cwd": "/path/to/workspace"
     }
   }
