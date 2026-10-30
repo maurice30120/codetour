@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createSystemSpeech } from "./SystemSpeech";
 
 /**
@@ -17,10 +17,15 @@ const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(r
 
 test("the real macOS voice speaks an utterance to completion", { skip }, async () => {
   const speech = createSystemSpeech();
-  const speaking = speech.speak("CodeTour narration smoke test.");
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("say did not finish in time")), 30000));
-  await Promise.race([speaking, deadline]);
+    timer = setTimeout(() => reject(new Error("say did not finish in time")), 30000));
+  try {
+    await Promise.race([speech.speak("CodeTour narration smoke test."), deadline]);
+  } finally {
+    clearTimeout(timer);
+    speech.dispose();
+  }
 });
 
 test("closing the reader's engine cuts the real voice and nothing resumes", { skip }, async () => {
@@ -35,11 +40,8 @@ test("closing the reader's engine cuts the real voice and nothing resumes", { sk
   await speaking;
   // A killed voice stays dead: no process of the utterance is left or resumed.
   await sleep(2000);
-  let survivors = "";
-  try {
-    survivors = execFileSync("pgrep", ["-fl", marker], { encoding: "utf8" });
-  } catch {
-    // pgrep exits 1 when nothing matches: the expected outcome.
-  }
-  assert.equal(survivors.trim(), "");
+  const probe = spawnSync("pgrep", ["-fl", marker], { encoding: "utf8" });
+  assert.ifError(probe.error);
+  // Only exit 1 proves no matches; an unavailable or forbidden probe fails.
+  assert.equal(probe.status, 1, probe.stdout + probe.stderr);
 });

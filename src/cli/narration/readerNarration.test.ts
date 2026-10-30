@@ -182,6 +182,26 @@ test("navigation interrupts the previous speech and narrates the displayed step"
   await assertProcessesExited(log());
 });
 
+test("enabling voice during navigation never speaks a step that fails validation", {
+  skip: process.platform === "win32"
+}, async () => {
+  const { env, log } = speechSession();
+  writeFileSync(tourPath, JSON.stringify({ ...TOUR, steps: [TOUR.steps[0], {
+    title: "Middle", description: "Next description\n\n**Diagram — Navigation**\n\n```mermaid\nflowchart TD\nA --> B\n```\n\n![missing](missing.png)"
+  }] }));
+  try {
+    const session = await readTourUntil([
+      { output: "VOICE OFF", key: "\u001b[Cv" }
+    ], env);
+    assert.equal(session.status, 1, session.stderr + session.stdout.slice(-1500));
+    assert.match(session.stdout + session.stderr, /missing\.png/);
+    assert.deepEqual(log(), []);
+    await assertProcessesExited(log());
+  } finally {
+    writeFileSync(tourPath, JSON.stringify(TOUR));
+  }
+});
+
 test("rapid navigation narrates only the steps actually displayed", {
   skip: process.platform === "win32"
 }, async () => {

@@ -196,6 +196,33 @@ test("an inaccessible --workspace-root fails at startup with a clear error", () 
   }
 });
 
+test("an unreadable workspace fails before the MCP handshake", { skip: process.platform === "win32" }, t => {
+  const root = tempDir();
+  try {
+    fs.chmodSync(root, 0o100);
+    try {
+      fs.readdirSync(root);
+      t.skip("this account can read directories despite their permission bits");
+      return;
+    } catch {
+      // The fixture is effectively unreadable to the current process.
+    }
+    const result = spawnSync(process.execPath, [CLI_PATH, "--workspace-root", root], {
+      encoding: "utf8",
+      input: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {
+        protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "test", version: "1" }
+      } }) + "\n",
+      timeout: 5000
+    });
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /not an accessible directory/);
+  } finally {
+    fs.chmodSync(root, 0o700);
+    rmrf(root);
+  }
+});
+
 test(
   "the codetour mcp subcommand serves both tools through the CLI bundle",
   { skip: fs.existsSync(cliBundle) ? false : "build the repository root first (npm run build)" },

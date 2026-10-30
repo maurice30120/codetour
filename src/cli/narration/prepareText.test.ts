@@ -87,3 +87,8 @@ test("a code fence closes only with its own marker and at least its opening leng
   assert.equal(prepareNarrationText("````js\n~~~\nsecretCall()\n```\nstillCode()\n````\nAfter."),
     "Bloc de code\nAfter.");
 });
+
+test("a blockquoted code fence is substituted without speaking its source", () => {
+  assert.equal(prepareNarrationText("> ```js\n> secretCall()\n> ```\nAfter."),
+    "Bloc de code\nAfter.");
+});

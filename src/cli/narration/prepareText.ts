@@ -96,7 +96,9 @@ export function prepareNarrationText(description: string): string {
   const imageReferences = new Set(Array.from(description.matchAll(/^\s{0,3}\[([^\]]+)\]:\s*\S/gm),
     match => match[1].trim().replace(/\s+/g, " ").toLowerCase()));
   let openingFence: string | undefined;
-  for (const line of description.split("\n")) {
+  for (const sourceLine of description.split("\n")) {
+    // Blockquote containers do not change whether their contents are code.
+    const line = sourceLine.replace(/^(?: {0,3}>[ \t]?)+/, "");
     if (openingFence) {
       const closingFence = line.match(FENCE_CLOSE_PATTERN)?.[1];
       if (closingFence?.[0] === openingFence[0] && closingFence.length >= openingFence.length) {
