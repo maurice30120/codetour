@@ -258,14 +258,17 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
       hints.textContent = " " + keys.join(" · ");
     }
     const segments: string[] = [];
-    // The discrete narration state of the session, never at the cost of the
-    // key hints on the left (spec #79).
+    // The discrete narration state of the session, first in the row so a
+    // narrow terminal cuts the least important segments, never it (spec #79).
     segments.push(narration.isEnabled() ? "VOICE ON" : "VOICE OFF");
-    if (speechWarning) segments.push(fit(speechWarning, 44));
+    if (speechWarning) segments.push(speechWarning);
     if (chat.provider) segments.push(chat.provider.name.toLowerCase());
     const count = conversations.exchanges(current).length;
     if (count) segments.push(exchangesLabel(count));
-    statusRight.textContent = segments.join(" · ");
+    // The status line is one row shared with the key hints: the right side
+    // yields first, and its first segments are the ones that must survive.
+    statusRight.textContent = fit(segments.join(" · "),
+      Math.max(30, layout.columns - (layout.compactHints ? 48 : 72)));
   }
 
   /**

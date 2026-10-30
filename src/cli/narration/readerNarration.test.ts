@@ -83,12 +83,15 @@ async function assertProcessesExited(lines: string[]): Promise<void> {
 const directory = mkdtempSync(path.join(os.tmpdir(), "codetour-narration-reader-"));
 const tourPath = path.join(directory, "tour.tour");
 const fakeSpeech = path.join(directory, "fake-speech");
+const failingSpeech = path.join(directory, "fake-speech-fails");
 
 before(() => {
   initGitWorktree(directory);
   writeFileSync(tourPath, JSON.stringify(TOUR));
   writeFileSync(fakeSpeech, FAKE_SPEECH_SCRIPT);
   chmodSync(fakeSpeech, 0o755);
+  writeFileSync(failingSpeech, "#!/bin/sh\nexit 1\n");
+  chmodSync(failingSpeech, 0o755);
 });
 
 after(() => {
@@ -147,13 +150,13 @@ test("rapid navigation narrates only the steps actually displayed", {
   await assertProcessesExited(log());
 });
 
-test("a v typed in the chat prompt stays text and never toggles the voice", {
+test("a v typed in the chat prompt stays text and Ctrl+V is not the shortcut", {
   skip: process.platform === "win32"
 }, async () => {
   // /bin/echo exists on PATH: the chat opens without launching any agent,
-  // because no question is ever submitted.
+  // because no question is ever submitted. 0x16 is the Ctrl+V byte.
   const { env, log } = speechSession();
-  const session = readTourWithKeys(["a", "v", "\\033"],
+  const session = readTourWithKeys(["\\016", "a", "v", "\\033"],
     { ...env, CODETOUR_ACP_COMMAND: "/bin/echo" });
   assert.equal(session.status, 0, session.stderr + "\n" + session.stdout.slice(-1500));
   assert.match(session.stdout, /v▌/);
@@ -172,6 +175,17 @@ test("scrolling and opening the chat never restart the narration", {
   assert.deepEqual(log().map(line => line.slice(line.indexOf(" ") + 1)),
     ["First spoken description"]);
   await assertProcessesExited(log());
+});
+
+test("a failing speech engine warns without blocking the reader", {
+  skip: process.platform === "win32"
+}, async () => {
+  const session = readTourWithKeys(["v", "\\033[C"],
+    { CODETOUR_SPEECH_COMMAND: failingSpeech });
+  assert.equal(session.status, 0, session.stderr + "\n" + session.stdout.slice(-1500));
+  assert.match(session.stdout, /VOICE ON/);
+  assert.match(session.stdout, /Narration failed/);
+  assert.match(session.stdout, /Middle/);
 });
 
 test("a platform without local speech warns without blocking the reader", {
