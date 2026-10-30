@@ -6,6 +6,25 @@ L’objectif est de proposer des Tours générés par une IA pour expliquer un p
 
 - [ ] Redimensionner automatiquement les images des diagrammes Mermaid selon l’espace disponible dans le commentaire ou la surface de prévisualisation, sans débordement ni texte illisible.
 
+## Priorité 1 — Lecture du Tour
+
+### Choisir la surface de lecture
+
+- [ ] Dans le parcours interactif « Lire », proposer HTML ou terminal avant
+  l’ouverture du Tour. Une option `--renderer` explicite continue de choisir
+  directement la surface ; sans choix interactif, conserver HTML par défaut.
+- [ ] Tester le choix des deux surfaces, l’option explicite et le comportement
+  de repli sans interface interactive.
+
+### Quitter le lecteur terminal
+
+- [ ] Faire en sorte que `q` quitte le lecteur et ferme la fenêtre de terminal
+  indépendante sur macOS et Windows. Le lecteur reconnaît déjà `q` ; vérifier
+  et corriger le cycle de vie des fenêtres lancées, notamment le shell Windows
+  qui peut rester ouvert après la fin du lecteur.
+- [ ] Vérifier que quitter arrête la narration et les conversations en cours,
+  restaure le terminal et ne laisse aucun processus du lecteur actif.
+
 ## Priorité 1 — Modes de génération
 
 ### Questions de l’agent guidées par le MCP
@@ -47,10 +66,21 @@ Présenter les remarques d’une revue de code, leur contexte et les corrections
 
 Expliquer l’intention, l’implémentation et les effets des changements depuis la divergence avec la branche de base.
 
+- [ ] En mode critique, générer en français le titre, la description et les
+  étapes du Tour. Présenter en français les constats Standards et Spec, tout en
+  conservant les citations exactes des règles et exigences dans leur langue
+  d’origine.
 - [ ] Détecter ou proposer la référence de base lorsque la demande ne la précise pas ; la comparaison est déjà résolue, enregistrée et affichée lorsque cette référence est fournie.
 - [ ] Mettre en évidence les effets sur les tests, la configuration et les migrations.
 - [ ] Proposer un parcours centré sur les impacts, couvrant les consommateurs, les contrats et les comportements concernés au-delà des fichiers modifiés, en justifiant chaque relation par le code et en distinguant les impacts potentiels des effets observés.
 - [ ] Ajouter un exemple de Changes Tour à la documentation.
+- [ ] Traiter les suites de la revue critique du Changes Tour du 30 octobre :
+  ajouter une preuve de smoke test vocal réel sous Windows, exigée par
+  [l’issue #79](https://github.com/maurice30120/codetour/issues/79), puis
+  actualiser le registre de validation.
+- [ ] Évaluer le risque heuristique de duplication entre `fit` et `tail` dans
+  `src/cli/terminalLayout.ts` signalé par cette revue ; factoriser seulement
+  si une abstraction commune clarifie réellement les deux sens de troncature.
 
 ## Priorité 2 — Qualité des Tours
 
