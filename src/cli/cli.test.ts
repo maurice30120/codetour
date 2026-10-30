@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
@@ -87,4 +87,123 @@ test("CLI errors do not write or launch", () => {
     rmSync(root, { recursive: true, force: true });
     rmSync(empty, { recursive: true, force: true });
   }
+});
+
+
+test("standalone HTML shows referenced Git snapshot rather than a dirty worktree", () => {
+  const { root } = fixture();
+  try {
+    const git = (...args: string[]) => {
+      const result = spawnSync("git", args, {cwd: root, encoding: "utf8"});
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.trim();
+    };
+    writeFileSync(path.join(root, "code.ts"), "export const historical = 42;\n");
+    git("add", "code.ts");
+    git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "snapshot");
+    const ref = git("rev-parse", "HEAD");
+    writeFileSync(path.join(root, "code.ts"), "export const dirty = 99;\n");
+    git("add", "code.ts");
+    git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "later");
+    writeFileSync(path.join(root, ".tours", "snapshot.tour"), JSON.stringify({
+      title: "Snapshot", ref, steps: [{title: "Code", file: "code.ts", line: 1, description: "Example"}]
+    }));
+    const output = path.join(root, "snapshot.html");
+    const result = run(root, ["snapshot"], output);
+    assert.equal(result.status, 0, result.stderr);
+    const html = readFileSync(output, "utf8");
+    assert.match(html, /historical = 42/);
+    assert.doesNotMatch(html, /dirty = 99/);
+  } finally { rmSync(root, {recursive: true, force: true}); }
+});
+
+
+test("standalone HTML inlines an image from the Tour workspace", () => {
+  const { root } = fixture();
+  try {
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/6T8AAAAASUVORK5CYII=", "base64");
+    writeFileSync(path.join(root, "image.png"), png);
+    writeFileSync(path.join(root, ".tours", "image.tour"), JSON.stringify({
+      title: "Image", steps: [{title: "Picture", description: "![Example](./image.png)"}]
+    }));
+    const output = path.join(root, "image.html");
+    const result = run(root, ["image"], output);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(readFileSync(output, "utf8"), /data:image\/png;base64,/);
+  } finally { rmSync(root, {recursive: true, force: true}); }
+});
+
+
+test("standalone HTML renders Mermaid as a PNG", { timeout: 30000 }, () => {
+  const { root } = fixture();
+  try {
+    writeFileSync(path.join(root, ".tours", "diagram.tour"), JSON.stringify({
+      title: "Diagram", steps: [{title: "Chart", description:
+        "**Diagram — Flow**\n\n```mermaid\nflowchart TD\nA[Start] --> B[End]\n```"}]
+    }));
+    const output = path.join(root, "diagram.html");
+    const result = spawnSync(process.execPath, [cli, "diagram"], {
+      cwd: root, encoding: "utf8", timeout: 25000,
+      env: { ...process.env, CODETOUR_TEST_HTML_OUTPUT: output }
+    });
+    assert.equal(result.status, 0, result.stderr || String(result.error));
+    assert.match(readFileSync(output, "utf8"), /data:image\/png;base64,/);
+  } finally { rmSync(root, {recursive: true, force: true}); }
+});
+
+test("the Copilot adapter can list discoverable Tours without a TTY", () => {
+  const { root } = fixture();
+  try {
+    const result = run(path.join(root, "nested", "deep"), ["--internal-list-tours"]);
+    assert.equal(result.status, 0, result.stderr);
+    const tours = JSON.parse(result.stdout);
+    assert.deepEqual(tours.map((tour: {title: string}) => tour.title), ["Architecture", "Other"]);
+    assert.ok(tours.every((tour: {id: string}) => tour.id.startsWith("file:")));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+
+test("a selected discovered Tour identity opens the requested tour", () => {
+  const { root } = fixture();
+  try {
+    const output = path.join(root, "identity.html");
+    const list = JSON.parse(run(root, ["--internal-list-tours"]).stdout);
+    const result = run(root, ["--internal-tour-id", list[1].id, "--renderer", "html"], output);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(readFileSync(output, "utf8"), /Other explanation/);
+    const rejected = run(root, ["--internal-tour-id", "file:///outside.tour"], output);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /no longer available/);
+  } finally { rmSync(root, {recursive:true, force:true}); }
+});
+
+
+test("CLI selects a Tour by a filename containing spaces and Unicode", () => {
+  const { root } = fixture();
+  try {
+    writeFileSync(path.join(root, ".tours", "guide été.tour"), JSON.stringify({
+      title: "A different title", steps: [{description: "Filename selection"}]
+    }));
+    const output = path.join(root, "output.html");
+    const result = run(root, ["guide été"], output);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(readFileSync(output, "utf8"), /Filename selection/);
+  } finally { rmSync(root, {recursive: true, force: true}); }
+});
+
+
+test("macOS CLI reports a failing graphical launcher", {skip: process.platform !== "darwin"}, () => {
+  const { root } = fixture();
+  try {
+    const bin = path.join(root, "bin"); mkdirSync(bin);
+    const launcher = path.join(bin, "open"); writeFileSync(launcher, "#!/bin/sh\nexit 42\n"); chmodSync(launcher, 0o755);
+    for (const renderer of ["html", "terminal"]) {
+      const env: NodeJS.ProcessEnv = { ...process.env, PATH: bin + path.delimiter + process.env.PATH };
+      delete env.CODETOUR_TEST_HTML_OUTPUT;
+      const result = spawnSync(process.execPath, [cli, "architecture", "--renderer", renderer], {cwd: root, encoding: "utf8", env});
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /launcher failed: 42/i);
+      assert.doesNotMatch(result.stdout, /CodeTour: opened/);
+    }
+  } finally { rmSync(root, {recursive:true, force:true}); }
 });

@@ -121,7 +121,25 @@ export function resolveReadonlyStepContext(
   const file = targetPath(root, step);
   if (file) {
     try {
-      const source = readFileSync(file, "utf8");
+      let source: string;
+      // The editor uses the live worktree for HEAD/current branch and a Git
+      // document for a reference that resolves to a different commit.
+      if (tour.ref && tour.ref !== "HEAD" && step.display !== "diff") {
+        const ref = git(root, ["rev-parse", "--verify", "--end-of-options", tour.ref + "^{commit}"]).trim();
+        const head = git(root, ["rev-parse", "--verify", "HEAD^{commit}"]).trim();
+        if (ref !== head) {
+          const relative = path.relative(root, file).replace(/\\/g, "/");
+          if (!relative || relative.startsWith("../") || path.isAbsolute(relative)) {
+            throw new Error("Referenced file is outside the Git worktree");
+          }
+          if (!regularFileAtCommit(root, ref, relative)) throw new Error("File missing from referenced Git snapshot");
+          source = git(root, ["show", ref + ":" + relative]);
+        } else {
+          source = readFileSync(file, "utf8");
+        }
+      } else {
+        source = readFileSync(file, "utf8");
+      }
       return { kind: "code", label: step.file || step.uri, text: contextForCode(source, step) };
     } catch (error) {
       return { kind: "unavailable", label: step.file || step.uri,

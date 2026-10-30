@@ -23,15 +23,21 @@ def main():
     with tempfile.TemporaryDirectory(prefix="codetour-macos-pty-") as directory:
         root = pathlib.Path(directory)
         subprocess.run(["git", "init", "-q", str(root)], check=True)
-        tour = root / "tour.tour"
+        # The Tour may be under a nested Git repo while it belongs to the
+        # outer workspace selected by the CLI.
+        nested = root / "nested"
+        nested.mkdir()
+        subprocess.run(["git", "init", "-q", str(nested)], check=True)
+        (root / "source.txt").write_text("WORKSPACE_ROOT_CONTENT\n", encoding="utf-8")
+        tour = nested / "tour.tour"
         tour.write_text(json.dumps({"title": "macOS integration", "steps": [
-            {"title": "First step", "description": "First description"},
+            {"title": "First step", "description": "First description", "file": "source.txt", "line": 1},
             {"title": "Second step", "description": "Second description"},
         ]}), encoding="utf-8")
         pid, fd = pty.fork()
         if pid == 0:
             os.environ["TERM"] = "xterm-256color"
-            os.execlp("node", "node", str(cli), "--internal-tour", str(tour))
+            os.execlp("node", "node", str(cli), "--internal-tour", str(tour), str(root))
         output = bytearray()
         stage, status = 0, None
         try:
@@ -43,7 +49,7 @@ def main():
                         output.extend(os.read(fd, 65536))
                     except OSError:
                         pass
-                if stage == 0 and b"First step" in output:
+                if stage == 0 and b"First step" in output and b"WORKSPACE_ROOT_CONTENT" in output:
                     os.write(fd, b"n")
                     stage = 1
                 if stage == 1 and b"Second step" in output:

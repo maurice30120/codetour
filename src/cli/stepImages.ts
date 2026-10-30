@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import * as path from "node:path";
 import { findLocalImageReferences, imageMimeType } from "codetour-description-renderer";
 
@@ -32,6 +32,18 @@ export async function readTourImages(
 ): Promise<TourImages> {
   const images = new Map<string, Uint8Array>();
   const problems: string[] = [];
+  // Resolve real paths once so local image references cannot escape the
+  // workspace through symlinks, whatever surface reads the images.
+  let realRoot: string;
+  try {
+    realRoot = await realpath(root);
+  } catch (error) {
+    return {
+      images,
+      problems: ["cannot read workspace root: " +
+        (error instanceof Error ? error.message : String(error))]
+    };
+  }
 
   for (const reference of findLocalImageReferences(description)) {
     const imagePath = reference.path;
@@ -42,7 +54,12 @@ export async function readTourImages(
 
     let bytes: Uint8Array;
     try {
-      bytes = await readFile(path.resolve(root, imagePath));
+      const image = await realpath(path.resolve(realRoot, imagePath));
+      const relative = path.relative(realRoot, image);
+      if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
+        throw new Error("escapes the Tour workspace");
+      }
+      bytes = await readFile(image);
     } catch (error) {
       if (options.missingIsProblem) {
         problems.push("cannot read " + imagePath + ": " +

@@ -86,7 +86,7 @@ async function pickTour(tours: CodeTour[], requested?: string): Promise<CodeTour
   if (requested) {
     const matches = tours.filter(tour =>
       tour.title === requested ||
-      path.basename(new URL(tour.id).pathname, ".tour") === requested
+      path.basename(fileURLToPath(tour.id), ".tour") === requested
     );
     if (matches.length !== 1) {
       throw new Error("Tour '" + requested + "' not found or ambiguous. Available Tours: " +
@@ -129,27 +129,44 @@ async function openFileInBrowser(file: string): Promise<void> {
       : [file];
 
   await new Promise<void>((resolve, reject) => {
-    const process = spawn(command, args, { detached: true, stdio: "ignore" });
-    process.once("error", reject);
-    process.once("spawn", () => { process.unref(); resolve(); });
+    const child = spawn(command, args, { detached: true, stdio: "ignore" });
+    child.once("error", reject);
+    child.once("exit", (code, signal) => code === 0 ? resolve() :
+      reject(new Error("Browser launcher failed: " + (signal || code))));
   });
 }
 
 async function main(): Promise<void> {
   if (process.argv[2] === "--internal-tour") {
-    if (process.argv.length !== 4) throw new Error("Internal terminal runner requires one Tour path.");
+    if (process.argv.length !== 4 && process.argv.length !== 5) throw new Error("Internal terminal runner requires a Tour path and optional workspace root.");
     const source = JSON.parse(await fs.readFile(process.argv[3], "utf8")) as CodeTour;
     source.id = pathToFileURL(process.argv[3]).toString();
-    await runTerminalTour(source, repositoryRoot(path.dirname(process.argv[3])));
+    await runTerminalTour(source, repositoryRoot(process.argv[4] || path.dirname(process.argv[3])));
     return;
   }
-  const options = parseArguments(process.argv.slice(2));
+  const args = process.argv.slice(2);
   const root = repositoryRoot(process.cwd());
   const tours = await discover(root);
-  const tour = await pickTour(tours, options.tourName);
+  if (args.length === 1 && args[0] === "--internal-list-tours") {
+    console.log(JSON.stringify(tours.map(tour => ({id: tour.id, title: tour.title}))));
+    return;
+  }
+  // Only select identities from this workspace's discovered list. Copilot
+  // passes the chosen identity so duplicate titles remain unambiguous.
+  let selected: CodeTour | undefined;
+  if (args[0] === "--internal-tour-id") {
+    const id = args[1];
+    if (!id) throw new Error("Missing internal Tour identity.");
+    selected = tours.find(tour => tour.id === id);
+    if (!selected) throw new Error("Selected Tour is no longer available.");
+    args.splice(0, 2);
+  }
+  const options = parseArguments(args);
+  if (selected && options.tourName) throw new Error("Only one Tour can be selected.");
+  const tour = selected ?? await pickTour(tours, options.tourName);
 
   if (options.renderer === "terminal") {
-    await launchTerminalReader(fileURLToPath(tour.id));
+    await launchTerminalReader(fileURLToPath(tour.id), root);
     console.log("CodeTour: opened independent terminal reader for " + tour.title);
     return;
   }
