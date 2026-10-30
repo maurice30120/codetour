@@ -72,7 +72,9 @@ test("Copilot selection forwards the selected Tour to the real standalone HTML C
     if (previousRealCli === undefined) delete process.env.CODETOUR_REAL_CLI; else process.env.CODETOUR_REAL_CLI = previousRealCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
     if (previousReaderPid === undefined) delete process.env.CODETOUR_TEST_READER_PID; else process.env.CODETOUR_TEST_READER_PID = previousReaderPid;
-    rmSync(root, {recursive:true, force:true});
+    // On Windows the OS may release a just-exited reader's cwd handle just
+    // after its PID disappears. Retry only transient filesystem-lock errors.
+    rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
   }
 });
 
@@ -143,7 +145,7 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
     if (previousRealCli === undefined) delete process.env.CODETOUR_REAL_CLI; else process.env.CODETOUR_REAL_CLI = previousRealCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
     if (previousReaderPid === undefined) delete process.env.CODETOUR_TEST_READER_PID; else process.env.CODETOUR_TEST_READER_PID = previousReaderPid;
-    rmSync(root, {recursive:true, force:true});
+    rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
   }
 });
 
