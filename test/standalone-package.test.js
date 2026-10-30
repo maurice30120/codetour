@@ -8,6 +8,7 @@ const { spawnSync, spawn } = require("node:child_process");
 const { createRequire } = require("node:module");
 const root = path.resolve(__dirname, "..");
 const packaging = require("../scripts/package-standalone.js");
+const { verifyCriticalResource } = require("../scripts/verify-critical-resource.js");
 
 // The MCP SDK client comes from the MCP server package's installed
 // dependencies; the standalone tests are its consumer-side counterpart.
@@ -175,6 +176,99 @@ test("packaged codetour mcp serves --workspace-root from a different working dir
     assert.equal(fs.existsSync(path.join(elsewhere, ".tours")), false);
   } finally {
     await client.close();
+  }
+});
+
+test("the standalone MCP serves the complete critical review skill offline", async () => {
+  const runtime = path.join(shared.artifact, process.platform === "win32" ? "node.exe" : "node");
+  await verifyCriticalResource(runtime,
+    [path.join(shared.artifact, "dist", "cli.js"), "mcp"], shared.tmp);
+});
+
+test("packaged creation and both readers preserve Project and neutral or critical Changes Tours", async () => {
+  const workspace = path.join(shared.tmp, "generation playback");
+  fs.mkdirSync(workspace);
+  const git = (...args) => {
+    const result = spawnSync("git", args, { cwd: workspace, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  git("init", "-q");
+  fs.writeFileSync(path.join(workspace, "code.ts"), "export const baseline = 1;\n");
+  git("add", "code.ts");
+  git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "base");
+  const baseRef = git("rev-parse", "HEAD");
+  fs.writeFileSync(path.join(workspace, "code.ts"), "export const delivered = 2;\n");
+  git("add", "code.ts");
+  git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "feature");
+  let headRef = git("rev-parse", "HEAD");
+  const client = new Client({ name: "generation-playback-test", version: "0.0.0" }, { capabilities: {} });
+  const transport = new StdioClientTransport({ command: shared.launcher, args: ["mcp"], cwd: workspace, env: restrictedEnv() });
+  const cases = [
+    { fileName: "project", tool: "create_project_tour" },
+    { fileName: "neutral", tool: "create_changes_tour", reviewMode: "neutral" },
+    { fileName: "critical-no-spec", tool: "create_changes_tour", reviewMode: "critical",
+      description: "Spec axis not evaluated: no spec source was found." },
+    { fileName: "critical-with-spec", tool: "create_changes_tour", reviewMode: "critical",
+      description: "Spec source: docs/spec.md. No defect established." }
+  ];
+  await client.connect(transport);
+  try {
+    for (const scenario of cases) {
+      if (scenario.fileName === "critical-with-spec") {
+        fs.mkdirSync(path.join(workspace, "docs"));
+        fs.writeFileSync(path.join(workspace, "docs", "spec.md"), "# Requirement\n\nThe delivered constant is 2.\n");
+        git("add", "docs/spec.md");
+        git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "record docs/spec.md");
+        headRef = git("rev-parse", "HEAD");
+      }
+      scenario.headRef = headRef;
+      // Fake Tour Generator: the packaged server supplies instructions before
+      // the author submits steps. MCP validates proposals; it does not review.
+      if (scenario.reviewMode === "critical") {
+        const resource = await client.readResource({ uri: "codetour://review/critical-instructions" });
+        assert.ok(resource.contents.some(content => "text" in content && content.text.includes("Standards")));
+      }
+      const response = await callTool(client, scenario.tool, {
+        title: scenario.fileName, fileName: scenario.fileName,
+        ...(scenario.reviewMode ? { baseRef, headRef, reviewMode: scenario.reviewMode } : {}),
+        ...(scenario.description ? { description: scenario.description } : {}),
+        steps: [{ title: "Introduction", file: "code.ts", line: 1, description: "The delivered constant is 2." }]
+      });
+      assert.equal(response.isError, false, response.text);
+    }
+  } finally { await client.close(); }
+  // Readers must resolve committed diff snapshots despite a later dirty edit.
+  fs.writeFileSync(path.join(workspace, "code.ts"), "export const dirty = 99;\n");
+  for (const scenario of cases) {
+    const tourPath = path.join(workspace, ".tours", `${scenario.fileName}.tour`);
+    const original = fs.readFileSync(tourPath, "utf8");
+    const tour = JSON.parse(original);
+    assert.equal("reviewMode" in tour, false);
+    const html = path.join(shared.tmp, `${scenario.fileName}.html`);
+    const result = spawnSync(shared.launcher, [scenario.fileName, "--renderer", "html"], {
+      cwd: workspace, env: { ...process.env, ...restrictedEnv(), CODETOUR_TEST_HTML_OUTPUT: html },
+      encoding: "utf8", shell: process.platform === "win32"
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const rendered = fs.readFileSync(html, "utf8");
+    assert.match(rendered, /The delivered constant is 2/);
+    if (scenario.reviewMode) {
+      assert.equal(tour.ref, scenario.headRef);
+      assert.equal(tour.baseRef, baseRef);
+      assert.equal(tour.steps[0].display, "diff");
+      assert.match(rendered, /baseline = 1/);
+      assert.match(rendered, /delivered = 2/);
+      assert.doesNotMatch(rendered, /dirty = 99/);
+    }
+    if (process.platform === "darwin") {
+      const terminal = spawnSync("/usr/bin/python3", [path.join(root, "test/standalone-terminal-smoke.py"), shared.launcher, tourPath,
+        ...(scenario.reviewMode ? ["baseline", "delivered"] : [])], {
+        cwd: workspace, env: { ...process.env, ...restrictedEnv() }, encoding: "utf8", timeout: 30000
+      });
+      assert.equal(terminal.status, 0, terminal.stdout + "\n" + terminal.stderr);
+    }
+    assert.equal(fs.readFileSync(tourPath, "utf8"), original);
   }
 });
 
