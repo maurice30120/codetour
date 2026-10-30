@@ -45,6 +45,29 @@ function restrictedEnv() {
   return process.env;
 }
 
+function packagedLaunchSpec(args) {
+  if (process.platform === "win32") {
+    // cmd.exe splits an unquoted launcher path or argument at spaces. Quote
+    // each known fixture value before passing it through the shell.
+    return {
+      command: `"${shared.launcher}"`,
+      args: args.map(argument => `"${argument}"`),
+      shell: true,
+    };
+  }
+  return { command: shared.launcher, args, shell: false };
+}
+
+function spawnPackagedSync(args, options = {}) {
+  const launch = packagedLaunchSpec(args);
+  return spawnSync(launch.command, launch.args, { ...options, shell: launch.shell });
+}
+
+function spawnPackaged(args, options = {}) {
+  const launch = packagedLaunchSpec(args);
+  return spawn(launch.command, launch.args, { ...options, shell: launch.shell });
+}
+
 async function callTool(client, name, args) {
   const result = await client.callTool({ name, arguments: args });
   return {
@@ -92,8 +115,8 @@ test("packaged CLI reads a Tour without a globally available Node executable", (
   const html = path.join(shared.tmp, "rendered.html");
   const env = { ...process.env, CODETOUR_TEST_HTML_OUTPUT: html };
   if (process.platform === "darwin") env.PATH = "/usr/bin:/bin";
-  const result = spawnSync(shared.launcher, ["fixture", "--renderer", "html"], {
-    cwd: repo, env, encoding: "utf8", shell: process.platform === "win32"
+  const result = spawnPackagedSync(["fixture", "--renderer", "html"], {
+    cwd: repo, env, encoding: "utf8"
   });
   assert.equal(result.status, 0, result.stderr);
   assert.match(fs.readFileSync(html, "utf8"), /Standalone works/);
@@ -249,9 +272,9 @@ test("packaged creation and both readers preserve Project and neutral or critica
     const tour = JSON.parse(original);
     assert.equal("reviewMode" in tour, false);
     const html = path.join(shared.tmp, `${scenario.fileName}.html`);
-    const result = spawnSync(shared.launcher, [scenario.fileName, "--renderer", "html"], {
+    const result = spawnPackagedSync([scenario.fileName, "--renderer", "html"], {
       cwd: workspace, env: { ...process.env, ...restrictedEnv(), CODETOUR_TEST_HTML_OUTPUT: html },
-      encoding: "utf8", shell: process.platform === "win32"
+      encoding: "utf8"
     });
     assert.equal(result.status, 0, result.stderr);
     const rendered = fs.readFileSync(html, "utf8");
@@ -279,8 +302,8 @@ test("packaged codetour mcp help, version and argument diagnostics match codetou
   const workspace = path.join(shared.tmp, "diagnostics workspace");
   fs.mkdirSync(workspace);
   const env = { ...restrictedEnv() };
-  const run = args => spawnSync(shared.launcher, args, {
-    cwd: workspace, env, encoding: "utf8", shell: process.platform === "win32"
+  const run = args => spawnPackagedSync(args, {
+    cwd: workspace, env, encoding: "utf8"
   });
 
   const help = run(["mcp", "--help"]);
@@ -312,10 +335,9 @@ test("packaged codetour mcp help, version and argument diagnostics match codetou
 test("packaged codetour mcp keeps stdout protocol-only and exits when stdin closes", async () => {
   const workspace = path.join(shared.tmp, "protocol workspace");
   fs.mkdirSync(workspace);
-  const child = spawn(shared.launcher, ["mcp"], {
+  const child = spawnPackaged(["mcp"], {
     cwd: workspace,
     env: restrictedEnv(),
-    shell: process.platform === "win32",
   });
   let stdout = "";
   let stderrText = "";
