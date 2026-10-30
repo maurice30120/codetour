@@ -1,6 +1,6 @@
 import { after, before, test } from "node:test";
 import * as assert from "node:assert/strict";
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -41,30 +41,11 @@ interface ReaderSession {
   stderr: string;
 }
 
-/**
- * Runs the bundled reader in a genuine pseudo-terminal, sends `keys` after
- * TermDOM has attached, then quits. The keys are printf escape sequences, so
- * "\u001b[C" is the right-arrow key.
- */
-function readTourWithKeys(keys: string[], env: NodeJS.ProcessEnv): ReaderSession {
-  const keyScript = keys.map(key => "printf '" + key + "'; sleep 1;").join(" ");
-  const input = "(sleep 2; " + keyScript + " sleep 1; printf q)";
-  const reader = process.execPath + " '" + cli + "' --internal-tour '" + tourPath + "'";
-  // GNU and BSD `script` disagree on the command syntax; both provide the
-  // pseudo-terminal TermDOM requires and forward the piped keystrokes.
-  const command = process.platform === "darwin"
-    ? input + " | script -q /dev/null " + reader
-    : input + " | timeout -k 1s 25s script -q -e -c '" + reader + "' /dev/null";
-  const result = spawnSync("bash", ["-lc", command], {
-    encoding: "utf8", timeout: 40000,
-    env: { ...process.env, TERM: "xterm-256color", CI: "true", ...env }
-  });
-  return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
-}
+type ReaderAction =
+  | { output: string; key: string; ready?: () => boolean }
+  | { frame: true; key: string; ready?: () => boolean };
 
-type ReaderAction = { output: string; key: string } | { frame: true; key: string };
-
-/** Send each key after its matching output has completed a synchronized TermDOM frame. */
+/** Send each key after its matching frame and optional async condition are ready. */
 function readTourUntil(actions: ReaderAction[], env: NodeJS.ProcessEnv): Promise<ReaderSession> {
   const reader = [process.execPath, cli, "--internal-tour", tourPath];
   const args = process.platform === "darwin"
@@ -94,6 +75,7 @@ function readTourUntil(actions: ReaderAction[], env: NodeJS.ProcessEnv): Promise
           end = stdout.indexOf(frameEnd, found + action.output.length);
         }
         if (end < 0) return;
+        if (action.ready && !action.ready()) return;
         cursor = end + frameEnd.length;
         next++;
         child.stdin.write(action.key);
@@ -103,9 +85,13 @@ function readTourUntil(actions: ReaderAction[], env: NodeJS.ProcessEnv): Promise
         }
       }
     };
+    const conditionPoll = actions.some(action => action.ready)
+      ? setInterval(advance, 10)
+      : undefined;
     const deadline = setTimeout(() => {
       child.stdin.end("q");
       child.kill("SIGKILL");
+      if (conditionPoll) clearInterval(conditionPoll);
       const action = actions[next];
       const waitingFor = action
         ? "Reader did not display " + ("output" in action ? action.output : "the next screen frame")
@@ -117,9 +103,14 @@ function readTourUntil(actions: ReaderAction[], env: NodeJS.ProcessEnv): Promise
       advance();
     });
     child.stderr.on("data", data => { stderr += data.toString(); });
-    child.once("error", error => { clearTimeout(deadline); reject(error); });
+    child.once("error", error => {
+      clearTimeout(deadline);
+      if (conditionPoll) clearInterval(conditionPoll);
+      reject(error);
+    });
     child.once("close", status => {
       clearTimeout(deadline);
+      if (conditionPoll) clearInterval(conditionPoll);
       child.stdin.destroy();
       resolve({ status, stdout, stderr });
     });
@@ -181,7 +172,11 @@ test("a session starts silent; V speaks the current step and V stops it", {
   skip: process.platform === "win32"
 }, async () => {
   const { env, log } = speechSession();
-  const session = readTourWithKeys(["v", "v"], env);
+  const session = await readTourUntil([
+    { output: "VOICE OFF", key: "v" },
+    { output: "VOICE ON", key: "v", ready: () => log().length === 1 },
+    { output: "VOICE OFF", key: "q" }
+  ], env);
   assert.equal(session.status, 0, session.stderr + "\n" + session.stdout.slice(-1500));
   assert.match(session.stdout, /VOICE OFF/);
   assert.match(session.stdout, /VOICE ON/);
@@ -194,7 +189,11 @@ test("navigation interrupts the previous speech and narrates the displayed step"
   skip: process.platform === "win32"
 }, async () => {
   const { env, log } = speechSession();
-  const session = readTourWithKeys(["v", "\\033[C"], env);
+  const session = await readTourUntil([
+    { output: "VOICE OFF", key: "v" },
+    { output: "VOICE ON", key: "\u001b[C", ready: () => log().length === 1 },
+    { output: "Middle", key: "q", ready: () => log().length === 2 }
+  ], env);
   assert.equal(session.status, 0, session.stderr + "\n" + session.stdout.slice(-1500));
   assert.deepEqual(log().map(line => line.slice(line.indexOf(" ") + 1)),
     ["First spoken description", "Second spoken description"]);
@@ -255,8 +254,12 @@ test("a v typed in the chat prompt stays text and Ctrl+V is not the shortcut", {
   // /bin/echo exists on PATH: the chat opens without launching any agent,
   // because no question is ever submitted. 0x16 is the Ctrl+V byte.
   const { env, log } = speechSession();
-  const session = readTourWithKeys(["\\016", "a", "v", "\\033"],
-    { ...env, CODETOUR_ACP_COMMAND: "/bin/echo" });
+  const session = await readTourUntil([
+    { output: "VOICE OFF", key: "\u0016a" },
+    { output: "ASK", key: "v" },
+    { output: "v▌", key: "\u001b" },
+    { output: "READ", key: "q" }
+  ], { ...env, CODETOUR_ACP_COMMAND: "/bin/echo" });
   assert.equal(session.status, 0, session.stderr + "\n" + session.stdout.slice(-1500));
   assert.match(session.stdout, /v▌/);
   assert.doesNotMatch(session.stdout, /VOICE ON/);
@@ -308,7 +311,11 @@ test("a failing speech engine warns without blocking the reader", {
 test("a platform without local speech warns without blocking the reader", {
   skip: process.platform !== "linux"
 }, async () => {
-  const session = readTourWithKeys(["v", "\\033[C"], {});
+  const session = await readTourUntil([
+    { output: "VOICE OFF", key: "v" },
+    { output: "Narration failed", key: "\u001b[C" },
+    { output: "Middle", key: "q" }
+  ], {});
   assert.equal(session.status, 0, session.stderr + "\n" + session.stdout.slice(-1500));
   assert.match(session.stdout, /Narration failed/);
   assert.match(session.stdout, /Middle/);
