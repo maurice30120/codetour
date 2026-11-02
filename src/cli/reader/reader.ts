@@ -213,9 +213,10 @@ class TerminalReader implements TourReader {
     if (this.finished) return this.getState();
     if (step < 0 || step >= this.tour.steps.length) return this.getState();
     this.current = step;
-    // ADR 0029: the previous speech is cut at the keypress and the new one
-    // is committed only for the Step this navigation actually displays —
-    // the narration policy lands with the follow-up ticket.
+    // ADR 0029: the previous speech is cut at the keypress and the new
+    // narration is committed only for the Step this navigation actually
+    // displays — the render commit settles the pending want.
+    this.narration.onNavigate();
     void this.render();
     return this.getState();
   }
@@ -255,7 +256,11 @@ class TerminalReader implements TourReader {
   }
 
   toggleVoice(): ReaderViewModel {
-    this.narration.toggleVoice();
+    // The policy owns the voice decision; the reader supplies the Step facts
+    // it keeps: the displayed Step, the navigation target and the
+    // displayed Step's description (ADR 0029).
+    this.narration.toggleVoice(this.displayedStep, this.current,
+      this.tour.steps[this.displayedStep]?.description ?? "");
     return this.getState();
   }
 
@@ -392,8 +397,12 @@ class TerminalReader implements TourReader {
       // this is the resize render that owns a scroll restoration (ADR 0025).
       this.settleScroll(request, true);
       // Only now is the Step displayed — the commit point the narration
-      // policy and every displayed-Step query key off (ADR 0029).
+      // policy and every displayed-Step query key off (ADR 0029). The render
+      // path itself never starts the voice: only a pending navigation want
+      // settles here, so a re-render never restarts narration.
       this.displayedStep = this.current;
+      this.narration.onRenderCommitted(this.displayedStep, this.current,
+        this.tour.steps[this.displayedStep]?.description ?? "");
     } catch (error) {
       await this.fatal(error);
     }

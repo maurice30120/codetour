@@ -655,8 +655,9 @@ test("a single unmodified v toggles the voice; modified combos pass through", as
   reader.pressKey({ key: "V" });
   state = reader.getState();
   assert.equal(state.narration.enabled, false);
-  // Turning the voice off cuts the current speech (ADR 0029).
-  assert.equal(speech.cancellations, 1);
+  // Two cuts: the handed utterance cancels first, then turning the voice
+  // off cuts the speech (ADR 0029) — the engine cancels before every speak.
+  assert.equal(speech.cancellations, 2);
   assert.deepEqual(state.status.rightSegments, ["VOICE OFF"]);
 });
 

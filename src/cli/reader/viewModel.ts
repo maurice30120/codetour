@@ -79,6 +79,8 @@ export interface ReaderNarrationState {
   warning: string | undefined;
   /** Index of the Step the voice last spoke; -1 when none. */
   lastNarratedStep: number;
+  /** A navigation wants narration; it defers until its Step is the displayed one. */
+  pendingNarration: boolean;
 }
 
 /** The scroll state of the reader's scrollers (ADR 0025). */
