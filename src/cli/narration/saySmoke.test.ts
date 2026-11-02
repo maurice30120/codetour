@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createSystemSpeech } from "./SystemSpeech";
+import { createSystemSpeech, NarrationEngine } from "./SystemSpeech";
 import { prepareNarrationText } from "./prepareText";
 import { SPELL_WORDS } from "./spellWords";
 
@@ -17,17 +17,21 @@ const skip = process.platform !== "darwin" ||
 
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
-test("the real macOS voice speaks an utterance to completion", { skip }, async () => {
-  const speech = createSystemSpeech();
+/** Speak one utterance on a fresh engine, failing if `say` misses the deadline. */
+async function speakWithinTimeout(speech: NarrationEngine, text: string, ms: number): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) =>
-    timer = setTimeout(() => reject(new Error("say did not finish in time")), 30000));
+    timer = setTimeout(() => reject(new Error("say did not finish in time")), ms));
   try {
-    await Promise.race([speech.speak("CodeTour narration smoke test."), deadline]);
+    await Promise.race([speech.speak(text), deadline]);
   } finally {
     clearTimeout(timer);
     speech.dispose();
   }
+}
+
+test("the real macOS voice speaks an utterance to completion", { skip }, async () => {
+  await speakWithinTimeout(createSystemSpeech(), "CodeTour narration smoke test.", 30000);
 });
 
 test("the real macOS voice speaks the spell dictionary and representative identifiers", { skip }, async () => {
@@ -43,16 +47,7 @@ test("the real macOS voice speaks the spell dictionary and representative identi
     "parseSTDERRFile"
   ];
   const description = identifiers.map(identifier => "The `" + identifier + "` token.").join(" ");
-  const speech = createSystemSpeech();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<never>((_, reject) =>
-    timer = setTimeout(() => reject(new Error("say did not finish in time")), 60000));
-  try {
-    await Promise.race([speech.speak(prepareNarrationText(description)), deadline]);
-  } finally {
-    clearTimeout(timer);
-    speech.dispose();
-  }
+  await speakWithinTimeout(createSystemSpeech(), prepareNarrationText(description), 60000);
 });
 
 test("closing the reader's engine cuts the real voice and nothing resumes", { skip }, async () => {

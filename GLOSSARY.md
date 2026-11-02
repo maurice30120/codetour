@@ -17,5 +17,5 @@ A tool call a Tour Step Conversation's agent is never allowed to run — one tha
 _Avoid_: Disallowed tool, unsafe tool
 
 **Narration Spell Dictionary**:
-The fixed code constant mapping inline code identifiers to the letter-by-letter spoken spelling the voice reads in their place.
+The fixed code constant mapping identifier tokens to the letter-by-letter spoken spelling the voice reads in their place.
 _Avoid_: Acronym map, A–Z mapping, word list
