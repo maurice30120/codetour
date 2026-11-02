@@ -10,10 +10,12 @@ export function codeTourMcpServer(cwd = process.cwd()) {
   return {type: "stdio", command: executable, args: [...prefix, "mcp", "--workspace-root", cwd], tools: ["*"], workingDirectory: cwd};
 }
 
-// Single stdio MCP client for every resource this extension reads: the
-// generation prompt served by codetour mcp. Timeout and errors are explicit;
-// an empty or unreachable resource rejects so no analysis can start.
-async function servedResource(cwd, uri) {
+// Single stdio MCP client for every generation this extension starts: the
+// composed generation prompt served by codetour mcp through prompts/get.
+// Timeout and errors are explicit; an empty or unreachable prompt rejects so
+// no analysis can start. The adapter holds no prompt text: it passes the
+// user's orientation phrase through and sends back what the server composed.
+async function servedPrompt(cwd, name, args) {
   const config = codeTourMcpServer(cwd);
   return new Promise((resolve, reject) => {
     const child = spawn(config.command, config.args, {cwd, stdio: ["pipe", "pipe", "pipe"], windowsHide: true});
@@ -29,22 +31,23 @@ async function servedResource(cwd, uri) {
       child.kill();
       if (error) reject(error); else resolve(value);
     };
-    const timer = setTimeout(() => finish(new Error(`CodeTour MCP resource ${uri} timed out.`)), 15000);
+    const timer = setTimeout(() => finish(new Error(`CodeTour MCP prompt ${name} timed out.`)), 15000);
     const send = message => child.stdin.write(JSON.stringify({jsonrpc: "2.0", ...message}) + "\n");
     child.on("error", error => finish(error));
     child.stdin.on("error", error => finish(error));
     child.stderr.on("data", chunk => {stderr = (stderr + chunk).slice(-4096);});
-    child.once("close", () => finish(new Error(stderr.trim() || `CodeTour MCP closed before serving ${uri}.`)));
+    child.once("close", () => finish(new Error(stderr.trim() || `CodeTour MCP closed before serving ${name}.`)));
     lines.on("line", line => {
       try {
         const message = JSON.parse(line);
         if (message.error) throw new Error(message.error.message);
         if (message.id === 1) {
           send({method: "notifications/initialized"});
-          send({id: 2, method: "resources/read", params: {uri}});
+          send({id: 2, method: "prompts/get", params: {name, arguments: args}});
         } else if (message.id === 2) {
-          const text = message.result?.contents?.map(item => item.text || "").join("\n");
-          if (!text?.trim()) throw new Error(`CodeTour MCP returned an empty resource for ${uri}.`);
+          const text = message.result?.messages?.map(item =>
+            typeof item.content === "string" ? item.content : item.content?.text || "").join("\n");
+          if (!text?.trim()) throw new Error(`CodeTour MCP returned an empty prompt for ${name}.`);
           finish(null, text);
         }
       } catch (error) { finish(error); }
@@ -124,8 +127,11 @@ async function select(session, prompt, choices) {
 export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
   try {
     let input = (raw || "").trim();
-    const explicit = input.match(/^generate(?:\s+(project|changes)(?:\s+(neutral|critical))?)?$/);
-    if (input.startsWith("generate ") && !explicit) throw new Error("Use /codetour generate project or /codetour generate changes neutral|critical.");
+    // generate [project|changes] [neutral|critical] followed by an optional
+    // free phrase from the user: the Tour orientation, written in the user's
+    // language. The phrase travels to the composed generation prompt as is;
+    // the adapter interprets nothing in it.
+    const explicit = input.match(/^generate(?:\s+(project|changes)(?:\s+(neutral|critical))?)?(?:\s+(\S.*))?$/);
     let action = explicit ? "Generate" : "Read";
     if (!input) {
       action = await select(session, "Read or generate a CodeTour?", ["Read", "Generate"]);
@@ -146,12 +152,28 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
         reviewMode = answer.toLowerCase();
       }
       if (typeof session.send !== "function") throw new Error("This Copilot host cannot send a generation request to its agent.");
-      // codetour mcp is the single source of the generation prompt: the
-      // adapter only picks the served resource for the requested run.
-      const uri = type === "project"
-        ? "codetour://generate/project-tour"
-        : `codetour://generate/changes-tour/${reviewMode}`;
-      const prompt = await servedResource(cwd, uri);
+      let brief = (explicit?.[3] || "").trim();
+      // A generation always asks for its orientation before launching: the
+      // user can confirm or redirect the run while it is still free.
+      // Cancelling stops the Tour instead of generating silently; an empty
+      // answer keeps the standard prompt. A phrase already given in the
+      // command is used as is and never asked again.
+      if (!brief) {
+        if (!session.capabilities?.ui?.elicitation) {
+          throw new Error("Tour generation asks for its orientation before launching and needs an interactive Copilot session; provide it after the command: /codetour generate project|changes [neutral|critical] what the Tour should focus on.");
+        }
+        const answer = await session.ui.input("What should this Tour focus on? (empty for the standard Tour, cancel to stop)");
+        if (answer === null || answer === undefined) return;
+        brief = answer.trim();
+      }
+      // codetour mcp composes the generation prompt for this run, including
+      // the user's orientation phrase and its language when one was given; the
+      // adapter only relays the choices and the user's words.
+      const prompt = await servedPrompt(
+        cwd,
+        type === "project" ? "generate_project_tour" : "generate_changes_tour",
+        type === "project" ? (brief ? {brief} : {}) : {reviewMode, ...(brief ? {brief} : {})}
+      );
       // The slash command has completed its choices; start the requested run now.
       // Enqueue leaves explicit commands waiting for another Enter on CLI 1.0.105.
       await session.send({prompt, mode: "immediate"});
