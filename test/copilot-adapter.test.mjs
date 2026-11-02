@@ -271,7 +271,16 @@ async function withRealCli(root, run) {
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
-    rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
+    try {
+      rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
+    } catch (error) {
+      // The detached reader keeps the workspace as its cwd, and Windows
+      // refuses to delete a directory a process still sits in, even after
+      // retries. The relayed resolution is the contract under test here, not
+      // the temporary workspace's cleanliness, so an ephemeral runner may
+      // keep the directory instead of failing the passing assertions.
+      if (process.platform !== "win32") throw error;
+    }
   }
 }
 
