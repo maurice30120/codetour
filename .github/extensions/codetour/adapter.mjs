@@ -159,10 +159,14 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
     }
     const { title, renderer } = parse(input);
     // Selection is the CLI's resolution contract; host elicitation only picks
-    // a candidate among many when no title is given. Resolution errors (unique
-    // Tour shortcut, ambiguity, empty workspace) come from the CLI as is.
-    let requested = title;
-    if (!requested) {
+    // a candidate among many when no title is given. A given title keeps the
+    // CLI resolution with its exact errors relayed as is (unique Tour
+    // shortcut, ambiguity, empty workspace). An elicited candidate launches
+    // the reader by identity, so duplicate titles resolve unambiguously.
+    let selected;
+    if (title) {
+      selected = JSON.parse(await runCli(["--internal-resolve-tour", title], cwd));
+    } else {
       const tours = JSON.parse(await runCli(["--internal-list-tours"], cwd));
       if (tours.length > 1) {
         if (!session.capabilities?.ui?.elicitation) throw new Error("Tour selection requires an interactive Copilot session; specify a Tour title.");
@@ -171,10 +175,11 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
         if (choice === null || choice === undefined) return;
         const chosen = tours[labels.indexOf(choice)];
         if (!chosen) throw new Error("Invalid Tour selection.");
-        requested = chosen.title;
+        selected = chosen;
+      } else {
+        selected = JSON.parse(await runCli(["--internal-resolve-tour"], cwd));
       }
     }
-    const selected = JSON.parse(await runCli(["--internal-resolve-tour", ...(requested ? [requested] : [])], cwd));
     await runCli(["--internal-tour-id", selected.id, "--renderer", renderer], cwd, {detached: true});
     await session.log(`Starting CodeTour: ${selected.title} (${renderer}).`, {level: "info"});
   } catch (error) {

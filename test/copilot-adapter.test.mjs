@@ -332,6 +332,25 @@ test("a workspace with a single Tour resolves it without Tour elicitation", asyn
   });
 });
 
+test("an elicited choice resolves duplicate Tour titles by identity", async () => {
+  const root = createTourWorkspace([]);
+  writeFileSync(path.join(root, ".tours", "a.tour"), JSON.stringify({title: "Shared Tour", steps: [{description: "First duplicate"}]}));
+  writeFileSync(path.join(root, ".tours", "b.tour"), JSON.stringify({title: "Shared Tour", steps: [{description: "Second duplicate"}]}));
+  await withRealCli(root, async output => {
+    const messages = [];
+    const session = {capabilities: {ui: {elicitation: true}},
+      ui: {select: async (prompt, choices) => prompt === "Read or generate a CodeTour?" ? "Read" : choices[1]},
+      log: async message => messages.push(message)};
+    await runCodeTourCommand(session, "", root);
+    for (let i = 0; i < 100 && !existsSync(output); i++) await delay(50);
+    assert.ok(existsSync(output), messages.join("\n"));
+    const html = readFileSync(output, "utf8");
+    assert.match(html, /Second duplicate/);
+    assert.doesNotMatch(html, /First duplicate/);
+    assert.match(messages.join("\n"), /Starting CodeTour: Shared Tour \(html\)/);
+  });
+});
+
 test("cancelling Tour selection never launches a reader", async () => {
   const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
   await withRealCli(root, async output => {

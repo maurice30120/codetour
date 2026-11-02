@@ -8,6 +8,7 @@ import type { CodeTour } from "../store";
 // entry point; non-interactive callers (the Copilot adapter) consume
 // this contract through --internal-resolve-tour.
 export function resolveTourSelection(tours: CodeTour[], requested?: string): CodeTour {
+  const availableTours = () => "Available Tours: " + tours.map(tour => tour.title).join(", ");
   if (tours.length === 0) {
     throw new Error("No existing Tours found in this Git worktree.");
   }
@@ -17,12 +18,10 @@ export function resolveTourSelection(tours: CodeTour[], requested?: string): Cod
       path.basename(fileURLToPath(tour.id), ".tour") === requested
     );
     if (matches.length !== 1) {
-      throw new Error("Tour '" + requested + "' not found or ambiguous. Available Tours: " +
-        tours.map(tour => tour.title).join(", "));
+      throw new Error("Tour '" + requested + "' not found or ambiguous. " + availableTours());
     }
     return matches[0];
   }
   if (tours.length === 1) return tours[0];
-  throw new Error("Tour selection is ambiguous. Available Tours: " +
-    tours.map(tour => tour.title).join(", "));
+  throw new Error("Tour selection is ambiguous. " + availableTours());
 }
