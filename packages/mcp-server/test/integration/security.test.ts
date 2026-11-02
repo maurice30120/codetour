@@ -105,8 +105,18 @@ test("exposes exactly two tools", async () => {
       assert.ok(project!.description!.includes(".tours/images/<tour-name>/"));
       assert.ok(project!.description!.includes("PNG or JPEG"));
       assert.ok(project!.description!.includes("at most 2 MB"));
+      assert.ok(
+        project!.description!.includes(
+          "**Diagram — <descriptive text>**, with a literal em dash (U+2014)"
+        )
+      );
       assert.ok(changes!.description!.includes("short paragraphs separated by blank lines"));
       assert.ok(changes!.description!.includes("**Diagram — …**"));
+      assert.ok(
+        changes!.description!.includes(
+          "**Diagram — <descriptive text>**, with a literal em dash (U+2014)"
+        )
+      );
       assert.ok(changes!.description!.includes(".tours/images/<tour-name>/"));
       assert.ok(changes!.description!.includes("PNG or JPEG"));
       assert.ok(changes!.description!.includes("at most 2 MB"));
