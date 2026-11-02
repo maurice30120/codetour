@@ -1,4 +1,4 @@
-import type { ChatExchange } from "../stepChatSupport";
+import type { StepConversationExchange } from "../../agent/stepConversations";
 import type { TerminalLayout } from "../terminalLayout";
 
 /**
@@ -58,7 +58,7 @@ export interface ReaderConversation {
   providerName: string | undefined;
   /** Suggested questions of the active Step, in order; keys 1-9 ask them. */
   suggestions: string[];
-  exchanges: readonly ChatExchange[];
+  exchanges: readonly StepConversationExchange[];
   /** True while an answer is streaming. */
   responding: boolean;
 }

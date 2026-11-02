@@ -100,6 +100,11 @@ class FakeResponder implements ConversationResponder {
     return this.nextAnswer(request, events);
   }
 
+  cancellations = 0;
+  cancel(): void {
+    this.cancellations++;
+  }
+
   dispose(): void {
     this.disposed = true;
   }
@@ -753,6 +758,8 @@ test("Enter submits the trimmed question, exits ask mode and dispatches it", asy
   // Ask mode is exited and the answer is already in flight (WAIT mode).
   assert.equal(state.composer.mode, "responding");
   assert.equal(state.composer.draft, "");
+  await flush();
+  // The question reaches the agent once the grounding context resolves.
   assert.equal(responder.requests.length, 1);
   assert.equal(responder.requests[0].question, "why");
   // The question is grounded in the Step the reader sees (spec #93).
@@ -783,6 +790,7 @@ test("suggestion keys ask the matching suggestion when it exists", async () => {
   // The composer hint announces the suggestion keys.
   assert.equal(reader.getState().composer.hint, "a ask · 1-2 suggestion");
   reader.pressKey({ key: "2" });
+  await flush();
   assert.equal(responder.requests.length, 1);
   assert.equal(responder.requests[0].question, "Second question");
 
@@ -803,16 +811,18 @@ test("a question without an agent fails the exchange with the guidance", async (
   assert.equal(state.conversation.exchanges.length, 1);
   assert.deepEqual(state.conversation.exchanges[0], {
     question: "why?",
-    answer: "",
+    answer: "This step's responder is not available. Tour reading stays usable.",
+    activity: undefined,
+    toolUses: [],
     pending: false,
-    error: "No ACP agent is installed to answer this question.",
-    tools: []
+    interrupted: false,
+    failed: true
   });
   // The chat head still reports the no-agent state.
   assert.equal(state.conversation.meta, "no agent");
 });
 
-test("an answer streams into the exchange, reports tools and completes", async () => {
+test("an answer streams into the exchange, reports activity and completes", async () => {
   const responder = new FakeResponder();
   responder.nextAnswer = async (_request, events) => {
     events?.onActivity?.("thinking");
@@ -832,7 +842,8 @@ test("an answer streams into the exchange, reports tools and completes", async (
   assert.equal(state.conversation.exchanges.length, 1);
   assert.equal(state.conversation.exchanges[0].pending, false);
   assert.equal(state.conversation.exchanges[0].answer, "Hello");
-  assert.deepEqual(state.conversation.exchanges[0].tools, ["thinking"]);
+  assert.equal(state.conversation.exchanges[0].activity, "thinking");
+  assert.deepEqual(state.conversation.exchanges[0].toolUses, []);
   assert.equal(state.conversation.meta, "1 exchange");
   // The status line gains the exchange count after the voice state and the provider.
   assert.deepEqual(state.status.rightSegments, ["VOICE OFF", "fake", "1 exchange"]);
@@ -856,7 +867,8 @@ test("a streaming answer paints WAIT mode and hides the ask hint", async () => {
   assert.equal(state.status.mode, "WAIT");
   assert.equal(state.composer.mode, "responding");
   assert.equal(state.composer.prompt, "answering…");
-  assert.equal(state.composer.hint, "answer streaming");
+  assert.equal(state.composer.hint, "answer streaming · q stop");
+  assert.match(state.status.hints, /q stop/);
   assert.doesNotMatch(state.status.hints, /a ask/);
   assert.equal(state.conversation.responding, true);
   assert.ok(release);
@@ -892,8 +904,43 @@ test("one answer is in flight at a time", async () => {
   assert.equal(reader.getState().conversation.responding, false);
 });
 
-test("a failed answer fails the exchange and unlocks asking again", async () => {
+test("q first interrupts a streaming answer, then quits once nothing is in flight", async () => {
+  let release: (() => void) | undefined;
   const responder = new FakeResponder();
+  responder.nextAnswer = () => new Promise<string>(resolve => {
+    release = () => resolve("late completion");
+  });
+  const { reader, descriptions } = harness([{ title: "Only", description: "Hello" }], {
+    responder
+  });
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  const asking = reader.ask("why?");
+  await flush();
+  // While the answer streams, quitting would lose it: the same key first
+  // interrupts the Step's answer in flight.
+  reader.pressKey({ key: "q" });
+  let state = reader.getState();
+  assert.equal(state.finished, false);
+  assert.equal(state.conversation.responding, false);
+  assert.equal(responder.cancellations, 1);
+  const stopped = state.conversation.exchanges[0];
+  assert.equal(stopped.pending, false);
+  assert.equal(stopped.interrupted, true);
+  // The late completion of the cancelled answer is ignored.
+  release!();
+  await asking;
+  state = reader.getState();
+  assert.equal(state.conversation.exchanges[0].interrupted, true);
+  assert.equal(state.conversation.exchanges[0].answer, "");
+  // A second q, with nothing in flight, quits.
+  reader.pressKey({ key: "q" });
+  await flush();
+  assert.equal(reader.getState().finished, true);
+});
+
+test("a failed answer fails the exchange and unlocks asking again", async () => {  const responder = new FakeResponder();
   responder.nextAnswer = async () => {
     throw new Error("agent went away");
   };
@@ -905,7 +952,11 @@ test("a failed answer fails the exchange and unlocks asking again", async () => 
   await opening;
   await reader.ask("why?");
   const state = reader.getState();
-  assert.equal(state.conversation.exchanges[0].error, "agent went away");
+  assert.equal(state.conversation.exchanges[0].failed, true);
+  assert.equal(
+    state.conversation.exchanges[0].answer,
+    "The answer to this question failed (agent went away). Tour reading stays usable."
+  );
   assert.equal(state.conversation.exchanges[0].pending, false);
   assert.equal(state.conversation.responding, false);
   // A retry is possible: the failed exchange is not history.
@@ -1077,7 +1128,15 @@ test("a question begins a pending exchange before the agent is contacted", async
   // The pending exchange paints before the agent is contacted: the reader
   // sees its own question and an answer on the way.
   const exchange = reader.getState().conversation.exchanges[0];
-  assert.deepEqual(exchange, { question: "why?", answer: "", pending: true, tools: [] });
+  assert.deepEqual(exchange, {
+    question: "why?",
+    answer: "",
+    activity: undefined,
+    toolUses: [],
+    pending: true,
+    interrupted: false,
+    failed: false
+  });
   release!();
   await asking;
 });
@@ -1121,12 +1180,13 @@ test("streaming deltas accumulate into the pending exchange and the panel follow
   assert.equal(done.conversation.exchanges[0].answer, "Hello");
 });
 
-test("tool activity and tool uses become the exchange's tool lines, deduped", async () => {
+test("tool uses are keyed by call and the latest activity wins", async () => {
   const responder = new FakeResponder();
   responder.nextAnswer = async (_request, events) => {
     events?.onActivity?.("scanning files");
     events?.onToolUse?.({ toolCallId: "1", kind: "edit", title: "src/a.ts", forbidden: false });
-    // The same call reported again with a new status is one line, not two.
+    // The same call reported again with a new status is one use, updated
+    // in place, not two.
     events?.onToolUse?.({ toolCallId: "1", kind: "edit", title: "src/a.ts", status: "completed", forbidden: false });
     events?.onToolUse?.({ toolCallId: "2", kind: "run", forbidden: true });
     return "done";
@@ -1139,13 +1199,15 @@ test("tool activity and tool uses become the exchange's tool lines, deduped", as
   await opening;
   await reader.ask("why?");
   const exchange = reader.getState().conversation.exchanges[0];
-  // Activity messages keep their text; tool uses become "kind: title" lines,
-  // a forbidden tool is prefixed and a titleless one keeps its kind alone.
-  assert.deepEqual(exchange.tools, [
-    "scanning files",
-    "edit: src/a.ts",
-    "refused run"
+  // Tool uses are keyed by call: a forbidden one keeps its kind alone, the
+  // painters prefix it from the structured use, not a prebuilt label.
+  assert.deepEqual(exchange.toolUses, [
+    { toolCallId: "1", kind: "edit", title: "src/a.ts", status: "completed", forbidden: false },
+    { toolCallId: "2", kind: "run", forbidden: true }
   ]);
+  // The latest activity wins: the allowed tool call became the live line,
+  // over the earlier plain activity message.
+  assert.equal(exchange.activity, "src/a.ts (completed)");
 });
 
 test("a completed exchange becomes the history of the Step's next question", async () => {
@@ -1195,9 +1257,9 @@ test("suggestion digits are ignored while an answer streams", async () => {
   // Once the answer landed, the digit asks again.
   responder.nextAnswer = async () => "second done";
   reader.pressKey({ key: "2" });
+  await flush();
   assert.equal(responder.requests.length, 2);
   assert.equal(responder.requests[1].question, "Second question");
-  await flush();
 });
 
 test("without an agent the panel keeps its guidance and the Step's suggestions", async () => {
@@ -1222,7 +1284,8 @@ test("without an agent the panel keeps its guidance and the Step's suggestions",
   const after = reader.getState().conversation.exchanges;
   assert.equal(after.length, 1);
   assert.equal(after[0].question, "What is this?");
-  assert.equal(after[0].error, "No ACP agent is installed to answer this question.");
+  assert.equal(after[0].failed, true);
+  assert.equal(after[0].answer, "This step's responder is not available. Tour reading stays usable.");
 });
 
 test("a diff Step question is grounded in both commit snapshots", async () => {

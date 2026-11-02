@@ -92,6 +92,7 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
     ? {
       providerName: chat.provider?.name,
       answer: (request, events) => chat.responder!.answer(request, events),
+      cancel: () => chat.responder!.cancel?.(),
       dispose: () => chat.dispose()
     }
     : undefined;
@@ -561,23 +562,37 @@ class TermDomSurface {
       agent.className = "role role-agent";
       agent.textContent = "▌ " + (conversation.providerName ?? "agent").toLowerCase();
       block.append(asker, question, agent);
-      for (const tool of exchange.tools) {
+      for (const tool of exchange.toolUses) {
         const use = document.createElement("p");
         use.className = "tool";
-        use.textContent = "⚙ " + tool;
+        use.textContent = "⚙ " + (tool.forbidden ? "refused " : "") +
+          (tool.kind || "tool") + (tool.title ? ": " + tool.title : "");
+        block.appendChild(use);
+      }
+      if (exchange.activity) {
+        const use = document.createElement("p");
+        use.className = "tool";
+        use.textContent = "⚙ " + exchange.activity;
         block.appendChild(use);
       }
       const answer = document.createElement("div");
       answer.className = "answer";
-      if (exchange.error) {
+      if (exchange.failed) {
         answer.classList.add("answer-error");
-        answer.textContent = exchange.error;
+        answer.textContent = exchange.answer;
       } else if (exchange.pending) {
         answer.classList.add("answer-pending");
         // Answers stream as plain text until complete, then as Markdown.
         answer.textContent = exchange.answer || "… answering";
       } else {
+        // Answers settle as Markdown once complete or interrupted.
         answer.innerHTML = renderMarkdownToHtml(exchange.answer);
+        if (exchange.interrupted) {
+          const stopped = document.createElement("p");
+          stopped.className = "answer-pending";
+          stopped.textContent = "Answer interrupted.";
+          answer.appendChild(stopped);
+        }
       }
       block.appendChild(answer);
       this.chatBody.appendChild(block);

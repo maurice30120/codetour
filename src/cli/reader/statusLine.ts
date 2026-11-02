@@ -37,7 +37,9 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
       ? ["←/→ step", "j/k scroll"]
       : ["←/→ previous/next", "j/k scroll", "PgUp/PgDn page"];
     if (input.hasResponder && !input.responding) keys.push("a ask");
-    keys.push("q quit");
+    // While an answer streams, quitting would lose it: the same key first
+    // interrupts the Step's answer in flight.
+    keys.push(input.responding ? "q stop" : "q quit");
     hints = " " + keys.join(" · ");
   }
   const rightSegments: string[] = [

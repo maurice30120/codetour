@@ -32,6 +32,8 @@ export interface ConversationResponder {
   /** Lowercase provider name for the status line and the agent role line. */
   readonly providerName: string | undefined;
   answer(request: StepChatRequest, events?: StepChatAnswerEvents): Promise<string> | string;
+  /** Interrupts the in-flight answer; its late completion is ignored. */
+  cancel?(): void;
   /** Release the responder's agent resources; the session is over. */
   dispose?(): Promise<void> | void;
 }

@@ -172,7 +172,7 @@ class TerminalReader implements TourReader {
   getState(): ReaderViewModel {
     const suggestions = this.tour.steps[this.current]?.questions ?? [];
     const exchanges = this.conversation.exchangesFor(this.current);
-    const responding = this.conversation.isResponding;
+    const responding = this.conversation.isResponding(this.current);
     const hasResponder = this.conversation.hasResponder;
     const narrationState = this.narration.state;
     return {
@@ -258,7 +258,7 @@ class TerminalReader implements TourReader {
   pressKey(event: ReaderKeyEvent): ReaderViewModel {
     const action = translateKey({
       asking: this.asking,
-      responding: this.conversation.isResponding,
+      responding: this.conversation.isResponding(this.current),
       hasResponder: this.conversation.hasResponder,
       suggestions: this.tour.steps[this.current]?.questions ?? [],
       currentStep: this.current,
@@ -307,6 +307,9 @@ class TerminalReader implements TourReader {
     const text = question.trim();
     if (!text) return;
     await this.conversation.ask(this.current, text);
+    // The store notifies every streaming update; the settled view repaints
+    // here, the same final paint the extension's chat does.
+    this.notify();
   }
 
   onExtentsMeasured(extents: ReaderExtents): void {
@@ -347,7 +350,14 @@ class TerminalReader implements TourReader {
     if (this.finished) return;
     switch (action.type) {
       case "quit":
-        void this.close();
+        // While an answer streams, quitting would lose it: the same key
+        // first interrupts the Step's answer in flight, and a second press
+        // quits once nothing is in flight.
+        if (this.conversation.isResponding(this.current)) {
+          this.conversation.stop(this.current);
+        } else {
+          void this.close();
+        }
         break;
       case "navigate":
         this.navigateTo(action.step);
@@ -537,7 +547,7 @@ class TerminalReader implements TourReader {
     const hint = this.asking
       ? "question for this step"
       : responding
-        ? "answer streaming"
+        ? "answer streaming · q stop"
         : !hasResponder
           ? "no agent on PATH"
           : suggestions.length
