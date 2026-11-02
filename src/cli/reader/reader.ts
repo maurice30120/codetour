@@ -121,6 +121,16 @@ class TerminalReader implements TourReader {
   /** The offset a resize render must restore, stamped with its render request. */
   private pendingScrollRestore: { request: number; scrollTop: number } | undefined;
 
+  private chatScrollTop = 0;
+  private chatViewportRows = 0;
+  private chatContentRows = 0;
+  /**
+   * The chat pinning policy (spec #93): the panel pins to its bottom after
+   * every chat paint and streaming delta, exactly as the reader always has —
+   * the offset is module state, clamped against the reported extents.
+   */
+  private readonly chatPinned = true;
+
   constructor(options: ReaderOptions) {
     this.tour = options.tour;
     this.root = options.root;
@@ -188,7 +198,10 @@ class TerminalReader implements TourReader {
         stepScrollTop: this.stepScrollTop,
         stepViewportRows: this.stepViewportRows,
         stepContentRows: this.stepContentRows,
-        chatPinned: true
+        chatScrollTop: this.chatScrollTop,
+        chatViewportRows: this.chatViewportRows,
+        chatContentRows: this.chatContentRows,
+        chatPinned: this.chatPinned
       },
       layout: this.layout,
       rows: this.terminalRows,
@@ -275,6 +288,22 @@ class TerminalReader implements TourReader {
     this.stepViewportRows = extents.stepViewportRows;
     this.stepContentRows = extents.stepContentRows;
     this.clampScroll();
+    if (extents.chatViewportRows !== undefined) {
+      this.chatViewportRows = extents.chatViewportRows;
+    }
+    if (extents.chatContentRows !== undefined) {
+      this.chatContentRows = extents.chatContentRows;
+    }
+    // The freshly painted panel settles against its new extents: a pinned
+    // panel sits at its bottom, any other offset clamps inside them.
+    if (this.chatPinned) {
+      this.chatScrollTop = Math.max(0, this.chatContentRows - this.chatViewportRows);
+    } else {
+      this.chatScrollTop = Math.min(
+        Math.max(0, this.chatScrollTop),
+        Math.max(0, this.chatContentRows - this.chatViewportRows)
+      );
+    }
   }
 
   async close(): Promise<void> {

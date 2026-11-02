@@ -91,14 +91,26 @@ export interface ReaderScrollState {
   stepViewportRows: number;
   /** Total scrollable height of the Step box, reported by the adapter after each paint. */
   stepContentRows: number;
-  /** The conversation panel pins to its bottom after every chat paint and delta. */
+  /** The conversation panel's scroll offset, owned by the module (spec #93). */
+  chatScrollTop: number;
+  /** The conversation panel's visible rows, as the adapter measured them. */
+  chatViewportRows: number;
+  /** The conversation panel's total height, reported by the adapter after each paint. */
+  chatContentRows: number;
+  /** True while the panel pins to its bottom after every chat paint and delta. */
   chatPinned: boolean;
 }
 
-/** The Step-box extents the adapter measures after painting a view model. */
+/** The scroller extents the adapter measures after painting a view model. */
 export interface ReaderExtents {
   stepViewportRows: number;
   stepContentRows: number;
+  /**
+   * The conversation panel's measured extents. Optional: a report about the
+   * Step box alone leaves the panel's scroll state untouched.
+   */
+  chatViewportRows?: number;
+  chatContentRows?: number;
 }
 
 /** A render error that ended the session; the adapter prints it after restoring the screen. */
