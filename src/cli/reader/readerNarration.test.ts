@@ -1,7 +1,12 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CodeTour, CodeTourStep } from "../../store";
-import type { DescriptionRenderer, SpeechEngine } from "./collaborators";
+import type { StepChatRequest } from "../../agent/stepChatContract";
+import type {
+  ConversationResponder,
+  DescriptionRenderer,
+  SpeechEngine
+} from "./collaborators";
 import { createReader, type TourReader } from "./reader";
 
 /**
@@ -83,6 +88,22 @@ class FakeDescriptionRenderer {
     this.pending.splice(this.pending.indexOf(entry), 1);
     entry.resolve(html);
   }
+
+  /** Fail the oldest pending render of one Step, exactly as a real one rejects. */
+  fail(index: number, error: unknown): void {
+    const entry = this.pending.find(candidate => candidate.index === index);
+    assert.ok(entry, "no pending render for step " + index);
+    this.pending.splice(this.pending.indexOf(entry), 1);
+    entry.reject(error);
+  }
+}
+
+/** A conversation responder stub: no agent process is ever started. */
+class StubResponder implements ConversationResponder {
+  readonly providerName = "Stub";
+  answer(_request: StepChatRequest): Promise<string> {
+    return Promise.resolve("Stub answer");
+  }
 }
 
 interface Harness {
@@ -91,7 +112,7 @@ interface Harness {
   descriptions: FakeDescriptionRenderer;
 }
 
-function harness(steps: CodeTourStep[]): Harness {
+function harness(steps: CodeTourStep[], responder?: ConversationResponder): Harness {
   const speech = new ScriptedSpeechEngine();
   const descriptions = new FakeDescriptionRenderer();
   const reader = createReader({
@@ -99,6 +120,7 @@ function harness(steps: CodeTourStep[]): Harness {
     root: "/workspace",
     speechEngine: speech,
     descriptionRenderer: descriptions.render,
+    responder,
     // No Git command and no file read ever runs in this suite.
     resolveStepContext: () => ({ kind: "none" })
   });
@@ -371,4 +393,56 @@ test("toggling the voice on while a navigation is still rendering defers to the 
   // The pending want from the navigation settles on the committed render.
   assert.deepEqual(speech.spoken, ["Second spoken"]);
   assert.equal(reader.getState().narration.lastNarratedStep, 1);
+});
+
+test("enabling the voice during a navigation never speaks a Step whose render fails", async () => {
+  const { reader, descriptions, speech } = harness([
+    { title: "First", description: "First spoken" },
+    { title: "Broken", description: "Never spoken" }
+  ]);
+  const opening = reader.open();
+  descriptions.commit(0, "<p>first</p>");
+  await opening;
+
+  // Navigate and enable the voice while the target Step is still rendering,
+  // then let that render fail: the engine must never speak the failed Step.
+  reader.pressKey({ key: "ArrowRight" });
+  reader.pressKey({ key: "v" });
+  assert.equal(reader.getState().narration.enabled, true);
+  descriptions.fail(1, new Error("unsupported content"));
+  await flush();
+
+  const state = reader.getState();
+  assert.deepEqual(speech.spoken, [], "a failed render narrates nothing");
+  assert.equal(state.narration.lastNarratedStep, -1);
+  // The failed render ends the session: the diagnostic is the only report,
+  // and the narration dies with it.
+  assert.equal(state.fatal?.message, "unsupported content");
+  assert.equal(state.finished, true);
+  assert.equal(speech.disposed, true);
+});
+
+test("scrolling and opening the chat never restart the narration", async () => {
+  const { reader, descriptions, speech } = harness(
+    [{ title: "Only", description: "Only spoken" }],
+    new StubResponder()
+  );
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  reader.pressKey({ key: "v" });
+  assert.deepEqual(speech.spoken, ["Only spoken"]);
+
+  // Scrolling repaints the Step box and the chat repaints its panel; neither
+  // may hand a new utterance to the engine or disturb the voice state.
+  reader.onExtentsMeasured({ stepViewportRows: 3, stepContentRows: 30 });
+  reader.pressKey({ key: "j" });
+  reader.pressKey({ key: "a" });
+  reader.pressKey({ key: "Escape" });
+
+  const state = reader.getState();
+  assert.deepEqual(speech.spoken, ["Only spoken"]);
+  assert.equal(state.narration.enabled, true);
+  assert.equal(state.narration.lastNarratedStep, 0);
+  assert.equal(state.narration.pendingNarration, false);
 });
