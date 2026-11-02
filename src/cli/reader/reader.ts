@@ -68,6 +68,13 @@ export interface ReaderOptions {
   resolveStepContext?: StepContextResolver;
   /** The commit file reader grounding diff questions; none by default. */
   readCommitFile?: CommitFileReader;
+  /**
+   * Notified after every view-model change the adapter must paint — render
+   * commits, key inputs, streaming exchange updates, narration warnings.
+   * A navigation keypress notifies nothing until its render commits, exactly
+   * as the reader's screen always behaved.
+   */
+  onViewChange?: () => void;
 }
 
 /** Rows the reader's own chrome takes before the rail can paint an item. */
@@ -98,7 +105,6 @@ class TerminalReader implements TourReader {
   private version = 0;
   private inFlight = 0;
   private finished = false;
-  private closed = false;
   private fatalValue: ReaderFatal | undefined;
 
   /** The content of the last committed render; a failed or superseded render changes nothing. */
@@ -124,6 +130,9 @@ class TerminalReader implements TourReader {
   private chatScrollTop = 0;
   private chatViewportRows = 0;
   private chatContentRows = 0;
+  /** The single disposal promise, returned to every caller of close(). */
+  private closing: Promise<void> | undefined;
+  private readonly onViewChange: (() => void) | undefined;
   /**
    * The chat pinning policy (spec #93): the panel pins to its bottom after
    * every chat paint and streaming delta, exactly as the reader always has —
@@ -140,14 +149,24 @@ class TerminalReader implements TourReader {
       ((tour, index, width) => renderTerminalDescription(tour, index, this.root, { width }));
     const resolveStepContext = options.resolveStepContext ?? resolveReadonlyStepContext;
     this.resolveStepContext = resolveStepContext;
-    this.narration = new NarrationPolicy(options.speechEngine ?? createSystemSpeech());
+    this.onViewChange = options.onViewChange;
+    this.narration = new NarrationPolicy(
+      options.speechEngine ?? createSystemSpeech(),
+      () => this.notify()
+    );
     this.conversation = new TourStepConversation({
       tour: options.tour,
       root: options.root,
       responder: options.responder,
       resolveStepContext,
-      readCommitFile: options.readCommitFile ?? (() => undefined)
+      readCommitFile: options.readCommitFile ?? (() => undefined),
+      onChange: () => this.notify()
     });
+  }
+
+  /** The adapter's paint trigger: called after every mutation it must paint. */
+  private notify(): void {
+    this.onViewChange?.();
   }
 
   getState(): ReaderViewModel {
@@ -178,6 +197,7 @@ class TerminalReader implements TourReader {
             ? exchangesLabel(exchanges.length)
             : "ready",
         hasResponder,
+        providerName: this.conversation.providerName,
         suggestions,
         exchanges,
         responding
@@ -217,6 +237,7 @@ class TerminalReader implements TourReader {
       this.painted.tourTitle = this.tour.title;
       this.painted.stepCount = "step 0/0";
       this.painted.emptyMessage = "Tour has no steps. Press q to quit.";
+      this.notify();
       return;
     }
     await this.render();
@@ -245,6 +266,9 @@ class TerminalReader implements TourReader {
       pageRows: Math.max(1, this.stepViewportRows)
     }, event);
     this.applyAction(action);
+    // A navigation paints nothing at the keypress: the screen keeps the
+    // previous Step until the navigation's render commits (ADR 0025).
+    if (action.type !== "navigate") this.notify();
     return this.getState();
   }
 
@@ -265,6 +289,7 @@ class TerminalReader implements TourReader {
     // the new geometry.
     this.pendingScrollRestore = { request: this.version + 1, scrollTop };
     void this.render();
+    this.notify();
     return this.getState();
   }
 
@@ -306,14 +331,16 @@ class TerminalReader implements TourReader {
     }
   }
 
-  async close(): Promise<void> {
-    if (this.closed) return;
+  close(): Promise<void> {
+    // One disposal promise for every caller: the adapter may await the close
+    // a quit keypress already started.
+    if (this.closing) return this.closing;
     this.finished = true;
-    this.closed = true;
     // Any in-flight render drops itself against the bumped version.
     ++this.version;
     this.narration.dispose();
-    await this.conversation.dispose();
+    this.closing = this.conversation.dispose();
+    return this.closing;
   }
 
   private applyAction(action: ReturnType<typeof translateKey>): void {
@@ -435,6 +462,7 @@ class TerminalReader implements TourReader {
     } catch (error) {
       await this.fatal(error);
     }
+    this.notify();
   }
 
   /**

@@ -54,6 +54,8 @@ export interface ReaderConversation {
   /** "no agent" | "ready" | "n exchanges" — computed exactly as the reader paints it today. */
   meta: string;
   hasResponder: boolean;
+  /** The agent's provider name, for the role line; the adapter lowercases it. */
+  providerName: string | undefined;
   /** Suggested questions of the active Step, in order; keys 1-9 ask them. */
   suggestions: string[];
   exchanges: readonly ChatExchange[];

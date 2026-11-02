@@ -8,6 +8,8 @@ export interface TourStepConversationOptions {
   responder: ConversationResponder | undefined;
   resolveStepContext: StepContextResolver;
   readCommitFile: CommitFileReader;
+  /** Notified after every exchange update, so the adapter repaints the panel. */
+  onChange?: () => void;
 }
 
 /**
@@ -44,6 +46,7 @@ export class TourStepConversation {
    *  already-streaming answer (only one answer is in flight at a time). */
   async ask(step: number, question: string): Promise<void> {
     const { tour, root, responder, resolveStepContext, readCommitFile } = this.options;
+    const notify = this.options.onChange;
     const stepData = tour.steps[step];
     if (!stepData || this.responding) return;
     const exchange = this.exchanges.begin(step, question);
@@ -52,9 +55,11 @@ export class TourStepConversation {
       // explains why there is no answer.
       this.exchanges.fail(step, exchange,
         "No ACP agent is installed to answer this question.");
+      notify?.();
       return;
     }
     this.responding = true;
+    notify?.();
     try {
       const answer = await responder.answer({
         question,
@@ -67,14 +72,17 @@ export class TourStepConversation {
         // the exchange belongs to the Step it was asked about.
         onAnswerDelta: delta => {
           this.exchanges.append(step, exchange, delta);
+          notify?.();
         },
         onActivity: message => {
           exchange.tools.push(message);
+          notify?.();
         },
         onToolUse: tool => {
           const label = (tool.forbidden ? "refused " : "") +
             (tool.kind || "tool") + (tool.title ? ": " + tool.title : "");
           if (!exchange.tools.includes(label)) exchange.tools.push(label);
+          notify?.();
         }
       });
       this.exchanges.complete(step, exchange, answer);
@@ -83,6 +91,7 @@ export class TourStepConversation {
         error instanceof Error ? error.message : String(error));
     } finally {
       this.responding = false;
+      notify?.();
     }
   }
 

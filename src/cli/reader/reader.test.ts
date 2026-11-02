@@ -4,6 +4,7 @@ import type { CodeTour, CodeTourStep } from "../../store";
 import type { StepChatAnswerEvents, StepChatRequest } from "../../agent/stepChatContract";
 import type { ConversationResponder, CommitFileReader, DescriptionRenderer, SpeechEngine, StepContextResolver } from "./collaborators";
 import { createReader, type TourReader } from "./reader";
+import type { ReaderViewModel } from "./viewModel";
 
 /**
  * The reading interface of the terminal Tour reader (spec #93). Every test
@@ -1259,4 +1260,191 @@ test("a diff Step question is grounded in both commit snapshots", async () => {
     description: "Hello"
   });
   assert.equal(responder.requests[0].workspaceRoot, "/workspace");
+});
+
+// --- The paint seam of the rendering adapter (spec #93, ticket #98) ---
+//
+// The adapter owns no reading behavior: it paints the view model, and it
+// paints only when the reader tells it something changed. These tests pin
+// the notification timing the adapter depends on, exactly as the reader's
+// screen always behaved: a navigation keypress paints nothing until its
+// render commits, every other state change paints when it happens.
+
+/** A reader wired to fakes that records the view model at every paint. */
+function paintHarness(
+  steps: CodeTourStep[],
+  options: { responder?: FakeResponder } = {}
+): { reader: TourReader; descriptions: FakeDescriptionRenderer; paints: ReaderViewModel[] } {
+  const speech = new FakeSpeechEngine();
+  const descriptions = new FakeDescriptionRenderer();
+  const paints: ReaderViewModel[] = [];
+  const reader = createReader({
+    tour: tourWith(steps),
+    root: "/workspace",
+    speechEngine: speech,
+    descriptionRenderer: descriptions.render,
+    resolveStepContext: () => ({ kind: "none" }),
+    responder: options.responder,
+    onViewChange: () => paints.push(reader.getState())
+  });
+  return { reader, descriptions, paints };
+}
+
+/** Open the reader to its first committed paint, like the adapter does. */
+async function openPainted(
+  harness: ReturnType<typeof paintHarness>
+): Promise<void> {
+  const opening = harness.reader.open();
+  harness.descriptions.commit(0, "<p>rendered</p>");
+  await opening;
+}
+
+test("the reader notifies its observer when the initial render commits", async () => {
+  const painted = paintHarness([{ title: "First", description: "Hello" }]);
+  const opening = painted.reader.open();
+  // Nothing is paintable while the description render is still in flight.
+  assert.equal(painted.paints.length, 0);
+  painted.descriptions.commit(0, "<p>rendered</p>");
+  await opening;
+  assert.equal(painted.paints.length, 1);
+  assert.equal(painted.paints[0].displayedStep, 0);
+});
+
+test("the empty Tour paints once it opens", async () => {
+  const painted = paintHarness([]);
+  await painted.reader.open();
+  assert.equal(painted.paints.length, 1);
+  assert.equal(painted.paints[0].emptyMessage, "Tour has no steps. Press q to quit.");
+});
+
+test("a navigation keypress paints nothing until its render commits", async () => {
+  const painted = paintHarness([
+    { title: "First", description: "Hello" },
+    { title: "Second", description: "World" }
+  ]);
+  await openPainted(painted);
+  painted.paints.length = 0;
+  painted.reader.pressKey({ key: "ArrowRight" });
+  // The keypress moves the target synchronously but paints nothing, exactly
+  // as the reader always has: the screen keeps the previous Step until the
+  // navigation's render commits.
+  assert.equal(painted.paints.length, 0);
+  assert.equal(painted.reader.getState().currentStep, 1);
+  painted.descriptions.commit(1, "<p>rendered second</p>");
+  await flush();
+  assert.equal(painted.paints.length, 1);
+  assert.equal(painted.paints[0].displayedStep, 1);
+  assert.equal(painted.paints[0].stepTitle, "Second");
+});
+
+test("a key that changes reading state paints immediately", async () => {
+  const painted = paintHarness([{ title: "First", description: "Hello" }]);
+  await openPainted(painted);
+  painted.paints.length = 0;
+  const state = painted.reader.pressKey({ key: "v" });
+  assert.equal(state.narration.enabled, true);
+  assert.equal(painted.paints.length, 1);
+  assert.equal(painted.paints[0].status.rightSegments[0], "VOICE ON");
+});
+
+test("a resize paints the new geometry and again when its render commits", async () => {
+  const painted = paintHarness([{ title: "First", description: "Hello" }]);
+  await openPainted(painted);
+  painted.paints.length = 0;
+  const state = painted.reader.resize(120, 40);
+  // The geometry change paints at once — the rail width moves with it.
+  assert.equal(state.layout.railWidth, 26);
+  assert.equal(painted.paints.length, 1);
+  assert.equal(painted.paints[0].layout.railWidth, 26);
+  painted.descriptions.commit(0, "<p>rendered</p>");
+  await flush();
+  assert.equal(painted.paints.length, 2);
+  assert.equal(painted.paints[1].displayedStep, 0);
+});
+
+test("every conversation exchange update notifies the adapter", async () => {
+  const responder = new FakeResponder();
+  responder.nextAnswer = async (_request, events) => {
+    events?.onAnswerDelta?.("Hel");
+    events?.onAnswerDelta?.("lo");
+    return "Hello";
+  };
+  // The view model hands the adapter live exchange objects, so the answer is
+  // snapshotted at notify time: what the panel held at each paint.
+  const answers: Array<string | undefined> = [];
+  let paints = 0;
+  const descriptions = new FakeDescriptionRenderer();
+  const reader = createReader({
+    tour: tourWith([{ title: "First", description: "Hello" }]),
+    root: "/workspace",
+    speechEngine: new FakeSpeechEngine(),
+    descriptionRenderer: descriptions.render,
+    resolveStepContext: () => ({ kind: "none" }),
+    responder,
+    onViewChange: () => {
+      paints++;
+      answers.push(reader.getState().conversation.exchanges[0]?.answer);
+    }
+  });
+  const opening = reader.open();
+  descriptions.commit(0, "<p>rendered</p>");
+  await opening;
+  paints = 0;
+  answers.length = 0;
+  await reader.ask("what?");
+  // One paint at the begin (the pending exchange and WAIT mode), one per
+  // streaming delta, one at the settle — the panel answers live (ADR 0026).
+  assert.equal(paints, 4);
+  assert.deepEqual(answers, ["", "Hel", "Hello", "Hello"]);
+});
+
+test("an async narration warning notifies the adapter", async () => {
+  const speech = new FakeSpeechEngine();
+  speech.speak = () => Promise.reject(new Error("boom"));
+  const descriptions = new FakeDescriptionRenderer();
+  const paints: ReaderViewModel[] = [];
+  const reader = createReader({
+    tour: tourWith([{ title: "First", description: "Hello" }]),
+    root: "/workspace",
+    speechEngine: speech,
+    descriptionRenderer: descriptions.render,
+    resolveStepContext: () => ({ kind: "none" }),
+    onViewChange: () => paints.push(reader.getState())
+  });
+  const opening = reader.open();
+  descriptions.commit(0, "<p>rendered</p>");
+  await opening;
+  reader.toggleVoice();
+  await flush();
+  const last = paints[paints.length - 1];
+  assert.equal(last.narration.warning, "Narration failed: boom");
+});
+
+test("a second close awaits the first one's disposal", async () => {
+  const responder = new FakeResponder();
+  responder.dispose = () => new Promise<void>(() => {});
+  const reader = createReader({
+    tour: tourWith([{ title: "First", description: "Hello" }]),
+    root: "/workspace",
+    speechEngine: new FakeSpeechEngine(),
+    descriptionRenderer: new FakeDescriptionRenderer().render,
+    resolveStepContext: () => ({ kind: "none" }),
+    responder
+  });
+  const first = reader.close();
+  const second = reader.close();
+  assert.equal(second, first);
+});
+
+test("the conversation panel carries the provider name for the agent role line", async () => {
+  const responder = new FakeResponder();
+  const painted = paintHarness(
+    [{ title: "First", description: "Hello" }],
+    { responder }
+  );
+  await openPainted(painted);
+  assert.equal(painted.reader.getState().conversation.providerName, "Fake");
+  const bare = paintHarness([{ title: "First", description: "Hello" }]);
+  await openPainted(bare);
+  assert.equal(bare.reader.getState().conversation.providerName, undefined);
 });

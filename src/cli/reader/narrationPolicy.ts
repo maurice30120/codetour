@@ -26,7 +26,11 @@ export class NarrationPolicy {
   private generation = 0;
   private disposed = false;
 
-  constructor(private readonly engine: SpeechEngine) {}
+  constructor(
+    private readonly engine: SpeechEngine,
+    /** Notified when state changes asynchronously — an engine failure surfacing as a warning. */
+    private readonly onChange?: () => void
+  ) {}
 
   get state(): ReaderNarrationState {
     return {
@@ -134,6 +138,7 @@ export class NarrationPolicy {
       this.speakingValue = false;
       this.warningValue = "Narration failed: " +
         (error instanceof Error ? error.message : String(error));
+      this.onChange?.();
     });
   }
 
