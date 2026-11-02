@@ -2,6 +2,8 @@ import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createSystemSpeech } from "./SystemSpeech";
+import { prepareNarrationText } from "./prepareText";
+import { SPELL_WORDS } from "./spellWords";
 
 /**
  * The real-engine smoke test of spec #79, ticket 04: it speaks out loud
@@ -22,6 +24,31 @@ test("the real macOS voice speaks an utterance to completion", { skip }, async (
     timer = setTimeout(() => reject(new Error("say did not finish in time")), 30000));
   try {
     await Promise.race([speech.speak("CodeTour narration smoke test."), deadline]);
+  } finally {
+    clearTimeout(timer);
+    speech.dispose();
+  }
+});
+
+test("the real macOS voice speaks the spell dictionary and representative identifiers", { skip }, async () => {
+  // Every dictionary entry, then identifiers exercising the #90 splitting and
+  // the dictionary miss: a human listens to this utterance and records any
+  // phonetic adjustment in SPELL_WORDS before ticket #91 closes.
+  const identifiers = [
+    ...Object.keys(SPELL_WORDS),
+    "UTF8",
+    "sha256",
+    "selectContext",
+    "STALE_HEAD",
+    "parseSTDERRFile"
+  ];
+  const description = identifiers.map(identifier => "The `" + identifier + "` token.").join(" ");
+  const speech = createSystemSpeech();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) =>
+    timer = setTimeout(() => reject(new Error("say did not finish in time")), 60000));
+  try {
+    await Promise.race([speech.speak(prepareNarrationText(description)), deadline]);
   } finally {
     clearTimeout(timer);
     speech.dispose();
