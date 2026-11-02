@@ -2,7 +2,7 @@ import * as assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CodeTour, CodeTourStep } from "../../store";
 import type { StepChatAnswerEvents, StepChatRequest } from "../../agent/stepChatContract";
-import type { ConversationResponder, DescriptionRenderer, SpeechEngine, StepContextResolver } from "./collaborators";
+import type { ConversationResponder, CommitFileReader, DescriptionRenderer, SpeechEngine, StepContextResolver } from "./collaborators";
 import { createReader, type TourReader } from "./reader";
 
 /**
@@ -16,8 +16,8 @@ import { createReader, type TourReader } from "./reader";
 
 const flush = (): Promise<void> => new Promise(resolve => setImmediate(resolve));
 
-function tourWith(steps: CodeTourStep[]): CodeTour {
-  return { id: "reader-test", title: "Reader", steps };
+function tourWith(steps: CodeTourStep[], tour: Partial<CodeTour> = {}): CodeTour {
+  return { id: "reader-test", title: "Reader", steps, ...tour };
 }
 
 /**
@@ -118,17 +118,25 @@ interface Harness {
  */
 function harness(
   steps: CodeTourStep[],
-  options: { responder?: FakeResponder; context?: StepContextResolver; columns?: number; rows?: number } = {}
+  options: {
+    responder?: FakeResponder;
+    context?: StepContextResolver;
+    columns?: number;
+    rows?: number;
+    readCommitFile?: CommitFileReader;
+    tour?: Partial<CodeTour>;
+  } = {}
 ): Harness {
   const speech = new FakeSpeechEngine();
   const descriptions = new FakeDescriptionRenderer();
   const reader = createReader({
-    tour: tourWith(steps),
+    tour: tourWith(steps, options.tour),
     root: "/workspace",
     speechEngine: speech,
     descriptionRenderer: descriptions.render,
     resolveStepContext: options.context ?? (() => ({ kind: "none" })),
     responder: options.responder,
+    readCommitFile: options.readCommitFile,
     columns: options.columns,
     rows: options.rows
   });
@@ -990,4 +998,264 @@ test("an exchange is recorded under its own Step across navigation", async () =>
   assert.equal(state.conversation.exchanges.length, 1);
   assert.equal(state.conversation.exchanges[0].question, "about the first?");
   assert.equal(state.conversation.exchanges[0].answer, "answer");
+});
+
+test("the conversation panel pins to the bottom of the extents the adapter reports", async () => {
+  const responder = new FakeResponder();
+  const { reader, descriptions } = harness([{ title: "Only", description: "Hello" }], {
+    responder
+  });
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  // The adapter measures the panel after painting: 5 visible rows of 12.
+  reader.onExtentsMeasured({
+    stepViewportRows: 3, stepContentRows: 10,
+    chatViewportRows: 5, chatContentRows: 12
+  });
+  const scroll = reader.getState().scroll;
+  // The pinning policy is module state: the panel sits at its bottom, the
+  // offset clamped against the reported extents (spec #93).
+  assert.equal(scroll.chatPinned, true);
+  assert.equal(scroll.chatScrollTop, 7);
+  assert.equal(scroll.chatViewportRows, 5);
+  assert.equal(scroll.chatContentRows, 12);
+
+  // A panel shorter than its viewport clamps at the top: nothing to scroll.
+  reader.onExtentsMeasured({
+    stepViewportRows: 3, stepContentRows: 10,
+    chatViewportRows: 8, chatContentRows: 3
+  });
+  assert.equal(reader.getState().scroll.chatScrollTop, 0);
+});
+
+test("the conversation panel keeps its scroll position while the reader walks the Step", async () => {
+  const { reader, descriptions } = harness([
+    { title: "First", description: "Hello" },
+    { title: "Second", description: "World" }
+  ]);
+  const opening = reader.open();
+  descriptions.commit(0, "<p>first</p>");
+  await opening;
+  reader.onExtentsMeasured({
+    stepViewportRows: 3, stepContentRows: 10,
+    chatViewportRows: 5, chatContentRows: 12
+  });
+  assert.equal(reader.getState().scroll.chatScrollTop, 7);
+
+  // Walking the Step repaints the panel with the new Step's exchanges; the
+  // offset is module state, not something the repaint resets to the top.
+  reader.navigateTo(1);
+  descriptions.commit(1, "<p>second</p>");
+  await flush();
+  assert.equal(reader.getState().scroll.chatScrollTop, 7);
+  // The adapter measures the new Step's shorter panel; the pin settles
+  // against the reported extents.
+  reader.onExtentsMeasured({
+    stepViewportRows: 3, stepContentRows: 10,
+    chatViewportRows: 5, chatContentRows: 8
+  });
+  assert.equal(reader.getState().scroll.chatScrollTop, 3);
+});
+
+test("a question begins a pending exchange before the agent is contacted", async () => {
+  let release: (() => void) | undefined;
+  const responder = new FakeResponder();
+  responder.nextAnswer = () => new Promise<string>(resolve => {
+    release = () => resolve("done");
+  });
+  const { reader, descriptions } = harness([{ title: "Only", description: "Hello" }], {
+    responder
+  });
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  const asking = reader.ask("why?");
+  await flush();
+  // The pending exchange paints before the agent is contacted: the reader
+  // sees its own question and an answer on the way.
+  const exchange = reader.getState().conversation.exchanges[0];
+  assert.deepEqual(exchange, { question: "why?", answer: "", pending: true, tools: [] });
+  release!();
+  await asking;
+});
+
+test("streaming deltas accumulate into the pending exchange and the panel follows", async () => {
+  let release: (() => void) | undefined;
+  const responder = new FakeResponder();
+  responder.nextAnswer = (_request, events) => new Promise<string>(resolve => {
+    events?.onAnswerDelta?.("Hel");
+    events?.onAnswerDelta?.("lo");
+    release = () => resolve("Hello");
+  });
+  const { reader, descriptions } = harness([{ title: "Only", description: "Hello" }], {
+    responder
+  });
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  reader.onExtentsMeasured({
+    stepViewportRows: 3, stepContentRows: 10,
+    chatViewportRows: 5, chatContentRows: 8
+  });
+  assert.equal(reader.getState().scroll.chatScrollTop, 3);
+  const asking = reader.ask("why?");
+  await flush();
+  // The deltas streamed so far are the live answer of the pending exchange.
+  const streaming = reader.getState();
+  assert.equal(streaming.conversation.exchanges[0].pending, true);
+  assert.equal(streaming.conversation.exchanges[0].answer, "Hello");
+  // The adapter paints the grown answer and reports the panel's new
+  // extents; the pin follows the new bottom.
+  reader.onExtentsMeasured({
+    stepViewportRows: 3, stepContentRows: 10,
+    chatViewportRows: 5, chatContentRows: 15
+  });
+  assert.equal(reader.getState().scroll.chatScrollTop, 10);
+  release!();
+  await asking;
+  const done = reader.getState();
+  assert.equal(done.conversation.exchanges[0].pending, false);
+  assert.equal(done.conversation.exchanges[0].answer, "Hello");
+});
+
+test("tool activity and tool uses become the exchange's tool lines, deduped", async () => {
+  const responder = new FakeResponder();
+  responder.nextAnswer = async (_request, events) => {
+    events?.onActivity?.("scanning files");
+    events?.onToolUse?.({ toolCallId: "1", kind: "edit", title: "src/a.ts", forbidden: false });
+    // The same call reported again with a new status is one line, not two.
+    events?.onToolUse?.({ toolCallId: "1", kind: "edit", title: "src/a.ts", status: "completed", forbidden: false });
+    events?.onToolUse?.({ toolCallId: "2", kind: "run", forbidden: true });
+    return "done";
+  };
+  const { reader, descriptions } = harness([{ title: "Only", description: "Hello" }], {
+    responder
+  });
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  await reader.ask("why?");
+  const exchange = reader.getState().conversation.exchanges[0];
+  // Activity messages keep their text; tool uses become "kind: title" lines,
+  // a forbidden tool is prefixed and a titleless one keeps its kind alone.
+  assert.deepEqual(exchange.tools, [
+    "scanning files",
+    "edit: src/a.ts",
+    "refused run"
+  ]);
+});
+
+test("a completed exchange becomes the history of the Step's next question", async () => {
+  const responder = new FakeResponder();
+  responder.nextAnswer = async () => "first answer";
+  const { reader, descriptions } = harness([{ title: "Only", description: "Hello" }], {
+    responder
+  });
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  await reader.ask("first?");
+  responder.nextAnswer = async () => "second answer";
+  await reader.ask("second?");
+  // Only completed, error-free, non-empty answers enter the history the
+  // responder sees — the pending and failed exchanges never do.
+  assert.deepEqual(responder.requests[0].history, []);
+  assert.deepEqual(responder.requests[1].history, [
+    { question: "first?", answer: "first answer" }
+  ]);
+  // The history is per Step: it follows the Step the question was asked about.
+  assert.equal(responder.requests[1].history.length, 1);
+});
+
+test("suggestion digits are ignored while an answer streams", async () => {
+  let release: (() => void) | undefined;
+  const responder = new FakeResponder();
+  responder.nextAnswer = () => new Promise<string>(resolve => {
+    release = () => resolve("done");
+  });
+  const { reader, descriptions } = harness(
+    [{ title: "Only", description: "Hello", questions: ["First question", "Second question"] }],
+    { responder }
+  );
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  const asking = reader.ask("First question");
+  await flush();
+  // While responding, a suggestion digit is ignored exactly like the ask
+  // key: the streaming answer keeps the keyboard to itself.
+  reader.pressKey({ key: "2" });
+  assert.equal(responder.requests.length, 1);
+  assert.equal(reader.getState().conversation.responding, true);
+  release!();
+  await asking;
+  // Once the answer landed, the digit asks again.
+  responder.nextAnswer = async () => "second done";
+  reader.pressKey({ key: "2" });
+  assert.equal(responder.requests.length, 2);
+  assert.equal(responder.requests[1].question, "Second question");
+  await flush();
+});
+
+test("without an agent the panel keeps its guidance and the Step's suggestions", async () => {
+  const { reader, descriptions } = harness(
+    [{ title: "Only", description: "Hello", questions: ["What is this?", "Why now?"] }]
+  );
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  const state = reader.getState();
+  // The reader without an agent stays a reading surface (ADR 0026): the
+  // panel explains itself and the suggestions stay visible.
+  assert.equal(state.conversation.hasResponder, false);
+  assert.equal(state.conversation.meta, "no agent");
+  assert.deepEqual(state.conversation.suggestions, ["What is this?", "Why now?"]);
+  assert.equal(state.composer.mode, "unavailable");
+  assert.equal(state.composer.prompt, "no ACP agent");
+  assert.equal(state.composer.hint, "no agent on PATH");
+  // The suggestion digits still submit without an agent: the exchange
+  // then fails with the guidance, the reader's defense in depth (ADR 0026).
+  reader.pressKey({ key: "1" });
+  const after = reader.getState().conversation.exchanges;
+  assert.equal(after.length, 1);
+  assert.equal(after[0].question, "What is this?");
+  assert.equal(after[0].error, "No ACP agent is installed to answer this question.");
+});
+
+test("a diff Step question is grounded in both commit snapshots", async () => {
+  const baseRef = "b".repeat(40);
+  const headRef = "a".repeat(40);
+  // A fake commit file reader standing in for `git show`: the grounding
+  // never runs Git in this suite.
+  const snapshots = new Map([
+    [baseRef + ":src/old.ts", "the original content"],
+    [headRef + ":src/a.ts", "the modified content"]
+  ]);
+  const responder = new FakeResponder();
+  const { reader, descriptions } = harness(
+    [{ title: "Compare", description: "Hello", display: "diff", file: "src/a.ts", baseFile: "src/old.ts" }],
+    {
+      responder,
+      context: () => ({ kind: "diff", label: "src/a.ts (base ↔ head)", text: "+the diff" }),
+      readCommitFile: (ref, file) => snapshots.get(ref + ":" + file),
+      tour: { baseRef, ref: headRef }
+    }
+  );
+  const opening = reader.open();
+  descriptions.commit(0, "<p>compare</p>");
+  await opening;
+  await reader.ask("what changed?");
+  // The question carries both sides of the displayed diff, each identified
+  // with its own path and commit — never another file (ADR 0021).
+  assert.deepEqual(responder.requests[0].context, {
+    available: true,
+    path: "src/a.ts",
+    diff: {
+      original: { path: "src/old.ts", ref: baseRef, code: "the original content" },
+      modified: { path: "src/a.ts", ref: headRef, code: "the modified content" }
+    },
+    description: "Hello"
+  });
+  assert.equal(responder.requests[0].workspaceRoot, "/workspace");
 });
