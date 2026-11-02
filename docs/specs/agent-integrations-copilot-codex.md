@@ -89,6 +89,19 @@ espaces, notamment sous Windows, sont transmis correctement.
   partagé.
 - `/codetour generate changes neutral` et
   `/codetour generate changes critical` utilisent les modes MCP existants.
+- La génération peut être accompagnée d’une phrase libre, après le type et le
+  mode (`/codetour generate project explique-moi le rendu Mermaid`). La phrase
+  est transmise telle quelle à l’invite MCP `generate_project_tour` ou
+  `generate_changes_tour` (prompts/get), qui compose le prompt de la session :
+  la phrase oriente le Tour et sa langue est celle de l’utilisateur, celle
+  dans laquelle le Tour est écrit. L’adaptateur ne porte aucun texte de
+  prompt ; il relaie les choix et les mots de l’utilisateur.
+- Le prompt servi cite les outils sous leur nom exact (`create_project_tour`,
+  `create_changes_tour`) tout en signalant que l’hôte peut les enregistrer avec
+  un préfixe de nom de serveur (Copilot les expose comme
+  `codetour-create_project_tour` et `codetour-create_changes_tour`) : l’agent
+  cherche l’outil sous le nom réellement enregistré dans sa session, le
+  contrat de l’outil étant inchangé.
 - La sélection d’un Tour et les lecteurs HTML/TermDOM restent disponibles.
 - La revue critique lit les instructions depuis la ressource MCP
   `codetour://review/critical-instructions` avant l’appel à

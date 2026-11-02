@@ -159,11 +159,14 @@ test("generation relays the served neutral Changes Tour prompt to the host", asy
     let sent;
     await runCodeTourCommand({
       capabilities: {ui: {elicitation: true}},
-      ui: {select: async (prompt) => { events.push(prompt); return answers.shift(); }},
+      ui: {
+        select: async prompt => { events.push(prompt); return answers.shift(); },
+        input: async prompt => { events.push(prompt); return ""; }
+      },
       send: async options => { events.push("send"); sent = options; },
       log: async message => { events.push(message); }
     }, "");
-    assert.deepEqual(events, ["Read or generate a CodeTour?", "Which type of Tour?", "Neutral or critical?", "send"]);
+    assert.deepEqual(events, ["Read or generate a CodeTour?", "Which type of Tour?", "Neutral or critical?", "What should this Tour focus on? (empty for the standard Tour, cancel to stop)", "send"]);
     assert.equal(sent.mode, "immediate", "a completed command must start generation without an extra Enter");
     assert.match(sent.prompt, /create_changes_tour/);
     assert.match(sent.prompt, /Review mode "neutral"/);
@@ -179,7 +182,7 @@ test("critical generation receives the served prompt with the shared offline ski
   try {
     let sent;
     const logs = [];
-    await runCodeTourCommand({capabilities:{}, send: async options => {sent=options;}, log: async message => logs.push(message)}, "generate changes critical");
+    await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async () => ""}, send: async options => {sent=options;}, log: async message => logs.push(message)}, "generate changes critical");
     assert.ok(sent, logs.join("\n"));
     assert.equal(sent.mode, "immediate");
     assert.match(sent.prompt, /create_changes_tour/);
@@ -200,12 +203,129 @@ test("an explicit Project Tour bypasses review choices and sends the served prom
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
     const sent = [];
-    await runCodeTourCommand({capabilities:{}, send: async options => sent.push(options), log: async text => assert.fail(text)}, "generate project");
+    await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async () => ""}, send: async options => sent.push(options), log: async text => assert.fail(text)}, "generate project");
     assert.equal(sent.length, 1);
     assert.equal(sent[0].mode, "immediate");
     assert.match(sent[0].prompt, /create_project_tour/);
     assert.match(sent[0].prompt, /Read the relevant source before writing/);
     assert.doesNotMatch(sent[0].prompt, /review mode|critical-instructions/i);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+  }
+});
+
+test("a generation without an orientation asks for it before launching", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    const questions = [];
+    let sent;
+    await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async message => { questions.push(message); return ""; }},
+      send: async options => {sent = options;}, log: async text => assert.fail(text)}, "generate project");
+    assert.deepEqual(questions, ["What should this Tour focus on? (empty for the standard Tour, cancel to stop)"]);
+    assert.ok(sent);
+    // An empty answer keeps the standard composed prompt, with no user
+    // orientation section.
+    assert.match(sent.prompt, /create_project_tour/);
+    assert.doesNotMatch(sent.prompt, /Tour orientation from the user/);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+  }
+});
+
+test("cancelling the orientation question stops the generation", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async () => null},
+      send: async () => assert.fail("A cancelled orientation must not start a run"), log: async text => assert.fail(text)}, "generate changes critical");
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+  }
+});
+
+test("an answered orientation question orients the composed prompt", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    let sent;
+    await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async () => "Concentre-toi sur le pipeline CI."},
+      send: async options => {sent = options;}, log: async text => assert.fail(text)}, "generate changes neutral");
+    assert.match(sent.prompt, /create_changes_tour/);
+    assert.match(sent.prompt, /Concentre-toi sur le pipeline CI\./);
+    assert.match(sent.prompt, /Tour orientation from the user/);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+  }
+});
+
+test("a host without elicitation explains the orientation-less generation form", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    const errors = [];
+    await runCodeTourCommand({capabilities:{}, send: async () => assert.fail("A host that cannot ask must not start the run"),
+      log: async text => errors.push(text)}, "generate project");
+    assert.match(errors.join("\n"), /asks for its orientation before launching/);
+    assert.match(errors.join("\n"), /\/codetour generate project\|changes \[neutral\|critical\] what the Tour should focus on/);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+  }
+});
+
+test("the orientation phrase travels verbatim into the served prompt", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    let sent;
+    await runCodeTourCommand({capabilities:{}, send: async options => {sent = options;}, log: async text => assert.fail(text)},
+      "generate project Explique-moi le flux d'authentification, de la connexion a la session.");
+    assert.ok(sent);
+    assert.equal(sent.mode, "immediate");
+    assert.match(sent.prompt, /create_project_tour/);
+    // The user's words arrive intact: they orient the Tour and their language
+    // sets the language the Tour is written in.
+    assert.match(sent.prompt, /Explique-moi le flux d'authentification, de la connexion a la session\./);
+    assert.match(sent.prompt, /Tour orientation from the user/);
+    assert.match(sent.prompt, /that same language/);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+  }
+});
+
+test("a Changes Tour carries the orientation phrase alongside its review mode", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    let sent;
+    await runCodeTourCommand({capabilities:{}, send: async options => {sent = options;}, log: async text => assert.fail(text)},
+      "generate changes critical Montre comment la revue critique est câblée.");
+    assert.ok(sent);
+    assert.match(sent.prompt, /create_changes_tour/);
+    assert.match(sent.prompt, /review mode: critical/);
+    assert.match(sent.prompt, /Montre comment la revue critique est câblée\./);
+    assert.match(sent.prompt, /Tour orientation from the user/);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+  }
+});
+
+test("an orientation phrase elicits the Tour type then orients the run", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    const events = [];
+    let sent;
+    await runCodeTourCommand({
+      capabilities: {ui: {elicitation: true}},
+      ui: {select: async prompt => { events.push(prompt); return "Project Tour"; }},
+      send: async options => { events.push("send"); sent = options; },
+      log: async message => { events.push(message); }
+    }, "generate Explique-moi le rendu Mermaid.");
+    assert.deepEqual(events, ["Which type of Tour?", "send"]);
+    assert.match(sent.prompt, /create_project_tour/);
+    assert.match(sent.prompt, /Explique-moi le rendu Mermaid\./);
+    assert.match(sent.prompt, /Tour orientation from the user/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
   }
@@ -233,7 +353,7 @@ test("an unreachable served generation prompt prevents analysis", async () => {
   process.env.CODETOUR_CLI = path.join(os.tmpdir(), "codetour-missing-executable");
   try {
     const errors = [];
-    await runCodeTourCommand({send:async () => assert.fail("Generation without the served prompt"), log:async text => errors.push(text)}, "generate changes critical");
+    await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async () => ""}, send:async () => assert.fail("Generation without the served prompt"), log:async text => errors.push(text)}, "generate changes critical");
     assert.match(errors.join("\n"), /ENOENT/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
