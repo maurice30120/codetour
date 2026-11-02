@@ -78,8 +78,9 @@ des chemins relatifs au monorepo de développement.
 6. vérifie les fichiers et leurs chemins ;
 7. affiche les instructions de lancement.
 
-L’installation utilisateur globale est privilégiée. Une installation Copilot
-personnalisée n’est jamais écrasée sans consentement. Les chemins contenant des
+L’installation utilisateur globale est privilégiée. Une installation dont le
+contenu diffère est remplacée par l’installation, qui signale les fichiers
+remplacés. Les chemins contenant des
 espaces, notamment sous Windows, sont transmis correctement.
 
 ### Comportements à préserver
@@ -173,8 +174,8 @@ de succès trompeur.
 
 - Le registre liste le bon état de chaque agent.
 - Une installation réussie, répétée, ne crée aucun doublon.
-- Une configuration préexistante différente n’est pas remplacée sans
-  confirmation.
+- Une installation existante dont le contenu diffère est remplacée et les
+  fichiers remplacés sont signalés.
 - Une réparation est explicite et une désinstallation est ciblée.
 - Un agent absent ou une erreur d’installation produit un échec clair.
 
