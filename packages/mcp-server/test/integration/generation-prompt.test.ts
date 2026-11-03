@@ -21,6 +21,34 @@ function changesTourPromptUri(reviewMode: string): string {
   );
 }
 
+// Every served generation prompt ends with an announcement step: once the
+// write has succeeded, the agent states the created tour's exact title and
+// path, as returned by the creation tool, on a dedicated line; the presence
+// of that line completes the generation. The helper pins the contract, not
+// the wording: the marker locates the step, the follow-up assertions check
+// what it must carry, and the ordering check pins it after the
+// persistence instruction.
+function assertAnnouncementStep(text: string, persistenceClause: string): void {
+  const marker = "Announce the created tour";
+  const index = text.indexOf(marker);
+  assert.ok(index >= 0, "the served prompt must contain the announcement step");
+  assert.ok(
+    index > text.indexOf(persistenceClause),
+    "the announcement step must follow the persistence instruction"
+  );
+  const step = text.slice(index, index + 400);
+  assert.ok(step.includes("title"), "the announcement step names the title");
+  assert.ok(step.includes("path"), "the announcement step names the path");
+  assert.ok(
+    step.includes("tool result"),
+    "the title and path come from the tool result, not from memory"
+  );
+  assert.ok(
+    step.includes("dedicated line"),
+    "the announcement is stated on a dedicated line"
+  );
+}
+
 async function readResourceText(
   client: Client,
   uri: string
@@ -50,6 +78,8 @@ test("serves the Project Tour generation prompt resource", async () => {
       assert.ok(!text.includes("review mode"));
       assert.ok(!text.includes("neutral"));
       assert.ok(!text.includes("critical"));
+      // The prompt ends with the announcement step for the created tour.
+      assertAnnouncementStep(text, "dryRun omitted to persist");
     });
   } finally {
     rmrf(root);
@@ -103,6 +133,22 @@ test("serves the neutral Changes Tour generation prompt", async () => {
       assert.ok(text.includes("factually"));
       assert.ok(text.includes("Do not judge"));
       assert.ok(!text.includes("Matt Pocock"));
+      // Anchors are recommended as a stable pattern or a line verified in
+      // the analyzed HEAD, never a guessed line number.
+      assert.ok(
+        text.includes("stable pattern"),
+        "the prompt recommends anchoring with a stable pattern"
+      );
+      assert.ok(
+        text.includes("verified"),
+        "the prompt accepts a line verified in the analyzed HEAD"
+      );
+      assert.ok(
+        text.includes("guess"),
+        "the prompt warns against guessed line numbers"
+      );
+      // The prompt ends with the announcement step for the created tour.
+      assertAnnouncementStep(text, "dryRun omitted to persist");
     });
   } finally {
     rmrf(root);
@@ -135,6 +181,8 @@ test("serves the critical Changes Tour generation prompt with the embedded skill
       assert.ok(text.includes("Spec"));
       assert.ok(text.includes("MIT"));
       assert.ok(text.includes("before any analysis"));
+      // Critical mode ends with the same announcement step.
+      assertAnnouncementStep(text, "dryRun omitted to persist");
     });
   } finally {
     rmrf(root);
@@ -204,6 +252,7 @@ test("serves the Project Tour generation prompt without orientation", async () =
         !text.includes("Tour orientation"),
         "no orientation clause without a brief"
       );
+      assertAnnouncementStep(text, "dryRun omitted to persist");
     });
   } finally {
     rmrf(root);
@@ -229,6 +278,8 @@ test("composes the Project Tour generation prompt with the user's orientation", 
         text.includes("that same language"),
         "the composed prompt sets the Tour's language from the brief"
       );
+      // The announcement step survives composition with the orientation.
+      assertAnnouncementStep(text, "dryRun omitted to persist");
     });
   } finally {
     rmrf(root);
@@ -248,11 +299,14 @@ test("composes the Changes Tour generation prompt with review mode and orientati
       assert.ok(text.includes("create_changes_tour"));
       assert.ok(text.includes("neutral"));
       assert.ok(text.includes(brief));
+      assertAnnouncementStep(text, "dryRun omitted to persist");
       const withoutBrief = await client.getPrompt({
         name: GENERATE_CHANGES_TOUR_PROMPT_NAME,
         arguments: { reviewMode: "critical" },
       });
-      assert.ok(promptText(withoutBrief.messages).includes("critical"));
+      const criticalText = promptText(withoutBrief.messages);
+      assert.ok(criticalText.includes("critical"));
+      assertAnnouncementStep(criticalText, "dryRun omitted to persist");
     });
   } finally {
     rmrf(root);

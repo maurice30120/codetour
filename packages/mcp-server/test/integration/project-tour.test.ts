@@ -135,6 +135,7 @@ test("creates a project tour with the default title and no git ref", async () =>
       assert.equal(response.structured.status, "created");
       assert.equal(response.structured.path, ".tours/project.tour");
       assert.equal(response.structured.stepCount, 2);
+      assert.equal(response.structured.title, "Project Overview");
       assert.deepEqual(warningCodes(response), ["ORIENTATION_STEP_MISSING_OVERVIEW"]);
     });
     const tour = readTourFile(root, ".tours/project.tour");
@@ -181,6 +182,8 @@ test("uses the provided title and omits the description when absent", async () =
         steps: [{ description: "Sole step." }],
       });
       assert.equal(response.isError, false);
+      assert.equal(response.structured.status, "created");
+      assert.equal(response.structured.title, "My Tour");
     });
     const tour = readTourFile(root, ".tours/project.tour");
     assert.equal(tour.title, "My Tour");
@@ -666,6 +669,19 @@ test("dryRun validates a proposal without writing the tour file", async () => {
       assert.equal(response.structured.status, "validated");
       assert.equal(response.structured.stepCount, 1);
       assert.equal(response.structured.path, undefined);
+      assert.equal(response.structured.title, "Rehearsal");
+
+      const defaultTitle = await callTool(client, "create_project_tour", {
+        dryRun: true,
+        steps: [{ description: "Default title rehearsal." }],
+      });
+      assert.equal(defaultTitle.isError, false, defaultTitle.text);
+      assert.equal(defaultTitle.structured.status, "validated");
+      assert.equal(
+        defaultTitle.structured.title,
+        "Project Overview",
+        "a dry-run without a title must return the default title that would be written"
+      );
     });
     const tour = readTourFile(root, ".tours/project.tour");
     assert.equal(tour.title, "Baseline");
@@ -752,6 +768,7 @@ test("writes the tour under the provided fileName with the suffix appended", asy
       });
       assert.equal(response.isError, false, response.text);
       assert.equal(response.structured.path, ".tours/onboarding-backend.tour");
+      assert.equal(response.structured.title, "Project Overview");
     });
     const tour = readTourFile(root, ".tours/onboarding-backend.tour");
     assert.equal(tour.title, "Project Overview");

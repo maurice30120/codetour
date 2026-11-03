@@ -345,6 +345,7 @@ const issueSchema = z.object({
 });
 const toolResultSchema = z.object({
   status: z.enum(["created", "error", "validated"]),
+  title: z.string().optional(),
   path: z.string().optional(),
   stepCount: z.number().int().nonnegative().optional(),
   warnings: z.array(warningSchema).optional(),
@@ -455,6 +456,11 @@ function projectTourGenerationPrompt(): string {
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_project_tour` tool " +
       "description.",
+    "- Announce the created tour: once the write has succeeded, state on a " +
+      "dedicated line the tour's exact `title` and `path`, exactly as the tool " +
+      "result returns them, so the user knows which tour was created and where " +
+      "to find it. The generation is complete only once that line has been " +
+      "stated.",
     "",
   ].join("\n");
 }
@@ -487,7 +493,9 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
       "commit messages or file names alone.",
     "- Anchor every explanation at the changed lines it concerns (Tour Anchor, in " +
       "the head snapshot), and explain each major change: what it does, how it is " +
-      "implemented, and its observable behavioral effect.",
+      "implemented, and its observable behavioral effect. Anchor with a short, " +
+      "stable pattern, or a line you have verified in the analyzed head snapshot, " +
+      "rather than a guessed line number, so the anchor survives later edits.",
     "- Propose the tour with the `create_changes_tour` tool. Rehearse first: call " +
       "the tool once with dryRun true, correct every reported validation issue, " +
       "then call again with dryRun omitted to persist the tour.",
@@ -498,6 +506,11 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_changes_tour` tool " +
       "description.",
+    "- Announce the created tour: once the write has succeeded, state on a " +
+      "dedicated line the tour's exact `title` and `path`, exactly as the tool " +
+      "result returns them, so the user knows which tour was created and where " +
+      "to find it. The generation is complete only once that line has been " +
+      "stated.",
     ...(reviewMode === "critical"
       ? ["", "## Embedded review instructions", "", criticalReviewSkillPack()]
       : []),
@@ -716,10 +729,15 @@ async function handleCreateProjectTour(
     ...orientationStepWarnings(finalSteps),
   ];
 
+  // The title is computed before the dry-run branch so a rehearsal also
+  // returns the title that the persisted write would carry.
+  const title = params.title ?? "Project Overview";
+
   // Rehearsal: the proposal is fully validated but never written, so an
   // agent can verify its content before replacing the previous tour.
   if (params.dryRun === true) {
     return validatedResponse(
+      title,
       finalSteps.length,
       warnings,
       `Validated Project Tour proposal with ${finalSteps.length} step(s); nothing was written (dryRun).`
@@ -728,7 +746,7 @@ async function handleCreateProjectTour(
 
   const tour: TourFile = {
     $schema: CODETOUR_SCHEMA_URI,
-    title: params.title ?? "Project Overview",
+    title,
     ...(params.description !== undefined ? { description: params.description } : {}),
     steps: finalSteps,
   };
@@ -741,6 +759,7 @@ async function handleCreateProjectTour(
 
   return successResponse(
     normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, targetPath))),
+    title,
     finalSteps.length,
     warnings,
     `Created Project Tour at ${targetPath} with ${finalSteps.length} step(s).`
@@ -892,9 +911,11 @@ async function handleCreateChangesTour(
 
   const title = params.title ?? (await defaultChangesTitle(ctx, headRef));
   // Rehearsal: every check has run (Git, anchors against headRef, renames,
-  // Mermaid, warnings) but the tour is never written.
+  // Mermaid, warnings) but the tour is never written. The title that the
+  // persisted write would carry is returned with it.
   if (params.dryRun === true) {
     return validatedResponse(
+      title,
       finalSteps.length,
       warnings,
       `Validated Changes Tour proposal with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}); nothing was written (dryRun).`
@@ -938,6 +959,7 @@ async function handleCreateChangesTour(
 
   return successResponse(
     normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, targetPath))),
+    title,
     finalSteps.length,
     warnings,
     `Created Changes Tour at ${targetPath} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`
@@ -1024,18 +1046,21 @@ interface ToolResponse {
 
 function successResponse(
   relativePath: string,
+  title: string,
   stepCount: number,
   warnings: Warning[],
   message: string
 ): ToolResponse {
   const result: SuccessResult = {
     status: "created",
+    title,
     path: relativePath,
     stepCount,
     warnings,
   };
   const text = [
     message,
+    `Title: ${title}`,
     ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
   ].join("\n");
   return {
@@ -1045,17 +1070,20 @@ function successResponse(
 }
 
 function validatedResponse(
+  title: string,
   stepCount: number,
   warnings: Warning[],
   message: string
 ): ToolResponse {
   const result: ValidatedResult = {
     status: "validated",
+    title,
     stepCount,
     warnings,
   };
   const text = [
     message,
+    `Title: ${title}`,
     ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
   ].join("\n");
   return {
