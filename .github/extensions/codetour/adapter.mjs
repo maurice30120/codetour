@@ -92,7 +92,7 @@ function parse(raw) {
   // The final token is the renderer flag when present; the remaining text is
   // the exact Tour title (including spaces), optionally enclosed in quotes.
   let text = (raw || "").trim();
-  let renderer = "html";
+  let renderer = "terminal";
   const match = text.match(/(?:^|\s)--renderer(?:=|\s+)([^\s]+)\s*$/);
   if (match) { renderer = match[1]; text = text.slice(0, match.index).trim(); }
   if (renderer !== "html" && renderer !== "terminal") throw new Error("Unknown renderer; use html or terminal.");
