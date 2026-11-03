@@ -425,6 +425,20 @@ const changesToolInputSchema = z
   })
   .passthrough();
 
+// The final step of every served generation prompt, shared by the Project
+// Tour and Changes Tour builders: once the write has succeeded, the agent
+// states the created tour's exact title and path — as returned by the
+// creation tool, so not from memory — on a dedicated line, in the language
+// the Tour was generated in (the orientation given). The generation is
+// complete only once that line has been stated.
+const ANNOUNCEMENT_STEP =
+  "- Announce the created tour: once the write has succeeded, state on a " +
+  "dedicated line the tour's exact `title` and `path`, exactly as the tool " +
+  "result returns them, in the language the Tour was generated in (the " +
+  "orientation given), so the user knows which tour was created and where " +
+  "to find it. The generation is complete only once that line has been " +
+  "stated.";
+
 // Project Tour generation prompt served by the PROJECT_TOUR_PROMPT_RESOURCE_URI
 // resource. It addresses the host agent and cites the tool; it never mentions
 // a review mode, which only exists for Changes Tours.
@@ -456,11 +470,7 @@ function projectTourGenerationPrompt(): string {
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_project_tour` tool " +
       "description.",
-    "- Announce the created tour: once the write has succeeded, state on a " +
-      "dedicated line the tour's exact `title` and `path`, exactly as the tool " +
-      "result returns them, so the user knows which tour was created and where " +
-      "to find it. The generation is complete only once that line has been " +
-      "stated.",
+    ANNOUNCEMENT_STEP,
     "",
   ].join("\n");
 }
@@ -469,7 +479,9 @@ function projectTourGenerationPrompt(): string {
 // resource for the requested review mode. Both modes share the contract
 // clauses (Git comparison, Tour Anchors, validation, destination, dryRun);
 // the critical mode additionally embeds the shared review skill pack with the
-// instruction to follow it in full before any analysis or step writing.
+// instruction to follow it in full before any analysis or step writing. The
+// announcement step comes after that pack so every served prompt, in every
+// mode, ends with the announcement.
 function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string {
   const modeClause =
     reviewMode === "neutral"
@@ -506,14 +518,10 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_changes_tour` tool " +
       "description.",
-    "- Announce the created tour: once the write has succeeded, state on a " +
-      "dedicated line the tour's exact `title` and `path`, exactly as the tool " +
-      "result returns them, so the user knows which tour was created and where " +
-      "to find it. The generation is complete only once that line has been " +
-      "stated.",
     ...(reviewMode === "critical"
       ? ["", "## Embedded review instructions", "", criticalReviewSkillPack()]
       : []),
+    ANNOUNCEMENT_STEP,
     "",
   ].join("\n");
 }
@@ -1044,6 +1052,20 @@ interface ToolResponse {
   isError?: boolean;
 }
 
+// The human-readable summary shared by the successful tool results: the
+// status message, the title that was (or would be) written, and any warnings.
+function resultText(
+  message: string,
+  title: string,
+  warnings: Warning[]
+): string {
+  return [
+    message,
+    `Title: ${title}`,
+    ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
+  ].join("\n");
+}
+
 function successResponse(
   relativePath: string,
   title: string,
@@ -1058,13 +1080,8 @@ function successResponse(
     stepCount,
     warnings,
   };
-  const text = [
-    message,
-    `Title: ${title}`,
-    ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
-  ].join("\n");
   return {
-    content: [{ type: "text", text }],
+    content: [{ type: "text", text: resultText(message, title, warnings) }],
     structuredContent: result as unknown as Record<string, unknown>,
   };
 }
@@ -1081,13 +1098,8 @@ function validatedResponse(
     stepCount,
     warnings,
   };
-  const text = [
-    message,
-    `Title: ${title}`,
-    ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
-  ].join("\n");
   return {
-    content: [{ type: "text", text }],
+    content: [{ type: "text", text: resultText(message, title, warnings) }],
     structuredContent: result as unknown as Record<string, unknown>,
   };
 }

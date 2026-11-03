@@ -23,11 +23,13 @@ function changesTourPromptUri(reviewMode: string): string {
 
 // Every served generation prompt ends with an announcement step: once the
 // write has succeeded, the agent states the created tour's exact title and
-// path, as returned by the creation tool, on a dedicated line; the presence
+// path, as returned by the creation tool, on a dedicated line, in the
+// language the Tour was generated in (the orientation given); the presence
 // of that line completes the generation. The helper pins the contract, not
 // the wording: the marker locates the step, the follow-up assertions check
-// what it must carry, and the ordering check pins it after the
-// persistence instruction.
+// what it must carry, and the finality check pins it as the last step of
+// the served instructions — in the composed prompts/get form, only the
+// user's orientation clause may follow it.
 function assertAnnouncementStep(text: string, persistenceClause: string): void {
   const marker = "Announce the created tour";
   const index = text.indexOf(marker);
@@ -36,7 +38,8 @@ function assertAnnouncementStep(text: string, persistenceClause: string): void {
     index > text.indexOf(persistenceClause),
     "the announcement step must follow the persistence instruction"
   );
-  const step = text.slice(index, index + 400);
+  const lineEnd = text.indexOf("\n", index);
+  const step = lineEnd === -1 ? text.slice(index) : text.slice(index, lineEnd);
   assert.ok(step.includes("title"), "the announcement step names the title");
   assert.ok(step.includes("path"), "the announcement step names the path");
   assert.ok(
@@ -46,6 +49,17 @@ function assertAnnouncementStep(text: string, persistenceClause: string): void {
   assert.ok(
     step.includes("dedicated line"),
     "the announcement is stated on a dedicated line"
+  );
+  assert.ok(
+    step.includes("language"),
+    "the announcement is stated in the Tour's language (the orientation given)"
+  );
+  const remainder =
+    lineEnd === -1 ? "" : text.slice(lineEnd).trim();
+  assert.ok(
+    remainder === "" ||
+      remainder.startsWith("## Tour orientation from the user"),
+    "the announcement must be the final step of the served instructions"
   );
 }
 

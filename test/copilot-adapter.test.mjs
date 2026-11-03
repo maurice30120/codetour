@@ -534,47 +534,27 @@ async function recordedReaderArgs(recorded) {
   return readFileSync(recorded, "utf8").trim().split("\n").map(line => JSON.parse(line));
 }
 
-test("a read without options forwards the terminal renderer to the CLI", async () => {
-  const root = createTourWorkspace([["a", "First Tour"]]);
-  await withRecordingCli(root, async recorded => {
-    const messages = [];
-    await runCodeTourCommand({capabilities:{}, log: async message => messages.push(message)}, "First Tour", root);
-    const calls = await recordedReaderArgs(recorded);
-    assert.equal(calls.length, 1);
-    const [flag, value] = calls[0].slice(-2);
-    assert.equal(flag, "--renderer");
-    assert.equal(value, "terminal");
-    assert.match(messages.join("\n"), /Starting CodeTour: First Tour \(terminal\)\./);
-  });
-});
+const rendererForwardingCases = [
+  ["a read without options forwards the terminal renderer", "First Tour", "terminal"],
+  ["a read with --renderer html forwards html", "First Tour --renderer html", "html"],
+  ["a read with --renderer terminal forwards terminal", "First Tour --renderer terminal", "terminal"],
+];
 
-test("a read with --renderer html forwards html to the CLI", async () => {
-  const root = createTourWorkspace([["a", "First Tour"]]);
-  await withRecordingCli(root, async recorded => {
-    const messages = [];
-    await runCodeTourCommand({capabilities:{}, log: async message => messages.push(message)}, "First Tour --renderer html", root);
-    const calls = await recordedReaderArgs(recorded);
-    assert.equal(calls.length, 1);
-    const [flag, value] = calls[0].slice(-2);
-    assert.equal(flag, "--renderer");
-    assert.equal(value, "html");
-    assert.match(messages.join("\n"), /Starting CodeTour: First Tour \(html\)\./);
+for (const [label, command, renderer] of rendererForwardingCases) {
+  test(`${label} to the CLI`, async () => {
+    const root = createTourWorkspace([["a", "First Tour"]]);
+    await withRecordingCli(root, async recorded => {
+      const messages = [];
+      await runCodeTourCommand({capabilities:{}, log: async message => messages.push(message)}, command, root);
+      const calls = await recordedReaderArgs(recorded);
+      assert.equal(calls.length, 1);
+      const [flag, value] = calls[0].slice(-2);
+      assert.equal(flag, "--renderer");
+      assert.equal(value, renderer);
+      assert.match(messages.join("\n"), new RegExp(`Starting CodeTour: First Tour \\(${renderer}\\)\\.`));
+    });
   });
-});
-
-test("a read with --renderer terminal forwards terminal to the CLI", async () => {
-  const root = createTourWorkspace([["a", "First Tour"]]);
-  await withRecordingCli(root, async recorded => {
-    const messages = [];
-    await runCodeTourCommand({capabilities:{}, log: async message => messages.push(message)}, "First Tour --renderer terminal", root);
-    const calls = await recordedReaderArgs(recorded);
-    assert.equal(calls.length, 1);
-    const [flag, value] = calls[0].slice(-2);
-    assert.equal(flag, "--renderer");
-    assert.equal(value, "terminal");
-    assert.match(messages.join("\n"), /Starting CodeTour: First Tour \(terminal\)\./);
-  });
-});
+}
 
 test("an unknown renderer reports an explicit error without launching the CLI", async () => {
   const root = createTourWorkspace([["a", "First Tour"]]);
