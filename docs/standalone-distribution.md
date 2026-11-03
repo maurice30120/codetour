@@ -28,7 +28,7 @@ From any directory inside a Git worktree, run the packaged `codetour` launcher (
 /path/to/codetour-distribution/codetour "Tour title" --renderer terminal
 ```
 
-The default renderer opens HTML. The terminal renderer opens a separate terminal window. Neither depends on a globally installed Node runtime. The distribution uses the current OS terminal application and Git; it does not install an application or alter system configuration.
+The default renderer is the terminal: it opens a separate terminal window. `--renderer html` opens the HTML reader in a browser page. Neither depends on a globally installed Node runtime. The distribution uses the current OS terminal application and Git; it does not install an application or alter system configuration.
 
 ### Start the MCP server with `codetour mcp`
 

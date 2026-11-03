@@ -103,7 +103,9 @@ espaces, notamment sous Windows, sont transmis correctement.
   `codetour-create_project_tour` et `codetour-create_changes_tour`) : l’agent
   cherche l’outil sous le nom réellement enregistré dans sa session, le
   contrat de l’outil étant inchangé.
-- La sélection d’un Tour et les lecteurs HTML/TermDOM restent disponibles.
+- La sélection d’un Tour reste disponible ; le lecteur terminal (TermDOM) est
+  le lecteur ouvert par défaut, et le lecteur HTML reste accessible via
+  `--renderer html`.
 - La revue critique lit les instructions depuis la ressource MCP
   `codetour://review/critical-instructions` avant l’appel à
   `create_changes_tour`.
