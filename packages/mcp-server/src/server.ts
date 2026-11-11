@@ -54,6 +54,11 @@ import {
   formatProjectTargetedContextForPrompt,
   getProjectTargetedContextConfig,
 } from "./targeted-context/project-context-extractor";
+import {
+  getApproachCConfig,
+  getApproachDConfig,
+  APPROACH_D_CONFIG,
+} from "./targeted-context/hybrid-config";
 import packageJson from "../package.json";
 
 // MCP V1 exposes exactly two tools: `create_project_tour` and
@@ -135,6 +140,32 @@ const PROJECT_TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
   "symbols and locations from the entire workspace, offered to the Tour Generator " +
   "as a substitute for open-ended exploration. This feature is off by default; " +
   "when disabled, this resource returns an empty context.";
+
+// Unified MCP Resources for Hybrid Targeted Context (spec-hybrid-targeted-context)
+// These resources automatically use the optimal approach (C for Changes Tours, D for Project Tours)
+// with their respective optimal configurations.
+
+// URI for unified Changes Tour resource using approach C
+// Part of spec-hybrid-targeted-context, ticket #04
+export const UNIFIED_CHANGES_TOUR_RESOURCE_TEMPLATE =
+  "codetour://generate/changes-tour/{baseRef}/{headRef}";
+const UNIFIED_CHANGES_TOUR_RESOURCE_NAME = "unified-changes-tour-context";
+const UNIFIED_CHANGES_TOUR_RESOURCE_DESCRIPTION =
+  "Unified Targeted Context for Changes Tour generation using approach C (Progressive MCP). " +
+  "Provides bounded code symbol context from changed files between {baseRef} and {headRef}. " +
+  "Uses optimal configuration for Changes Tours: maxSymbols: 5000, pageSize: 200. " +
+  "This is the recommended resource for Changes Tours with automatic approach selection.";
+
+// URI for unified Project Tour resource using approach D
+// Part of spec-hybrid-targeted-context, ticket #05
+export const UNIFIED_PROJECT_TOUR_RESOURCE_URI =
+  "codetour://generate/project-tour";
+const UNIFIED_PROJECT_TOUR_RESOURCE_NAME = "unified-project-tour-context";
+const UNIFIED_PROJECT_TOUR_RESOURCE_DESCRIPTION =
+  "Unified Targeted Context for Project Tour generation using approach D (Project Tour). " +
+  "Provides bounded code symbol context from the entire workspace. " +
+  "Uses optimal configuration for Project Tours: maxFiles: 50, maxSymbolsPerFile: 50. " +
+  "This is the recommended resource for Project Tours with automatic approach selection.";
 
 // Mechanism choice (spec #94): the Changes Tour prompt is parameterized by
 // the review mode, so it is served as an MCP resource template rather than
@@ -707,6 +738,131 @@ export function createServer(workspaceRoot: string): McpServer {
             uri: uri.toString(),
             mimeType: "text/markdown",
             text: formattedContext || "# Targeted Context\n\nNo context available.",
+          },
+        ],
+      };
+    }
+  );
+
+  // ========================================================================
+  // Hybrid Targeted Context - Unified MCP Resources
+  // ========================================================================
+
+  // Unified Changes Tour resource using approach C (Progressive MCP)
+  // Part of spec-hybrid-targeted-context, ticket #04
+  // Forces the use of approach C with optimal configuration for Changes Tours
+  server.registerResource(
+    UNIFIED_CHANGES_TOUR_RESOURCE_NAME,
+    new ResourceTemplate(UNIFIED_CHANGES_TOUR_RESOURCE_TEMPLATE, {
+      list: undefined,
+    }),
+    {
+      description: UNIFIED_CHANGES_TOUR_RESOURCE_DESCRIPTION,
+      mimeType: "text/markdown",
+    },
+    async (uri, variables) => {
+      const baseRef = variables.baseRef;
+      const headRef = variables.headRef;
+      const page = variables.page ? Number(variables.page) : 1;
+      const pageSize = variables.pageSize ? Number(variables.pageSize) : 200; // Default pageSize for approach C
+
+      if (
+        typeof baseRef !== "string" ||
+        typeof headRef !== "string" ||
+        !baseRef ||
+        !headRef
+      ) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `Invalid parameters for Unified Changes Tour resource. ` +
+          `Both baseRef and headRef must be provided as commit SHAs. ` +
+          `(${UNIFIED_CHANGES_TOUR_RESOURCE_TEMPLATE})`
+        );
+      }
+
+      // Use approach C with optimal configuration
+      const config = getApproachCConfig();
+
+      const pagination: PaginationOptions = {
+        page,
+        pageSize,
+      };
+
+      const result = await extractPaginatedTargetedContext(
+        ctx,
+        baseRef,
+        headRef,
+        pagination,
+        config
+      );
+
+      if (!result.success) {
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Failed to extract Unified Changes Tour Context: ${result.error}`
+        );
+      }
+
+      // If we have paginated context, use it; otherwise use the regular context
+      if (result.paginatedContext && result.paginatedContext.pages.length > 0) {
+        const formattedContext = formatPaginatedContextForPrompt(
+          result.paginatedContext
+        );
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: "text/markdown",
+              text: formattedContext || "# Unified Changes Tour Context\n\nNo context available.",
+            },
+          ],
+        };
+      } else {
+        const formattedContext = formatTargetedContextForPrompt(result.context!);
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: "text/markdown",
+              text: formattedContext || "# Unified Changes Tour Context\n\nNo context available.",
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // Unified Project Tour resource using approach D (Project Tour)
+  // Part of spec-hybrid-targeted-context, ticket #05
+  // Forces the use of approach D with optimal configuration for Project Tours
+  server.registerResource(
+    UNIFIED_PROJECT_TOUR_RESOURCE_NAME,
+    UNIFIED_PROJECT_TOUR_RESOURCE_URI,
+    {
+      description: UNIFIED_PROJECT_TOUR_RESOURCE_DESCRIPTION,
+      mimeType: "text/markdown",
+    },
+    async (uri) => {
+      // Use approach D with optimal configuration
+      const config = getApproachDConfig(APPROACH_D_CONFIG);
+      
+      const result = await extractProjectTargetedContext(ctx, config);
+
+      if (!result.success) {
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Failed to extract Unified Project Tour Context: ${result.error}`
+        );
+      }
+
+      const formattedContext = formatProjectTargetedContextForPrompt(result.context!);
+
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "text/markdown",
+            text: formattedContext || "# Unified Project Tour Context\n\nNo context available.",
           },
         ],
       };
