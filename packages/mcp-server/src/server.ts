@@ -47,6 +47,11 @@ import {
   formatTargetedContextForPrompt,
   getTargetedContextConfig,
 } from "./targeted-context";
+import {
+  extractProjectTargetedContext,
+  formatProjectTargetedContextForPrompt,
+  getProjectTargetedContextConfig,
+} from "./targeted-context/project-context-extractor";
 import packageJson from "../package.json";
 
 // MCP V1 exposes exactly two tools: `create_project_tour` and
@@ -115,6 +120,17 @@ const TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
   "symbols and locations from the changed files between {baseRef} and {headRef}, " +
   "offered to the Tour Generator as a substitute for open-ended exploration. " +
   "This feature is off by default; when disabled, this resource returns an empty context.";
+
+// URI for Targeted Context resource for Project Tour.
+// Part of spec #92, ticket #117
+export const PROJECT_TARGETED_CONTEXT_RESOURCE_URI =
+  "codetour://context/project-tour";
+const PROJECT_TARGETED_CONTEXT_RESOURCE_NAME = "project-tour-targeted-context";
+const PROJECT_TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
+  "Targeted Context for Project Tour generation: a bounded selection of code " +
+  "symbols and locations from the entire workspace, offered to the Tour Generator " +
+  "as a substitute for open-ended exploration. This feature is off by default; " +
+  "when disabled, this resource returns an empty context.";
 
 // Mechanism choice (spec #94): the Changes Tour prompt is parameterized by
 // the review mode, so it is served as an MCP resource template rather than
@@ -406,6 +422,10 @@ function projectTourGenerationPrompt(): string {
       "of this codebase's purpose, structure, and important execution paths for a " +
       "developer discovering the project.",
     "",
+    "- Optional Targeted Context may be available at `codetour://context/project-tour`. " +
+      "This provides a bounded selection of code symbols from the entire workspace as a substitute for " +
+      "open-ended exploration. If available and useful, prefer it to reduce token usage. " +
+      "If unavailable or not useful, proceed with full exploration as usual.",
     "- Read the relevant source before writing; every explanation and anchor must " +
       "be supported by the code. Explore the codebase first — the entry points and " +
       "the main modules, not just file names.",
@@ -602,6 +622,42 @@ export function createServer(workspaceRoot: string): McpServer {
       }
       
       const formattedContext = formatTargetedContextForPrompt(result.context!);
+      
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "text/markdown",
+            text: formattedContext || "# Targeted Context\n\nNo context available.",
+          },
+        ],
+      };
+    }
+  );
+
+  // Targeted Context resource for Project Tour (spec #92, ticket #117)
+  // Provides bounded code symbol context for the entire workspace to reduce open-ended exploration.
+  // Off by default; when disabled, returns empty context.
+  server.registerResource(
+    PROJECT_TARGETED_CONTEXT_RESOURCE_NAME,
+    PROJECT_TARGETED_CONTEXT_RESOURCE_URI,
+    {
+      description: PROJECT_TARGETED_CONTEXT_RESOURCE_DESCRIPTION,
+      mimeType: "text/markdown",
+    },
+    async (uri) => {
+      // Extract targeted context for the entire workspace
+      const config = getProjectTargetedContextConfig();
+      const result = await extractProjectTargetedContext(ctx, config);
+      
+      if (!result.success) {
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Failed to extract Project Targeted Context: ${result.error}`
+        );
+      }
+      
+      const formattedContext = formatProjectTargetedContextForPrompt(result.context!);
       
       return {
         contents: [
