@@ -12,9 +12,8 @@
 
 import { CodeSymbol } from "../parsing/symbol-extractor";
 import { TokenUsage, CostInfo, TokenEconomizerConfig } from "../cost-tracking/types";
-import { TargetedContext, TargetedContextConfig } from "./types";
-import { ProjectTargetedContext, ProjectTargetedContextConfig } from "./project-types";
-import { PaginatedTargetedContext } from "./types";
+import { TargetedContextConfig } from "./types";
+import { ProjectTargetedContextConfig } from "./project-types";
 
 /**
  * Identifiers for the 5 benchmark approaches
@@ -36,11 +35,11 @@ export const APPROACH_LABELS: Record<BenchmarkApproach, string> = {
  * Description of each approach
  */
 export const APPROACH_DESCRIPTIONS: Record<BenchmarkApproach, string> = {
-  A: "Traditional open-ended exploration without bounded context. The Tour Generator explores the entire codebase freely.",
-  B: "Bounded context extraction from changed files only. Provides targeted symbols from files that changed between base and head commits.",
-  C: "Progressive, paginated context exploration. Allows incremental discovery of symbols across the codebase with MCP server pagination.",
-  D: "Comprehensive workspace-wide context. Extracts symbols from the entire project structure with configurable limits.",
-  TE: "TokenEconomizer plugin integration. Uses the TokenEconomizer POC from ticket #113 to optimize token usage through tool pruning and micro-skills."
+  A: "Traditional open-ended exploration without bounded context (Baseline). The Tour Generator explores the entire codebase freely.",
+  B: "Bounded context extraction from changed files only (Ticket #115). Provides targeted symbols from files that changed between base and head commits.",
+  C: "Progressive, paginated context exploration (Ticket #116). Allows incremental discovery of symbols across the codebase with MCP server pagination.",
+  D: "Comprehensive workspace-wide context (Ticket #117). Extracts symbols from the entire project structure with configurable limits.",
+  TE: "TokenEconomizer plugin integration (Ticket #113). Uses the TokenEconomizer POC to optimize token usage through tool pruning and micro-skills."
 };
 
 /**
@@ -91,6 +90,10 @@ export interface BenchmarkMetrics {
    * Number of errors during execution
    */
   errors: number;
+  /**
+   * Approach-specific metadata
+   */
+  metadata?: Record<string, unknown>;
 }
 
 /**

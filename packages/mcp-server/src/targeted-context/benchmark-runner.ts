@@ -25,9 +25,7 @@ import {
   APPROACH_LABELS,
   APPROACH_DESCRIPTIONS
 } from "./benchmark-types";
-import { TargetedContextConfig, DEFAULT_TARGETED_CONTEXT_CONFIG } from "./types";
 import { ProjectTargetedContextConfig, DEFAULT_PROJECT_TARGETED_CONTEXT_CONFIG } from "./project-types";
-import { CodeSymbol } from "../parsing/symbol-extractor";
 import { TokenUsage, CostInfo, TokenEconomizerConfig } from "../cost-tracking/types";
 import { TokenEconomizerPOC } from "../cost-tracking/tokeneconomizer-poc";
 
@@ -268,32 +266,6 @@ export class TargetedContextBenchmarkRunner {
     }
 
     try {
-      const config: TargetedContextConfig = {
-        ...DEFAULT_TARGETED_CONTEXT_CONFIG,
-        ...this.config.configB,
-        enabled: true
-      };
-
-      // Use the context extractor from ticket #115
-      // Note: This is a simplified simulation as we don't have actual git diff
-      const mockContext: TargetedContext = {
-        enabled: true,
-        baseRef: this.config.baseRef,
-        headRef: this.config.headRef,
-        files: [],
-        totalSymbols: 0,
-        totalTokenUsage: {
-          inputTokens: 0,
-          outputTokens: 0,
-          cacheTokens: 0,
-          totalTokens: 0,
-          timestamp: new Date().toISOString()
-        },
-        totalCost: {},
-        generatedAt: new Date().toISOString(),
-        durationMs: 0
-      };
-
       // Simulate extracting context from changed files
       // For benchmarking, we'll simulate having some changed files
       const changedFiles = await this.getChangedFiles();
@@ -304,7 +276,7 @@ export class TargetedContextBenchmarkRunner {
       let totalTokens = 0;
       let totalFileSize = 0;
       
-      for (const file of changedFiles) {
+      for (const _ of changedFiles) {
         const fileSymbols = Math.floor(Math.random() * 50) + 10; // 10-60 symbols per file
         const fileTokens = fileSymbols * 50; // ~50 tokens per symbol
         const fileSize = (Math.random() * 10000) + 1000; // 1-11 KB per file
@@ -343,14 +315,7 @@ export class TargetedContextBenchmarkRunner {
     const metrics = this.createEmptyMetrics();
 
     try {
-      const config: TargetedContextConfig = {
-        ...DEFAULT_TARGETED_CONTEXT_CONFIG,
-        ...this.config.configC,
-        enabled: true
-      };
-
       // Simulate progressive pagination
-      const pageSize = 100;
       const totalPages = 5; // Simulate 5 pages of results
       
       metrics.mcpToolCalls = totalPages; // One tool call per page
@@ -409,8 +374,8 @@ export class TargetedContextBenchmarkRunner {
       
       // Filter to only include source files
       const sourceFiles = allFiles.filter(file => 
-        config.includeExtensions.some(ext => file.endsWith(ext)) &&
-        !config.excludeExtensions.some(ext => file.includes(ext))
+        config.includeExtensions.some((ext: string) => file.endsWith(ext)) &&
+        !config.excludeExtensions.some((ext: string) => file.includes(ext))
       );
       
       metrics.totalFiles = Math.min(sourceFiles.length, config.maxFiles);
@@ -471,10 +436,16 @@ export class TargetedContextBenchmarkRunner {
     const metrics = this.createEmptyMetrics();
 
     try {
-      // Create TokenEconomizer POC instance
+      // Create TokenEconomizer POC instance with default config
       const teConfig: TokenEconomizerConfig = {
-        ...this.config.configTE,
-        enabled: true
+        enabled: true,
+        compatible: true,
+        settings: {
+          toolPrune: "off",
+          microSkills: false,
+          loopGuard: false
+        },
+        ...this.config.configTE
       };
 
       const tokenEconomizer = new TokenEconomizerPOC(teConfig);
@@ -761,15 +732,10 @@ export class TargetedContextBenchmarkRunner {
    */
   private getRepositoryInfo(): string | undefined {
     try {
-      // Try to read package.json or similar
-      const pkgPath = path.join(this.config.workspaceRoot, "package.json");
-      if (fs.readFile) {
-        return this.config.workspaceRoot.split(path.sep).pop();
-      }
+      return this.config.workspaceRoot.split(path.sep).pop();
     } catch {
-      // Repository info not available
+      return undefined;
     }
-    return undefined;
   }
 
   /**
@@ -1276,8 +1242,8 @@ export class TargetedContextBenchmarkRunner {
     const lines: string[] = [];
 
     // Header
-    lines.push("# Targeted Context Benchmark Report");
-    lines.push(`**Spec #92, Ticket #118**`);
+    lines.push("# Targeted Context vs TokenEconomizer Benchmark");
+    lines.push(`**Spec #92: Optimisation du coût CodeTour — TokenEconomizer et Targeted Context**`);
     lines.push(`**Generated:** ${new Date(report.timestamp).toLocaleString()}`);
     lines.push("");
 
