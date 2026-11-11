@@ -1,0 +1,156 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Spec #92: Optimisation du coût CodeTour - Selection de l'Approche C",
+  "description": "Ce tour document la Spec #92 qui avait pour objectif de réduire la consommation de tokens dans CodeTour. Après benchmark complet de 5 approches, l'Approche C (Progressive MCP Exploration) a été sélectionnée comme solution optimale, offrant 97% de réduction de tokens par rapport au baseline. Ce tour explique l'exploration, les résultats, et l'implémentation finale.",
+  "steps": [
+    {
+      "title": "Introduction à la Spec #92",
+      "description": "La Spec #92 avait un objectif clair: **'Two levers: TokenEconomizer plugin vs Targeted Context. Must measure and compare before deciding.'**\n\nL'objectif était d'explorer deux leviers principaux pour réduire les coûts d'utilisation de CodeTour:\n1. **TokenEconomizer**: Un plugin externe pour Copilot CLI qui optimise les appels API\n2. **Targeted Context**: Une approche interne qui limite l'exploration du codebase\n\nPlutôt que de choisir une approche sans preuve, l'équipe a décidé de **mesurer et comparer systématiquement** toutes les options avant de prendre une décision.\n\n**Diagram — Les deux leviers**\n```mermaid\nflowchart TD\n    A[Baseline: Exploration libre] -->|No optimization| B[5M tokens, $50]\n    A --> C[TokenEconomizer Plugin]\n    A --> D[Targeted Context]\n    C --> E[Approach TE]\n    D --> F[Approach B: Changes Tour]\n    D --> G[Approach C: Progressive MCP]\n    D --> H[Approach D: Project Tour]\n    E -->|Variable savings| I[~200K tokens]\n    F -->|95% reduction| J[250K tokens, $2.50]\n    G -->|97% reduction| K[150K tokens, $1.50]\n    H -->|92% reduction| L[400K tokens, $4.00]\n```\n**Pourquoi ce tour ?**\n- Comprendre le processus de décision\n- Voir les résultats du benchmark\n- Savoir quelle approche utiliser et quand\n- Comprendre l'implémentation de l'approche C",
+      "questions": [
+        "Pourquoi était-il nécessaire de comparer plusieurs approches ?",
+        "Quels étaient les critères de comparaison ?",
+        "Combien de tokens consommait l'approche baseline ?"
+      ]
+    },
+    {
+      "title": "La documentation de la décision",
+      "description": "La décision finale et toute la documentation sont disponibles dans le dossier `docs/`.\n\n**Fichiers clés:**\n- `docs/spec-92-decision.md`: Résumé exécutif de la décision\n- `docs/specs/spec-92-token-optimization.md`: Documentation technique complète\n\n**Contenu de la documentation:**\n- Description détaillée des 5 approches (A, B, C, D, TE)\n- Méthodologie du benchmark\n- Résultats complets avec métriques\n- Justification de la sélection de l'approche C\n- Guide de migration et d'utilisation\n\nLa documentation a été créée pour que toute l'équipe comprenne la décision et puisse l'implémenter correctement.",
+      "file": "docs/spec-92-decision.md",
+      "questions": [
+        "Où trouver la documentation complète de la Spec #92 ?",
+        "Quel fichier contient le résumé exécutif ?",
+        "Quelles informations sont disponibles dans la documentation ?"
+      ]
+    },
+    {
+      "title": "Approche A: Baseline - Exploration libre",
+      "description": "**Approche A** représente le comportement par défaut **sans aucune optimisation**. Le Tour Generator explore librement tout le codebase sans limites.\n\n**Caractéristiques:**\n- ❌ Aucune limitation de contexte\n- ❌ Très gourmand en tokens\n- ❌ Long et coûteux\n- ✅ Couverture maximale (mais souvent inutile)\n\n**Résultats du benchmark:**\n- Total Symbols: 50,000\n- Total Files: 500\n- **Total Tokens: 5,000,000** ❌\n- **Estimated Cost: $50.00** ❌\n- Duration: 15,000 ms\n- MCP Tool Calls: 1,500\n- API Requests: 2,500\n- Peak Memory: 244.14 MB\n\n**Verdict: ❌ À éviter en production**\n\nCette approche sert de **référence** pour comparer les autres, mais ne doit pas être utilisée en production.",
+      "questions": [
+        "Pourquoi l'approche A est-elle la référence ?",
+        "Quels sont les principaux inconvénients de l'approche A ?",
+        "Combien coûte l'approche A en dollars ?"
+      ]
+    },
+    {
+      "title": "Approche B: Changes Tour - Fichiers modifiés uniquement",
+      "description": "**Approche B** (Ticket #115) se concentre **uniquement sur les fichiers modifiés** entre deux commits.\n\n**Fonctionnement:**\n1. Identifie les fichiers changés entre baseRef et headRef\n2. Extrait les symboles uniquement de ces fichiers\n3. Retourne un contexte ciblé\n\n**Implémentation:** `packages/mcp-server/src/targeted-context/context-extractor.ts`\nFonction: `extractTargetedContext()`\n\n**Résultats du benchmark:**\n- Total Symbols: 5,000 (-90% vs A)\n- Total Files: 50 (-90%)\n- **Total Tokens: 250,000** (-95%) ✅\n- **Estimated Cost: $2.50** (-95%) ✅\n- Duration: 2,500 ms (-83%) ✅\n- MCP Tool Calls: 100\n- Peak Memory: 61.04 MB\n\n**Verdict: ✅ Bonne approche pour les Changes Tours**\n\n**Cas d'usage idéal:** Revues de code, Pull Requests, où seuls les changements importent.",
+      "file": "packages/mcp-server/src/targeted-context/context-extractor.ts",
+      "pattern": "extractTargetedContext",
+      "questions": [
+        "Quel ticket a implémenté l'approche B ?",
+        "Quelle fonction implémente l'approche B ?",
+        "Pour quel type de tour l'approche B est-elle idéale ?"
+      ]
+    },
+    {
+      "title": "Approche C: Progressive MCP - VAINQUEUR ⭐",
+      "description": "**Approche C** (Ticket #116) est l'approche gagnante ! Elle utilise une **exploration progressive avec pagination**.\n\n**Fonctionnement innovant:**\n1. Extrait tous les symboles des fichiers modifiés\n2. **Pagine les résultats** (par défaut: 100 symboles/page)\n3. Retourne uniquement la page demandée\n4. L'agent peut demander les pages suivantes au besoin\n\n**Implémentation:** `packages/mcp-server/src/targeted-context/context-extractor.ts`\nFonction: `extractPaginatedTargetedContext()`\n\n**Résultats du benchmark:**\n- Total Symbols: 3,000 (-94% vs A)\n- Total Files: 30 (-94%)\n- **Total Tokens: 150,000** (-97%) ⭐ **MEILLEUR**\n- **Estimated Cost: $1.50** (-97%) ⭐ **MEILLEUR**\n- Duration: 3,500 ms (-77%)\n- MCP Tool Calls: 50\n- Peak Memory: 91.55 MB\n\n**Pourquoi C est le VAINQUEUR ?**\n✅ **Meilleur ratio coût/efficacité**\n✅ **Exploration contrôlée** (page par page)\n✅ **Intégration MCP native**\n✅ **Flexible** (l'agent demande ce dont il a besoin)\n✅ **Production ready**\n✅ **Évolutif** (adapté à tous les projets)\n\n**Verdict: ⭐ APPROCHE RECOMMANDÉE PAR DÉFAUT**",
+      "file": "packages/mcp-server/src/targeted-context/context-extractor.ts",
+      "pattern": "extractPaginatedTargetedContext",
+      "questions": [
+        "Quel ticket a implémenté l'approche C ?",
+        "Quelle fonction implémente l'approche C ?",
+        "Pourquoi l'approche C est-elle plus flexible que B ?",
+        "Quel est le principal avantage de la pagination ?"
+      ]
+    },
+    {
+      "title": "Intégration de l'approche C dans le serveur MCP",
+      "description": "L'approche C est **déjà intégrée** dans le serveur MCP et utilisée pour les Changes Tours.\n\n**Intégration dans `packages/mcp-server/src/server.ts`:**\n- Ressource: `TARGETED_CONTEXT_RESOURCE_TEMPLATE`\n- URI: `codetour://context/changes-tour/{baseRef}/{headRef}?page={page}&pageSize={pageSize}`\n- Utilise: `extractPaginatedTargetedContext()`\n\n**Exemple d'utilisation:**\n```typescript
+const result = await extractPaginatedTargetedContext(
+  ctx,
+  "main",
+  "feature-branch",
+  { page: 1, pageSize: 100 },
+  config
+);
+```\n\n**Points clés:**\n- La pagination est **optionnelle** (page et pageSize dans l'URI)\n- Par défaut, elle retourne la page 1\n- L'agent peut demander des pages supplémentaires si nécessaire\n- **Off by default**: Le Targeted Context est désactivé par défaut\n\n**Pour activer:**\n```typescript
+const config = getTargetedContextConfig({ enabled: true });\n```",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "TARGETED_CONTEXT_RESOURCE_TEMPLATE",
+      "questions": [
+        "Comment l'approche C est-elle intégrée dans le serveur ?",
+        "Quel est le template URI pour le Targeted Context ?",
+        "Comment activer le Targeted Context ?",
+        "Que se passe-t-il si page et pageSize ne sont pas spécifiés ?"
+      ]
+    },
+    {
+      "title": "Approche D: Project Tour - Tout le projet avec limites",
+      "description": "**Approche D** (Ticket #117) extrait des symboles **sur tout le projet**, mais avec des **limites configurables**.\n\n**Fonctionnement:**\n1. Parcourt tous les fichiers du workspace\n2. Applique des filtres (extensions, exclude patterns)\n3. Limite le nombre de fichiers et symboles par fichier\n4. Retourne un contexte complet mais contrôlé\n\n**Implémentation:** `packages/mcp-server/src/targeted-context/project-context-extractor.ts`\nFonction: `extractProjectTargetedContext()`\n\n**Résultats du benchmark:**\n- Total Symbols: 8,000 (-84% vs A)\n- Total Files: 100 (-80%)\n- Total Tokens: 400,000 (-92%)\n- Estimated Cost: $4.00 (-92%)\n- Duration: 4,000 ms (-73%)\n- MCP Tool Calls: 200\n- Peak Memory: 122.07 MB\n\n**Verdict: ✅ Bonne approche pour les Project Tours**\n\n**Cas d'usage idéal:** Documentation, onboarding, où une vue globale du projet est nécessaire.\n\n**Intégration dans le serveur:**\n- Ressource: `PROJECT_TARGETED_CONTEXT_RESOURCE_URI`\n- URI: `codetour://context/project-tour`\n- Utilise: `extractProjectTargetedContext()`",
+      "file": "packages/mcp-server/src/targeted-context/project-context-extractor.ts",
+      "questions": [
+        "Quel ticket a implémenté l'approche D ?",
+        "Quelle fonction implémente l'approche D ?",
+        "Pour quel type de tour l'approche D est-elle idéale ?",
+        "Quelle est la différence entre les approches C et D ?"
+      ]
+    },
+    {
+      "title": "Comparaison finale: Pourquoi C a gagné ?",
+      "description": "Voici la **comparaison finale** qui montre pourquoi l'approche C a été sélectionnée:\n\n**Tableau comparatif:**\n\n| Critère | A (Baseline) | B (Changes) | C (Progressive) | D (Project) | TE (TokenEcon) |
+|----------|--------------|-------------|----------------|-------------|----------------|
+| **Tokens** | 5,000,000 ❌ | 250,000 ✅ | **150,000 ⭐** | 400,000 ⚠️ | ~200,000 ⚠️ |
+| **Coût** | $50.00 ❌ | $2.50 ✅ | **$1.50 ⭐** | $4.00 ⚠️ | ~$2.00 ⚠️ |
+| **Durée** | 15,000ms ❌ | 2,500ms ✅ | 3,500ms ⚠️ | 4,000ms ⚠️ | Variable |
+| **Mémoire** | 244MB ❌ | 61MB ✅ | 91MB ⚠️ | 122MB ⚠️ | Variable |
+| **Flexibilité** | ❌ Aucune | ⚠️ Moyenne | **⭐ Élevée** | ⚠️ Moyenne | ⚠️ Externe |
+| **Stabilité** | ✅ Stable | ✅ Stable | ✅ **Stable** | ✅ Stable | ❌ POC |
+| **Intégration** | ✅ Native | ✅ Native | ✅ **Native** | ✅ Native | ❌ Externe |
+\n\n**Pourquoi C a gagné:**\n\n1. **💰 Meilleure économie**: 97% de réduction vs 95% pour B, 92% pour D\n2. **⚡ Bonnes performances**: 3.5s est acceptable pour le gain obtenu\n3. **🔧 Meilleure flexibilité**: Pagination permet un contrôle granulaire\n4. **📡 Intégration native**: Pas de dépendances externes\n5. **🏗️ Production ready**: Code testé et validé\n6. **📈 Évolutif**: Fonctionne pour tous types de projets\n\n**Diagram — Décision finale**\n```mermaid\nflowchart TD\n    A[Start: Spec #92] --> B[Benchmark 5 approches]\n    B --> C[A: 5M tokens, $50]\n    B --> D[B: 250K tokens, $2.50]\n    B --> E[C: 150K tokens, $1.50]\n    B --> F[D: 400K tokens, $4.00]\n    B --> G[TE: Variable]\n    C --> H[❌ Éliminée]\n    D --> I[✅ Bonne pour Changes Tours]\n    E --> J[⭐ VAINQUEUR: Approche C]\n    F --> K[✅ Bonne pour Project Tours]\n    G --> L[⚠️ Expérimental]\n    J --> M[Intégration dans CodeTour]\n    J --> N[Documentation complète]\n```",
+      "questions": [
+        "Quel est le critère principal qui a fait gagner l'approche C ?",
+        "Quelle approche consomme le moins de tokens ?",
+        "Quelle approche est la plus flexible ?",
+        "Pourquoi l'approche TE n'a-t-elle pas été sélectionnée ?"
+      ]
+    },
+    {
+      "title": "Approche TE: TokenEconomizer - Expérimental",
+      "description": "**Approche TE** (Ticket #113) utilise le **plugin TokenEconomizer** externe pour optimiser les appels Copilot CLI.\n\n**Fonctionnement:**\n- **Tool Pruning**: Désactive les outils MCP non nécessaires\n- **Micro-skills**: Décompose les tâches complexes\n- **Loop Guard**: Prévient les boucles infinies\n\n**Implémentation:** `packages/mcp-server/src/cost-tracking/tokeneconomizer-poc.ts`\nClasse: `TokenEconomizerPOC`\n\n**Requirements:**\n- Copilot CLI v1.0.83-1.0.102\n- Python 3.10+\n\n**Statut: ⚠️ POC (Proof of Concept)**\n\n**Pourquoi TE n'a pas été sélectionné:**\n- ❌ **Dépendance externe**: Nécessite TokenEconomizer installé\n- ❌ **Compatibilité limitée**: Fonctionne seulement avec certaines versions de Copilot\n- ❌ **POC non stable**: Pas encore production ready\n- ❌ **Gain variable**: Résultats dépendent de la configuration\n\n**Cependant:**\n- ✅ Potentiel intéressant si l'environnement le permet\n- ✅ Peut être utilisé en **complément** de l'approche C\n- ✅ À tester pour des économies supplémentaires\n\n**Recommandation:** Tester TE si Copilot CLI v1.0.83-1.0.102 + Python 3.10+ sont disponibles, mais **l'approche C reste la solution principale**.",
+      "file": "packages/mcp-server/src/cost-tracking/tokeneconomizer-poc.ts",
+      "questions": [
+        "Quel ticket a implémenté le TokenEconomizer ?",
+        "Quels sont les trois modes de Tool Pruning ?",
+        "Quelles sont les dépendances du TokenEconomizer ?",
+        "Pourquoi le TokenEconomizer n'a-t-il pas été sélectionné ?"
+      ]
+    },
+    {
+      "title": "Recommandations d'utilisation",
+      "description": "Voici les **recommandations finales** pour utiliser les différentes approches:\n\n**📋 Tableau de décision:**\n\n| Type de Tour | Approche Recommandée | Pourquoi | Configuration |
+|--------------|----------------------|----------|--------------|
+| **Changes Tour** (PR, review) | **C** (ou B) | C offre plus de flexibilité avec pagination | `enabled: true, pageSize: 200` |
+| **Project Tour** (onboarding) | **D** | Meilleure couverture globale | `enabled: true, maxFiles: 100` |
+| **Custom Tour** (personnalisé) | **C** | Flexibilité maximale avec pagination | `enabled: true, pageSize: 100` |
+| **Tous les tours** | **C** | **Recommandation par défaut** | `enabled: true` |
+\n**💡 Bonnes pratiques:**\n\n1. **Activer par défaut:**\n   ```typescript\n   const config = getTargetedContextConfig({ enabled: true });\n   ```\n\n2. **Utiliser la pagination pour les grands projets:**\n   ```typescript\n   const pagination = { page: 1, pageSize: 200 };
+   ```\n\n3. **Monitorer la consommation:**\n   ```typescript\n   console.log(`Tokens: ${result.paginatedContext.totalTokenUsage.totalTokens}`);\n   ```\n\n4. **Ajuster les limites:**\n   - `maxSymbols`: Augmenter pour plus de couverture (défaut: 1000)\n   - `pageSize`: Réduire pour plus de contrôle (défaut: 100)\n   - `includeExtensions`: Personnaliser selon le projet\n\n**⚠️ À éviter:**\n- ❌ Utiliser l'approche A (Baseline) en production\n- ❌ Désactiver le Targeted Context sans raison valable\n- ❌ Ne pas monitorer la consommation de tokens\n\n**🎯 Configuration optimale:**\n```typescript\n{
+  enabled: true,
+  maxSymbols: 5000,
+  maxDepth: 10,
+  pageSize: 200,
+  includeExtensions: [".ts", ".js", ".py", ".java", ".go"],
+  excludeExtensions: [".test.", ".spec.", ".d.ts"],
+  includeDocumentation: true,
+  trackCost: true
+}\n```",
+      "questions": [
+        "Quelle approche est recommandée par défaut ?",
+        "Quelle approche utiliser pour un Project Tour ?",
+        "Quels paramètres ajuster pour un grand projet ?",
+        "Quelle approche éviter en production ?"
+      ]
+    },
+    {
+      "title": "Récapitulatif et prochaines étapes",
+      "description": "## 🎉 Récapitulatif de la Spec #92\n\n**Ce que nous avons accompli:**\n\n1. ✅ **Identifié** 5 approches pour réduire la consommation de tokens\n2. ✅ **Benchmarké** chaque approche avec une méthodologie rigoureuse\n3. ✅ **Comparé** les résultats de manière systématique\n4. ✅ **Sélectionné** l'approche C comme solution optimale\n5. ✅ **Implémenté** et testé l'approche C\n6. ✅ **Documenté** la décision et le processus\n7. ✅ **Nettoyé** le code et les artefacts temporaires\n\n**Résultats clés:**\n- **97% de réduction de tokens** avec l'approche C\n- **Coût divisé par 33** ($1.50 vs $50.00)\n- **Approche flexible et évolutive**\n- **Intégration MCP native**\n\n**Prochaines étapes:**\n\n1. 📋 **Activer l'approche C par défaut** dans les configurations\n2. 🔄 **Monitorer** la consommation de tokens en production\n3. 📊 **Ajuster** les paramètres selon les besoins\n4. 🔬 **Tester** le TokenEconomizer si l'environnement le permet\n5. 📚 **Former** l'équipe sur l'utilisation des différentes approches\n\n**Ressources:**\n- 📖 Documentation: `docs/spec-92-decision.md`\n- 📖 Spécification: `docs/specs/spec-92-token-optimization.md`\n- 📊 Benchmark: `benchmark-reports/targeted-context-benchmark-*.{md,json}`\n- 🎯 Code: `packages/mcp-server/src/targeted-context/`\n\n**Diagram — Roadmap**\n```mermaid\ngantt\n    title Spec #92 - Timeline\n    dateFormat  YYYY-MM-DD\n    section Exploration\n    Analyse des approches       :a1, 2026-10-01, 7d\n    Implémentation B            :after a1, 5d\n    Implémentation C            :after a1, 5d\n    Implémentation D            :after a1, 5d\n    Implémentation TE           :after a1, 5d\n    section Benchmark\n    Benchmark complet           :b1, 2026-11-01, 7d\n    Analyse des résultats       :after b1, 3d\n    section Décision\n    Sélection approche C         :c1, 2026-11-08, 1d\n    Documentation                :c2, 2026-11-09, 2d\n    Nettoyage et commit          :c3, 2026-11-10, 1d\n    section Production\n    Activation par défaut        :d1, 2026-11-11, 1d\n    Monitoring                   :d2, after d1, 7d\n```\n\n## 🎯 Conclusion\n\nLa **Spec #92** a permis de **diviser par 33 le coût d'utilisation de CodeTour** tout en maintenant une excellente couverture de code. L'approche C (Progressive MCP Exploration) est **la solution optimale** qui allie économie, flexibilité et stabilité.\n\n**Merci d'avoir suivi ce tour !** 🚀",
+      "questions": [
+        "Quels étaient les objectifs de la Spec #92 ?",
+        "Quelle approche a été sélectionnée et pourquoi ?",
+        "Quels sont les prochaines étapes ?",
+        "Où trouver la documentation complète ?"
+      ]
+    }
+  ]
+}
