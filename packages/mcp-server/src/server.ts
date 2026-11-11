@@ -42,6 +42,11 @@ import {
   CRITICAL_REVIEW_RESOURCE_URI,
   criticalReviewSkillPack,
 } from "./review-skill";
+import {
+  extractTargetedContext,
+  formatTargetedContextForPrompt,
+  getTargetedContextConfig,
+} from "./targeted-context";
 import packageJson from "../package.json";
 
 // MCP V1 exposes exactly two tools: `create_project_tour` and
@@ -98,6 +103,18 @@ const CHANGES_TOUR_PROMPT_RESOURCE_DESCRIPTION =
   "\"critical\" additionally embeds the shared review skill pack (the one " +
   `served by ${CRITICAL_REVIEW_RESOURCE_URI}) that must be followed ` +
   "in full before any analysis or step writing.";
+
+// URI template for Targeted Context resource for Changes Tour.
+// {baseRef} and {headRef} are commit SHAs.
+// Part of spec #92, ticket #115
+export const TARGETED_CONTEXT_RESOURCE_TEMPLATE =
+  "codetour://context/changes-tour/{baseRef}/{headRef}";
+const TARGETED_CONTEXT_RESOURCE_NAME = "changes-tour-targeted-context";
+const TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
+  "Targeted Context for Changes Tour generation: a bounded selection of code " +
+  "symbols and locations from the changed files between {baseRef} and {headRef}, " +
+  "offered to the Tour Generator as a substitute for open-ended exploration. " +
+  "This feature is off by default; when disabled, this resource returns an empty context.";
 
 // Mechanism choice (spec #94): the Changes Tour prompt is parameterized by
 // the review mode, so it is served as an MCP resource template rather than
@@ -432,6 +449,10 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
       "branch since it diverged from its base.",
     "",
     modeClause,
+    "- Optional Targeted Context may be available at `codetour://context/changes-tour/{baseRef}/{headRef}`. " +
+      "This provides a bounded selection of code symbols from changed files as a substitute for " +
+      "open-ended exploration. If available and useful, prefer it to reduce token usage. " +
+      "If unavailable or not useful, proceed with full exploration as usual.",
     "- Inspect the actual Git comparison before writing: the diff from the " +
       "merge-base of the base reference to the analyzed head commit, the affected " +
       "source, and the tests. Base every statement on what the code does, never on " +
@@ -533,6 +554,61 @@ export function createServer(workspaceRoot: string): McpServer {
             uri: uri.toString(),
             mimeType: "text/markdown",
             text: changesTourGenerationPrompt(reviewMode),
+          },
+        ],
+      };
+    }
+  );
+
+  // Targeted Context resource for Changes Tour (spec #92, ticket #115)
+  // Provides bounded code symbol context to reduce open-ended exploration.
+  // Off by default; when disabled, returns empty context.
+  server.registerResource(
+    TARGETED_CONTEXT_RESOURCE_NAME,
+    new ResourceTemplate(TARGETED_CONTEXT_RESOURCE_TEMPLATE, {
+      list: undefined,
+    }),
+    {
+      description: TARGETED_CONTEXT_RESOURCE_DESCRIPTION,
+      mimeType: "text/markdown",
+    },
+    async (uri, variables) => {
+      const baseRef = variables.baseRef;
+      const headRef = variables.headRef;
+      
+      if (
+        typeof baseRef !== "string" ||
+        typeof headRef !== "string" ||
+        !baseRef ||
+        !headRef
+      ) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `Invalid parameters for Targeted Context resource. ` +
+          `Both baseRef and headRef must be provided as commit SHAs. ` +
+          `(${TARGETED_CONTEXT_RESOURCE_TEMPLATE})`
+        );
+      }
+      
+      // Extract targeted context for the changes
+      const config = getTargetedContextConfig();
+      const result = await extractTargetedContext(ctx, baseRef, headRef, config);
+      
+      if (!result.success) {
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Failed to extract Targeted Context: ${result.error}`
+        );
+      }
+      
+      const formattedContext = formatTargetedContextForPrompt(result.context!);
+      
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "text/markdown",
+            text: formattedContext || "# Targeted Context\n\nNo context available.",
           },
         ],
       };
