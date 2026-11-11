@@ -5,7 +5,9 @@ import * as path from "path";
 import * as os from "os";
 import {
   extractTargetedContext,
+  extractPaginatedTargetedContext,
   formatTargetedContextForPrompt,
+  formatPaginatedContextForPrompt,
   getTargetedContextConfig,
   DEFAULT_TARGETED_CONTEXT_CONFIG,
   TargetedContextConfig,
@@ -461,6 +463,162 @@ describe("Targeted Context for Changes Tour", () => {
       
       assert.ok(!result.success, "Should fail for invalid repository");
       assert.ok(result.error, "Should have error message");
+    });
+  });
+
+  // Progressive Exploration Tests (Ticket #116)
+  describe("Progressive Exploration (Ticket #116)", () => {
+    test("should paginate symbols across multiple pages", async () => {
+      // Create initial commit
+      await createTestFile("src/utils.ts", `
+        // Utility functions
+        export function func1() {}
+        export function func2() {}
+        export function func3() {}
+        export function func4() {}
+        export function func5() {}
+        export function func6() {}
+        export function func7() {}
+        export function func8() {}
+        export function func9() {}
+        export function func10() {}
+      `);
+      await commitFile("src/utils.ts", "Initial commit");
+      
+      const baseSha = await getHeadSha();
+      
+      // Modify file - add more functions
+      await createTestFile("src/utils.ts", `
+        // Utility functions
+        export function func1() {}
+        export function func2() {}
+        export function func3() {}
+        export function func4() {}
+        export function func5() {}
+        export function func6() {}
+        export function func7() {}
+        export function func8() {}
+        export function func9() {}
+        export function func10() {}
+        export function func11() {}
+        export function func12() {}
+      `);
+      await commitFile("src/utils.ts", "Added more functions");
+      
+      const headSha = await getHeadSha();
+      
+      // Request page 1 with pageSize of 5
+      const result = await extractPaginatedTargetedContext(
+        workspaceContext,
+        baseSha,
+        headSha,
+        { page: 1, pageSize: 5 },
+        { enabled: true, maxSymbols: 100 }
+      );
+      
+      assert.ok(result.success, "Should succeed");
+      assert.ok(result.paginatedContext, "Should have paginated context");
+      assert.equal(result.paginatedContext!.pagination.page, 1, "Should be on page 1");
+      assert.equal(result.paginatedContext!.pagination.pageSize, 5, "Page size should be 5");
+      
+      // Count symbols in the first page
+      const page1SymbolCount = result.paginatedContext!.pages.reduce(
+        (sum, p) => sum + p.symbols.length,
+        0
+      );
+      
+      assert.ok(page1SymbolCount <= 5, `Page 1 should have at most 5 symbols, got ${page1SymbolCount}`);
+    });
+
+    test("should return all symbols when no pagination specified", async () => {
+      // Create initial commit
+      await createTestFile("src/lib.ts", `
+        export function helper1() {}
+        export function helper2() {}
+      `);
+      await commitFile("src/lib.ts", "Initial commit");
+      
+      const baseSha = await getHeadSha();
+      
+      // Modify file
+      await createTestFile("src/lib.ts", `
+        export function helper1() {}
+        export function helper2() {}
+        export function helper3() {}
+      `);
+      await commitFile("src/lib.ts", "Added helper");
+      
+      const headSha = await getHeadSha();
+      
+      const result = await extractPaginatedTargetedContext(
+        workspaceContext,
+        baseSha,
+        headSha,
+        {},
+        { enabled: true, maxSymbols: 100 }
+      );
+      
+      assert.ok(result.success, "Should succeed");
+      assert.ok(result.paginatedContext, "Should have paginated context");
+      assert.equal(result.paginatedContext!.pagination.page, 1, "Default page should be 1");
+      assert.ok(result.paginatedContext!.totalSymbols > 0, "Should have symbols");
+    });
+
+    test("should handle empty context gracefully", async () => {
+      // Create initial commit
+      await createTestFile("src/empty.ts", "// Empty file");
+      await commitFile("src/empty.ts", "Initial commit");
+      
+      const baseSha = await getHeadSha();
+      
+      // No changes
+      const headSha = baseSha;
+      
+      const result = await extractPaginatedTargetedContext(
+        workspaceContext,
+        baseSha,
+        headSha,
+        { page: 1, pageSize: 10 },
+        { enabled: true }
+      );
+      
+      assert.ok(result.success, "Should succeed with no changes");
+      assert.ok(result.paginatedContext, "Should have paginated context");
+      assert.equal(result.paginatedContext!.totalSymbols, 0, "Should have 0 symbols");
+      assert.equal(result.paginatedContext!.pages.length, 0, "Should have 0 pages");
+    });
+
+    test("formatPaginatedContextForPrompt should format context with pagination info", async () => {
+      const paginatedContext: any = {
+        enabled: true,
+        baseRef: "abc123",
+        headRef: "def456",
+        pages: [
+          {
+            filePath: "src/test.ts",
+            symbols: [
+              { kind: "function", name: "test1", location: { startLine: 1, endLine: 1 } },
+              { kind: "function", name: "test2", location: { startLine: 2, endLine: 2 } },
+            ],
+            totalFileSymbols: 2,
+          },
+        ],
+        totalSymbols: 2,
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          totalItems: 2,
+          totalPages: 1,
+          hasMore: false,
+        },
+      };
+      
+      const formatted = formatPaginatedContextForPrompt(paginatedContext);
+      
+      assert.ok(formatted.includes("Page 1/1"), "Should include page info");
+      assert.ok(formatted.includes("2 total symbols"), "Should include total symbols");
+      assert.ok(formatted.includes("test1"), "Should include symbol names");
+      assert.ok(formatted.includes("test2"), "Should include symbol names");
     });
   });
 });
