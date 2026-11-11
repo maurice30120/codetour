@@ -2,23 +2,24 @@
  * Benchmark types for comprehensive Targeted Context comparison
  * Spec #92, Ticket #118
  * 
- * Compares 4 approaches:
+ * Compares 5 approaches:
  * A: No Targeted Context (baseline)
  * B: Basic Targeted Context for Changes Tour (ticket #115)
  * C: Progressive MCP exploration (ticket #116)
  * D: Project Tour Targeted Context (ticket #117)
+ * TE: TokenEconomizer plugin (ticket #113)
  */
 
 import { CodeSymbol } from "../parsing/symbol-extractor";
-import { TokenUsage, CostInfo } from "../cost-tracking/types";
+import { TokenUsage, CostInfo, TokenEconomizerConfig } from "../cost-tracking/types";
 import { TargetedContext, TargetedContextConfig } from "./types";
 import { ProjectTargetedContext, ProjectTargetedContextConfig } from "./project-types";
 import { PaginatedTargetedContext } from "./types";
 
 /**
- * Identifiers for the 4 benchmark approaches
+ * Identifiers for the 5 benchmark approaches
  */
-export type BenchmarkApproach = "A" | "B" | "C" | "D";
+export type BenchmarkApproach = "A" | "B" | "C" | "D" | "TE";
 
 /**
  * Labels for each approach
@@ -27,7 +28,8 @@ export const APPROACH_LABELS: Record<BenchmarkApproach, string> = {
   A: "No Targeted Context (Baseline)",
   B: "Basic Targeted Context - Changes Tour (Ticket #115)",
   C: "Progressive MCP Exploration (Ticket #116)",
-  D: "Project Tour Targeted Context (Ticket #117)"
+  D: "Project Tour Targeted Context (Ticket #117)",
+  TE: "TokenEconomizer Plugin (Ticket #113)"
 };
 
 /**
@@ -37,7 +39,8 @@ export const APPROACH_DESCRIPTIONS: Record<BenchmarkApproach, string> = {
   A: "Traditional open-ended exploration without bounded context. The Tour Generator explores the entire codebase freely.",
   B: "Bounded context extraction from changed files only. Provides targeted symbols from files that changed between base and head commits.",
   C: "Progressive, paginated context exploration. Allows incremental discovery of symbols across the codebase with MCP server pagination.",
-  D: "Comprehensive workspace-wide context. Extracts symbols from the entire project structure with configurable limits."
+  D: "Comprehensive workspace-wide context. Extracts symbols from the entire project structure with configurable limits.",
+  TE: "TokenEconomizer plugin integration. Uses the TokenEconomizer POC from ticket #113 to optimize token usage through tool pruning and micro-skills."
 };
 
 /**
@@ -173,6 +176,10 @@ export interface BenchmarkConfig {
    */
   configD?: ProjectTargetedContextConfig;
   /**
+   * Configuration for Approach TE (TokenEconomizer)
+   */
+  configTE?: TokenEconomizerConfig;
+  /**
    * Token price per 1000 tokens (for cost estimation)
    */
   tokenPricePer1000?: {
@@ -192,7 +199,7 @@ export const DEFAULT_BENCHMARK_CONFIG: BenchmarkConfig = {
   workspaceRoot: process.cwd(),
   iterations: 3,
   warmup: true,
-  approaches: ["A", "B", "C", "D"],
+  approaches: ["A", "B", "C", "D", "TE"],
   collectMemory: true,
   tokenPricePer1000: {
     input: 0.00001,

@@ -2,7 +2,7 @@
  * Comprehensive test suite for Targeted Context Benchmark
  * Spec #92, Ticket #118
  * 
- * Tests the benchmark runner and all 4 approaches (A, B, C, D)
+ * Tests the benchmark runner and all 5 approaches (A, B, C, D, TE)
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
@@ -75,11 +75,12 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
       expect(customRunner).toBeDefined();
     });
 
-    it("should have all 4 approaches configured by default", () => {
+    it("should have all 5 approaches configured by default", () => {
       expect(DEFAULT_BENCHMARK_CONFIG.approaches).toContain("A");
       expect(DEFAULT_BENCHMARK_CONFIG.approaches).toContain("B");
       expect(DEFAULT_BENCHMARK_CONFIG.approaches).toContain("C");
       expect(DEFAULT_BENCHMARK_CONFIG.approaches).toContain("D");
+      expect(DEFAULT_BENCHMARK_CONFIG.approaches).toContain("TE");
     });
   });
 
@@ -92,7 +93,7 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
     });
 
     it("should have labels for all benchmark approaches", () => {
-      const approaches: BenchmarkApproach[] = ["A", "B", "C", "D"];
+      const approaches: BenchmarkApproach[] = ["A", "B", "C", "D", "TE"];
       for (const approach of approaches) {
         expect(APPROACH_LABELS[approach]).toBeDefined();
         expect(typeof APPROACH_LABELS[approach]).toBe("string");
@@ -109,7 +110,7 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
     });
 
     it("should have descriptions for all benchmark approaches", () => {
-      const approaches: BenchmarkApproach[] = ["A", "B", "C", "D"];
+      const approaches: BenchmarkApproach[] = ["A", "B", "C", "D", "TE"];
       for (const approach of approaches) {
         expect(APPROACH_DESCRIPTIONS[approach]).toBeDefined();
         expect(typeof APPROACH_DESCRIPTIONS[approach]).toBe("string");
@@ -264,6 +265,63 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
     });
   });
 
+  describe("Benchmark Runner - Approach TE (TokenEconomizer)", () => {
+    it("should run Approach TE successfully", async () => {
+      const report = await runner.run();
+      
+      const approachTE = report.results.find(r => r.approach === "TE");
+      expect(approachTE).toBeDefined();
+      expect(approachTE?.success).toBe(true);
+    });
+
+    it("should have reasonable metrics for Approach TE", async () => {
+      const report = await runner.run();
+      
+      const approachTE = report.results.find(r => r.approach === "TE");
+      expect(approachTE?.metrics.totalFiles).toBeGreaterThan(0);
+      expect(approachTE?.metrics.totalSymbols).toBeGreaterThan(0);
+      expect(approachTE?.metrics.tokenUsage.totalTokens).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should have tokenEconomizer metadata", async () => {
+      const report = await runner.run();
+      
+      const approachTE = report.results.find(r => r.approach === "TE");
+      expect(approachTE?.metrics.metadata?.tokenEconomizer).toBeDefined();
+    });
+
+    it("should have cache tokens (TokenEconomizer uses caching)", async () => {
+      const report = await runner.run();
+      
+      const approachTE = report.results.find(r => r.approach === "TE");
+      expect(approachTE?.metrics.tokenUsage.cacheTokens).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should respect TokenEconomizer configuration", async () => {
+      runner = new TargetedContextBenchmarkRunner({
+        workspaceRoot: tempDir,
+        iterations: 1,
+        warmup: false,
+        collectMemory: false,
+        configTE: {
+          settings: {
+            toolPrune: "aggressive"
+          }
+        }
+      });
+
+      const report = await runner.run();
+      
+      const approachTE = report.results.find(r => r.approach === "TE");
+      expect(approachTE?.success).toBe(true);
+      
+      // With aggressive pruning, should process fewer files
+      if (approachTE?.metrics.metadata?.tokenEconomizer) {
+        expect((approachTE.metrics.metadata.tokenEconomizer as any).pruneMode).toBe("aggressive");
+      }
+    });
+  });
+
   describe("Benchmark Report Structure", () => {
     it("should generate a complete report with all sections", async () => {
       const report = await runner.run();
@@ -289,12 +347,13 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
     it("should have all results for configured approaches", async () => {
       const report = await runner.run();
       
-      // All 4 approaches should be in results
+      // All 5 approaches should be in results
       const approaches = report.results.map(r => r.approach);
       expect(approaches).toContain("A");
       expect(approaches).toContain("B");
       expect(approaches).toContain("C");
       expect(approaches).toContain("D");
+      expect(approaches).toContain("TE");
     });
 
     it("should generate pairwise comparisons", async () => {
@@ -350,6 +409,7 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
       expect(markdown).toContain("Approach B");
       expect(markdown).toContain("Approach C");
       expect(markdown).toContain("Approach D");
+      expect(markdown).toContain("Approach TE");
     });
 
     it("should include comparison tables", async () => {
@@ -589,9 +649,9 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
 
   describe("Benchmark Types", () => {
     it("should have all required BenchmarkApproach types", () => {
-      const approaches: BenchmarkApproach[] = ["A", "B", "C", "D"];
+      const approaches: BenchmarkApproach[] = ["A", "B", "C", "D", "TE"];
       for (const approach of approaches) {
-        expect(["A", "B", "C", "D"].includes(approach)).toBe(true);
+        expect(["A", "B", "C", "D", "TE"].includes(approach)).toBe(true);
       }
     });
 
@@ -646,7 +706,7 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
       
       // Verify complete report structure
       expect(report.version).toBe("1.0.0");
-      expect(report.results.length).toBe(4); // All 4 approaches
+      expect(report.results.length).toBe(5); // All 5 approaches
       expect(report.comparisons.length).toBeGreaterThan(0);
       expect(report.summary).toBeDefined();
       
@@ -656,9 +716,10 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
       expect(approaches).toContain("B");
       expect(approaches).toContain("C");
       expect(approaches).toContain("D");
+      expect(approaches).toContain("TE");
       
       // Verify summary has all required fields
-      expect(report.summary.totalBenchmarks).toBe(4);
+      expect(report.summary.totalBenchmarks).toBe(5);
       expect(report.summary.successfulBenchmarks).toBeGreaterThan(0);
       expect(report.summary.bestByMetric).toBeDefined();
       expect(report.summary.findings.length).toBeGreaterThan(0);
@@ -774,12 +835,13 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
 
       const report = await runner.run();
       
-      // Verify all 4 approaches from spec #92 are included
+      // Verify all 5 approaches from spec #92 are included
       const approaches = report.results.map(r => r.approach);
       expect(approaches).toContain("A"); // Baseline
       expect(approaches).toContain("B"); // Ticket #115: Changes Tour
       expect(approaches).toContain("C"); // Ticket #116: Progressive MCP
       expect(approaches).toContain("D"); // Ticket #117: Project Tour
+      expect(approaches).toContain("TE"); // TokenEconomizer from ticket #113
       
       // Verify report includes comparison data
       expect(report.comparisons.length).toBeGreaterThan(0);
@@ -790,6 +852,7 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
 
     it("should use implementations from previous tickets", async () => {
       // This validates that we're building on top of:
+      // - Ticket #113: TokenEconomizer POC
       // - Ticket #115: Basic Targeted Context
       // - Ticket #116: Progressive MCP exploration
       // - Ticket #117: Project Tour Targeted Context
@@ -807,10 +870,12 @@ describe("Targeted Context Benchmark (Spec #92, Ticket #118)", () => {
       const approachB = report.results.find(r => r.approach === "B");
       const approachC = report.results.find(r => r.approach === "C");
       const approachD = report.results.find(r => r.approach === "D");
+      const approachTE = report.results.find(r => r.approach === "TE");
       
       expect(approachB?.label).toContain("#115");
       expect(approachC?.label).toContain("#116");
       expect(approachD?.label).toContain("#117");
+      expect(approachTE?.label).toContain("#113");
     });
   });
 });
