@@ -43,9 +43,11 @@ import {
   criticalReviewSkillPack,
 } from "./review-skill";
 import {
-  extractTargetedContext,
+  extractPaginatedTargetedContext,
   formatTargetedContextForPrompt,
+  formatPaginatedContextForPrompt,
   getTargetedContextConfig,
+  PaginationOptions,
 } from "./targeted-context";
 import packageJson from "../package.json";
 
@@ -106,14 +108,16 @@ const CHANGES_TOUR_PROMPT_RESOURCE_DESCRIPTION =
 
 // URI template for Targeted Context resource for Changes Tour.
 // {baseRef} and {headRef} are commit SHAs.
-// Part of spec #92, ticket #115
+// {page} and {pageSize} are optional for progressive exploration (ticket #116)
+// Part of spec #92, ticket #115 and #116
 export const TARGETED_CONTEXT_RESOURCE_TEMPLATE =
-  "codetour://context/changes-tour/{baseRef}/{headRef}";
+  "codetour://context/changes-tour/{baseRef}/{headRef}?page={page}&pageSize={pageSize}";
 const TARGETED_CONTEXT_RESOURCE_NAME = "changes-tour-targeted-context";
 const TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
   "Targeted Context for Changes Tour generation: a bounded selection of code " +
   "symbols and locations from the changed files between {baseRef} and {headRef}, " +
   "offered to the Tour Generator as a substitute for open-ended exploration. " +
+  "Supports progressive exploration via pagination (use page and pageSize in request). " +
   "This feature is off by default; when disabled, this resource returns an empty context.";
 
 // Mechanism choice (spec #94): the Changes Tour prompt is parameterized by
@@ -560,13 +564,21 @@ export function createServer(workspaceRoot: string): McpServer {
     }
   );
 
-  // Targeted Context resource for Changes Tour (spec #92, ticket #115)
+  // Targeted Context resource for Changes Tour (spec #92, ticket #115 and #116)
   // Provides bounded code symbol context to reduce open-ended exploration.
+  // Supports progressive exploration via pagination (ticket #116)
   // Off by default; when disabled, returns empty context.
   server.registerResource(
     TARGETED_CONTEXT_RESOURCE_NAME,
     new ResourceTemplate(TARGETED_CONTEXT_RESOURCE_TEMPLATE, {
-      list: undefined,
+      list: async () => {
+        // List available Targeted Context resources
+        // For now, we return an empty list as the resources are computed on-demand
+        // In a full implementation, we could list actual commit pairs
+        return {
+          resources: [],
+        };
+      },
     }),
     {
       description: TARGETED_CONTEXT_RESOURCE_DESCRIPTION,
@@ -575,6 +587,8 @@ export function createServer(workspaceRoot: string): McpServer {
     async (uri, variables) => {
       const baseRef = variables.baseRef;
       const headRef = variables.headRef;
+      const page = variables.page ? Number(variables.page) : 1;
+      const pageSize = variables.pageSize ? Number(variables.pageSize) : undefined;
       
       if (
         typeof baseRef !== "string" ||
@@ -592,7 +606,20 @@ export function createServer(workspaceRoot: string): McpServer {
       
       // Extract targeted context for the changes
       const config = getTargetedContextConfig();
-      const result = await extractTargetedContext(ctx, baseRef, headRef, config);
+      
+      // Use paginated extraction if page is specified
+      const pagination: PaginationOptions = {
+        page,
+        pageSize,
+      };
+      
+      const result = await extractPaginatedTargetedContext(
+        ctx,
+        baseRef,
+        headRef,
+        pagination,
+        config
+      );
       
       if (!result.success) {
         throw new McpError(
@@ -601,17 +628,32 @@ export function createServer(workspaceRoot: string): McpServer {
         );
       }
       
-      const formattedContext = formatTargetedContextForPrompt(result.context!);
-      
-      return {
-        contents: [
-          {
-            uri: uri.toString(),
-            mimeType: "text/markdown",
-            text: formattedContext || "# Targeted Context\n\nNo context available.",
-          },
-        ],
-      };
+      // If we have paginated context, use it; otherwise use the regular context
+      if (result.paginatedContext && result.paginatedContext.pages.length > 0) {
+        const formattedContext = formatPaginatedContextForPrompt(
+          result.paginatedContext
+        );
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: "text/markdown",
+              text: formattedContext || "# Targeted Context\n\nNo context available.",
+            },
+          ],
+        };
+      } else {
+        const formattedContext = formatTargetedContextForPrompt(result.context!);
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: "text/markdown",
+              text: formattedContext || "# Targeted Context\n\nNo context available.",
+            },
+          ],
+        };
+      }
     }
   );
 

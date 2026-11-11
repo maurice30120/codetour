@@ -6,6 +6,7 @@
  * 
  * Part of Spec #92 - Targeted Context for Tour Generation
  * Ticket #115 - Implement Targeted Context for Changes Tour
+ * Ticket #116 - Implement progressive exploration MCP for Targeted Context
  * 
  * Feature flag: enabled by default = false (off)
  */

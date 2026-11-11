@@ -1,6 +1,6 @@
 /**
  * Targeted Context types for Changes Tour
- * Part of spec #92, ticket #115
+ * Part of spec #92, ticket #115 and #116
  */
 
 import { CodeSymbol } from "../parsing/symbol-extractor";
@@ -163,4 +163,93 @@ export interface ContextExtractionResult {
    * Warnings during extraction
    */
   warnings: string[];
+}
+
+/**
+ * Pagination options for progressive context exploration
+ * Part of spec #92, ticket #116
+ */
+export interface PaginationOptions {
+  /**
+   * Page number to retrieve (1-based, default: 1)
+   */
+  page?: number;
+  /**
+   * Number of items per page (default: 100)
+   */
+  pageSize?: number;
+  /**
+   * Optional cursor for pagination (used for token-based pagination)
+   */
+  cursor?: string;
+}
+
+/**
+ * Paginated result for context exploration
+ */
+export interface PaginatedContextResult<T> {
+  /**
+   * The items for this page
+   */
+  items: T[];
+  /**
+   * Current page number (1-based)
+   */
+  page: number;
+  /**
+   * Number of items per page
+   */
+  pageSize: number;
+  /**
+   * Total number of items available
+   */
+  totalItems: number;
+  /**
+   * Total number of pages
+   */
+  totalPages: number;
+  /**
+   * Whether there are more items available
+   */
+  hasMore: boolean;
+  /**
+   * Optional cursor for the next page
+   */
+  nextCursor?: string;
+  /**
+   * Optional cursor for the previous page
+   */
+  prevCursor?: string;
+}
+
+/**
+ * Symbol page for progressive exploration
+ */
+export interface SymbolPage {
+  /**
+   * File path
+   */
+  filePath: string;
+  /**
+   * Symbols on this page
+   */
+  symbols: CodeSymbol[];
+  /**
+   * Total symbols in this file
+   */
+  totalFileSymbols: number;
+}
+
+/**
+ * Paginated Targeted Context for progressive exploration
+ */
+export interface PaginatedTargetedContext extends Omit<TargetedContext, 'files'> {
+  /**
+   * Paginated file contexts
+   */
+  pages: SymbolPage[];
+  /**
+   * Pagination metadata
+   */
+  pagination: Omit<PaginatedContextResult<SymbolPage>, 'items'>;
 }
