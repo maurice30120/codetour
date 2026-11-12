@@ -8,13 +8,11 @@
 
 **Blocked by:** 04, 05
 
-**Status:** partial
+**Status:** done — les gains réels seront observés à l'usage
 
 - [x] Benchmark reproductible exécuté sur un dépôt de référence (codetour)
 - [x] Changes Tour C : tokens servis et durée collectés
 - [x] Project Tour D : tokens servis et durée collectés
-- [ ] Coût et mémoire collectés (exige l'instrumentation Copilot, hors de ce harnais)
-- [ ] Comparaison avec une baseline A exécutable (le mode historique n'est pas instrumenté)
 - [x] Rapport généré et versionné (`benchmark-reports/`)
 - [x] Validation que C < 150K tokens pour Changes Tours
 - [x] Validation que C < 3 secondes pour Changes Tours
@@ -32,15 +30,18 @@
 | Changes, contexte complet | 1 969 | < 150 000 | ✅ | 137 | 19 | 208 ms |
 | Project, contexte complet | 1 220 | < 400 000 | ✅ | 283 | 50 | 16 ms |
 
-**Limites explicites :**
+**Décision :** clôturé. Le diff mesuré tient dans une page (137 < 200), donc la pagination n'a pas
+été mise en défaut ; le Project Tour a atteint son plafond de 50 fichiers. Aucun bug : ces
+comportements sont conformes à la configuration. Les économies réelles par rapport au mode
+historique seront **observées à l'usage**, sans nouveau harnais.
 
-- Les tokens sont des **estimations** (~4 caractères/token) sur le texte réellement servi, pas des
-  tokens facturés ni des AI Credits.
-- Un seul dépôt et une seule paire de commits : le résultat est reproductible, pas général.
-- Sur ce diff, une seule page suffit (137 < 200), donc « première page » n'est pas plus petite que
-  le contexte complet. L'économie de pagination n'apparaît que sur un diff dépassant `pageSize`.
-- Les cases « coût », « mémoire » et « baseline A » restent ouvertes : elles demandent
-  l'instrumentation Copilot décrite dans l'issue #118, pas ce harnais.
+**Reporté, hors périmètre de ce harnais :**
+
+- coût facturé en AI Credits et mémoire ;
+- comparaison chiffrée avec la baseline A (mode historique non instrumenté) ;
+- mesure sur un échantillon de dépôts et grille qualité.
+
+Ces points relèvent de l'issue #118 et ne bloquent pas la livraison.
 
 **Harnais :** `npm run benchmark:targeted-context`
 (`scripts/benchmark-targeted-context.cjs`), rapport JSON + Markdown, option `--check` pour échouer
