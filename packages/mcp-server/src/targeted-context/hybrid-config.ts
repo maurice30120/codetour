@@ -38,11 +38,16 @@ import {
  * - trackCost: true
  * - excludeNodeModules: true
  */
+/** Spec-mandated approach C bounds, shared by the config and its validator. */
+const APPROACH_C_MAX_SYMBOLS = 5000;
+const APPROACH_C_PAGE_SIZE = 200;
+const APPROACH_C_MAX_FILES = 50;
+
 export const APPROACH_C_CONFIG: TargetedContextConfig = {
   enabled: true, // Enabled by default for Changes Tours
-  maxSymbols: 5000, // Maximum symbols to extract
-  pageSize: 200, // Symbols served per page
-  maxFiles: 50, // Maximum changed files processed
+  maxSymbols: APPROACH_C_MAX_SYMBOLS, // Maximum symbols to extract
+  pageSize: APPROACH_C_PAGE_SIZE, // Symbols served per page
+  maxFiles: APPROACH_C_MAX_FILES, // Maximum changed files processed
   maxDepth: 10, // Maximum depth of symbol hierarchy
   includeExtensions: [
     ".ts",
@@ -158,16 +163,22 @@ export function validateApproachCConfig(config: TargetedContextConfig): boolean 
     errors.push("Approach C: enabled should be true");
   }
 
-  if (config.maxSymbols !== 5000) {
-    errors.push(`Approach C: maxSymbols should be 5000, got ${config.maxSymbols}`);
+  if (config.maxSymbols !== APPROACH_C_MAX_SYMBOLS) {
+    errors.push(
+      `Approach C: maxSymbols should be ${APPROACH_C_MAX_SYMBOLS}, got ${config.maxSymbols}`
+    );
   }
 
-  if (config.pageSize !== 200) {
-    errors.push(`Approach C: pageSize should be 200, got ${config.pageSize}`);
+  if (config.pageSize !== APPROACH_C_PAGE_SIZE) {
+    errors.push(
+      `Approach C: pageSize should be ${APPROACH_C_PAGE_SIZE}, got ${config.pageSize}`
+    );
   }
 
-  if (config.maxFiles !== 50) {
-    errors.push(`Approach C: maxFiles should be 50, got ${config.maxFiles}`);
+  if (config.maxFiles !== APPROACH_C_MAX_FILES) {
+    errors.push(
+      `Approach C: maxFiles should be ${APPROACH_C_MAX_FILES}, got ${config.maxFiles}`
+    );
   }
 
   if (config.excludeNodeModules !== true) {

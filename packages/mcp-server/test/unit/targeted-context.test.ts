@@ -369,10 +369,11 @@ describe("Targeted Context for Changes Tour", () => {
 
       const headSha = await getHeadSha();
 
-      const result = await extractTargetedContext(
+      const result = await extractPaginatedTargetedContext(
         workspaceContext,
         baseSha,
         headSha,
+        {},
         { enabled: true, maxFiles: 2 }
       );
 
@@ -382,6 +383,10 @@ describe("Targeted Context for Changes Tour", () => {
         result.context!.files.length,
         2,
         "Should cap the number of processed files"
+      );
+      assert.ok(
+        result.warnings.some((warning) => warning.includes("maxFiles")),
+        "Should report the truncated file list"
       );
     });
 
@@ -407,10 +412,11 @@ describe("Targeted Context for Changes Tour", () => {
 
       const headSha = await getHeadSha();
 
-      const result = await extractTargetedContext(
+      const result = await extractPaginatedTargetedContext(
         workspaceContext,
         baseSha,
         headSha,
+        {},
         { enabled: true, excludeNodeModules: true }
       );
 
@@ -423,8 +429,12 @@ describe("Targeted Context for Changes Tour", () => {
         "Should keep the source file"
       );
       assert.ok(
-        !paths.some((filePath) => filePath.includes("node_modules")),
+        paths.every((filePath) => !filePath.includes("node_modules")),
         "Should drop node_modules files"
+      );
+      assert.ok(
+        result.warnings.some((warning) => warning.includes("node_modules")),
+        "Should report the excluded files"
       );
     });
 
@@ -701,6 +711,79 @@ describe("Targeted Context for Changes Tour", () => {
         pagePrompt.length > 0 && pagePrompt.length < fullPrompt.length,
         `page prompt (${pagePrompt.length} chars) should be shorter than the ` +
           `full context (${fullPrompt.length} chars)`
+      );
+    });
+
+    test("should cap the total symbols at maxSymbols across pages", async () => {
+      const declarations = Array.from(
+        { length: 250 },
+        (_, i) => `export function budget${i}() { return ${i}; }`
+      ).join("\n");
+
+      await createTestFile("src/budget.ts", declarations);
+      await commitFile("src/budget.ts", "Initial commit");
+
+      const baseSha = await getHeadSha();
+
+      await createTestFile("src/budget.ts", `${declarations}\nexport const budgetTail = 1;`);
+      await commitFile("src/budget.ts", "Modified");
+
+      const headSha = await getHeadSha();
+
+      const result = await extractPaginatedTargetedContext(
+        workspaceContext,
+        baseSha,
+        headSha,
+        {},
+        { enabled: true, maxSymbols: 240, pageSize: 200 }
+      );
+
+      assert.ok(result.success, "Should succeed");
+      assert.ok(result.paginatedContext, "Should have paginated context");
+      assert.equal(
+        result.paginatedContext!.totalSymbols,
+        240,
+        "Should cap the extracted symbols at the budget"
+      );
+      assert.equal(
+        result.paginatedContext!.pagination.totalPages,
+        2,
+        "240 symbols over pages of 200 is two pages"
+      );
+      assert.ok(
+        result.warnings.some((warning) => warning.includes("budget")),
+        "Should report the symbol budget"
+      );
+    });
+
+    test("should fall back to the configured page size for an invalid pageSize", async () => {
+      await createTestFile("src/fallback.ts", "export function fallback() { return 1; }");
+      await commitFile("src/fallback.ts", "Initial commit");
+
+      const baseSha = await getHeadSha();
+
+      await createTestFile(
+        "src/fallback.ts",
+        "export function fallback() { return 2; }"
+      );
+      await commitFile("src/fallback.ts", "Modified");
+
+      const headSha = await getHeadSha();
+
+      const result = await extractPaginatedTargetedContext(
+        workspaceContext,
+        baseSha,
+        headSha,
+        { pageSize: 0 },
+        { enabled: true, pageSize: 200 }
+      );
+
+      assert.ok(result.success, "Should succeed");
+      assert.ok(result.paginatedContext, "Should have paginated context");
+      assert.equal(
+        result.paginatedContext!.pagination.pageSize,
+        200,
+        "Should ignore a non-positive page size"
       );
     });
 

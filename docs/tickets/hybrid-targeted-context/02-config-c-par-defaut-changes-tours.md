@@ -20,8 +20,12 @@
 - `APPROACH_C_CONFIG` porte `pageSize: 200`, `maxFiles: 50`, `excludeNodeModules: true`,
   et `validateApproachCConfig` refuse toute autre valeur.
 - `extractPaginatedTargetedContext` sert `pagination.pageSize ?? config.pageSize ?? maxSymbols` :
-  sans paramètre d'URI, une page contient 200 symboles, pas 5000.
-- `selectChangedFiles` applique `maxFiles` et `excludeNodeModules` **avant** de lire les fichiers.
+  sans paramètre d'URI, une page contient 200 symboles, pas 5000. Une valeur non positive retombe
+  sur le défaut.
+- `maxSymbols` borne désormais le **total** des symboles paginés (et non la taille de page) ;
+  `pageSize` borne ce qui est servi à chaque appel.
+- `selectChangedFiles` filtre `node_modules`, puis les extensions, puis applique `maxFiles` — le
+  tout avant de lire les fichiers. Chaque troncature produit un warning explicite.
 - Le serveur expose deux templates vers le même handler : l'URI de base
   (`codetour://context/changes-tour/{baseRef}/{headRef}`) applique le défaut 200, et
   `?page=&pageSize=` permet de choisir. Le matcher RFC 6570 du SDK exige tous les paramètres de

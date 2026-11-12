@@ -601,119 +601,117 @@ export function createServer(workspaceRoot: string): McpServer {
     uri,
     variables
   ) => {
-      const baseRef = variables.baseRef;
-      const headRef = variables.headRef;
-      const page = variables.page ? Number(variables.page) : 1;
-      const pageSize = variables.pageSize ? Number(variables.pageSize) : undefined;
-      
-      if (
-        typeof baseRef !== "string" ||
-        typeof headRef !== "string" ||
-        !baseRef ||
-        !headRef
-      ) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `Invalid parameters for Targeted Context resource. ` +
-          `Both baseRef and headRef must be provided as commit SHAs. ` +
-          `(${TARGETED_CONTEXT_RESOURCE_TEMPLATE})`
-        );
-      }
-      
-      // Automatic tour type selection (spec-hybrid-targeted-context, ticket
-      // #01): both refs are present, so this is a Changes Tour and gets the
-      // Changes Tour configuration.
-      const detection = detectTourType({ baseRef, headRef });
-      if (detection.tourType !== "changes-tour") {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `This resource only serves Changes Tours ` +
-            `(${TARGETED_CONTEXT_RESOURCE_TEMPLATE}).`
-        );
-      }
-      const config = getApproachCConfig();
-      
-      // Use paginated extraction if page is specified
-      const pagination: PaginationOptions = {
-        page,
-        pageSize,
-      };
-      
-      const result = await extractPaginatedTargetedContext(
-        ctx,
-        baseRef,
-        headRef,
-        pagination,
-        config
+    const baseRef = variables.baseRef;
+    const headRef = variables.headRef;
+    const page = variables.page ? Number(variables.page) : 1;
+    const pageSize = variables.pageSize ? Number(variables.pageSize) : undefined;
+
+    if (
+      typeof baseRef !== "string" ||
+      typeof headRef !== "string" ||
+      !baseRef ||
+      !headRef
+    ) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `Invalid parameters for Targeted Context resource. ` +
+        `Both baseRef and headRef must be provided as commit SHAs. ` +
+        `(${TARGETED_CONTEXT_RESOURCE_TEMPLATE})`
       );
-      
-      if (!result.success) {
-        throw new McpError(
-          ErrorCode.InternalError,
-          `Failed to extract Targeted Context: ${result.error}`
-        );
-      }
-      
-      // If we have paginated context, use it; otherwise use the regular context
-      if (result.paginatedContext && result.paginatedContext.pages.length > 0) {
-        const formattedContext = formatPaginatedContextForPrompt(
-          result.paginatedContext
-        );
-        return {
-          contents: [
-            {
-              uri: uri.toString(),
-              mimeType: "text/markdown",
-              text: formattedContext || "# Targeted Context\n\nNo context available.",
-            },
-          ],
-        };
-      } else {
-        const formattedContext = formatTargetedContextForPrompt(result.context!);
-        return {
-          contents: [
-            {
-              uri: uri.toString(),
-              mimeType: "text/markdown",
-              text: formattedContext || "# Targeted Context\n\nNo context available.",
-            },
-          ],
-        };
-      }
+    }
+
+    // Automatic tour type selection (spec-hybrid-targeted-context, ticket
+    // #01): both refs are present, so this is a Changes Tour and gets the
+    // Changes Tour configuration.
+    const detection = detectTourType({ baseRef, headRef });
+    if (detection.tourType !== "changes-tour") {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `This resource only serves Changes Tours ` +
+          `(${TARGETED_CONTEXT_RESOURCE_TEMPLATE}).`
+      );
+    }
+    const config = getApproachCConfig();
+
+    const pagination: PaginationOptions = {
+      page,
+      pageSize,
+    };
+
+    const result = await extractPaginatedTargetedContext(
+      ctx,
+      baseRef,
+      headRef,
+      pagination,
+      config
+    );
+
+    if (!result.success) {
+      throw new McpError(
+        ErrorCode.InternalError,
+        `Failed to extract Targeted Context: ${result.error}`
+      );
+    }
+
+    // If we have paginated context, use it; otherwise use the regular context
+    if (result.paginatedContext && result.paginatedContext.pages.length > 0) {
+      const formattedContext = formatPaginatedContextForPrompt(
+        result.paginatedContext
+      );
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "text/markdown",
+            text: formattedContext || "# Targeted Context\n\nNo context available.",
+          },
+        ],
+      };
+    } else {
+      const formattedContext = formatTargetedContextForPrompt(result.context!);
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "text/markdown",
+            text: formattedContext || "# Targeted Context\n\nNo context available.",
+          },
+        ],
+      };
+    }
   };
 
-  const listImplementedResources = async () => ({ resources: [] });
+  const noListedResources = async () => ({ resources: [] });
+
+  const registerChangesTourContext = (
+    name: string,
+    template: string,
+    description: string
+  ) =>
+    server.registerResource(
+      name,
+      new ResourceTemplate(template, { list: noListedResources }),
+      { description, mimeType: "text/markdown" },
+      readChangesTourTargetedContext
+    );
 
   // The paginated template is registered first: its variables are the only
   // ones that can include a query string, and the base template's path
   // variables would otherwise capture `?page=...` as part of headRef.
-  server.registerResource(
+  registerChangesTourContext(
     TARGETED_CONTEXT_PAGINATED_RESOURCE_NAME,
-    new ResourceTemplate(TARGETED_CONTEXT_PAGINATED_RESOURCE_TEMPLATE, {
-      list: listImplementedResources,
-    }),
-    {
-      description:
-        `${TARGETED_CONTEXT_RESOURCE_DESCRIPTION} ` +
-        "This template requires both page and pageSize; omit them to use the " +
-        "default page size.",
-      mimeType: "text/markdown",
-    },
-    readChangesTourTargetedContext
+    TARGETED_CONTEXT_PAGINATED_RESOURCE_TEMPLATE,
+    `${TARGETED_CONTEXT_RESOURCE_DESCRIPTION} ` +
+      "This paginated form requires both page and pageSize."
   );
 
   // The base template applies the default page size (200): the agent receives
   // one bounded page instead of every symbol.
-  server.registerResource(
+  registerChangesTourContext(
     TARGETED_CONTEXT_RESOURCE_NAME,
-    new ResourceTemplate(TARGETED_CONTEXT_RESOURCE_TEMPLATE, {
-      list: listImplementedResources,
-    }),
-    {
-      description: TARGETED_CONTEXT_RESOURCE_DESCRIPTION,
-      mimeType: "text/markdown",
-    },
-    readChangesTourTargetedContext
+    TARGETED_CONTEXT_RESOURCE_TEMPLATE,
+    `${TARGETED_CONTEXT_RESOURCE_DESCRIPTION} ` +
+      "This form serves the first page with the default page size."
   );
 
   // Targeted Context resource for Project Tour (spec #92, ticket #117;

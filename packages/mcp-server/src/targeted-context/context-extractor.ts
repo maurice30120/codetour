@@ -145,26 +145,110 @@ function shouldIncludeFile(filePath: string, config: TargetedContextConfig): boo
 }
 
 /**
+ * Changed files selected for extraction, with the counts dropped by each
+ * bound so the caller can report them.
+ */
+interface ChangedFileSelection {
+  files: string[];
+  excludedByNodeModules: number;
+  excludedByExtension: number;
+  droppedByMaxFiles: number;
+}
+
+/**
  * Select the changed files to process, applying the configured bounds before
- * reading any content.
+ * reading any content. Extension filtering happens before `maxFiles` so that
+ * excluded files do not consume the file budget.
  */
 function selectChangedFiles(
   files: string[],
   config: TargetedContextConfig
-): string[] {
+): ChangedFileSelection {
   let selected = files;
+  let excludedByNodeModules = 0;
 
   if (config.excludeNodeModules) {
+    const before = selected.length;
     selected = selected.filter(
       (file) => !file.split(/[\\/]/).includes("node_modules")
     );
+    excludedByNodeModules = before - selected.length;
   }
 
+  const beforeExtensionFilter = selected.length;
+  selected = selected.filter((file) => shouldIncludeFile(file, config));
+  const excludedByExtension = beforeExtensionFilter - selected.length;
+
+  let droppedByMaxFiles = 0;
   if (config.maxFiles !== undefined && config.maxFiles > 0) {
+    droppedByMaxFiles = Math.max(0, selected.length - config.maxFiles);
     selected = selected.slice(0, config.maxFiles);
   }
 
-  return selected;
+  return {
+    files: selected,
+    excludedByNodeModules,
+    excludedByExtension,
+    droppedByMaxFiles,
+  };
+}
+
+/**
+ * Trim the collected symbols so their total does not exceed the configured
+ * budget. A non-positive budget means no limit.
+ */
+function applySymbolBudget(
+  fileContexts: { symbols: CodeSymbol[] }[],
+  maxSymbols: number
+): void {
+  if (maxSymbols <= 0) {
+    return;
+  }
+
+  let remaining = maxSymbols;
+  for (const fileContext of fileContexts) {
+    fileContext.symbols =
+      remaining > 0 ? fileContext.symbols.slice(0, remaining) : [];
+    remaining -= fileContext.symbols.length;
+  }
+}
+
+/**
+ * Coerce a pagination value to a usable positive integer.
+ */
+function toPositiveInteger(
+  value: number | undefined,
+  fallback: number
+): number {
+  if (value === undefined || !Number.isFinite(value) || value < 1) {
+    return fallback;
+  }
+
+  return Math.trunc(value);
+}
+
+/**
+ * Report what the selection bounds dropped, so a truncated context is never
+ * silent.
+ */
+function describeChangedFileSelection(
+  selection: ChangedFileSelection
+): string[] {
+  const warnings: string[] = [];
+
+  if (selection.excludedByNodeModules > 0) {
+    warnings.push(
+      `Excluded ${selection.excludedByNodeModules} changed file(s) under node_modules.`
+    );
+  }
+
+  if (selection.droppedByMaxFiles > 0) {
+    warnings.push(
+      `Stopped at maxFiles: ${selection.droppedByMaxFiles} changed file(s) not processed.`
+    );
+  }
+
+  return warnings;
 }
 
 /**
@@ -301,11 +385,13 @@ export async function extractTargetedContext(
   
   try {
     // Get changed files
-    const files = selectChangedFiles(
+    const selection = selectChangedFiles(
       await changedFiles(ctx, baseRef, headRef),
       mergedConfig
     );
-    
+    const files = selection.files;
+    warnings.push(...describeChangedFileSelection(selection));
+
     if (files.length === 0) {
       warnings.push("No changed files found between base and head refs.");
       costTracker.stop();
@@ -566,11 +652,13 @@ export async function extractPaginatedTargetedContext(
   
   try {
     // Get changed files
-    const files = selectChangedFiles(
+    const selection = selectChangedFiles(
       await changedFiles(ctx, baseRef, headRef),
       mergedConfig
     );
-    
+    const files = selection.files;
+    warnings.push(...describeChangedFileSelection(selection));
+
     if (files.length === 0) {
       warnings.push("No changed files found between base and head refs.");
       costTracker.stop();
@@ -631,6 +719,20 @@ export async function extractPaginatedTargetedContext(
       });
     }
     
+    // Apply the total symbol budget before paginating: maxSymbols bounds the
+    // whole context, while pageSize only bounds how much is served at once.
+    const extractedSymbols = allFileContexts.reduce(
+      (sum, fc) => sum + fc.symbols.length,
+      0
+    );
+    applySymbolBudget(allFileContexts, mergedConfig.maxSymbols);
+    if (extractedSymbols > mergedConfig.maxSymbols && mergedConfig.maxSymbols > 0) {
+      warnings.push(
+        `Symbol budget reached: kept ${mergedConfig.maxSymbols} of ` +
+          `${extractedSymbols} extracted symbols.`
+      );
+    }
+
     // Calculate total symbols
     const totalSymbols = allFileContexts.reduce(
       (sum, fc) => sum + fc.symbols.length,
@@ -664,9 +766,14 @@ export async function extractPaginatedTargetedContext(
     };
     
     // Create paginated context
-    const page = pagination.page ?? 1;
-    const pageSize =
-      pagination.pageSize ?? mergedConfig.pageSize ?? mergedConfig.maxSymbols;
+    const page = toPositiveInteger(pagination.page, 1);
+    const pageSize = toPositiveInteger(
+      pagination.pageSize,
+      toPositiveInteger(
+        mergedConfig.pageSize,
+        Math.max(1, mergedConfig.maxSymbols)
+      )
+    );
     
     // Paginate across all files
     const allSymbolsWithFile: { filePath: string; symbol: CodeSymbol }[] = [];

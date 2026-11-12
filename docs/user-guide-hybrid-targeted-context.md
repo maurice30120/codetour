@@ -131,8 +131,8 @@ Tour context gives approach D.
 - **Parameters**:
   - `baseRef` (required): Base commit SHA
   - `headRef` (required): Head commit SHA
-  - `page` (required on the paginated URI): Page number (default: 1)
-  - `pageSize` (required on the paginated URI): Items per page (default: 200)
+  - `page` (paginated URI only, default: 1): Page number
+  - `pageSize` (paginated URI only, default: 200): Items per page
 - **Approach**: C (Progressive MCP)
 - **Configuration**: maxSymbols: 5000, pageSize: 200, maxFiles: 50, excludeNodeModules: true, trackCost: true
 
