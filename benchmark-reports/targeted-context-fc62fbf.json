@@ -1,11 +1,11 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-11-12T15:03:30.051Z",
+  "generatedAt": "2026-11-12T15:37:30.838Z",
   "environment": {
     "repository": "codetour",
     "workspaceRoot": "/Users/dhuyet/Documents/POC/codetour-wt/spec92-fix",
     "branch": "fix/spec-92-uri-collision",
-    "sha": "94f4d370289d32c7556e270267fd79eaa116759a",
+    "sha": "fc62fbf6a26bbc5fd2a2b8cb964d9f1d4a3b5b02",
     "baseRef": "8f42a4ff2364d55e11196dce1c99cbfbf109963b",
     "headRef": "HEAD"
   },
@@ -76,7 +76,7 @@
       "symbols": 137,
       "files": 17,
       "pages": 1,
-      "durationMs": 208,
+      "durationMs": 203,
       "warnings": []
     },
     {
@@ -87,19 +87,19 @@
       "symbols": 137,
       "files": 19,
       "pages": 1,
-      "durationMs": 208,
+      "durationMs": 203,
       "targetTokens": 150000,
       "warnings": []
     },
     {
       "scenario": "project-full-context",
       "tourType": "project",
-      "estimatedTokens": 1220,
-      "characters": 4879,
+      "estimatedTokens": 983,
+      "characters": 3929,
       "symbols": 283,
       "files": 50,
       "pages": 0,
-      "durationMs": 16,
+      "durationMs": 12,
       "targetTokens": 400000,
       "warnings": []
     }

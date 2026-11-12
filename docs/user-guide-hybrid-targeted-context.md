@@ -26,7 +26,7 @@ This guide explains when to use each approach, how the automatic detection works
 
 **Characteristics:**
 - ✅ **Token efficient**: 1,969 estimated tokens for the whole context on `codetour` (target < 150K); the 97% reduction vs baseline is unmeasured
-- ✅ **Fast**: 208 ms measured, target < 3 seconds
+- ✅ **Fast**: 203 ms measured, target < 3 seconds
 - ✅ **Focused**: Only analyzes changed files
 - ✅ **Progressive**: Supports pagination for large changesets
 
@@ -48,7 +48,7 @@ This guide explains when to use each approach, how the automatic detection works
 - ✅ **Comprehensive**: Covers entire workspace
 - ✅ **Structured**: Provides architectural overview
 - ✅ **Informative**: Includes key files and symbols
-- ⚠️ **Higher cost**: 1,220 estimated tokens on `codetour` (target < 400K); the 92% reduction vs baseline is unmeasured
+- ⚠️ **Higher cost**: 983 estimated tokens on `codetour` (target < 400K); the 92% reduction vs baseline is unmeasured
 
 **When to use:**
 - You're new to a project
@@ -312,8 +312,8 @@ const result = await extractProjectTargetedContext(ctx, config);
 
 ## Performance Metrics
 
-> Measured on the `codetour` repository at commit `94f4d37` (all figures in
-> `benchmark-reports/targeted-context-94f4d37.md`). Tokens are **estimates**
+> Measured on the `codetour` repository at commit `fc62fbf` (all figures in
+> `benchmark-reports/targeted-context-fc62fbf.md`). Tokens are **estimates**
 > (~4 characters per token) of the text served, not billing data. One repository and one
 > commit pair: reproducible, not a general claim.
 
@@ -322,15 +322,15 @@ const result = await extractProjectTargetedContext(ctx, config);
 | Metric | Target | Measured |
 |--------|--------|----------|
 | Token Cost (whole bounded context) | < 150K | ✅ 1,969 est. tokens |
-| Duration | < 3 seconds | ✅ 208 ms |
+| Duration | < 3 seconds | ✅ 203 ms |
 | Token Reduction vs baseline | > 95% | ❌ not measured (no baseline harness) |
 
 ### Project Tours (Approach D)
 
 | Metric | Target | Measured |
 |--------|--------|----------|
-| Token Cost | < 400K | ✅ 1,220 est. tokens |
-| Duration | < 4 seconds | ✅ 16 ms |
+| Token Cost | < 400K | ✅ 983 est. tokens |
+| Duration | < 4 seconds | ✅ 12 ms |
 | Token Reduction vs baseline | > 90% | ❌ not measured (no baseline harness) |
 
 Regenerate with `npm run benchmark:targeted-context`; add `--check` to fail when a

@@ -20,15 +20,15 @@
 - [x] Validation que D < 4 secondes pour Project Tours
 - [x] Validation que la détection automatique fonctionne (tests du ticket 01)
 
-**Mesure du 12 novembre 2026** — dépôt `codetour`, commit `94f4d37`, comparaison
-`8f42a4f...94f4d37` (merge-base avec `origin/main`), rapport
-`benchmark-reports/targeted-context-94f4d37.{json,md}` :
+**Mesure du 12 novembre 2026** — dépôt `codetour`, commit `fc62fbf`, comparaison
+`8f42a4f...fc62fbf` (merge-base avec `origin/main`), rapport
+`benchmark-reports/targeted-context-fc62fbf.{json,md}` :
 
 | Scénario | Tokens estimés | Seuil | Verdict | Symboles | Fichiers | Durée |
 |---|---|---|---|---|---|---|
-| Changes, première page | 1 989 | — | — | 137 | 17 | 208 ms |
-| Changes, contexte complet | 1 969 | < 150 000 | ✅ | 137 | 19 | 208 ms |
-| Project, contexte complet | 1 220 | < 400 000 | ✅ | 283 | 50 | 16 ms |
+| Changes, première page | 1 989 | — | — | 137 | 17 | 203 ms |
+| Changes, contexte complet | 1 969 | < 150 000 | ✅ | 137 | 19 | 203 ms |
+| Project, contexte complet | 983 | < 400 000 | ✅ | 283 | 50 | 12 ms |
 
 **Décision :** clôturé. Le diff mesuré tient dans une page (137 < 200), donc la pagination n'a pas
 été mise en défaut ; le Project Tour a atteint son plafond de 50 fichiers. Aucun bug : ces
