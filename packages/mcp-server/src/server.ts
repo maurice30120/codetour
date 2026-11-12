@@ -151,6 +151,52 @@ const PROJECT_TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
 // requested mode, rejecting any other value. The Project Tour prompt has no
 // parameter, so it is a fixed resource URI.
 
+// Generation prompts (MCP prompts capability): the same served generation
+// instructions composed for one concrete run, plus the Tour orientation when
+// the user's request was accompanied by a phrase. The optional `brief`
+// argument travels verbatim into the composed prompt with the instruction to
+// follow what it asks for and to write the Tour in its language — the phrase
+// is in the user's language, so it is the language of the Tour. Adapters hold
+// no prompt text: they pass the user's words through and send what
+// prompts/get composes.
+export const GENERATE_PROJECT_TOUR_PROMPT_NAME = "generate_project_tour";
+export const GENERATE_CHANGES_TOUR_PROMPT_NAME = "generate_changes_tour";
+const GENERATE_PROJECT_TOUR_PROMPT_DESCRIPTION =
+  "Generation prompt for the create_project_tour tool, composed for one " +
+  "run: the served Project Tour generation instructions, plus the Tour " +
+  "orientation carried by the optional brief when the user's request was " +
+  "accompanied by a phrase.";
+const GENERATE_CHANGES_TOUR_PROMPT_DESCRIPTION =
+  "Generation prompt for the create_changes_tour tool, composed for one " +
+  "run: the served Changes Tour generation instructions for the requested " +
+  "reviewMode, plus the Tour orientation carried by the optional brief when " +
+  "the user's request was accompanied by a phrase.";
+
+// The user's orientation clause appended to a served generation prompt. The
+// brief is the phrase that accompanied the user's generation request: it
+// says what the user wants to understand and it is written in the user's
+// language, so the Tour Generator follows it and writes the Tour in that
+// same language. An absent or blank brief adds nothing: the served prompt
+// alone remains the contract.
+function tourOrientationClause(brief: string | undefined): string {
+  const trimmed = typeof brief === "string" ? brief.trim() : "";
+  if (!trimmed) return "";
+  return [
+    "## Tour orientation from the user",
+    "",
+    "The user accompanied this Tour request with these words:",
+    "",
+    trimmed,
+    "",
+    "They orient this Tour: follow what the user asks to understand there, " +
+      "letting it guide the route, the anchors and the depth where it " +
+      "applies. They are also written in the user's language: write the " +
+      "Tour-level description and every step description in that same " +
+      "language. The rest of this prompt still applies in full.",
+    "",
+  ].join("\n");
+}
+
 // Fixed destinations reserved for generated Tours. They are replaced only
 // after complete validation and ignored while detecting a dirty workspace (see
 // git.ts).
@@ -451,6 +497,9 @@ function projectTourGenerationPrompt(): string {
     "- Propose the tour with the `create_project_tour` tool. Rehearse first: call the " +
       "tool once with dryRun true, correct every reported validation issue, then call " +
       "again with dryRun omitted to persist the tour.",
+    "- Some hosts register MCP tools with a server-name prefix: Copilot exposes " +
+      "this tool as `codetour-create_project_tour`. Search for the tool under " +
+      "whichever name your session registers it; the tool contract is unchanged.",
     "- The tour is written to the reserved destination `.tours/project.tour`, or " +
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_project_tour` tool " +
@@ -495,6 +544,9 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
     "- Propose the tour with the `create_changes_tour` tool. Rehearse first: call " +
       "the tool once with dryRun true, correct every reported validation issue, " +
       "then call again with dryRun omitted to persist the tour.",
+    "- Some hosts register MCP tools with a server-name prefix: Copilot exposes " +
+      "this tool as `codetour-create_changes_tour`. Search for the tool under " +
+      "whichever name your session registers it; the tool contract is unchanged.",
     "- The tour is written to the reserved destination `.tours/changes.tour`, or " +
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_changes_tour` tool " +
@@ -510,7 +562,7 @@ export function createServer(workspaceRoot: string): McpServer {
   const ctx = createContext(workspaceRoot);
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
-    { capabilities: { tools: {}, resources: {} } }
+    { capabilities: { tools: {}, resources: {}, prompts: {} } }
   );
 
   // The critical review skill pack is served as a resource so an agent can
@@ -750,6 +802,72 @@ export function createServer(workspaceRoot: string): McpServer {
         ],
       };
     }
+  );
+
+  // The generation prompts are the composed form of the served generation
+  // instructions: prompts/get is what an adapter calls for one concrete run,
+  // passing the user's orientation phrase through instead of embedding any
+  // prompt text of its own.
+  server.registerPrompt(
+    GENERATE_PROJECT_TOUR_PROMPT_NAME,
+    {
+      description: GENERATE_PROJECT_TOUR_PROMPT_DESCRIPTION,
+      argsSchema: {
+        brief: z
+          .string()
+          .optional()
+          .describe(
+            "Optional phrase accompanying the user's request, included " +
+              "verbatim: it orients the Tour and its language is the " +
+              "user's language, in which the Tour is written."
+          ),
+      },
+    },
+    ({ brief }) => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text:
+              projectTourGenerationPrompt() + tourOrientationClause(brief),
+          },
+        },
+      ],
+    })
+  );
+
+  server.registerPrompt(
+    GENERATE_CHANGES_TOUR_PROMPT_NAME,
+    {
+      description: GENERATE_CHANGES_TOUR_PROMPT_DESCRIPTION,
+      argsSchema: {
+        reviewMode: z
+          .enum(["neutral", "critical"])
+          .describe("The review mode of the Changes Tour generation."),
+        brief: z
+          .string()
+          .optional()
+          .describe(
+            "Optional phrase accompanying the user's request, included " +
+              "verbatim: it orients the Tour and its language is the " +
+              "user's language, in which the Tour is written."
+          ),
+      },
+    },
+    ({ reviewMode, brief }) => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text:
+              changesTourGenerationPrompt(reviewMode) +
+              tourOrientationClause(brief),
+          },
+        },
+      ],
+    })
   );
 
   server.registerTool(

@@ -7,11 +7,32 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Added
 
+- A Tour generation can be accompanied by a phrase: `/codetour generate`
+  accepts a free orientation after the type and review mode
+  (`/codetour generate project montre-moi le rendu Mermaid`). The phrase
+  travels verbatim through the new `generate_project_tour` and
+  `generate_changes_tour` MCP prompts, which compose the served generation
+  instructions for the run: the phrase orients the Tour and its language is
+  the user's language, in which the Tour is written. The Copilot adapter
+  holds no prompt text; it passes the user's words to `prompts/get` and sends
+  back what the server composed. The served generation prompts now also say
+  that hosts may register the creation tools with a server-name prefix —
+  Copilot exposes them as `codetour-create_project_tour` and
+  `codetour-create_changes_tour` — so the agent searches under the name its
+  session actually registers.
+- A generation without a phrase now asks for its orientation before launching:
+  a free-text dialog where cancelling stops the run, an empty answer keeps the
+  standard Tour, and a typed phrase orients it. The question is never asked
+  again when the phrase was given in the command, and a host without
+  elicitation must receive it there or the generation stops with an explicit
+  error.
+
 - `codetour --install copilot` and `codetour --install vscode` install CodeTour
   into AI agents from any standalone CLI, through an agent-integration registry
-  (`--agents`, `--doctor`, `--uninstall`, `--force`). The Copilot adapter files
+  (`--agents`, `--doctor`, `--uninstall`). The Copilot adapter files
   are embedded in the CLI bundle, a pre-existing different installation is
-  never replaced without explicit consent, and an uninstall removes only the
+  replaced directly and the install reports what it replaced, and an
+  uninstall removes only the
   files this CLI owns. The Copilot CLI parsing itself moved to Commander while
   keeping the established message contract: `mcp` stays a reserved pass-through
   token, the `--internal-*` surfaces used by the adapter are unchanged, and

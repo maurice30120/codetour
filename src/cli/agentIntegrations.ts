@@ -21,16 +21,12 @@ export interface InstallationStatus {
   detail: string;
 }
 
-export interface InstallOptions {
-  force: boolean;
-}
-
 export interface AgentIntegration {
   id: string;
   displayName: string;
   detect(): Promise<DetectionResult>;
   status(): Promise<InstallationStatus>;
-  install(options: InstallOptions): Promise<void>;
+  install(): Promise<void>;
   uninstall(): Promise<void>;
 }
 
@@ -100,19 +96,13 @@ const copilotIntegration: AgentIntegration = {
     const changed = states.filter(file => file.state !== "current").map(file => file.name).join(", ");
     return {
       state: "outdated" as const,
-      detail: `The installed adapter differs from this CLI (${changed}). Re-run with --force to replace it.`
+      detail: `The installed adapter differs from this CLI (${changed}). Re-run 'codetour --install copilot' to replace it.`
     };
   },
-  async install({ force }) {
+  async install() {
     const directory = copilotExtensionDirectory();
     const states = await copilotFileStates(directory);
-    const conflicting = states.filter(file => file.state === "modified");
-    if (conflicting.length && !force) {
-      throw new Error(
-        `${directory} already contains a different adapter (${conflicting.map(file => file.name).join(", ")}). ` +
-        "A pre-existing installation is never overwritten without consent; re-run with --force to replace it."
-      );
-    }
+    const differing = states.filter(file => file.state === "modified").map(file => file.name);
     await fs.mkdir(directory, { recursive: true });
     for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
       const target = path.join(directory, name);
@@ -121,6 +111,9 @@ const copilotIntegration: AgentIntegration = {
       if (await fs.readFile(target, "utf8") !== content) {
         throw new Error(`Could not verify ${target} after installation.`);
       }
+    }
+    if (differing.length) {
+      console.log(`Replaced differing adapter files (${differing.join(", ")}) in ${directory}.`);
     }
     console.log(`Installed the CodeTour adapter in ${directory}.`);
     console.log("Start 'copilot --experimental' in a trusted Git worktree, accept the extension");

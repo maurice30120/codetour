@@ -26,7 +26,6 @@ interface Options {
   renderer?: string;
   install?: string;
   uninstall?: string;
-  force: boolean;
   agents: boolean;
   doctor: boolean;
   internalListTours: boolean;
@@ -44,7 +43,6 @@ function buildProgram(): Command {
     .option("--renderer <type>", "open the Tour as html (default) or terminal")
     .option("--install <agent>", "install an agent integration: " + agentIds())
     .option("--uninstall <agent>", "remove an agent integration installed by this CLI")
-    .option("--force", "replace a pre-existing installation whose content differs")
     .option("--agents", "list every agent integration and its state")
     .option("--doctor", "diagnose this CLI and every agent integration")
     .option("--internal-list-tours", "print the discoverable Tours as JSON")
@@ -190,7 +188,7 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
     return;
   }
   if (options.install) {
-    await findAgentIntegration(options.install).install({ force: options.force });
+    await findAgentIntegration(options.install).install();
     return;
   }
   if (options.uninstall) {

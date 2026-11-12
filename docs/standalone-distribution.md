@@ -85,8 +85,8 @@ Copilot extension directory (`~/.copilot/extensions/codetour/`), after
 detection, existing-installation checks and per-file verification. The
 adapter files travel embedded inside the CLI bundle, so the install works
 from any directory with no dependency on this repository. A pre-existing
-installation whose content differs is never overwritten without explicit
-consent: re-run with `--force` to replace it. `codetour --uninstall copilot`
+installation whose content differs is replaced directly, and the install
+reports which files it replaced. `codetour --uninstall copilot`
 removes only the files this CLI owns, leaving any other file untouched.
 
 `codetour --install vscode` installs the CodeTour VS Code extension through
