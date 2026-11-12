@@ -25,8 +25,8 @@ This guide explains when to use each approach, how the automatic detection works
 - Quick, focused code reviews
 
 **Characteristics:**
-- ✅ **Token efficient**: < 150K tokens target (97% reduction claimed vs baseline — unmeasured)
-- ✅ **Fast**: < 3 seconds target
+- ✅ **Token efficient**: 1,969 estimated tokens for the whole context on `codetour` (target < 150K); the 97% reduction vs baseline is unmeasured
+- ✅ **Fast**: 208 ms measured, target < 3 seconds
 - ✅ **Focused**: Only analyzes changed files
 - ✅ **Progressive**: Supports pagination for large changesets
 
@@ -48,7 +48,7 @@ This guide explains when to use each approach, how the automatic detection works
 - ✅ **Comprehensive**: Covers entire workspace
 - ✅ **Structured**: Provides architectural overview
 - ✅ **Informative**: Includes key files and symbols
-- ⚠️ **Higher cost**: < 400K tokens target (92% reduction claimed vs baseline — unmeasured)
+- ⚠️ **Higher cost**: 1,220 estimated tokens on `codetour` (target < 400K); the 92% reduction vs baseline is unmeasured
 
 **When to use:**
 - You're new to a project
@@ -312,24 +312,30 @@ const result = await extractProjectTargetedContext(ctx, config);
 
 ## Performance Metrics
 
-> These are **targets** from the spec. None of them has been measured: the validation benchmark
-> (ticket 07) has not been run, and no report is versioned in the repository.
+> Measured on the `codetour` repository at commit `94f4d37` (all figures in
+> `benchmark-reports/targeted-context-94f4d37.md`). Tokens are **estimates**
+> (~4 characters per token) of the text served, not billing data. One repository and one
+> commit pair: reproducible, not a general claim.
 
 ### Changes Tours (Approach C)
 
 | Metric | Target | Measured |
 |--------|--------|----------|
-| Token Cost | < 150K | ❌ not measured |
-| Duration | < 3 seconds | ❌ not measured |
-| Token Reduction | > 95% | ❌ not measured |
+| Token Cost (whole bounded context) | < 150K | ✅ 1,969 est. tokens |
+| Duration | < 3 seconds | ✅ 208 ms |
+| Token Reduction vs baseline | > 95% | ❌ not measured (no baseline harness) |
 
 ### Project Tours (Approach D)
 
 | Metric | Target | Measured |
 |--------|--------|----------|
-| Token Cost | < 400K | ❌ not measured |
-| Duration | < 4 seconds | ❌ not measured |
-| Token Reduction | > 90% | ❌ not measured |
+| Token Cost | < 400K | ✅ 1,220 est. tokens |
+| Duration | < 4 seconds | ✅ 16 ms |
+| Token Reduction vs baseline | > 90% | ❌ not measured (no baseline harness) |
+
+Regenerate with `npm run benchmark:targeted-context`; add `--check` to fail when a
+target is exceeded. The extraction ran on a small diff (19 files, 137 symbols), so a
+single page held everything: pagination shows its benefit only past `pageSize`.
 
 ---
 
