@@ -119,8 +119,9 @@ test("CostTracker should track duration", async () => {
   const tracker = new CostTracker();
   tracker.reset();
   
-  // Small delay to ensure duration is measured
-  await new Promise(resolve => setTimeout(resolve, 10));
+  // Sleep long enough that timer coalescing cannot make the elapsed time
+  // fall below the asserted bound.
+  await new Promise(resolve => setTimeout(resolve, 25));
   
   const duration = tracker.getDurationMs();
   assert.ok(duration >= 10, `Duration should be at least 10ms, got ${duration}ms`);
