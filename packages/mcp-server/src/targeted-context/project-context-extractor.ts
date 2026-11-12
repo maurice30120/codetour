@@ -122,12 +122,16 @@ function detectLanguageFromPath(filePath: string): string {
 /**
  * Check if a file should be included based on extension filters
  */
+function isInsideNodeModules(filePath: string): boolean {
+  return filePath.split(/[\\/]/).includes("node_modules");
+}
+
 function shouldIncludeFile(filePath: string, config: ProjectTargetedContextConfig): boolean {
   const ext = path.extname(filePath).toLowerCase();
   const basename = path.basename(filePath);
   
   // Always exclude node_modules if configured
-  if (config.excludeNodeModules && filePath.includes("/node_modules/")) {
+  if (config.excludeNodeModules && isInsideNodeModules(filePath)) {
     return false;
   }
   
@@ -147,18 +151,33 @@ function shouldIncludeFile(filePath: string, config: ProjectTargetedContextConfi
 /**
  * Check if a directory should be scanned
  */
-function shouldScanDirectory(dirPath: string, config: ProjectTargetedContextConfig): boolean {
+function shouldScanDirectory(
+  workspaceRoot: string,
+  dirPath: string,
+  config: ProjectTargetedContextConfig
+): boolean {
+  const relativePath = path.relative(workspaceRoot, dirPath);
+  
   // Always exclude node_modules
-  if (config.excludeNodeModules && dirPath.includes("/node_modules")) {
+  if (config.excludeNodeModules && isInsideNodeModules(relativePath)) {
     return false;
   }
   
   // If rootDirectories is specified, only scan those
   if (config.rootDirectories.length > 0) {
-    const relativePath = dirPath.replace(/^\//, '');
-    return config.rootDirectories.some(rootDir => 
-      relativePath === rootDir || relativePath.startsWith(rootDir + '/')
-    );
+    // The workspace root itself must always be scanned: it holds the
+    // configured root directories, so stopping here would find nothing.
+    if (relativePath === "") {
+      return true;
+    }
+    
+    return config.rootDirectories.some(rootDir => {
+      const normalized = rootDir.replace(/[\\/]+$/, "");
+      return (
+        relativePath === normalized ||
+        relativePath.startsWith(normalized + path.sep)
+      );
+    });
   }
   
   // Otherwise scan all directories
@@ -265,6 +284,7 @@ async function extractFileContext(
  * Recursively scan directories for files
  */
 async function scanWorkspaceFiles(
+  workspaceRoot: string,
   dirPath: string,
   config: ProjectTargetedContextConfig,
   allFiles: string[] = []
@@ -282,8 +302,8 @@ async function scanWorkspaceFiles(
       
       if (entry.isDirectory()) {
         // Check if we should scan this directory
-        if (shouldScanDirectory(fullPath, config)) {
-          await scanWorkspaceFiles(fullPath, config, allFiles);
+        if (shouldScanDirectory(workspaceRoot, fullPath, config)) {
+          await scanWorkspaceFiles(workspaceRoot, fullPath, config, allFiles);
         }
       } else if (entry.isFile()) {
         // Check if we should include this file
@@ -358,7 +378,11 @@ export async function extractProjectTargetedContext(
   
   try {
     // Scan workspace for files
-    const allFiles = await scanWorkspaceFiles(ctx.root, mergedConfig);
+    const allFiles = await scanWorkspaceFiles(
+      ctx.root,
+      ctx.root,
+      mergedConfig
+    );
     
     if (allFiles.length === 0) {
       warnings.push("No source files found matching the include criteria.");

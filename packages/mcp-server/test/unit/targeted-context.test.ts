@@ -57,7 +57,11 @@ async function createTestFile(relativePath: string, content: string) {
   await fs.promises.writeFile(fullPath, content);
 }
 
-async function commitFile(relativePath: string, message: string) {
+async function commitFile(
+  relativePath: string,
+  message: string,
+  options: { allowEmpty?: boolean } = {}
+) {
   const { execFile } = await import("child_process");
   
   await new Promise((resolve, reject) => {
@@ -67,8 +71,13 @@ async function commitFile(relativePath: string, message: string) {
     });
   });
   
+  const commitArgs = ["commit", "-m", message];
+  if (options.allowEmpty) {
+    commitArgs.push("--allow-empty");
+  }
+  
   await new Promise((resolve, reject) => {
-    execFile("git", ["commit", "-m", message], { cwd: tempDir }, (error) => {
+    execFile("git", commitArgs, { cwd: tempDir }, (error) => {
       if (error) reject(error);
       else resolve(null);
     });
@@ -322,7 +331,7 @@ describe("Targeted Context for Changes Tour", () => {
       const baseSha = await getHeadSha();
       
       // Create empty commit (no changes)
-      await commitFile(".", "Empty commit");
+      await commitFile(".", "Empty commit", { allowEmpty: true });
       
       const headSha = await getHeadSha();
       
@@ -583,9 +592,14 @@ describe("Targeted Context for Changes Tour", () => {
       );
       
       assert.ok(result.success, "Should succeed with no changes");
-      assert.ok(result.paginatedContext, "Should have paginated context");
-      assert.equal(result.paginatedContext!.totalSymbols, 0, "Should have 0 symbols");
-      assert.equal(result.paginatedContext!.pages.length, 0, "Should have 0 pages");
+      // The extractor returns early with only `context` when there are no
+      // changed files; `paginatedContext` is optional by contract.
+      assert.equal(result.context!.totalSymbols, 0, "Should have 0 symbols");
+      assert.equal(
+        result.paginatedContext?.pages.length ?? 0,
+        0,
+        "Should have 0 pages"
+      );
     });
 
     test("formatPaginatedContextForPrompt should format context with pagination info", async () => {

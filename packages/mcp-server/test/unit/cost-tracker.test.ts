@@ -145,8 +145,11 @@ test("CostTracker should calculate estimated cost", () => {
   // input: 1000 * 0.00001 = 0.01
   // output: 500 * 0.00003 = 0.015
   // cache: 200 * 0.000005 = 0.001
-  // total: 0.026
-  assert.equal(estimatedCost, 0.026);
+  // total: 0.026 (floating-point sum, compared with a tolerance)
+  assert.ok(
+    Math.abs(estimatedCost - 0.026) < 1e-12,
+    `expected ~0.026, got ${estimatedCost}`
+  );
 });
 
 // Test 11: Build cost info
@@ -156,14 +159,17 @@ test("CostTracker should build cost info", () => {
     inputPricePerToken: 0.00001,
     outputPricePerToken: 0.00003,
   };
-  const tracker = new CostTracker({ modelInfo });
+  const tracker = new CostTracker({ modelInfo, trackAICredits: true });
   tracker.reset();
   
   tracker.addInputTokens(1000);
   
   const costInfo = tracker.buildCostInfo(5.0);
   assert.equal(costInfo.aiCredits, 5.0);
-  assert.equal(costInfo.estimatedCost, 0.01);
+  assert.ok(
+    Math.abs(costInfo.estimatedCost! - 0.01) < 1e-12,
+    `expected ~0.01, got ${costInfo.estimatedCost}`
+  );
 });
 
 // Test 12: Finalize metrics for Changes Tour
