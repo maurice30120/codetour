@@ -4,13 +4,20 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] La configuration par défaut pour D est définie dans `targeted-context/project-config.ts` ou équivalent
-- [ ] Les Project Tours utilisent automatiquement cette configuration
-- [ ] `maxFiles: 50` est appliqué
-- [ ] `maxSymbolsPerFile: 50` est appliqué
-- [ ] `rootDirectories: ["src", "lib", "packages", "app", "server"]` est configuré
-- [ ] Les extensions principales sont incluses (TypeScript, JavaScript, Python, etc.)
-- [ ] Les fichiers de test et node_modules sont exclus
-- [ ] Des tests valident que la configuration est bien appliquée
+- [x] La configuration par défaut pour D est définie dans `targeted-context/hybrid-config.ts`
+- [x] Les Project Tours utilisent automatiquement cette configuration
+- [x] `maxFiles: 50` est appliqué
+- [x] `maxSymbolsPerFile: 50` est appliqué
+- [x] `rootDirectories: ["src", "lib", "packages", "app", "server"]` est configuré
+- [x] Les extensions principales sont incluses (TypeScript, JavaScript, Python, etc.)
+- [x] Les fichiers de test et node_modules sont exclus
+- [x] Des tests valident que la configuration est bien appliquée
+
+**Implementation:** `APPROACH_D_CONFIG` / `getApproachDConfig()` in
+`packages/mcp-server/src/targeted-context/hybrid-config.ts`, used by the
+`codetour://context/project-tour` handler. Tests: `test/unit/hybrid-targeted-context-benchmark.test.ts`.
+
+**Correction associée :** `scanWorkspaceFiles` comparait un chemin absolu aux entrées relatives de
+`rootDirectories`, donc aucun fichier n'était scanné. Corrigé dans `98809d7`.

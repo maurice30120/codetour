@@ -25,8 +25,8 @@ This guide explains when to use each approach, how the automatic detection works
 - Quick, focused code reviews
 
 **Characteristics:**
-- ✅ **Token efficient**: < 150K tokens (97% reduction vs baseline)
-- ✅ **Fast**: < 3 seconds
+- ✅ **Token efficient**: < 150K tokens target (97% reduction claimed vs baseline — unmeasured)
+- ✅ **Fast**: < 3 seconds target
 - ✅ **Focused**: Only analyzes changed files
 - ✅ **Progressive**: Supports pagination for large changesets
 
@@ -48,7 +48,7 @@ This guide explains when to use each approach, how the automatic detection works
 - ✅ **Comprehensive**: Covers entire workspace
 - ✅ **Structured**: Provides architectural overview
 - ✅ **Informative**: Includes key files and symbols
-- ⚠️ **Higher cost**: < 400K tokens (still 92% reduction vs baseline)
+- ⚠️ **Higher cost**: < 400K tokens target (92% reduction claimed vs baseline — unmeasured)
 
 **When to use:**
 - You're new to a project
@@ -64,12 +64,15 @@ This guide explains when to use each approach, how the automatic detection works
 |---------|---------------------------|---------------------------|
 | **Primary Use Case** | PR reviews, diff analysis | Codebase discovery, architecture |
 | **Scope** | Changed files only | Entire workspace |
-| **Token Cost** | < 150K tokens | < 400K tokens |
-| **Time** | < 3 seconds | < 4 seconds |
-| **Token Reduction** | 97% vs baseline | 92% vs baseline |
-| **Configuration** | maxSymbols: 5000, pageSize: 200 | maxFiles: 50, maxSymbolsPerFile: 50 |
+| **Token Budget (target)** | < 150K tokens | < 400K tokens |
+| **Time (target)** | < 3 seconds | < 4 seconds |
+| **Token Reduction (target)** | 97% vs baseline — unmeasured | 92% vs baseline — unmeasured |
+| **Configuration** | maxSymbols: 5000 | maxFiles: 50, maxSymbolsPerFile: 50 |
 | **Pagination** | ✅ Yes (progressive exploration) | ❌ No |
 | **Root Directories** | N/A | src, lib, packages, app, server |
+
+> The token and time figures are **targets from the spec**, not measurements. No real benchmark has
+> been run yet (ticket 07).
 
 ---
 
@@ -171,7 +174,6 @@ The generation prompts stay reachable at their own URIs:
   enabled: true,
   maxSymbols: 5000,
   maxDepth: 10,
-  pageSize: 200,
   includeExtensions: [
     ".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".go"
   ],
@@ -183,13 +185,16 @@ The generation prompts stay reachable at their own URIs:
 }
 ```
 
+Page size is not part of the configuration object: it is a URI variable
+(`codetour://context/changes-tour/{baseRef}/{headRef}?page=1&pageSize=200`). Without it, the
+extractor falls back to `maxSymbols` symbols per page.
+
 **Customization:**
 ```typescript
 import { getApproachCConfig } from './targeted-context/hybrid-config';
 
 const customConfig = getApproachCConfig({
   maxSymbols: 10000, // Increase for larger PRs
-  pageSize: 500,     // Larger pages
 });
 ```
 
@@ -301,21 +306,24 @@ const result = await extractProjectTargetedContext(ctx, config);
 
 ## Performance Metrics
 
+> These are **targets** from the spec. None of them has been measured: the validation benchmark
+> (ticket 07) has not been run, and no report is versioned in the repository.
+
 ### Changes Tours (Approach C)
 
-| Metric | Target | Actual (typical) |
-|--------|--------|------------------|
-| Token Cost | < 150K | 50-150K |
-| Duration | < 3 seconds | 1-3 seconds |
-| Token Reduction | > 95% | 97% vs baseline |
+| Metric | Target | Measured |
+|--------|--------|----------|
+| Token Cost | < 150K | ❌ not measured |
+| Duration | < 3 seconds | ❌ not measured |
+| Token Reduction | > 95% | ❌ not measured |
 
 ### Project Tours (Approach D)
 
-| Metric | Target | Actual (typical) |
-|--------|--------|------------------|
-| Token Cost | < 400K | 200-400K |
-| Duration | < 4 seconds | 2-4 seconds |
-| Token Reduction | > 90% | 92% vs baseline |
+| Metric | Target | Measured |
+|--------|--------|----------|
+| Token Cost | < 400K | ❌ not measured |
+| Duration | < 4 seconds | ❌ not measured |
+| Token Reduction | > 90% | ❌ not measured |
 
 ---
 

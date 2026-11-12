@@ -4,13 +4,22 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** partial
 
-- [ ] La configuration par défaut pour C est définie dans `targeted-context/config.ts` ou équivalent
-- [ ] Les Changes Tours utilisent automatiquement cette configuration
-- [ ] `maxSymbols: 5000` est appliqué
+- [x] La configuration par défaut pour C est définie dans `targeted-context/hybrid-config.ts`
+- [x] Les Changes Tours utilisent automatiquement cette configuration
+- [x] `maxSymbols: 5000` est appliqué
 - [ ] `pageSize: 200` est appliqué pour la pagination
-- [ ] Les extensions TypeScript/JavaScript/Python/Go sont incluses
+- [x] Les extensions TypeScript/JavaScript/Python/Go sont incluses
 - [ ] Les fichiers de test et node_modules sont exclus
-- [ ] Le tracking de coût est activé
-- [ ] Des tests valident que la configuration est bien appliquée
+- [x] Le tracking de coût est activé
+- [x] Des tests valident que la configuration est bien appliquée
+
+**Écarts constatés :**
+
+- `pageSize` n'existe pas dans `TargetedContextConfig`. La pagination vient des variables d'URI
+  (`?page=&pageSize=`) et, à défaut, `extractPaginatedTargetedContext` retombe sur
+  `maxSymbols` (`context-extractor.ts:639`), soit 5000, pas 200.
+- Les fichiers de test sont bien exclus (`excludeExtensions`), mais `TargetedContextConfig`
+  n'a pas d'option `excludeNodeModules` : rien ne filtre explicitement `node_modules` côté
+  Changes Tour.

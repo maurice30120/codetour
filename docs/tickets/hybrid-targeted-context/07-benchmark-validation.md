@@ -8,13 +8,18 @@
 
 **Blocked by:** 04, 05
 
-**Status:** ready-for-agent
+**Status:** not-started
 
 - [ ] Benchmark exécuté sur un échantillon représentatif de repositories
 - [ ] Changes Tours testés avec approche C : métriques collectées (tokens, coût, durée, mémoire)
 - [ ] Project Tours testés avec approche D : métriques collectées (tokens, coût, durée, mémoire)
 - [ ] Comparaison avec le baseline (approche A) pour validation des gains
-- [ ] Rapport de benchmark généré dans `benchmark-reports/`
+- [ ] Rapport de benchmark généré et versionné
 - [ ] Validation que C < 150K tokens pour Changes Tours
 - [ ] Validation que D < 400K tokens pour Project Tours
 - [ ] Validation que la détection automatique (ticket 01) fonctionne à 100%
+
+**Avertissement :** aucun rapport n'existe. L'ancien script de benchmark (`scripts/run-benchmark.*`)
+et le runner (`benchmark-runner.ts`) produisaient des métriques simulées ; ils ont été supprimés.
+Les chiffres « 97% » et « 92% » qui circulent dans la spec et la décision sont des estimations,
+pas des mesures.
