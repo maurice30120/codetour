@@ -124,7 +124,7 @@ const TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
   "symbols and locations from the changed files between {baseRef} and {headRef}, " +
   "offered to the Tour Generator as a substitute for open-ended exploration. " +
   "Supports progressive exploration via pagination (use page and pageSize in request). " +
-  "Uses approach C, the optimal configuration for Changes Tours.";
+  "Bounded to 5000 symbols, served 200 per page.";
 
 // URI for Targeted Context resource for Project Tour.
 // Part of spec #92, ticket #117
@@ -134,8 +134,8 @@ const PROJECT_TARGETED_CONTEXT_RESOURCE_NAME = "project-tour-targeted-context";
 const PROJECT_TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
   "Targeted Context for Project Tour generation: a bounded selection of code " +
   "symbols and locations from the entire workspace, offered to the Tour Generator " +
-  "as a substitute for open-ended exploration. Uses approach D, the optimal " +
-  "configuration for Project Tours.";
+  "as a substitute for open-ended exploration. Bounded to 50 files, " +
+  "50 symbols per file.";
 
 // Mechanism choice (spec #94): the Changes Tour prompt is parameterized by
 // the review mode, so it is served as an MCP resource template rather than
@@ -587,8 +587,8 @@ export function createServer(workspaceRoot: string): McpServer {
 
   // Targeted Context resource for Changes Tour (spec #92, ticket #115 and #116;
   // spec-hybrid-targeted-context, tickets #01 and #02)
-  // Provides bounded code symbol context to reduce open-ended exploration and
-  // uses approach C's optimal configuration for Changes Tours.
+  // Provides bounded code symbol context to reduce open-ended exploration,
+  // bounded to 5000 symbols served 200 per page for Changes Tours.
   // Supports progressive exploration via pagination (ticket #116).
   server.registerResource(
     TARGETED_CONTEXT_RESOURCE_NAME,
@@ -626,9 +626,9 @@ export function createServer(workspaceRoot: string): McpServer {
         );
       }
       
-      // Automatic approach selection (spec-hybrid-targeted-context, ticket
-      // #01): both refs are present, so this is a Changes Tour and gets
-      // approach C's optimal configuration.
+      // Automatic tour type selection (spec-hybrid-targeted-context, ticket
+      // #01): both refs are present, so this is a Changes Tour and gets the
+      // Changes Tour configuration.
       const detection = detectTourType({ baseRef, headRef });
       if (detection.tourType !== "changes-tour") {
         throw new McpError(
@@ -692,7 +692,7 @@ export function createServer(workspaceRoot: string): McpServer {
   // Targeted Context resource for Project Tour (spec #92, ticket #117;
   // spec-hybrid-targeted-context, tickets #01 and #03)
   // Provides bounded code symbol context for the entire workspace to reduce
-  // open-ended exploration and uses approach D's optimal configuration.
+  // open-ended exploration, bounded to 50 files and 50 symbols per file.
   server.registerResource(
     PROJECT_TARGETED_CONTEXT_RESOURCE_NAME,
     PROJECT_TARGETED_CONTEXT_RESOURCE_URI,
@@ -701,8 +701,8 @@ export function createServer(workspaceRoot: string): McpServer {
       mimeType: "text/markdown",
     },
     async (uri) => {
-      // Automatic approach selection (ticket #01): a request without refs is
-      // a Project Tour, so it gets approach D's optimal configuration.
+      // Automatic tour type selection (ticket #01): a request without refs is
+      // a Project Tour, so it gets the Project Tour configuration.
       const config = getApproachDConfig();
       const result = await extractProjectTargetedContext(ctx, config);
       
