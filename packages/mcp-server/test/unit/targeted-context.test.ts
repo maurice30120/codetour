@@ -348,6 +348,86 @@ describe("Targeted Context for Changes Tour", () => {
       assert.ok(result.warnings.length > 0, "Should have warning about no changes");
     });
 
+    test("should process at most the configured number of changed files", async () => {
+      const declarations = (prefix: string) =>
+        Array.from(
+          { length: 5 },
+          (_, i) => `export function ${prefix}${i}() { return ${i}; }`
+        ).join("\n");
+
+      for (const name of ["a", "b", "c"]) {
+        await createTestFile(`src/${name}.ts`, declarations(name));
+      }
+      await commitFile(".", "Initial commit");
+
+      const baseSha = await getHeadSha();
+
+      for (const name of ["a", "b", "c"]) {
+        await createTestFile(`src/${name}.ts`, `${declarations(name)}\nexport const extra${name} = 1;`);
+      }
+      await commitFile(".", "Modify every file");
+
+      const headSha = await getHeadSha();
+
+      const result = await extractTargetedContext(
+        workspaceContext,
+        baseSha,
+        headSha,
+        { enabled: true, maxFiles: 2 }
+      );
+
+      assert.ok(result.success, "Should succeed");
+      assert.ok(result.context, "Should have context");
+      assert.equal(
+        result.context!.files.length,
+        2,
+        "Should cap the number of processed files"
+      );
+    });
+
+    test("should ignore changed files under node_modules", async () => {
+      await createTestFile("src/app.ts", "export function app() { return 1; }");
+      await createTestFile(
+        "node_modules/dep/index.js",
+        "export function dep() { return 1; }"
+      );
+      await commitFile(".", "Initial commit");
+
+      const baseSha = await getHeadSha();
+
+      await createTestFile(
+        "src/app.ts",
+        "export function app() { return 2; }"
+      );
+      await createTestFile(
+        "node_modules/dep/index.js",
+        "export function dep() { return 2; }"
+      );
+      await commitFile(".", "Modify both");
+
+      const headSha = await getHeadSha();
+
+      const result = await extractTargetedContext(
+        workspaceContext,
+        baseSha,
+        headSha,
+        { enabled: true, excludeNodeModules: true }
+      );
+
+      assert.ok(result.success, "Should succeed");
+      assert.ok(result.context, "Should have context");
+
+      const paths = result.context!.files.map((file) => file.filePath);
+      assert.ok(
+        paths.some((filePath) => filePath.includes("src/app.ts")),
+        "Should keep the source file"
+      );
+      assert.ok(
+        !paths.some((filePath) => filePath.includes("node_modules")),
+        "Should drop node_modules files"
+      );
+    });
+
     test("should track token usage when enabled", async () => {
       // Create initial commit
       await createTestFile("src/token.ts", "export function process() {}");
@@ -571,6 +651,57 @@ describe("Targeted Context for Changes Tour", () => {
       assert.ok(result.paginatedContext, "Should have paginated context");
       assert.equal(result.paginatedContext!.pagination.page, 1, "Default page should be 1");
       assert.ok(result.paginatedContext!.totalSymbols > 0, "Should have symbols");
+    });
+
+    test("should serve pages of the configured pageSize", async () => {
+      const declarations = Array.from(
+        { length: 250 },
+        (_, i) => `export function fn${i}() { return ${i}; }`
+      ).join("\n");
+
+      await createTestFile("src/many.ts", declarations);
+      await commitFile("src/many.ts", "Initial commit");
+
+      const baseSha = await getHeadSha();
+
+      await createTestFile("src/many.ts", `${declarations}\nexport const tail = 1;`);
+      await commitFile("src/many.ts", "Modified");
+
+      const headSha = await getHeadSha();
+
+      const result = await extractPaginatedTargetedContext(
+        workspaceContext,
+        baseSha,
+        headSha,
+        {},
+        { enabled: true, pageSize: 200 }
+      );
+
+      assert.ok(result.success, "Should succeed");
+      assert.ok(result.paginatedContext, "Should have paginated context");
+
+      const pagination = result.paginatedContext!.pagination;
+      assert.equal(pagination.pageSize, 200, "Should use the configured page size");
+      assert.equal(pagination.page, 1, "Should default to the first page");
+
+      const symbolsOnPage = result.paginatedContext!.pages.reduce(
+        (sum, page) => sum + page.symbols.length,
+        0
+      );
+      assert.equal(symbolsOnPage, 200, "Should serve at most one page of symbols");
+      assert.ok(
+        result.paginatedContext!.totalSymbols > 200,
+        "The fixture must exceed one page"
+      );
+
+      // Token economy: one page must cost less than the whole context.
+      const pagePrompt = formatPaginatedContextForPrompt(result.paginatedContext!);
+      const fullPrompt = formatTargetedContextForPrompt(result.context!);
+      assert.ok(
+        pagePrompt.length > 0 && pagePrompt.length < fullPrompt.length,
+        `page prompt (${pagePrompt.length} chars) should be shorter than the ` +
+          `full context (${fullPrompt.length} chars)`
+      );
     });
 
     test("should handle empty context gracefully", async () => {

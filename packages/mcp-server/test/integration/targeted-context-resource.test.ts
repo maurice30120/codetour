@@ -1,0 +1,96 @@
+import { test } from "node:test";
+import * as assert from "node:assert";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import {
+  commitFile,
+  headSha,
+  initGitRepo,
+  rmrf,
+  tempDir,
+  withServer,
+} from "../helpers/test-utils";
+import { TARGETED_CONTEXT_RESOURCE_TEMPLATE } from "../../src/server";
+
+// The resource seam plays the Tour Generator: read the Targeted Context over
+// the served MCP protocol and pin the token-economy contract — the default
+// answer is one bounded page, not the whole context.
+
+function changesTourContextUri(baseRef: string, headRef: string): string {
+  return TARGETED_CONTEXT_RESOURCE_TEMPLATE.replace("{baseRef}", baseRef).replace(
+    "{headRef}",
+    headRef
+  );
+}
+
+async function readResourceText(client: Client, uri: string): Promise<string> {
+  const response = await client.readResource({ uri });
+  const content = response.contents[0] as { uri?: string; text?: string };
+  assert.equal(content.uri, uri);
+  return content.text ?? "";
+}
+
+// 250 exported functions: more than the 200-symbol default page, less than two
+// full pages.
+function manyFunctions(): string {
+  return Array.from(
+    { length: 250 },
+    (_, i) => `export function fn${i}() { return ${i}; }`
+  ).join("\n");
+}
+
+async function fixtureRepo(): Promise<{
+  root: string;
+  baseRef: string;
+  headRef: string;
+}> {
+  const root = tempDir("codetour-targeted-context-");
+  await initGitRepo(root);
+
+  const source = manyFunctions();
+  await commitFile(root, "src/many.ts", source, "add many functions");
+  const baseRef = await headSha(root);
+
+  await commitFile(
+    root,
+    "src/many.ts",
+    `${source}\nexport const tail = 1;`,
+    "add one symbol"
+  );
+  const headRef = await headSha(root);
+
+  return { root, baseRef, headRef };
+}
+
+test("the default Changes Tour context serves one bounded page", async () => {
+  const { root, baseRef, headRef } = await fixtureRepo();
+  try {
+    await withServer(root, async (client) => {
+      const text = await readResourceText(
+        client,
+        changesTourContextUri(baseRef, headRef)
+      );
+
+      // One page of 200 symbols out of 251: the agent does not receive
+      // everything at once.
+      assert.match(text, /Page 1\/2/);
+      assert.match(text, /Showing 200 symbols on this page/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("the paginated Changes Tour context serves the requested page", async () => {
+  const { root, baseRef, headRef } = await fixtureRepo();
+  try {
+    await withServer(root, async (client) => {
+      const uri = `${changesTourContextUri(baseRef, headRef)}?page=2&pageSize=200`;
+      const text = await readResourceText(client, uri);
+
+      assert.match(text, /Page 2\/2/);
+      assert.match(text, /Showing 50 symbols on this page/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});

@@ -1,5 +1,6 @@
 import {
   McpServer,
+  ReadResourceTemplateCallback,
   ResourceTemplate,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
@@ -114,11 +115,17 @@ const CHANGES_TOUR_PROMPT_RESOURCE_DESCRIPTION =
 
 // URI template for Targeted Context resource for Changes Tour.
 // {baseRef} and {headRef} are commit SHAs.
-// {page} and {pageSize} are optional for progressive exploration (ticket #116)
-// Part of spec #92, ticket #115 and #116
+// Pagination is optional (spec-hybrid-targeted-context, ticket #02): the base
+// template serves the first page with the default page size, the paginated one
+// lets the agent choose. The MCP SDK requires every query parameter declared by
+// a template to be present, so the two cases need two templates.
 export const TARGETED_CONTEXT_RESOURCE_TEMPLATE =
-  "codetour://context/changes-tour/{baseRef}/{headRef}?page={page}&pageSize={pageSize}";
+  "codetour://context/changes-tour/{baseRef}/{headRef}";
+export const TARGETED_CONTEXT_PAGINATED_RESOURCE_TEMPLATE =
+  `${TARGETED_CONTEXT_RESOURCE_TEMPLATE}?page={page}&pageSize={pageSize}`;
 const TARGETED_CONTEXT_RESOURCE_NAME = "changes-tour-targeted-context";
+const TARGETED_CONTEXT_PAGINATED_RESOURCE_NAME =
+  "changes-tour-targeted-context-paginated";
 const TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
   "Targeted Context for Changes Tour generation: a bounded selection of code " +
   "symbols and locations from the changed files between {baseRef} and {headRef}, " +
@@ -590,23 +597,10 @@ export function createServer(workspaceRoot: string): McpServer {
   // Provides bounded code symbol context to reduce open-ended exploration,
   // bounded to 5000 symbols served 200 per page for Changes Tours.
   // Supports progressive exploration via pagination (ticket #116).
-  server.registerResource(
-    TARGETED_CONTEXT_RESOURCE_NAME,
-    new ResourceTemplate(TARGETED_CONTEXT_RESOURCE_TEMPLATE, {
-      list: async () => {
-        // List available Targeted Context resources
-        // For now, we return an empty list as the resources are computed on-demand
-        // In a full implementation, we could list actual commit pairs
-        return {
-          resources: [],
-        };
-      },
-    }),
-    {
-      description: TARGETED_CONTEXT_RESOURCE_DESCRIPTION,
-      mimeType: "text/markdown",
-    },
-    async (uri, variables) => {
+  const readChangesTourTargetedContext: ReadResourceTemplateCallback = async (
+    uri,
+    variables
+  ) => {
       const baseRef = variables.baseRef;
       const headRef = variables.headRef;
       const page = variables.page ? Number(variables.page) : 1;
@@ -686,7 +680,40 @@ export function createServer(workspaceRoot: string): McpServer {
           ],
         };
       }
-    }
+  };
+
+  const listImplementedResources = async () => ({ resources: [] });
+
+  // The paginated template is registered first: its variables are the only
+  // ones that can include a query string, and the base template's path
+  // variables would otherwise capture `?page=...` as part of headRef.
+  server.registerResource(
+    TARGETED_CONTEXT_PAGINATED_RESOURCE_NAME,
+    new ResourceTemplate(TARGETED_CONTEXT_PAGINATED_RESOURCE_TEMPLATE, {
+      list: listImplementedResources,
+    }),
+    {
+      description:
+        `${TARGETED_CONTEXT_RESOURCE_DESCRIPTION} ` +
+        "This template requires both page and pageSize; omit them to use the " +
+        "default page size.",
+      mimeType: "text/markdown",
+    },
+    readChangesTourTargetedContext
+  );
+
+  // The base template applies the default page size (200): the agent receives
+  // one bounded page instead of every symbol.
+  server.registerResource(
+    TARGETED_CONTEXT_RESOURCE_NAME,
+    new ResourceTemplate(TARGETED_CONTEXT_RESOURCE_TEMPLATE, {
+      list: listImplementedResources,
+    }),
+    {
+      description: TARGETED_CONTEXT_RESOURCE_DESCRIPTION,
+      mimeType: "text/markdown",
+    },
+    readChangesTourTargetedContext
   );
 
   // Targeted Context resource for Project Tour (spec #92, ticket #117;

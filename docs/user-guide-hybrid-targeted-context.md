@@ -67,7 +67,7 @@ This guide explains when to use each approach, how the automatic detection works
 | **Token Budget (target)** | < 150K tokens | < 400K tokens |
 | **Time (target)** | < 3 seconds | < 4 seconds |
 | **Token Reduction (target)** | 97% vs baseline — unmeasured | 92% vs baseline — unmeasured |
-| **Configuration** | maxSymbols: 5000 | maxFiles: 50, maxSymbolsPerFile: 50 |
+| **Configuration** | maxSymbols: 5000, pageSize: 200 | maxFiles: 50, maxSymbolsPerFile: 50 |
 | **Pagination** | ✅ Yes (progressive exploration) | ❌ No |
 | **Root Directories** | N/A | src, lib, packages, app, server |
 
@@ -126,18 +126,23 @@ Tour context gives approach D.
 
 #### Changes Tour Context (approach C)
 
-- **URI Template**: `codetour://context/changes-tour/{baseRef}/{headRef}?page={page}&pageSize={pageSize}`
+- **Base URI**: `codetour://context/changes-tour/{baseRef}/{headRef}` — serves page 1 with 200 symbols
+- **Paginated URI**: `codetour://context/changes-tour/{baseRef}/{headRef}?page={page}&pageSize={pageSize}`
 - **Parameters**:
   - `baseRef` (required): Base commit SHA
   - `headRef` (required): Head commit SHA
-  - `page` (optional): Page number for pagination (default: 1)
-  - `pageSize` (optional): Items per page (default: 200)
+  - `page` (required on the paginated URI): Page number (default: 1)
+  - `pageSize` (required on the paginated URI): Items per page (default: 200)
 - **Approach**: C (Progressive MCP)
-- **Configuration**: maxSymbols: 5000, trackCost: true
+- **Configuration**: maxSymbols: 5000, pageSize: 200, maxFiles: 50, excludeNodeModules: true, trackCost: true
+
+The MCP SDK's URI templates require every declared query parameter, so pagination
+has its own template. Omit the query to get the default first page.
 
 **Example:**
 ```
-GET codetour://context/changes-tour/abc123/def456?page=1&pageSize=100
+GET codetour://context/changes-tour/abc123/def456
+GET codetour://context/changes-tour/abc123/def456?page=2&pageSize=200
 ```
 
 #### Project Tour Context (approach D)
@@ -173,7 +178,9 @@ The generation prompts stay reachable at their own URIs:
 {
   enabled: true,
   maxSymbols: 5000,
-  maxDepth: 10,
+  pageSize: 200,
+  maxFiles: 50,
+  excludeNodeModules: true,
   includeExtensions: [
     ".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".go"
   ],
@@ -185,9 +192,8 @@ The generation prompts stay reachable at their own URIs:
 }
 ```
 
-Page size is not part of the configuration object: it is a URI variable
-(`codetour://context/changes-tour/{baseRef}/{headRef}?page=1&pageSize=200`). Without it, the
-extractor falls back to `maxSymbols` symbols per page.
+By default the resource serves one page of 200 symbols. To read a specific page, use the
+paginated URI: `codetour://context/changes-tour/{baseRef}/{headRef}?page=1&pageSize=200`.
 
 **Customization:**
 ```typescript

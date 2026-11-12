@@ -193,6 +193,18 @@ describe("Approach C Configuration", () => {
       assert.equal(APPROACH_C_CONFIG.trackCost, true);
     });
 
+    it("should serve 200 symbols per page", () => {
+      assert.equal(APPROACH_C_CONFIG.pageSize, 200);
+    });
+
+    it("should process at most 50 changed files", () => {
+      assert.equal(APPROACH_C_CONFIG.maxFiles, 50);
+    });
+
+    it("should exclude node_modules", () => {
+      assert.equal(APPROACH_C_CONFIG.excludeNodeModules, true);
+    });
+
     it("should include required extensions", () => {
       const requiredExtensions = [
         ".ts",
@@ -249,6 +261,24 @@ describe("Approach C Configuration", () => {
 
     it("should reject config with wrong maxSymbols", () => {
       const config = getApproachCConfig({ maxSymbols: 1000 });
+      const isValid = validateApproachCConfig(config);
+      assert.equal(isValid, false);
+    });
+
+    it("should reject config with wrong pageSize", () => {
+      const config = getApproachCConfig({ pageSize: 5000 });
+      const isValid = validateApproachCConfig(config);
+      assert.equal(isValid, false);
+    });
+
+    it("should reject config with wrong maxFiles", () => {
+      const config = getApproachCConfig({ maxFiles: 100 });
+      const isValid = validateApproachCConfig(config);
+      assert.equal(isValid, false);
+    });
+
+    it("should reject config that scans node_modules", () => {
+      const config = getApproachCConfig({ excludeNodeModules: false });
       const isValid = validateApproachCConfig(config);
       assert.equal(isValid, false);
     });

@@ -41,6 +41,8 @@ import {
 export const APPROACH_C_CONFIG: TargetedContextConfig = {
   enabled: true, // Enabled by default for Changes Tours
   maxSymbols: 5000, // Maximum symbols to extract
+  pageSize: 200, // Symbols served per page
+  maxFiles: 50, // Maximum changed files processed
   maxDepth: 10, // Maximum depth of symbol hierarchy
   includeExtensions: [
     ".ts",
@@ -58,6 +60,7 @@ export const APPROACH_C_CONFIG: TargetedContextConfig = {
   ],
   includeDocumentation: true,
   trackCost: true,
+  excludeNodeModules: true,
 };
 
 /**
@@ -157,6 +160,18 @@ export function validateApproachCConfig(config: TargetedContextConfig): boolean 
 
   if (config.maxSymbols !== 5000) {
     errors.push(`Approach C: maxSymbols should be 5000, got ${config.maxSymbols}`);
+  }
+
+  if (config.pageSize !== 200) {
+    errors.push(`Approach C: pageSize should be 200, got ${config.pageSize}`);
+  }
+
+  if (config.maxFiles !== 50) {
+    errors.push(`Approach C: maxFiles should be 50, got ${config.maxFiles}`);
+  }
+
+  if (config.excludeNodeModules !== true) {
+    errors.push("Approach C: excludeNodeModules should be true");
   }
 
   if (config.trackCost !== true) {

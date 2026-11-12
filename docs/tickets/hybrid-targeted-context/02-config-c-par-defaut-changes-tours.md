@@ -1,25 +1,34 @@
 # 02: Configuration par défaut - C pour Changes Tour
 
-**What to build:** Définir et appliquer la configuration optimale de l'**approche C** (Progressive MCP) comme défaut pour tous les Changes Tours. Cette configuration doit être optimisée pour l'efficacité token et la rapidité : `enabled: true`, `maxSymbols: 5000`, `pageSize: 200`, `trackCost: true`, avec les bonnes extensions incluses/exclues.
+**What to build:** Définir et appliquer la configuration optimale de l'**approche C** (Progressive MCP) comme défaut pour tous les Changes Tours. Cette configuration doit être optimisée pour l'efficacité token et la rapidité : `enabled: true`, `maxSymbols: 5000`, `pageSize: 200`, `maxFiles: 50`, `excludeNodeModules: true`, `trackCost: true`, avec les bonnes extensions incluses/exclues.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** partial
+**Status:** done
 
 - [x] La configuration par défaut pour C est définie dans `targeted-context/hybrid-config.ts`
 - [x] Les Changes Tours utilisent automatiquement cette configuration
 - [x] `maxSymbols: 5000` est appliqué
-- [ ] `pageSize: 200` est appliqué pour la pagination
+- [x] `pageSize: 200` est appliqué pour la pagination
 - [x] Les extensions TypeScript/JavaScript/Python/Go sont incluses
-- [ ] Les fichiers de test et node_modules sont exclus
+- [x] Les fichiers de test et node_modules sont exclus
 - [x] Le tracking de coût est activé
 - [x] Des tests valident que la configuration est bien appliquée
 
-**Écarts constatés :**
+**Implémentation :**
 
-- `pageSize` n'existe pas dans `TargetedContextConfig`. La pagination vient des variables d'URI
-  (`?page=&pageSize=`) et, à défaut, `extractPaginatedTargetedContext` retombe sur
-  `maxSymbols` (`context-extractor.ts:639`), soit 5000, pas 200.
-- Les fichiers de test sont bien exclus (`excludeExtensions`), mais `TargetedContextConfig`
-  n'a pas d'option `excludeNodeModules` : rien ne filtre explicitement `node_modules` côté
-  Changes Tour.
+- `APPROACH_C_CONFIG` porte `pageSize: 200`, `maxFiles: 50`, `excludeNodeModules: true`,
+  et `validateApproachCConfig` refuse toute autre valeur.
+- `extractPaginatedTargetedContext` sert `pagination.pageSize ?? config.pageSize ?? maxSymbols` :
+  sans paramètre d'URI, une page contient 200 symboles, pas 5000.
+- `selectChangedFiles` applique `maxFiles` et `excludeNodeModules` **avant** de lire les fichiers.
+- Le serveur expose deux templates vers le même handler : l'URI de base
+  (`codetour://context/changes-tour/{baseRef}/{headRef}`) applique le défaut 200, et
+  `?page=&pageSize=` permet de choisir. Le matcher RFC 6570 du SDK exige tous les paramètres de
+  query déclarés, d'où les deux entrées ; le template paginé est enregistré en premier pour que
+  `{headRef}` ne capture pas la query.
+
+**Tests :** `test/unit/hybrid-targeted-context-benchmark.test.ts` (valeurs par défaut et
+validation), `test/unit/targeted-context.test.ts` (taille de page, `maxFiles`, `node_modules`,
+économie de tokens page vs contexte complet), `test/integration/targeted-context-resource.test.ts`
+(page 1 par défaut, page 2 demandée).

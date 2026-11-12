@@ -23,6 +23,20 @@ export interface TargetedContextConfig {
    */
   maxDepth: number;
   /**
+   * Number of symbols served per page when paginating.
+   * Defaults to `maxSymbols` when unset.
+   */
+  pageSize?: number;
+  /**
+   * Maximum number of changed files to process.
+   * Unset means no limit.
+   */
+  maxFiles?: number;
+  /**
+   * Exclude files located under a `node_modules` directory.
+   */
+  excludeNodeModules?: boolean;
+  /**
    * File extensions to include for symbol extraction
    */
   includeExtensions: string[];

@@ -145,6 +145,29 @@ function shouldIncludeFile(filePath: string, config: TargetedContextConfig): boo
 }
 
 /**
+ * Select the changed files to process, applying the configured bounds before
+ * reading any content.
+ */
+function selectChangedFiles(
+  files: string[],
+  config: TargetedContextConfig
+): string[] {
+  let selected = files;
+
+  if (config.excludeNodeModules) {
+    selected = selected.filter(
+      (file) => !file.split(/[\\/]/).includes("node_modules")
+    );
+  }
+
+  if (config.maxFiles !== undefined && config.maxFiles > 0) {
+    selected = selected.slice(0, config.maxFiles);
+  }
+
+  return selected;
+}
+
+/**
  * Filter symbols based on options
  */
 function filterSymbols(
@@ -278,7 +301,10 @@ export async function extractTargetedContext(
   
   try {
     // Get changed files
-    const files = await changedFiles(ctx, baseRef, headRef);
+    const files = selectChangedFiles(
+      await changedFiles(ctx, baseRef, headRef),
+      mergedConfig
+    );
     
     if (files.length === 0) {
       warnings.push("No changed files found between base and head refs.");
@@ -540,7 +566,10 @@ export async function extractPaginatedTargetedContext(
   
   try {
     // Get changed files
-    const files = await changedFiles(ctx, baseRef, headRef);
+    const files = selectChangedFiles(
+      await changedFiles(ctx, baseRef, headRef),
+      mergedConfig
+    );
     
     if (files.length === 0) {
       warnings.push("No changed files found between base and head refs.");
@@ -636,7 +665,8 @@ export async function extractPaginatedTargetedContext(
     
     // Create paginated context
     const page = pagination.page ?? 1;
-    const pageSize = pagination.pageSize ?? mergedConfig.maxSymbols;
+    const pageSize =
+      pagination.pageSize ?? mergedConfig.pageSize ?? mergedConfig.maxSymbols;
     
     // Paginate across all files
     const allSymbolsWithFile: { filePath: string; symbol: CodeSymbol }[] = [];
