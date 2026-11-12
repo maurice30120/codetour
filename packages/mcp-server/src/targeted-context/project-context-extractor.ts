@@ -11,6 +11,7 @@
 import * as path from "path";
 import * as fs from "fs/promises";
 import { WorkspaceContext } from "../types";
+import { normalizeSlashes } from "../git";
 import {
   extractSymbols,
   isLanguageSupported,
@@ -426,6 +427,11 @@ export async function extractProjectTargetedContext(
         );
         
         if (fileContext) {
+          // The context is served to the agent: paths must be workspace
+          // relative, never machine specific.
+          fileContext.filePath = normalizeSlashes(
+            path.relative(ctx.root, filePath)
+          );
           fileContexts.push(fileContext);
           
           // Update language stats

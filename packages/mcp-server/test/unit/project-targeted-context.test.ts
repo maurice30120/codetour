@@ -166,6 +166,33 @@ describe("Targeted Context for Project Tour", () => {
       assert.ok(interfaceSymbols.length > 0, "Should have interface symbols");
     });
 
+    test("should report file paths relative to the workspace", async () => {
+      const result = await extractProjectTargetedContext(
+        workspaceContext,
+        { enabled: true, rootDirectories: ["src"] }
+      );
+
+      assert.ok(result.success, "Should succeed");
+      assert.ok(result.context, "Should have context");
+      assert.ok(result.context!.files.length > 0, "Should have files");
+
+      for (const file of result.context!.files) {
+        assert.ok(
+          !path.isAbsolute(file.filePath),
+          `expected a relative path, got ${file.filePath}`
+        );
+        assert.ok(
+          !file.filePath.includes(tempDir),
+          `must not leak the workspace root in ${file.filePath}`
+        );
+      }
+
+      assert.ok(
+        result.context!.files.some((file) => file.filePath === "src/utils.ts"),
+        "Should use forward-slash relative paths"
+      );
+    });
+
     test("should extract symbols from multiple directories", async () => {
       // Create files in multiple directories
       await createTestFile("src/math.ts", "export function add(a: number, b: number): number { return a + b; }");
