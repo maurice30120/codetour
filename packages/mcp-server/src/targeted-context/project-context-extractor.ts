@@ -29,6 +29,7 @@ import {
   CostInfo,
 } from "../cost-tracking/types";
 import { CostTracker } from "../cost-tracking/cost-tracker";
+import { estimateTokenCount } from "./token-estimate";
 
 /**
  * Create a cost tracker for project context extraction
@@ -83,14 +84,6 @@ class ProjectContextCostTracker {
   getDurationMs(): number {
     return Date.now() - this.startTime;
   }
-}
-
-/**
- * Estimate token count for a string (approximation)
- */
-function estimateTokenCount(text: string): number {
-  // Rough approximation: ~4 characters per token
-  return Math.ceil(text.length / 4);
 }
 
 /**

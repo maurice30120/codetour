@@ -35,6 +35,7 @@ import {
   PaginatedTargetedContext,
   SymbolPage,
 } from "./types";
+import { estimateTokenCount } from "./token-estimate";
 
 /**
  * Create a cost tracker for context extraction
@@ -89,14 +90,6 @@ class ContextCostTracker {
   getDurationMs(): number {
     return Date.now() - this.startTime;
   }
-}
-
-/**
- * Estimate token count for a string (approximation)
- */
-function estimateTokenCount(text: string): number {
-  // Rough approximation: ~4 characters per token
-  return Math.ceil(text.length / 4);
 }
 
 /**
