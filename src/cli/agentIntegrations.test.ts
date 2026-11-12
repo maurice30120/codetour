@@ -55,28 +55,20 @@ test("an install writes the adapter files and repeats without changing anything"
   }
 });
 
-test("a differing adapter is never replaced without explicit consent", () => {
+test("a differing adapter is replaced on install", () => {
   const workspace = temporaryDirectory("codetour-conflict-");
   const extensionDir = path.join(workspace, "copilot-extensions");
   try {
     const env = { CODETOUR_COPILOT_EXTENSIONS_DIR: extensionDir };
     assert.equal(run(workspace, ["--install", "copilot"], env).status, 0);
     writeFileSync(path.join(extensionDir, "extension.mjs"), "// a pre-existing custom installation\n");
-    const refused = run(workspace, ["--install", "copilot"], env);
-    assert.notEqual(refused.status, 0);
-    assert.match(refused.stderr, /never overwritten without consent/);
-    assert.match(refused.stderr, /--force/);
-    assert.equal(
-      readFileSync(path.join(extensionDir, "extension.mjs"), "utf8"),
-      "// a pre-existing custom installation\n",
-      "the pre-existing file was preserved without consent"
-    );
-    const forced = run(workspace, ["--install", "copilot", "--force"], env);
-    assert.equal(forced.status, 0, forced.stderr);
+    const replaced = run(workspace, ["--install", "copilot"], env);
+    assert.equal(replaced.status, 0, replaced.stderr);
+    assert.match(replaced.stdout, /Replaced differing adapter files/);
     assert.equal(
       readFileSync(path.join(extensionDir, "extension.mjs"), "utf8"),
       COPILOT_EXTENSION_FILES["extension.mjs"],
-      "--force restored the adapter of this CLI"
+      "install restored the adapter of this CLI"
     );
   } finally {
     rmSync(workspace, { recursive: true, force: true });
@@ -100,7 +92,7 @@ test("an uninstall removes only the files this installation owns", () => {
       "files outside this installation were left untouched"
     );
     // A modified managed file blocks the uninstall instead of deleting user work.
-    assert.equal(run(workspace, ["--install", "copilot", "--force"], env).status, 0);
+    assert.equal(run(workspace, ["--install", "copilot"], env).status, 0);
     writeFileSync(path.join(extensionDir, "adapter.mjs"), "// edited by the user\n");
     const blocked = run(workspace, ["--uninstall", "copilot"], env);
     assert.notEqual(blocked.status, 0);
