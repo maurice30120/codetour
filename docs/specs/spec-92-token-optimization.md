@@ -246,8 +246,6 @@ packages/mcp-server/src/targeted-context/
 ├── context-extractor.ts      # Contient extractPaginatedTargetedContext (Piste C)
 │                                   # Contient extractTargetedContext (Piste B)
 ├── project-context-extractor.ts  # Contient extractProjectTargetedContext (Piste D)
-├── benchmark-runner.ts        # Benchmark des 5 approches
-├── benchmark-types.ts         # Types pour le benchmark
 ├── types.ts                    # Types pour Targeted Context
 ├── project-types.ts           # Types pour Project Context
 └── index.ts                    # Exports

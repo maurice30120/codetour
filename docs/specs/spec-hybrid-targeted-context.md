@@ -173,8 +173,8 @@ Tester le **comportement externe** :
 ### Prior Art
 
 Utiliser les mêmes patterns de test que :
-- `test/unit/src/targeted-context/benchmark-runner.test.ts`
-- `test/unit/src/targeted-context/context-extractor.test.ts`
+- `test/unit/targeted-context.test.ts`
+- `test/unit/project-targeted-context.test.ts`
 
 ---
 

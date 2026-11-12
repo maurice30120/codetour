@@ -24,7 +24,5 @@ export * from "./context-extractor";
 export * from "./types";
 export * from "./project-context-extractor";
 export * from "./project-types";
-export * from "./benchmark-types";
-export * from "./benchmark-runner";
 export * from "./tour-type-detector";
 export * from "./hybrid-config";

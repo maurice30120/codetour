@@ -186,7 +186,6 @@ La mesure réelle reste à faire (ticket #07) :
 - **Documentation complète**: [`docs/specs/spec-92-token-optimization.md`](./specs/spec-92-token-optimization.md)
 - **Code source**: `packages/mcp-server/src/targeted-context/`
 - **Intégration serveur**: `packages/mcp-server/src/server.ts`
-- **Benchmark runner**: `packages/mcp-server/src/targeted-context/benchmark-runner.ts`
 
 ---
 
