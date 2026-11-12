@@ -117,46 +117,47 @@ create_project_tour({
 
 ## MCP Resources
 
-### Unified Resources (Recommended)
+The Tour type selects the approach; there is no separate "unified" resource to
+opt into. Reading the Changes Tour context gives approach C, reading the Project
+Tour context gives approach D.
 
-These new resources automatically use the optimal approach with the best configuration:
+#### Changes Tour Context (approach C)
 
-#### Changes Tour Resource
-- **URI Template**: `codetour://generate/changes-tour/{baseRef}/{headRef}`
+- **URI Template**: `codetour://context/changes-tour/{baseRef}/{headRef}?page={page}&pageSize={pageSize}`
 - **Parameters**:
   - `baseRef` (required): Base commit SHA
   - `headRef` (required): Head commit SHA
   - `page` (optional): Page number for pagination (default: 1)
   - `pageSize` (optional): Items per page (default: 200)
 - **Approach**: C (Progressive MCP)
-- **Configuration**: maxSymbols: 5000, pageSize: 200, trackCost: true
+- **Configuration**: maxSymbols: 5000, trackCost: true
 
 **Example:**
 ```
-GET codetour://generate/changes-tour/abc123/def456?page=1&pageSize=100
+GET codetour://context/changes-tour/abc123/def456?page=1&pageSize=100
 ```
 
-#### Project Tour Resource
-- **URI**: `codetour://generate/project-tour`
+#### Project Tour Context (approach D)
+
+- **URI**: `codetour://context/project-tour`
 - **Parameters**: None (uses workspace root)
 - **Approach**: D (Project Tour)
 - **Configuration**: maxFiles: 50, maxSymbolsPerFile: 50, trackCost: true
 
 **Example:**
 ```
-GET codetour://generate/project-tour
+GET codetour://context/project-tour
 ```
 
-### Legacy Resources (Still Available)
+### Generation Prompt Resources
 
-The existing resources continue to work as before:
+The generation prompts stay reachable at their own URIs:
 
-- `codetour://context/changes-tour/{baseRef}/{headRef}` - Changes Tour context (original)
-- `codetour://context/project-tour` - Project Tour context (original)
-- `codetour://generate/changes-tour/{reviewMode}` - Changes Tour prompt (generation prompt)
-- `codetour://generate/project-tour` - Project Tour prompt (generation prompt)
+- `codetour://generate/changes-tour/{reviewMode}` - Changes Tour generation prompt
+- `codetour://generate/project-tour` - Project Tour generation prompt
 
-**Note**: The prompt resources at `codetour://generate/*` URIs serve generation prompts to the Tour Generator agent, while the new unified resources at similar URIs provide the actual context.
+**Note**: the `codetour://generate/*` URIs serve generation prompts; the
+`codetour://context/*` URIs serve the bounded context itself.
 
 ---
 
