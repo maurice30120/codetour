@@ -104,14 +104,27 @@ Implémenter une **stratégie automatique** qui :
 }
 ```
 
-### Ressources MCP Unifiées
+### Ressources MCP de contexte
 
-- **`codetour://generate/changes-tour`** → Force l'utilisation de l'approche C
-  - Paramètres requis: `baseRef`, `headRef`
-  - Paramètres optionnels: `workspacePath`, `fileName`
-  
-- **`codetour://generate/project-tour`** → Force l'utilisation de l'approche D
-  - Paramètres optionnels: `workspacePath`, `fileName`
+Les ressources de contexte sont **distinctes** des ressources de prompt (`codetour://generate/*`).
+
+- **`codetour://context/changes-tour/{baseRef}/{headRef}`** → force l'approche C, première page
+  (200 symboles par défaut)
+- **`codetour://context/changes-tour/{baseRef}/{headRef}?page={page}&pageSize={pageSize}`** →
+  force l'approche C, page choisie
+- **`codetour://context/project-tour`** → force l'approche D
+
+Paramètres requis : `baseRef`, `headRef`. La pagination est optionnelle via un template dédié,
+parce que le matcher RFC 6570 du SDK MCP exige **tous** les paramètres de query déclarés.
+
+Pas de paramètre `workspacePath` ni `fileName` :
+- le workspace est celui du serveur MCP (répertoire de démarrage) ; accepter un chemin arbitraire
+  dans l'URI permettrait de lire hors du dépôt ;
+- filtrer sur un fichier unique relèverait d'une ressource dédiée, pas d'un paramètre optionnel
+  (impossible à exprimer sans multiplier les templates).
+
+Les ressources de prompt existantes — `codetour://generate/changes-tour/{reviewMode}` et
+`codetour://generate/project-tour` — restent inchangées.
 
 ### Intégration avec le Serveur MCP
 
@@ -186,6 +199,7 @@ Utiliser les mêmes patterns de test que :
 4. **Modification des approches C et D existantes** - Elles doivent rester fonctionnelles indépendamment
 5. **Nouveaux algorithmes d'extraction** - Utiliser les extracteurs existants
 6. **Interface utilisateur** - Se concentrer uniquement sur le backend MCP
+7. **Workspace ou fichier en paramètre** - Le workspace est celui du serveur ; pas de `workspacePath` ni de `fileName` dans les URI de contexte
 
 ---
 

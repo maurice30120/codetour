@@ -16,7 +16,9 @@
 - [ ] Comparaison avec le baseline (approche A) pour validation des gains
 - [ ] Rapport de benchmark généré et versionné
 - [ ] Validation que C < 150K tokens pour Changes Tours
+- [ ] Validation que C < 3 secondes pour Changes Tours
 - [ ] Validation que D < 400K tokens pour Project Tours
+- [ ] Validation que D < 4 secondes pour Project Tours
 - [ ] Validation que la détection automatique (ticket 01) fonctionne à 100%
 
 **Avertissement :** aucun rapport n'existe. L'ancien script de benchmark (`scripts/run-benchmark.*`)

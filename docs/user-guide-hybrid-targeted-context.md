@@ -94,7 +94,7 @@ The system **automatically** detects which approach to use based on the request 
 #### Changes Tour (Approach C)
 ```typescript
 // MCP resource request with both refs
-codetour://generate/changes-tour/a1b2c3d/e4f5g6h
+codetour://context/changes-tour/a1b2c3d/e4f5g6h
 
 // Or via tool
 create_changes_tour({
@@ -107,7 +107,7 @@ create_changes_tour({
 #### Project Tour (Approach D)
 ```typescript
 // MCP resource request without refs
-codetour://generate/project-tour
+codetour://context/project-tour
 
 // Or via tool
 create_project_tour({
@@ -249,16 +249,16 @@ const customConfig = getApproachDConfig({
 
 **Request:**
 ```typescript
-// Using the unified resource
-GET codetour://generate/changes-tour/abc123/def456
+// Using the context resource
+GET codetour://context/changes-tour/abc123/def456
 ```
 
 **Result:**
 - Approach C is automatically selected
 - Only changed files are analyzed
 - Symbols are extracted with pagination support
-- Token cost: ~50-150K tokens
-- Time: < 3 seconds
+- Token cost target: 50-150K tokens (unmeasured)
+- Time target: < 3 seconds (unmeasured)
 
 **What you get:**
 - List of changed files
@@ -272,16 +272,16 @@ GET codetour://generate/changes-tour/abc123/def456
 
 **Request:**
 ```typescript
-// Using the unified resource
-GET codetour://generate/project-tour
+// Using the context resource
+GET codetour://context/project-tour
 ```
 
 **Result:**
 - Approach D is automatically selected
 - Entire workspace is scanned
 - Key files from src/, lib/, packages/, app/, server/ are analyzed
-- Token cost: ~200-400K tokens
-- Time: < 4 seconds
+- Token cost target: 200-400K tokens (unmeasured)
+- Time target: < 4 seconds (unmeasured)
 
 **What you get:**
 - Comprehensive list of source files

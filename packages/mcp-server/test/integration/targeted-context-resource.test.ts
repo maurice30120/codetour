@@ -10,6 +10,7 @@ import {
   withServer,
 } from "../helpers/test-utils";
 import { TARGETED_CONTEXT_RESOURCE_TEMPLATE } from "../../src/server";
+import { PROJECT_TARGETED_CONTEXT_RESOURCE_URI } from "../../src/server";
 
 // The resource seam plays the Tour Generator: read the Targeted Context over
 // the served MCP protocol and pin the token-economy contract — the default
@@ -89,6 +90,38 @@ test("the paginated Changes Tour context serves the requested page", async () =>
 
       assert.match(text, /Page 2\/2/);
       assert.match(text, /Showing 50 symbols on this page/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("the Project Tour context serves the workspace symbols", async () => {
+  const root = tempDir("codetour-project-context-");
+  try {
+    await initGitRepo(root);
+    await commitFile(
+      root,
+      "src/app.ts",
+      "export function greet() { return 'hi'; }\nexport const version = 1;",
+      "add app"
+    );
+    await commitFile(
+      root,
+      "lib/util.ts",
+      "export function helper() { return 42; }",
+      "add util"
+    );
+
+    await withServer(root, async (client) => {
+      const text = await readResourceText(
+        client,
+        PROJECT_TARGETED_CONTEXT_RESOURCE_URI
+      );
+
+      assert.match(text, /Targeted Context \(\d+ symbols from \d+ files\)/);
+      assert.match(text, /src\/app\.ts/);
+      assert.match(text, /greet/);
     });
   } finally {
     rmrf(root);

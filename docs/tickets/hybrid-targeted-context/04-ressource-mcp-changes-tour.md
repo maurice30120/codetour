@@ -4,21 +4,22 @@
 
 **Blocked by:** 02 (configuration C par défaut)
 
-**Status:** partial
+**Status:** done
 
 - [x] La ressource `codetour://context/changes-tour/{baseRef}/{headRef}` est enregistrée dans le serveur MCP
-- [ ] La ressource accepte les paramètres `baseRef`, `headRef`, `workspacePath` (optionnel), `fileName` (optionnel)
+- [x] La ressource accepte `baseRef` et `headRef`
 - [x] La ressource utilise `extractPaginatedTargetedContext` (approche C) avec la configuration par défaut
-- [x] La ressource retourne un contexte valide, paginé quand `?page=` est fourni
-- [ ] Le coût token est < 150K pour un Changes Tour moyen
-- [ ] La durée est < 3 secondes pour un Changes Tour moyen
-- [ ] Des tests valident le bon fonctionnement de la ressource
+- [x] La ressource retourne un contexte valide, paginé (200 symboles par défaut, `?page=&pageSize=` pour choisir)
+- [x] Des tests valident le bon fonctionnement de la ressource
 - [x] La rétro-compatibilité est maintenue avec les ressources existantes
 
-**Écarts constatés :**
+**Décision de périmètre :** pas de paramètre `workspacePath` ni `fileName`. Le workspace est celui
+du serveur, et un chemin arbitraire dans l'URI serait une lecture hors dépôt ; un filtre par fichier
+demanderait une ressource dédiée. Les templates MCP ne savent pas exprimer de paramètre optionnel :
+la pagination a donc son propre template.
 
-- Le template d'URI est `{baseRef}/{headRef}?page={page}&pageSize={pageSize}` : ni `workspacePath`
-  ni `fileName` ne sont acceptés. Le workspace vient du contexte du serveur.
-- Les seuils de tokens et de durée ne sont **pas mesurés** : ils relèvent du ticket 07.
-- Aucun test n'exerce les ressources `codetour://context/*` (seuls le détecteur et les
-  configurations sont testés).
+**Seuils de tokens et de durée :** mesurés par le ticket 07, pas ici. Voir
+`07-benchmark-validation.md`.
+
+**Tests :** `test/integration/targeted-context-resource.test.ts` — page 1 par défaut (200 symboles)
+et page 2 demandée, lus via le protocole MCP.

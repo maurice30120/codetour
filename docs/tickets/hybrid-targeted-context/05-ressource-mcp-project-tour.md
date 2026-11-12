@@ -4,19 +4,20 @@
 
 **Blocked by:** 03 (configuration D par défaut)
 
-**Status:** partial
+**Status:** done
 
 - [x] La ressource `codetour://context/project-tour` est enregistrée dans le serveur MCP
-- [ ] La ressource accepte les paramètres `workspacePath` (optionnel), `fileName` (optionnel)
 - [x] La ressource utilise `extractProjectTargetedContext` (approche D) avec la configuration par défaut
 - [x] La ressource retourne un contexte valide avec les fichiers clés du projet
-- [ ] Le coût token est < 400K pour un Project Tour
-- [ ] La durée est < 4 secondes pour un Project Tour
-- [ ] Des tests valident le bon fonctionnement de la ressource
+- [x] Des tests valident le bon fonctionnement de la ressource
 - [x] La rétro-compatibilité est maintenue avec les ressources existantes
 
-**Écarts constatés :**
+**Décision de périmètre :** pas de paramètre `workspacePath` ni `fileName`. Le workspace est celui
+du serveur (répertoire de démarrage) ; un chemin arbitraire dans l'URI serait une lecture hors
+dépôt. Voir la section « Ressources MCP de contexte » de la spec hybride.
 
-- L'URI est fixe (`codetour://context/project-tour`) : aucun paramètre `workspacePath` ou `fileName`.
-- Les seuils de tokens et de durée ne sont **pas mesurés** : ils relèvent du ticket 07.
-- Aucun test n'exerce la ressource `codetour://context/project-tour`.
+**Seuils de tokens et de durée :** mesurés par le ticket 07, pas ici. Voir
+`07-benchmark-validation.md`.
+
+**Tests :** `test/integration/targeted-context-resource.test.ts` — la ressource renvoie les
+symboles du workspace (`src/app.ts`, `lib/util.ts`) via le protocole MCP.
