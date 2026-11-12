@@ -1,6 +1,6 @@
 # Spec #92: Optimisation du cout CodeTour - TokenEconomizer vs Targeted Context
 
-**Statut**: ✅ Implémentée et validée  
+**Statut**: 🚧 Implémentée, benchmark de validation en attente (ticket #07)  
 **Date**: Novembre 2026  
 **Auteur**: Team CodeTour  
 **Branche**: `spec-92-integration`
@@ -14,7 +14,9 @@ Cette spec a pour objectif de **réduire la consommation de tokens** dans CodeTo
 1. **TokenEconomizer** (Plugin externe pour Copilot CLI)
 2. **Targeted Context** (Approche interne avec exploration ciblée)
 
-**Résultat**: Après benchmark complet, la **piste C (Progressive MCP Exploration)** a été sélectionnée comme solution optimale, offrant **97% de réduction de tokens** par rapport au baseline.
+**Décision**: la **piste C (Progressive MCP Exploration)** a été retenue comme solution de référence pour son architecture bornée et paginée.
+
+> ⚠️ **Aucune mesure réelle n'a été produite à ce jour.** Les chiffres de ce document proviennent d'un script de benchmark simulé (`scripts/run-benchmark.*`, supprimé) qui écrivait des métriques codées en dur (`sha: "benchmark-demo-sha"`). Ils décrivent des **ordres de grandeur attendus**, pas des résultats observés. La validation chiffrée fait l'objet du ticket #07.
 
 ---
 
@@ -27,6 +29,8 @@ L'objectif était de **mesurer et comparer** systématiquement toutes les approc
 ---
 
 ## 🔬 Méthodologie
+
+> Les tableaux de résultats qui suivent sont des **estimations simulées**, pas des mesures. Ils décrivent les métriques à collecter et les ordres de grandeur attendus ; le protocole réel reste à exécuter (ticket #07).
 
 ### Environnement de Test
 - **OS**: darwin (macOS)
@@ -56,7 +60,7 @@ L'objectif était de **mesurer et comparer** systématiquement toutes les approc
 
 **Ticket**: N/A (comportement par défaut existant)
 
-**Résultats**:
+**Résultats simulés** (non mesurés):
 | Métrique | Valeur |
 |----------|-------|
 | Total Symbols | 50,000 |
@@ -82,7 +86,7 @@ L'objectif était de **mesurer et comparer** systématiquement toutes les approc
 
 **Fonction clé**: `extractTargetedContext()`
 
-**Résultats**:
+**Résultats simulés** (non mesurés):
 | Métrique | Valeur | Amélioration vs A |
 |----------|-------|-------------------|
 | Total Symbols | 5,000 | -90% |
@@ -114,7 +118,7 @@ L'objectif était de **mesurer et comparer** systématiquement toutes les approc
 3. Retourne uniquement la page demandée
 4. L'agent peut demander les pages suivantes au besoin
 
-**Résultats**:
+**Résultats simulés** (non mesurés):
 | Métrique | Valeur | Amélioration vs A |
 |----------|-------|-------------------|
 | Total Symbols | 3,000 | -94% |
@@ -147,7 +151,7 @@ L'objectif était de **mesurer et comparer** systématiquement toutes les approc
 
 **Fonction clé**: `extractProjectTargetedContext()`
 
-**Résultats**:
+**Résultats simulés** (non mesurés):
 | Métrique | Valeur | Amélioration vs A |
 |----------|-------|-------------------|
 | Total Symbols | 8,000 | -84% |
@@ -193,7 +197,9 @@ L'objectif était de **mesurer et comparer** systématiquement toutes les approc
 
 ---
 
-## 🏆 Comparatif Global
+## 🏆 Comparatif Global (estimations simulées)
+
+> Chiffres issus du benchmark simulé, retiré du dépôt. Aucun n'a été mesuré.
 
 | Piste | Type | Tokens | Coût | Durée | Mémoire | Complexité | Statut |
 |-------|------|--------|------|-------|---------|------------|--------|
@@ -211,8 +217,8 @@ L'objectif était de **mesurer et comparer** systématiquement toutes les approc
 
 **Pourquoi la piste C a été choisie ?**
 
-1. **💰 Économie maximale**: 97% de réduction de tokens vs baseline
-2. **⚡ Performances**: Durée raisonnable (3.5s) pour le gain obtenu
+1. **💰 Économie attendue**: jusqu'à 97% de réduction de tokens vs baseline (à mesurer, ticket #07)
+2. **⚡ Performances**: durée cible de l'ordre de 3.5s pour le gain attendu
 3. **🔧 Flexibilité**: Exploration à la demande (pagination)
 4. **📡 Intégration MCP**: Utilise nativement le protocole MCP
 5. **🏗️ Déjà intégrée**: Code production ready dans `context-extractor.ts`
@@ -288,7 +294,9 @@ server.registerResource(
 
 ---
 
-## 📈 Résultats du Benchmark
+## 📈 Classements (estimations simulées)
+
+> Les classements ci-dessous reprennent les chiffres simulés. Ils ne constituent pas une validation.
 
 ### Classement par consommation de tokens (Moins = Meilleur)
 
@@ -357,23 +365,11 @@ Pour migrer vers la piste C:
 
 ---
 
-## 📊 Benchmark Report
+## 📊 Validation chiffrée
 
-Le rapport complet du benchmark est disponible dans:
-- `benchmark-reports/targeted-context-benchmark-2026-11-11T09-24-25-714Z.md`
-- `benchmark-reports/targeted-context-benchmark-2026-11-11T09-24-25-714Z.json`
+Aucun rapport de benchmark n'est versionné dans le dépôt : les fichiers `benchmark-reports/*` et les scripts `scripts/run-benchmark.*` produisaient des métriques codées en dur, ils ont été supprimés.
 
-### Génération du rapport
-
-Pour régénérer le benchmark:
-
-```bash
-# Créer un benchmark complet
-node packages/mcp-server/dist/src/targeted-context/benchmark-runner.js
-
-# Ou utiliser le script de test
-npm --prefix packages/mcp-server test
-```
+La validation reste à faire, dans le ticket #07 (`docs/tickets/hybrid-targeted-context/07-benchmark-validation.md`) : exécuter les approches sur un échantillon de dépôts réels et vérifier les seuils (C < 150K tokens, D < 400K tokens, détection à 100%).
 
 ---
 
@@ -402,7 +398,7 @@ npm --prefix packages/mcp-server test
 
 ## ✅ Checklist de Validation
 
-- [x] **Benchmark complété** pour les 5 approches
+- [ ] **Benchmark réel des 5 approches** (ticket #07, aucune mesure à ce jour)
 - [x] **Approche C sélectionnée** comme solution optimale
 - [x] **Code nettoyé** (suppression des fichiers temporaires)
 - [x] **Tests simplifiés** (881 → 375 lignes)
@@ -418,12 +414,12 @@ npm --prefix packages/mcp-server test
 La **Spec #92** a permis de:
 
 1. **Identifier** 5 approches pour réduire la consommation de tokens
-2. **Mesurer** objectivement chaque approche avec un benchmark complet
-3. **Comparer** les résultats de manière systématique
-4. **Sélectionner** la meilleure solution (Piste C)
+2. **Définir** un protocole de mesure (tableaux ci-dessus : estimations simulées)
+3. **Comparer** les approches sur des critères de conception
+4. **Sélectionner** la solution de référence (Piste C)
 5. **Implémenter** et **documenter** la solution retenue
 
-**Résultat final**: **97% de réduction de tokens** avec la piste C (Progressive MCP Exploration), déjà intégrée et prête pour la production.
+**Statut**: la piste C (Progressive MCP Exploration) est implémentée et intégrée. Son gain réel **reste à mesurer** (ticket #07) : le chiffre de 97% provient du benchmark simulé, pas d'une observation.
 
 ---
 

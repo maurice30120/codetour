@@ -1,7 +1,7 @@
 # Spec #92 - Décision: Sélection de l'Approche C (Progressive MCP)
 
 **Date**: 11 Novembre 2026  
-**Statut**: ✅ Décision validée  
+**Statut**: 🚧 Décision prise, validation chiffrée en attente (ticket #07)  
 **Branche**: `spec-92-integration`
 
 ---
@@ -18,11 +18,13 @@ La **Spec #92** avait pour objectif d'explorer deux leviers pour réduire les co
 1. **TokenEconomizer** (plugin externe pour Copilot CLI)
 2. **Targeted Context** (approche interne avec exploration ciblée)
 
-**5 approches ont été étudiées et benchmarks** pendant plusieurs semaines.
+**5 approches ont été étudiées** pendant plusieurs semaines. Les chiffres utilisés pour la comparaison provenaient d'un **benchmark simulé** (`scripts/run-benchmark.*`, supprimé) : ils n'ont jamais été mesurés sur un dépôt réel. La validation chiffrée est le ticket #07.
 
 ---
 
-## 🏆 Résultat du Benchmark
+## 🏆 Comparaison des approches (estimations simulées)
+
+> ⚠️ Chiffres codés en dur dans l'ancien script de benchmark, retiré du dépôt. Ils indiquent des ordres de grandeur attendus, pas des mesures.
 
 | Approche | Tokens | Coût | Durée | Verdict |
 |----------|--------|------|-------|---------|
@@ -32,7 +34,7 @@ La **Spec #92** avait pour objectif d'explorer deux leviers pour réduire les co
 | **D: Project Tour** | 400,000 | $4.00 | 4,000ms | ✅ Bonne |
 | **TE: TokenEconomizer** | ~200,000 | ~$2.00 | Variable | ⚠️ Expérimental |
 
-**Économie avec l'Approche C: 97% de tokens en moins vs Baseline**
+**Économie attendue avec l'Approche C: jusqu'à 97% de tokens en moins vs Baseline — à mesurer.**
 
 ---
 
@@ -40,13 +42,13 @@ La **Spec #92** avait pour objectif d'explorer deux leviers pour réduire les co
 
 ### ✅ Avantages de l'Approche C
 
-1. **💰 Économie maximale**
-   - **97% de réduction de tokens** (150K vs 5M)
-   - **Coût divisé par 33** ($1.50 vs $50.00)
+1. **💰 Économie attendue**
+   - **Jusqu'à 97% de réduction de tokens** (150K vs 5M, estimation simulée)
+   - **Coût potentiellement divisé par 33** ($1.50 vs $50.00, estimation simulée)
 
 2. **⚡ Performances équilibrées**
-   - Durée raisonnable: 3,500ms
-   - Mémoire: 91MB (acceptable)
+   - Durée cible: 3,500ms (estimation simulée)
+   - Mémoire: 91MB (estimation simulée)
 
 3. **🔧 Flexibilité maximale**
    - **Pagination native**: L'agent demande ce dont il a besoin
@@ -168,22 +170,14 @@ const config = {
 
 ---
 
-## 📊 Benchmark Complet
+## 📊 Validation chiffrée
 
-Le benchmark complet est disponible dans:
-- `benchmark-reports/targeted-context-benchmark-2026-11-11T09-24-25-714Z.md`
-- `benchmark-reports/targeted-context-benchmark-2026-11-11T09-24-25-714Z.json`
+Aucun rapport de benchmark n'est versionné : les fichiers `benchmark-reports/*` et les scripts `scripts/run-benchmark.*` produisaient des métriques codées en dur et ont été supprimés.
 
-### Comment relancer le benchmark ?
-
-```bash
-# Depuis la racine du projet
-cd packages/mcp-server
-npm run build
-
-# Exécuter le benchmark
-node dist/src/targeted-context/benchmark-runner.js
-```
+La mesure réelle reste à faire (ticket #07) :
+- exécuter les approches C et D sur un échantillon de dépôts réels ;
+- comparer au baseline A ;
+- vérifier C < 150K tokens, D < 400K tokens, détection automatique à 100%.
 
 ---
 
@@ -198,7 +192,7 @@ node dist/src/targeted-context/benchmark-runner.js
 
 ## ✅ Checklist
 
-- [x] Benchmark des 5 approches complété
+- [ ] Benchmark réel des 5 approches (ticket #07)
 - [x] Approche C sélectionnée comme solution optimale
 - [x] Documentation créée
 - [x] Code nettoyé et optimisé
@@ -213,17 +207,17 @@ node dist/src/targeted-context/benchmark-runner.js
 | Question | Réponse |
 |----------|---------|
 | **Quelle approche a été choisie ?** | **C: Progressive MCP Exploration** |
-| **Pourquoi ?** | Meilleur ratio coût/efficacité (97% économie) |
+| **Pourquoi ?** | Conception bornée et paginée, intégrée nativement |
 | **Où est le code ?** | `packages/mcp-server/src/targeted-context/context-extractor.ts` |
 | **Comment l'utiliser ?** | `extractPaginatedTargetedContext()` |
-| **Est-ce production ready ?** | ✅ **Oui** |
-| **Quel est le gain ?** | **97% de tokens en moins** |
+| **Est-ce production ready ?** | ✅ **Oui, pour l'implémentation** |
+| **Quel est le gain ?** | **À mesurer** (ticket #07) ; 97% est une estimation simulée |
 
 ---
 
-> **💡 Conclusion**: L'Approche C (Progressive MCP Exploration) est **la solution optimale** pour la Spec #92. Elle offre la meilleure économie de tokens tout en restant flexible, stable et intégrée nativement dans CodeTour.
+> **💡 Conclusion**: L'Approche C (Progressive MCP Exploration) est la solution de référence pour la Spec #92 : architecture bornée, flexible et intégrée nativement. Son gain réel reste à mesurer (ticket #07).
 
 ---
 
-*Décision validée le 11 Novembre 2026*  
+*Décision prise le 11 Novembre 2026 — validation chiffrée en attente*  
 *Branche: spec-92-integration*
