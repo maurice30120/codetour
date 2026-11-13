@@ -1,11 +1,13 @@
 import { createDefaultPack } from "./default-pack";
 import { normalizeLanguage, SUPPORTED_LANGUAGE_IDS } from "./languages";
+import { pythonPack } from "./packs/python";
 import type { LanguagePack } from "./pack";
 
 /**
- * The language registry of #150. Ships the five grammars as built-in generic
- * packs; tickets #151–#154 plug the real per-language packs in with
- * `registerPack` (a registered pack replaces the default for its language).
+ * The language registry of #150. Ships the five grammars as built-in packs;
+ * languages whose real pack has landed (ticket #154: Python) use it instead of
+ * the generic default, and tickets #151–#153 plug theirs in with `registerPack`
+ * (a registered pack replaces the default for its language).
  */
 
 const packs = new Map<string, LanguagePack>();
@@ -15,11 +17,17 @@ function keyOf(language: string): string {
   return normalizeLanguage(language) ?? language.trim().toLowerCase();
 }
 
+function defaultPackFor(language: string): LanguagePack {
+  // #154: the Python pack replaces the generic pack for "python".
+  if (language === "python") return pythonPack;
+  return createDefaultPack(language);
+}
+
 function ensureDefaultPacks(): void {
   if (defaultsEnsured) return;
   defaultsEnsured = true;
   for (const language of SUPPORTED_LANGUAGE_IDS) {
-    if (!packs.has(language)) packs.set(language, createDefaultPack(language));
+    if (!packs.has(language)) packs.set(language, defaultPackFor(language));
   }
 }
 

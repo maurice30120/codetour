@@ -71,6 +71,7 @@ export {
   resetLanguagePacks,
   unregisterPack
 } from "./registry";
+export { createPythonPack, pythonPack } from "./packs/python";
 export { buildRelationGraph, type BuildOptions } from "./engine";
 export { selectDepth1 } from "./bfs";
 // Per-language packs of #151–#154 plug into the registry with registerPack.
