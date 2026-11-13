@@ -38,11 +38,14 @@ export {
   type SupportedLanguageId
 } from "./languages";
 export {
+  configureWasmAssets,
+  getConfiguredWasmDirectory,
   getParser,
   GRAMMAR_IDS,
   loadGrammar,
   resolveGrammarPath,
-  type GrammarId
+  type GrammarId,
+  type WasmAssetOptions
 } from "./grammars";
 export { packQueryFor, GRAMMAR_SPECS, type GrammarSpec } from "./queries";
 export {

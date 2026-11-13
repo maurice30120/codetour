@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { createRequire } from "node:module";
 import { Language, Parser } from "web-tree-sitter";
 
 /**
@@ -23,21 +24,67 @@ const WASM_FILE: Record<GrammarId, string> = {
   python: "tree-sitter-python.wasm"
 };
 
+// Resolved through createRequire so bundlers (webpack VSIX/standalone) do not
+// try to inline the .wasm files: in a bundle the asset directory configured
+// via configureWasmAssets is used instead, and this branch only runs on the
+// plain-node npm channel where tree-sitter-wasms sits in node_modules.
+const nodeRequire = createRequire(__filename);
+
 /** Resolve the on-disk path of a prebuilt grammar .wasm. */
 export function resolveGrammarPath(grammarId: string, wasmDirectory?: string): string {
   const file = (WASM_FILE as Record<string, string>)[grammarId];
   if (!file) throw new Error(`unknown grammar id: ${grammarId}`);
-  if (wasmDirectory) return path.join(wasmDirectory, file);
+  const directory = wasmDirectory ?? defaultWasmDirectory;
+  if (directory) return path.join(directory, file);
   // tree-sitter-wasms has no "exports" map: the subpath resolves directly.
-  return require.resolve(`tree-sitter-wasms/out/${file}`);
+  return nodeRequire.resolve(`tree-sitter-wasms/out/${file}`);
 }
 
+export interface WasmAssetOptions {
+  /**
+   * Directory holding the prebuilt grammar .wasm files plus the
+   * web-tree-sitter runtime `tree-sitter.wasm`, shipped as assets next to a
+   * bundled server (VSIX/standalone). Undefined keeps the node_modules
+   * resolution of the npm channel.
+   */
+  wasmDirectory?: string;
+}
+
+let defaultWasmDirectory: string | undefined;
+let parserInitOptions: { locateFile: (fileName: string, scriptDirectory: string) => string } | undefined;
+let parserReady = false;
 let parserPromise: Promise<Parser> | null = null;
+
+/**
+ * Point the module at a staged .wasm asset directory: both `Parser.init`'s
+ * `locateFile` (the runtime wasm) and `resolveGrammarPath` (the grammars).
+ * Must be called before the first parse — the runtime wasm location is baked
+ * into the Emscripten module at `Parser.init`, so the first configuration
+ * wins; later calls are no-ops once the parser is initialized.
+ */
+export function configureWasmAssets(options: WasmAssetOptions = {}): void {
+  if (parserReady) return;
+  defaultWasmDirectory = options.wasmDirectory;
+  const directory = options.wasmDirectory;
+  parserInitOptions = directory
+    ? { locateFile: fileName => path.join(directory, fileName) }
+    : undefined;
+  parserPromise = null;
+  languageCache.clear();
+}
+
+/** The configured default asset directory, if any. */
+export function getConfiguredWasmDirectory(): string | undefined {
+  return defaultWasmDirectory;
+}
 
 /** The shared Parser, initialized exactly once (loads the web-tree-sitter runtime wasm). */
 export function getParser(): Promise<Parser> {
   if (!parserPromise) {
-    parserPromise = Parser.init().then(() => new Parser());
+    parserPromise = Parser.init(parserInitOptions).then(() => {
+      parserReady = true;
+      return new Parser();
+    });
   }
   return parserPromise;
 }
