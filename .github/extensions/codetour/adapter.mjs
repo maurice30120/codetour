@@ -118,31 +118,14 @@ function runCli(args, cwd, { detached = false } = {}) {
 
 async function select(session, prompt, choices) {
   if (!session.capabilities?.ui?.elicitation) throw new Error("This choice requires an interactive Copilot session; use /codetour generate project or /codetour generate changes neutral|critical, or specify a Tour title.");
-  const answer = await session.ui.select(prompt, choices);
+  // Labels carry their number for the CLI, and the answer maps back through
+  // its index so the offered order stays the single source of truth.
+  const labels = choices.map((label, index) => `${index + 1}. ${label}`);
+  const answer = await session.ui.select(prompt, labels);
   if (answer === null || answer === undefined) return null;
-  if (!choices.includes(answer)) throw new Error("Invalid CodeTour selection.");
-  return answer;
-}
-
-// A first word after "generate" is normally the start of the free orientation
-// phrase. A word within two edits of a Tour type is treated as a mistyped type
-// instead, so "/codetour generate chages" fails with a usage message rather
-// than silently orienting the Tour. An orientation that really starts with
-// such a word follows an explicit type, which is unambiguous.
-const tourTypes = ["project", "changes"];
-function editDistance(a, b) {
-  let previous = Array.from({length: b.length + 1}, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const current = [i];
-    for (let j = 1; j <= b.length; j++)
-      current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    previous = current;
-  }
-  return previous[b.length];
-}
-function looksLikeTourType(word) {
-  const normalized = word.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
-  return normalized.length >= 4 && tourTypes.some(type => editDistance(normalized, type) <= 2);
+  const index = labels.indexOf(answer);
+  if (index < 0) throw new Error("Invalid CodeTour selection.");
+  return index;
 }
 
 export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
@@ -154,27 +137,24 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
     // the adapter interprets nothing in it.
     const explicit = input.match(/^generate(?:\s+(project|changes)(?:\s+(neutral|critical))?)?(?:\s+(\S.*))?$/);
     let action = explicit ? "Generate" : "Read";
-    const firstWord = explicit?.[3]?.split(/\s+/)[0]?.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, "");
-    if (!explicit?.[1] && firstWord && looksLikeTourType(firstWord)) {
-      throw new Error(`Unknown Tour type "${firstWord}"; use /codetour generate project|changes [neutral|critical] <orientation>.`);
-    }
     if (!input) {
-      action = await select(session, "Read or generate a CodeTour?", ["Read", "Generate"]);
-      if (!action) return;
+      const choice = await select(session, "Read or generate a CodeTour?", ["Generate", "Read"]);
+      if (choice === null) return;
+      action = choice === 0 ? "Generate" : "Read";
     }
     if (action === "Generate") {
       let type = explicit?.[1];
       if (!type) {
-        const answer = await select(session, "Which type of Tour?", ["Project Tour", "Changes Tour"]);
-        if (!answer) return;
-        type = answer === "Project Tour" ? "project" : "changes";
+        const choice = await select(session, "Which type of Tour?", ["Project Tour", "Changes Tour"]);
+        if (choice === null) return;
+        type = choice === 0 ? "project" : "changes";
       }
       let reviewMode = explicit?.[2];
       if (type === "project" && reviewMode) throw new Error("Project Tours do not have a review mode.");
       if (type === "changes" && !reviewMode) {
-        const answer = await select(session, "Neutral or critical?", ["Neutral", "Critical"]);
-        if (!answer) return;
-        reviewMode = answer.toLowerCase();
+        const choice = await select(session, "Neutral or critical?", ["Neutral", "Critical"]);
+        if (choice === null) return;
+        reviewMode = choice === 0 ? "neutral" : "critical";
       }
       if (typeof session.send !== "function") throw new Error("This Copilot host cannot send a generation request to its agent.");
       let brief = (explicit?.[3] || "").trim();

@@ -66,7 +66,7 @@ test("Copilot selection forwards the selected Tour to the real standalone HTML C
     process.env.CODETOUR_TEST_HTML_OUTPUT = output;
     process.env.CODETOUR_TEST_READER_PID = readerPid;
     const messages = [];
-    const session = {capabilities:{ui:{elicitation:true}}, ui:{select: async (prompt, choices) => prompt === "Read or generate a CodeTour?" ? "Read" : choices[1]},
+    const session = {capabilities:{ui:{elicitation:true}}, ui:{select: async (prompt, choices) => prompt === "Read or generate a CodeTour?" ? "2. Read" : choices[1]},
       log: async message => messages.push(message)};
     await runCodeTourCommand(session, "--renderer html", root);
     for (let i = 0; i < 100 && (!existsSync(output) || !existsSync(readerPid)); i++) await delay(50);
@@ -170,24 +170,44 @@ test("generation relays the served neutral Changes Tour prompt to the host", asy
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
     const events = [];
-    const answers = ["Generate", "Changes Tour", "Neutral"];
+    const menus = [];
+    const answers = ["1. Generate", "2. Changes Tour", "1. Neutral"];
     let sent;
     await runCodeTourCommand({
       capabilities: {ui: {elicitation: true}},
       ui: {
-        select: async prompt => { events.push(prompt); return answers.shift(); },
+        select: async (prompt, choices) => { events.push(prompt); menus.push(choices); return answers.shift(); },
         input: async prompt => { events.push(prompt); return ""; }
       },
       send: async options => { events.push("send"); sent = options; },
       log: async message => { events.push(message); }
     }, "");
     assert.deepEqual(events, ["Read or generate a CodeTour?", "Which type of Tour?", "Neutral or critical?", "What should this Tour focus on? (empty for the standard Tour, cancel to stop)", "send"]);
+    assert.deepEqual(menus, [["1. Generate", "2. Read"], ["1. Project Tour", "2. Changes Tour"], ["1. Neutral", "2. Critical"]]);
     assert.equal(sent.mode, "immediate", "a completed command must start generation without an extra Enter");
     assert.match(sent.prompt, /create_changes_tour/);
     assert.match(sent.prompt, /Review mode "neutral"/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
   }
+});
+
+
+test("the top-level choice is a numbered menu with Generate first", async () => {
+  const menus = [];
+  await runCodeTourCommand({
+    capabilities: {ui: {elicitation: true}},
+    ui: {
+      select: async (prompt, choices) => { menus.push([prompt, choices]); return menus.length === 1 ? choices[0] : null; },
+      input: async () => assert.fail("menus must use the host selection dialog")
+    },
+    send: async () => assert.fail("A cancelled type menu must not start a generation"),
+    log: async text => assert.fail(text)
+  }, "");
+  assert.deepEqual(menus, [
+    ["Read or generate a CodeTour?", ["1. Generate", "2. Read"]],
+    ["Which type of Tour?", ["1. Project Tour", "2. Changes Tour"]]
+  ]);
 });
 
 
@@ -333,7 +353,7 @@ test("an orientation phrase elicits the Tour type then orients the run", async (
     let sent;
     await runCodeTourCommand({
       capabilities: {ui: {elicitation: true}},
-      ui: {select: async prompt => { events.push(prompt); return "Project Tour"; }},
+      ui: {select: async prompt => { events.push(prompt); return "1. Project Tour"; }},
       send: async options => { events.push("send"); sent = options; },
       log: async message => { events.push(message); }
     }, "generate Explique-moi le rendu Mermaid.");
@@ -346,25 +366,24 @@ test("an orientation phrase elicits the Tour type then orients the run", async (
   }
 });
 
-test("a mistyped Tour type fails with a usage message instead of orienting the Tour", async () => {
-  for (const [raw, typed] of [["generate chages", "chages"], ["generate changse neutral", "changse"], ["generate projet", "projet"], ["generate Changes.", "Changes"]]) {
-    const events = [];
-    const errors = [];
+test("a typo-like first word opens the type menu and keeps the rest as orientation", async () => {
+  for (const [raw, brief] of [["generate change the login flow", "change the login flow"], ["generate chages", "chages"], ["generate changse neutral", "changse neutral"]]) {
+    const menus = [];
     let sent;
     await runCodeTourCommand({
       capabilities: {ui: {elicitation: true}},
       ui: {
-        select: async prompt => { events.push(prompt); return "Project Tour"; },
-        input: async prompt => { events.push(prompt); return ""; }
+        select: async (prompt, choices) => { menus.push([prompt, choices]); return choices[0]; },
+        input: async () => assert.fail(`${raw} must not ask for an orientation already given`)
       },
       send: async options => { sent = options; },
-      log: async message => { errors.push(message); events.push(message); }
+      log: async text => assert.fail(`${raw}: ${text}`)
     }, raw);
-    assert.equal(sent, undefined, `${raw} must not start a generation`);
-    assert.equal(errors.length, 1, `${raw} must report a single usage error`);
-    assert.match(errors[0], new RegExp(`Unknown Tour type "${typed}"`));
-    assert.match(errors[0], /\/codetour generate project\|changes/, `${raw} must state the accepted forms`);
-    assert.ok(!events.includes("Which type of Tour?"), `${raw} must fail before eliciting a type`);
+    assert.deepEqual(menus, [["Which type of Tour?", ["1. Project Tour", "2. Changes Tour"]]], `${raw} must open the type menu`);
+    assert.ok(sent, `${raw} must generate after the type choice`);
+    assert.match(sent.prompt, /create_project_tour/);
+    assert.match(sent.prompt, new RegExp(brief.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(sent.prompt, /Tour orientation from the user/);
   }
 });
 
@@ -375,7 +394,7 @@ test("a free orientation phrase that does not name a type stays an orientation",
     let sent;
     await runCodeTourCommand({
       capabilities: {ui: {elicitation: true}},
-      ui: {select: async prompt => prompt === "Which type of Tour?" ? "Changes Tour" : "Critical"},
+      ui: {select: async prompt => prompt === "Which type of Tour?" ? "2. Changes Tour" : "2. Critical"},
       send: async options => { sent = options; },
       log: async text => assert.fail(text)
     }, "generate Changements récents dans le module de paiement.");
@@ -401,10 +420,10 @@ test("a quoted \"generate\" title is read instead of starting a generation", asy
 });
 
 for (const cancelAt of [0, 1, 2]) test(`cancelling generation choice ${cancelAt + 1} never starts analysis`, async () => {
-  const choices = ["Generate", "Changes Tour", "Critical"];
+  const answers = ["1. Generate", "2. Changes Tour", "2. Critical"];
   let count = 0;
   await runCodeTourCommand({capabilities:{ui:{elicitation:true}},
-    ui:{select:async () => count++ === cancelAt ? null : choices[count - 1]},
+    ui:{select:async () => count++ === cancelAt ? null : answers[count - 1], input: async () => ""},
     send: async () => assert.fail("Analysis started after cancellation"), log:async text => assert.fail(text)}, "");
   assert.equal(count, cancelAt + 1);
 });
@@ -520,7 +539,7 @@ test("a workspace with a single Tour resolves it without Tour elicitation", asyn
     const messages = [];
     let selections = 0;
     const session = {capabilities:{ui:{elicitation:true}},
-      ui:{select: async () => { selections++; return "Read"; }},
+      ui:{select: async () => { selections++; return "2. Read"; }},
       log: async message => messages.push(message)};
     await runCodeTourCommand(session, "--renderer html", root);
     for (let i = 0; i < 100 && !(existsSync(output) && readFileSync(output, "utf8")); i++) await delay(50);
@@ -537,7 +556,7 @@ test("an elicited choice resolves duplicate Tour titles by identity", async () =
   await withRealCli(root, async output => {
     const messages = [];
     const session = {capabilities: {ui: {elicitation: true}},
-      ui:{select: async (prompt, choices) => prompt === "Read or generate a CodeTour?" ? "Read" : choices[1]},
+      ui:{select: async (prompt, choices) => prompt === "Read or generate a CodeTour?" ? "2. Read" : choices[1]},
       log: async message => messages.push(message)};
     await runCodeTourCommand(session, "--renderer html", root);
     for (let i = 0; i < 100 && !(existsSync(output) && readFileSync(output, "utf8")); i++) await delay(50);
@@ -554,7 +573,7 @@ test("cancelling Tour selection never launches a reader", async () => {
   await withRealCli(root, async output => {
     const errors = [];
     const session = {capabilities:{ui:{elicitation:true}},
-      ui:{select: async prompt => prompt === "Read or generate a CodeTour?" ? "Read" : null},
+      ui:{select: async prompt => prompt === "Read or generate a CodeTour?" ? "2. Read" : null},
       log: async text => errors.push(text)};
     await runCodeTourCommand(session, "", root);
     await delay(500);
