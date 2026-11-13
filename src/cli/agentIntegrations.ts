@@ -54,6 +54,88 @@ function copilotExtensionDirectory(): string {
     path.join(os.homedir(), ".copilot", "extensions", "codetour");
 }
 
+interface CopilotMcpServer {
+  type?: string;
+  command?: string;
+  args?: string[];
+  tools?: string[];
+  [key: string]: unknown;
+}
+
+interface CopilotMcpConfig {
+  mcpServers?: Record<string, CopilotMcpServer>;
+  [key: string]: unknown;
+}
+
+function copilotMcpConfigPath(): string {
+  // Copilot reads its user MCP servers from this file; COPILOT_HOME relocates
+  // the whole user directory, so honor it before the explicit override.
+  const home = process.env.COPILOT_HOME || path.join(os.homedir(), ".copilot");
+  return process.env.CODETOUR_COPILOT_MCP_CONFIG || path.join(home, "mcp-config.json");
+}
+
+async function readCopilotMcpConfig(file: string): Promise<CopilotMcpConfig> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(file, "utf8");
+  } catch {
+    // No user configuration yet: the install creates its own file.
+    return {};
+  }
+  try {
+    return JSON.parse(raw) as CopilotMcpConfig;
+  } catch {
+    throw new Error(
+      `${file} is not valid JSON; fix it before installing so no existing MCP server is lost.`
+    );
+  }
+}
+
+async function writeCopilotMcpConfig(file: string, config: CopilotMcpConfig): Promise<void> {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+}
+
+// The launcher registered for Copilot must start the CLI that ran the install,
+// not whatever a stale `codetour` on PATH happens to be: an older release can
+// lack the `mcp` command, leaving the session without tools. A Node-script CLI
+// (npm bin, development build, standalone launcher) is addressed through its
+// runtime and absolute script path; a native executable is addressed directly.
+function codetourMcpEntry(): CopilotMcpServer {
+  const script = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
+  const [command, args] =
+    script && existsSync(script) && /\.[cm]?js$/i.test(script)
+      ? [process.execPath, [script, "mcp"]]
+      : ["codetour", ["mcp"]];
+  return { type: "local", command, args, tools: ["*"] };
+}
+
+function isCodetourMcpEntry(entry: CopilotMcpServer | undefined): boolean {
+  // Ownership: the entry this CLI writes is a local stdio server ending in the
+  // reserved `mcp` command. A same-named entry configured another way is left
+  // alone by uninstall.
+  return !!entry &&
+    (entry.type === "local" || entry.type === undefined) &&
+    typeof entry.command === "string" &&
+    Array.isArray(entry.args) &&
+    entry.args[entry.args.length - 1] === "mcp";
+}
+
+function verifyCodetourMcpEntry(entry: CopilotMcpServer): void {
+  const invocation = [entry.command, ...(entry.args ?? [])].join(" ");
+  const probe = spawnSync(entry.command!, [...(entry.args ?? []), "--version"], {
+    encoding: "utf8", windowsHide: true, timeout: 15000
+  });
+  if (probe.status !== 0) {
+    const detail = (probe.stderr || probe.error?.message || "").trim();
+    throw new Error(
+      `The CodeTour MCP launch contract could not be verified ('${invocation}'). ` +
+      (detail ? `${detail} ` : "") +
+      `Keep the CLI at this path, or re-run 'codetour --install copilot' from the installation to use.`
+    );
+  }
+}
+
 interface FileState {
   name: string;
   state: "current" | "modified" | "missing";
@@ -87,16 +169,58 @@ const copilotIntegration: AgentIntegration = {
   async status() {
     const directory = copilotExtensionDirectory();
     const states = await copilotFileStates(directory);
-    if (states.every(file => file.state === "current")) {
-      return { state: "installed" as const, detail: `The adapter files are installed in ${directory}.` };
-    }
-    if (states.every(file => file.state === "missing")) {
-      return { state: "not-installed" as const, detail: `No CodeTour adapter in ${directory}.` };
-    }
+    const allCurrent = states.every(file => file.state === "current");
+    const allMissing = states.every(file => file.state === "missing");
     const changed = states.filter(file => file.state !== "current").map(file => file.name).join(", ");
+    const mcpFile = copilotMcpConfigPath();
+    let registered = false;
+    let current = false;
+    let unreadable: string | undefined;
+    try {
+      const entry = (await readCopilotMcpConfig(mcpFile)).mcpServers?.codetour;
+      registered = isCodetourMcpEntry(entry);
+      // The registered launcher must be the one this CLI would write now: an
+      // entry left by another installation can point at a stale CLI.
+      current = registered && JSON.stringify(entry) === JSON.stringify(codetourMcpEntry());
+    } catch (error) {
+      unreadable = error instanceof Error ? error.message : String(error);
+    }
+    if (allCurrent && current) {
+      return {
+        state: "installed" as const,
+        detail: `The adapter files are installed in ${directory} and the 'codetour' MCP server is registered in ${mcpFile}.`
+      };
+    }
+    if (allCurrent && registered) {
+      return {
+        state: "outdated" as const,
+        detail: `The 'codetour' MCP server in ${mcpFile} was registered by a different CodeTour installation. ` +
+          "Re-run 'codetour --install copilot' to register the current launcher."
+      };
+    }
+    if (allCurrent) {
+      // The tools come from the MCP registration, so a current adapter without
+      // it is incomplete even though every file matches.
+      return {
+        state: "incomplete" as const,
+        detail: unreadable
+          ? `The adapter files are installed in ${directory}, but ${unreadable}`
+          : `The adapter files are installed in ${directory}, but the 'codetour' MCP server is missing from ${mcpFile}. ` +
+            "Re-run 'codetour --install copilot' so Copilot exposes 'codetour-create_project_tour' and 'codetour-create_changes_tour'."
+      };
+    }
+    if (allMissing && !registered) {
+      return {
+        state: "not-installed" as const,
+        detail: unreadable
+          ? `No CodeTour adapter in ${directory}. ${unreadable}`
+          : `No CodeTour adapter in ${directory}.`
+      };
+    }
     return {
       state: "outdated" as const,
-      detail: `The installed adapter differs from this CLI (${changed}). Re-run 'codetour --install copilot' to replace it.`
+      detail: `The installed adapter differs from this CLI (${changed}). Re-run 'codetour --install copilot' to replace it` +
+        (registered ? " and refresh the 'codetour' MCP server." : " and register the 'codetour' MCP server.")
     };
   },
   async install() {
@@ -116,8 +240,26 @@ const copilotIntegration: AgentIntegration = {
       console.log(`Replaced differing adapter files (${differing.join(", ")}) in ${directory}.`);
     }
     console.log(`Installed the CodeTour adapter in ${directory}.`);
+    // The extension also joins the session with its own MCP server, but that
+    // registration is invisible and can be lost with the extension process.
+    // The documented user configuration makes the tools discoverable on its
+    // own, whatever the extension mode or install state.
+    const mcpFile = copilotMcpConfigPath();
+    const mcpConfig = await readCopilotMcpConfig(mcpFile);
+    const entry = codetourMcpEntry();
+    verifyCodetourMcpEntry(entry);
+    const registered = JSON.stringify(mcpConfig.mcpServers?.codetour) === JSON.stringify(entry);
+    if (registered) {
+      console.log(`The 'codetour' MCP server is already registered in ${mcpFile}.`);
+    } else {
+      mcpConfig.mcpServers = { ...mcpConfig.mcpServers, codetour: entry };
+      await writeCopilotMcpConfig(mcpFile, mcpConfig);
+      console.log(`Registered the 'codetour' MCP server in ${mcpFile}.`);
+    }
     console.log("Start 'copilot --experimental' in a trusted Git worktree, accept the extension");
     console.log("(Load Only or Load & Augment), then run /codetour.");
+    console.log("Verify with 'copilot mcp list': the 'codetour' server must be enabled and expose");
+    console.log("'codetour-create_project_tour' and 'codetour-create_changes_tour'.");
     const onPath = spawnSync("codetour", ["mcp", "--version"], { encoding: "utf8", windowsHide: true }).status === 0;
     if (!onPath) {
       console.log(
@@ -142,6 +284,21 @@ const copilotIntegration: AgentIntegration = {
     const remaining = await fs.readdir(directory).catch(() => [] as string[]);
     if (!remaining.length) await fs.rmdir(directory);
     console.log(`Removed the CodeTour adapter from ${directory}.`);
+    const mcpFile = copilotMcpConfigPath();
+    let mcpConfig: CopilotMcpConfig;
+    try {
+      mcpConfig = await readCopilotMcpConfig(mcpFile);
+    } catch (error) {
+      // Files this CLI owns are already removed; an unreadable user
+      // configuration is reported, never overwritten or partially edited.
+      console.log(`Left ${mcpFile} untouched: ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
+    if (isCodetourMcpEntry(mcpConfig.mcpServers?.codetour)) {
+      delete mcpConfig.mcpServers!.codetour;
+      await writeCopilotMcpConfig(mcpFile, mcpConfig);
+      console.log(`Removed the 'codetour' MCP server from ${mcpFile}.`);
+    }
   }
 };
 

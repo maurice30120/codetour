@@ -174,11 +174,21 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
       // codetour mcp composes the generation prompt for this run, including
       // the user's orientation phrase and its language when one was given; the
       // adapter only relays the choices and the user's words.
-      const prompt = await servedPrompt(
-        cwd,
-        type === "project" ? "generate_project_tour" : "generate_changes_tour",
-        type === "project" ? (brief ? {brief} : {}) : {reviewMode, ...(brief ? {brief} : {})}
-      );
+      let prompt;
+      try {
+        prompt = await servedPrompt(
+          cwd,
+          type === "project" ? "generate_project_tour" : "generate_changes_tour",
+          type === "project" ? (brief ? {brief} : {}) : {reviewMode, ...(brief ? {brief} : {})}
+        );
+      } catch (error) {
+        // A bare spawn error would leave the user without the cause: name the
+        // MCP server and the repair path.
+        throw new Error(
+          `CodeTour MCP server 'codetour' is unavailable: ${error instanceof Error ? error.message : String(error)} ` +
+          "Run 'codetour --install copilot' and verify the server with 'copilot mcp list'."
+        );
+      }
       // The slash command has completed its choices; start the requested run now.
       // Enqueue leaves explicit commands waiting for another Enter on CLI 1.0.105.
       await session.send({prompt, mode: "immediate"});

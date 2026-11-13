@@ -442,7 +442,12 @@ test("an unreachable served generation prompt prevents analysis", async () => {
   try {
     const errors = [];
     await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async () => ""}, send:async () => assert.fail("Generation without the served prompt"), log:async text => errors.push(text)}, "generate changes critical");
-    assert.match(errors.join("\n"), /ENOENT/);
+    const message = errors.join("\n");
+    assert.match(message, /ENOENT/);
+    // The failure names the component and the repair instead of surfacing a
+    // bare spawn error that hides the missing MCP server.
+    assert.match(message, /CodeTour MCP server/);
+    assert.match(message, /codetour --install copilot/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
   }

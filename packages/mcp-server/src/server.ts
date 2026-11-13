@@ -425,6 +425,16 @@ const changesToolInputSchema = z
   })
   .passthrough();
 
+// A session whose tool catalog has no CodeTour creation tool cannot produce a
+// Tour. The prompt makes that state explicit and actionable instead of letting
+// the agent answer in prose as if a Tour existed.
+const MISSING_TOOL_GUIDANCE =
+  "- If neither name exists in your session's tools, stop before any analysis: " +
+  "the CodeTour MCP server is not registered or not connected for this session. " +
+  "Say so explicitly, give the repair command `codetour --install copilot`, and " +
+  "ask the user to verify the `codetour` server with `copilot mcp list` before " +
+  "retrying. Never present a text answer as if a Tour had been created.";
+
 // The final step of every served generation prompt, shared by the Project
 // Tour and Changes Tour builders: once the write has succeeded, the agent
 // states the created tour's exact title and path — as returned by the
@@ -466,6 +476,7 @@ function projectTourGenerationPrompt(): string {
     "- Some hosts register MCP tools with a server-name prefix: Copilot exposes " +
       "this tool as `codetour-create_project_tour`. Search for the tool under " +
       "whichever name your session registers it; the tool contract is unchanged.",
+    MISSING_TOOL_GUIDANCE,
     "- The tour is written to the reserved destination `.tours/project.tour`, or " +
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_project_tour` tool " +
@@ -514,6 +525,7 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
     "- Some hosts register MCP tools with a server-name prefix: Copilot exposes " +
       "this tool as `codetour-create_changes_tour`. Search for the tool under " +
       "whichever name your session registers it; the tool contract is unchanged.",
+    MISSING_TOOL_GUIDANCE,
     "- The tour is written to the reserved destination `.tours/changes.tour`, or " +
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_changes_tour` tool " +
