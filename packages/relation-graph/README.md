@@ -89,6 +89,25 @@ const graph = await buildRelationGraph(
 const packet = selectDepth1(graph, ["Greeter.greet"]);
 ```
 
+## Language packs (#151–#154)
+
+The per-language packs plug into the registry with `registerPack` and replace
+the generic default pack for their language:
+
+- **Java** (ticket #153): `createJavaPack()` — explicit imports (single-type,
+  `import static`, wildcard), declared types of locals/parameters/fields plus
+  `var` inferred from `new`, `extends`/`implements` chains, `this.x` calls,
+  `new X(...)` → `X.constructor`, `super` calls. Unprovable sites become
+  ambiguity sites with candidates, never guessed edges. See
+  `docs/pack-java-measurements.md` (measured on the C# prototype harness
+  before the contract was frozen) and `test/pack-java.test.ts`.
+
+```ts
+import { buildRelationGraph, createJavaPack, registerPack } from "codetour-relation-graph";
+registerPack(createJavaPack());
+const graph = await buildRelationGraph([{ path: "Main.java", content: "..." }], "java");
+```
+
 ## Build & test
 
 ```bash

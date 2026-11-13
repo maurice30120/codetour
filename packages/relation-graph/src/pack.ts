@@ -31,14 +31,6 @@ export interface RawNode {
   startLine: number;
   /** 1-based, inclusive. */
   endLine: number;
-  /**
-   * Optional kind of the OWNING type for member nodes ("class" | "interface"
-   * | "struct" | "record" | …). The engine keeps it in a side index (the public
-   * node shape of #149 is unchanged) and uses it to type relations through an
-   * interface as `callType: "interface"` with status "heuristic" — asserted
-   * toward the port, never toward an implementation (spec #149 story 16).
-   */
-  ownerKind?: string;
 }
 
 export interface RawCallSite {
@@ -52,14 +44,23 @@ export interface RawCallSite {
   /** Full name of the enclosing member ("Type.member"), "" for file scope. */
   caller: string;
   /**
-   * Optional receiver TYPE name when the pack can prove it without a type
-   * system (declared field/parameter/local type, `var` inferred from
-   * `new X(...)`, `using X = Y` alias — e.g. the C# pack of #152). The engine
-   * resolves `receiverType.name` against the whole local graph first: one
-   * candidate -> edge (interface owner => callType "interface", heuristic),
-   * otherwise an ambiguity site. Never a guessed edge.
+   * Declared type (simple name) of the receiver expression when the pack can
+   * prove it statically (declared local/parameter/field type, `var` inferred
+   * from a `new`, explicit import). The ENGINE resolves it against the whole
+   * local graph, including extends/implements chains and interface ports.
    */
   receiverType?: string;
+}
+
+/** A type declaration seen by a pack: lets the engine resolve typed receivers across files. */
+export interface PackTypeInfo {
+  /** Simple name ("UserService"). */
+  name: string;
+  kind: "class" | "interface" | "enum" | "annotation";
+  /** Simple name of the extends target, when explicit. */
+  extends?: string;
+  /** Simple names of the implemented interfaces. */
+  implements?: string[];
 }
 
 export interface RawEdge {
@@ -79,6 +80,12 @@ export interface PackAnalysisResult {
   calls: RawCallSite[];
   edges?: RawEdge[];
   sites?: AmbiguitySite[];
+  /**
+   * Type declarations of the analyzed file (name -> kind/extends/implements).
+   * Merged by the engine across all files so typed receivers, inheritance
+   * chains and interface ports resolve against the whole local graph.
+   */
+  types?: PackTypeInfo[];
 }
 
 export interface PackAnalysisInput {

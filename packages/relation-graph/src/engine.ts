@@ -2,7 +2,7 @@ import { Query } from "web-tree-sitter";
 import { extractionCacheKey, type ExtractionCache } from "./cache";
 import { getParser, loadGrammar } from "./grammars";
 import { normalizeLanguage } from "./languages";
-import type { LanguagePack, PackAnalysisResult, RawCallSite, RawNode } from "./pack";
+import type { LanguagePack, PackAnalysisResult, PackTypeInfo, RawCallSite, RawNode } from "./pack";
 import { getPack } from "./registry";
 import { estimateTokens, TokenBudget } from "./tokens";
 import { ANALYZER_VERSION } from "./version";
@@ -137,6 +137,45 @@ export async function buildRelationGraph(
   for (const result of rawPerFile) {
     for (const rawNode of result.nodes) addNode(rawNode);
   }
+
+  // Type declarations reported by packs (merged across files): they let the
+  // engine resolve typed receivers, extends/implements chains and interface
+  // ports against the whole local graph. Absent for the generic default pack.
+  const typeByName = new Map<string, PackTypeInfo>();
+  for (const result of rawPerFile) {
+    for (const type of result.types ?? []) {
+      if (!typeByName.has(type.name)) typeByName.set(type.name, type);
+    }
+  }
+
+  /**
+   * Find `member` on `typeName` or its explicit ancestors (extends chain, then
+   * implemented interfaces). Returns the unique node when provable, plus
+   * whether it was found on an interface (=> interface dispatch toward the
+   * port, heuristic). Never guesses: nothing found -> undefined.
+   */
+  const memberOnType = (
+    typeName: string,
+    member: string,
+    seen: Set<string> = new Set()
+  ): { node: GraphNode; viaInterface: boolean } | undefined => {
+    if (seen.has(typeName)) return undefined;
+    seen.add(typeName);
+    const info = typeByName.get(typeName);
+    const direct = byName.get(`${typeName}.${member}`);
+    if (direct && direct.length === 1) {
+      return { node: direct[0], viaInterface: info?.kind === "interface" };
+    }
+    if (info?.extends) {
+      const found = memberOnType(info.extends, member, seen);
+      if (found) return found;
+    }
+    for (const iface of info?.implements ?? []) {
+      const found = memberOnType(iface, member, seen);
+      if (found) return found;
+    }
+    return undefined;
+  };
 
   const lineCountOf = (content: string): number =>
     content.length === 0 ? 1 : content.split("\n").length;
@@ -280,6 +319,7 @@ export async function buildRelationGraph(
 
       let candidates: GraphNode[] = [];
       let thisExact = false;
+      let typed: { node: GraphNode; viaInterface: boolean } | undefined;
       if (effectiveSyntax === "new" || asNew) {
         candidates = asNew ?? (byName.get(`${call.name}.constructor`) ?? []);
       } else if (call.receiver === "this" && call.caller.includes(".")) {
@@ -289,8 +329,29 @@ export async function buildRelationGraph(
           candidates = exact;
           thisExact = true;
         } else {
-          // Member not on the enclosing type (maybe inherited): fall back to
-          // same-named members of the local graph -> ambiguity site, never a guess.
+          // Maybe inherited: walk the explicit extends/implements chain when
+          // packs reported type declarations; otherwise fall back to same-named
+          // members -> ambiguity site, never a guess.
+          const inherited = memberOnType(type, call.name);
+          if (inherited) {
+            candidates = [inherited.node];
+            thisExact = true;
+            typed = inherited;
+          } else {
+            candidates = byShortName.get(call.name) ?? [];
+          }
+        }
+      } else if (call.receiver === "super" && call.receiverType) {
+        // super.x / super(...) with an explicit extends target.
+        candidates =
+          byName.get(`${call.receiverType}.${call.name}`) ?? byShortName.get(call.name) ?? [];
+      } else if (call.receiver === "member" && call.receiverType) {
+        // Receiver whose declared type the pack proved (local/param/field/var).
+        const resolved = memberOnType(call.receiverType, call.name);
+        if (resolved) {
+          candidates = [resolved.node];
+          typed = resolved;
+        } else {
           candidates = byShortName.get(call.name) ?? [];
         }
       } else {
@@ -367,7 +428,22 @@ export async function buildRelationGraph(
             line: call.line,
             kind: "super",
             callType: "super",
-            status: "heuristic",
+            // With an explicit extends target (pack-provided receiverType) the
+            // super relation is provable; a bare name-matched super stays heuristic.
+            status: call.receiverType ? "resolved" : "heuristic",
+            filePath: call.file
+          });
+        } else if (typed) {
+          // Typed receiver (or inherited this.x) proved by the pack: assert the
+          // edge. Toward an interface the edge points at the port with a
+          // heuristic status (#149 story 16) — never at the implementation.
+          addEdge({
+            from: callerNode.id,
+            to: typed.node.id,
+            line: call.line,
+            kind: "call",
+            callType: typed.viaInterface ? "interface" : "direct",
+            status: typed.viaInterface ? "heuristic" : "resolved",
             filePath: call.file
           });
         } else if (call.receiver === "member" || (call.receiver === "this" && !thisExact)) {

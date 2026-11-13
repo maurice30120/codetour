@@ -55,12 +55,14 @@ export type {
   LanguagePack,
   PackAnalysisInput,
   PackAnalysisResult,
+  PackTypeInfo,
   RawCallSite,
   RawEdge,
   RawNode,
   CallSyntax,
   ReceiverKind
 } from "./pack";
+export { createJavaPack, simpleTypeName } from "./java-pack";
 export {
   getPack,
   isLanguageSupported,
