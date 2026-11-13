@@ -265,6 +265,12 @@ npm test
 npm run package
 ```
 
+Install the local pre-commit guard once per clone with `git config core.hooksPath .githooks`:
+it type-checks and runs the fast Copilot adapter tests before every commit (a few
+seconds, no full build), and bypasses itself for one commit with
+`CODETOUR_SKIP_PRE_COMMIT=1`. It reuses the last `npm run build`, so build once
+after a fresh clone.
+
 Commit all three `package-lock.json` files when changing dependencies.
 For real VS Code playback checks and screenshots, follow the
 [desktop smoke-test guide](test/vscode/README.md).
