@@ -43,6 +43,16 @@ export interface RawCallSite {
   receiver: ReceiverKind;
   /** Full name of the enclosing member ("Type.member"), "" for file scope. */
   caller: string;
+  /**
+   * Pack-resolved receiver type name (e.g. "UserService"), from a declared
+   * type, a local `var` inference, an import alias or `this`. When set, the
+   * ENGINE resolves `${receiverType}.${name}` against the whole local graph:
+   * exactly one target -> edge (callType "interface" + heuristic when the
+   * type is a known interface, spec #149 story 16), otherwise -> ambiguity
+   * site with candidates. Never a guessed edge. Added for the TypeScript
+   * pack (#151); the generic pack leaves it unset.
+   */
+  receiverType?: string;
 }
 
 export interface RawEdge {
@@ -62,6 +72,13 @@ export interface PackAnalysisResult {
   calls: RawCallSite[];
   edges?: RawEdge[];
   sites?: AmbiguitySite[];
+  /**
+   * Names of the interfaces declared in the analyzed file. The engine
+   * aggregates them across all sources so relations toward an interface port
+   * are asserted with callType "interface" and status "heuristic" (#149
+   * story 16). Added for the TypeScript pack (#151).
+   */
+  interfaces?: string[];
 }
 
 export interface PackAnalysisInput {

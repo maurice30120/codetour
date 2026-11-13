@@ -71,3 +71,11 @@ export {
 } from "./registry";
 export { buildRelationGraph, type BuildOptions } from "./engine";
 export { selectDepth1 } from "./bfs";
+export {
+  createTypeScriptPack,
+  extractTypeScriptSymbols,
+  registerTypeScriptPacks,
+  type ExtractedSymbol,
+  type ExtractSymbolsOptions,
+  type TypeScriptPackLanguage
+} from "./pack-typescript";

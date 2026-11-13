@@ -190,6 +190,13 @@ export async function buildRelationGraph(
   };
   const callerLabel = (call: RawCallSite): string => call.caller || call.file;
 
+  // Interfaces declared by the packs across all sources: relations toward an
+  // interface port are asserted with callType "interface" + heuristic status.
+  const interfaceNames = new Set<string>();
+  for (const result of rawPerFile) {
+    for (const name of result.interfaces ?? []) interfaceNames.add(name);
+  }
+
   // Pack-provided edges (from/to are node names) and sites pass through.
   for (const result of rawPerFile) {
     for (const rawEdge of result.edges ?? []) {
@@ -263,6 +270,47 @@ export async function buildRelationGraph(
           status
         });
       };
+
+      // Pack-provided receiver type (#151+): resolve `${receiverType}.${name}`
+      // against the whole local graph. Exactly one target -> edge (toward the
+      // interface port with heuristic status when the type is an interface);
+      // otherwise -> ambiguity site with the same-named candidates. Never a
+      // guessed edge.
+      if (call.receiverType) {
+        const receiverType = call.receiverType;
+        const exact = byName.get(`${receiverType}.${call.name}`) ?? [];
+        if (exact.length === 1 && callerNode) {
+          const isInterface = interfaceNames.has(receiverType);
+          const kind: GraphEdge["kind"] =
+            effectiveSyntax === "new" ? "new" : effectiveSyntax === "super" ? "super" : "call";
+          addEdge({
+            from: callerNode.id,
+            to: exact[0].id,
+            line: call.line,
+            kind,
+            callType: isInterface
+              ? "interface"
+              : kind === "super"
+                ? "super"
+                : kind === "new"
+                  ? "new"
+                  : "direct",
+            status: isInterface ? "heuristic" : "resolved",
+            filePath: call.file
+          });
+        } else {
+          const fallback = byShortName.get(call.name) ?? [];
+          addSite({
+            file: call.file,
+            line: call.line,
+            name: call.name,
+            caller: callerLabel(call),
+            candidates: fallback.map(n => n.name),
+            status: fallback.length > 0 ? "ambiguous" : "unresolved"
+          });
+        }
+        continue;
+      }
 
       if (candidates.length === 1 && callerNode) {
         if (asNew || effectiveSyntax === "new") {

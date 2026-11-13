@@ -41,6 +41,37 @@ status = "resolved" | "heuristic" | "ambiguous" | "unresolved" | "unsupported"
 A class is represented by its members plus a synthetic `Type.constructor`
 node (class usage is an edge toward it); there is no bare class node.
 
+## Language packs (#151–#154)
+
+`registerPack` plugs a per-language pack over the built-in generic one. The
+TypeScript pack (ticket #151) ships in this module:
+
+```ts
+import {
+  registerTypeScriptPacks,        // registerPack under "typescript" and "tsx"
+  extractTypeScriptSymbols       // declaration extraction with 1-based positions
+} from "codetour-relation-graph";
+
+registerTypeScriptPacks();        // called once by the consumer (#155 wiring)
+const graph = await buildRelationGraph(sources, "typescript");
+const symbols = await extractTypeScriptSymbols(sources); // #114 symbol source
+```
+
+The pack extracts classes/methods/constructors/functions/properties/imports
+via tree-sitter queries over the prebuilt `typescript`/`tsx` grammars, and
+annotates each call site with the pack-resolved receiver type (declared
+types, local `var` inference from `new X(...)`, import aliases, `this.x`
+toward the enclosing type or its superclass). The **engine** resolves those
+annotations against the whole local graph: exactly one target becomes an
+edge (toward the interface port with `callType: "interface"` + `heuristic`
+when the type is a known interface), anything else becomes an explicit
+ambiguity `site` with candidates — same-named methods never produce a false
+edge. `extractTypeScriptSymbols` returns the declarations as
+`ExtractedSymbol[]` (`name`, `kind`, `filePath`, 1-based `startLine`/`endLine`,
+plus `importedName`/`source` for imports); ticket #155 maps that shape onto
+the existing `extractSymbols` contract of `codetour-mcp`'s parsing module,
+replacing the regex spike of #114 while its consumers keep compiling.
+
 ## Usage
 
 ```ts
