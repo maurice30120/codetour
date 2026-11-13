@@ -1,5 +1,6 @@
 import {
   McpServer,
+  ReadResourceTemplateCallback,
   ResourceTemplate,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
@@ -42,6 +43,19 @@ import {
   CRITICAL_REVIEW_RESOURCE_URI,
   criticalReviewSkillPack,
 } from "./review-skill";
+import {
+  detectTourType,
+  extractPaginatedTargetedContext,
+  formatTargetedContextForPrompt,
+  formatPaginatedContextForPrompt,
+  getApproachCConfig,
+  getApproachDConfig,
+  PaginationOptions,
+} from "./targeted-context";
+import {
+  extractProjectTargetedContext,
+  formatProjectTargetedContextForPrompt,
+} from "./targeted-context/project-context-extractor";
 import packageJson from "../package.json";
 
 // MCP V1 exposes exactly two tools: `create_project_tour` and
@@ -98,6 +112,37 @@ const CHANGES_TOUR_PROMPT_RESOURCE_DESCRIPTION =
   "\"critical\" additionally embeds the shared review skill pack (the one " +
   `served by ${CRITICAL_REVIEW_RESOURCE_URI}) that must be followed ` +
   "in full before any analysis or step writing.";
+
+// URI template for Targeted Context resource for Changes Tour.
+// {baseRef} and {headRef} are commit SHAs.
+// Pagination is optional (spec-hybrid-targeted-context, ticket #02): the base
+// template serves the first page with the default page size, the paginated one
+// lets the agent choose. The MCP SDK requires every query parameter declared by
+// a template to be present, so the two cases need two templates.
+export const TARGETED_CONTEXT_RESOURCE_TEMPLATE =
+  "codetour://context/changes-tour/{baseRef}/{headRef}";
+export const TARGETED_CONTEXT_PAGINATED_RESOURCE_TEMPLATE =
+  `${TARGETED_CONTEXT_RESOURCE_TEMPLATE}?page={page}&pageSize={pageSize}`;
+const TARGETED_CONTEXT_RESOURCE_NAME = "changes-tour-targeted-context";
+const TARGETED_CONTEXT_PAGINATED_RESOURCE_NAME =
+  "changes-tour-targeted-context-paginated";
+const TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
+  "Targeted Context for Changes Tour generation: a bounded selection of code " +
+  "symbols and locations from the changed files between {baseRef} and {headRef}, " +
+  "offered to the Tour Generator as a substitute for open-ended exploration. " +
+  "Supports progressive exploration via pagination (use page and pageSize in request). " +
+  "Bounded to 5000 symbols, served 200 per page.";
+
+// URI for Targeted Context resource for Project Tour.
+// Part of spec #92, ticket #117
+export const PROJECT_TARGETED_CONTEXT_RESOURCE_URI =
+  "codetour://context/project-tour";
+const PROJECT_TARGETED_CONTEXT_RESOURCE_NAME = "project-tour-targeted-context";
+const PROJECT_TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
+  "Targeted Context for Project Tour generation: a bounded selection of code " +
+  "symbols and locations from the entire workspace, offered to the Tour Generator " +
+  "as a substitute for open-ended exploration. Bounded to 50 files, " +
+  "50 symbols per file.";
 
 // Mechanism choice (spec #94): the Changes Tour prompt is parameterized by
 // the review mode, so it is served as an MCP resource template rather than
@@ -460,6 +505,10 @@ function projectTourGenerationPrompt(): string {
       "of this codebase's purpose, structure, and important execution paths for a " +
       "developer discovering the project.",
     "",
+    "- Optional Targeted Context may be available at `codetour://context/project-tour`. " +
+      "This provides a bounded selection of code symbols from the entire workspace as a substitute for " +
+      "open-ended exploration. If available and useful, prefer it to reduce token usage. " +
+      "If unavailable or not useful, proceed with full exploration as usual.",
     "- Read the relevant source before writing; every explanation and anchor must " +
       "be supported by the code. Explore the codebase first — the entry points and " +
       "the main modules, not just file names.",
@@ -511,6 +560,10 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
       "branch since it diverged from its base.",
     "",
     modeClause,
+    "- Optional Targeted Context may be available at `codetour://context/changes-tour/{baseRef}/{headRef}`. " +
+      "This provides a bounded selection of code symbols from changed files as a substitute for " +
+      "open-ended exploration. If available and useful, prefer it to reduce token usage. " +
+      "If unavailable or not useful, proceed with full exploration as usual.",
     "- Inspect the actual Git comparison before writing: the diff from the " +
       "merge-base of the base reference to the analyzed head commit, the affected " +
       "source, and the tests. Base every statement on what the code does, never on " +
@@ -619,6 +672,166 @@ export function createServer(workspaceRoot: string): McpServer {
             uri: uri.toString(),
             mimeType: "text/markdown",
             text: changesTourGenerationPrompt(reviewMode),
+          },
+        ],
+      };
+    }
+  );
+
+  // Targeted Context resource for Changes Tour (spec #92, ticket #115 and #116;
+  // spec-hybrid-targeted-context, tickets #01 and #02)
+  // Provides bounded code symbol context to reduce open-ended exploration,
+  // bounded to 5000 symbols served 200 per page for Changes Tours.
+  // Supports progressive exploration via pagination (ticket #116).
+  const readChangesTourTargetedContext: ReadResourceTemplateCallback = async (
+    uri,
+    variables
+  ) => {
+    const baseRef = variables.baseRef;
+    const headRef = variables.headRef;
+    const page = variables.page ? Number(variables.page) : 1;
+    const pageSize = variables.pageSize ? Number(variables.pageSize) : undefined;
+
+    if (
+      typeof baseRef !== "string" ||
+      typeof headRef !== "string" ||
+      !baseRef ||
+      !headRef
+    ) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `Invalid parameters for Targeted Context resource. ` +
+        `Both baseRef and headRef must be provided as commit SHAs. ` +
+        `(${TARGETED_CONTEXT_RESOURCE_TEMPLATE})`
+      );
+    }
+
+    // Automatic tour type selection (spec-hybrid-targeted-context, ticket
+    // #01): both refs are present, so this is a Changes Tour and gets the
+    // Changes Tour configuration.
+    const detection = detectTourType({ baseRef, headRef });
+    if (detection.tourType !== "changes-tour") {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `This resource only serves Changes Tours ` +
+          `(${TARGETED_CONTEXT_RESOURCE_TEMPLATE}).`
+      );
+    }
+    const config = getApproachCConfig();
+
+    const pagination: PaginationOptions = {
+      page,
+      pageSize,
+    };
+
+    const result = await extractPaginatedTargetedContext(
+      ctx,
+      baseRef,
+      headRef,
+      pagination,
+      config
+    );
+
+    if (!result.success) {
+      throw new McpError(
+        ErrorCode.InternalError,
+        `Failed to extract Targeted Context: ${result.error}`
+      );
+    }
+
+    // If we have paginated context, use it; otherwise use the regular context
+    if (result.paginatedContext && result.paginatedContext.pages.length > 0) {
+      const formattedContext = formatPaginatedContextForPrompt(
+        result.paginatedContext
+      );
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "text/markdown",
+            text: formattedContext || "# Targeted Context\n\nNo context available.",
+          },
+        ],
+      };
+    } else {
+      const formattedContext = formatTargetedContextForPrompt(result.context!);
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "text/markdown",
+            text: formattedContext || "# Targeted Context\n\nNo context available.",
+          },
+        ],
+      };
+    }
+  };
+
+  const noListedResources = async () => ({ resources: [] });
+
+  const registerChangesTourContext = (
+    name: string,
+    template: string,
+    description: string
+  ) =>
+    server.registerResource(
+      name,
+      new ResourceTemplate(template, { list: noListedResources }),
+      { description, mimeType: "text/markdown" },
+      readChangesTourTargetedContext
+    );
+
+  // The paginated template is registered first: its variables are the only
+  // ones that can include a query string, and the base template's path
+  // variables would otherwise capture `?page=...` as part of headRef.
+  registerChangesTourContext(
+    TARGETED_CONTEXT_PAGINATED_RESOURCE_NAME,
+    TARGETED_CONTEXT_PAGINATED_RESOURCE_TEMPLATE,
+    `${TARGETED_CONTEXT_RESOURCE_DESCRIPTION} ` +
+      "This paginated form requires both page and pageSize."
+  );
+
+  // The base template applies the default page size (200): the agent receives
+  // one bounded page instead of every symbol.
+  registerChangesTourContext(
+    TARGETED_CONTEXT_RESOURCE_NAME,
+    TARGETED_CONTEXT_RESOURCE_TEMPLATE,
+    `${TARGETED_CONTEXT_RESOURCE_DESCRIPTION} ` +
+      "This form serves the first page with the default page size."
+  );
+
+  // Targeted Context resource for Project Tour (spec #92, ticket #117;
+  // spec-hybrid-targeted-context, tickets #01 and #03)
+  // Provides bounded code symbol context for the entire workspace to reduce
+  // open-ended exploration, bounded to 50 files and 50 symbols per file.
+  server.registerResource(
+    PROJECT_TARGETED_CONTEXT_RESOURCE_NAME,
+    PROJECT_TARGETED_CONTEXT_RESOURCE_URI,
+    {
+      description: PROJECT_TARGETED_CONTEXT_RESOURCE_DESCRIPTION,
+      mimeType: "text/markdown",
+    },
+    async (uri) => {
+      // Automatic tour type selection (ticket #01): a request without refs is
+      // a Project Tour, so it gets the Project Tour configuration.
+      const config = getApproachDConfig();
+      const result = await extractProjectTargetedContext(ctx, config);
+      
+      if (!result.success) {
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Failed to extract Project Targeted Context: ${result.error}`
+        );
+      }
+      
+      const formattedContext = formatProjectTargetedContextForPrompt(result.context!);
+      
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "text/markdown",
+            text: formattedContext || "# Targeted Context\n\nNo context available.",
           },
         ],
       };
