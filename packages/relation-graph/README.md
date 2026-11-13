@@ -15,7 +15,12 @@ package's public seam only — the MCP package contains no Tree-sitter code.
   `registerPack(pack)`; tickets #151–#154 ship the per-language packs
   (TypeScript, C#, Java, Python). The module ships the five prebuilt grammars
   (`c_sharp`, `java`, `typescript`, `tsx`, `python`) as built-in *generic* packs
-  that extract structural facts only.
+  that extract structural facts only. #152 ships the C# pack
+  (`createCSharpPack()` / `csharpPack`): `registerPack(csharpPack)` replaces the
+  generic pack for `"csharp"` — declared types, `var` inference, `using X = Y`
+  aliases, `this.x`, `: base()` super proof, `new X(...)` -> `Type.constructor`,
+  interface relations asserted toward the port (`callType: "interface"`,
+  status `"heuristic"`), dynamic dispatch left as `?` sites with candidates.
 - **Grammars**: prebuilt `.wasm` from `tree-sitter-wasms@0.1.13`, loaded
   in-process via `web-tree-sitter@~0.25.x` (ABI 13–14 — 0.26/0.27 reject these
   grammars). No JVM/.NET/Python runtime, no native module, no network call at

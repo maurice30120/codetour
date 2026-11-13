@@ -71,11 +71,6 @@ export {
 } from "./registry";
 export { buildRelationGraph, type BuildOptions } from "./engine";
 export { selectDepth1 } from "./bfs";
-export {
-  createTypeScriptPack,
-  extractTypeScriptSymbols,
-  registerTypeScriptPacks,
-  type ExtractedSymbol,
-  type ExtractSymbolsOptions,
-  type TypeScriptPackLanguage
-} from "./pack-typescript";
+// Per-language packs of #151–#154 plug into the registry with registerPack.
+// #152 ships the C# pack (register it to replace the generic pack for "csharp").
+export { createCSharpPack, csharpPack } from "./packs/csharp";

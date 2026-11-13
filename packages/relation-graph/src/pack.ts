@@ -31,6 +31,14 @@ export interface RawNode {
   startLine: number;
   /** 1-based, inclusive. */
   endLine: number;
+  /**
+   * Optional kind of the OWNING type for member nodes ("class" | "interface"
+   * | "struct" | "record" | …). The engine keeps it in a side index (the public
+   * node shape of #149 is unchanged) and uses it to type relations through an
+   * interface as `callType: "interface"` with status "heuristic" — asserted
+   * toward the port, never toward an implementation (spec #149 story 16).
+   */
+  ownerKind?: string;
 }
 
 export interface RawCallSite {
@@ -44,13 +52,12 @@ export interface RawCallSite {
   /** Full name of the enclosing member ("Type.member"), "" for file scope. */
   caller: string;
   /**
-   * Pack-resolved receiver type name (e.g. "UserService"), from a declared
-   * type, a local `var` inference, an import alias or `this`. When set, the
-   * ENGINE resolves `${receiverType}.${name}` against the whole local graph:
-   * exactly one target -> edge (callType "interface" + heuristic when the
-   * type is a known interface, spec #149 story 16), otherwise -> ambiguity
-   * site with candidates. Never a guessed edge. Added for the TypeScript
-   * pack (#151); the generic pack leaves it unset.
+   * Optional receiver TYPE name when the pack can prove it without a type
+   * system (declared field/parameter/local type, `var` inferred from
+   * `new X(...)`, `using X = Y` alias — e.g. the C# pack of #152). The engine
+   * resolves `receiverType.name` against the whole local graph first: one
+   * candidate -> edge (interface owner => callType "interface", heuristic),
+   * otherwise an ambiguity site. Never a guessed edge.
    */
   receiverType?: string;
 }
@@ -72,13 +79,6 @@ export interface PackAnalysisResult {
   calls: RawCallSite[];
   edges?: RawEdge[];
   sites?: AmbiguitySite[];
-  /**
-   * Names of the interfaces declared in the analyzed file. The engine
-   * aggregates them across all sources so relations toward an interface port
-   * are asserted with callType "interface" and status "heuristic" (#149
-   * story 16). Added for the TypeScript pack (#151).
-   */
-  interfaces?: string[];
 }
 
 export interface PackAnalysisInput {

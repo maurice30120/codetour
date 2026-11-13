@@ -113,6 +113,8 @@ export async function buildRelationGraph(
   const nodeById = new Map<string, GraphNode>();
   const byName = new Map<string, GraphNode[]>();
   const byShortName = new Map<string, GraphNode[]>();
+  /** Side index of RawNode.ownerKind (the public node shape of #149 is unchanged). */
+  const ownerKindById = new Map<string, string>();
 
   const addNode = (raw: RawNode): GraphNode | undefined => {
     const id = `${raw.filePath}:${raw.startLine}:${raw.name}`;
@@ -126,6 +128,7 @@ export async function buildRelationGraph(
     if (!budget.trySpend(JSON.stringify(node))) return undefined;
     nodes.push(node);
     nodeById.set(id, node);
+    if (raw.ownerKind) ownerKindById.set(id, raw.ownerKind);
     pushTo(byName, raw.name, node);
     pushTo(byShortName, shortName(raw.name), node);
     return node;
@@ -232,6 +235,40 @@ export async function buildRelationGraph(
       const callerNode = callerNodeOf(call);
       const isSuper = call.syntax === "super" || call.receiver === "super";
       const effectiveSyntax: RawCallSite["syntax"] = isSuper ? "super" : call.syntax;
+
+      // Pack-proven receiver type (declared types, `var` inference, `using`
+      // aliases — e.g. the C# pack of #152): resolve `receiverType.name`
+      // against the whole local graph first. Exactly one candidate -> edge;
+      // anything else -> ambiguity site, never a guessed edge.
+      if (call.receiverType && effectiveSyntax === "call") {
+        const typed = byName.get(`${call.receiverType}.${call.name}`) ?? [];
+        if (typed.length === 1 && callerNode) {
+          const isInterface = ownerKindById.get(typed[0].id) === "interface";
+          addEdge({
+            from: callerNode.id,
+            to: typed[0].id,
+            line: call.line,
+            kind: "call",
+            // Spec #149 story 16: through an interface the relation is asserted
+            // toward the port (IRepository.Find) with a heuristic status, never
+            // toward an implementation (DatabaseRepository.Find).
+            callType: isInterface ? "interface" : "direct",
+            status: isInterface ? "heuristic" : "resolved",
+            filePath: call.file
+          });
+        } else {
+          const candidates = typed.length > 0 ? typed : byShortName.get(call.name) ?? [];
+          addSite({
+            file: call.file,
+            line: call.line,
+            name: call.name,
+            caller: callerLabel(call),
+            candidates: candidates.map(n => n.name),
+            status: candidates.length > 0 ? "ambiguous" : "unresolved"
+          });
+        }
+        continue;
+      }
 
       // A plain call to a name that is a declared class in the local graph is
       // class usage (Python instantiation idiom `X(...)`; harmless in typed
