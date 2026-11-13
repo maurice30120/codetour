@@ -116,10 +116,12 @@ function runCli(args, cwd, { detached = false } = {}) {
   });
 }
 
-async function select(session, prompt, choices) {
-  if (!session.capabilities?.ui?.elicitation) throw new Error("This choice requires an interactive Copilot session; use /codetour generate project or /codetour generate changes neutral|critical, or specify a Tour title.");
-  // Labels carry their number for the CLI, and the answer maps back through
-  // its index so the offered order stays the single source of truth.
+// The adapter's only menu implementation: labels carry their number for the
+// CLI, and the answer maps back through its index so the offered order stays
+// the single source of truth. Returns the zero-based index, or null when the
+// user cancels.
+async function select(session, prompt, choices, unavailable = "This choice requires an interactive Copilot session; use /codetour generate project or /codetour generate changes neutral|critical, or specify a Tour title.") {
+  if (!session.capabilities?.ui?.elicitation) throw new Error(unavailable);
   const labels = choices.map((label, index) => `${index + 1}. ${label}`);
   const answer = await session.ui.select(prompt, labels);
   if (answer === null || answer === undefined) return null;
@@ -206,11 +208,10 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
     } else {
       const tours = JSON.parse(await runCli(["--internal-list-tours"], cwd));
       if (tours.length > 1) {
-        if (!session.capabilities?.ui?.elicitation) throw new Error("Tour selection requires an interactive Copilot session; specify a Tour title.");
-        const labels = tours.map((tour, i) => `${i + 1}. ${tour.title}`);
-        const choice = await session.ui.select("Select a CodeTour", labels);
-        if (choice === null || choice === undefined) return;
-        const chosen = tours[labels.indexOf(choice)];
+        const choice = await select(session, "Select a CodeTour", tours.map(tour => tour.title),
+          "Tour selection requires an interactive Copilot session; specify a Tour title.");
+        if (choice === null) return;
+        const chosen = tours[choice];
         if (!chosen) throw new Error("Invalid Tour selection.");
         selected = chosen;
       } else {

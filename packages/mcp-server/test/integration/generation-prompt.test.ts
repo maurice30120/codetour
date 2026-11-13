@@ -119,6 +119,21 @@ test("serves the Project Tour generation prompt resource", async () => {
       assert.ok(!text.includes("review mode"));
       assert.ok(!text.includes("neutral"));
       assert.ok(!text.includes("critical"));
+      // Anchors are recommended as a stable pattern or a line verified in
+      // the analyzed HEAD, never a guessed line number — the same guidance
+      // the Changes Tour prompt carries.
+      assert.ok(
+        text.includes("stable pattern"),
+        "the prompt recommends anchoring with a stable pattern"
+      );
+      assert.ok(
+        text.includes("verified"),
+        "the prompt accepts a line verified in the analyzed HEAD"
+      );
+      assert.ok(
+        text.includes("guess"),
+        "the prompt warns against guessed line numbers"
+      );
       // The prompt ends with the announcement step for the created tour.
       assertAnnouncementStep(text, "dryRun omitted to persist");
       assertUnavailableToolGuidance(text);

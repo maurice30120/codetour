@@ -573,6 +573,29 @@ test("an elicited choice resolves duplicate Tour titles by identity", async () =
   });
 });
 
+test("the Tour list reuses the adapter's numbered selection menu", async () => {
+  const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
+  await withRecordingCli(root, async recorded => {
+    const menus = [];
+    const session = {capabilities:{ui:{elicitation:true}},
+      ui:{select: async (prompt, choices) => {
+        menus.push([prompt, choices]);
+        return prompt === "Select a CodeTour" ? choices[1] : "2. Read";
+      }},
+      log: async () => {}};
+    await runCodeTourCommand(session, "", root);
+    // One menu implementation: every choice, the Tour list included, is
+    // labelled with its number and answered through its position.
+    assert.deepEqual(menus, [
+      ["Read or generate a CodeTour?", ["1. Generate", "2. Read"]],
+      ["Select a CodeTour", ["1. First Tour", "2. Second Tour"]]
+    ]);
+    const calls = await recordedReaderArgs(recorded);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].slice(-2), ["--renderer", "terminal"]);
+  });
+});
+
 test("cancelling Tour selection never launches a reader", async () => {
   const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
   await withRealCli(root, async output => {

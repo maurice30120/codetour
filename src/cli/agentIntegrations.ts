@@ -54,6 +54,8 @@ function copilotExtensionDirectory(): string {
     path.join(os.homedir(), ".copilot", "extensions", "codetour");
 }
 
+// One MCP server entry as read from a user configuration. Foreign entries stay
+// loose: Copilot owns their shape and this CLI never interprets it.
 interface CopilotMcpServer {
   type?: string;
   command?: string;
@@ -61,6 +63,15 @@ interface CopilotMcpServer {
   tools?: string[];
   [key: string]: unknown;
 }
+
+// The entry this CLI writes, with every field the launch contract needs. The
+// strict shape removes the non-null assertions a loose read type would force.
+type CodetourMcpEntry = {
+  type: "local";
+  command: string;
+  args: string[];
+  tools: string[];
+};
 
 interface CopilotMcpConfig {
   mcpServers?: Record<string, CopilotMcpServer>;
@@ -78,9 +89,16 @@ async function readCopilotMcpConfig(file: string): Promise<CopilotMcpConfig> {
   let raw: string;
   try {
     raw = await fs.readFile(file, "utf8");
-  } catch {
-    // No user configuration yet: the install creates its own file.
-    return {};
+  } catch (error) {
+    // Only a missing file means "no user configuration yet": the install
+    // creates its own. Every other read error (permissions, a directory at
+    // that path, an unmounted home) is reported instead of being treated as an
+    // empty configuration the install may overwrite.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
+    throw new Error(
+      `Could not read ${file} (${error instanceof Error ? error.message : String(error)}). ` +
+      "Fix its path or permissions and run the command again; the file was left untouched so no configured MCP server is lost."
+    );
   }
   try {
     return JSON.parse(raw) as CopilotMcpConfig;
@@ -92,8 +110,15 @@ async function readCopilotMcpConfig(file: string): Promise<CopilotMcpConfig> {
 }
 
 async function writeCopilotMcpConfig(file: string, config: CopilotMcpConfig): Promise<void> {
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+  try {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+  } catch (error) {
+    throw new Error(
+      `Could not write ${file} (${error instanceof Error ? error.message : String(error)}). ` +
+      "Fix its path or permissions and run the command again."
+    );
+  }
 }
 
 // The launcher registered for Copilot must start the CLI that ran the install,
@@ -101,29 +126,50 @@ async function writeCopilotMcpConfig(file: string, config: CopilotMcpConfig): Pr
 // lack the `mcp` command, leaving the session without tools. A Node-script CLI
 // (npm bin, development build, standalone launcher) is addressed through its
 // runtime and absolute script path; a native executable is addressed directly.
-function codetourMcpEntry(): CopilotMcpServer {
+function codetourMcpEntry(): CodetourMcpEntry {
   const script = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
-  const [command, args] =
+  const [command, args]: [string, string[]] =
     script && existsSync(script) && /\.[cm]?js$/i.test(script)
       ? [process.execPath, [script, "mcp"]]
       : ["codetour", ["mcp"]];
   return { type: "local", command, args, tools: ["*"] };
 }
 
-function isCodetourMcpEntry(entry: CopilotMcpServer | undefined): boolean {
-  // Ownership: the entry this CLI writes is a local stdio server ending in the
-  // reserved `mcp` command. A same-named entry configured another way is left
-  // alone by uninstall.
-  return !!entry &&
-    (entry.type === "local" || entry.type === undefined) &&
-    typeof entry.command === "string" &&
-    Array.isArray(entry.args) &&
-    entry.args[entry.args.length - 1] === "mcp";
+function sameValues(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function verifyCodetourMcpEntry(entry: CopilotMcpServer): void {
-  const invocation = [entry.command, ...(entry.args ?? [])].join(" ");
-  const probe = spawnSync(entry.command!, [...(entry.args ?? []), "--version"], {
+// Canonical equality for the entry this CLI writes. JSON key order is not part
+// of an installation, and Copilot's `local` transport is the default when
+// `type` is absent, so both forms describe the same server and neither may
+// trigger a rewrite. The fields that define the launch contract are compared
+// one by one, never through a serialization of the whole object.
+function isCurrentCodetourMcpEntry(
+  entry: CopilotMcpServer | undefined,
+  expected: CodetourMcpEntry
+): boolean {
+  if (!entry) return false;
+  return (entry.type ?? expected.type) === expected.type &&
+    entry.command === expected.command &&
+    Array.isArray(entry.args) && sameValues(entry.args, expected.args) &&
+    Array.isArray(entry.tools) && sameValues(entry.tools, expected.tools);
+}
+
+// Ownership: the uninstall removes exactly the entry this CLI writes, or the
+// documented `codetour mcp` launcher — the stable launch contract of the
+// standalone CLI. A same-named server launched another way belongs to another
+// installation and is preserved: "a local entry whose last argument is mcp" is
+// far too broad and would delete a foreign server.
+function isCodetourMcpEntry(entry: CopilotMcpServer | undefined): boolean {
+  if (!entry || (entry.type ?? "local") !== "local") return false;
+  if (typeof entry.command !== "string" || !Array.isArray(entry.args)) return false;
+  return (entry.command === "codetour" && sameValues(entry.args, ["mcp"])) ||
+    isCurrentCodetourMcpEntry(entry, codetourMcpEntry());
+}
+
+function verifyCodetourMcpEntry(entry: CodetourMcpEntry): void {
+  const invocation = [entry.command, ...entry.args].join(" ");
+  const probe = spawnSync(entry.command, [...entry.args, "--version"], {
     encoding: "utf8", windowsHide: true, timeout: 15000
   });
   if (probe.status !== 0) {
@@ -157,6 +203,42 @@ async function copilotFileStates(directory: string): Promise<FileState[]> {
   return states;
 }
 
+// Read a managed adapter file for the rollback snapshot. Only a missing file is
+// `undefined`; an unreadable file stops the install before its first write
+// instead of being recorded as "did not exist" and deleted by a rollback.
+async function readCopilotFile(target: string): Promise<string | undefined> {
+  try {
+    return await fs.readFile(target, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+// A failed install puts the adapter back as it found it: files that existed get
+// their previous content, files this install created are removed. The returned
+// names are the ones a best-effort restore could not repair, so the caller can
+// report them instead of claiming a clean rollback.
+async function restoreCopilotFiles(
+  directory: string,
+  previous: Map<string, string | undefined>
+): Promise<string[]> {
+  const unrestored: string[] = [];
+  for (const [name, content] of previous) {
+    const target = path.join(directory, name);
+    try {
+      if (content === undefined) {
+        await fs.rm(target, { force: true });
+      } else {
+        await fs.writeFile(target, content, "utf8");
+      }
+    } catch {
+      unrestored.push(name);
+    }
+  }
+  return unrestored;
+}
+
 const copilotIntegration: AgentIntegration = {
   id: "copilot",
   displayName: "GitHub Copilot CLI",
@@ -175,13 +257,14 @@ const copilotIntegration: AgentIntegration = {
     const mcpFile = copilotMcpConfigPath();
     let registered = false;
     let current = false;
+    let entry: CopilotMcpServer | undefined;
     let unreadable: string | undefined;
     try {
-      const entry = (await readCopilotMcpConfig(mcpFile)).mcpServers?.codetour;
+      entry = (await readCopilotMcpConfig(mcpFile)).mcpServers?.codetour;
       registered = isCodetourMcpEntry(entry);
       // The registered launcher must be the one this CLI would write now: an
       // entry left by another installation can point at a stale CLI.
-      current = registered && JSON.stringify(entry) === JSON.stringify(codetourMcpEntry());
+      current = registered && isCurrentCodetourMcpEntry(entry, codetourMcpEntry());
     } catch (error) {
       unreadable = error instanceof Error ? error.message : String(error);
     }
@@ -205,8 +288,11 @@ const copilotIntegration: AgentIntegration = {
         state: "incomplete" as const,
         detail: unreadable
           ? `The adapter files are installed in ${directory}, but ${unreadable}`
-          : `The adapter files are installed in ${directory}, but the 'codetour' MCP server is missing from ${mcpFile}. ` +
-            "Re-run 'codetour --install copilot' so Copilot exposes 'codetour-create_project_tour' and 'codetour-create_changes_tour'."
+          : entry
+            ? `The adapter files are installed in ${directory}, but the 'codetour' entry in ${mcpFile} was configured another way and left untouched. ` +
+              "Re-run 'codetour --install copilot' to register the launcher of this CLI."
+            : `The adapter files are installed in ${directory}, but the 'codetour' MCP server is missing from ${mcpFile}. ` +
+              "Re-run 'codetour --install copilot' so Copilot exposes 'codetour-create_project_tour' and 'codetour-create_changes_tour'."
       };
     }
     if (allMissing && !registered) {
@@ -227,33 +313,56 @@ const copilotIntegration: AgentIntegration = {
     const directory = copilotExtensionDirectory();
     const states = await copilotFileStates(directory);
     const differing = states.filter(file => file.state === "modified").map(file => file.name);
-    await fs.mkdir(directory, { recursive: true });
-    for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
-      const target = path.join(directory, name);
-      await fs.writeFile(target, content, "utf8");
-      // Verify the written file and its path before reporting success.
-      if (await fs.readFile(target, "utf8") !== content) {
-        throw new Error(`Could not verify ${target} after installation.`);
+    const entry = codetourMcpEntry();
+    // Everything that can refuse the install runs before the first write: the
+    // verified launch contract and the user configuration this install must
+    // preserve. A refusal then leaves no partial installation behind.
+    verifyCodetourMcpEntry(entry);
+    const mcpFile = copilotMcpConfigPath();
+    const mcpConfig = await readCopilotMcpConfig(mcpFile);
+    const previous = new Map<string, string | undefined>();
+    for (const name of Object.keys(COPILOT_EXTENSION_FILES)) {
+      previous.set(name, await readCopilotFile(path.join(directory, name)));
+    }
+    const registered = isCurrentCodetourMcpEntry(mcpConfig.mcpServers?.codetour, entry);
+    try {
+      await fs.mkdir(directory, { recursive: true });
+      for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
+        const target = path.join(directory, name);
+        await fs.writeFile(target, content, "utf8");
+        // Verify the written file and its path before reporting success.
+        if (await fs.readFile(target, "utf8") !== content) {
+          throw new Error(`Could not verify ${target} after installation.`);
+        }
       }
+      // The extension also joins the session with its own MCP server, but that
+      // registration is invisible and can be lost with the extension process.
+      // The documented user configuration makes the tools discoverable on its
+      // own, whatever the extension mode or install state.
+      if (!registered) {
+        mcpConfig.mcpServers = { ...mcpConfig.mcpServers, codetour: entry };
+        await writeCopilotMcpConfig(mcpFile, mcpConfig);
+      }
+    } catch (error) {
+      // Adapter files are already written: put the previous state back so a
+      // failed install never leaves half a registration.
+      const unrestored = await restoreCopilotFiles(directory, previous);
+      if (unrestored.length) {
+        throw new Error(
+          `${error instanceof Error ? error.message : String(error)} ` +
+          `The previous adapter files could not be fully restored (${unrestored.join(", ")}); ` +
+          "re-run 'codetour --install copilot' once the cause is fixed."
+        );
+      }
+      throw error;
     }
     if (differing.length) {
       console.log(`Replaced differing adapter files (${differing.join(", ")}) in ${directory}.`);
     }
     console.log(`Installed the CodeTour adapter in ${directory}.`);
-    // The extension also joins the session with its own MCP server, but that
-    // registration is invisible and can be lost with the extension process.
-    // The documented user configuration makes the tools discoverable on its
-    // own, whatever the extension mode or install state.
-    const mcpFile = copilotMcpConfigPath();
-    const mcpConfig = await readCopilotMcpConfig(mcpFile);
-    const entry = codetourMcpEntry();
-    verifyCodetourMcpEntry(entry);
-    const registered = JSON.stringify(mcpConfig.mcpServers?.codetour) === JSON.stringify(entry);
     if (registered) {
       console.log(`The 'codetour' MCP server is already registered in ${mcpFile}.`);
     } else {
-      mcpConfig.mcpServers = { ...mcpConfig.mcpServers, codetour: entry };
-      await writeCopilotMcpConfig(mcpFile, mcpConfig);
       console.log(`Registered the 'codetour' MCP server in ${mcpFile}.`);
     }
     console.log("Start 'copilot --experimental' in a trusted Git worktree, accept the extension");
@@ -282,7 +391,8 @@ const copilotIntegration: AgentIntegration = {
       if (file.state === "current") await fs.rm(path.join(directory, file.name));
     }
     const remaining = await fs.readdir(directory).catch(() => [] as string[]);
-    if (!remaining.length) await fs.rmdir(directory);
+    // Idempotent: the directory may already be gone from an earlier uninstall.
+    if (!remaining.length) await fs.rmdir(directory).catch(() => undefined);
     console.log(`Removed the CodeTour adapter from ${directory}.`);
     const mcpFile = copilotMcpConfigPath();
     let mcpConfig: CopilotMcpConfig;
@@ -294,8 +404,9 @@ const copilotIntegration: AgentIntegration = {
       console.log(`Left ${mcpFile} untouched: ${error instanceof Error ? error.message : String(error)}`);
       return;
     }
-    if (isCodetourMcpEntry(mcpConfig.mcpServers?.codetour)) {
-      delete mcpConfig.mcpServers!.codetour;
+    const servers = mcpConfig.mcpServers;
+    if (servers && isCodetourMcpEntry(servers.codetour)) {
+      delete servers.codetour;
       await writeCopilotMcpConfig(mcpFile, mcpConfig);
       console.log(`Removed the 'codetour' MCP server from ${mcpFile}.`);
     }
