@@ -50,7 +50,15 @@ function listRegisteredTools(
       lines.close();
       child.stdin.end();
       child.kill();
-      if (error) reject(error); else resolve(tools!);
+      if (error) {
+        reject(error);
+        return;
+      }
+      // Windows releases the child's working-directory handle on exit, not on
+      // kill(); the caller removes that temporary directory next. Wait for the
+      // exit before resolving so the cleanup cannot race the server process.
+      if (child.exitCode !== null) resolve(tools!);
+      else child.once("exit", () => resolve(tools!));
     };
     const timer = setTimeout(() => finish(new Error(`MCP handshake timed out. ${stderr}`)), 15000);
     const send = (message: object) => child.stdin.write(JSON.stringify({ jsonrpc: "2.0", ...message }) + "\n");
@@ -166,7 +174,9 @@ test("the registered server exposes the creation tools Copilot prefixes with its
       ["codetour-create_changes_tour", "codetour-create_project_tour"]
     );
   } finally {
-    rmSync(workspace, { recursive: true, force: true });
+    // Windows may still hold the temp directory for a moment after the child
+    // exits; retry the cleanup instead of failing the test on EPERM.
+    rmSync(workspace, { recursive: true, force: true, maxRetries: 50, retryDelay: 100 });
   }
 });
 
