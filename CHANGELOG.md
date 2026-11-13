@@ -48,6 +48,19 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
   surfaces, and the terminal's chat benefits from the ordered ACP provider
   failover previously extension-only. See ADR 0031.
 
+### Fixed
+
+- `codetour --install copilot` now registers the `codetour` MCP server in
+  `~/.copilot/mcp-config.json` with the absolute launcher of the installed
+  CLI, so `codetour-create_project_tour` and `codetour-create_changes_tour`
+  are discoverable in a session even when the extension process does not
+  register them. Foreign servers are preserved, an identical entry is not
+  rewritten, an unreadable file is left untouched, and the uninstall removes
+  only the entry it configured. `--agents` and `--doctor` report a missing
+  registration as `incomplete` with the repair command, the adapter names an
+  unreachable MCP server explicitly, and the served generation prompts stop
+  with that cause instead of answering as if a Tour had been created.
+
 ## v0.1.2
 
 ### Added

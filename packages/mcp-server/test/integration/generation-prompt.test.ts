@@ -63,6 +63,33 @@ function assertAnnouncementStep(text: string, persistenceClause: string): void {
   );
 }
 
+// When the session has no CodeTour tool at all, the agent must stop before
+// analyzing and name the cause, rather than silently producing a text answer
+// that looks like a Tour. The prompt carries the repair path the installer
+// documents, so the user can act without reading the adapter source.
+function assertUnavailableToolGuidance(text: string): void {
+  assert.ok(
+    /MCP server/i.test(text),
+    "the prompt must name the missing CodeTour MCP server"
+  );
+  assert.ok(
+    /not (?:registered|available|connected)/i.test(text),
+    "the prompt must distinguish an unregistered server from an unknown tool name"
+  );
+  assert.ok(
+    text.includes("codetour --install copilot"),
+    "the prompt must give the repair command"
+  );
+  assert.ok(
+    text.includes("copilot mcp list"),
+    "the prompt must give the verification command"
+  );
+  assert.ok(
+    /stop/i.test(text),
+    "the prompt must stop the run instead of continuing without the tool"
+  );
+}
+
 async function readResourceText(
   client: Client,
   uri: string
@@ -94,6 +121,7 @@ test("serves the Project Tour generation prompt resource", async () => {
       assert.ok(!text.includes("critical"));
       // The prompt ends with the announcement step for the created tour.
       assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertUnavailableToolGuidance(text);
     });
   } finally {
     rmrf(root);
@@ -163,6 +191,7 @@ test("serves the neutral Changes Tour generation prompt", async () => {
       );
       // The prompt ends with the announcement step for the created tour.
       assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertUnavailableToolGuidance(text);
     });
   } finally {
     rmrf(root);
@@ -197,6 +226,7 @@ test("serves the critical Changes Tour generation prompt with the embedded skill
       assert.ok(text.includes("before any analysis"));
       // Critical mode ends with the same announcement step.
       assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertUnavailableToolGuidance(text);
     });
   } finally {
     rmrf(root);

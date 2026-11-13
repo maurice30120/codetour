@@ -86,8 +86,16 @@ detection, existing-installation checks and per-file verification. The
 adapter files travel embedded inside the CLI bundle, so the install works
 from any directory with no dependency on this repository. A pre-existing
 installation whose content differs is replaced directly, and the install
-reports which files it replaced. `codetour --uninstall copilot`
-removes only the files this CLI owns, leaving any other file untouched.
+reports which files it replaced. The install also registers the `codetour`
+MCP server in `~/.copilot/mcp-config.json`, launched by the installed
+launcher (`codetour mcp` through its absolute runtime and script path), so
+the two creation tools are discoverable in a Copilot session even when the
+extension process does not join. Existing MCP servers are preserved and an
+identical entry is not rewritten. `codetour --uninstall copilot`
+removes only the files and the MCP entry this CLI owns, leaving any other
+file or server untouched. `CODETOUR_COPILOT_MCP_CONFIG` overrides the
+configuration path, and `codetour --agents` or `codetour --doctor` reports a
+missing registration as an incomplete integration.
 
 `codetour --install vscode` installs the CodeTour VS Code extension through
 the `code` CLI when a `.vsix` is found next to the launcher or in the current
