@@ -346,6 +346,60 @@ test("an orientation phrase elicits the Tour type then orients the run", async (
   }
 });
 
+test("a mistyped Tour type fails with a usage message instead of orienting the Tour", async () => {
+  for (const [raw, typed] of [["generate chages", "chages"], ["generate changse neutral", "changse"], ["generate projet", "projet"], ["generate Changes.", "Changes"]]) {
+    const events = [];
+    const errors = [];
+    let sent;
+    await runCodeTourCommand({
+      capabilities: {ui: {elicitation: true}},
+      ui: {
+        select: async prompt => { events.push(prompt); return "Project Tour"; },
+        input: async prompt => { events.push(prompt); return ""; }
+      },
+      send: async options => { sent = options; },
+      log: async message => { errors.push(message); events.push(message); }
+    }, raw);
+    assert.equal(sent, undefined, `${raw} must not start a generation`);
+    assert.equal(errors.length, 1, `${raw} must report a single usage error`);
+    assert.match(errors[0], new RegExp(`Unknown Tour type "${typed}"`));
+    assert.match(errors[0], /\/codetour generate project\|changes/, `${raw} must state the accepted forms`);
+    assert.ok(!events.includes("Which type of Tour?"), `${raw} must fail before eliciting a type`);
+  }
+});
+
+test("a free orientation phrase that does not name a type stays an orientation", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    let sent;
+    await runCodeTourCommand({
+      capabilities: {ui: {elicitation: true}},
+      ui: {select: async prompt => prompt === "Which type of Tour?" ? "Changes Tour" : "Critical"},
+      send: async options => { sent = options; },
+      log: async text => assert.fail(text)
+    }, "generate Changements récents dans le module de paiement.");
+    assert.ok(sent);
+    assert.match(sent.prompt, /create_changes_tour/);
+    assert.match(sent.prompt, /Changements récents dans le module de paiement\./);
+    assert.match(sent.prompt, /Tour orientation from the user/);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+  }
+});
+
+test("a quoted \"generate\" title is read instead of starting a generation", async () => {
+  const root = createTourWorkspace([["a", "generate"]]);
+  await withRecordingCli(root, async recorded => {
+    const messages = [];
+    await runCodeTourCommand({capabilities:{}, send: async () => assert.fail("A quoted title must not start a generation"),
+      log: async message => messages.push(message)}, '"generate" --renderer html', root);
+    const calls = await recordedReaderArgs(recorded);
+    assert.equal(calls.length, 1);
+    assert.match(messages.join("\n"), /Starting CodeTour: generate \(html\)\./);
+  });
+});
+
 for (const cancelAt of [0, 1, 2]) test(`cancelling generation choice ${cancelAt + 1} never starts analysis`, async () => {
   const choices = ["Generate", "Changes Tour", "Critical"];
   let count = 0;

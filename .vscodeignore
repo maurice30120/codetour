@@ -1,5 +1,6 @@
 .tours/**
 .vscode/**
+.githooks/**
 node_modules/**
 packages/mcp-server/**
 packages/description-renderer/**

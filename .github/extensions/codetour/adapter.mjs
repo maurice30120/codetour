@@ -124,6 +124,27 @@ async function select(session, prompt, choices) {
   return answer;
 }
 
+// A first word after "generate" is normally the start of the free orientation
+// phrase. A word within two edits of a Tour type is treated as a mistyped type
+// instead, so "/codetour generate chages" fails with a usage message rather
+// than silently orienting the Tour. An orientation that really starts with
+// such a word follows an explicit type, which is unambiguous.
+const tourTypes = ["project", "changes"];
+function editDistance(a, b) {
+  let previous = Array.from({length: b.length + 1}, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j++)
+      current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    previous = current;
+  }
+  return previous[b.length];
+}
+function looksLikeTourType(word) {
+  const normalized = word.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
+  return normalized.length >= 4 && tourTypes.some(type => editDistance(normalized, type) <= 2);
+}
+
 export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
   try {
     let input = (raw || "").trim();
@@ -133,6 +154,10 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
     // the adapter interprets nothing in it.
     const explicit = input.match(/^generate(?:\s+(project|changes)(?:\s+(neutral|critical))?)?(?:\s+(\S.*))?$/);
     let action = explicit ? "Generate" : "Read";
+    const firstWord = explicit?.[3]?.split(/\s+/)[0]?.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, "");
+    if (!explicit?.[1] && firstWord && looksLikeTourType(firstWord)) {
+      throw new Error(`Unknown Tour type "${firstWord}"; use /codetour generate project|changes [neutral|critical] <orientation>.`);
+    }
     if (!input) {
       action = await select(session, "Read or generate a CodeTour?", ["Read", "Generate"]);
       if (!action) return;
