@@ -40,6 +40,13 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Changed
 
+- The terminal reader is the default renderer: `codetour` and `/codetour` open
+  the interactive terminal Tour without a flag, and `--renderer html` selects
+  the HTML page explicitly.
+- `/codetour` asks its choices as numbered menus, ordered Generate first:
+  `1. Generate` / `2. Read`, then `1. Project Tour` / `2. Changes Tour` and
+  `1. Neutral` / `2. Critical`. An answer maps by its position, so the offered
+  order stays the single source of truth and a typo never starts a generation.
 - One Tour Step Conversation store above the responder seam, shared by the
   extension chat and the terminal reader: each surface keeps only the way it
   paints the exchanges. The interruption now works in the terminal too —
@@ -55,11 +62,14 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
   CLI, so `codetour-create_project_tour` and `codetour-create_changes_tour`
   are discoverable in a session even when the extension process does not
   register them. Foreign servers are preserved, an identical entry is not
-  rewritten, an unreadable file is left untouched, and the uninstall removes
-  only the entry it configured. `--agents` and `--doctor` report a missing
-  registration as `incomplete` with the repair command, the adapter names an
-  unreachable MCP server explicitly, and the served generation prompts stop
-  with that cause instead of answering as if a Tour had been created.
+  rewritten — whatever the JSON key order — only a missing file counts as "no
+  configuration yet", and the uninstall removes only the entry it configured.
+  The launcher is verified before the first write, and a failed registration
+  restores the previous adapter files. `--agents` and `--doctor` report a
+  missing registration as `incomplete` with the repair command, the adapter
+  names an unreachable MCP server explicitly, and the served generation prompts
+  stop with that cause instead of answering as if a Tour had been created. See
+  ADR 0034.
 
 ## v0.1.2
 

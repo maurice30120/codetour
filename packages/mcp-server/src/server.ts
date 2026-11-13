@@ -468,8 +468,9 @@ function projectTourGenerationPrompt(): string {
       "they collaborate — rather than a flat file listing. One step covers one idea.",
     "- Anchor each explanation at the code that justifies it (Tour Anchor: file with " +
       "line, pattern, or selection, a directory for structural orientation, or no " +
-      "locator for general context), preferring a short, stable pattern over a line " +
-      "number so the anchor survives edits.",
+      "locator for general context). Anchor with a short, stable pattern, or a line " +
+      "you have verified in the analyzed head snapshot, rather than a guessed line " +
+      "number, so the anchor survives edits.",
     "- Propose the tour with the `create_project_tour` tool. Rehearse first: call the " +
       "tool once with dryRun true, correct every reported validation issue, then call " +
       "again with dryRun omitted to persist the tour.",

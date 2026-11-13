@@ -10,5 +10,5 @@
 - [ ] The TUI displays a real Tour's selected Tour Step, progress and previous/next/finish controls with keyboard-driven navigation and scrolling.
 - [ ] The same discovery, Tour selection and step state are used in both renderers; the terminal does not persist current progress into the Tour file.
 - [ ] A missing or unsupported terminal host is diagnosed explicitly; no hidden reliance on Copilot CLI or VS Code is introduced.
-- [ ] HTML remains the default, and the terminal renderer is selected only through the explicit flag.
+- [ ] The terminal renderer is the default (`codetour` opens it without a flag), and the HTML renderer is selected only through `--renderer html`.
 - [ ] An automated pseudo-terminal test drives the real reader; platform-specific window-launch behavior is smoke-tested on Windows and macOS.
