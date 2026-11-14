@@ -18,6 +18,7 @@
   "files": [
     "dist/src",
     "dist/node_modules/codetour-description-renderer",
+    "dist/node_modules/codetour-relation-graph",
     "dist/package.json",
     "dist/schema.json",
     "schema.json",
@@ -29,9 +30,9 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node ../../scripts/stage-mcp-renderer.js",
+    "build": "tsc -p tsconfig.json && node ../../scripts/stage-mcp-renderer.js && node ../../scripts/stage-mcp-relation-graph.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepack": "node ../../scripts/stage-mcp-renderer.js",
+    "prepack": "node ../../scripts/stage-mcp-renderer.js && node ../../scripts/stage-mcp-relation-graph.js",
     "test": "npm run build && node ../../scripts/run-compiled-tests.js dist/test",
     "start": "node dist/src/main.js"
   },
@@ -40,9 +41,12 @@
     "@resvg/resvg-js": "2.6.2",
     "ajv": "^6.12.6",
     "codetour-description-renderer": "file:../description-renderer",
+    "codetour-relation-graph": "file:../relation-graph",
     "jsdom": "26.1.0",
     "mermaid": "11.12.2",
     "safe-regex2": "^5.1.1",
+    "tree-sitter-wasms": "0.1.13",
+    "web-tree-sitter": "~0.25.10",
     "zod": "^3.25.76"
   },
   "devDependencies": {

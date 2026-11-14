@@ -30,6 +30,13 @@ const config = {
         __dirname,
         "packages/description-renderer/dist/src/index.js"
       ),
+      // The relation graph (spec #149) is bundled from its freshly built dist,
+      // like the renderer; its .wasm grammars ship as assets under
+      // dist/tree-sitter-wasm (scripts/prepare-tree-sitter-wasm.js).
+      "codetour-relation-graph": path.resolve(
+        __dirname,
+        "packages/relation-graph/dist/src/index.js"
+      ),
       // The CLI bundle embeds the shared MCP server entry exactly once, from
       // the same source as the npm binary and the VSIX server bundle.
       "codetour-mcp": path.resolve(
@@ -87,6 +94,26 @@ const mcpConfig = {
   externals: {
     "@resvg/resvg-js": RESVG_EXTERNAL,
     ...OPTIONAL_NATIVE_EXTERNALS
+  },
+  // Keep the real __dirname/__filename in the bundle: the relation-graph seam
+  // (spec #149, #155) resolves the staged .wasm assets under
+  // <bundle dir>/tree-sitter-wasm and builds a createRequire from __filename.
+  node: {
+    __filename: false,
+    __dirname: false
+  },
+  resolve: {
+    extensions: [".js", ".json"],
+    alias: {
+      "codetour-description-renderer": path.resolve(
+        __dirname,
+        "packages/description-renderer/dist/src/index.js"
+      ),
+      "codetour-relation-graph": path.resolve(
+        __dirname,
+        "packages/relation-graph/dist/src/index.js"
+      )
+    }
   },
   devtool: "source-map",
   output: {

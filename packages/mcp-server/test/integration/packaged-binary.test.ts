@@ -85,43 +85,52 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
         path.join(packageRoot, "node_modules", "jsdom"),
         path.join(packageRoot, "node_modules", "mermaid"),
         path.join(packageRoot, "node_modules", "safe-regex2"),
+        path.join(packageRoot, "node_modules", "tree-sitter-wasms"),
+        path.join(packageRoot, "node_modules", "web-tree-sitter"),
         path.join(packageRoot, "node_modules", "zod"),
       ],
       sandbox,
       npmCache
     );
 
-    // The shared renderer is a local monorepo package, so npm pack cannot
-    // carry its sibling path dependency into the isolated consumer. Seed the
-    // consumer with the already-built package and its already-installed
-    // dependency tree, preserving the test's fully offline contract.
-    const rendererRoot = path.join(packageRoot, "..", "description-renderer");
-    const rendererTarget = path.join(
-      installationRoot,
-      "node_modules",
-      "codetour-description-renderer"
-    );
-    let rendererIsAlreadyLinked = false;
-    try {
-      rendererIsAlreadyLinked = fs.lstatSync(rendererTarget).isSymbolicLink();
-    } catch {
-      // The package installer may not have created the local dependency.
-    }
-    if (rendererIsAlreadyLinked) {
-      fs.unlinkSync(rendererTarget);
-    }
-    if (!rendererIsAlreadyLinked || !fs.existsSync(rendererTarget)) {
-      fs.cpSync(rendererRoot, rendererTarget, {
-        recursive: true,
-        filter: (source) =>
-          path.basename(source) !== "node_modules" &&
-          !source.includes(`${path.sep}node_modules${path.sep}`),
-      });
-      fs.cpSync(
-        path.join(rendererRoot, "node_modules"),
-        path.join(installationRoot, "node_modules"),
-        { recursive: true }
+    // The shared local monorepo packages (renderer, relation graph) are
+    // sibling path dependencies, so npm pack cannot carry them into the
+    // isolated consumer. Seed the consumer with the already-built packages
+    // and their already-installed dependency trees, preserving the test's
+    // fully offline contract.
+    const localPackages = [
+      ["codetour-description-renderer", "description-renderer"],
+      ["codetour-relation-graph", "relation-graph"],
+    ] as const;
+    for (const [packageName, sibling] of localPackages) {
+      const localRoot = path.join(packageRoot, "..", sibling);
+      const localTarget = path.join(
+        installationRoot,
+        "node_modules",
+        packageName
       );
+      let isAlreadyLinked = false;
+      try {
+        isAlreadyLinked = fs.lstatSync(localTarget).isSymbolicLink();
+      } catch {
+        // The package installer may not have created the local dependency.
+      }
+      if (isAlreadyLinked) {
+        fs.unlinkSync(localTarget);
+      }
+      if (!isAlreadyLinked || !fs.existsSync(localTarget)) {
+        fs.cpSync(localRoot, localTarget, {
+          recursive: true,
+          filter: (source) =>
+            path.basename(source) !== "node_modules" &&
+            !source.includes(`${path.sep}node_modules${path.sep}`),
+        });
+        fs.cpSync(
+          path.join(localRoot, "node_modules"),
+          path.join(installationRoot, "node_modules"),
+          { recursive: true }
+        );
+      }
     }
 
     fs.mkdirSync(workspaceRoot, { recursive: true });
