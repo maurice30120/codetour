@@ -124,6 +124,9 @@ function main() {
     fs.copyFileSync(path.join(build, "cli.js.LICENSE.txt"), path.join(output, "dist", "cli.js.LICENSE.txt"));
     fs.copyFileSync(path.join(root, "node_modules", "@resvg", "resvg-js", "LICENSE"), path.join(output, "RESVG-LICENSE"));
     fs.cpSync(path.join(build, "resvg-runtime"), path.join(output, "dist", "resvg-runtime"), { recursive: true });
+    // The CLI bundle loads the tree-sitter grammars + runtime wasm from asset
+    // files next to it (they cannot be inlined in the bundle).
+    fs.cpSync(path.join(build, "tree-sitter-wasm"), path.join(output, "dist", "tree-sitter-wasm"), { recursive: true });
     // Copy only the external dependency closures, preserving npm's nested resolution.
     const modules = fs.realpathSync(path.join(root, "node_modules"));
     const visited = new Set();
