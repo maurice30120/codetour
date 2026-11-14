@@ -1,4 +1,5 @@
-import { estimateTokens, TokenBudget } from "./tokens";
+import { edgeKey, siteKey } from "./keys";
+import { TokenBudget } from "./tokens";
 import {
   DEFAULT_LIMITS,
   type AmbiguitySite,
@@ -9,10 +10,6 @@ import {
   type RelationPacket,
   type TruncationFlags
 } from "./types";
-
-function edgeKey(edge: GraphEdge): string {
-  return `${edge.from}|${edge.to}|${edge.kind}|${edge.callType}|${edge.filePath}|${edge.line}`;
-}
 
 /**
  * BFS of depth 1 around seed symbols (the relations packet of #149): seeds
@@ -110,7 +107,7 @@ export function selectDepth1(
   const siteKeys = new Set<string>();
   for (const site of graph.sites) {
     if (!packetNames.has(site.caller)) continue;
-    const key = `${site.file}|${site.line}|${site.name}|${site.caller}`;
+    const key = siteKey(site);
     if (siteKeys.has(key)) continue;
     if (!budget.trySpend(JSON.stringify(site))) continue;
     siteKeys.add(key);
@@ -137,6 +134,3 @@ export function selectDepth1(
     truncated
   };
 }
-
-// Re-exported for tests and for hosts that serialize packets.
-export { estimateTokens };

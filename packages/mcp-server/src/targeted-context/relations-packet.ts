@@ -154,6 +154,29 @@ function sourceLanguage(filePath: string): string {
   return ext.replace(/^\./, "") || "unknown";
 }
 
+/**
+ * The graph-level language label: the dominant per-file language of the
+ * selection (ties resolve to the first-seen language, so the label is
+ * deterministic). Per-file languages drive the analysis; this label only
+ * reports what the graph covers — it must not claim "typescript" for a
+ * Java-only selection.
+ */
+function dominantLanguage(languages: string[]): string {
+  const counts = new Map<string, number>();
+  for (const language of languages) {
+    counts.set(language, (counts.get(language) ?? 0) + 1);
+  }
+  let dominant = "unknown";
+  let best = -1;
+  for (const [language, count] of counts) {
+    if (count > best) {
+      dominant = language;
+      best = count;
+    }
+  }
+  return dominant;
+}
+
 export interface RelationsPacketInput {
   /** The selected sources with their content (the same scan pass as the symbol extraction). */
   sources: { path: string; content: string }[];
@@ -181,9 +204,11 @@ export async function buildRelationsPacket(
     language: sourceLanguage(source.path)
   }));
 
-  const graph: RelationGraph = await buildRelationGraph(sources, "typescript", {
-    limits: input.limits
-  });
+  const graph: RelationGraph = await buildRelationGraph(
+    sources,
+    dominantLanguage(sources.map(source => source.language ?? "unknown")),
+    { limits: input.limits }
+  );
   const packet: RelationPacket = selectDepth1(graph, input.seeds, input.limits);
 
   const contentsByPath = new Map(input.sources.map(s => [s.path, s.content]));
@@ -290,9 +315,6 @@ function buildSlices(
  * candidates, the explicit unsupported files, and the targeted slices.
  */
 export function formatRelationsPacketForPrompt(packet: RelationsPacket): string {
-  if (packet.status === "unsupported" && packet.edges.length === 0 && packet.sites.length === 0 && packet.nodes.length === 0) {
-    // Still explicit: never a silently empty packet.
-  }
   const parts: string[] = [];
   parts.push(`## Relations (depth 1)`);
   parts.push("");
@@ -302,6 +324,19 @@ export function formatRelationsPacketForPrompt(packet: RelationsPacket): string 
       `${packet.unsupportedFiles.length} unsupported file(s). ~${packet.tokens} tokens.`
   );
   parts.push("");
+
+  if (
+    packet.status === "unsupported" &&
+    packet.edges.length === 0 &&
+    packet.sites.length === 0 &&
+    packet.nodes.length === 0
+  ) {
+    // Explicit empty packet: never a silently empty section.
+    parts.push(
+      "No relations could be built: no language pack covers the selected file(s) (unsupported)."
+    );
+    parts.push("");
+  }
 
   const nameById = new Map(packet.nodes.map(n => [n.id, n.name]));
   if (packet.edges.length > 0) {

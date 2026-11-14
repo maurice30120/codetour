@@ -425,7 +425,7 @@ export async function extractSymbols(
   switch (normalizedLanguage) {
     case "typescript":
     case "javascript":
-      return extractSymbolsViaRelationGraph(code, normalizedLanguage);
+      return extractSymbolsViaRelationGraph(code);
     case "python":
       return extractSymbolsFromPython(code);
     case "java":
@@ -469,16 +469,15 @@ function toCodeSymbol(symbol: ExtractedSymbol): CodeSymbol {
 /**
  * The #155 delegation: parse through the prebuilt tree-sitter grammar of
  * codetour-relation-graph (JavaScript sources go through the TypeScript
- * grammar, as the spike did) and map onto the CodeSymbol contract.
+ * grammar, as the spike did) and map onto the CodeSymbol contract. The
+ * switch above routes only "typescript" and "javascript" here, so the pack
+ * language is always "typescript".
  */
 async function extractSymbolsViaRelationGraph(
-  code: string,
-  language: string
+  code: string
 ): Promise<CodeSymbol[]> {
-  const packLanguage =
-    language === "tsx" || language === "typescriptreact" ? "tsx" : "typescript";
   const extracted = await extractTypeScriptSymbols([
-    { path: "<inline>", content: code, language: packLanguage },
+    { path: "<inline>", content: code, language: "typescript" },
   ]);
   return extracted.map(toCodeSymbol);
 }

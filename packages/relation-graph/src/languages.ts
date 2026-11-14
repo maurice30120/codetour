@@ -73,3 +73,13 @@ export function extensionsForLanguage(language: string): readonly string[] {
   const id = normalizeLanguage(language);
   return id ? EXTENSION_BY_LANGUAGE[id] : [];
 }
+
+/**
+ * Last dot-segment of a possibly qualified name ("A.B.c" -> "c"), with
+ * generic arguments stripped ("Repo<T>" -> "Repo") and trimmed — the shared
+ * short-name helper of the packs and the engine.
+ */
+export function lastSegment(text: string): string {
+  const base = text.split(".").pop() ?? text;
+  return base.replace(/<[^>]*>/g, "").trim();
+}

@@ -1,9 +1,9 @@
 /**
  * Targeted Context Extractor for Changes Tour
- * 
+ *
  * This module extracts code symbols from changed files to provide bounded context
  * to the Tour Generator, reducing the need for open-ended exploration.
- * 
+ *
  * Part of Spec #92 - Targeted Context for Tour Generation
  * Ticket #115 - Implement Targeted Context for Changes Tour
  */
@@ -102,7 +102,7 @@ class ContextCostTracker {
  */
 function detectLanguageFromPath(filePath: string): string {
   const extension = path.extname(filePath).toLowerCase();
-  
+
   const extensionToLanguage: Record<string, string> = {
     ".ts": "typescript",
     ".tsx": "typescript",
@@ -119,7 +119,7 @@ function detectLanguageFromPath(filePath: string): string {
     ".rb": "ruby",
     ".php": "php",
   };
-  
+
   return extensionToLanguage[extension] || "typescript"; // Default to TypeScript
 }
 
@@ -128,16 +128,16 @@ function detectLanguageFromPath(filePath: string): string {
  */
 function shouldIncludeFile(filePath: string, config: TargetedContextConfig): boolean {
   const ext = path.extname(filePath).toLowerCase();
-  
+
   // Check exclude patterns first
   for (const excludeExt of config.excludeExtensions) {
     if (filePath.includes(excludeExt)) {
       return false;
     }
   }
-  
+
   // Check include patterns
-  return config.includeExtensions.some((includeExt) => 
+  return config.includeExtensions.some((includeExt) =>
     ext === includeExt || filePath.endsWith(includeExt)
   );
 }
@@ -257,13 +257,13 @@ function filterSymbols(
   options?: SymbolFilterOptions
 ): CodeSymbol[] {
   if (!options) return symbols;
-  
+
   return symbols.filter((symbol) => {
     // Filter by kind
     if (options.kinds && !options.kinds.includes(symbol.kind)) {
       return false;
     }
-    
+
     // Filter by line range
     if (symbol.location) {
       if (options.minLine !== undefined && symbol.location.startLine < options.minLine) {
@@ -273,14 +273,14 @@ function filterSymbols(
         return false;
       }
     }
-    
+
     // Filter by name pattern
     if (options.namePattern && symbol.name) {
       if (!options.namePattern.test(symbol.name)) {
         return false;
       }
     }
-    
+
     return true;
   });
 }
@@ -297,33 +297,33 @@ async function extractFileContext(
   // Track input tokens (file content)
   const inputTokens = estimateTokenCount(content);
   costTracker.trackInputTokens(inputTokens);
-  
+
   // Check if file should be included
   if (!shouldIncludeFile(filePath, config)) {
     return null;
   }
-  
+
   // Check if language is supported
   const language = detectLanguageFromPath(filePath);
   if (!isLanguageSupported(language)) {
     return null;
   }
-  
+
   // Extract symbols (async)
   const symbols = await extractSymbols(content, language);
-  
+
   // Filter symbols
   const filteredSymbols = filterSymbols(symbols);
-  
+
   // Limit symbols
   const limitedSymbols = filteredSymbols.slice(0, config.maxSymbols);
-  
+
   // Track output tokens (symbols data)
   const outputTokens = estimateTokenCount(
     JSON.stringify({ symbols: limitedSymbols })
   );
   costTracker.trackOutputTokens(outputTokens);
-  
+
   return {
     filePath: normalizeSlashes(filePath),
     symbols: limitedSymbols,
@@ -347,7 +347,7 @@ export async function extractTargetedContext(
     ...DEFAULT_TARGETED_CONTEXT_CONFIG,
     ...config,
   };
-  
+
   // If Targeted Context is disabled, return minimal result
   if (!mergedConfig.enabled) {
     return {
@@ -372,7 +372,7 @@ export async function extractTargetedContext(
       warnings: ["Targeted Context is disabled. Set enabled: true to use it."],
     };
   }
-  
+
   const warnings: string[] = [];
   const fileContexts: FileContext[] = [];
   // The same scan pass feeds the relations packet (#155): selected files with
@@ -489,7 +489,7 @@ export async function extractTargetedContext(
     };
   } catch (error) {
     costTracker.stop();
-    
+
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -505,20 +505,20 @@ export function formatTargetedContextForPrompt(context: TargetedContext): string
   if (!context.enabled || context.files.length === 0) {
     return "";
   }
-  
+
   const parts: string[] = [
     `## Targeted Context (${context.totalSymbols} symbols from ${context.files.length} files)`,
     "",
     "The following code symbols have been identified in the changed files:",
     "",
   ];
-  
+
   for (const fileContext of context.files) {
     if (fileContext.symbols.length === 0) continue;
-    
+
     parts.push(`### ${fileContext.filePath} (${fileContext.symbols.length} symbols)`);
     parts.push("");
-    
+
     for (const symbol of fileContext.symbols) {
       const location = symbol.location
         ? ` at line ${symbol.location.startLine}`
@@ -553,7 +553,7 @@ export function formatPaginatedContextForPrompt(
   if (!context.enabled || context.pages.length === 0) {
     return "";
   }
-  
+
   const pagination = context.pagination;
   const parts: string[] = [
     `## Targeted Context (Page ${pagination.page}/${pagination.totalPages}, ${context.totalSymbols} total symbols)`,
@@ -561,22 +561,22 @@ export function formatPaginatedContextForPrompt(
     "The following code symbols have been identified in the changed files:",
     "",
   ];
-  
+
   // Calculate total symbols in this page
   const pageSymbolCount = context.pages.reduce(
     (sum, page) => sum + page.symbols.length,
     0
   );
-  
+
   parts.push(`*Showing ${pageSymbolCount} symbols on this page.*`);
   parts.push("");
-  
+
   for (const page of context.pages) {
     if (page.symbols.length === 0) continue;
-    
+
     parts.push(`### ${page.filePath} (${page.symbols.length}/${page.totalFileSymbols} symbols)`);
     parts.push("");
-    
+
     for (const symbol of page.symbols) {
       const location = symbol.location
         ? ` at line ${symbol.location.startLine}`
@@ -586,10 +586,10 @@ export function formatPaginatedContextForPrompt(
         : "";
       parts.push(`- **${symbol.kind}**: \`${symbol.name}\`${location}${documentation}`);
     }
-    
+
     parts.push("");
   }
-  
+
   if (pagination.hasMore) {
     parts.push(
       `*There are more symbols available. Use page=${pagination.page + 1} to see the next page.*`
@@ -619,11 +619,11 @@ function paginate<T>(
   const pageSize = options.pageSize ?? 100;
   const totalItems = items.length;
   const totalPages = Math.ceil(totalItems / pageSize);
-  
+
   const startIndex = (page - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalItems);
   const pageItems = items.slice(startIndex, endIndex);
-  
+
   return {
     items: pageItems,
     page,
@@ -653,7 +653,7 @@ export async function extractPaginatedTargetedContext(
     ...DEFAULT_TARGETED_CONTEXT_CONFIG,
     ...config,
   };
-  
+
   // If Targeted Context is disabled, return minimal result
   if (!mergedConfig.enabled) {
     return {
@@ -678,7 +678,7 @@ export async function extractPaginatedTargetedContext(
       warnings: ["Targeted Context is disabled. Set enabled: true to use it."],
     };
   }
-  
+
   const warnings: string[] = [];
   const allFileContexts: { filePath: string; symbols: CodeSymbol[] }[] = [];
   // The same scan pass feeds the relations packet (#155): selected files with
@@ -690,7 +690,7 @@ export async function extractPaginatedTargetedContext(
   const baseTracker = createContextCostTracker(mergedConfig);
   const costTracker = new ContextCostTracker(baseTracker);
   costTracker.start();
-  
+
   try {
     // Get changed files
     const selection = selectChangedFiles(
@@ -703,7 +703,7 @@ export async function extractPaginatedTargetedContext(
     if (files.length === 0) {
       warnings.push("No changed files found between base and head refs.");
       costTracker.stop();
-      
+
       return {
         success: true,
         context: {
@@ -720,23 +720,23 @@ export async function extractPaginatedTargetedContext(
         warnings,
       };
     }
-    
+
     // Read file contents from commit anchors
     const commitAnchors = await readCommitAnchors(ctx, headRef, files);
-    
+
     // Process each changed file and collect all symbols
     for (const file of files) {
       const anchor = commitAnchors.get(normalizeSlashes(file));
-      
+
       if (!anchor || !anchor.contents) {
         warnings.push(`Skipping ${file}: no content available`);
         continue;
       }
-      
+
       // Track input tokens (file content)
       const inputTokens = estimateTokenCount(anchor.contents);
       costTracker.trackInputTokens(inputTokens);
-      
+
       // Check if file should be included
       if (!shouldIncludeFile(file, mergedConfig)) {
         continue;
@@ -752,19 +752,19 @@ export async function extractPaginatedTargetedContext(
       if (!isLanguageSupported(language)) {
         continue;
       }
-      
+
       // Extract symbols (async)
       const symbols = await extractSymbols(anchor.contents, language);
-      
+
       // Filter symbols
       const filteredSymbols = filterSymbols(symbols);
-      
+
       allFileContexts.push({
         filePath: normalizeSlashes(file),
         symbols: filteredSymbols,
       });
     }
-    
+
     // Apply the total symbol budget before paginating: maxSymbols bounds the
     // whole context, while pageSize only bounds how much is served at once.
     const extractedSymbols = allFileContexts.reduce(
@@ -784,7 +784,7 @@ export async function extractPaginatedTargetedContext(
       (sum, fc) => sum + fc.symbols.length,
       0
     );
-    
+
     // Track output tokens (all symbols data)
     const outputTokens = estimateTokenCount(
       JSON.stringify({ fileContexts: allFileContexts })
@@ -905,7 +905,7 @@ export async function extractPaginatedTargetedContext(
     };
   } catch (error) {
     costTracker.stop();
-    
+
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),

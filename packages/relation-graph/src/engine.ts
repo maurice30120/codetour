@@ -1,10 +1,11 @@
 import { Query } from "web-tree-sitter";
 import { extractionCacheKey, type ExtractionCache } from "./cache";
 import { getParser, loadGrammar } from "./grammars";
-import { normalizeLanguage } from "./languages";
+import { edgeKey, siteKey } from "./keys";
+import { lastSegment, normalizeLanguage } from "./languages";
 import type { LanguagePack, PackAnalysisResult, PackTypeInfo, RawCallSite, RawNode } from "./pack";
 import { getPack } from "./registry";
-import { estimateTokens, TokenBudget } from "./tokens";
+import { TokenBudget } from "./tokens";
 import { ANALYZER_VERSION } from "./version";
 import {
   DEFAULT_LIMITS,
@@ -27,11 +28,6 @@ export interface BuildOptions {
    * bundles ship them as assets); defaults to node_modules/tree-sitter-wasms.
    */
   wasmDirectory?: string;
-}
-
-function shortName(fullName: string): string {
-  const dot = fullName.lastIndexOf(".");
-  return dot >= 0 ? fullName.slice(dot + 1) : fullName;
 }
 
 /**
@@ -130,7 +126,7 @@ export async function buildRelationGraph(
     nodeById.set(id, node);
     if (raw.ownerKind) ownerKindById.set(id, raw.ownerKind);
     pushTo(byName, raw.name, node);
-    pushTo(byShortName, shortName(raw.name), node);
+    pushTo(byShortName, lastSegment(raw.name), node);
     return node;
   };
 
@@ -205,7 +201,7 @@ export async function buildRelationGraph(
   const siteKeys = new Set<string>();
 
   const addEdge = (edge: GraphEdge): void => {
-    const key = `${edge.from}|${edge.to}|${edge.kind}|${edge.callType}|${edge.filePath}|${edge.line}`;
+    const key = edgeKey(edge);
     if (edgeKeys.has(key)) return;
     if (edges.length >= limits.maxEdges) {
       truncated.edges = true;
@@ -216,7 +212,7 @@ export async function buildRelationGraph(
     edges.push(edge);
   };
   const addSite = (site: AmbiguitySite): void => {
-    const key = `${site.file}|${site.line}|${site.name}|${site.caller}`;
+    const key = siteKey(site);
     if (siteKeys.has(key)) return;
     if (!budget.trySpend(JSON.stringify(site))) return;
     siteKeys.add(key);
@@ -248,9 +244,9 @@ export async function buildRelationGraph(
         addSite({
           file: rawEdge.filePath,
           line: rawEdge.line,
-          name: shortName(rawEdge.to),
+          name: lastSegment(rawEdge.to),
           caller: rawEdge.from,
-          candidates: to ? [to.name] : (byShortName.get(shortName(rawEdge.to)) ?? []).map(n => n.name),
+          candidates: to ? [to.name] : (byShortName.get(lastSegment(rawEdge.to)) ?? []).map(n => n.name),
           status: "unresolved"
         });
         continue;
@@ -275,35 +271,77 @@ export async function buildRelationGraph(
       const isSuper = call.syntax === "super" || call.receiver === "super";
       const effectiveSyntax: RawCallSite["syntax"] = isSuper ? "super" : call.syntax;
 
-      // Pack-proven receiver type (declared types, `var` inference, `using`
-      // aliases — e.g. the C# pack of #152): resolve `receiverType.name`
-      // against the whole local graph first. Exactly one candidate -> edge;
-      // anything else -> ambiguity site, never a guessed edge.
-      if (call.receiverType && effectiveSyntax === "call") {
-        const typed = byName.get(`${call.receiverType}.${call.name}`) ?? [];
-        if (typed.length === 1 && callerNode) {
-          const isInterface = ownerKindById.get(typed[0].id) === "interface";
+      // Pack-proven receiver type (#151–#154): the pack resolved the receiver's
+      // declared type (field/parameter/local, `var` inferred from `new X(...)`,
+      // import/`using` alias, or `this`/superclass). The ENGINE resolves
+      // `receiverType.name` against the whole local graph: exactly one target
+      // -> edge (toward the interface port with callType "interface" + heuristic
+      // status when the receiver type is a known interface, spec #149 story 16);
+      // anything else -> ambiguity site with candidates. Never a guessed edge.
+      if (call.receiverType) {
+        const receiverType = call.receiverType;
+        if (effectiveSyntax === "new") {
+          // `new` with a proven type: the edge targets the type's constructor.
+          const ctors = byName.get(`${call.name}.constructor`) ?? [];
+          if (ctors.length === 1 && callerNode) {
+            addEdge({
+              from: callerNode.id,
+              to: ctors[0].id,
+              line: call.line,
+              kind: "new",
+              callType: "new",
+              status: "resolved",
+              filePath: call.file
+            });
+          } else {
+            const fallback = byShortName.get(call.name) ?? [];
+            addSite({
+              file: call.file,
+              line: call.line,
+              name: call.name,
+              caller: callerLabel(call),
+              candidates: fallback.map(n => n.name),
+              status: fallback.length > 0 ? "ambiguous" : "unresolved"
+            });
+          }
+          continue;
+        }
+        // Resolve `receiverType.name` on the type itself or its explicit
+        // extends/implements chain (#153 `types` declarations).
+        const resolved = memberOnType(receiverType, call.name);
+        if (resolved && callerNode) {
+          // An interface receiver type is known from the pack's `interfaces`
+          // list (#151), its `types` declarations (#153) or the target
+          // member's `ownerKind` (#152).
+          const isInterface =
+            resolved.viaInterface ||
+            interfaceNames.has(receiverType) ||
+            typeByName.get(receiverType)?.kind === "interface" ||
+            ownerKindById.get(resolved.node.id) === "interface";
+          const kind: GraphEdge["kind"] = effectiveSyntax === "super" ? "super" : "call";
           addEdge({
             from: callerNode.id,
-            to: typed[0].id,
+            to: resolved.node.id,
             line: call.line,
-            kind: "call",
+            kind,
             // Spec #149 story 16: through an interface the relation is asserted
-            // toward the port (IRepository.Find) with a heuristic status, never
-            // toward an implementation (DatabaseRepository.Find).
-            callType: isInterface ? "interface" : "direct",
+            // toward the port with a heuristic status, never toward an
+            // implementation; an explicit extends target makes a super
+            // relation provable (resolved).
+            callType: isInterface ? "interface" : kind === "super" ? "super" : "direct",
             status: isInterface ? "heuristic" : "resolved",
             filePath: call.file
           });
         } else {
-          const candidates = typed.length > 0 ? typed : byShortName.get(call.name) ?? [];
+          const direct = byName.get(`${receiverType}.${call.name}`) ?? [];
+          const fallback = direct.length > 0 ? direct : byShortName.get(call.name) ?? [];
           addSite({
             file: call.file,
             line: call.line,
             name: call.name,
             caller: callerLabel(call),
-            candidates: candidates.map(n => n.name),
-            status: candidates.length > 0 ? "ambiguous" : "unresolved"
+            candidates: fallback.map(n => n.name),
+            status: fallback.length > 0 ? "ambiguous" : "unresolved"
           });
         }
         continue;
@@ -341,19 +379,6 @@ export async function buildRelationGraph(
             candidates = byShortName.get(call.name) ?? [];
           }
         }
-      } else if (call.receiver === "super" && call.receiverType) {
-        // super.x / super(...) with an explicit extends target.
-        candidates =
-          byName.get(`${call.receiverType}.${call.name}`) ?? byShortName.get(call.name) ?? [];
-      } else if (call.receiver === "member" && call.receiverType) {
-        // Receiver whose declared type the pack proved (local/param/field/var).
-        const resolved = memberOnType(call.receiverType, call.name);
-        if (resolved) {
-          candidates = [resolved.node];
-          typed = resolved;
-        } else {
-          candidates = byShortName.get(call.name) ?? [];
-        }
       } else {
         candidates = byShortName.get(call.name) ?? [];
       }
@@ -368,47 +393,6 @@ export async function buildRelationGraph(
           status
         });
       };
-
-      // Pack-provided receiver type (#151+): resolve `${receiverType}.${name}`
-      // against the whole local graph. Exactly one target -> edge (toward the
-      // interface port with heuristic status when the type is an interface);
-      // otherwise -> ambiguity site with the same-named candidates. Never a
-      // guessed edge.
-      if (call.receiverType) {
-        const receiverType = call.receiverType;
-        const exact = byName.get(`${receiverType}.${call.name}`) ?? [];
-        if (exact.length === 1 && callerNode) {
-          const isInterface = interfaceNames.has(receiverType);
-          const kind: GraphEdge["kind"] =
-            effectiveSyntax === "new" ? "new" : effectiveSyntax === "super" ? "super" : "call";
-          addEdge({
-            from: callerNode.id,
-            to: exact[0].id,
-            line: call.line,
-            kind,
-            callType: isInterface
-              ? "interface"
-              : kind === "super"
-                ? "super"
-                : kind === "new"
-                  ? "new"
-                  : "direct",
-            status: isInterface ? "heuristic" : "resolved",
-            filePath: call.file
-          });
-        } else {
-          const fallback = byShortName.get(call.name) ?? [];
-          addSite({
-            file: call.file,
-            line: call.line,
-            name: call.name,
-            caller: callerLabel(call),
-            candidates: fallback.map(n => n.name),
-            status: fallback.length > 0 ? "ambiguous" : "unresolved"
-          });
-        }
-        continue;
-      }
 
       if (candidates.length === 1 && callerNode) {
         if (asNew || effectiveSyntax === "new") {
@@ -428,9 +412,9 @@ export async function buildRelationGraph(
             line: call.line,
             kind: "super",
             callType: "super",
-            // With an explicit extends target (pack-provided receiverType) the
-            // super relation is provable; a bare name-matched super stays heuristic.
-            status: call.receiverType ? "resolved" : "heuristic",
+            // A bare name-matched super stays heuristic (pack-proven super
+            // targets with receiverType were resolved above, as "resolved").
+            status: "heuristic",
             filePath: call.file
           });
         } else if (typed) {
@@ -496,6 +480,3 @@ function pushTo<K>(map: Map<K, GraphNode[]>, key: K, node: GraphNode): void {
   if (list) list.push(node);
   else map.set(key, [node]);
 }
-
-// Re-exported for tests and for hosts that serialize graphs.
-export { estimateTokens };

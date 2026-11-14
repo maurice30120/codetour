@@ -1,7 +1,7 @@
 import type { Node } from "web-tree-sitter";
 import { GRAMMAR_SPECS } from "./queries";
 import type { GrammarId } from "./grammars";
-import { extensionsForLanguage, grammarForLanguage } from "./languages";
+import { extensionsForLanguage, grammarForLanguage, lastSegment } from "./languages";
 import type {
   CallSyntax,
   LanguagePack,
@@ -24,11 +24,6 @@ const SYNTAX_PRIORITY: Record<CallSyntax, number> = { super: 2, new: 1, call: 0 
 
 const THIS_RECEIVER_TYPES = new Set(["this_expression", "this"]);
 const SUPER_RECEIVER_TYPES = new Set(["super", "base_expression"]);
-
-function lastSegment(text: string): string {
-  const base = text.split(".").pop() ?? text;
-  return base.replace(/<[^>]*>/g, "").trim();
-}
 
 export function createDefaultPack(language: string): LanguagePack {
   const grammarId = grammarForLanguage(language);

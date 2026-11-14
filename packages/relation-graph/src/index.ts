@@ -33,6 +33,7 @@ export {
   extensionsForLanguage,
   grammarForLanguage,
   GRAMMAR_BY_LANGUAGE,
+  lastSegment,
   normalizeLanguage,
   SUPPORTED_LANGUAGE_IDS,
   type SupportedLanguageId

@@ -1,6 +1,6 @@
 import { Query, type Language, type Node } from "web-tree-sitter";
 import { getParser, loadGrammar } from "./grammars";
-import { extensionsForLanguage, GRAMMAR_BY_LANGUAGE, normalizeLanguage } from "./languages";
+import { extensionsForLanguage, GRAMMAR_BY_LANGUAGE, lastSegment, normalizeLanguage } from "./languages";
 import type {
   LanguagePack,
   PackAnalysisInput,
@@ -115,11 +115,6 @@ const FUNCTION_LIKE = new Set([
   "function_expression"
 ]);
 const FIELD_NODE_TYPES = new Set(["field_definition", "public_field_definition"]);
-
-function lastSegment(text: string): string {
-  const base = text.split(".").pop() ?? text;
-  return base.replace(/<[^>]*>/g, "").trim();
-}
 
 interface ClassInfo {
   name: string;

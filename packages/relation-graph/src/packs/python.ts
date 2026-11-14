@@ -1,5 +1,5 @@
 import type { Node } from "web-tree-sitter";
-import { extensionsForLanguage } from "../languages";
+import { extensionsForLanguage, lastSegment } from "../languages";
 import type {
   CallSyntax,
   LanguagePack,
@@ -47,11 +47,6 @@ interface Scope {
   fnName: string;
   /** Explicit base classes of the enclosing class (identifier texts). */
   bases: string[];
-}
-
-function lastSegment(text: string): string {
-  const base = text.split(".").pop() ?? text;
-  return base.trim();
 }
 
 export function createPythonPack(): LanguagePack {
