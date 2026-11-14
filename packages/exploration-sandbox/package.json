@@ -1,0 +1,9 @@
+{
+  "name": "codetour-exploration-sandbox",
+  "version": "0.0.1",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": { "test": "node --test test/*.test.js" },
+  "dependencies": { "quickjs-emscripten": "^0.31.0" }
+}

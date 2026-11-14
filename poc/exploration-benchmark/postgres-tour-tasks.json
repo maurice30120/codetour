@@ -1,0 +1,5 @@
+[
+  {"id":"pg-parse","objective":"Pour préparer un Project Tour sur le traitement des requêtes SQL simples, quelle fonction transforme query_string en arbres syntaxiques bruts et où est-elle appelée ? Cite les fichiers et lignes du code."},
+  {"id":"pg-analyze","objective":"Pour une étape de Project Tour, explique comment exec_simple_query analyse et réécrit un arbre syntaxique brut avant sa planification. Cite les appels et leurs définitions et distingue les relations non établies."},
+  {"id":"pg-flow","objective":"Pour préparer un Project Tour, retrace le flux de query_string dans exec_simple_query depuis le parsing jusqu'à la planification. Cite les lignes des appels et indique les éventuelles incertitudes."}
+]
