@@ -47,12 +47,16 @@ export type TypeScriptPackLanguage = "typescript" | "tsx";
 export interface ExtractedSymbol {
   /** "Type.member" for members, bare name for file-scope symbols. */
   name: string;
-  kind: "class" | "interface" | "method" | "constructor" | "function" | "property" | "import" | "type-alias";
+  kind: "class" | "interface" | "method" | "constructor" | "function" | "property" | "import" | "type-alias" | "enum";
   filePath: string;
   /** 1-based. */
   startLine: number;
   /** 1-based, inclusive. */
   endLine: number;
+  /** 1-based column of the declaration start (the CodeSymbol location contract of #155). */
+  startColumn?: number;
+  /** 1-based column just past the declaration end. */
+  endColumn?: number;
   /** Imports only: the name imported from the module ("UserService" for `import { UserService as Users }`). */
   importedName?: string;
   /** Imports only: the module specifier (./user-service"). */
@@ -69,6 +73,7 @@ export interface ExtractedSymbol {
  *   @sig.def/@prop.sig        interface method_signature / property_signature
  *   @fn.decl/@fn.name         function_declaration
  *   @alias.decl/@alias.name   type_alias_declaration
+ *   @enum.decl/@enum.name     enum_declaration
  *   @imp.stmt/@imp.source     import_statement + module source
  *   @imp.eq/@imp.eq.name      import A = NS.B (import_alias)
  *   @var.decl/@var.name       variable_declarator
@@ -88,6 +93,7 @@ const TYPESCRIPT_QUERY = `
   (property_signature name: (property_identifier) @member.name) @prop.sig
   (function_declaration name: (identifier) @fn.name) @fn.decl
   (type_alias_declaration name: (type_identifier) @alias.name) @alias.decl
+  (enum_declaration name: (identifier) @enum.name) @enum.decl
   (import_statement source: (string) @imp.source) @imp.stmt
   (import_alias (identifier) @imp.eq.name) @imp.eq
   (variable_declarator name: (identifier) @var.name) @var.decl
@@ -166,7 +172,16 @@ function analyzeFile(input: PackAnalysisInput): FileAnalysis {
     extra?: { importedName?: string; source?: string }
   ): void => {
     if (!name) return;
-    symbols.push({ name, kind, filePath: file.path, ...spanOf(node), ...extra });
+    symbols.push({
+      name,
+      kind,
+      filePath: file.path,
+      ...spanOf(node),
+      // 1-based columns, so the CodeSymbol location contract of #155 maps 1:1.
+      startColumn: node.startPosition.column + 1,
+      endColumn: node.endPosition.column + 1,
+      ...extra
+    });
   };
 
   /** Strip the type_annotation wrapper and read a usable type name, or undefined. */
@@ -414,6 +429,14 @@ function analyzeFile(input: PackAnalysisInput): FileAnalysis {
     const aliasDecl = caps.get("alias.decl");
     if (aliasDecl) {
       pushSymbol(caps.get("alias.name")?.text ?? "", "type-alias", aliasDecl);
+      continue;
+    }
+
+    const enumDecl = caps.get("enum.decl");
+    if (enumDecl) {
+      // Symbols only (the #114 contract surfaces enums); enums are not
+      // relation-graph nodes, so the graph shape of #149 is unchanged.
+      pushSymbol(caps.get("enum.name")?.text ?? "", "enum", enumDecl);
       continue;
     }
 
