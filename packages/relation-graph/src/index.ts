@@ -71,13 +71,24 @@ export {
   getPack,
   isLanguageSupported,
   listSupportedLanguages,
+  registerBuiltinPacks,
   registerPack,
   resetLanguagePacks,
   unregisterPack
 } from "./registry";
-export { createPythonPack, pythonPack } from "./packs/python";
 export { buildRelationGraph, type BuildOptions } from "./engine";
 export { selectDepth1 } from "./bfs";
-// Per-language packs of #151–#154 plug into the registry with registerPack.
-// #152 ships the C# pack (register it to replace the generic pack for "csharp").
+// Per-language packs of #151–#154. They are auto-registered as the registry
+// defaults by registerBuiltinPacks() (called on first registry use), so
+// buildRelationGraph uses them out of the box; registerPack still plugs a
+// custom pack over a default, and resetLanguagePacks() restores the built-ins.
+export {
+  createTypeScriptPack,
+  extractTypeScriptSymbols,
+  registerTypeScriptPacks,
+  type ExtractedSymbol,
+  type ExtractSymbolsOptions,
+  type TypeScriptPackLanguage
+} from "./pack-typescript";
 export { createCSharpPack, csharpPack } from "./packs/csharp";
+export { createPythonPack, pythonPack } from "./packs/python";

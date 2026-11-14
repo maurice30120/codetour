@@ -31,6 +31,14 @@ export interface RawNode {
   startLine: number;
   /** 1-based, inclusive. */
   endLine: number;
+  /**
+   * Optional kind of the OWNING type for member nodes ("class" | "interface"
+   * | "struct" | "record" | …). The engine keeps it in a side index (the public
+   * node shape of #149 is unchanged) and uses it to type relations through an
+   * interface as `callType: "interface"` with status "heuristic" — asserted
+   * toward the port, never toward an implementation (spec #149 story 16).
+   */
+  ownerKind?: string;
 }
 
 export interface RawCallSite {
@@ -44,10 +52,15 @@ export interface RawCallSite {
   /** Full name of the enclosing member ("Type.member"), "" for file scope. */
   caller: string;
   /**
-   * Declared type (simple name) of the receiver expression when the pack can
-   * prove it statically (declared local/parameter/field type, `var` inferred
-   * from a `new`, explicit import). The ENGINE resolves it against the whole
-   * local graph, including extends/implements chains and interface ports.
+   * Pack-resolved receiver TYPE name (e.g. "UserService"), proven without a
+   * type system: a declared field/parameter/local type, a local `var`
+   * inferred from `new X(...)`, an import/`using` alias, or `this`/the
+   * superclass (#151–#154). When set, the ENGINE resolves
+   * `${receiverType}.${name}` against the whole local graph (including
+   * extends/implements chains): exactly one target -> edge (callType
+   * "interface" + heuristic when the type is a known interface, spec #149
+   * story 16), otherwise -> ambiguity site with candidates. Never a guessed
+   * edge. The generic pack leaves it unset.
    */
   receiverType?: string;
 }
@@ -81,9 +94,16 @@ export interface PackAnalysisResult {
   edges?: RawEdge[];
   sites?: AmbiguitySite[];
   /**
+   * Names of the interfaces declared in the analyzed file. The engine
+   * aggregates them across all sources so relations toward an interface port
+   * are asserted with callType "interface" and status "heuristic" (#149
+   * story 16). Added for the TypeScript pack (#151).
+   */
+  interfaces?: string[];
+  /**
    * Type declarations of the analyzed file (name -> kind/extends/implements).
    * Merged by the engine across all files so typed receivers, inheritance
-   * chains and interface ports resolve against the whole local graph.
+   * chains and interface ports resolve against the whole local graph (#153).
    */
   types?: PackTypeInfo[];
 }

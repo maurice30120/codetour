@@ -14,20 +14,26 @@ test("selectDepth1 runs a BFS of depth 1 from seed names with outgoing/incoming 
   assert.deepEqual(packet.seeds, [greet.id]);
 
   // Depth 1 from Greeter.greet: the seed plus its direct neighbours only.
+  // (Adjusted for the #151–#154 integration policy: the built-in TypeScript
+  // pack proves `const g = new Greeter()`, so g.greet("bob") is a resolved edge
+  // and the main.ts file-scope node is now a direct neighbour of the seed.)
+  const fileNode = graph.nodes.find(n => n.name === TS_MAIN_PATH);
+  assert.ok(fileNode);
   const names = packet.nodes.map(n => n.name).sort();
-  assert.deepEqual(names, ["Greeter.greet", "Greeter.twice"]);
+  assert.deepEqual(names, ["Greeter.greet", "Greeter.twice", TS_MAIN_PATH]);
 
-  // Only edges incident to a seed are traversed at depth 1.
-  assert.equal(packet.edges.length, 1);
-  assert.equal(packet.edges[0].from, twice.id);
-  assert.equal(packet.edges[0].to, greet.id);
+  // Only edges incident to a seed are traversed at depth 1: twice -> greet
+  // (this.greet) and main.ts -> greet (g.greet, pack-proven receiver type).
+  assert.equal(packet.edges.length, 2);
+  const edgeKeys = packet.edges.map(e => `${e.from}|${e.to}|${e.line}`).sort();
+  assert.deepEqual(edgeKeys, [`${fileNode.id}|${greet.id}|8`, `${twice.id}|${greet.id}|6`].sort());
 
   assert.deepEqual((packet.outgoing[twice.id] ?? []).map(e => e.to), [greet.id]);
-  assert.deepEqual((packet.incoming[greet.id] ?? []).map(e => e.from), [twice.id]);
+  assert.deepEqual((packet.incoming[greet.id] ?? []).map(e => e.from).sort(), [fileNode.id, twice.id].sort());
   assert.equal(packet.outgoing[greet.id], undefined);
 
   // Sites whose caller is in the packet travel with it; others stay behind.
-  assert.ok(packet.sites.every(s => s.caller === "Greeter.twice" || s.caller === "Greeter.greet"));
+  assert.ok(packet.sites.every(s => s.caller === "Greeter.twice" || s.caller === "Greeter.greet" || s.caller === TS_MAIN_PATH));
   assert.equal(packet.truncated.nodes, false);
   assert.equal(packet.status, "resolved");
 });

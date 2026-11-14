@@ -43,12 +43,18 @@ class Main {
   assert.equal(newEdge.status, "resolved");
   assert.equal(newEdge.line, 7);
 
-  // g.greet("bob"): unknown receiver type -> ambiguity site with candidates.
-  const site = graph.sites.find(s => s.name === "greet" && s.file === "Greeter.java" && s.line === 8);
-  assert.ok(site, "expected an ambiguity site for g.greet");
-  assert.equal(site.status, "ambiguous");
-  assert.deepEqual(site.candidates, ["Greeter.greet"]);
-  assert.equal(site.caller, "Main.main");
+  // g.greet("bob"): `Greeter g = new Greeter()` is a declared local type, so the
+  // built-in Java pack (#153) proves the receiver type and the engine resolves a
+  // direct edge. (Adjusted for the #151–#154 integration policy: the real packs
+  // are the registry defaults, so pack-provable member calls resolve; with the
+  // old generic default this was an ambiguity site.)
+  const greetCall = graph.edges.find(e => e.from === main.id && e.to === greet.id && e.line === 8);
+  assert.ok(greetCall, "g.greet must resolve to Greeter.greet (declared receiver type)");
+  assert.equal(greetCall.kind, "call");
+  assert.equal(greetCall.callType, "direct");
+  assert.equal(greetCall.status, "resolved");
+  assert.equal(greetCall.filePath, "Greeter.java");
+  assert.ok(!graph.sites.some(s => s.name === "greet" && s.line === 8), "no site for the proven g.greet");
 });
 
 test("a C# fixture produces a graph in the #149 format (base call is a super edge)", async () => {

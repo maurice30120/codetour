@@ -103,30 +103,37 @@ test("a TypeScript fixture produces a graph in the exact #149 format, with statu
   assert.equal(topCall.status, "resolved");
   assert.equal(topCall.line, 9);
 
-  // g.greet("bob") and console.log(...): member calls are never guessed into edges;
-  // they become explicit sites with candidates (ambiguous) or without (unresolved).
-  assert.ok(!graph.edges.some(e => e.line === 8), "no guessed edge for member calls");
-  const ambiguous = graph.sites.find(s => s.name === "greet");
-  assert.ok(ambiguous, "expected an ambiguity site for g.greet");
-  assert.deepEqual(ambiguous, {
-    file: TS_MAIN_PATH,
-    line: 8,
-    name: "greet",
-    caller: TS_MAIN_PATH,
-    candidates: ["Greeter.greet"],
-    status: "ambiguous"
-  });
+  // g.greet("bob"): `const g = new Greeter()` lets the built-in TypeScript pack
+  // (#151) prove the receiver type, so this is a RESOLVED edge, not a "?" site.
+  // (Adjusted for the #151–#154 integration policy: the real packs are the
+  // registry defaults, so pack-provable member calls resolve; only unprovable
+  // ones — console.log below — stay sites.)
+  const greetCall = graph.edges.find(e => e.from === fileNode.id && e.to === greeter.id);
+  assert.ok(greetCall, "expected a resolved edge for g.greet (receiver type proven by the pack)");
+  assert.equal(greetCall.kind, "call");
+  assert.equal(greetCall.callType, "direct");
+  assert.equal(greetCall.status, "resolved");
+  assert.equal(greetCall.line, 8);
+  assert.equal(greetCall.filePath, TS_MAIN_PATH);
+
+  // console.log(...): receiver type unknown -> explicit unresolved site, never
+  // a guessed edge.
   const unresolved = graph.sites.find(s => s.name === "log");
   assert.ok(unresolved, "expected an unresolved site for console.log");
   assert.equal(unresolved.status, "unresolved");
   assert.deepEqual(unresolved.candidates, []);
   assert.equal(unresolved.line, 8);
+  assert.ok(
+    !graph.edges.some(e => e.line === 8 && e.to !== greeter.id),
+    "no guessed edge for the unprovable console.log call"
+  );
 
   // Outgoing/incoming indexes mirror the edge list, deduplicated.
   const outTwice = graph.outgoing[twice.id] ?? [];
   assert.deepEqual(outTwice.map(e => e.to), [greeter.id]);
   const inGreet = graph.incoming[greeter.id] ?? [];
-  assert.deepEqual(inGreet.map(e => e.from), [twice.id]);
+  // twice -> greet (this.greet) and main.ts -> greet (g.greet, pack-proven).
+  assert.deepEqual(inGreet.map(e => e.from), [twice.id, fileNode.id]);
   const edgeCount = graph.edges.length;
   const indexed = Object.values(graph.outgoing).flat().length;
   assert.equal(indexed, edgeCount, "every edge appears exactly once in the outgoing index");
