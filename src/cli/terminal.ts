@@ -1,10 +1,12 @@
 import type { CodeTour } from "../store";
+import type { TerminalTransport } from "@b9g/termdom";
 import { escapeHtml, renderMarkdownToHtml } from "../player/markdown";
 import { NarrationController } from "./narration/NarrationController";
 import { createSystemSpeech } from "./narration/SystemSpeech";
 import { palette } from "./palette";
 import { commitFileReader, openTerminalChat } from "./stepChatSupport";
-import { fit, tail, wrapLine } from "./terminalLayout";
+import { fit, MAX_TEXT_WIDTH, tail, wrapLine } from "./terminalLayout";
+import { nativeSelectionTransport } from "./terminalTransport";
 import { createReader, type TourReader } from "./reader/reader";
 import type { ConversationResponder } from "./reader/collaborators";
 import type { ReaderKeyEvent } from "./reader/readerInput";
@@ -45,12 +47,17 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
   // Required lazily: plain HTML reading must work without a terminal host.
   // The package is kept external to the VS Code extension bundle.
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { TermDOM } = require("@b9g/termdom") as {
+  const { TermDOM, transportFromProcess } = require("@b9g/termdom") as {
     TermDOM: new (options?: Record<string, unknown>) => TermDomHost;
+    transportFromProcess: () => TerminalTransport;
   };
   const term = new TermDOM({
+    transport: nativeSelectionTransport(transportFromProcess()),
     scripting: "none",
     ptyEmbeds: "none",
+    // The reader owns a dark surface even when the terminal reports a light
+    // theme (or never answers TermDOM's background-colour query).
+    colorScheme: "dark",
     csp: "default-src 'none'; img-src data: https:"
   });
   await term.attach();
@@ -122,7 +129,7 @@ interface TermDomSurfaceOptions {
  * The paint-only surface: chrome DOM, keyboard capture, debounced resize,
  * and one `paint()` that renders whatever view model the reader reports.
  */
-class TermDomSurface {
+export class TermDomSurface {
   private readonly term: TermDomHost;
   private readonly document: Document;
   private readonly reader: TourReader;
@@ -135,6 +142,7 @@ class TermDomSurface {
   private readonly conversationTitle: HTMLElement;
   private readonly conversationMeta: HTMLElement;
   private readonly conversationBody: HTMLElement;
+  private readonly composer: HTMLElement;
   private readonly composerText: HTMLElement;
   private readonly composerHint: HTMLElement;
   private readonly mode: HTMLElement;
@@ -151,37 +159,53 @@ class TermDomSurface {
 
     const { document } = this;
     const layout = this.reader.getState().layout;
+    const muted = palette.faint;
+    // TermDOM's 256-colour conversion rounds dark RGB tints to a much
+    // brighter grey. Keep those rows neutral at limited colour depths;
+    // their green/red text and literal +/- still distinguish both directions.
+    const diffAddedBackground = this.term.window.screen.colorDepth >= 24
+      ? palette.diffAddedBackground : palette.panel;
+    const diffRemovedBackground = this.term.window.screen.colorDepth >= 24
+      ? palette.diffRemovedBackground : palette.panel;
     const css = document.createElement("style");
     css.textContent = [
-      `body { color: ${palette.text}; background-color: ${palette.background}; }`,
+      // Absolutely positioned children do not give body a painted height.
+      // Paint the root and every reading surface instead of inheriting the
+      // terminal's default (white) canvas behind light text.
+      `html, body { width: 100%; height: 100%; margin: 0; color: ${palette.text}; background-color: ${palette.background}; color-scheme: dark; }`,
       // The Tour chrome is a top rule and a bottom status line; the Step rail
       // and the conversation panel sit between them (ADR 0027, ADR 0026).
-      `.topbar { position: absolute; top: 0; left: 0; width: 100%; height: 1ch; display: flex; }`,
+      `.topbar { position: absolute; top: 0; left: 0; width: 100%; height: 1ch; box-sizing: border-box; display: flex; padding: 0 1ch; background-color: ${palette.panel}; }`,
       `.brand { color: ${palette.primary}; font-weight: bold; }`,
       `.sep { color: ${palette.borderStrong}; margin: 0 1ch; }`,
-      `.tour { flex: 1; overflow: hidden; white-space: pre; color: ${palette.text}; }`,
-      `.step-count { color: ${palette.muted}; white-space: pre; }`,
-      `.body { position: absolute; top: 1ch; bottom: 1ch; left: 0; width: 100%; display: flex; }`,
+      `.tour { flex: 1; min-width: 0; overflow: hidden; white-space: pre; color: ${muted}; }`,
+      `.step-count { flex: none; color: ${palette.text}; white-space: pre; }`,
+      `.body { position: absolute; top: 1ch; bottom: 1ch; left: 0; width: 100%; display: flex; background-color: ${palette.background}; }`,
       `.rail { flex: none; box-sizing: border-box; border-right: 1px solid ${palette.border}; background-color: ${palette.panel}; padding-top: 1ch; overflow: hidden; }`,
-      `.rail-title { padding: 0 1ch; color: ${palette.muted}; margin-bottom: 1ch; }`,
-      `.rail-more { color: ${palette.muted}; }`,
+      `.rail-title { padding: 0 1ch; color: ${muted}; margin-bottom: 1ch; }`,
+      `.rail-more { color: ${muted}; }`,
       `.rail-item { height: 1ch; padding: 0 1ch; white-space: pre; overflow: hidden; color: ${palette.faint}; }`,
       `.rail-item.active { background-color: ${palette.element}; color: ${palette.text}; }`,
       `.rail-bar { color: ${palette.primary}; }`,
-      `.rail-n { color: ${palette.muted}; }`,
+      `.rail-n { color: ${muted}; }`,
       `.rail-item.active .rail-n { color: ${palette.primary}; }`,
       // The fullscreen root is pinned to the viewport, so the document scroller
       // never repaints: the Step scrolls inside its own box instead (ADR 0025).
-      `.content { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: 1ch 2ch 2ch; }`,
+      `.content { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: 1ch 2ch 2ch; color: ${palette.text}; background-color: ${palette.background}; }`,
+      // Prose stays comfortable on a large monitor; source and diagrams can
+      // use the remaining width without stretching every paragraph with them.
+      `.step-description p, .step-description ul, .step-description ol, .step-description blockquote { max-width: ${MAX_TEXT_WIDTH}ch; }`,
       // The Tour Step Conversation lives in its own right-hand panel, like an editor sidebar:
       // it keeps its scroll position while the reader walks the Step (ADR 0026).
       `.conversation { flex: none; box-sizing: border-box; border-left: 1px solid ${palette.border}; background-color: ${palette.panel}; display: flex; flex-direction: column; min-height: 0; }`,
       `.conversation-head { display: flex; justify-content: space-between; padding: 0 1ch; margin-top: 1ch; }`,
-      `.conversation-title { color: ${palette.primary}; font-weight: bold; }`,
-      `.conversation-meta { color: ${palette.muted}; }`,
-      `.conversation-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 1ch; }`,
+      `.conversation-title { color: ${palette.text}; font-weight: bold; }`,
+      `.conversation-meta { color: ${muted}; }`,
+      `.conversation-body { flex: 1; min-height: 0; overflow-y: auto; padding: 1ch 1ch 0; }`,
+      `.conversation-empty { color: ${muted}; }`,
+      `.conversation-empty strong { color: ${palette.text}; }`,
       `.conversation-suggestions { list-style: none; margin: 1ch 0; padding: 0; }`,
-      `.conversation-suggestion { white-space: pre-wrap; }`,
+      `.conversation-suggestion { white-space: pre-wrap; margin-bottom: 1ch; }`,
       `.sugg-key { color: ${palette.primary}; font-weight: bold; }`,
       `.role { font-weight: bold; margin-top: 1ch; }`,
       `.role-user { color: ${palette.info}; }`,
@@ -190,38 +214,42 @@ class TermDomSurface {
       `.exchange { margin-top: 1ch; }`,
       `.answer { margin: 0 0 1ch 1ch; }`,
       `.answer-error { color: ${palette.error}; }`,
-      `.answer-pending { color: ${palette.muted}; }`,
-      `.tool { color: ${palette.muted}; margin-left: 1ch; white-space: pre-wrap; }`,
+      `.answer-pending { color: ${muted}; }`,
+      `.tool { color: ${muted}; margin-left: 1ch; white-space: pre-wrap; }`,
       `.composer { flex: none; box-sizing: border-box; margin: 0 1ch 1ch; border: 1px solid ${palette.borderStrong}; background-color: ${palette.element}; padding: 0 1ch; }`,
+      `.composer.asking { border-color: ${palette.primary}; }`,
       `.composer-prompt { color: ${palette.primary}; }`,
       `.composer-text { color: ${palette.text}; white-space: pre; }`,
-      `.composer-hint { color: ${palette.muted}; white-space: pre; }`,
-      `.status { position: absolute; bottom: 0; left: 0; width: 100%; height: 1ch; box-sizing: border-box; display: flex; justify-content: space-between; padding: 0 1ch; background-color: ${palette.panel}; color: ${palette.muted}; }`,
-      `.status-left { display: flex; }`,
+      `.composer-hint { color: ${muted}; white-space: pre; }`,
+      `.status { position: absolute; bottom: 0; left: 0; width: 100%; height: 1ch; box-sizing: border-box; display: flex; justify-content: space-between; padding: 0 1ch; background-color: ${palette.panel}; color: ${muted}; }`,
+      `.status-left { display: flex; min-width: 0; overflow: hidden; white-space: pre; }`,
       `.mode { color: ${palette.background}; background-color: ${palette.primary}; font-weight: bold; padding: 0 1ch; margin-right: 1ch; }`,
-      `.status-right { color: ${palette.muted}; white-space: pre; }`,
+      `.status-right { flex: none; color: ${muted}; white-space: pre; }`,
       `.anchor { color: ${palette.info}; white-space: pre; margin: 0; }`,
-      `h1 { color: ${palette.primary}; font-weight: bold; }`,
-      `h2 { color: ${palette.accent}; }`,
+      `h1 { color: ${palette.text}; font-weight: bold; margin: 1ch 0; max-width: ${MAX_TEXT_WIDTH}ch; }`,
+      `h2, h3, h4, h5, h6 { color: ${palette.text}; font-weight: bold; margin: 1ch 0; max-width: ${MAX_TEXT_WIDTH}ch; }`,
+      `p { margin: 0 0 1ch; }`,
       `a { color: ${palette.info}; }`,
-      `code { color: ${palette.accent}; }`,
-      `pre { background-color: ${palette.element}; padding: 1ch; white-space: pre-wrap; }`,
-      `pre code { color: ${palette.text}; }`,
+      `code { color: ${palette.info}; background-color: transparent; }`,
+      `pre { background-color: ${palette.element}; padding: 1ch; margin: 1ch 0; white-space: pre-wrap; }`,
+      `pre code { color: ${palette.text}; background-color: transparent; }`,
       `pre code.language-diagram { white-space: pre; }`,
       `blockquote { border-left: 1px solid ${palette.borderStrong}; padding-left: 1ch; color: ${palette.warning}; }`,
       `table { margin: 1ch 0; }`,
       `button { color: ${palette.text}; background-color: ${palette.element}; padding: 0 1ch; }`,
       // A source row is a raised panel: the head names the file, the body keeps
-      // code and diff on a darker surface. Diff rows carry their own tint so the
-      // two directions survive a terminal that downsamples colour (ADR 0027).
+      // code and diff on a darker surface. Only true-colour terminals get
+      // tinted rows; limited-colour terminals keep a high-contrast neutral
+      // background instead of rounding both directions to grey (ADR 0027).
       `.source { margin-top: 1ch; border: 1px solid ${palette.border}; background-color: ${palette.panel}; }`,
-      `.source-head { display: flex; justify-content: space-between; padding: 0 1ch; background-color: ${palette.element}; color: ${palette.primary}; font-weight: bold; }`,
-      `.source-tag { color: ${palette.muted}; font-weight: normal; }`,
-      `.source-body { padding: 0 1ch 1ch; }`,
+      `.source-head { display: flex; justify-content: space-between; padding: 0 1ch; background-color: ${palette.element}; color: ${palette.text}; font-weight: bold; }`,
+      `.source-tag { color: ${muted}; font-weight: normal; }`,
+      `.source-body { padding: 1ch; }`,
       `.source-line { white-space: pre; }`,
-      `.diff-add { color: ${palette.diffAdded}; background-color: ${palette.diffAddedBackground}; }`,
-      `.diff-remove { color: ${palette.diffRemoved}; background-color: ${palette.diffRemovedBackground}; }`,
-      `.diff-hunk { color: ${palette.diffHunk}; background-color: ${palette.element}; }`
+      `.diff-meta { color: ${muted}; }`,
+      `.diff-add { color: ${palette.success}; background-color: ${diffAddedBackground}; }`,
+      `.diff-remove { color: ${palette.error}; background-color: ${diffRemovedBackground}; }`,
+      `.diff-hunk { color: ${palette.info}; background-color: ${palette.element}; margin-top: 1ch; }`
     ].join("\n");
     document.head.appendChild(css);
 
@@ -281,6 +309,7 @@ class TermDomSurface {
     this.conversationTitle = conversationTitle;
     this.conversationMeta = conversationMeta;
     this.conversationBody = conversationBody;
+    this.composer = composer;
     this.composerText = composerText;
     this.composerHint = composerHint;
 
@@ -447,9 +476,9 @@ class TermDomSurface {
     const label = view.anchor.target
       ? '<p class="anchor">' + escapeHtml(shownAnchor) + "</p>"
       : "";
-    this.article.innerHTML = label + '<div class="role role-agent">▌ codetour</div>' +
+    this.article.innerHTML = label +
       "<h1>" + escapeHtml(view.stepTitle) + "</h1>" +
-      view.descriptionHtml;
+      '<div class="step-description">' + view.descriptionHtml + "</div>";
     const source = view.source;
     if (source) {
       const section = document.createElement("section");
@@ -476,6 +505,9 @@ class TermDomSurface {
           if (line.startsWith("+") && !line.startsWith("+++")) classes.push("diff-add");
           if (line.startsWith("-") && !line.startsWith("---")) classes.push("diff-remove");
           if (line.startsWith("@@")) classes.push("diff-hunk");
+          if (/^(diff |index |--- |\+\+\+ |(?:new|deleted) file |.* mode |(?:rename|copy) (?:from|to) |similarity index )/.test(line)) {
+            classes.push("diff-meta");
+          }
         }
         for (const chunk of wrapLine(line, layout.codeWidth, indent)) {
           const row = document.createElement("div");
@@ -505,14 +537,26 @@ class TermDomSurface {
       ? tail(view.composer.draft, width - 1) + "▌"
       : view.composer.prompt;
     this.composerText.textContent = " " + fit(prompt, width);
-    this.composerHint.textContent = view.composer.hint;
+    this.composerHint.textContent = fit(view.composer.hint, width + 2);
+    this.composer.className = "composer" + (view.composer.mode === "asking" ? " asking" : "");
     this.conversationBody.replaceChildren();
     if (!conversation.hasResponder) {
       const unavailable = document.createElement("p");
       unavailable.className = "answer-pending";
       unavailable.textContent =
-        "No ACP agent is installed (Vibe, Copilot CLI, Codex or Claude Code).";
+        "Install Vibe, Copilot CLI, Codex or Claude Code to ask questions about this step.";
       this.conversationBody.appendChild(unavailable);
+    } else if (!conversation.suggestions.length && !conversation.exchanges.length) {
+      const empty = document.createElement("div");
+      empty.className = "conversation-empty";
+      const title = document.createElement("p");
+      const strong = document.createElement("strong");
+      strong.textContent = "Discuss this step";
+      title.appendChild(strong);
+      const help = document.createElement("p");
+      help.textContent = "Press a to ask about the code or explanation. Your conversation stays with this step.";
+      empty.append(title, help);
+      this.conversationBody.appendChild(empty);
     }
     if (conversation.suggestions.length) {
       const list = document.createElement("ol");

@@ -40,6 +40,11 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Changed
 
+- The Copilot `/codetour` read now opens the terminal reader by default.
+  An unqualified read previously opened the HTML page; pass
+  `--renderer html` to keep that behaviour, as in
+  `/codetour My Tour --renderer html`. The bare `codetour` CLI keeps HTML
+  as its own default.
 - One Tour Step Conversation store above the responder seam, shared by the
   extension chat and the terminal reader: each surface keeps only the way it
   paints the exchanges. The interruption now works in the terminal too —

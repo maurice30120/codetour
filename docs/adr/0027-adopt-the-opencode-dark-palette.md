@@ -28,9 +28,20 @@ to a foreground-only difference: added and removed rows get the OpenCode diff
 backgrounds (`#20303b` and `#37222c`) with `#b8db87` and `#e26a75` text, hunk
 headers `#82aaff` on the element background, and context rows stay muted. In
 the HTML reader each row is a block, so the tint covers the whole line instead
-of only the glyphs. A terminal that downsamples 24-bit colour still shows the
-two directions as different bands, and the rest of the page is neutral enough
+of only the glyphs. True-colour terminals show the two directions as different
+bands, and the rest of the page is neutral enough
 that they are the only saturated colours on screen.
+
+The terminal reader now makes an exception to those diff backgrounds at
+limited colour depths. TermDOM's RGB-to-256 conversion maps both dark tints
+to a much brighter grey, reducing contrast and losing their distinction.
+Below 24-bit colour, diff rows therefore use the neutral panel background,
+green added text (`#7fd88f`), red removed text (`#e06c75`), and their literal
+`+`/`-` markers. True-colour terminals and the HTML reader retain tinted rows.
+The terminal also declares a dark colour scheme and explicitly paints the
+full viewport, including the root and Step surface: an absolutely positioned
+layout must not leave the default white canvas behind light text. Secondary
+terminal labels use the existing faint colour (`#b5b5b5`) for better contrast.
 
 The HTML reader is styled from the same constants, so a Tour is recognisably
 the same document in the terminal and in a browser: black canvas, peach title,

@@ -739,6 +739,26 @@ test("'a' enters ask mode only with an agent installed and no answer streaming",
   assert.equal(state.status.hints, " enter send · esc cancel");
 });
 
+test("copy, paste and find shortcuts pass through without changing the question draft", async () => {
+  const { reader, descriptions } = harness([{ title: "Only", description: "Hello" }], {
+    responder: new FakeResponder()
+  });
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  reader.pressKey({ key: "a" });
+  reader.pressKey({ key: "x" });
+  for (const modifier of [{ ctrl: true }, { meta: true }]) {
+    for (const key of ["c", "C", "v", "f", "a", "Enter"]) {
+      const event = { key, ...modifier };
+      assert.equal(reader.wouldConsume(event), false, "host shortcut: " + JSON.stringify(event));
+      reader.pressKey(event);
+    }
+  }
+  assert.equal(reader.getState().composer.draft, "x");
+  assert.equal(reader.getState().composer.mode, "asking");
+});
+
 test("wouldConsume reports exactly the keys pressKey handles", async () => {
   // The adapter asks before preventDefault: the same reader-side
   // translation decides both, once (spec #93). The query answers exactly

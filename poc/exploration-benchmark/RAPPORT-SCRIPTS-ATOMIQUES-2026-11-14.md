@@ -1,0 +1,25 @@
+# Scripts atomiques : création et réutilisation
+
+## Changements essayés
+
+La mémoire reste optionnelle et requiert Code Mode. Lorsqu'elle est activée, son catalogue est inclus dans le contexte initial et les consignes demandent d'utiliser un script pertinent, sinon de commencer par une opération courte et paramétrée à mémoriser. Elles décrivent la forme attendue (expression JavaScript, résultats de `list`, `search`, `read`) et encouragent des opérations simples pouvant être enchaînées. Le catalogue demeure accessible par `memory_list` : le modèle peut donc toujours le consulter, même si cette consultation n'est plus nécessaire.
+
+Une preuve finale peut maintenant chevaucher une ligne renvoyée par un script pour que celui-ci soit conservé. Cela autorise le cas « recherche d'une ligne puis lecture d'une plage plus large ». Le chevauchement est un signal de pertinence faible : il ne prouve ni la causalité, ni la qualité de la méthode, ni la correction de l'affirmation. Les sorties tronquées restent exclues, et le code stocké est réexécuté dans la sandbox avec les paramètres courants.
+
+## Résultats
+
+Trois séries successives ont utilisé `mistral-small-latest`, température 0, et uniquement le dépôt synthétique. Les bibliothèques des séquences étaient initialement vides. Les données sont brutes et incluent les scripts et réponses ; aucun coût n'est fourni par l'adaptateur.
+
+1. [Pilote sur trois tâches](results-mistral-atomic-pilot-2026-11-14.json), 12 explorations avec budget de huit appels modèle : Mistral a utilisé `code` sur les six runs avec mémoire et un script a été conservé, sur la seconde demande `function`. Il n'y avait ensuite aucune demande dans cette séquence pour le réutiliser. Un run a échoué sur une réponse JSON mal formée ; quatre autres étaient partiels. Certains scripts `class` étaient des blocs d'instructions alors que la sandbox attend une expression et ne correspondaient pas à l'API de lecture. Ce pilote utilisait une version antérieure du prompt, avant l'explication plus précise de la sandbox.
+2. [Deux séquences répétées `function`](results-mistral-atomic-repetition-2026-11-14.json), trois demandes identiques par séquence et variante, budget de huit appels : avec mémoire, les deux premières demandes ont créé et enregistré un script, puis chacune des quatre demandes suivantes l'a exécuté. Les six résultats avec mémoire sont complets et citent le calcul `price * quantity` ; les six sans mémoire sont partiels, interrompus par la limite d'itérations. Ce n'est pas une preuve de gain général : le prompt change avec le flag, les demandes sont identiques, le jeu de données est minuscule et l'échantillon faible.
+3. [Séquence de transfert](results-mistral-atomic-transfer-2026-11-14.json), trois questions différentes et budget de douze appels : le script appris avec `totalPrice` a été réexécuté sur `postOrder` lors de la troisième question. L'appel utilisait effectivement `params.query = "postOrder"` et la réponse citait les trois étapes du flux. Sur la question intermédiaire `Catalog`, le modèle n'a pas choisi ce script et a présenté `src/storage` et `src/logger` comme des cibles alors que le code montre seulement des dépendances injectées nommées `storage` et `logger`. Ce résultat complet comporte donc des relations non établies.
+
+Le script appris dans les deux séquences et transféré est `search(params.query)`. Il a une seule fonction, prend un paramètre réellement utilisé et produit des références de fichiers/lignes : il est composable avec une lecture ultérieure. Son intérêt est limité : c'est un emballage de l'outil `search` existant, sans réduction intrinsèque du nombre d'appels. Le modèle lui a donné une description mentionnant `totalPrice` malgré la demande d'une description générique ; cela peut limiter sa sélection pour d'autres sujets. Dans la séquence de transfert il l'a néanmoins utilisé avec `postOrder`. La combinaison de plusieurs scripts mémorisés n'a pas été démontrée.
+
+Les appels `memory_list` encore observés ajoutent un tour au modèle. Dans les quatre réutilisations de la série répétée, les recherches sont suivies de lectures et le nombre d'appels modèle est de cinq, contre quatre ou sept pour les demandes de création correspondantes. Ces différences ne démontrent pas une économie ; le coût facturé et le coût par réponse correcte restent inconnus. Les comparaisons ne remplacent pas une évaluation sur plusieurs dépôts et tâches, avec validation sémantique des relations.
+
+## Vérification et reproduction
+
+Les 15 tests du prototype et les 7 tests de la sandbox passent. Un test ajouté vérifie l'enregistrement après chevauchement d'une ligne recherchée avec une preuve plus large, puis la réutilisation depuis le catalogue initial. Les tests avec faux modèle ne prouvent pas le comportement du modèle réel.
+
+Le [runner de répétition](experiment-memory.mjs) accepte `EXPERIMENT_TASK=function EXPERIMENT_REPETITIONS=2 EXPERIMENT_REQUESTS=3`. Le [runner de transfert](diagnostic-scripts.mjs) accepte `DIAGNOSTIC_TRANSFER=1`. Ils utilisent le trousseau ou `MISTRAL_API_KEY`, appellent l'API et peuvent occasionner des frais.

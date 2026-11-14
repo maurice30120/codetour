@@ -1,0 +1,628 @@
+{
+  "generatedAt": "2026-11-13T11:44:45.428Z",
+  "tokenizer": "gpt-tokenizer (cl100k-compatible)",
+  "rulePack": "Tree-sitter C# (web-tree-sitter) — prototype",
+  "fixture": "fixture/csharp (net10.0)",
+  "window": 8,
+  "scan": {
+    "files": 8,
+    "nodes": 27,
+    "edges": 23,
+    "unresolved": 9,
+    "durationMs": 22
+  },
+  "cases": [
+    {
+      "id": "cs-user-service",
+      "label": "Fixture C# — UserService",
+      "symbol": "UserService",
+      "question": "Héritage explicite, champ d'interface (dispatch dur), this-calls, usages de classe et appelants dans un autre fichier.",
+      "graph": {
+        "nodes": 27,
+        "edges": 23,
+        "unresolved": 9,
+        "durationMs": 22
+      },
+      "s1": {
+        "strategy": "grep + lecture complète des fichiers touchés",
+        "tokens": 1008,
+        "grepHits": 6,
+        "files": [
+          {
+            "path": "Api/RequestHandler.cs",
+            "lines": 60
+          },
+          {
+            "path": "Services/AdminService.cs",
+            "lines": 30
+          },
+          {
+            "path": "Services/UserService.cs",
+            "lines": 79
+          }
+        ],
+        "linesRead": 169,
+        "truncatedFiles": 0,
+        "incoming": {
+          "total": 4,
+          "actionable": 4
+        },
+        "outgoing": {
+          "total": 5,
+          "actionable": 5
+        }
+      },
+      "s2": {
+        "strategy": "pack de règles Tree-sitter + ambiguïtés + tranches ciblées",
+        "payloadTokens": 245,
+        "targetedTokens": 125,
+        "tokens": 370,
+        "targetedRanges": [
+          {
+            "file": "Api/RequestHandler.cs",
+            "start": 34,
+            "end": 50,
+            "lines": 17,
+            "pointers": [
+              42
+            ]
+          }
+        ],
+        "gaps": [
+          {
+            "file": "Api/RequestHandler.cs",
+            "line": 42,
+            "name": "GetUser",
+            "caller": "RequestHandler.HandleViaPicker",
+            "direction": "in",
+            "candidates": [
+              "AdminService.GetUser",
+              "IPicker.GetUser",
+              "FastPicker.GetUser",
+              "SlowPicker.GetUser",
+              "UserService.GetUser"
+            ]
+          }
+        ],
+        "incoming": {
+          "total": 4,
+          "found": 4,
+          "actionable": 4
+        },
+        "outgoing": {
+          "total": 5,
+          "found": 5,
+          "actionable": 5
+        }
+      },
+      "payloadText": "# graph UserService @ Services/UserService.cs (depth 1)\nOUT UserService.GetUser -> UserService.Validate [Services/UserService.cs:L69-72]\nOUT UserService.GetUser -> IRepository.Find [Models/IRepository.cs:L9-9]\nOUT UserService.GetUser -> UserService.Audit [Services/UserService.cs:L74-77]\nOUT UserService.Audit -> IRepository.Log [Models/IRepository.cs:L11-11]\nOUT UserService.constructor -> BaseService.constructor [Services/BaseService.cs:L6-8]\nIN  RequestHandler.HandleGetUser -> UserService.GetUser [Api/RequestHandler.cs:L15-29]\nIN  RequestHandler.AuditUsers -> UserService.GetUser [Api/RequestHandler.cs:L31-37]\nIN  RequestHandler.HandleGetUser -> UserService.constructor [Api/RequestHandler.cs:L15-29]\nIN  RequestHandler.AuditUsers -> UserService.constructor [Api/RequestHandler.cs:L31-37]\n? IN  RequestHandler.HandleViaPicker @Api/RequestHandler.cs:42 GetUser -> 5 candidat(s): AdminService.GetUser, IPicker.GetUser, FastPicker.GetUser, SlowPicker.GetUser, UserService.GetUser",
+      "baselineText": "# baseline for UserService: grep + read files\ngrep:Api/RequestHandler.cs:18: var svc = new UserService(repo);\ngrep:Api/RequestHandler.cs:34: var svc = new UserService(repo);\ngrep:Services/AdminService.cs:6: /// Homonym fixture: declares GetUser like UserService, different semantics.\ngrep:Services/UserService.cs:10: public class UserService : BaseService\ngrep:Services/UserService.cs:16: public UserService(IRepository repo) : base()\ngrep:Services/UserService.cs:59: \"UserService\",\n\n### file Api/RequestHandler.cs (60 lines)\nusing Fixture.Models;\n\nusing Fixture.Services;\n\nusing Admin = Fixture.Services.AdminService;\n\nnamespace Fixture.Api;\n\n/// <summary>\n/// Callers of both services. Calibrated with filler methods so that a grep\n/// baseline must read substantial files that mostly do not matter.\n/// </summary>\npublic class RequestHandler\n{\n    public string HandleGetUser(int id)\n    {\n        var repo = new DatabaseRepository();\n        var svc = new UserService(repo);\n        var user = svc.GetUser(id);\n        if (user == null)\n        {\n            var admin = new Admin();\n            var adminFallback = admin.GetUser(id);\n            return adminFallback == null ? \"none\" : \"admin:\" + adminFallback.Name;\n        }\n        var backup = new Admin();\n        var backupUser = backup.GetUser(id);\n        return (user.Name ?? \"?\") + \"/\" + (backupUser?.Name ?? \"-\");\n    }\n\n    public int AuditUsers(int id)\n    {\n        var repo = new DatabaseRepository();\n        var svc = new UserService(repo);\n        var found = svc.GetUser(id);\n        return found == null ? 0 : 1;\n    }\n\n    public string HandleViaPicker(bool fast, int id)\n    {\n        var picker = fast ? (IPicker)new FastPicker() : new SlowPicker();\n        var picked = picker.GetUser(id);\n        return picked?.Name ?? \"none\";\n    }\n\n    public string Render()\n    {\n        var lines = new List<string>\n        {\n            \"HandleGetUser\",\n            \"AuditUsers\",\n        };\n        for (var step = 0; step < 5; step++)\n        {\n            lines.Add(\"step-\" + step);\n        }\n        return string.Join(\"|\", lines);\n    }\n}\n\n\n### file Services/AdminService.cs (30 lines)\nusing Fixture.Models;\n\nnamespace Fixture.Services;\n\n/// <summary>\n/// Homonym fixture: declares GetUser like UserService, different semantics.\n/// The caller resolves it through a using-alias, which is the C# twist the\n/// rule pack must survive.\n/// </summary>\npublic class AdminService : BaseService\n{\n    private readonly IRepository _repo;\n\n    public AdminService(IRepository repo) : base()\n    {\n        _repo = repo;\n    }\n\n    public User? GetUser(int id)\n    {\n        if (id < 1000)\n        {\n            var user = _repo.Find(id);\n            _repo.Log(id);\n            return user;\n        }\n        return null;\n    }\n}\n\n\n### file Services/UserService.cs (79 lines)\nusing Fixture.Models;\n\nnamespace Fixture.Services;\n\n/// <summary>\n/// Main fixture case: inheritance (explicit base ctor), a declared interface\n/// field (hard dispatch), this-calls, and filler methods so that targeted\n/// slices are a minority of the file.\n/// </summary>\npublic class UserService : BaseService\n{\n    private readonly IRepository _repo;\n\n    private readonly int _maxAttempts;\n\n    public UserService(IRepository repo) : base()\n    {\n        _repo = repo;\n        _maxAttempts = 3;\n    }\n\n    public User? GetUser(int id)\n    {\n        var attempts = 0;\n        while (attempts < _maxAttempts)\n        {\n            if (!Validate(id))\n            {\n                return null;\n            }\n            var user = _repo.Find(id);\n            if (user != null)\n            {\n                Audit(id);\n                return user;\n            }\n            attempts++;\n        }\n        return null;\n    }\n\n    public int CountActiveUsers(int floor)\n    {\n        var total = 0;\n        for (var year = 2020; year < 2030; year++)\n        {\n            if (year >= floor)\n            {\n                total += year - floor;\n            }\n        }\n        return total;\n    }\n\n    public string Describe()\n    {\n        var parts = new List<string>\n        {\n            \"UserService\",\n            \"maxAttempts=\" + _maxAttempts,\n        };\n        for (var probe = 0; probe < 3; probe++)\n        {\n            parts.Add(\"probe\" + probe);\n        }\n        return string.Join(\", \", parts);\n    }\n\n    private bool Validate(int id)\n    {\n        return id > 0;\n    }\n\n    private void Audit(int id)\n    {\n        _repo.Log(id);\n    }\n}\n",
+      "rows": [
+        {
+          "from": "RequestHandler.HandleGetUser",
+          "to": "UserService.constructor",
+          "kind": "new",
+          "certainty": "provable",
+          "found": true,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "RequestHandler.AuditUsers",
+          "to": "UserService.constructor",
+          "kind": "new",
+          "certainty": "provable",
+          "found": true,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "RequestHandler.HandleGetUser",
+          "to": "UserService.GetUser",
+          "kind": "call",
+          "certainty": "provable",
+          "found": true,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "RequestHandler.AuditUsers",
+          "to": "UserService.GetUser",
+          "kind": "call",
+          "certainty": "provable",
+          "found": true,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "UserService.constructor",
+          "to": "BaseService.constructor",
+          "kind": "super",
+          "certainty": "provable",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        },
+        {
+          "from": "UserService.GetUser",
+          "to": "UserService.Validate",
+          "kind": "call",
+          "certainty": "provable",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        },
+        {
+          "from": "UserService.GetUser",
+          "to": "UserService.Audit",
+          "kind": "call",
+          "certainty": "provable",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        },
+        {
+          "from": "UserService.GetUser",
+          "to": "IRepository.Find",
+          "kind": "call",
+          "certainty": "hard",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        },
+        {
+          "from": "UserService.Audit",
+          "to": "IRepository.Log",
+          "kind": "call",
+          "certainty": "hard",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        }
+      ],
+      "found": 9,
+      "total": 9,
+      "recallPct": 100,
+      "falsePositives": [],
+      "s3": {
+        "id": "cs-user-service",
+        "tokens": 523,
+        "payloadTokens": 158,
+        "targetedTokens": 365,
+        "incomingCovered": 4,
+        "incomingTotal": 4,
+        "hierarchySupported": true,
+        "incoming": [
+          {
+            "name": "(usage classe)",
+            "file": "Services/UserService.cs",
+            "line": 16
+          },
+          {
+            "name": "(usage classe)",
+            "file": "Api/RequestHandler.cs",
+            "line": 18
+          },
+          {
+            "name": "(usage classe)",
+            "file": "Api/RequestHandler.cs",
+            "line": 34
+          },
+          {
+            "name": "(appel)",
+            "file": "Api/RequestHandler.cs",
+            "line": 19
+          },
+          {
+            "name": "(appel)",
+            "file": "Api/RequestHandler.cs",
+            "line": 35
+          }
+        ],
+        "hierarchyIncoming": [
+          {
+            "name": "HandleGetUser(int)",
+            "file": "Api/RequestHandler.cs",
+            "line": 15
+          },
+          {
+            "name": "AuditUsers(int)",
+            "file": "Api/RequestHandler.cs",
+            "line": 31
+          }
+        ],
+        "outgoing": [
+          {
+            "name": "Validate(int)",
+            "file": "Services/UserService.cs",
+            "line": 69
+          },
+          {
+            "name": "Find(int)",
+            "file": "Models/IRepository.cs",
+            "line": 9
+          },
+          {
+            "name": "Audit(int)",
+            "file": "Services/UserService.cs",
+            "line": 74
+          }
+        ],
+        "durations": {
+          "classRefsMs": 604,
+          "memberRefsMs": 35
+        },
+        "strategy": "LSP (csharp-ls) : relations résolues + tranches ciblées"
+      }
+    },
+    {
+      "id": "cs-admin-service",
+      "label": "Fixture C# — AdminService (homonyme)",
+      "symbol": "AdminService",
+      "question": "Deux classes déclarent GetUser(). L'appelant passe par un alias using et des var déclarés localement : assertion, pointeur ambigu, ou silence ?",
+      "graph": {
+        "nodes": 27,
+        "edges": 23,
+        "unresolved": 9,
+        "durationMs": 22
+      },
+      "s1": {
+        "strategy": "grep + lecture complète des fichiers touchés",
+        "tokens": 1267,
+        "grepHits": 11,
+        "files": [
+          {
+            "path": "Api/RequestHandler.cs",
+            "lines": 60
+          },
+          {
+            "path": "Services/AdminService.cs",
+            "lines": 30
+          },
+          {
+            "path": "Services/Pickers.cs",
+            "lines": 34
+          },
+          {
+            "path": "Services/UserService.cs",
+            "lines": 79
+          }
+        ],
+        "linesRead": 203,
+        "truncatedFiles": 0,
+        "incoming": {
+          "total": 2,
+          "actionable": 2
+        },
+        "outgoing": {
+          "total": 3,
+          "actionable": 3
+        }
+      },
+      "s2": {
+        "strategy": "pack de règles Tree-sitter + ambiguïtés + tranches ciblées",
+        "payloadTokens": 161,
+        "targetedTokens": 125,
+        "tokens": 286,
+        "targetedRanges": [
+          {
+            "file": "Api/RequestHandler.cs",
+            "start": 34,
+            "end": 50,
+            "lines": 17,
+            "pointers": [
+              42
+            ]
+          }
+        ],
+        "gaps": [
+          {
+            "file": "Api/RequestHandler.cs",
+            "line": 42,
+            "name": "GetUser",
+            "caller": "RequestHandler.HandleViaPicker",
+            "direction": "in",
+            "candidates": [
+              "AdminService.GetUser",
+              "IPicker.GetUser",
+              "FastPicker.GetUser",
+              "SlowPicker.GetUser",
+              "UserService.GetUser"
+            ]
+          }
+        ],
+        "incoming": {
+          "total": 2,
+          "found": 2,
+          "actionable": 2
+        },
+        "outgoing": {
+          "total": 3,
+          "found": 3,
+          "actionable": 3
+        }
+      },
+      "payloadText": "# graph AdminService @ Services/AdminService.cs (depth 1)\nOUT AdminService.GetUser -> IRepository.Find [Models/IRepository.cs:L9-9]\nOUT AdminService.GetUser -> IRepository.Log [Models/IRepository.cs:L11-11]\nOUT AdminService.constructor -> BaseService.constructor [Services/BaseService.cs:L6-8]\nIN  RequestHandler.HandleGetUser -> AdminService.GetUser [Api/RequestHandler.cs:L15-29]\nIN  RequestHandler.HandleGetUser -> AdminService.constructor [Api/RequestHandler.cs:L15-29]\n? IN  RequestHandler.HandleViaPicker @Api/RequestHandler.cs:42 GetUser -> 5 candidat(s): AdminService.GetUser, IPicker.GetUser, FastPicker.GetUser, SlowPicker.GetUser, UserService.GetUser",
+      "baselineText": "# baseline for GetUser: grep + read files\ngrep:Api/RequestHandler.cs:19: var user = svc.GetUser(id);\ngrep:Api/RequestHandler.cs:23: var adminFallback = admin.GetUser(id);\ngrep:Api/RequestHandler.cs:27: var backupUser = backup.GetUser(id);\ngrep:Api/RequestHandler.cs:35: var found = svc.GetUser(id);\ngrep:Api/RequestHandler.cs:42: var picked = picker.GetUser(id);\ngrep:Services/AdminService.cs:6: /// Homonym fixture: declares GetUser like UserService, different semantics.\ngrep:Services/AdminService.cs:19: public User? GetUser(int id)\ngrep:Services/Pickers.cs:12: User? GetUser(int id);\ngrep:Services/Pickers.cs:17: public User? GetUser(int id)\ngrep:Services/Pickers.cs:25: public User? GetUser(int id)\ngrep:Services/UserService.cs:22: public User? GetUser(int id)\n\n### file Api/RequestHandler.cs (60 lines)\nusing Fixture.Models;\n\nusing Fixture.Services;\n\nusing Admin = Fixture.Services.AdminService;\n\nnamespace Fixture.Api;\n\n/// <summary>\n/// Callers of both services. Calibrated with filler methods so that a grep\n/// baseline must read substantial files that mostly do not matter.\n/// </summary>\npublic class RequestHandler\n{\n    public string HandleGetUser(int id)\n    {\n        var repo = new DatabaseRepository();\n        var svc = new UserService(repo);\n        var user = svc.GetUser(id);\n        if (user == null)\n        {\n            var admin = new Admin();\n            var adminFallback = admin.GetUser(id);\n            return adminFallback == null ? \"none\" : \"admin:\" + adminFallback.Name;\n        }\n        var backup = new Admin();\n        var backupUser = backup.GetUser(id);\n        return (user.Name ?? \"?\") + \"/\" + (backupUser?.Name ?? \"-\");\n    }\n\n    public int AuditUsers(int id)\n    {\n        var repo = new DatabaseRepository();\n        var svc = new UserService(repo);\n        var found = svc.GetUser(id);\n        return found == null ? 0 : 1;\n    }\n\n    public string HandleViaPicker(bool fast, int id)\n    {\n        var picker = fast ? (IPicker)new FastPicker() : new SlowPicker();\n        var picked = picker.GetUser(id);\n        return picked?.Name ?? \"none\";\n    }\n\n    public string Render()\n    {\n        var lines = new List<string>\n        {\n            \"HandleGetUser\",\n            \"AuditUsers\",\n        };\n        for (var step = 0; step < 5; step++)\n        {\n            lines.Add(\"step-\" + step);\n        }\n        return string.Join(\"|\", lines);\n    }\n}\n\n\n### file Services/AdminService.cs (30 lines)\nusing Fixture.Models;\n\nnamespace Fixture.Services;\n\n/// <summary>\n/// Homonym fixture: declares GetUser like UserService, different semantics.\n/// The caller resolves it through a using-alias, which is the C# twist the\n/// rule pack must survive.\n/// </summary>\npublic class AdminService : BaseService\n{\n    private readonly IRepository _repo;\n\n    public AdminService(IRepository repo) : base()\n    {\n        _repo = repo;\n    }\n\n    public User? GetUser(int id)\n    {\n        if (id < 1000)\n        {\n            var user = _repo.Find(id);\n            _repo.Log(id);\n            return user;\n        }\n        return null;\n    }\n}\n\n\n### file Services/Pickers.cs (34 lines)\nusing Fixture.Models;\n\nnamespace Fixture.Services;\n\n/// <summary>\n/// Strategy trio: one port, two interchangeable implementations. A caller that\n/// picks the implementation at runtime is the C# ambiguity that no light\n/// rule pack can prove -- the `?` line territory.\n/// </summary>\npublic interface IPicker\n{\n    User? GetUser(int id);\n}\n\npublic class FastPicker : IPicker\n{\n    public User? GetUser(int id)\n    {\n        return id < 100 ? new User(\"fast\") : null;\n    }\n}\n\npublic class SlowPicker : IPicker\n{\n    public User? GetUser(int id)\n    {\n        if (id % 5 != 0)\n        {\n            return null;\n        }\n        return new User(\"slow\");\n    }\n}\n\n\n### file Services/UserService.cs (79 lines)\nusing Fixture.Models;\n\nnamespace Fixture.Services;\n\n/// <summary>\n/// Main fixture case: inheritance (explicit base ctor), a declared interface\n/// field (hard dispatch), this-calls, and filler methods so that targeted\n/// slices are a minority of the file.\n/// </summary>\npublic class UserService : BaseService\n{\n    private readonly IRepository _repo;\n\n    private readonly int _maxAttempts;\n\n    public UserService(IRepository repo) : base()\n    {\n        _repo = repo;\n        _maxAttempts = 3;\n    }\n\n    public User? GetUser(int id)\n    {\n        var attempts = 0;\n        while (attempts < _maxAttempts)\n        {\n            if (!Validate(id))\n            {\n                return null;\n            }\n            var user = _repo.Find(id);\n            if (user != null)\n            {\n                Audit(id);\n                return user;\n            }\n            attempts++;\n        }\n        return null;\n    }\n\n    public int CountActiveUsers(int floor)\n    {\n        var total = 0;\n        for (var year = 2020; year < 2030; year++)\n        {\n            if (year >= floor)\n            {\n                total += year - floor;\n            }\n        }\n        return total;\n    }\n\n    public string Describe()\n    {\n        var parts = new List<string>\n        {\n            \"UserService\",\n            \"maxAttempts=\" + _maxAttempts,\n        };\n        for (var probe = 0; probe < 3; probe++)\n        {\n            parts.Add(\"probe\" + probe);\n        }\n        return string.Join(\", \", parts);\n    }\n\n    private bool Validate(int id)\n    {\n        return id > 0;\n    }\n\n    private void Audit(int id)\n    {\n        _repo.Log(id);\n    }\n}\n",
+      "rows": [
+        {
+          "from": "RequestHandler.HandleGetUser",
+          "to": "AdminService.constructor",
+          "kind": "new",
+          "certainty": "provable",
+          "found": true,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "RequestHandler.HandleGetUser",
+          "to": "AdminService.GetUser",
+          "kind": "call",
+          "certainty": "provable",
+          "found": true,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "AdminService.constructor",
+          "to": "BaseService.constructor",
+          "kind": "super",
+          "certainty": "provable",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        },
+        {
+          "from": "AdminService.GetUser",
+          "to": "IRepository.Find",
+          "kind": "call",
+          "certainty": "hard",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        },
+        {
+          "from": "AdminService.GetUser",
+          "to": "IRepository.Log",
+          "kind": "call",
+          "certainty": "hard",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        }
+      ],
+      "found": 5,
+      "total": 5,
+      "recallPct": 100,
+      "falsePositives": [],
+      "s3": {
+        "id": "cs-admin-service",
+        "tokens": 483,
+        "payloadTokens": 142,
+        "targetedTokens": 341,
+        "incomingCovered": 2,
+        "incomingTotal": 2,
+        "hierarchySupported": true,
+        "incoming": [
+          {
+            "name": "(usage classe)",
+            "file": "Services/AdminService.cs",
+            "line": 14
+          },
+          {
+            "name": "(usage classe)",
+            "file": "Api/RequestHandler.cs",
+            "line": 5
+          },
+          {
+            "name": "(usage classe)",
+            "file": "Api/RequestHandler.cs",
+            "line": 22
+          },
+          {
+            "name": "(usage classe)",
+            "file": "Api/RequestHandler.cs",
+            "line": 26
+          },
+          {
+            "name": "(appel)",
+            "file": "Api/RequestHandler.cs",
+            "line": 23
+          },
+          {
+            "name": "(appel)",
+            "file": "Api/RequestHandler.cs",
+            "line": 27
+          }
+        ],
+        "hierarchyIncoming": [
+          {
+            "name": "HandleGetUser(int)",
+            "file": "Api/RequestHandler.cs",
+            "line": 15
+          }
+        ],
+        "outgoing": [
+          {
+            "name": "Find(int)",
+            "file": "Models/IRepository.cs",
+            "line": 9
+          },
+          {
+            "name": "Log(long)",
+            "file": "Models/IRepository.cs",
+            "line": 11
+          }
+        ],
+        "durations": {
+          "classRefsMs": 4,
+          "memberRefsMs": 1
+        },
+        "strategy": "LSP (csharp-ls) : relations résolues + tranches ciblées"
+      }
+    },
+    {
+      "id": "cs-picker-dispatch",
+      "label": "Fixture C# — SlowPicker (dispatch dynamique)",
+      "symbol": "SlowPicker",
+      "question": "Un var initialisé par un ternaire polymorphe : aucune règle légère ne peut prouver l'appelant. La ligne ? avec candidats rend-elle l'entrant actionnable ?",
+      "graph": {
+        "nodes": 27,
+        "edges": 23,
+        "unresolved": 9,
+        "durationMs": 22
+      },
+      "s1": {
+        "strategy": "grep + lecture complète des fichiers touchés",
+        "tokens": 1267,
+        "grepHits": 11,
+        "files": [
+          {
+            "path": "Api/RequestHandler.cs",
+            "lines": 60
+          },
+          {
+            "path": "Services/AdminService.cs",
+            "lines": 30
+          },
+          {
+            "path": "Services/Pickers.cs",
+            "lines": 34
+          },
+          {
+            "path": "Services/UserService.cs",
+            "lines": 79
+          }
+        ],
+        "linesRead": 203,
+        "truncatedFiles": 0,
+        "incoming": {
+          "total": 1,
+          "actionable": 1
+        },
+        "outgoing": {
+          "total": 1,
+          "actionable": 1
+        }
+      },
+      "s2": {
+        "strategy": "pack de règles Tree-sitter + ambiguïtés + tranches ciblées",
+        "payloadTokens": 101,
+        "targetedTokens": 125,
+        "tokens": 226,
+        "targetedRanges": [
+          {
+            "file": "Api/RequestHandler.cs",
+            "start": 34,
+            "end": 50,
+            "lines": 17,
+            "pointers": [
+              42
+            ]
+          }
+        ],
+        "gaps": [
+          {
+            "file": "Api/RequestHandler.cs",
+            "line": 42,
+            "name": "GetUser",
+            "caller": "RequestHandler.HandleViaPicker",
+            "direction": "in",
+            "candidates": [
+              "AdminService.GetUser",
+              "IPicker.GetUser",
+              "FastPicker.GetUser",
+              "SlowPicker.GetUser",
+              "UserService.GetUser"
+            ]
+          }
+        ],
+        "incoming": {
+          "total": 1,
+          "found": 0,
+          "actionable": 1
+        },
+        "outgoing": {
+          "total": 1,
+          "found": 1,
+          "actionable": 1
+        }
+      },
+      "payloadText": "# graph SlowPicker @ Services/Pickers.cs (depth 1)\nOUT SlowPicker.GetUser -> User.constructor [Models/User.cs:L8-11]\nIN  RequestHandler.HandleViaPicker -> SlowPicker.constructor [Api/RequestHandler.cs:L39-44]\n? IN  RequestHandler.HandleViaPicker @Api/RequestHandler.cs:42 GetUser -> 5 candidat(s): AdminService.GetUser, IPicker.GetUser, FastPicker.GetUser, SlowPicker.GetUser, UserService.GetUser",
+      "baselineText": "# baseline for GetUser: grep + read files\ngrep:Api/RequestHandler.cs:19: var user = svc.GetUser(id);\ngrep:Api/RequestHandler.cs:23: var adminFallback = admin.GetUser(id);\ngrep:Api/RequestHandler.cs:27: var backupUser = backup.GetUser(id);\ngrep:Api/RequestHandler.cs:35: var found = svc.GetUser(id);\ngrep:Api/RequestHandler.cs:42: var picked = picker.GetUser(id);\ngrep:Services/AdminService.cs:6: /// Homonym fixture: declares GetUser like UserService, different semantics.\ngrep:Services/AdminService.cs:19: public User? GetUser(int id)\ngrep:Services/Pickers.cs:12: User? GetUser(int id);\ngrep:Services/Pickers.cs:17: public User? GetUser(int id)\ngrep:Services/Pickers.cs:25: public User? GetUser(int id)\ngrep:Services/UserService.cs:22: public User? GetUser(int id)\n\n### file Api/RequestHandler.cs (60 lines)\nusing Fixture.Models;\n\nusing Fixture.Services;\n\nusing Admin = Fixture.Services.AdminService;\n\nnamespace Fixture.Api;\n\n/// <summary>\n/// Callers of both services. Calibrated with filler methods so that a grep\n/// baseline must read substantial files that mostly do not matter.\n/// </summary>\npublic class RequestHandler\n{\n    public string HandleGetUser(int id)\n    {\n        var repo = new DatabaseRepository();\n        var svc = new UserService(repo);\n        var user = svc.GetUser(id);\n        if (user == null)\n        {\n            var admin = new Admin();\n            var adminFallback = admin.GetUser(id);\n            return adminFallback == null ? \"none\" : \"admin:\" + adminFallback.Name;\n        }\n        var backup = new Admin();\n        var backupUser = backup.GetUser(id);\n        return (user.Name ?? \"?\") + \"/\" + (backupUser?.Name ?? \"-\");\n    }\n\n    public int AuditUsers(int id)\n    {\n        var repo = new DatabaseRepository();\n        var svc = new UserService(repo);\n        var found = svc.GetUser(id);\n        return found == null ? 0 : 1;\n    }\n\n    public string HandleViaPicker(bool fast, int id)\n    {\n        var picker = fast ? (IPicker)new FastPicker() : new SlowPicker();\n        var picked = picker.GetUser(id);\n        return picked?.Name ?? \"none\";\n    }\n\n    public string Render()\n    {\n        var lines = new List<string>\n        {\n            \"HandleGetUser\",\n            \"AuditUsers\",\n        };\n        for (var step = 0; step < 5; step++)\n        {\n            lines.Add(\"step-\" + step);\n        }\n        return string.Join(\"|\", lines);\n    }\n}\n\n\n### file Services/AdminService.cs (30 lines)\nusing Fixture.Models;\n\nnamespace Fixture.Services;\n\n/// <summary>\n/// Homonym fixture: declares GetUser like UserService, different semantics.\n/// The caller resolves it through a using-alias, which is the C# twist the\n/// rule pack must survive.\n/// </summary>\npublic class AdminService : BaseService\n{\n    private readonly IRepository _repo;\n\n    public AdminService(IRepository repo) : base()\n    {\n        _repo = repo;\n    }\n\n    public User? GetUser(int id)\n    {\n        if (id < 1000)\n        {\n            var user = _repo.Find(id);\n            _repo.Log(id);\n            return user;\n        }\n        return null;\n    }\n}\n\n\n### file Services/Pickers.cs (34 lines)\nusing Fixture.Models;\n\nnamespace Fixture.Services;\n\n/// <summary>\n/// Strategy trio: one port, two interchangeable implementations. A caller that\n/// picks the implementation at runtime is the C# ambiguity that no light\n/// rule pack can prove -- the `?` line territory.\n/// </summary>\npublic interface IPicker\n{\n    User? GetUser(int id);\n}\n\npublic class FastPicker : IPicker\n{\n    public User? GetUser(int id)\n    {\n        return id < 100 ? new User(\"fast\") : null;\n    }\n}\n\npublic class SlowPicker : IPicker\n{\n    public User? GetUser(int id)\n    {\n        if (id % 5 != 0)\n        {\n            return null;\n        }\n        return new User(\"slow\");\n    }\n}\n\n\n### file Services/UserService.cs (79 lines)\nusing Fixture.Models;\n\nnamespace Fixture.Services;\n\n/// <summary>\n/// Main fixture case: inheritance (explicit base ctor), a declared interface\n/// field (hard dispatch), this-calls, and filler methods so that targeted\n/// slices are a minority of the file.\n/// </summary>\npublic class UserService : BaseService\n{\n    private readonly IRepository _repo;\n\n    private readonly int _maxAttempts;\n\n    public UserService(IRepository repo) : base()\n    {\n        _repo = repo;\n        _maxAttempts = 3;\n    }\n\n    public User? GetUser(int id)\n    {\n        var attempts = 0;\n        while (attempts < _maxAttempts)\n        {\n            if (!Validate(id))\n            {\n                return null;\n            }\n            var user = _repo.Find(id);\n            if (user != null)\n            {\n                Audit(id);\n                return user;\n            }\n            attempts++;\n        }\n        return null;\n    }\n\n    public int CountActiveUsers(int floor)\n    {\n        var total = 0;\n        for (var year = 2020; year < 2030; year++)\n        {\n            if (year >= floor)\n            {\n                total += year - floor;\n            }\n        }\n        return total;\n    }\n\n    public string Describe()\n    {\n        var parts = new List<string>\n        {\n            \"UserService\",\n            \"maxAttempts=\" + _maxAttempts,\n        };\n        for (var probe = 0; probe < 3; probe++)\n        {\n            parts.Add(\"probe\" + probe);\n        }\n        return string.Join(\", \", parts);\n    }\n\n    private bool Validate(int id)\n    {\n        return id > 0;\n    }\n\n    private void Audit(int id)\n    {\n        _repo.Log(id);\n    }\n}\n",
+      "rows": [
+        {
+          "from": "RequestHandler.HandleViaPicker",
+          "to": "SlowPicker.GetUser",
+          "kind": "call",
+          "certainty": "hard",
+          "found": false,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "SlowPicker.GetUser",
+          "to": "User.constructor",
+          "kind": "new",
+          "certainty": "provable",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        }
+      ],
+      "found": 1,
+      "total": 2,
+      "recallPct": 50,
+      "falsePositives": [
+        {
+          "from": "RequestHandler.HandleViaPicker",
+          "to": "SlowPicker.constructor"
+        }
+      ],
+      "s3": {
+        "id": "cs-picker-dispatch",
+        "tokens": 364,
+        "payloadTokens": 77,
+        "targetedTokens": 287,
+        "incomingCovered": 1,
+        "incomingTotal": 1,
+        "hierarchySupported": true,
+        "incoming": [
+          {
+            "name": "(usage classe)",
+            "file": "Api/RequestHandler.cs",
+            "line": 41
+          },
+          {
+            "name": "(appel)",
+            "file": "Services/Pickers.cs",
+            "line": 12
+          },
+          {
+            "name": "(appel)",
+            "file": "Services/Pickers.cs",
+            "line": 25
+          },
+          {
+            "name": "(appel)",
+            "file": "Api/RequestHandler.cs",
+            "line": 42
+          }
+        ],
+        "hierarchyIncoming": [],
+        "outgoing": [
+          {
+            "name": "User(string)",
+            "file": "Models/User.cs",
+            "line": 8
+          }
+        ],
+        "durations": {
+          "classRefsMs": 4,
+          "memberRefsMs": 9
+        },
+        "strategy": "LSP (csharp-ls) : relations résolues + tranches ciblées"
+      }
+    }
+  ]
+}

@@ -1,0 +1,211 @@
+{
+  "method": "vibe CLI headless (vibe -p, native tools, --auto-approve)",
+  "model": "mistral-small-latest",
+  "root": "/private/tmp/postgres",
+  "commit": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "budget": {
+    "iterations": 20,
+    "tokens": 160000,
+    "durationMs": 180000,
+    "concludeRatio": 0.6,
+    "calls": "not enforceable via vibe flags (recorded only)"
+  },
+  "concludeRatio": 0.6,
+  "repetitions": 2,
+  "tasks": [
+    {
+      "id": "pg-parse",
+      "objective": "Pour préparer un Project Tour sur le traitement des requêtes SQL simples, quelle fonction transforme query_string en arbres syntaxiques bruts et où est-elle appelée ? Cite les fichiers et lignes du code."
+    },
+    {
+      "id": "pg-analyze",
+      "objective": "Pour une étape de Project Tour, explique comment exec_simple_query analyse et réécrit un arbre syntaxique brut avant sa planification. Cite les appels et leurs définitions et distingue les relations non établies."
+    },
+    {
+      "id": "pg-flow",
+      "objective": "Pour préparer un Project Tour, retrace le flux de query_string dans exec_simple_query depuis le parsing jusqu'à la planification. Cite les lignes des appels et indique les éventuelles incertitudes."
+    }
+  ],
+  "rows": [
+    {
+      "repetition": 1,
+      "mode": "vibe-agent-headless",
+      "task": "pg-parse",
+      "status": "incomplete",
+      "parseError": null,
+      "screen": {
+        "status": "incomplete",
+        "missing": []
+      },
+      "result": null,
+      "finalTextTail": "",
+      "toolCalls": [],
+      "toolCallCount": 0,
+      "usage": {
+        "inputTokens": 169254,
+        "outputTokens": 445,
+        "totalTokens": 169699,
+        "cachedInputTokens": 155088,
+        "costUsd": 0
+      },
+      "steps": 10,
+      "stopReason": "interrupted",
+      "outcome": "token_limit",
+      "exitCode": 3,
+      "wallTimeMs": 15190,
+      "outdir": "/var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-parse-r1-Yx8M90",
+      "error": "Command failed: vibe -p Tu explores le dépôt courant (checkout PostgreSQL, commit 70c4a57, sources src/backend et src/include).\n\nObjectif : Pour préparer un Project Tour sur le traitement des requêtes SQL simples, quelle fonction transforme query_string en arbres syntaxiques bruts et où est-elle appelée ? Cite les fichiers et lignes du code.\n\nContraintes : au plus 20 tours et environ 160 000 tokens au total ; conclus dès que tu as suffisamment de preuves, sans remplissage. Cite uniquement des extraits que tu as réellement lus dans les fichiers.\n\nTermine ta réponse par un unique bloc JSON (délimité par ```json ... ```) avec exactement ce schéma :\n{\"objective\": string, \"entryPoints\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"components\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"relations\": [{\"from\": string, \"to\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"uncertainties\": [string]}\n- \"file\" est un chemin relatif au dépôt (ex. src/backend/tcop/postgres.c) ; startLine/endLine sont les lignes exactes de la preuve.\n- relations : from/to sont des noms de fonctions ou de composants, chaque relation étayée par son evidence.\n- uncertainties : liste explicite de tout fait non établi ou relation incertaine.\nNe mets aucun texte après le bloc JSON. --model mistral-small-latest --output json --output-dir /var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-parse-r1-Yx8M90 --max-turns 20 --max-tokens 160000 --time-limit 180 --auto-approve --trust --workdir /private/tmp/postgres\nStopped: token_limit\n",
+      "stderrTail": "Stopped: token_limit\n"
+    },
+    {
+      "repetition": 1,
+      "mode": "vibe-agent-headless",
+      "task": "pg-analyze",
+      "status": "incomplete",
+      "parseError": null,
+      "screen": {
+        "status": "incomplete",
+        "missing": []
+      },
+      "result": null,
+      "finalTextTail": "Je vais explorer le dépôt PostgreSQL pour répondre à l'objectif. Je commence par identifier les points d'entrée et les fonctions clés autour de `exec_simple_query` et de l'analyse/réécriture des arbres syntaxiques bruts avant la planification.",
+      "toolCalls": [],
+      "toolCallCount": 0,
+      "usage": {
+        "inputTokens": 179671,
+        "outputTokens": 809,
+        "totalTokens": 180480,
+        "cachedInputTokens": 151696,
+        "costUsd": 0
+      },
+      "steps": 7,
+      "stopReason": "interrupted",
+      "outcome": "token_limit",
+      "exitCode": 3,
+      "wallTimeMs": 13616,
+      "outdir": "/var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-analyze-r1-3pblaX",
+      "error": "Command failed: vibe -p Tu explores le dépôt courant (checkout PostgreSQL, commit 70c4a57, sources src/backend et src/include).\n\nObjectif : Pour une étape de Project Tour, explique comment exec_simple_query analyse et réécrit un arbre syntaxique brut avant sa planification. Cite les appels et leurs définitions et distingue les relations non établies.\n\nContraintes : au plus 20 tours et environ 160 000 tokens au total ; conclus dès que tu as suffisamment de preuves, sans remplissage. Cite uniquement des extraits que tu as réellement lus dans les fichiers.\n\nTermine ta réponse par un unique bloc JSON (délimité par ```json ... ```) avec exactement ce schéma :\n{\"objective\": string, \"entryPoints\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"components\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"relations\": [{\"from\": string, \"to\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"uncertainties\": [string]}\n- \"file\" est un chemin relatif au dépôt (ex. src/backend/tcop/postgres.c) ; startLine/endLine sont les lignes exactes de la preuve.\n- relations : from/to sont des noms de fonctions ou de composants, chaque relation étayée par son evidence.\n- uncertainties : liste explicite de tout fait non établi ou relation incertaine.\nNe mets aucun texte après le bloc JSON. --model mistral-small-latest --output json --output-dir /var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-analyze-r1-3pblaX --max-turns 20 --max-tokens 160000 --time-limit 180 --auto-approve --trust --workdir /private/tmp/postgres\nStopped: token_limit\n",
+      "stderrTail": "Stopped: token_limit\n"
+    },
+    {
+      "repetition": 1,
+      "mode": "vibe-agent-headless",
+      "task": "pg-flow",
+      "status": "incomplete",
+      "parseError": null,
+      "screen": {
+        "status": "incomplete",
+        "missing": []
+      },
+      "result": null,
+      "finalTextTail": "",
+      "toolCalls": [],
+      "toolCallCount": 0,
+      "usage": {
+        "inputTokens": 159881,
+        "outputTokens": 437,
+        "totalTokens": 160318,
+        "cachedInputTokens": 153872,
+        "costUsd": 0
+      },
+      "steps": 12,
+      "stopReason": "interrupted",
+      "outcome": "token_limit",
+      "exitCode": 3,
+      "wallTimeMs": 15066,
+      "outdir": "/var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-flow-r1-oH5t8c",
+      "error": "Command failed: vibe -p Tu explores le dépôt courant (checkout PostgreSQL, commit 70c4a57, sources src/backend et src/include).\n\nObjectif : Pour préparer un Project Tour, retrace le flux de query_string dans exec_simple_query depuis le parsing jusqu'à la planification. Cite les lignes des appels et indique les éventuelles incertitudes.\n\nContraintes : au plus 20 tours et environ 160 000 tokens au total ; conclus dès que tu as suffisamment de preuves, sans remplissage. Cite uniquement des extraits que tu as réellement lus dans les fichiers.\n\nTermine ta réponse par un unique bloc JSON (délimité par ```json ... ```) avec exactement ce schéma :\n{\"objective\": string, \"entryPoints\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"components\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"relations\": [{\"from\": string, \"to\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"uncertainties\": [string]}\n- \"file\" est un chemin relatif au dépôt (ex. src/backend/tcop/postgres.c) ; startLine/endLine sont les lignes exactes de la preuve.\n- relations : from/to sont des noms de fonctions ou de composants, chaque relation étayée par son evidence.\n- uncertainties : liste explicite de tout fait non établi ou relation incertaine.\nNe mets aucun texte après le bloc JSON. --model mistral-small-latest --output json --output-dir /var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-flow-r1-oH5t8c --max-turns 20 --max-tokens 160000 --time-limit 180 --auto-approve --trust --workdir /private/tmp/postgres\nStopped: token_limit\n",
+      "stderrTail": "Stopped: token_limit\n"
+    },
+    {
+      "repetition": 2,
+      "mode": "vibe-agent-headless",
+      "task": "pg-parse",
+      "status": "incomplete",
+      "parseError": null,
+      "screen": {
+        "status": "incomplete",
+        "missing": []
+      },
+      "result": null,
+      "finalTextTail": "",
+      "toolCalls": [],
+      "toolCallCount": 0,
+      "usage": {
+        "inputTokens": 170267,
+        "outputTokens": 469,
+        "totalTokens": 170736,
+        "cachedInputTokens": 161408,
+        "costUsd": 0
+      },
+      "steps": 11,
+      "stopReason": "interrupted",
+      "outcome": "token_limit",
+      "exitCode": 3,
+      "wallTimeMs": 14949,
+      "outdir": "/var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-parse-r2-bWOgXA",
+      "error": "Command failed: vibe -p Tu explores le dépôt courant (checkout PostgreSQL, commit 70c4a57, sources src/backend et src/include).\n\nObjectif : Pour préparer un Project Tour sur le traitement des requêtes SQL simples, quelle fonction transforme query_string en arbres syntaxiques bruts et où est-elle appelée ? Cite les fichiers et lignes du code.\n\nContraintes : au plus 20 tours et environ 160 000 tokens au total ; conclus dès que tu as suffisamment de preuves, sans remplissage. Cite uniquement des extraits que tu as réellement lus dans les fichiers.\n\nTermine ta réponse par un unique bloc JSON (délimité par ```json ... ```) avec exactement ce schéma :\n{\"objective\": string, \"entryPoints\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"components\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"relations\": [{\"from\": string, \"to\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"uncertainties\": [string]}\n- \"file\" est un chemin relatif au dépôt (ex. src/backend/tcop/postgres.c) ; startLine/endLine sont les lignes exactes de la preuve.\n- relations : from/to sont des noms de fonctions ou de composants, chaque relation étayée par son evidence.\n- uncertainties : liste explicite de tout fait non établi ou relation incertaine.\nNe mets aucun texte après le bloc JSON. --model mistral-small-latest --output json --output-dir /var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-parse-r2-bWOgXA --max-turns 20 --max-tokens 160000 --time-limit 180 --auto-approve --trust --workdir /private/tmp/postgres\nStopped: token_limit\n",
+      "stderrTail": "Stopped: token_limit\n"
+    },
+    {
+      "repetition": 2,
+      "mode": "vibe-agent-headless",
+      "task": "pg-analyze",
+      "status": "incomplete",
+      "parseError": null,
+      "screen": {
+        "status": "incomplete",
+        "missing": []
+      },
+      "result": null,
+      "finalTextTail": "L'objectif est d'expliquer comment `exec_simple_query` analyse et réécrit un arbre syntaxique brut avant sa planification. Je vais explorer les fonctions appelées depuis `exec_simple_query` et leurs définitions, en me concentrant sur les étapes de parsing, analyse, réécriture et planification.",
+      "toolCalls": [],
+      "toolCallCount": 0,
+      "usage": {
+        "inputTokens": 159813,
+        "outputTokens": 676,
+        "totalTokens": 160489,
+        "cachedInputTokens": 135648,
+        "costUsd": 0
+      },
+      "steps": 8,
+      "stopReason": "interrupted",
+      "outcome": "token_limit",
+      "exitCode": 3,
+      "wallTimeMs": 14440,
+      "outdir": "/var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-analyze-r2-wmDFjA",
+      "error": "Command failed: vibe -p Tu explores le dépôt courant (checkout PostgreSQL, commit 70c4a57, sources src/backend et src/include).\n\nObjectif : Pour une étape de Project Tour, explique comment exec_simple_query analyse et réécrit un arbre syntaxique brut avant sa planification. Cite les appels et leurs définitions et distingue les relations non établies.\n\nContraintes : au plus 20 tours et environ 160 000 tokens au total ; conclus dès que tu as suffisamment de preuves, sans remplissage. Cite uniquement des extraits que tu as réellement lus dans les fichiers.\n\nTermine ta réponse par un unique bloc JSON (délimité par ```json ... ```) avec exactement ce schéma :\n{\"objective\": string, \"entryPoints\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"components\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"relations\": [{\"from\": string, \"to\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"uncertainties\": [string]}\n- \"file\" est un chemin relatif au dépôt (ex. src/backend/tcop/postgres.c) ; startLine/endLine sont les lignes exactes de la preuve.\n- relations : from/to sont des noms de fonctions ou de composants, chaque relation étayée par son evidence.\n- uncertainties : liste explicite de tout fait non établi ou relation incertaine.\nNe mets aucun texte après le bloc JSON. --model mistral-small-latest --output json --output-dir /var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-analyze-r2-wmDFjA --max-turns 20 --max-tokens 160000 --time-limit 180 --auto-approve --trust --workdir /private/tmp/postgres\nStopped: token_limit\n",
+      "stderrTail": "Stopped: token_limit\n"
+    },
+    {
+      "repetition": 2,
+      "mode": "vibe-agent-headless",
+      "task": "pg-flow",
+      "status": "incomplete",
+      "parseError": null,
+      "screen": {
+        "status": "incomplete",
+        "missing": []
+      },
+      "result": null,
+      "finalTextTail": "",
+      "toolCalls": [],
+      "toolCallCount": 0,
+      "usage": {
+        "inputTokens": 166916,
+        "outputTokens": 483,
+        "totalTokens": 167399,
+        "cachedInputTokens": 159808,
+        "costUsd": 0
+      },
+      "steps": 12,
+      "stopReason": "interrupted",
+      "outcome": "token_limit",
+      "exitCode": 3,
+      "wallTimeMs": 15944,
+      "outdir": "/var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-flow-r2-aJ4hzG",
+      "error": "Command failed: vibe -p Tu explores le dépôt courant (checkout PostgreSQL, commit 70c4a57, sources src/backend et src/include).\n\nObjectif : Pour préparer un Project Tour, retrace le flux de query_string dans exec_simple_query depuis le parsing jusqu'à la planification. Cite les lignes des appels et indique les éventuelles incertitudes.\n\nContraintes : au plus 20 tours et environ 160 000 tokens au total ; conclus dès que tu as suffisamment de preuves, sans remplissage. Cite uniquement des extraits que tu as réellement lus dans les fichiers.\n\nTermine ta réponse par un unique bloc JSON (délimité par ```json ... ```) avec exactement ce schéma :\n{\"objective\": string, \"entryPoints\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"components\": [{\"name\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"relations\": [{\"from\": string, \"to\": string, \"evidence\": [{\"file\": string, \"startLine\": number, \"endLine\": number}]}], \"uncertainties\": [string]}\n- \"file\" est un chemin relatif au dépôt (ex. src/backend/tcop/postgres.c) ; startLine/endLine sont les lignes exactes de la preuve.\n- relations : from/to sont des noms de fonctions ou de composants, chaque relation étayée par son evidence.\n- uncertainties : liste explicite de tout fait non établi ou relation incertaine.\nNe mets aucun texte après le bloc JSON. --model mistral-small-latest --output json --output-dir /var/folders/yd/6910m5zs4v7d7308h_8ypmy80000gp/T/vibe-pg-pg-flow-r2-aJ4hzG --max-turns 20 --max-tokens 160000 --time-limit 180 --auto-approve --trust --workdir /private/tmp/postgres\nStopped: token_limit\n",
+      "stderrTail": "Stopped: token_limit\n"
+    }
+  ]
+}

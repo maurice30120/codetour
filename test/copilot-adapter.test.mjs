@@ -53,7 +53,7 @@ test("Copilot selection forwards the selected Tour to the real standalone HTML C
     const messages = [];
     const session = {capabilities:{ui:{elicitation:true}}, ui:{select: async (prompt, choices) => prompt === "Read or generate a CodeTour?" ? "Read" : choices[1]},
       log: async message => messages.push(message)};
-    await runCodeTourCommand(session, "", root);
+    await runCodeTourCommand(session, "--renderer html", root);
     for (let i = 0; i < 100 && (!existsSync(output) || !existsSync(readerPid)); i++) await delay(50);
     assert.ok(existsSync(output), messages.join("\n"));
     assert.ok(existsSync(readerPid), "the selected reader process should report its PID");
@@ -127,7 +127,7 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
     process.env.CODETOUR_TEST_HTML_OUTPUT = path.join(root, "result.html");
     process.env.CODETOUR_TEST_READER_PID = readerPid;
     const messages = [];
-    await runCodeTourCommand({capabilities:{},log:async text => messages.push(text)}, "Safe", root);
+    await runCodeTourCommand({capabilities:{},log:async text => messages.push(text)}, "Safe --renderer html", root);
     for (let i = 0; i < 100 && (!existsSync(process.env.CODETOUR_TEST_HTML_OUTPUT) || !existsSync(readerPid)); i++) await delay(50);
     assert.ok(existsSync(process.env.CODETOUR_TEST_HTML_OUTPUT), messages.join("\n"));
     assert.ok(existsSync(readerPid), "the packaged reader should report its PID before cleanup");
@@ -408,7 +408,7 @@ test("a requested Tour title is resolved through the CLI contract", async () => 
   const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
   await withRealCli(root, async output => {
     const messages = [];
-    await runCodeTourCommand({capabilities:{}, log: async message => messages.push(message)}, "Second Tour", root);
+    await runCodeTourCommand({capabilities:{}, log: async message => messages.push(message)}, "Second Tour --renderer html", root);
     for (let i = 0; i < 100 && !(existsSync(output) && readFileSync(output, "utf8")); i++) await delay(50);
     assert.ok(existsSync(output), messages.join("\n"));
     assert.match(readFileSync(output, "utf8"), /Second Tour/);
@@ -416,11 +416,53 @@ test("a requested Tour title is resolved through the CLI contract", async () => 
   });
 });
 
+test("a read without a renderer flag opens the terminal reader", async () => {
+  const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
+  const previousCli = process.env.CODETOUR_CLI;
+  const previousRealCli = process.env.CODETOUR_REAL_CLI;
+  const previousReaderArgv = process.env.CODETOUR_TEST_READER_ARGV;
+  try {
+    const wrapper = path.join(root, "recording-wrapper.js");
+    const readerArgv = path.join(root, "reader-argv.json");
+    // Resolution must still reach the real CLI, but the reader launch is
+    // intercepted: the recorded arguments are the contract under test, and
+    // launching a real terminal window from a test is out of scope.
+    writeFileSync(wrapper, [
+      'const { spawnSync } = require("node:child_process");',
+      'const { writeFileSync } = require("node:fs");',
+      'if (process.argv.includes("--internal-tour-id")) {',
+      '  writeFileSync(process.env.CODETOUR_TEST_READER_ARGV, JSON.stringify(process.argv.slice(2)));',
+      '  process.exit(0);',
+      '}',
+      'const result = spawnSync(process.execPath, [process.env.CODETOUR_REAL_CLI, ...process.argv.slice(2)], { stdio: "inherit" });',
+      'process.exit(result.status ?? 1);'
+    ].join("\n"));
+    process.env.CODETOUR_CLI = wrapper;
+    process.env.CODETOUR_REAL_CLI = path.resolve("dist/cli.js");
+    process.env.CODETOUR_TEST_READER_ARGV = readerArgv;
+    const messages = [];
+    await runCodeTourCommand({capabilities:{}, log: async message => messages.push(message)}, "Second Tour", root);
+    for (let i = 0; i < 100 && !existsSync(readerArgv); i++) await delay(50);
+    assert.ok(existsSync(readerArgv), messages.join("\n"));
+    const argv = JSON.parse(readFileSync(readerArgv, "utf8"));
+    assert.ok(argv.includes("--internal-tour-id"), "the reader launch reaches the CLI");
+    const rendererIndex = argv.indexOf("--renderer");
+    assert.notEqual(rendererIndex, -1, "the read sends an explicit renderer flag");
+    assert.equal(argv[rendererIndex + 1], "terminal");
+    assert.match(messages.join("\n"), /Starting CodeTour: Second Tour \(terminal\)/);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+    if (previousRealCli === undefined) delete process.env.CODETOUR_REAL_CLI; else process.env.CODETOUR_REAL_CLI = previousRealCli;
+    if (previousReaderArgv === undefined) delete process.env.CODETOUR_TEST_READER_ARGV; else process.env.CODETOUR_TEST_READER_ARGV = previousReaderArgv;
+    rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
+  }
+});
+
 test("a Tour title resolving by file name goes through the CLI contract", async () => {
   const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
   await withRealCli(root, async output => {
     const messages = [];
-    await runCodeTourCommand({capabilities:{}, log: async message => messages.push(message)}, "b", root);
+    await runCodeTourCommand({capabilities:{}, log: async message => messages.push(message)}, "b --renderer html", root);
     for (let i = 0; i < 100 && !(existsSync(output) && readFileSync(output, "utf8")); i++) await delay(50);
     assert.ok(existsSync(output), messages.join("\n"));
     assert.match(readFileSync(output, "utf8"), /Second Tour/);
@@ -453,11 +495,11 @@ test("a workspace with a single Tour resolves it without Tour elicitation", asyn
     const session = {capabilities:{ui:{elicitation:true}},
       ui:{select: async () => { selections++; return "Read"; }},
       log: async message => messages.push(message)};
-    await runCodeTourCommand(session, "", root);
+    await runCodeTourCommand(session, "--renderer html", root);
     for (let i = 0; i < 100 && !(existsSync(output) && readFileSync(output, "utf8")); i++) await delay(50);
     assert.ok(existsSync(output), messages.join("\n"));
     assert.match(readFileSync(output, "utf8"), /Sole Tour/);
-    assert.equal(selections, 1, "only the Read-or-generate choice is elicited");
+    assert.equal(selections, 0, "no elicitation is needed when the command and the single Tour are explicit");
   });
 });
 
@@ -470,7 +512,7 @@ test("an elicited choice resolves duplicate Tour titles by identity", async () =
     const session = {capabilities: {ui: {elicitation: true}},
       ui: {select: async (prompt, choices) => prompt === "Read or generate a CodeTour?" ? "Read" : choices[1]},
       log: async message => messages.push(message)};
-    await runCodeTourCommand(session, "", root);
+    await runCodeTourCommand(session, "--renderer html", root);
     for (let i = 0; i < 100 && !(existsSync(output) && readFileSync(output, "utf8")); i++) await delay(50);
     assert.ok(existsSync(output), messages.join("\n"));
     const html = readFileSync(output, "utf8");

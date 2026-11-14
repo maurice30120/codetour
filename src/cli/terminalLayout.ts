@@ -13,7 +13,7 @@ export interface TerminalLayout {
   railWidth: number;
   /** Total columns of the conversation panel, its left border included. */
   conversationWidth: number;
-  /** Columns available to the rendered Step description. */
+  /** Columns available to Step prose and diagrams, capped for reading. */
   textWidth: number;
   /** Columns available to a source or diff row inside its box. */
   codeWidth: number;
@@ -28,14 +28,14 @@ export interface TerminalLayout {
   /**
    * Columns available to the status line's right segments: the mode chip and
    * the key hints consume their budget first, and the right side — which
-   * yields before the hints do — never drops below its floor.
+   * yields before the hints do — stays inside the terminal's padded width.
    */
   statusRightWidth: number;
 }
 
 /** Below this width the rail would eat more than it explains. */
 const RAIL_MIN_COLUMNS = 100;
-/** Total columns of the Step rail, border included. */
+/** Minimum columns of the Step rail, border included; wide screens allow 36. */
 export const RAIL_WIDTH = 26;
 const CONVERSATION_MIN_COLUMNS = 36;
 const CONVERSATION_MAX_COLUMNS = 48;
@@ -47,14 +47,15 @@ const WIDE_HINTS_COLUMNS = 120;
 const STATUS_HINTS_COMPACT_WIDTH = 48;
 /** Columns the status line's left side consumes with the spelled-out hints. */
 const STATUS_HINTS_WIDE_WIDTH = 72;
-/** The status line's right side never drops below this budget. */
-const STATUS_RIGHT_MIN_WIDTH = 30;
+/** A paragraph should not stretch with a large source or diff panel. */
+export const MAX_TEXT_WIDTH = 78;
 
 export function terminalLayout(columns: number): TerminalLayout {
   const width = Math.max(MIN_COLUMNS, Math.floor(columns));
   const conversationWidth = Math.min(CONVERSATION_MAX_COLUMNS,
     Math.max(CONVERSATION_MIN_COLUMNS, Math.floor(width * 0.37)));
-  const railWidth = width >= RAIL_MIN_COLUMNS ? RAIL_WIDTH : 0;
+  const railWidth = width >= RAIL_MIN_COLUMNS
+    ? Math.min(36, Math.max(RAIL_WIDTH, Math.floor(width * 0.18))) : 0;
   const compactHints = width < WIDE_HINTS_COLUMNS;
   return {
     columns: width,
@@ -62,8 +63,9 @@ export function terminalLayout(columns: number): TerminalLayout {
     conversationWidth,
     // The Step pays 2 cells of padding on each side; a source box pays its
     // own border and padding on top of that.
-    textWidth: Math.max(20, width - railWidth - conversationWidth - 6),
-    codeWidth: Math.max(20, width - railWidth - conversationWidth - 8),
+    textWidth: Math.min(MAX_TEXT_WIDTH,
+      width - railWidth - conversationWidth - 6),
+    codeWidth: width - railWidth - conversationWidth - 8,
     // The wordmark bar holds the brand, the separator, the Step count and
     // some slack; the rail marker takes 4 cells before the Step title, and the
     // composer prompt, its space, the panel border, margins and padding take 9.
@@ -71,8 +73,8 @@ export function terminalLayout(columns: number): TerminalLayout {
     railLabelWidth: Math.max(4, railWidth - 7),
     composerWidth: Math.max(4, conversationWidth - 9),
     compactHints,
-    statusRightWidth: Math.max(STATUS_RIGHT_MIN_WIDTH,
-      width - (compactHints ? STATUS_HINTS_COMPACT_WIDTH : STATUS_HINTS_WIDE_WIDTH))
+    statusRightWidth: Math.max(0,
+      width - 2 - (compactHints ? STATUS_HINTS_COMPACT_WIDTH : STATUS_HINTS_WIDE_WIDTH))
   };
 }
 

@@ -719,6 +719,7 @@
     "jexl": "^2.3.0",
     "markdown-it": "^12.3.2",
     "mobx": "^5.14.2",
+    "punycode": "^2.3.1",
     "sanitize-html": "^2.13.1",
     "string-width": "^4.2.3",
     "throttle-debounce": "^3.0.1",
@@ -752,7 +753,8 @@
     "test": "npm run build && node scripts/sync-renderer-dep.js && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test && npm --prefix packages/description-renderer test && npm --prefix packages/mcp-server test && node --test test/copilot-adapter.test.mjs test/cli-resolution.test.mjs",
     "cli": "node dist/cli.js",
     "package:standalone": "node scripts/package-standalone.js",
-    "test:standalone": "node --test test/standalone-package.test.js"
+    "test:standalone": "node --test test/standalone-package.test.js",
+    "plugin:install-copilot": "node scripts/plugin-install-copilot.js"
   },
   "prettier": {
     "arrowParens": "avoid",

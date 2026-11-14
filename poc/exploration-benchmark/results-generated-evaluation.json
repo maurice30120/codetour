@@ -1,0 +1,1363 @@
+{
+  "model": "mistral-small-latest",
+  "reps": 2,
+  "source": {
+    "search": "search(params.query)",
+    "read": "read(params.file,params.start,params.end)",
+    "context": "search(params.query).slice(0,6).map(x=>read(x.file,Math.max(1,x.line-5),x.line+5))",
+    "contexts": "params.queries.slice(0,3).map(query=>({query, excerpts:search(query).slice(0,4).map(x=>read(x.file,Math.max(1,x.line-3),x.line+3))}))"
+  },
+  "generated": [
+    {
+      "repetition": 1,
+      "generated": {
+        "code": "(() => { const hits = search(params.query).slice(0, 6); return hits.map(hit => read(hit.file, Math.max(1, hit.line - 5), hit.line + 5)); })()",
+        "description": "A compact JavaScript expression that searches for the literal symbol in params.query, limits results to 6 hits, and fetches bounded source excerpts around each occurrence using read. Returns an empty array if no hits are found."
+      },
+      "usage": {
+        "prompt_tokens": 238,
+        "total_tokens": 346,
+        "completion_tokens": 108,
+        "prompt_tokens_details": {
+          "cached_tokens": 128
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "service_tier": "standard"
+      },
+      "probes": [
+        {
+          "query": "totalPrice",
+          "result": [
+            {
+              "file": "src/math.js",
+              "start": 1,
+              "lines": [
+                "export function totalPrice(price, quantity) {",
+                "  return price * quantity;",
+                "}",
+                ""
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}"
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 617
+        },
+        {
+          "query": "Catalog",
+          "result": [
+            {
+              "file": "src/catalog.js",
+              "start": 1,
+              "lines": [
+                "export class Catalog {",
+                "  constructor(storage, logger) {",
+                "    this.storage = storage;",
+                "    this.logger = logger;",
+                "  }",
+                ""
+              ]
+            }
+          ],
+          "bytes": 174
+        },
+        {
+          "query": "postOrder",
+          "result": [
+            {
+              "file": "src/api.js",
+              "start": 1,
+              "lines": [
+                "import { createOrder } from './order.js';",
+                "",
+                "export function postOrder(catalog, request) {",
+                "  return createOrder(catalog, request.id, request.quantity);",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 208
+        },
+        {
+          "query": "nonexistent_symbol_482",
+          "result": [],
+          "bytes": 2
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "generated": {
+        "code": "(() => { const hits = search(params.query).slice(0, 6); return hits.map(hit => read(hit.file, Math.max(1, hit.line - 5), hit.line + 5)); })()",
+        "description": "A compact JavaScript expression that searches for the literal symbol specified by `params.query`, limits results to 6 hits, and returns bounded source excerpts around each occurrence using `read`. Returns an empty array if no hits are found."
+      },
+      "usage": {
+        "prompt_tokens": 238,
+        "total_tokens": 348,
+        "completion_tokens": 110,
+        "prompt_tokens_details": {
+          "cached_tokens": 208
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "service_tier": "standard"
+      },
+      "probes": [
+        {
+          "query": "totalPrice",
+          "result": [
+            {
+              "file": "src/math.js",
+              "start": 1,
+              "lines": [
+                "export function totalPrice(price, quantity) {",
+                "  return price * quantity;",
+                "}",
+                ""
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}"
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 617
+        },
+        {
+          "query": "Catalog",
+          "result": [
+            {
+              "file": "src/catalog.js",
+              "start": 1,
+              "lines": [
+                "export class Catalog {",
+                "  constructor(storage, logger) {",
+                "    this.storage = storage;",
+                "    this.logger = logger;",
+                "  }",
+                ""
+              ]
+            }
+          ],
+          "bytes": 174
+        },
+        {
+          "query": "postOrder",
+          "result": [
+            {
+              "file": "src/api.js",
+              "start": 1,
+              "lines": [
+                "import { createOrder } from './order.js';",
+                "",
+                "export function postOrder(catalog, request) {",
+                "  return createOrder(catalog, request.id, request.quantity);",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 208
+        },
+        {
+          "query": "nonexistent_symbol_482",
+          "result": [],
+          "bytes": 2
+        }
+      ]
+    },
+    {
+      "repetition": 3,
+      "generated": {
+        "code": "(() => { const hits = search(params.query).slice(0, 6); return hits.map(hit => read(hit.file, Math.max(1, hit.line - 5), hit.line + 5)); })()",
+        "description": "A compact JavaScript expression that searches for the literal symbol specified by `params.query`, limits results to 6 hits, and returns bounded source excerpts around each occurrence using `read`. Returns an empty array if no hits are found."
+      },
+      "usage": {
+        "prompt_tokens": 238,
+        "total_tokens": 348,
+        "completion_tokens": 110,
+        "prompt_tokens_details": {
+          "cached_tokens": 208
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "service_tier": "standard"
+      },
+      "probes": [
+        {
+          "query": "totalPrice",
+          "result": [
+            {
+              "file": "src/math.js",
+              "start": 1,
+              "lines": [
+                "export function totalPrice(price, quantity) {",
+                "  return price * quantity;",
+                "}",
+                ""
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}"
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 617
+        },
+        {
+          "query": "Catalog",
+          "result": [
+            {
+              "file": "src/catalog.js",
+              "start": 1,
+              "lines": [
+                "export class Catalog {",
+                "  constructor(storage, logger) {",
+                "    this.storage = storage;",
+                "    this.logger = logger;",
+                "  }",
+                ""
+              ]
+            }
+          ],
+          "bytes": 174
+        },
+        {
+          "query": "postOrder",
+          "result": [
+            {
+              "file": "src/api.js",
+              "start": 1,
+              "lines": [
+                "import { createOrder } from './order.js';",
+                "",
+                "export function postOrder(catalog, request) {",
+                "  return createOrder(catalog, request.id, request.quantity);",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 208
+        },
+        {
+          "query": "nonexistent_symbol_482",
+          "result": [],
+          "bytes": 2
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "function",
+      "objective": "Comment totalPrice calcule-t-elle son résultat ?"
+    },
+    {
+      "id": "class",
+      "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?"
+    },
+    {
+      "id": "flow",
+      "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?"
+    }
+  ],
+  "records": [
+    {
+      "repetition": 1,
+      "variant": "context",
+      "task": "function",
+      "status": "complete",
+      "answer": "La fonction `totalPrice` calcule son résultat en multipliant le **prix unitaire** (`price`) par la **quantité** (`quantity`).\n\n**Preuves :**\n- **src/math.js, ligne 2** :\n  `return price * quantity;`\n\n**Utilisation dans le code :**\n- **src/order.js, ligne 6** :\n  `return { id, total: totalPrice(item.price, quantity) };`\n  La fonction est appelée avec `item.price` (prix unitaire) et `quantity` pour calculer le total de la commande.",
+      "usage": {
+        "input": 635,
+        "output": 132
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "generated1",
+      "task": "function",
+      "status": "complete",
+      "answer": "La fonction `totalPrice` calcule son résultat en multipliant le **prix unitaire** (`price`) par la **quantité** (`quantity`).\n\n**Preuves :**\n- **src/math.js, ligne 2** :\n  `return price * quantity;`\n\n**Utilisation dans le code :**\n- **src/order.js, ligne 6** :\n  `return { id, total: totalPrice(item.price, quantity) };`\n\nAinsi, le résultat est simplement le produit des deux paramètres. Aucune logique supplémentaire n'est appliquée.",
+      "usage": {
+        "input": 635,
+        "output": 124
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "generated2",
+      "task": "function",
+      "status": "complete",
+      "answer": "La fonction `totalPrice` calcule son résultat en multipliant le **prix unitaire** (`price`) par la **quantité** (`quantity`).\n\n- **Fichier** : `src/math.js`, **ligne 2**\n  ```javascript\n  return price * quantity;\n  ```\n\nElle est utilisée dans `createOrder` pour calculer le total d'une commande :\n- **Fichier** : `src/order.js`, **ligne 5**\n  ```javascript\n  return { id, total: totalPrice(item.price, quantity) };\n  ```",
+      "usage": {
+        "input": 635,
+        "output": 129
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "generated3",
+      "task": "function",
+      "status": "complete",
+      "answer": "La fonction `totalPrice` calcule son résultat en multipliant le **prix unitaire** (`price`) par la **quantité** (`quantity`).\n\n**Preuves :**\n- **Fichier** : `src/math.js`, **ligne 2**\n  `return price * quantity;`\n\n**Utilisation dans le code :**\n- **Fichier** : `src/order.js`, **ligne 5**\n  `return { id, total: totalPrice(item.price, quantity) };`\n\nLa fonction est donc une multiplication simple entre deux paramètres numériques. Aucune logique supplémentaire n'est appliquée.",
+      "usage": {
+        "input": 635,
+        "output": 137
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "context",
+      "task": "class",
+      "status": "complete",
+      "answer": "La classe `Catalog` utilise deux dépendances injectées via son constructeur :\n- **`storage`** (ex. : `this.storage.get(id)`)\n  **Fichier** : `src/catalog.js`, **ligne 3**\n- **`logger`** (ex. : `this.logger.info(...)`)\n  **Fichier** : `src/catalog.js`, **ligne 4**\n\nAucune dépendance n'est importée directement dans `catalog.js` (pas d'`import` visible).\n**Incertitude** : Le type exact de `storage` et `logger` n'est pas précisé dans le code exploré.",
+      "usage": {
+        "input": 2026,
+        "output": 178
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"Catalog\"}",
+          "outputBytes": 174
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"storage\"}",
+          "outputBytes": 611
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"logger\"}",
+          "outputBytes": 676
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"import\"}",
+          "outputBytes": 451
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\"]},{\"file\":\"src/catalog.js\",\"start\":4,\"lines\":[\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\"]},{\"file\":\"src/catalog.js\",\"start\":3,\"lines\":[\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "generated1",
+      "task": "class",
+      "status": "complete",
+      "answer": "La classe `Catalog` utilise deux dépendances injectées via son constructeur :\n- **`storage`** : utilisée pour récupérer des données (ex. `this.storage.get(id)`).\n- **`logger`** : utilisée pour journaliser (ex. `this.logger.info(...)`).\n\n**Fichier** : `src/catalog.js`\n**Lignes** : 1–10\n\n---\n**Détails d'injection** :\n- Les dépendances sont injectées dans le constructeur (`constructor(storage, logger)`).\n- Aucune importation directe n'est visible dans `catalog.js` (dépendances externes).\n\n**Utilisation** :\n- `storage` : appelée dans `find(id)` (ligne 9).\n- `logger` : appelée dans `find(id)` (ligne 6).\n\n---\n**Incertitude** :\nAucune dépendance externe n'est explicitement importée dans `catalog.js`. Les dépendances sont injectées dynamiquement (ex. via `createOrder` dans `src/order.js`, ligne 5). Pour identifier leur origine, il faudrait vérifier où `Catalog` est instancié.",
+      "usage": {
+        "input": 2026,
+        "output": 277
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"Catalog\"}",
+          "outputBytes": 174
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"storage\"}",
+          "outputBytes": 611
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"logger\"}",
+          "outputBytes": 676
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"import\"}",
+          "outputBytes": 451
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\"]},{\"file\":\"src/catalog.js\",\"start\":4,\"lines\":[\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\"]},{\"file\":\"src/catalog.js\",\"start\":3,\"lines\":[\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "generated2",
+      "task": "class",
+      "status": "complete",
+      "answer": "La classe `Catalog` utilise deux dépendances injectées via son constructeur :\n- **`storage`** (ex. : `src/catalog.js:3`)\n- **`logger`** (ex. : `src/catalog.js:4`)\n\nAucune dépendance n'est importée directement dans `src/catalog.js`. Les dépendances sont injectées à l'instanciation (ex. : `src/order.js:5` utilise `catalog.find(id)`).\n\n*Preuve d'utilisation* :\n- `storage.get(id)` est appelé dans `src/catalog.js:7`.\n- `logger.info(...)` est appelé dans `src/catalog.js:6`.",
+      "usage": {
+        "input": 2026,
+        "output": 183
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"Catalog\"}",
+          "outputBytes": 174
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"storage\"}",
+          "outputBytes": 611
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"logger\"}",
+          "outputBytes": 676
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"import\"}",
+          "outputBytes": 451
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\"]},{\"file\":\"src/catalog.js\",\"start\":4,\"lines\":[\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\"]},{\"file\":\"src/catalog.js\",\"start\":3,\"lines\":[\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "generated3",
+      "task": "class",
+      "status": "complete",
+      "answer": "La classe `Catalog` utilise deux dépendances injectées via son constructeur :\n- **`storage`** : utilisée pour récupérer des données (ex. `this.storage.get(id)`).\n- **`logger`** : utilisée pour journaliser (ex. `this.logger.info(...)`).\n\n**Fichier** : `src/catalog.js`\n**Lignes** : 1–10\n\n---\n**Détails d'injection** :\n- Les dépendances sont injectées dans le constructeur (`constructor(storage, logger)`).\n- Aucune importation directe n'est visible dans `catalog.js` (dépendances externes).\n\n**Utilisation** :\n- `storage` : appelée dans `find(id)` (ligne 9).\n- `logger` : appelée dans `find(id)` (ligne 6).\n\n---\n**Incertitude** :\nAucune dépendance externe n'est explicitement importée dans `catalog.js`. Les dépendances sont injectées dynamiquement (ex. via `createOrder` dans `src/order.js`, ligne 5). Pour identifier leur origine, il faudrait vérifier où `Catalog` est instancié.",
+      "usage": {
+        "input": 2026,
+        "output": 277
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"Catalog\"}",
+          "outputBytes": 174
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"storage\"}",
+          "outputBytes": 611
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"logger\"}",
+          "outputBytes": 676
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"import\"}",
+          "outputBytes": 451
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\"]},{\"file\":\"src/catalog.js\",\"start\":4,\"lines\":[\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\"]},{\"file\":\"src/catalog.js\",\"start\":3,\"lines\":[\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "context",
+      "task": "flow",
+      "status": "complete",
+      "answer": "Le flux **postOrder → calcul du total** est le suivant :\n\n1. **`postOrder`** (src/api.js:3)\n   Appelle `createOrder` avec le catalogue, l'ID et la quantité.\n   ```javascript\n   export function postOrder(catalog, request) {\n     return createOrder(catalog, request.id, request.quantity);\n   }\n   ```\n\n2. **`createOrder`** (src/order.js:4)\n   Récupère l'article via `catalog.find(id)` et calcule le total avec `totalPrice`.\n   ```javascript\n   export function createOrder(catalog, id, quantity) {\n     const item = catalog.find(id);\n     return { id, total: totalPrice(item.price, quantity) };\n   }\n   ```\n\n3. **`totalPrice`** (src/math.js:1)\n   Multiplie le prix unitaire par la quantité pour obtenir le total.\n   ```javascript\n   export function totalPrice(price, quantity) {\n     return price * quantity;\n   }\n   ```\n\n**Flux complet** :\n`postOrder` → `createOrder` → `totalPrice` (calcul du total).",
+      "usage": {
+        "input": 1536,
+        "output": 302
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"postOrder\"}",
+          "outputBytes": 208
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"calcul total\"}",
+          "outputBytes": 2
+        },
+        {
+          "name": "read",
+          "arguments": "{\"file\": \"src/order.js\", \"start\": 1, \"end\": 50}",
+          "outputBytes": 245
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[]"
+        },
+        {
+          "name": "read",
+          "content": "{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "generated1",
+      "task": "flow",
+      "status": "complete",
+      "answer": "Le flux **postOrder → calcul du total** est le suivant :\n\n1. **postOrder** (src/api.js:3)\n   Appelle `createOrder(catalog, request.id, request.quantity)`.\n\n2. **createOrder** (src/order.js:4)\n   - Cherche l'article dans le catalogue : `catalog.find(id)`.\n   - Calcule le total avec `totalPrice(item.price, quantity)`.\n\n3. **totalPrice** (src/math.js:1-2)\n   Multiplie `price * quantity` et retourne le résultat.\n\n**Fichiers et lignes clés** :\n- src/api.js:3 → src/order.js:4 → src/math.js:1-2.\n\nAucune étape intermédiaire supplémentaire n'est visible dans les fichiers explorés.",
+      "usage": {
+        "input": 1536,
+        "output": 224
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"postOrder\"}",
+          "outputBytes": 208
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"calcul total\"}",
+          "outputBytes": 2
+        },
+        {
+          "name": "read",
+          "arguments": "{\"file\": \"src/order.js\", \"start\": 1, \"end\": 50}",
+          "outputBytes": 245
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[]"
+        },
+        {
+          "name": "read",
+          "content": "{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "generated2",
+      "task": "flow",
+      "status": "complete",
+      "answer": "Voici le flux **postOrder → calcul du total**, avec les étapes clés :\n\n1. **`postOrder`** (src/api.js:3-5)\n   Appelle `createOrder` avec le catalogue, l’`id` et la `quantity` de la requête.\n   ```js\n   export function postOrder(catalog, request) {\n     return createOrder(catalog, request.id, request.quantity);\n   }\n   ```\n\n2. **`createOrder`** (src/order.js:3-6)\n   Récupère l’item dans le catalogue, puis calcule le total via `totalPrice`.\n   ```js\n   export function createOrder(catalog, id, quantity) {\n     const item = catalog.find(id);\n     return { id, total: totalPrice(item.price, quantity) };\n   }\n   ```\n\n3. **`totalPrice`** (src/math.js:1-2)\n   Effectue la multiplication `prix × quantité` pour obtenir le total.\n   ```js\n   export function totalPrice(price, quantity) {\n     return price * quantity;\n   }\n   ```\n\n**Flux complet** :\n`postOrder` → `createOrder` → `totalPrice` (calcul du total).",
+      "usage": {
+        "input": 1227,
+        "output": 303
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"postOrder\"}",
+          "outputBytes": 208
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"calcul du total\"}",
+          "outputBytes": 2
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"createOrder\"}",
+          "outputBytes": 661
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"total\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]},{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "variant": "generated3",
+      "task": "flow",
+      "status": "complete",
+      "answer": "Voici le flux **postOrder → calcul du total** avec les chemins et lignes concernés :\n\n1. **postOrder** (src/api.js:3)\n   Appelle `createOrder(catalog, request.id, request.quantity)`.\n   ```js\n   export function postOrder(catalog, request) {\n     return createOrder(catalog, request.id, request.quantity);\n   }\n   ```\n\n2. **createOrder** (src/order.js:4-6)\n   Récupère l’item depuis le catalogue et calcule le total via `totalPrice`.\n   ```js\n   export function createOrder(catalog, id, quantity) {\n     const item = catalog.find(id);\n     return { id, total: totalPrice(item.price, quantity) };\n   }\n   ```\n\n3. **totalPrice** (src/math.js:1-2)\n   Effectue la multiplication `price * quantity`.\n   ```js\n   export function totalPrice(price, quantity) {\n     return price * quantity;\n   }\n   ```\n\n**Flux complet** :\n`postOrder` → `createOrder` → `totalPrice` (calcul du total).",
+      "usage": {
+        "input": 1418,
+        "output": 312
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"postOrder\"}",
+          "outputBytes": 208
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"calcul du total\"}",
+          "outputBytes": 2
+        },
+        {
+          "name": "read",
+          "arguments": "{\"file\": \"src/order.js\", \"start\": 1, \"end\": 50}",
+          "outputBytes": 245
+        },
+        {
+          "name": "read",
+          "arguments": "{\"file\": \"src/math.js\", \"start\": 1, \"end\": 30}",
+          "outputBytes": 126
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[]"
+        },
+        {
+          "name": "read",
+          "content": "{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}"
+        },
+        {
+          "name": "read",
+          "content": "{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]}"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "generated3",
+      "task": "function",
+      "status": "complete",
+      "answer": "La fonction `totalPrice` calcule son résultat en multipliant le **prix unitaire** (`price`) par la **quantité** (`quantity`).\n\n**Preuves :**\n- **src/math.js, ligne 2** :\n  `return price * quantity;`\n\n**Utilisation dans l'application :**\n- **src/order.js, ligne 5** :\n  `return { id, total: totalPrice(item.price, quantity) };`\n\n*(Le résultat est donc un simple produit des deux paramètres.)*",
+      "usage": {
+        "input": 635,
+        "output": 116
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "generated2",
+      "task": "function",
+      "status": "complete",
+      "answer": "La fonction `totalPrice` calcule son résultat en multipliant le **prix unitaire** (`price`) par la **quantité** (`quantity`).\n\n**Preuves :**\n- **Fichier** : `src/math.js`, **ligne 2**\n  `return price * quantity;`\n\n**Utilisation dans le code :**\n- **Fichier** : `src/order.js`, **ligne 5**\n  `return { id, total: totalPrice(item.price, quantity) };`\n\nLa fonction est donc une multiplication simple entre deux paramètres numériques. Aucune logique supplémentaire n'est appliquée.",
+      "usage": {
+        "input": 635,
+        "output": 137
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "generated1",
+      "task": "function",
+      "status": "complete",
+      "answer": "La fonction `totalPrice` calcule son résultat en multipliant le **prix unitaire** (`price`) par la **quantité** (`quantity`).\n\n- **Fichier** : `src/math.js`, **ligne 2**\n  ```javascript\n  return price * quantity;\n  ```\n\nElle est utilisée dans `createOrder` pour calculer le total d'une commande :\n- **Fichier** : `src/order.js`, **ligne 5**\n  ```javascript\n  return { id, total: totalPrice(item.price, quantity) };\n  ```",
+      "usage": {
+        "input": 635,
+        "output": 129
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "context",
+      "task": "function",
+      "status": "complete",
+      "answer": "La fonction `totalPrice` calcule son résultat en multipliant le **prix unitaire** (`price`) par la **quantité** (`quantity`).\n\n**Preuves :**\n- **src/math.js, ligne 2** :\n  `return price * quantity;`\n\n**Utilisation dans le code :**\n- **src/order.js, ligne 6** :\n  `return { id, total: totalPrice(item.price, quantity) };`\n\nAinsi, le résultat est simplement le produit des deux paramètres. Aucune logique supplémentaire n'est appliquée.",
+      "usage": {
+        "input": 635,
+        "output": 124
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "generated3",
+      "task": "class",
+      "status": "complete",
+      "answer": "La classe **`Catalog`** (src/catalog.js) dépend de deux paramètres injectés dans son constructeur :\n- **`storage`** : utilisé pour récupérer un élément via `storage.get(id)` (ligne 10).\n- **`logger`** : utilisé pour journaliser via `logger.info(...)` (ligne 8).\n\n**Aucune dépendance externe n'est importée directement** dans ce fichier. Les dépendances sont passées dynamiquement via le constructeur.\n*(Preuves : src/catalog.js, lignes 2-10)*",
+      "usage": {
+        "input": 2599,
+        "output": 167
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"Catalog\"}",
+          "outputBytes": 174
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"import\"}",
+          "outputBytes": 451
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"storage\"}",
+          "outputBytes": 611
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"logger\"}",
+          "outputBytes": 676
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"new Catalog\"}",
+          "outputBytes": 2
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\"]},{\"file\":\"src/catalog.js\",\"start\":4,\"lines\":[\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\"]},{\"file\":\"src/catalog.js\",\"start\":3,\"lines\":[\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[]"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "generated2",
+      "task": "class",
+      "status": "complete",
+      "answer": "La classe `Catalog` utilise deux dépendances injectées via son constructeur :\n- **`storage`** : utilisée pour récupérer des données (ex. `this.storage.get(id)`).\n- **`logger`** : utilisée pour journaliser (ex. `this.logger.info(...)`).\n\n**Fichier** : `src/catalog.js`\n**Lignes** : 1–10\n\n---\n**Contexte d'utilisation** :\n- `storage` et `logger` sont injectés dans le constructeur (l. 2–5).\n- Exemple d'utilisation de `logger` : l. 8–9.\n- Exemple d'utilisation de `storage` : l. 10.\n\n---\n**Remarque** : Aucune dépendance externe n'est importée directement dans `catalog.js`. Les dépendances sont injectées à l'exécution (ex. via `createOrder` dans `src/order.js`, l. 4).",
+      "usage": {
+        "input": 2026,
+        "output": 237
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"Catalog\"}",
+          "outputBytes": 174
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"storage\"}",
+          "outputBytes": 611
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"logger\"}",
+          "outputBytes": 676
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"import\"}",
+          "outputBytes": 451
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\"]},{\"file\":\"src/catalog.js\",\"start\":4,\"lines\":[\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\"]},{\"file\":\"src/catalog.js\",\"start\":3,\"lines\":[\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "generated1",
+      "task": "class",
+      "status": "complete",
+      "answer": "La classe `Catalog` utilise deux dépendances injectées via son constructeur :\n- **`storage`** : utilisé pour récupérer un élément via `storage.get(id)` (src/catalog.js, ligne 8).\n- **`logger`** : utilisé pour logger une information via `logger.info(...)` (src/catalog.js, ligne 6).\n\nCes dépendances sont injectées à l'instanciation (src/catalog.js, lignes 2–4) et leur implémentation concrète n'est pas définie dans ce fichier. Aucune dépendance externe n'est importée directement dans `catalog.js`.",
+      "usage": {
+        "input": 2599,
+        "output": 179
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"Catalog\"}",
+          "outputBytes": 174
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"import\"}",
+          "outputBytes": 451
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"storage\"}",
+          "outputBytes": 611
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"logger\"}",
+          "outputBytes": 676
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"new Catalog\"}",
+          "outputBytes": 2
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\"]},{\"file\":\"src/catalog.js\",\"start\":4,\"lines\":[\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\"]},{\"file\":\"src/catalog.js\",\"start\":3,\"lines\":[\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[]"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "context",
+      "task": "class",
+      "status": "complete",
+      "answer": "La classe `Catalog` utilise deux dépendances injectées via son constructeur :\n- **`storage`** (ex. : `this.storage.get(id)`)\n  **Fichier** : `src/catalog.js`, **ligne 3**\n- **`logger`** (ex. : `this.logger.info(...)`)\n  **Fichier** : `src/catalog.js`, **ligne 4**\n\nAucune dépendance n'est importée directement dans `catalog.js` (pas d'`import` visible).\n**Incertitude** : Le type exact de `storage` et `logger` n'est pas précisé dans le code exploré.",
+      "usage": {
+        "input": 2026,
+        "output": 178
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"Catalog\"}",
+          "outputBytes": 174
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"storage\"}",
+          "outputBytes": 611
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"logger\"}",
+          "outputBytes": 676
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"import\"}",
+          "outputBytes": 451
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\"]},{\"file\":\"src/catalog.js\",\"start\":4,\"lines\":[\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\"]},{\"file\":\"src/catalog.js\",\"start\":1,\"lines\":[\"export class Catalog {\",\"  constructor(storage, logger) {\",\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\"]},{\"file\":\"src/catalog.js\",\"start\":3,\"lines\":[\"    this.storage = storage;\",\"    this.logger = logger;\",\"  }\",\"\",\"  find(id) {\",\"    this.logger.info(`Looking up ${id}`);\",\"    return this.storage.get(id);\",\"  }\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "generated3",
+      "task": "flow",
+      "status": "complete",
+      "answer": "Le flux depuis `postOrder` jusqu'au calcul du total est le suivant :\n\n1. **`postOrder`** (src/api.js, ligne 3-5)\n   Appelle `createOrder` avec le catalogue, l'ID et la quantité.\n   ```javascript\n   export function postOrder(catalog, request) {\n     return createOrder(catalog, request.id, request.quantity);\n   }\n   ```\n\n2. **`createOrder`** (src/order.js, ligne 3-7)\n   Trouve l'article dans le catalogue et calcule le total via `totalPrice`.\n   ```javascript\n   export function createOrder(catalog, id, quantity) {\n     const item = catalog.find(id);\n     return { id, total: totalPrice(item.price, quantity) };\n   }\n   ```\n\n3. **`totalPrice`** (src/math.js, ligne 1-3)\n   Multiplie le prix unitaire par la quantité pour obtenir le total.\n   ```javascript\n   export function totalPrice(price, quantity) {\n     return price * quantity;\n   }\n   ```\n\n**Flux complet** :\n`postOrder` → `createOrder` → `totalPrice` (calcul du total).",
+      "usage": {
+        "input": 1536,
+        "output": 312
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"postOrder\"}",
+          "outputBytes": 208
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"calcul total\"}",
+          "outputBytes": 2
+        },
+        {
+          "name": "read",
+          "arguments": "{\"file\": \"src/order.js\", \"start\": 1, \"end\": 50}",
+          "outputBytes": 245
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"totalPrice\"}",
+          "outputBytes": 617
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[]"
+        },
+        {
+          "name": "read",
+          "content": "{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "generated2",
+      "task": "flow",
+      "status": "complete",
+      "answer": "Le flux **postOrder → calcul du total** est le suivant :\n\n1. **postOrder** (src/api.js:3-5)\n   appelle `createOrder(catalog, request.id, request.quantity)`.\n\n2. **createOrder** (src/order.js:1-6)\n   - Cherche l’item dans le catalogue via `catalog.find(id)`.\n   - Calcule le total avec `totalPrice(item.price, quantity)`.\n\n3. **totalPrice** (src/math.js:1-3)\n   retourne `price * quantity`.\n\n**Résumé du flux** :\n`postOrder` → `createOrder` → `totalPrice` (calcul du total).\nFichiers et lignes clés :\n- src/api.js:3-5\n- src/order.js:1-6\n- src/math.js:1-3",
+      "usage": {
+        "input": 1128,
+        "output": 232
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"postOrder\"}",
+          "outputBytes": 208
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"calcul total\"}",
+          "outputBytes": 2
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"total\"}",
+          "outputBytes": 617
+        },
+        {
+          "name": "read",
+          "arguments": "{\"file\": \"src/order.js\", \"start\": 1, \"end\": 50}",
+          "outputBytes": 245
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[]"
+        },
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\"]},{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "read",
+          "content": "{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "generated1",
+      "task": "flow",
+      "status": "complete",
+      "answer": "Voici le flux **postOrder** jusqu'au calcul du total :\n\n1. **Appel initial** :\n   `postOrder` (src/api.js, ligne 3)\n   → `createOrder(catalog, request.id, request.quantity)` (src/api.js, ligne 4).\n\n2. **Création de la commande** :\n   `createOrder` (src/order.js, ligne 3)\n   → `totalPrice(item.price, quantity)` (src/order.js, ligne 5).\n\n3. **Calcul du total** :\n   `totalPrice` (src/math.js, ligne 1)\n   → `return price * quantity` (src/math.js, ligne 2).\n\n**Flux complet** :\n`postOrder` → `createOrder` → `totalPrice` → **total calculé**.",
+      "usage": {
+        "input": 1415,
+        "output": 245
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"postOrder\"}",
+          "outputBytes": 208
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"calcul total\"}",
+          "outputBytes": 2
+        },
+        {
+          "name": "read",
+          "arguments": "{\"file\": \"src/order.js\", \"start\": 1, \"end\": 50}",
+          "outputBytes": 245
+        },
+        {
+          "name": "read",
+          "arguments": "{\"file\": \"src/math.js\", \"start\": 1, \"end\": 30}",
+          "outputBytes": 126
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[]"
+        },
+        {
+          "name": "read",
+          "content": "{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}"
+        },
+        {
+          "name": "read",
+          "content": "{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]}"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "variant": "context",
+      "task": "flow",
+      "status": "complete",
+      "answer": "Voici le flux **postOrder → calcul du total** avec les étapes clés :\n\n1. **Appel initial** : `postOrder` est appelée dans `src/api.js` (ligne 4).\n   **Fichier** : `src/api.js`, ligne 4\n   ```javascript\n   export function postOrder(catalog, request) {\n     return createOrder(catalog, request.id, request.quantity);\n   }\n   ```\n\n2. **Création de la commande** : `createOrder` est appelée avec les paramètres `catalog`, `id` et `quantity`.\n   **Fichier** : `src/order.js`, ligne 4\n   ```javascript\n   export function createOrder(catalog, id, quantity) {\n   ```\n\n3. **Calcul du total** : Dans `createOrder`, la fonction `totalPrice` est appelée avec `item.price` et `quantity` pour calculer le total.\n   **Fichier** : `src/order.js`, ligne 6\n   ```javascript\n   return { id, total: totalPrice(item.price, quantity) };\n   ```\n\n4. **Calcul final** : `totalPrice` multiplie `price` par `quantity` pour obtenir le total.\n   **Fichier** : `src/math.js`, ligne 2\n   ```javascript\n   export function totalPrice(price, quantity) {\n     return price * quantity;\n   }\n   ```\n\n**Flux complet** :\n`postOrder` → `createOrder` → `totalPrice` → **total calculé**.",
+      "usage": {
+        "input": 1418,
+        "output": 397
+      },
+      "calls": [
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"postOrder\"}",
+          "outputBytes": 208
+        },
+        {
+          "name": "context",
+          "arguments": "{\"query\": \"calcul du total\"}",
+          "outputBytes": 2
+        },
+        {
+          "name": "read",
+          "arguments": "{\"file\": \"src/order.js\", \"start\": 1, \"end\": 50}",
+          "outputBytes": 245
+        },
+        {
+          "name": "read",
+          "arguments": "{\"file\": \"src/math.js\", \"start\": 1, \"end\": 20}",
+          "outputBytes": 126
+        }
+      ],
+      "transcript": [
+        {
+          "name": "context",
+          "content": "[{\"file\":\"src/api.js\",\"start\":1,\"lines\":[\"import { createOrder } from './order.js';\",\"\",\"export function postOrder(catalog, request) {\",\"  return createOrder(catalog, request.id, request.quantity);\",\"}\",\"\"]}]"
+        },
+        {
+          "name": "context",
+          "content": "[]"
+        },
+        {
+          "name": "read",
+          "content": "{\"file\":\"src/order.js\",\"start\":1,\"lines\":[\"import { totalPrice } from './math.js';\",\"\",\"export function createOrder(catalog, id, quantity) {\",\"  const item = catalog.find(id);\",\"  return { id, total: totalPrice(item.price, quantity) };\",\"}\",\"\"]}"
+        },
+        {
+          "name": "read",
+          "content": "{\"file\":\"src/math.js\",\"start\":1,\"lines\":[\"export function totalPrice(price, quantity) {\",\"  return price * quantity;\",\"}\",\"\"]}"
+        }
+      ]
+    }
+  ]
+}

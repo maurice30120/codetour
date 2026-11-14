@@ -1,0 +1,14 @@
+{
+  "name": "prototype-codeflow-graph",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "measure": "node analyze.mjs && node render.mjs"
+  },
+  "dependencies": {
+    "@codeflow-map/core": "1.0.3",
+    "gpt-tokenizer": "^3.0.1",
+    "typescript": "^5.8.3",
+    "typescript-language-server": "^6.1.0"
+  }
+}

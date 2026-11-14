@@ -1,153 +1,63 @@
 {
   "$schema": "https://aka.ms/codetour-schema",
-  "title": "Changes on feature/specs-77-79-80-integration",
-  "description": "This Changes Tour follows the committed branch from the merge-base of upstream/main to HEAD; uncommitted changes are excluded. It moves from standalone playback through the shared MCP generation boundary and its thin launch adapters.\n\n**Diagram — Reader and generation boundaries**\n\n```mermaid\nflowchart LR\n  User[Reader or author] --> CLI[Standalone CLI]\n  CLI --> HTML[HTML reader]\n  CLI --> TUI[TermDOM reader]\n  Adapter[Copilot adapter] --> CLI\n  Adapter --> Agent[Host agent]\n  Agent --> MCP[Shared MCP server]\n  MCP --> Tours[Tour files and Git snapshots]\n  CLI --> Tours\n```\n\nCritical review found one heuristic Standards risk in terminal layout and one Spec acceptance gap: issue #79's required real Windows speech smoke evidence remains pending. No other review findings were established.\n\nGenerated from the merge-base of `upstream/main` (`29955a004445d3fd2ad5df35dd00f9cc0400ba7d`) to `eff16229ea810df554c72e469d01ca666cbc79ae`.",
-  "ref": "eff16229ea810df554c72e469d01ca666cbc79ae",
-  "baseRef": "29955a004445d3fd2ad5df35dd00f9cc0400ba7d",
+  "title": "Prompts de génération composés et remplacement direct de l'adaptateur",
+  "description": "Tour critique des commits de `feature/composed-generation-prompts` depuis `origin/main`.\n\nTrois changements : le serveur MCP compose les prompts de génération (`prompts/get`) avec une « orientation » libre de l'utilisateur ; l'adaptateur Copilot relaie cette phrase et la demande avant chaque génération ; `--install copilot` remplace directement un adaptateur différent (suppression de `--force`). Des tests du lecteur terminal sont aussi ajoutés.\n\nAxe Standards : aucune règle documentée enfreinte n'a été établie ; un risque heuristique est signalé à l'étape 3. Les tests sont décrits d'après leur lecture, pas exécutés. Les modifications locales non commitées (`docs/copilot-cli-adapter.md`, `src/cli/agentIntegrations*.ts`) sont exclues.\n\nSource Spec utilisée : `docs/specs/agent-integrations-copilot-codex.md` (modifiée par ces commits, associée à la fonctionnalité ; correspondance par thème, pas de ticket explicite). Aucun écart établi par rapport à ses exigences.\n\nGenerated from the merge-base of `origin/main` (`8f42a4ff2364d55e11196dce1c99cbfbf109963b`) to `a189d4b77b0516fb24caed145b5749febd4b3fdc`.",
+  "ref": "a189d4b77b0516fb24caed145b5749febd4b3fdc",
+  "baseRef": "8f42a4ff2364d55e11196dce1c99cbfbf109963b",
   "steps": [
     {
-      "title": "Orienting in the standalone reader",
-      "description": "The branch adds an autonomous command-line reader with HTML and TermDOM Playback Surfaces, while preserving the existing Tour files and shared generation engine. The following steps trace how the CLI discovers Tours, resolves their source context, and reaches the generation adapters.",
-      "directory": "src/cli"
+      "title": "Où le travail s'est fait",
+      "description": "Le serveur MCP partagé (`server.ts`) compose désormais les prompts. L'adaptateur Copilot (`.github/extensions/codetour/adapter.mjs`) ne contient plus de texte de prompt et la CLI (`src/cli/agentIntegrations.ts`, `index.ts`) change sa politique d'installation.\n\n**Diagram — flux de génération**\n\n```mermaid\nsequenceDiagram\n  participant U as Utilisateur\n  participant A as Adaptateur Copilot\n  participant S as Serveur MCP\n  U->>A: /codetour generate changes critical [phrase]\n  A->>U: demande l'orientation si absente\n  A->>S: prompts/get generate_changes_tour {reviewMode, brief}\n  S-->>A: prompt composé + clause d'orientation\n  A->>U: session.send(prompt)\n```",
+      "directory": "packages/mcp-server/src"
     },
     {
-      "title": "Dispatching reader and MCP commands",
-      "description": "The standalone entry recognizes the reserved `mcp` command before reader setup, so MCP startup does not depend on Git-based Tour discovery. Without that token, the CLI selects the existing Tour-reading path and renderer; the dispatch regression coverage is in `src/cli/cli.test.ts`.",
-      "file": "src/cli/index.ts",
-      "pattern": "if \\(process\\.argv\\[2\\] === \"mcp\"\\)",
-      "display": "diff"
-    },
-    {
-      "title": "Opening Tours in standalone HTML",
-      "description": "The HTML renderer builds a self-contained playback document that presents the selected step and supports previous/next/finish navigation without requiring VS Code. Its browser-side step state remains in memory; coverage is in `src/cli/html.test.ts`.",
-      "file": "src/cli/html.ts",
-      "pattern": "function show\\(\\)\\{",
-      "display": "diff"
-    },
-    {
-      "title": "Resolving code and persisted diffs",
-      "description": "The reader resolves a step’s code context from the workspace or the Tour’s referenced commit, and reads Changes Tour diffs from the persisted base/head snapshots. This keeps the displayed comparison tied to the saved Tour rather than substituting the current working tree; coverage is in `src/cli/stepContext.test.ts`.",
-      "file": "src/cli/stepContext.ts",
-      "pattern": "function resolveDiff\\(",
-      "display": "diff"
-    },
-    {
-      "title": "Navigating the TermDOM reader",
-      "description": "The terminal surface renders Tour steps and handles keyboard navigation, scrolling, progress, and completion. The current step is reader state rather than a write to the `.tour` file; coverage is in `src/cli/reader/reader.test.ts`, which drives the reading interface in-process.",
-      "file": "src/cli/terminal.ts",
-      "pattern": "export async function runTerminalTour\\(",
-      "display": "diff"
-    },
-    {
-      "title": "Failing explicitly on unsupported content",
-      "description": "The TermDOM path converts supported descriptions for terminal display and raises a typed rendering error when a reached step contains unsupported content. It does not silently skip that step or switch to another renderer; related coverage is in `src/cli/terminalContent.test.ts` and the in-process reading interface tests in `src/cli/reader/reader.test.ts`.",
-      "file": "src/cli/terminalContent.ts",
-      "pattern": "renderTerminalDescription",
-      "display": "diff"
-    },
-    {
-      "title": "Rendering Mermaid for terminals",
-      "description": "The terminal reader sends Mermaid source through its optional terminal rendering path instead of assuming the VS Code SVG/PNG surface is available. If rendering is unavailable, the terminal path returns no drawing; tests are in `src/cli/termaid.test.ts`.",
-      "file": "src/cli/termaid.ts",
-      "pattern": "export async function renderMermaidText\\(",
-      "display": "diff"
-    },
-    {
-      "title": "Validating Tour image assets",
-      "description": "The MCP boundary constrains local Tour image references to the reserved image area and validates the referenced content before persistence. The shared renderer then makes accepted image data available to playback; validation coverage is in `packages/mcp-server/test/integration/image-validation.test.ts`.",
-      "file": "packages/mcp-server/src/image-validation.ts",
-      "pattern": "tourImageDirectoryName",
-      "display": "diff"
-    },
-    {
-      "title": "Launching an independent terminal window",
-      "description": "The terminal launcher opens a separate OS terminal for the TermDOM reader, leaving it independent of the process that requested playback. When a supported graphical terminal host is unavailable, it reports that condition rather than relying on a multiplexer; coverage includes the in-process reading interface tests in `src/cli/reader/reader.test.ts` and `test/standalone-terminal-smoke.py`.",
-      "file": "src/cli/terminalLauncher.ts",
-      "pattern": "export async function launchTerminalReader\\(",
-      "display": "diff"
-    },
-    {
-      "title": "Grounding Step conversations",
-      "description": "Standalone Step conversations keep their exchanges in memory per Tour Step and build question context from the displayed code or paired diff snapshots. The same context boundary serves the reader without changing persisted Tour descriptions; tests are in `src/cli/stepChatSupport.test.ts`.",
-      "file": "src/cli/stepChatSupport.ts",
-      "pattern": "buildStepChatContext\\(",
-      "display": "diff"
-    },
-    {
-      "title": "Preparing descriptions for narration",
-      "description": "The narration preparer converts a Step’s Markdown description to spoken text in source order, replacing Mermaid, image, and other code fences with short spoken cues. It does not narrate the code pane or invent text for an empty description; coverage is in `src/cli/narration/prepareText.test.ts`.",
-      "file": "src/cli/narration/prepareText.ts",
-      "pattern": "export function prepareNarrationText\\(",
-      "display": "diff"
-    },
-    {
-      "title": "Controlling narration across navigation",
-      "description": "The narration controller is the reader's speech engine seam: it owns the enabled state, cuts and replaces speech, and keeps the generation race protection so a slow engine can never resume stale speech. The reading module keeps only the policy — narration commits only for the Step a render actually displays, and a navigation's want defers until its render lands; coverage is in `src/cli/narration/NarrationController.test.ts` and `src/cli/reader/readerNarration.test.ts`.",
-      "file": "src/cli/narration/NarrationController.ts",
-      "pattern": "onStepChanged\\(description: string\\): void",
-      "display": "diff"
-    },
-    {
-      "title": "Using local operating-system speech",
-      "description": "The optional speech adapter uses the installed macOS `say` command or Windows System.Speech through PowerShell, while keeping synthesis outside TermDOM and the agent. Missing or failed speech is reported without disabling reading; deterministic adapter coverage is in `src/cli/narration/SystemSpeech.test.ts`.",
-      "file": "src/cli/narration/SystemSpeech.ts",
-      "pattern": "export function createSystemSpeech\\(",
-      "display": "diff"
-    },
-    {
-      "title": "Checking real speech acceptance evidence",
-      "description": "The opt-in real-voice smoke test is macOS-specific; the validation ledger records real Windows voice behavior as pending. **Spec:** Issue [maurice30120/codetour#79](https://github.com/maurice30120/codetour/issues/79) requires: “Feasibility and interruption behavior must be smoke-tested on real Windows and macOS terminals before claiming cross-platform support.” The current evidence does not establish that Windows acceptance criterion.",
-      "file": "src/cli/narration/saySmoke.test.ts",
-      "pattern": "real macOS voice speaks an utterance to completion",
-      "display": "diff"
-    },
-    {
-      "title": "Formatting the terminal status row",
-      "description": "The terminal layout helpers fit status text to the available width from either end, so the voice indicator can coexist with navigation and help hints. **Standards:** Risk / code smell (possible Duplicated Code, heuristic): `fit` and `tail` both use `const chars = Array.from(text); if (chars.length <= width) return text;` before applying an ellipsis, although they truncate in opposite directions; this is a possible maintenance risk, not a demonstrated standards violation.",
-      "file": "src/cli/terminalLayout.ts",
-      "pattern": "function fit\\(",
-      "display": "diff"
-    },
-    {
-      "title": "Sharing the MCP command entry",
-      "description": "The MCP package exposes one programmatic command entry for argument parsing and stdio startup, including workspace selection and startup diagnostics. The npm binary and standalone `codetour mcp` command use this shared entry; process-boundary tests are in `packages/mcp-server/test/integration/cli.test.ts`.",
-      "file": "packages/mcp-server/src/cli.ts",
-      "pattern": "export async function runMcpCli\\(",
-      "display": "diff"
-    },
-    {
-      "title": "Preserving Tour generation and Git comparison",
-      "description": "Project and Changes Tour proposals pass through MCP validation and the shared persistence path. For committed Changes Tours, the server verifies the supplied full head SHA, resolves `baseRef`, computes the merge-base, checks anchors against the analyzed commit, and writes the default `.tours/changes.tour` only after validation; these contracts are exercised in `packages/mcp-server/test/integration/changes-tour.test.ts`.",
+      "title": "Clause d'orientation côté serveur",
+      "description": "`tourOrientationClause(brief)` produit une section `## Tour orientation from the user` qui cite la phrase telle quelle et demande à l'agent de la suivre et d'écrire le Tour dans la même langue. Un `brief` absent ou blanc renvoie une chaîne vide : le prompt servi reste inchangé.\n\nEffet observable : la langue du Tour est déduite de la phrase de l'utilisateur, sans détection de langue côté code.",
+      "questions": [
+        "Pourquoi la langue est-elle déduite par l'agent plutôt que détectée ?",
+        "Que se passe-t-il avec un brief vide ?"
+      ],
       "file": "packages/mcp-server/src/server.ts",
-      "pattern": "resolveCommit\\(ctx, baseRef\\)",
+      "pattern": "function tourOrientationClause",
       "display": "diff"
     },
     {
-      "title": "Selecting neutral or critical review",
-      "description": "The Changes Tour input accepts the optional `neutral` or `critical` review mode while retaining the existing tool and `.tour` format. Critical mode is generation guidance only; it is not persisted in the Tour, and the MCP server still validates anchors and writes the proposal; coverage is in `packages/mcp-server/test/integration/critical-review.test.ts`.",
+      "title": "Prompts MCP enregistrés",
+      "description": "La capacité `prompts: {}` est ajoutée et deux prompts sont enregistrés : `generate_project_tour` (argument optionnel `brief`) et `generate_changes_tour` (`reviewMode` obligatoire `neutral|critical`, `brief` optionnel). Chacun renvoie un message `user` = prompt de génération existant + clause d'orientation.\n\nLes prompts ajoutent aussi la note sur le préfixe de nom de serveur des outils (`codetour-create_changes_tour` sous Copilot).\n\nTests inférés par lecture (non exécutés) : `generation-prompt.test.ts` couvre la liste des prompts, la composition avec/sans orientation et le rejet d'un mode inconnu.",
       "file": "packages/mcp-server/src/server.ts",
-      "pattern": "reviewMode: z",
+      "pattern": "GENERATE_CHANGES_TOUR_PROMPT_NAME,\\n",
       "display": "diff"
     },
     {
-      "title": "Serving the offline review skill pack",
-      "description": "The MCP resource assembles the separate CodeTour adaptation, upstream review skill, source revision, attribution, and MIT license for offline clients. The generated module is tested against its source documents in `packages/mcp-server/test/unit/review-skill.test.ts`.",
-      "file": "packages/mcp-server/src/review-skill.ts",
-      "pattern": "export function criticalReviewSkillPack\\(",
-      "display": "diff"
-    },
-    {
-      "title": "Keeping the Copilot adapter thin",
-      "description": "The adapter gathers Read/Generate and Project/Changes choices, reads the critical instructions before forwarding a critical request, and asks the host agent to call the shared MCP tool. It leaves Tour analysis, validation, and persistence in the shared CLI/MCP implementation; the fake-host contract is covered by `test/copilot-adapter.test.mjs`.",
+      "title": "Adaptateur : analyse de la commande",
+      "description": "La regex accepte maintenant, après `generate [project|changes] [neutral|critical]`, une phrase libre (groupe 3) qui devient le `brief`.\n\n**Standards (risque / code smell, pas une violation documentée) :** l'ancienne ligne levait une erreur d'usage pour `generate <jeton invalide>` (`Use /codetour generate project or ...`). Avec ce motif, `generate chages` correspond désormais : `type` est vide, la phrase `chages` devient un brief et l'utilisateur voit la question « Which type of Tour? ». Une faute de frappe sur le type est donc traitée comme une orientation, sans message d'erreur. C'est une conséquence de la grammaire ambiguë (jugement heuristique, aucune règle du dépôt citée).",
       "file": ".github/extensions/codetour/adapter.mjs",
-      "pattern": "session.send\\(\\{prompt, mode: \"immediate\"\\}\\)",
+      "line": 134,
       "display": "diff"
     },
     {
-      "title": "Packaging one standalone MCP implementation",
-      "description": "The standalone package includes the MCP implementation within the CLI bundle and checks that it is not duplicated as a second server entry. The packager also enforces its measured bundle budget; artifact-level coverage is in `test/standalone-package.test.js`.",
-      "file": "scripts/package-standalone.js",
-      "pattern": "function assertSingleMcpServer\\(",
+      "title": "Adaptateur : orientation demandée avant lancement",
+      "description": "Si aucune phrase n'a été donnée dans la commande, l'adaptateur pose toujours la question « What should this Tour focus on? » : annuler (`null`/`undefined`) arrête la génération, une réponse vide garde le Tour standard. Sans capacité d'élicitation, une erreur explicite indique la forme `/codetour generate ... <phrase>`.\n\nEnsuite `servedPrompt` appelle `prompts/get` avec `{reviewMode, brief}` (ou `{brief}` pour un Tour projet) et envoie le résultat via `session.send`. Les anciens appels `resources/read` sont remplacés ; un prompt vide ou injoignable rejette avant toute analyse.\n\nTests inférés (non exécutés) : `test/copilot-adapter.test.mjs` couvre annulation, réponse, absence d'élicitation, relai verbatim, et l'absence de prose de prompt dans la source de l'adaptateur.",
+      "questions": [
+        "Que se passe-t-il si l'hôte ne supporte pas l'élicitation ?",
+        "Comment annuler la génération ?"
+      ],
+      "file": ".github/extensions/codetour/adapter.mjs",
+      "line": 155,
+      "display": "diff"
+    },
+    {
+      "title": "Installation : remplacement direct",
+      "description": "`install()` n'a plus d'option `force` : les fichiers de l'adaptateur dont le contenu diffère sont remplacés, puis la CLI affiche `Replaced differing adapter files (...)`. Le message de statut « outdated » indique de relancer `codetour --install copilot`. L'option `--force` est retirée de `src/cli/index.ts`.\n\nEffet : une installation Copilot personnalisée est écrasée sans confirmation. La spécification a été mise à jour dans le même commit (« Une installation dont le contenu diffère est remplacée ... et les fichiers remplacés sont signalés »), donc le code est conforme à la spec actuelle.\n\n**Standards (risque, pas une violation) :** le remplacement sans consentement est un choix de sécurité plus permissif que l'ancien garde-fou ; il est documenté, donc non reproché comme défaut. Aucun reste de `--force` n'a été trouvé dans docs/src (recherche effectuée).",
+      "file": "src/cli/agentIntegrations.ts",
+      "line": 102,
+      "display": "diff"
+    },
+    {
+      "title": "Tests ajoutés pour le lecteur terminal",
+      "description": "550 lignes de tests pour le lecteur TermDOM : décodage d'écran depuis les repaints, et suite pseudo-terminal (linux seulement) pour la fin au clavier, le défilement d'un long Step et le code de sortie non nul en contenu non supporté. Ils ne se rapportent pas aux prompts de génération ; le commit indique qu'ils venaient d'une autre base. Je ne les ai pas exécutés.",
+      "file": "src/cli/terminal.test.ts",
+      "line": 1,
       "display": "diff"
     }
   ]

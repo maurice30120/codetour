@@ -1,0 +1,182 @@
+{
+  "server": "csharp-ls 0.28.0 (Roslyn)",
+  "initMs": 1810,
+  "cases": [
+    {
+      "id": "cs-user-service",
+      "tokens": 523,
+      "payloadTokens": 158,
+      "targetedTokens": 365,
+      "incomingCovered": 4,
+      "incomingTotal": 4,
+      "hierarchySupported": true,
+      "incoming": [
+        {
+          "name": "(usage classe)",
+          "file": "Services/UserService.cs",
+          "line": 16
+        },
+        {
+          "name": "(usage classe)",
+          "file": "Api/RequestHandler.cs",
+          "line": 18
+        },
+        {
+          "name": "(usage classe)",
+          "file": "Api/RequestHandler.cs",
+          "line": 34
+        },
+        {
+          "name": "(appel)",
+          "file": "Api/RequestHandler.cs",
+          "line": 19
+        },
+        {
+          "name": "(appel)",
+          "file": "Api/RequestHandler.cs",
+          "line": 35
+        }
+      ],
+      "hierarchyIncoming": [
+        {
+          "name": "HandleGetUser(int)",
+          "file": "Api/RequestHandler.cs",
+          "line": 15
+        },
+        {
+          "name": "AuditUsers(int)",
+          "file": "Api/RequestHandler.cs",
+          "line": 31
+        }
+      ],
+      "outgoing": [
+        {
+          "name": "Validate(int)",
+          "file": "Services/UserService.cs",
+          "line": 69
+        },
+        {
+          "name": "Find(int)",
+          "file": "Models/IRepository.cs",
+          "line": 9
+        },
+        {
+          "name": "Audit(int)",
+          "file": "Services/UserService.cs",
+          "line": 74
+        }
+      ],
+      "durations": {
+        "classRefsMs": 604,
+        "memberRefsMs": 35
+      }
+    },
+    {
+      "id": "cs-admin-service",
+      "tokens": 483,
+      "payloadTokens": 142,
+      "targetedTokens": 341,
+      "incomingCovered": 2,
+      "incomingTotal": 2,
+      "hierarchySupported": true,
+      "incoming": [
+        {
+          "name": "(usage classe)",
+          "file": "Services/AdminService.cs",
+          "line": 14
+        },
+        {
+          "name": "(usage classe)",
+          "file": "Api/RequestHandler.cs",
+          "line": 5
+        },
+        {
+          "name": "(usage classe)",
+          "file": "Api/RequestHandler.cs",
+          "line": 22
+        },
+        {
+          "name": "(usage classe)",
+          "file": "Api/RequestHandler.cs",
+          "line": 26
+        },
+        {
+          "name": "(appel)",
+          "file": "Api/RequestHandler.cs",
+          "line": 23
+        },
+        {
+          "name": "(appel)",
+          "file": "Api/RequestHandler.cs",
+          "line": 27
+        }
+      ],
+      "hierarchyIncoming": [
+        {
+          "name": "HandleGetUser(int)",
+          "file": "Api/RequestHandler.cs",
+          "line": 15
+        }
+      ],
+      "outgoing": [
+        {
+          "name": "Find(int)",
+          "file": "Models/IRepository.cs",
+          "line": 9
+        },
+        {
+          "name": "Log(long)",
+          "file": "Models/IRepository.cs",
+          "line": 11
+        }
+      ],
+      "durations": {
+        "classRefsMs": 4,
+        "memberRefsMs": 1
+      }
+    },
+    {
+      "id": "cs-picker-dispatch",
+      "tokens": 364,
+      "payloadTokens": 77,
+      "targetedTokens": 287,
+      "incomingCovered": 1,
+      "incomingTotal": 1,
+      "hierarchySupported": true,
+      "incoming": [
+        {
+          "name": "(usage classe)",
+          "file": "Api/RequestHandler.cs",
+          "line": 41
+        },
+        {
+          "name": "(appel)",
+          "file": "Services/Pickers.cs",
+          "line": 12
+        },
+        {
+          "name": "(appel)",
+          "file": "Services/Pickers.cs",
+          "line": 25
+        },
+        {
+          "name": "(appel)",
+          "file": "Api/RequestHandler.cs",
+          "line": 42
+        }
+      ],
+      "hierarchyIncoming": [],
+      "outgoing": [
+        {
+          "name": "User(string)",
+          "file": "Models/User.cs",
+          "line": 8
+        }
+      ],
+      "durations": {
+        "classRefsMs": 4,
+        "memberRefsMs": 9
+      }
+    }
+  ]
+}

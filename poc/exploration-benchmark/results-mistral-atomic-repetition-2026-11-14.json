@@ -1,0 +1,960 @@
+{
+  "timestamp": "2026-11-14T13:06:55.582Z",
+  "model": "mistral-small-latest",
+  "budget": {
+    "iterations": 8,
+    "calls": 32,
+    "tokens": 32000,
+    "durationMs": 60000
+  },
+  "rows": [
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "off",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "read",
+        "read",
+        "search",
+        "search"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 4493,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6753,
+          "outputTokens": 146,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4493,
+          "outputBytes": 1919,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "off",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "read",
+        "read",
+        "search",
+        "search"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 5241,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6701,
+          "outputTokens": 149,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 5241,
+          "outputBytes": 1606,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "off",
+      "run": 3,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "read",
+        "read",
+        "search",
+        "search"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 3832,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6701,
+          "outputTokens": 149,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 3832,
+          "outputBytes": 1606,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "on",
+      "run": 1,
+      "calls": [
+        "code",
+        "read",
+        "read"
+      ],
+      "scriptCalls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "wallTimeMs": 6411,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+        "entryPoints": [
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "totalPrice",
+            "to": "price * quantity",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 2,
+                "endLine": 2
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 4488,
+          "outputTokens": 383,
+          "usageAvailable": true,
+          "modelCalls": 4,
+          "toolCalls": 3,
+          "durationMs": 6410,
+          "outputBytes": 714,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "on",
+      "run": 2,
+      "calls": [
+        "memory_list",
+        "memory_run",
+        "read",
+        "read"
+      ],
+      "scriptCalls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "5ee03a6dffc225db",
+            "params": {
+              "query": "totalPrice"
+            }
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 2,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "wallTimeMs": 3930,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [
+          {
+            "name": "totalPrice definition",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "totalPrice usage",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "totalPrice",
+            "to": "price * quantity",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 2,
+                "endLine": 2
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5889,
+          "outputTokens": 427,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 3929,
+          "outputBytes": 883,
+          "cost": null,
+          "memoryReuses": 1,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "on",
+      "run": 3,
+      "calls": [
+        "memory_list",
+        "memory_run",
+        "read",
+        "read"
+      ],
+      "scriptCalls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "5ee03a6dffc225db",
+            "params": {
+              "query": "totalPrice"
+            }
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 3,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "wallTimeMs": 4671,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [
+          {
+            "name": "totalPrice definition",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "totalPrice usage",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "totalPrice",
+            "to": "price * quantity",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 2,
+                "endLine": 2
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5889,
+          "outputTokens": 427,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 4670,
+          "outputBytes": 883,
+          "cost": null,
+          "memoryReuses": 1,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 2,
+      "mode": "on",
+      "run": 1,
+      "calls": [
+        "code",
+        "read",
+        "read",
+        "search",
+        "read",
+        "read"
+      ],
+      "scriptCalls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "wallTimeMs": 6476,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+        "entryPoints": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "createOrder (order.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 1
+              },
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 8802,
+          "outputTokens": 467,
+          "usageAvailable": true,
+          "modelCalls": 7,
+          "toolCalls": 6,
+          "durationMs": 6476,
+          "outputBytes": 1346,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 2,
+      "mode": "on",
+      "run": 2,
+      "calls": [
+        "memory_list",
+        "memory_run",
+        "read",
+        "read"
+      ],
+      "scriptCalls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "5ee03a6dffc225db",
+            "params": {
+              "query": "totalPrice"
+            }
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 2,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "wallTimeMs": 6400,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "totalPrice function",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "createOrder function",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 1
+              },
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5889,
+          "outputTokens": 397,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 6399,
+          "outputBytes": 883,
+          "cost": null,
+          "memoryReuses": 1,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 2,
+      "mode": "on",
+      "run": 3,
+      "calls": [
+        "memory_list",
+        "memory_run",
+        "read",
+        "read"
+      ],
+      "scriptCalls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "5ee03a6dffc225db",
+            "params": {
+              "query": "totalPrice"
+            }
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 3,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "wallTimeMs": 3566,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [
+          {
+            "name": "totalPrice function",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "order module",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5889,
+          "outputTokens": 286,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 3565,
+          "outputBytes": 883,
+          "cost": null,
+          "memoryReuses": 1,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 2,
+      "mode": "off",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "read",
+        "read",
+        "search",
+        "search"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 4597,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6753,
+          "outputTokens": 146,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4597,
+          "outputBytes": 1868,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 2,
+      "mode": "off",
+      "run": 2,
+      "calls": [
+        "list",
+        "read",
+        "read",
+        "read",
+        "read",
+        "search",
+        "search",
+        "search"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 6468,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6903,
+          "outputTokens": 150,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 6468,
+          "outputBytes": 2167,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 2,
+      "mode": "off",
+      "run": 3,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "read",
+        "read",
+        "search",
+        "search"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 4425,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6701,
+          "outputTokens": 149,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4425,
+          "outputBytes": 1606,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    }
+  ]
+}

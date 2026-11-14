@@ -48,6 +48,9 @@ export type ReaderKeyAction =
  * owns the keyboard first, then the reading-mode keys in their fixed order.
  */
 export function translateKey(state: ReaderKeyState, event: ReaderKeyEvent): ReaderKeyAction {
+  // Host copy/paste/find shortcuts must not become question text or reading
+  // commands, including while the ask prompt owns ordinary typing.
+  if (event.ctrl || event.meta) return { type: "unhandled" };
   const { asking, responding, hasResponder } = state.conversation;
   if (asking) {
     if (event.key === "Enter") return { type: "submit-draft" };

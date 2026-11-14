@@ -1,0 +1,13 @@
+{
+  "name": "prototype-csharp-shootout",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "shootout": "node shootout.mjs"
+  },
+  "dependencies": {
+    "gpt-tokenizer": "^3.0.1",
+    "tree-sitter-wasms": "0.1.13",
+    "web-tree-sitter": "0.25.8"
+  }
+}

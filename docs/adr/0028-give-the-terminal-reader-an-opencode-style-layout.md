@@ -18,7 +18,8 @@ The terminal reader now uses that layout:
   longer than the rail keeps the active Step visible and marks the Steps hidden
   above and below with `⋮`, so the marker is never off-screen.
 - The Step body keeps its own scroller and opens with the anchor and a
-  `▌ codetour` role line. Source and diff live in a titled panel whose head
+  white, bold title. The wordmark stays in the top bar rather than being
+  repeated above each Step. Source and diff live in a titled panel whose head
   carries the target and its kind (`diff`, `code`, `n/a`).
 - The conversation is a thread: `▌ you` in the info colour, `▌ <agent>` in the
   primary colour, tool calls as `⚙ …` muted rows, and a bordered composer that
@@ -30,8 +31,10 @@ The terminal reader now uses that layout:
 
 `ADR 0026` chose a right-hand panel at "about 45% of the columns". The panel
 keeps that role but settles at 36–48 columns (37% of the width): the rail takes
-26 columns on a wide screen, and a 50-column panel next to it would leave the
-Step too narrow for both prose and code. Every width — rail threshold, panel,
+26 columns, growing to at most 36 on large screens so Step titles remain
+recognisable. Prose stops growing at 78 columns; source and diff keep the
+remaining width. A 50-column conversation panel next to the rail would leave
+the Step too narrow for both prose and code. Every width — rail threshold, panel,
 Step text, code, title, rail label and composer — is computed in
 `src/cli/terminalLayout.ts`, so the budgets can be tested without a
 pseudo-terminal; a resize re-renders only when the column or row count changes.
@@ -41,3 +44,12 @@ still walk the Tour and no new jump key is invented, so a reader cannot land on
 a Step they skipped. And the long key hints are gated on its own width rather
 than the rail's, because a 100-column screen has room for the rail but not for
 the spelled-out hints plus the provider segment.
+
+Mouse selection belongs to the native terminal so a reader can drag over an
+identifier and use the host's Copy and Find commands. TermDOM's mouse tracking
+is suppressed at its public transport boundary, including subsequent mode
+enables after a resume; fullscreen, bracketed paste and keyboard input pass
+through. Scrolling stays on `j`/`k`, arrows and page keys. Ctrl/Cmd shortcuts
+also pass through while drafting a question, rather than inserting their
+letter or submitting the draft. This avoids relying on the terminal's
+support for OSC 52 clipboard writes.

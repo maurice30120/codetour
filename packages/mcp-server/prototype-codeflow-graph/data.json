@@ -1,0 +1,537 @@
+{
+  "generatedAt": "2026-11-13T09:54:05.743Z",
+  "tokenizer": "gpt-tokenizer (pure JS, cl100k-compatible)",
+  "library": "@codeflow-map/core 1.0.3",
+  "graphs": {
+    "ts": {
+      "files": 5,
+      "nodes": 7,
+      "edges": 1,
+      "durationMs": 242
+    },
+    "py": {
+      "files": 2,
+      "nodes": 5,
+      "edges": 1,
+      "durationMs": 9
+    },
+    "repo": {
+      "files": 14,
+      "nodes": 69,
+      "edges": 146,
+      "durationMs": 613
+    }
+  },
+  "cases": [
+    {
+      "id": "ts-user-service",
+      "label": "Fixture TS — UserService",
+      "question": "Une classe avec héritage, this.méthode(), un champ d'interface et des appelants dans un autre fichier.",
+      "symbol": "UserService",
+      "file": "fixture/ts/user-service.ts",
+      "grepToken": "getUser",
+      "payload": "# graph UserService @ fixture/ts/user-service.ts (depth 1)\nOUT UserService.getUser -> UserService.audit [user-service.ts:L15-17]",
+      "payloadTokens": 34,
+      "payloadWithGaps": "# graph UserService @ fixture/ts/user-service.ts (depth 1)\nOUT UserService.getUser -> UserService.audit [user-service.ts:L15-17]\n? IN  handleRequest @api.ts:8 getUser -> 2 candidat(s): AdminService.getUser, UserService.getUser\n? IN  handleRequest @api.ts:9 getUser -> 2 candidat(s): AdminService.getUser, UserService.getUser\n? IN  auditUsers @api.ts:13 getUser -> 2 candidat(s): AdminService.getUser, UserService.getUser\n? OUT UserService.getUser @user-service.ts:10 validate -> 1 candidat(s): BaseService.validate",
+      "payloadGapTokens": 140,
+      "gaps": [
+        {
+          "file": "api.ts",
+          "line": 8,
+          "name": "getUser",
+          "caller": "handleRequest",
+          "direction": "in",
+          "candidates": [
+            "AdminService.getUser",
+            "UserService.getUser"
+          ]
+        },
+        {
+          "file": "api.ts",
+          "line": 9,
+          "name": "getUser",
+          "caller": "handleRequest",
+          "direction": "in",
+          "candidates": [
+            "AdminService.getUser",
+            "UserService.getUser"
+          ]
+        },
+        {
+          "file": "api.ts",
+          "line": 13,
+          "name": "getUser",
+          "caller": "auditUsers",
+          "direction": "in",
+          "candidates": [
+            "AdminService.getUser",
+            "UserService.getUser"
+          ]
+        },
+        {
+          "file": "user-service.ts",
+          "line": 10,
+          "name": "validate",
+          "caller": "UserService.getUser",
+          "direction": "out",
+          "candidates": [
+            "BaseService.validate"
+          ]
+        }
+      ],
+      "targetedText": "### api.ts:1-21 (appel(s) ligne 8, 9, 13)\nimport { UserService as Users } from \"./user-service\";\nimport { AdminService as Admins } from \"./admin-service\";\nimport type { Repository } from \"./repository\";\n\nexport function handleRequest(repository: Repository, id: string): string {\n  const users = new Users(repository);\n  const admins = new Admins();\n  const user = users.getUser(id) ?? \"anonymous\";\n  return admins.getUser(user);\n}\n\nexport function auditUsers(users: Users, id: string): void {\n  users.getUser(id);\n}\n\n\n### user-service.ts:2-18 (appel(s) ligne 10)\nimport type { Repository } from \"./repository\";\n\nexport class UserService extends BaseService {\n  constructor(private readonly repository: Repository) {\n    super();\n  }\n\n  getUser(id: string): string | undefined {\n    this.validate(id);\n    this.audit(id);\n    return this.repository.find(id);\n  }\n\n  private audit(id: string): void {\n    this.repository.log(\"getUser\", id);\n  }\n}\n",
+      "targetedRanges": [
+        {
+          "file": "api.ts",
+          "start": 1,
+          "end": 21,
+          "lines": 21,
+          "pointers": [
+            8,
+            9,
+            13
+          ]
+        },
+        {
+          "file": "user-service.ts",
+          "start": 2,
+          "end": 18,
+          "lines": 17,
+          "pointers": [
+            10
+          ]
+        }
+      ],
+      "targetedTokens": 226,
+      "honestTokens": 366,
+      "baselineText": "# baseline for getUser: grep + read files\ngrep:admin-service.ts:2: getUser(id: string): string {\ngrep:api.ts:8: const user = users.getUser(id) ?? \"anonymous\";\ngrep:api.ts:9: return admins.getUser(user);\ngrep:api.ts:13: users.getUser(id);\ngrep:user-service.ts:9: getUser(id: string): string | undefined {\ngrep:user-service.ts:16: this.repository.log(\"getUser\", id);\n\n### file admin-service.ts (6 lines)\nexport class AdminService {\n  getUser(id: string): string {\n    return `admin:${id}`;\n  }\n}\n\n\n### file api.ts (15 lines)\nimport { UserService as Users } from \"./user-service\";\nimport { AdminService as Admins } from \"./admin-service\";\nimport type { Repository } from \"./repository\";\n\nexport function handleRequest(repository: Repository, id: string): string {\n  const users = new Users(repository);\n  const admins = new Admins();\n  const user = users.getUser(id) ?? \"anonymous\";\n  return admins.getUser(user);\n}\n\nexport function auditUsers(users: Users, id: string): void {\n  users.getUser(id);\n}\n\n\n### file user-service.ts (19 lines)\nimport { BaseService } from \"./base-service\";\nimport type { Repository } from \"./repository\";\n\nexport class UserService extends BaseService {\n  constructor(private readonly repository: Repository) {\n    super();\n  }\n\n  getUser(id: string): string | undefined {\n    this.validate(id);\n    this.audit(id);\n    return this.repository.find(id);\n  }\n\n  private audit(id: string): void {\n    this.repository.log(\"getUser\", id);\n  }\n}\n",
+      "baselineTokens": 353,
+      "baselineHits": 6,
+      "baselineFiles": [
+        {
+          "path": "admin-service.ts",
+          "lines": 6
+        },
+        {
+          "path": "api.ts",
+          "lines": 15
+        },
+        {
+          "path": "user-service.ts",
+          "lines": 19
+        }
+      ],
+      "baselineTruncated": 0,
+      "apparentSavingPct": 90.4,
+      "found": 1,
+      "total": 8,
+      "recallPct": 12.5,
+      "falsePositives": [],
+      "rows": [
+        {
+          "from": "handleRequest",
+          "to": "UserService.constructor",
+          "kind": "new",
+          "certainty": "provable",
+          "found": false,
+          "direction": "in",
+          "actionable": false
+        },
+        {
+          "from": "handleRequest",
+          "to": "UserService.getUser",
+          "kind": "call",
+          "certainty": "provable",
+          "found": false,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "auditUsers",
+          "to": "UserService.getUser",
+          "kind": "call",
+          "certainty": "provable",
+          "found": false,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "UserService.constructor",
+          "to": "BaseService.constructor",
+          "kind": "super",
+          "certainty": "provable",
+          "found": false,
+          "direction": "out",
+          "actionable": false
+        },
+        {
+          "from": "UserService.getUser",
+          "to": "UserService.validate",
+          "kind": "call",
+          "certainty": "provable",
+          "found": false,
+          "direction": "out",
+          "actionable": true
+        },
+        {
+          "from": "UserService.getUser",
+          "to": "UserService.audit",
+          "kind": "call",
+          "certainty": "provable",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        },
+        {
+          "from": "UserService.getUser",
+          "to": "Repository.find",
+          "kind": "call",
+          "certainty": "hard",
+          "found": false,
+          "direction": "out",
+          "actionable": false
+        },
+        {
+          "from": "UserService.audit",
+          "to": "Repository.log",
+          "kind": "call",
+          "certainty": "hard",
+          "found": false,
+          "direction": "out",
+          "actionable": false
+        }
+      ],
+      "incoming": {
+        "total": 3,
+        "found": 0,
+        "actionable": 2
+      },
+      "outgoing": {
+        "total": 5,
+        "found": 1,
+        "actionable": 2
+      },
+      "scan": {
+        "files": 5,
+        "nodes": 7,
+        "edges": 1,
+        "durationMs": 242
+      }
+    },
+    {
+      "id": "ts-admin-service",
+      "label": "Fixture TS — AdminService (homonyme)",
+      "question": "Deux classes déclarent getUser(). Le graphe doit-il deviner, se taire, ou se tromper ?",
+      "symbol": "AdminService",
+      "file": "fixture/ts/admin-service.ts",
+      "grepToken": "getUser",
+      "payload": "# graph AdminService @ fixture/ts/admin-service.ts (depth 1)",
+      "payloadTokens": 16,
+      "payloadWithGaps": "# graph AdminService @ fixture/ts/admin-service.ts (depth 1)\n? IN  handleRequest @api.ts:8 getUser -> 2 candidat(s): AdminService.getUser, UserService.getUser\n? IN  handleRequest @api.ts:9 getUser -> 2 candidat(s): AdminService.getUser, UserService.getUser\n? IN  auditUsers @api.ts:13 getUser -> 2 candidat(s): AdminService.getUser, UserService.getUser",
+      "payloadGapTokens": 99,
+      "gaps": [
+        {
+          "file": "api.ts",
+          "line": 8,
+          "name": "getUser",
+          "caller": "handleRequest",
+          "direction": "in",
+          "candidates": [
+            "AdminService.getUser",
+            "UserService.getUser"
+          ]
+        },
+        {
+          "file": "api.ts",
+          "line": 9,
+          "name": "getUser",
+          "caller": "handleRequest",
+          "direction": "in",
+          "candidates": [
+            "AdminService.getUser",
+            "UserService.getUser"
+          ]
+        },
+        {
+          "file": "api.ts",
+          "line": 13,
+          "name": "getUser",
+          "caller": "auditUsers",
+          "direction": "in",
+          "candidates": [
+            "AdminService.getUser",
+            "UserService.getUser"
+          ]
+        }
+      ],
+      "targetedText": "### api.ts:1-21 (appel(s) ligne 8, 9, 13)\nimport { UserService as Users } from \"./user-service\";\nimport { AdminService as Admins } from \"./admin-service\";\nimport type { Repository } from \"./repository\";\n\nexport function handleRequest(repository: Repository, id: string): string {\n  const users = new Users(repository);\n  const admins = new Admins();\n  const user = users.getUser(id) ?? \"anonymous\";\n  return admins.getUser(user);\n}\n\nexport function auditUsers(users: Users, id: string): void {\n  users.getUser(id);\n}\n\n",
+      "targetedRanges": [
+        {
+          "file": "api.ts",
+          "start": 1,
+          "end": 21,
+          "lines": 21,
+          "pointers": [
+            8,
+            9,
+            13
+          ]
+        }
+      ],
+      "targetedTokens": 127,
+      "honestTokens": 226,
+      "baselineText": "# baseline for getUser: grep + read files\ngrep:admin-service.ts:2: getUser(id: string): string {\ngrep:api.ts:8: const user = users.getUser(id) ?? \"anonymous\";\ngrep:api.ts:9: return admins.getUser(user);\ngrep:api.ts:13: users.getUser(id);\ngrep:user-service.ts:9: getUser(id: string): string | undefined {\ngrep:user-service.ts:16: this.repository.log(\"getUser\", id);\n\n### file admin-service.ts (6 lines)\nexport class AdminService {\n  getUser(id: string): string {\n    return `admin:${id}`;\n  }\n}\n\n\n### file api.ts (15 lines)\nimport { UserService as Users } from \"./user-service\";\nimport { AdminService as Admins } from \"./admin-service\";\nimport type { Repository } from \"./repository\";\n\nexport function handleRequest(repository: Repository, id: string): string {\n  const users = new Users(repository);\n  const admins = new Admins();\n  const user = users.getUser(id) ?? \"anonymous\";\n  return admins.getUser(user);\n}\n\nexport function auditUsers(users: Users, id: string): void {\n  users.getUser(id);\n}\n\n\n### file user-service.ts (19 lines)\nimport { BaseService } from \"./base-service\";\nimport type { Repository } from \"./repository\";\n\nexport class UserService extends BaseService {\n  constructor(private readonly repository: Repository) {\n    super();\n  }\n\n  getUser(id: string): string | undefined {\n    this.validate(id);\n    this.audit(id);\n    return this.repository.find(id);\n  }\n\n  private audit(id: string): void {\n    this.repository.log(\"getUser\", id);\n  }\n}\n",
+      "baselineTokens": 353,
+      "baselineHits": 6,
+      "baselineFiles": [
+        {
+          "path": "admin-service.ts",
+          "lines": 6
+        },
+        {
+          "path": "api.ts",
+          "lines": 15
+        },
+        {
+          "path": "user-service.ts",
+          "lines": 19
+        }
+      ],
+      "baselineTruncated": 0,
+      "apparentSavingPct": 95.5,
+      "found": 0,
+      "total": 1,
+      "recallPct": 0,
+      "falsePositives": [],
+      "rows": [
+        {
+          "from": "handleRequest",
+          "to": "AdminService.getUser",
+          "kind": "call",
+          "certainty": "provable",
+          "found": false,
+          "direction": "in",
+          "actionable": true
+        }
+      ],
+      "incoming": {
+        "total": 1,
+        "found": 0,
+        "actionable": 1
+      },
+      "outgoing": {
+        "total": 0,
+        "found": 0,
+        "actionable": 0
+      },
+      "scan": {
+        "files": 5,
+        "nodes": 7,
+        "edges": 1,
+        "durationMs": 242
+      }
+    },
+    {
+      "id": "py-user-service",
+      "label": "Fixture Python — UserService",
+      "question": "Le même cas de contrôle en Python, sans types statiques.",
+      "symbol": "UserService",
+      "file": "fixture/py/models.py",
+      "grepToken": "get_user",
+      "payload": "# graph UserService @ fixture/py/models.py (depth 1)\nOUT UserService.get_user -> UserService._validate [models.py:L14-16]",
+      "payloadTokens": 33,
+      "payloadWithGaps": "# graph UserService @ fixture/py/models.py (depth 1)\nOUT UserService.get_user -> UserService._validate [models.py:L14-16]\n? IN  handle_request @app.py:6 get_user -> 1 candidat(s): UserService.get_user\n? OUT UserService.get_user @models.py:12 find -> 1 candidat(s): Repository.find",
+      "payloadGapTokens": 76,
+      "gaps": [
+        {
+          "file": "app.py",
+          "line": 6,
+          "name": "get_user",
+          "caller": "handle_request",
+          "direction": "in",
+          "candidates": [
+            "UserService.get_user"
+          ]
+        },
+        {
+          "file": "models.py",
+          "line": 12,
+          "name": "find",
+          "caller": "UserService.get_user",
+          "direction": "out",
+          "candidates": [
+            "Repository.find"
+          ]
+        }
+      ],
+      "targetedText": "### app.py:1-7 (appel(s) ligne 6)\nfrom models import Repository, UserService\n\n\ndef handle_request(repository: Repository, item_id):\n    service = UserService(repository)\n    return service.get_user(item_id)\n\n\n### models.py:4-17 (appel(s) ligne 12)\n\n\nclass UserService:\n    def __init__(self, repository):\n        self.repository = repository\n\n    def get_user(self, item_id):\n        self._validate(item_id)\n        return self.repository.find(item_id)\n\n    def _validate(self, item_id):\n        if not item_id:\n            raise ValueError(\"missing\")\n\n",
+      "targetedRanges": [
+        {
+          "file": "app.py",
+          "start": 1,
+          "end": 7,
+          "lines": 7,
+          "pointers": [
+            6
+          ]
+        },
+        {
+          "file": "models.py",
+          "start": 4,
+          "end": 17,
+          "lines": 14,
+          "pointers": [
+            12
+          ]
+        }
+      ],
+      "targetedTokens": 128,
+      "honestTokens": 204,
+      "baselineText": "# baseline for get_user: grep + read files\ngrep:app.py:6: return service.get_user(item_id)\ngrep:models.py:10: def get_user(self, item_id):\n\n### file app.py (7 lines)\nfrom models import Repository, UserService\n\n\ndef handle_request(repository: Repository, item_id):\n    service = UserService(repository)\n    return service.get_user(item_id)\n\n\n### file models.py (17 lines)\nclass Repository:\n    def find(self, item_id):\n        return None\n\n\nclass UserService:\n    def __init__(self, repository):\n        self.repository = repository\n\n    def get_user(self, item_id):\n        self._validate(item_id)\n        return self.repository.find(item_id)\n\n    def _validate(self, item_id):\n        if not item_id:\n            raise ValueError(\"missing\")\n",
+      "baselineTokens": 169,
+      "baselineHits": 2,
+      "baselineFiles": [
+        {
+          "path": "app.py",
+          "lines": 7
+        },
+        {
+          "path": "models.py",
+          "lines": 17
+        }
+      ],
+      "baselineTruncated": 0,
+      "apparentSavingPct": 80.5,
+      "found": 1,
+      "total": 4,
+      "recallPct": 25,
+      "falsePositives": [],
+      "rows": [
+        {
+          "from": "handle_request",
+          "to": "UserService.__init__",
+          "kind": "new",
+          "certainty": "provable",
+          "found": false,
+          "direction": "in",
+          "actionable": false
+        },
+        {
+          "from": "handle_request",
+          "to": "UserService.get_user",
+          "kind": "call",
+          "certainty": "provable",
+          "found": false,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "UserService.get_user",
+          "to": "UserService._validate",
+          "kind": "call",
+          "certainty": "provable",
+          "found": true,
+          "direction": "out",
+          "actionable": true
+        },
+        {
+          "from": "UserService.get_user",
+          "to": "Repository.find",
+          "kind": "call",
+          "certainty": "hard",
+          "found": false,
+          "direction": "out",
+          "actionable": true
+        }
+      ],
+      "incoming": {
+        "total": 2,
+        "found": 0,
+        "actionable": 1
+      },
+      "outgoing": {
+        "total": 2,
+        "found": 1,
+        "actionable": 2
+      },
+      "scan": {
+        "files": 2,
+        "nodes": 5,
+        "edges": 1,
+        "durationMs": 9
+      }
+    },
+    {
+      "id": "repo-orientation-warnings",
+      "label": "Dépôt réel — orientationStepWarnings",
+      "question": "Une fonction réelle de CodeTour : un appelant dans server.ts et un appel sortant dans le même fichier.",
+      "symbol": "orientationStepWarnings",
+      "file": "packages/mcp-server/src/validation.ts",
+      "grepToken": "orientationStepWarnings",
+      "payload": "# graph orientationStepWarnings @ packages/mcp-server/src/validation.ts (depth 1)\nIN  handleCreateProjectTour -> orientationStepWarnings [server.ts:L704-748]",
+      "payloadTokens": 37,
+      "payloadWithGaps": "# graph orientationStepWarnings @ packages/mcp-server/src/validation.ts (depth 1)\nIN  handleCreateProjectTour -> orientationStepWarnings [server.ts:L704-748]",
+      "payloadGapTokens": 37,
+      "gaps": [],
+      "targetedText": "",
+      "targetedRanges": [],
+      "targetedTokens": 0,
+      "honestTokens": 37,
+      "baselineText": "# baseline for orientationStepWarnings: grep + read files\ngrep:server.ts:37: orientationStepWarnings,\ngrep:server.ts:716: ...orientationStepWarnings(finalSteps),\ngrep:validation.ts:46: export function orientationStepWarnings(steps: TourStep[]): Warning[] {\n\n### file server.ts (1100 lines)\nimport {\n  McpServer,\n  ResourceTemplate,\n} from \"@modelcontextprotocol/sdk/server/mcp.js\";\nimport { McpError, ErrorCode } from \"@modelcontextprotocol/sdk/types.js\";\nimport { z } from \"zod\";\nimport * as path from \"path\";\nimport { createContext } from \"./context\";\nimport {\n  changedFiles,\n  committedDiffIsEmpty,\n  currentBranchName,\n  currentHeadSha,\n  isGitRepository,\n  mergeBase,\n  normalizeSlashes,\n  resolveCommit,\n  uncommittedChanges,\n  workspacePrefix,\n} from \"./git\";\nimport { OutputPathError, writeTourAtomic } from \"./persistence\";\nimport { stageCommitAnchors, validateTourProposal } from \"./proposal-validation\";\nimport { validateCodetourTour } from \"./codetour-schema\";\nimport {\n  ErrorResult,\n  Issue,\n  SuccessResult,\n  TourFile,\n  TourStep,\n  ValidatedResult,\n  Warning,\n  WorkspaceContext,\n} from \"./types\";\nimport {\n  MAX_RECOMMENDED_DIAGRAM_NODES,\n  MAX_RECOMMENDED_STEPS,\n  orientationStepWarnings,\n} from \"./validation\";\nimport { MERMAID_TOOL_GUIDANCE } from \"./mermaid-validation\";\nimport { IMAGE_TOOL_GUIDANCE } from \"./image-validation\";\nimport {\n  CRITICAL_REVIEW_RESOURCE_URI,\n  criticalReviewSkillPack,\n} from \"./review-skill\";\nimport packageJson from \"../package.json\";\n\n// MCP V1 exposes exactly two tools: `create_project_tour` and\n// `create_changes_tour`. The AI agent writes the content; the server only\n// validates the proposal, applies Git and security rules, and atomically writes\n// the corresponding reserved Tour file.\n//\n// Tool input schemas remain intentionally permissive (`z.unknown()` plus\n// `.passthrough()`): the MCP SDK would reject arguments that do not match a\n// strict schema itself, which would break the requirement to aggregate all\n// validation errors into one response. Full field-by-field validation is\n// therefore performed in validation.ts.\n\nconst CODETOUR_SCHEMA_URI = \"https://aka.ms/codetour-schema\";\nconst SERVER_NAME = \"codetour-mcp\";\nconst SERVER_VERSION = packageJson.version;\n\n// The server never asks a conversational question: an external MCP client\n// that calls create_changes_tour directly gets the neutral default, and the\n// critical instructions remain reachable through this resource.\nconst CRITICAL_REVIEW_RESOURCE_NAME = \"critical-review-instructions\";\nconst CRITICAL_REVIEW_RESOURCE_DESCRIPTION =\n  \"Instructions for generating a Changes Tour with reviewMode \\\"critical\\\": \" +\n  \"the CodeTour adaptation of Matt Pocock's code-review skill, the upstream \" +\n  \"skill text (verbatim, MIT), its source revision, and the license. Read \" +\n  \"this resource in full before writing the tour steps.\";\n\n// Generation prompt resources (spec #94): the served prompt is generation\n// data addressed to the host agent (the Tour Generator), next to the\n// critical-instructions resource above. The prompt text is embedded here, in\n// the module that owns the tool descriptions, so every distribution serves it\n// offline with no download and the Copilot adapter can drop its hand-written\n// prompt prose.\n\n// URI of the fixed resource serving the Project Tour generation prompt.\n// The Copilot adapter derives its prompt from this resource (spec #94).\nexport const PROJECT_TOUR_PROMPT_RESOURCE_URI =\n  \"codetour://generate/project-tour\";\nconst PROJECT_TOUR_PROMPT_RESOURCE_NAME = \"project-tour-generation-prompt\";\nconst PROJECT_TOUR_PROMPT_RESOURCE_DESCRIPTION =\n  \"Generation prompt for the create_project_tour tool: the instructions the \" +\n  \"host agent follows to analyze the workspace and propose a Project Tour. \" +\n  \"Project Tours have no review mode.\";\n\n// URI template of the resource serving the Changes Tour generation prompt.\n// {reviewMode} takes exactly the values \\\"neutral\\\" and \\\"critical\\\"; the\n// Copilot adapter derives its prompt from this resource (spec #94).\nexport const CHANGES_TOUR_PROMPT_RESOURCE_TEMPLATE =\n  \"codetour://generate/changes-tour/{reviewMode}\";\nconst CHANGES_TOUR_PROMPT_RESOURCE_NAME = \"changes-tour-generation-prompt\";\nconst CHANGES_TOUR_PROMPT_RESOURCE_DESCRIPTION =\n  \"Generation prompt for the create_changes_tour tool, parameterized by \" +\n  \"review mode: \\\"neutral\\\" asks for a factual explanation of the changes; \" +\n  \"\\\"critical\\\" additionally embeds the shared review skill pack (the one \" +\n  `served by ${CRITICAL_REVIEW_RESOURCE_URI}) that must be followed ` +\n  \"in full before any analysis or step writing.\";\n\n// Mechanism choice (spec #94): the Changes Tour prompt is parameterized by\n// the review mode, so it is served as an MCP resource template rather than\n// one fixed resource per mode: `resources/read` resolves the concrete URI\n// (…/neutral, …/critical) and the server composes the prompt for the\n// requested mode, rejecting any other value. The Project Tour prompt has no\n// parameter, so it is a fixed resource URI.\n\n// Generation prompts (MCP prompts capability): the same served generation\n// instructions composed for one concrete run, plus the Tour orientation when\n// the user's request was accompanied by a phrase. The optional `brief`\n// argument travels verbatim into the composed prompt with the instruction to\n// follow what it asks for and to write the Tour in its language — the phrase\n// is in the user's language, so it is the language of the Tour. Adapters hold\n// no prompt text: they pass the user's words through and send what\n// prompts/get composes.\nexport const GENERATE_PROJECT_TOUR_PROMPT_NAME = \"generate_project_tour\";\nexport const GENERATE_CHANGES_TOUR_PROMPT_NAME = \"generate_changes_tour\";\nconst GENERATE_PROJECT_TOUR_PROMPT_DESCRIPTION =\n  \"Generation prompt for the create_project_tour tool, composed for one \" +\n  \"run: the served Project Tour generation instructions, plus the Tour \" +\n  \"orientation carried by the optional brief when the user's request was \" +\n  \"accompanied by a phrase.\";\nconst GENERATE_CHANGES_TOUR_PROMPT_DESCRIPTION =\n  \"Generation prompt for the create_changes_tour tool, composed for one \" +\n  \"run: the served Changes Tour generation instructions for the requested \" +\n  \"reviewMode, plus the Tour orientation carried by the optional brief when \" +\n  \"the user's request was accompanied by a phrase.\";\n\n// The user's orientation clause appended to a served generation prompt. The\n// brief is the phrase that accompanied the user's generation request: it\n// says what the user wants to understand and it is written in the user's\n// language, so the Tour Generator follows it and writes the Tour in that\n// same language. An absent or blank brief adds nothing: the served prompt\n// alone remains the contract.\nfunction tourOrientationClause(brief: string | undefined): string {\n  const trimmed = typeof brief === \"string\" ? brief.trim() : \"\";\n  if (!trimmed) return \"\";\n  return [\n    \"## Tour orientation from the user\",\n    \"\",\n    \"The user accompanied this Tour request with these words:\",\n    \"\",\n    trimmed,\n    \"\",\n    \"They orient this Tour: follow what the user asks to understand there, \" +\n      \"letting it guide the route, the anchors and the depth where it \" +\n      \"applies. They are also written in the user's language: write the \" +\n      \"Tour-level description and every step description in that same \" +\n      \"language. The rest of this prompt still applies in full.\",\n    \"\",\n  ].join(\"\\n\");\n}\n\n// Fixed destinations reserved for generated Tours. They are replaced only\n// after complete validation and ignored while detecting a dirty workspace (see\n// git.ts).\nconst PROJECT_TOUR_PATH = \".tours/project.tour\";\nconst CHANGES_TOUR_PATH = \".tours/changes.tour\";\n\n// A custom `fileName` is always confined to the `.tours` directory next to the\n// reserved destinations; without one the reserved default applies.\nfunction tourTargetPath(defaultPath: string, fileName?: string): string {\n  return fileName === undefined ? defaultPath : `.tours/${fileName}`;\n}\n\nconst MARKDOWN_WRITING_GUIDANCE =\n  \"Each step may include an optional questions array of at most four non-empty strings. \" +\n  \"When useful, propose three or four concise questions specific to that step, in the same language as the user's request. \" +\n  \"These appear as buttons that immediately send the question to the read-only ACP step conversation, \" +\n  \"which answers in the language of the question asked and asks a clarifying question when it does not understand. \" +\n  \"Write the Tour-level description and every step description as readable Markdown. \" +\n  \"Split distinct ideas into short paragraphs separated by blank lines (`\\n\\n`), because \" +\n  \"a single newline (`\\n`) is a Markdown soft break and may render as a space. Use a short \" +\n  \"heading when a description covers multiple topics, and use bullet or numbered lists \" +\n  \"for collections, alternatives, or sequences. Use **bold** sparingly for important \" +\n  \"concepts and backticks for code identifiers. Avoid dense monolithic paragraphs, and \" +\n  \"aim for two or three sentences per paragraph. Separate top-level list items with \" +\n  \"blank lines so they remain readable in the narrow editor comment panel. \" +\n  \"keep each explanation concise and tied to the current Tour Anchor. Do not add \" +\n  \"structure mechanically: a short, single-purpose description may remain one paragraph. \";\n\nconst PROJECT_TOUR_WORKFLOW_GUIDANCE =\n  \"Recommended workflow: (1) explore the codebase before writing — read the entry points and the \" +\n  \"main modules, not just file names; (2) author the complete content yourself; (3) call this tool \" +\n  \"once with dryRun true to rehearse the proposal: the complete validation runs and every issue is \" +\n  \"reported, but nothing is written; (4) correct the reported issues; (5) call again with dryRun \" +\n  \"omitted to persist the tour. Rehearse especially for large tours or unfamiliar workspaces. \" +\n  \"What makes a useful Project Tour: orient the reader first (a directory or no-locator step on \" +\n  \"where the work lives), then follow one coherent route — entry point, main components, how they \" +\n  \"collaborate — rather than a flat file listing. Explain each step's role and why it matters, and \" +\n  \"connect it to the surrounding flow instead of restating names or syntax. Anchor each claim at the \" +\n  \"code that justifies it, preferring a short unique pattern over a line number so the anchor \" +\n  \"survives edits. One step covers one idea; prefer several focused steps over one long paragraph. \";\n\nconst PROJECT_TOUR_ORIENTATION_GUIDANCE =\n  \"The first step must be an orientation step with an explicit title such as \\\"Overview\\\" \" +\n  \"and no locator: omit both file and directory. Structure its description in this order: \" +\n  \"(1) two or three sentences explaining what the system does and for whom; \" +\n  \"(2) a Mermaid flowchart introduced by the exact caption **Diagram — Context view**, showing \" +\n  \"the actors, the system under study, and external systems; every edge must state an interaction \" +\n  \"verb and its mechanism, for example `Client --> API: places orders (HTTPS)`; \" +\n  \"(3) a second Mermaid flowchart introduced by the exact caption **Diagram — Containers**, but only \" +\n  \"when the project has more than one execution or storage boundary—otherwise omit it and never draw \" +\n  \"a boundary that does not exist; (4) a short zone-to-workspace-directory mapping with relative \" +\n  \"Markdown links to the relevant directories, connecting the map to the following steps. \" +\n  \"Use these C4 meanings strictly: an Actor is a person in a role, with their need; a System is \" +\n  \"software that delivers value to its users, and a repository is not automatically a system; an \" +\n  \"External system is outside the described boundary, so explain the interaction rather than its \" +\n  \"internals; a Container is an application or store with an execution or storage boundary, such as \" +\n  \"a web app, CLI, worker, or database—it is not a Docker container. A directory, package, or import \" +\n  \"alone never creates a boundary. Describe the existing design, not a proposed redesign. When code \" +\n  \"evidence does not establish a boundary or relationship, state the uncertainty in the text instead \" +\n  \"of inventing a box. In these diagrams, use one subgraph per container, verbal edge labels, no \" +\n  \"decorative or meaningless arrows, and at most \" +\n  `${MAX_RECOMMENDED_DIAGRAM_NODES} nodes so they remain readable. `;\n\nconst CHANGES_TOUR_WORKFLOW_GUIDANCE =\n  \"Recommended workflow: (1) inspect the actual comparison before writing — the diff from the \" +\n  \"merge-base to headRef, the affected source, and the tests — and base every statement on what \" +\n  \"the code does, never on commit messages or file names alone; (2) call this tool with dryRun \" +\n  \"true to rehearse: every check runs (HEAD match, base resolution, merge-base, anchors against \" +\n  \"headRef, renames, Mermaid) and nothing is written; (3) correct the reported issues; (4) call \" +\n  \"again with dryRun omitted to persist — if HEAD moved in between, re-read the comparison and \" +\n  \"resubmit the new SHA with matching content. \" +\n  \"What makes a useful Changes Tour: open with a directory step orienting the reader to where the \" +\n  \"work happened; group related changes into one coherent review path; for each major change \" +\n  \"explain what it does, how it is implemented, and its observable behavioral effect; anchor the \" +\n  \"discussion at the changed lines; report test coverage factually and never claim tests passed \" +\n  \"without having run them; explain deleted files with no-locator steps. \";\n\nconst REVIEW_MODE_GUIDANCE =\n  \"Review mode: an optional reviewMode argument selects how the Changes Tour reviews the \" +\n  \"changes, and only two modes exist. \\\"neutral\\\" (the default, also when the argument is \" +\n  \"omitted) is the factual mode described above: explain the changes, judge nothing. \" +\n  \"\\\"critical\\\" additionally integrates code-review findings into the tour: read the resource \" +\n  `${CRITICAL_REVIEW_RESOURCE_URI} in full BEFORE writing any step — it contains the CodeTour ` +\n  \"adaptation of Matt Pocock's code-review skill (upstream text, MIT, source revision included), \" +\n  \"which requires a systematic Standards axis (documented repo rules first, demonstrated \" +\n  \"violations distinguished from heuristic risks, nothing recycled that a tool already \" +\n  \"guarantees), a Spec axis only when a spec source is actually found (otherwise the tour \" +\n  \"states that the Spec axis was not evaluated), findings labeled **Standards:** or **Spec:** \" +\n  \"and anchored at the changed lines they concern, every step keeping its factual explanation, \" +\n  \"and nothing invented — no defects, requirements, specs, or test results. The mode is \" +\n  \"generation data: it is not persisted in the tour file. This server never asks which mode \" +\n  \"you want: a client driving an interactive user decides the mode before the analysis starts, \" +\n  \"and callers invoking the tool directly keep the neutral default. \";\n\nconst PROJECT_TOUR_DESCRIPTION =\n  \"Create a CodeTour guided walkthrough for understanding a codebase. Use this tool for onboarding \" +\n  \"or explaining the project's architecture and execution flows. Read the relevant source before \" +\n  \"writing the tour; every explanation and anchor must be supported by the code. \" +\n  \"Build a coherent route from the project's purpose and entry points through its key components \" +\n  \"and how they collaborate. Choose representative files rather than listing every module. \" +\n  \"Each step should explain the anchored code's role, why it matters, and its connection to the \" +\n  \"surrounding flow; avoid merely restating names or syntax. Adapt the depth and step count to the \" +\n  \"requested audience and scope. \" +\n  PROJECT_TOUR_WORKFLOW_GUIDANCE +\n  PROJECT_TOUR_ORIENTATION_GUIDANCE +\n  \"Input: a required non-empty steps array, an optional title (default: \\\"Project Overview\\\"), an \" +\n  \"optional description summarizing the tour, and an optional fileName: a bare file name (no path \" +\n  \"separators) under which the tour is written inside .tours/, with the .tour suffix appended when \" +\n  \"absent. Omit fileName to write the reserved .tours/project.tour. Each step requires a Markdown description and may \" +\n  \"have a title. Use at most one locator per step: file or directory, relative to the workspace root. \" +\n  \"Anchor code explanations to the relevant file and location; use a directory for structural \" +\n  \"orientation, or no locator for general context. File steps may use line (1-based), pattern \" +\n  \"(a regular expression matching exactly once in the file), or selection (start/end positions \" +\n  \"with 1-based line and character). line and pattern are mutually exclusive. Prefer a short, \" +\n  \"stable pattern when it identifies the intended code reliably; otherwise use a verified line. \" +\n  \"Project Tours use ordinary file navigation and anchors are checked against the current workspace. \" +\n  \"You author the complete content; the server validates it and atomically writes the tour file, \" +\n  \"replacing the previous file at that destination only on success. Validation issues are returned together; \" +\n  \"correct the reported issues before retrying. Failure preserves the previous tour. \" +\n  \"Pass dryRun true to rehearse a complete proposal: the same validation runs (anchors, Mermaid, rules), \" +\n  \"the response reports status \\\"validated\\\" with the same warnings, and no file is written even when \" +\n  \"the proposal is valid. \" +\n  \"Optional workspacePath selects a directory relative to the configured workspace root for this call. \" +\n  \"All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. \" +\n  MARKDOWN_WRITING_GUIDANCE +\n  MERMAID_TOOL_GUIDANCE +\n  IMAGE_TOOL_GUIDANCE;\n\nconst CHANGES_TOUR_DESCRIPTION =\n  \"Create a CodeTour guided review of the current branch's changes from the merge-base of a base \" +\n  \"reference to an analyzed commit. Present the major changes, their implementation, observable \" +\n  \"behavioral effects, and relevant tests factually. Describe intent only when supported by source \" +\n  \"or supplied context. Do not give opinions on the changes, judge their quality, recommend \" +\n  \"alternatives, or approve or reject them. Inspect the Git comparison and the affected source before \" +\n  \"writing; explain the actual changes rather than inferring them from filenames or commit messages. \" +\n  \"Organize steps into a coherent review path, grouping related changes and focusing on decisions \" +\n  \"and behavior that help the reader understand the change set. Let review value determine the \" +\n  \"step count: add steps when they clarify distinct changes, design decisions, behavioral impacts, \" +\n  \"or test coverage, including multiple steps in the same file at different relevant locations. \" +\n  \"Avoid redundant steps that repeat the same explanation. More than fifteen steps is allowed; \" +\n  \"the server's step-count warning is advisory, so do not compress useful review guidance merely \" +\n  \"to stay below it. An introductory directory step \" +\n  \"can orient the reader to where the work happened. Anchor each code discussion at the relevant \" +\n  \"changed lines in the analyzed head snapshot, so the tour comment appears beside the change. \" +\n  \"Use unchanged code only when it supplies essential context. Do not claim tests passed without \" +\n  \"verification; distinguish observed behavior from intended behavior. \" +\n  CHANGES_TOUR_WORKFLOW_GUIDANCE +\n  REVIEW_MODE_GUIDANCE +\n  \"Input: baseRef (required Git reference), headRef (required full 40-character commit SHA equal to \" +\n  \"the current HEAD), a required non-empty steps array, optional title (default: \\\"Changes on <branch>\\\"), \" +\n  \"optional description, optional fileName, and includeUncommittedChanges (optional boolean, default false). \" +\n  \"fileName is a bare file name (no path separators) under which the tour is written inside .tours/, \" +\n  \"with the .tour suffix appended when absent; omit it to write the reserved .tours/changes.tour. \" +\n  \"Each step requires a Markdown description and may have a title. Use at most one workspace-relative \" +\n  \"locator: file or directory. File steps may use line (1-based), pattern (a regular expression \" +\n  \"matching exactly once), or selection (start/end positions with 1-based line and character). \" +\n  \"line and pattern are mutually exclusive. Prefer a short, stable pattern identifying the discussed \" +\n  \"change; otherwise use a verified line in headRef. Explain deleted files with no-locator steps. \" +\n  \"For committed-only tours, anchors are validated against headRef, the persisted baseRef is the \" +\n  \"resolved merge-base SHA, and ref is headRef. The server marks file steps with display: \\\"diff\\\"; \" +\n  \"directory and no-locator steps retain ordinary navigation. New files have an empty original side. \" +\n  \"For renames, file names the head path and the server supplies baseFile for the original path. \" +\n  \"Optional display accepts only \\\"diff\\\" and requires file; optional baseFile also requires file \" +\n  \"and must match the detected rename for a committed-only tour. \" +\n  \"Local changes are excluded by default and reported when present. Set includeUncommittedChanges \" +\n  \"to true only when the requested scope includes them; inspect the local changes as well. When \" +\n  \"local changes are actually included, anchors are checked against the workspace and the server \" +\n  \"omits the commit pair and diff metadata: file steps open current files. If the workspace is \" +\n  \"clean, the tour remains a committed comparison. If a saved diff's revisions or file become \" +\n  \"unavailable, the reader falls back to the current file. \" +\n  \"You author the complete content; the server validates it, adds comparison provenance to the \" +\n  \"description, and atomically writes the tour file, replacing the previous file at that destination \" +\n  \"only on success. Failure preserves it. Correct reported validation issues before retrying; if HEAD \" +\n  \"changed, re-analyze the comparison and submit the new SHA with matching content. \" +\n  \"Pass dryRun true to rehearse the proposal: the Git checks (HEAD match, base resolution, merge-base, \" +\n  \"anchors against headRef) and the same validation still run, the response reports status \\\"validated\\\" \" +\n  \"with the same warnings, and no file is written even when the proposal is valid. \" +\n  \"Optional workspacePath selects a repository or subdirectory relative to the configured workspace root for this call. \" +\n  \"All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. \" +\n  MARKDOWN_WRITING_GUIDANCE +\n  MERMAID_TOOL_GUIDANCE +\n  IMAGE_TOOL_GUIDANCE;\n\nconst warningSchema = z.object({\n  code: z.string(),\n  message: z.string(),\n});\nconst issueSchema = z.object({\n  path: z.string(),\n  message: z.string(),\n});\nconst toolResultSchema = z.object({\n  status: z.enum([\"created\", \"error\", \"validated\"]),\n  path: z.string().optional(),\n  stepCount: z.number().int().nonnegative().optional(),\n  warnings: z.array(warningSchema).optional(),\n  code: z.string().optional(),\n  message: z.string().optional(),\n  issues: z.array(issueSchema).optional(),\n});\n\nconst projectToolInputSchema = z\n  .object({\n    workspacePath: z.unknown().optional(),\n    title: z.unknown().optional(),\n    description: z\n      .unknown()\n      .optional()\n      .describe(\n        \"Optional readable Markdown overview; separate distinct ideas with blank lines between paragraphs.\"\n      ),\n    fileName: z\n      .unknown()\n      .optional()\n      .describe(\n        \"Optional bare file name (no path separators) under which the tour is written inside .tours/; the .tour suffix is appended when absent.\"\n      ),\n    dryRun: z\n      .unknown()\n      .optional()\n      .describe(\n        \"Validate the complete proposal (rules, anchors, Mermaid) without writing the tour file.\"\n      ),\n    steps: z\n      .unknown()\n      .optional()\n      .describe(\n        \"Non-empty array whose descriptions use concise Markdown with blank lines between paragraphs.\"\n      ),\n  })\n  .passthrough();\n\nconst changesToolInputSchema = z\n  .object({\n    workspacePath: z.unknown().optional(),\n    title: z.unknown().optional(),\n    description: z\n      .unknown()\n      .optional()\n      .describe(\n        \"Optional readable Markdown overview; separate distinct ideas with blank lines between paragraphs.\"\n      ),\n    fileName: z\n      .unknown()\n      .optional()\n      .describe(\n        \"Optional bare file name (no path separators) under which the tour is written inside .tours/; the .tour suffix is appended when absent.\"\n      ),\n    dryRun: z\n      .unknown()\n      .optional()\n      .describe(\n        \"Validate the complete proposal (rules, anchors, Mermaid, Git checks) without writing the tour file.\"\n      ),\n    steps: z\n      .unknown()\n      .optional()\n      .describe(\n        \"Non-empty array whose descriptions use concise Markdown with blank lines between paragraphs.\"\n      ),\n    baseRef: z.unknown().optional(),\n    headRef: z.unknown().optional(),\n    includeUncommittedChanges: z.unknown().optional(),\n    reviewMode: z\n      .unknown()\n      .optional()\n      .describe(\n        `Optional review mode: \"neutral\" (default) or \"critical\". For \"critical\", read the ${CRITICAL_REVIEW_RESOURCE_URI} resource before writing the steps.`\n      ),\n  })\n  .passthrough();\n\n// Project Tour generation prompt served by the PROJECT_TOUR_PROMPT_RESOURCE_URI\n// resource. It addresses the host agent and cites the tool; it never mentions\n// a review mode, which only exists for Changes Tours.\nfunction projectTourGenerationPrompt(): string {\n  return [\n    \"# CodeTour Project Tour generation prompt\",\n    \"\",\n    \"You are the Tour Generator for a CodeTour Project Tour: a guided explanation \" +\n      \"of this codebase's purpose, structure, and important execution paths for a \" +\n      \"developer discovering the project.\",\n    \"\",\n    \"- Read the relevant source before writing; every explanation and anchor must \" +\n      \"be supported by the code. Explore the codebase first — the entry points and \" +\n      \"the main modules, not just file names.\",\n    \"- Orient the reader first (a directory or no-locator step on where the work \" +\n      \"lives), then follow one coherent route — entry point, main components, how \" +\n      \"they collaborate — rather than a flat file listing. One step covers one idea.\",\n    \"- Anchor each explanation at the code that justifies it (Tour Anchor: file with \" +\n      \"line, pattern, or selection, a directory for structural orientation, or no \" +\n      \"locator for general context), preferring a short, stable pattern over a line \" +\n      \"number so the anchor survives edits.\",\n    \"- Propose the tour with the `create_project_tour` tool. Rehearse first: call the \" +\n      \"tool once with dryRun true, correct every reported validation issue, then call \" +\n      \"again with dryRun omitted to persist the tour.\",\n    \"- Some hosts register MCP tools with a server-name prefix: Copilot exposes \" +\n      \"this tool as `codetour-create_project_tour`. Search for the tool under \" +\n      \"whichever name your session registers it; the tool contract is unchanged.\",\n    \"- The tour is written to the reserved destination `.tours/project.tour`, or \" +\n      \"`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input \" +\n      \"contract and writing guidance are part of the `create_project_tour` tool \" +\n      \"description.\",\n    \"\",\n  ].join(\"\\n\");\n}\n\n// Changes Tour generation prompt served by the CHANGES_TOUR_PROMPT_RESOURCE_TEMPLATE\n// resource for the requested review mode. Both modes share the contract\n// clauses (Git comparison, Tour Anchors, validation, destination, dryRun);\n// the critical mode additionally embeds the shared review skill pack with the\n// instruction to follow it in full before any analysis or step writing.\nfunction changesTourGenerationPrompt(reviewMode: \"neutral\" | \"critical\"): string {\n  const modeClause =\n    reviewMode === \"neutral\"\n      ? \"- Review mode \\\"neutral\\\": explain the changes factually. Do not judge \" +\n        \"their quality, recommend alternatives, or approve or reject them.\"\n      : \"- Review mode \\\"critical\\\": in addition to the factual explanation, \" +\n        \"integrate code-review findings into the tour, following the embedded \" +\n        \"review instructions below. Read them in full and follow them integrally \" +\n        \"before any analysis or writing of tour steps.\";\n  return [\n    `# CodeTour Changes Tour generation prompt (review mode: ${reviewMode})`,\n    \"\",\n    \"You are the Tour Generator for a CodeTour Changes Tour: a guided explanation \" +\n      \"of the intent, implementation, and impact of the committed changes on this \" +\n      \"branch since it diverged from its base.\",\n    \"\",\n    modeClause,\n    \"- Inspect the actual Git comparison before writing: the diff from the \" +\n      \"merge-base of the base reference to the analyzed head commit, the affected \" +\n      \"source, and the tests. Base every statement on what the code does, never on \" +\n      \"commit messages or file names alone.\",\n    \"- Anchor every explanation at the changed lines it concerns (Tour Anchor, in \" +\n      \"the head snapshot), and explain each major change: what it does, how it is \" +\n      \"implemented, and its observable behavioral effect.\",\n    \"- Propose the tour with the `create_changes_tour` tool. Rehearse first: call \" +\n      \"the tool once with dryRun true, correct every reported validation issue, \" +\n      \"then call again with dryRun omitted to persist the tour.\",\n    \"- Some hosts register MCP tools with a server-name prefix: Copilot exposes \" +\n      \"this tool as `codetour-create_changes_tour`. Search for the tool under \" +\n      \"whichever name your session registers it; the tool contract is unchanged.\",\n    \"- The tour is written to the reserved destination `.tours/changes.tour`, or \" +\n      \"`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input \" +\n      \"contract and writing guidance are part of the `create_changes_tour` tool \" +\n      \"description.\",\n    ...(reviewMode === \"critical\"\n      ? [\"\", \"## Embedded review instructions\", \"\", criticalReviewSkillPack()]\n      : []),\n    \"\",\n  ].join(\"\\n\");\n}\n\nexport function createServer(workspaceRoot: string): McpServer {\n  const ctx = createContext(workspaceRoot);\n  const server = new McpServer(\n    { name: SERVER_NAME, version: SERVER_VERSION },\n    { capabilities: { tools: {}, resources: {}, prompts: {} } }\n  );\n\n  // The critical review skill pack is served as a resource so an agent can\n  // read it before writing any step. The embedded strings guarantee it is\n  // available offline in every distribution; no download or plugin is\n  // needed for the critical mode.\n  server.registerResource(\n    CRITICAL_REVIEW_RESOURCE_NAME,\n    CRITICAL_REVIEW_RESOURCE_URI,\n    {\n      description: CRITICAL_REVIEW_RESOURCE_DESCRIPTION,\n      mimeType: \"text/markdown\",\n    },\n    () => ({\n      contents: [\n        {\n          uri: CRITICAL_REVIEW_RESOURCE_URI,\n          mimeType: \"text/markdown\",\n          text: criticalReviewSkillPack(),\n        },\n      ],\n    })\n  );\n\n  // The Project Tour generation prompt is a fixed resource: it has no\n  // parameter.\n  server.registerResource(\n    PROJECT_TOUR_PROMPT_RESOURCE_NAME,\n    PROJECT_TOUR_PROMPT_RESOURCE_URI,\n    {\n      description: PROJECT_TOUR_PROMPT_RESOURCE_DESCRIPTION,\n      mimeType: \"text/markdown\",\n    },\n    () => ({\n      contents: [\n        {\n          uri: PROJECT_TOUR_PROMPT_RESOURCE_URI,\n          mimeType: \"text/markdown\",\n          text: projectTourGenerationPrompt(),\n        },\n      ],\n    })\n  );\n\n  // The Changes Tour generation prompt is parameterized by the review mode,\n  // so it is served as a resource template: resources/read resolves the\n  // concrete URI and the server composes the prompt for the requested mode.\n  server.registerResource(\n    CHANGES_TOUR_PROMPT_RESOURCE_NAME,\n    new ResourceTemplate(CHANGES_TOUR_PROMPT_RESOURCE_TEMPLATE, {\n      list: undefined,\n    }),\n    {\n      description: CHANGES_TOUR_PROMPT_RESOURCE_DESCRIPTION,\n      mimeType: \"text/markdown\",\n    },\n    (uri, variables) => {\n      const reviewMode = variables.reviewMode;\n      if (\n        typeof reviewMode !== \"string\" ||\n        (reviewMode !== \"neutral\" && reviewMode !== \"critical\")\n      ) {\n        throw new McpError(\n          ErrorCode.InvalidParams,\n          `Unknown review mode ${JSON.stringify(reviewMode)}: the Changes Tour ` +\n            `generation prompt resource only supports \"neutral\" and \"critical\" ` +\n            `(${CHANGES_TOUR_PROMPT_RESOURCE_TEMPLATE}).`\n        );\n      }\n      return {\n        contents: [\n          {\n            uri: uri.toString(),\n            mimeType: \"text/markdown\",\n            text: changesTourGenerationPrompt(reviewMode),\n          },\n        ],\n      };\n    }\n  );\n\n  // The generation prompts are the composed form of the served generation\n  // instructions: prompts/get is what an adapter calls for one concrete run,\n  // passing the user's orientation phrase through instead of embedding any\n  // prompt text of its own.\n  server.registerPrompt(\n    GENERATE_PROJECT_TOUR_PROMPT_NAME,\n    {\n      description: GENERATE_PROJECT_TOUR_PROMPT_DESCRIPTION,\n      argsSchema: {\n        brief: z\n          .string()\n          .optional()\n          .describe(\n            \"Optional phrase accompanying the user's request, included \" +\n              \"verbatim: it orients the Tour and its language is the \" +\n              \"user's language, in which the Tour is written.\"\n          ),\n      },\n    },\n    ({ brief }) => ({\n      messages: [\n        {\n          role: \"user\" as const,\n          content: {\n            type: \"text\" as const,\n            text:\n              projectTourGenerationPrompt() + tourOrientationClause(brief),\n          },\n        },\n      ],\n    })\n  );\n\n  server.registerPrompt(\n    GENERATE_CHANGES_TOUR_PROMPT_NAME,\n    {\n      description: GENERATE_CHANGES_TOUR_PROMPT_DESCRIPTION,\n      argsSchema: {\n        reviewMode: z\n          .enum([\"neutral\", \"critical\"])\n          .describe(\"The review mode of the Changes Tour generation.\"),\n        brief: z\n          .string()\n          .optional()\n          .describe(\n            \"Optional phrase accompanying the user's request, included \" +\n              \"verbatim: it orients the Tour and its language is the \" +\n              \"user's language, in which the Tour is written.\"\n          ),\n      },\n    },\n    ({ reviewMode, brief }) => ({\n      messages: [\n        {\n          role: \"user\" as const,\n          content: {\n            type: \"text\" as const,\n            text:\n              changesTourGenerationPrompt(reviewMode) +\n              tourOrientationClause(brief),\n          },\n        },\n      ],\n    })\n  );\n\n  server.registerTool(\n    \"create_project_tour\",\n    {\n      description: PROJECT_TOUR_DESCRIPTION,\n      inputSchema: projectToolInputSchema,\n      outputSchema: toolResultSchema,\n    },\n    (args) => safeToolCall(args, (input) => handleCreateProjectTour(ctx, input))\n  );\n\n  server.registerTool(\n    \"create_changes_tour\",\n    {\n      description: CHANGES_TOUR_DESCRIPTION,\n      inputSchema: changesToolInputSchema,\n      outputSchema: toolResultSchema,\n    },\n    (args) => safeToolCall(args, (input) => handleCreateChangesTour(ctx, input))\n  );\n\n  return server;\n}\n\n// An unexpected exception escaping a handler surfaces as an MCP protocol\n// error, whose payload many clients replace with a generic message. Reporting\n// it as a structured error result instead keeps the diagnostic text in the\n// tool response, in the same shape as every other failure.\nfunction safeToolCall(\n  args: unknown,\n  handler: (args: unknown) => Promise<ToolResponse>\n): Promise<ToolResponse> {\n  return handler(args).catch((error: unknown) =>\n    errorResponse(\n      \"INTERNAL_ERROR\",\n      `Unexpected server failure: ${\n        error instanceof Error ? error.message : String(error)\n      }`\n    )\n  );\n}\n\n// Create a Project Tour: no Git access is required, the tour works in any\n// workspace, and it is never attached to a `ref` so it remains viewable as the\n// project evolves.\nasync function handleCreateProjectTour(\n  defaultContext: WorkspaceContext,\n  args: unknown\n): Promise<ToolResponse> {\n  const result = await validateTourProposal(\"project\", args, defaultContext);\n  if (!result.ok) {\n    return errorResponse(result.rejection);\n  }\n  const { ctx, params, steps: finalSteps } = result.proposal;\n\n  const warnings = [\n    ...stepLimitWarnings(finalSteps),\n    ...orientationStepWarnings(finalSteps),\n  ];\n\n  // Rehearsal: the proposal is fully validated but never written, so an\n  // agent can verify its content before replacing the previous tour.\n  if (params.dryRun === true) {\n    return validatedResponse(\n      finalSteps.length,\n      warnings,\n      `Validated Project Tour proposal with ${finalSteps.length} step(s); nothing was written (dryRun).`\n    );\n  }\n\n  const tour: TourFile = {\n    $schema: CODETOUR_SCHEMA_URI,\n    title: params.title ?? \"Project Overview\",\n    ...(params.description !== undefined ? { description: params.description } : {}),\n    steps: finalSteps,\n  };\n\n  const targetPath = tourTargetPath(PROJECT_TOUR_PATH, params.fileName);\n  const writeFailure = await persistTour(ctx, targetPath, tour);\n  if (writeFailure) {\n    return writeFailure;\n  }\n\n  return successResponse(\n    normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, targetPath))),\n    finalSteps.length,\n    warnings,\n    `Created Project Tour at ${targetPath} with ${finalSteps.length} step(s).`\n  );\n}\n\n// Create a Changes Tour: analyze committed changes from the merge-base of\n// `baseRef` to `headRef`. `headRef` must be the full SHA of the current HEAD;\n// otherwise generation fails with STALE_HEAD to avoid a stale explanation. By\n// default only committed changes are included; `includeUncommittedChanges`\n// enables explaining local work.\nasync function handleCreateChangesTour(\n  defaultContext: WorkspaceContext,\n  args: unknown\n): Promise<ToolResponse> {\n  const result = await validateTourProposal(\"changes\", args, defaultContext);\n  if (!result.ok) {\n    return errorResponse(result.rejection);\n  }\n  const { ctx, params } = result.proposal;\n\n  const baseRef = params.baseRef as string;\n  const headRef = params.headRef as string;\n  const includeUncommittedChanges = params.includeUncommittedChanges === true;\n\n  // The Changes Tour depends on Git history and fails outside a repository.\n  if (!(await isGitRepository(ctx))) {\n    return errorResponse(\n      \"GIT_REPOSITORY_REQUIRED\",\n      `create_changes_tour requires a Git repository, but the configured workspace root (${ctx.root}) is not inside one. ` +\n        \"Select a repository with workspacePath, or restart codetour-mcp in the repository to analyze (or pass it via --workspace-root), rather than its parent directory.\"\n    );\n  }\n\n  // The analyzed SHA must exactly match the current HEAD; otherwise the\n  // explanation might not correspond to the snapshot read again.\n  const currentHead = await currentHeadSha(ctx);\n  if (currentHead === null) {\n    return errorResponse(\n      \"STALE_HEAD\",\n      \"The repository has no commits, so there is no HEAD to analyze.\"\n    );\n  }\n  if (headRef !== currentHead) {\n    return errorResponse(\n      \"STALE_HEAD\",\n      `The provided headRef ${headRef} does not match the current HEAD (${currentHead}). The analysis is stale; re-run it against the current HEAD.`\n    );\n  }\n\n  // Resolve the base reference to a full commit SHA up front: only a verified\n  // SHA is ever passed as a positional Git argument, so an agent-supplied\n  // string can never be interpreted as a Git option.\n  const resolvedBaseSha = await resolveCommit(ctx, baseRef);\n  if (resolvedBaseSha === null) {\n    return errorResponse(\n      \"INVALID_BASE_REF\",\n      `Unable to resolve the base ref ${baseRef} to a commit in this repository.`\n    );\n  }\n\n  let mergeBaseSha: string;\n  try {\n    mergeBaseSha = await mergeBase(ctx, resolvedBaseSha, headRef);\n  } catch (error) {\n    return errorResponse(\n      \"INVALID_BASE_REF\",\n      `Unable to compute the merge-base between ${baseRef} and ${headRef}: ${(error as Error).message}`\n    );\n  }\n\n  // Without committed changes (and without included local work), return\n  // NO_CHANGES and preserve the previous Changes Tour: an empty tour never\n  // replaces a useful one.\n  const uncommitted = await uncommittedChanges(ctx);\n  const includesLocalChanges = includeUncommittedChanges && uncommitted.length > 0;\n  const staged = await stageCommitAnchors(result.proposal, {\n    mergeBaseSha,\n    includesLocalChanges,\n  });\n  if (staged.issues.length > 0) {\n    return errorResponse(\n      \"INVALID_PROPOSAL\",\n      \"The create_changes_tour arguments are invalid.\",\n      staged.issues\n    );\n  }\n  if (\n    (await committedDiffIsEmpty(ctx, mergeBaseSha, headRef)) &&\n    (!includeUncommittedChanges || uncommitted.length === 0)\n  ) {\n    return errorResponse(\n      \"NO_CHANGES\",\n      `No committed changes between the merge-base of ${baseRef} (${mergeBaseSha}) and ${headRef}. The previous tour file was preserved.`\n    );\n  }\n\n  // Uncommitted changes are excluded by default with a warning, or explicitly\n  // included; in that case the Tour has no `ref` and reports that the result\n  // describes a non-reproducible local state.\n  const warnings: Warning[] = [];\n  if (includesLocalChanges) {\n    warnings.push({\n      code: \"UNCOMMITTED_CHANGES_INCLUDED\",\n      message:\n        \"Uncommitted changes were explicitly included; the tour describes a local state that is not reproducible from Git.\",\n    });\n  } else if (uncommitted.length > 0) {\n    warnings.push({\n      code: \"UNCOMMITTED_CHANGES_EXCLUDED\",\n      message: `${uncommitted.length} uncommitted change(s) were excluded from the analysis (staged, unstaged or untracked).`,\n    });\n  }\n\n  const finalSteps = staged.steps.map((step) => {\n    const { display, baseFile, ...ordinaryStep } = step;\n    if (includesLocalChanges || step.file === undefined) return ordinaryStep;\n    const file = path.posix.normalize(normalizeSlashes(step.file));\n    return { ...ordinaryStep, file, display: \"diff\" as const, baseFile: staged.renames.get(file) };\n  });\n  const warningsFromStepLimit = stepLimitWarnings(finalSteps);\n  warnings.push(...warningsFromStepLimit);\n\n  // Set of changed files (committed, plus uncommitted files when\n  // includeUncommittedChanges is active), used for the NO_CHANGED_FILE_ANCHOR\n  // warning.\n  const changedInWorkspace = await changedFilesInWorkspace(ctx, mergeBaseSha, headRef);\n  if (includeUncommittedChanges) {\n    for (const entry of uncommitted) {\n      if (!changedInWorkspace.includes(entry.path)) {\n        changedInWorkspace.push(entry.path);\n      }\n    }\n  }\n  if (\n    changedInWorkspace.length > 0 &&\n    !finalSteps.some(\n      (step) =>\n        step.file !== undefined &&\n        changedInWorkspace.includes(normalizeSlashes(step.file))\n    )\n  ) {\n    warnings.push({\n      code: \"NO_CHANGED_FILE_ANCHOR\",\n      message:\n        \"No step anchors a file modified by these changes; consider anchoring steps on changed files.\",\n    });\n  }\n\n  const title = params.title ?? (await defaultChangesTitle(ctx, headRef));\n  // Rehearsal: every check has run (Git, anchors against headRef, renames,\n  // Mermaid, warnings) but the tour is never written.\n  if (params.dryRun === true) {\n    return validatedResponse(\n      finalSteps.length,\n      warnings,\n      `Validated Changes Tour proposal with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}); nothing was written (dryRun).`\n    );\n  }\n  // Enrich the description automatically with the provenance, base, and head\n  // so the reader always knows the analyzed scope.\n  const provenance = includesLocalChanges\n    ? `Generated from the merge-base of \\`${baseRef}\\` (\\`${mergeBaseSha}\\`) to \\`${headRef}\\`, including uncommitted changes (non-reproducible local state).`\n    : `Generated from the merge-base of \\`${baseRef}\\` (\\`${mergeBaseSha}\\`) to \\`${headRef}\\`.`;\n  const description =\n    params.description !== undefined\n      ? `${params.description}\\n\\n${provenance}`\n      : provenance;\n\n  const tour: TourFile = {\n    $schema: CODETOUR_SCHEMA_URI,\n    title,\n    description,\n    ...(!includesLocalChanges ? { ref: headRef, baseRef: mergeBaseSha } : {}),\n    steps: finalSteps,\n  };\n\n  // HEAD may advance during the Git reads above. Reading it again at the last\n  // moment prevents stale analysis from replacing the previous Changes Tour.\n  const headImmediatelyBeforePersistence = await currentHeadSha(ctx);\n  if (headImmediatelyBeforePersistence !== headRef) {\n    return errorResponse(\n      \"STALE_HEAD\",\n      headImmediatelyBeforePersistence === null\n        ? \"The repository no longer has a HEAD to persist this analysis against. The previous tour file was preserved.\"\n        : `The provided head ${headRef} no longer matches the current HEAD (${headImmediatelyBeforePersistence}). The analysis became stale before persistence; re-run it against the current HEAD.`\n    );\n  }\n\n  const targetPath = tourTargetPath(CHANGES_TOUR_PATH, params.fileName);\n  const writeFailure = await persistTour(ctx, targetPath, tour);\n  if (writeFailure) {\n    return writeFailure;\n  }\n\n  return successResponse(\n    normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, targetPath))),\n    finalSteps.length,\n    warnings,\n    `Created Changes Tour at ${targetPath} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`\n  );\n}\n\n// Non-blocking warning when a Tour exceeds fifteen steps.\nfunction stepLimitWarnings(steps: TourStep[]): Warning[] {\n  if (steps.length <= MAX_RECOMMENDED_STEPS) {\n    return [];\n  }\n  return [\n    {\n      code: \"STEP_LIMIT_EXCEEDED\",\n      message: `The tour has ${steps.length} steps; the recommended maximum is ${MAX_RECOMMENDED_STEPS}.`,\n    },\n  ];\n}\n\n// Validate the generated Tour against the general CodeTour schema, then write\n// it atomically. If validation fails, the previous file remains intact.\nasync function persistTour(\n  ctx: WorkspaceContext,\n  relativePath: string,\n  tour: TourFile\n): Promise<ToolResponse | null> {\n  const schemaResult = validateCodetourTour(tour);\n  if (!schemaResult) {\n    return errorResponse(\n      \"SCHEMA_VALIDATION_FAILED\",\n      \"The generated tour did not validate against the CodeTour schema.\",\n      []\n    );\n  }\n  try {\n    await writeTourAtomic(ctx, relativePath, serializeTour(tour));\n  } catch (error) {\n    if (error instanceof OutputPathError) {\n      return errorResponse(\"OUTPUT_PATH_ESCAPES_WORKSPACE\", error.message);\n    }\n    throw error;\n  }\n  return null;\n}\n\n// Files modified by the committed diff, converted to paths relative to the\n// workspace (the workspace may be a repository subdirectory).\nasync function changedFilesInWorkspace(\n  ctx: WorkspaceContext,\n  mergeBaseSha: string,\n  headRef: string\n): Promise<string[]> {\n  const files = await changedFiles(ctx, mergeBaseSha, headRef);\n  const prefix = normalizeSlashes(await workspacePrefix(ctx));\n  return files\n    .map(normalizeSlashes)\n    .filter((file) => file.startsWith(prefix))\n    .map((file) => file.slice(prefix.length));\n}\n\n// Default Changes Tour title: \"Changes on <branch>\", falling back to the short\n// SHA when HEAD is detached.\nasync function defaultChangesTitle(\n  ctx: WorkspaceContext,\n  headRef: string\n): Promise<string> {\n  const branch = await currentBranchName(ctx);\n  if (branch && branch !== \"HEAD\") {\n    return `Changes on ${branch}`;\n  }\n  return `Changes at ${headRef.slice(0, 7)}`;\n}\n\nfunction serializeTour(tour: TourFile): string {\n  return JSON.stringify(tour, null, 2) + \"\\n\";\n}\n\ninterface ToolResponse {\n  [key: string]: unknown;\n  content: { type: \"text\"; text: string }[];\n  structuredContent: Record<string, unknown>;\n  isError?: boolean;\n}\n\nfunction successResponse(\n  relativePath: string,\n  stepCount: number,\n  warnings: Warning[],\n  message: string\n): ToolResponse {\n  const result: SuccessResult = {\n    status: \"created\",\n    path: relativePath,\n    stepCount,\n    warnings,\n  };\n  const text = [\n    message,\n    ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),\n  ].join(\"\\n\");\n  return {\n    content: [{ type: \"text\", text }],\n    structuredContent: result as unknown as Record<string, unknown>,\n  };\n}\n\nfunction validatedResponse(\n  stepCount: number,\n  warnings: Warning[],\n  message: string\n): ToolResponse {\n  const result: ValidatedResult = {\n    status: \"validated\",\n    stepCount,\n    warnings,\n  };\n  const text = [\n    message,\n    ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),\n  ].join(\"\\n\");\n  return {\n    content: [{ type: \"text\", text }],\n    structuredContent: result as unknown as Record<string, unknown>,\n  };\n}\n\nfunction errorResponse(result: ErrorResult): ToolResponse;\nfunction errorResponse(\n  code: string,\n  message: string,\n  issues?: Issue[]\n): ToolResponse;\nfunction errorResponse(\n  codeOrResult: string | ErrorResult,\n  message?: string,\n  issues?: Issue[]\n): ToolResponse {\n  const result: ErrorResult =\n    typeof codeOrResult === \"string\"\n      ? {\n          status: \"error\",\n          code: codeOrResult,\n          message: message as string,\n          ...(issues && issues.length > 0 ? { issues } : {}),\n        }\n      : codeOrResult;\n  const { code, message: errorMessage } = result;\n  const resultIssues = result.issues ?? [];\n  const text =\n    resultIssues.length > 0\n      ? `Error (${code}): ${errorMessage}\\n` +\n        resultIssues.map((issue) => `- ${issue.path}: ${issue.message}`).join(\"\\n\")\n      : `Error (${code}): ${errorMessage}`;\n  return {\n    content: [{ type: \"text\", text }],\n    structuredContent: result as unknown as Record<string, unknown>,\n    isError: true,\n  };\n}\n\n\n### file validation.ts (749 lines)\nimport * as fs from \"fs\";\nimport * as path from \"path\";\nimport safeRegex from \"safe-regex2\";\nimport { findDiagramFences } from \"codetour-description-renderer\";\nimport { CommitAnchor, normalizeSlashes } from \"./git\";\nimport { serializeFound } from \"./mermaid-validation\";\nimport {\n  ChangesParams,\n  Issue,\n  Position,\n  ProjectParams,\n  Selection,\n  TourStep,\n  Warning,\n  WorkspaceContext,\n} from \"./types\";\n\n// Deterministic validation engine for Tour proposals.\n//\n// Every detected error is aggregated in an `Issue` list (path plus message)\n// before responding, so the agent can correct the proposal in one cycle. A\n// step may be purely explanatory (without a Tour Anchor); when it has a\n// locator, that locator is validated against the real workspace state\n// (existence, line and selection bounds, pattern uniqueness, and symlink\n// confinement to the configured root).\n\nexport const STEP_FIELDS = [\n  \"title\",\n  \"description\",\n  \"questions\",\n  \"file\",\n  \"baseFile\",\n  \"display\",\n  \"directory\",\n  \"line\",\n  \"pattern\",\n  \"selection\",\n] as const;\n\nexport const MAX_RECOMMENDED_STEPS = 15;\n\n// Readability limit for the first diagram of the orientation step, shared with\n// the tool guidance in server.ts so the advised and enforced values stay equal.\nexport const MAX_RECOMMENDED_DIAGRAM_NODES = 12;\n\nexport function orientationStepWarnings(steps: TourStep[]): Warning[] {\n  const orientationStep = steps[0];\n  const fences =\n    orientationStep === undefined ? [] : findDiagramFences(orientationStep.description);\n  const warnings: Warning[] = [];\n  if (\n    orientationStep === undefined ||\n    orientationStep.file !== undefined ||\n    orientationStep.directory !== undefined ||\n    fences.length === 0\n  ) {\n    warnings.push({\n      code: \"ORIENTATION_STEP_MISSING_OVERVIEW\",\n      message:\n        \"The first step should be a locator-free orientation step with at least one diagram.\",\n    });\n  }\n  if (\n    fences[0] !== undefined &&\n    diagramNodeCount(fences[0].source) > MAX_RECOMMENDED_DIAGRAM_NODES\n  ) {\n    warnings.push({\n      code: \"ORIENTATION_STEP_DIAGRAM_TOO_LARGE\",\n      message:\n        `The first diagram in the orientation step has more than ${MAX_RECOMMENDED_DIAGRAM_NODES} nodes; consider simplifying it for readability.`,\n    });\n  }\n  return warnings;\n}\n\nfunction diagramNodeCount(source: string): number {\n  const nodes = new Set<string>();\n  const identifier = \"[A-Za-z_][A-Za-z0-9_.-]*\";\n\n  // Advisory readability heuristic: count distinct identifiers declared as\n  // subgraphs, bracket/parenthesis nodes, or edge endpoints. Edge labels are\n  // stripped first (pipe labels, and text after the endpoint's colon) so words\n  // inside labels are never counted as nodes. This is not a complete Mermaid\n  // parser and intentionally does not reject any diagram.\n  for (const rawLine of source.split(\"\\n\")) {\n    const line = rawLine.replace(/\\|[^|]*\\|/g, \" \");\n    const subgraph = line.match(new RegExp(`^\\\\s*subgraph\\\\s+(${identifier})\\\\b`, \"i\"));\n    if (subgraph) nodes.add(subgraph[1]);\n\n    for (const match of line.matchAll(new RegExp(`^\\\\s*(${identifier})\\\\s*[\\\\[(]`, \"g\"))) {\n      nodes.add(match[1]);\n    }\n    if (!/(-->|---)/.test(line)) continue;\n    for (const segment of line.split(/-->|---/)) {\n      const endpoint = segment.split(\":\")[0];\n      const node = endpoint.match(new RegExp(`(${identifier})`));\n      if (node) nodes.add(node[1]);\n    }\n  }\n  return nodes.size;\n}\n\n// Cap the length of agent-supplied anchor patterns: a hand-crafted regular\n// expression can hang the server process through catastrophic backtracking\n// when matched against an entire file, so only short, focused patterns are\n// accepted.\nexport const MAX_QUESTIONS = 4;\nconst QUESTIONS_ARRAY_RULE =\n  `must be an array of at most ${MAX_QUESTIONS} non-empty strings`;\n\nexport const MAX_PATTERN_LENGTH = 200;\n\n// Reject active URI schemes in Markdown: a generated description must not be\n// able to trigger an action in the editor or terminal.\nconst FORBIDDEN_URI_SCHEME =\n  /(?:command|file|vscode|vscode-insiders|javascript):/i;\n\nconst FULL_SHA_PATTERN = /^[0-9a-f]{40}$/;\n\ntype RawObject = Record<string, unknown>;\n\nexport type AnchorSource =\n  | { kind: \"workspace\" }\n  | { kind: \"structure\" }\n  | { kind: \"commit\"; anchors: ReadonlyMap<string, CommitAnchor> };\n\nfunction isPlainObject(value: unknown): value is RawObject {\n  return typeof value === \"object\" && value !== null && !Array.isArray(value);\n}\n\nfunction isPositiveInteger(value: unknown): value is number {\n  return typeof value === \"number\" && Number.isInteger(value) && value > 0;\n}\n\nfunction isOptionalString(\n  raw: RawObject,\n  key: string,\n  errorPath: string,\n  issues: Issue[]\n): string | undefined {\n  const value = raw[key];\n  if (value === undefined) {\n    return undefined;\n  }\n  if (typeof value !== \"string\") {\n    issues.push({ path: errorPath, message: \"must be a string\" });\n    return undefined;\n  }\n  return value;\n}\n\nfunction reportUnknownFields(\n  raw: RawObject,\n  allowed: readonly string[],\n  errorPath: string,\n  issues: Issue[]\n): void {\n  for (const key of Object.keys(raw)) {\n    if (!allowed.includes(key)) {\n      issues.push({\n        path: errorPath === \"$\" ? key : `${errorPath}.${key}`,\n        message:\n          `unknown field (allowed fields: ${allowed.join(\", \")})`,\n      });\n    }\n  }\n}\n\nconst PROJECT_PARAM_FIELDS = [\"workspacePath\", \"title\", \"description\", \"fileName\", \"dryRun\", \"steps\"] as const;\nconst CHANGES_PARAM_FIELDS = [\n  \"workspacePath\",\n  \"title\",\n  \"description\",\n  \"fileName\",\n  \"dryRun\",\n  \"steps\",\n  \"baseRef\",\n  \"headRef\",\n  \"includeUncommittedChanges\",\n  \"reviewMode\",\n] as const;\n\nexport function validateProjectParams(\n  raw: unknown\n): { params?: ProjectParams; issues: Issue[] } {\n  const issues: Issue[] = [];\n  if (!isPlainObject(raw)) {\n    issues.push({ path: \"$\", message: \"the arguments must be an object\" });\n    return { issues };\n  }\n  // The V1 input schema is strict: unknown fields are rejected, including\n  // `when`, `commands`, `uri`, and V2 capabilities.\n  reportUnknownFields(raw, PROJECT_PARAM_FIELDS, \"$\", issues);\n  const params = validateCommonParams(raw, issues);\n  return { params, issues };\n}\n\nexport function validateChangesParams(\n  raw: unknown\n): { params?: ChangesParams; issues: Issue[] } {\n  const issues: Issue[] = [];\n  if (!isPlainObject(raw)) {\n    issues.push({ path: \"$\", message: \"the arguments must be an object\" });\n    return { issues };\n  }\n  reportUnknownFields(raw, CHANGES_PARAM_FIELDS, \"$\", issues);\n  const params = validateCommonParams(raw, issues) as ChangesParams;\n  if (typeof raw.baseRef !== \"string\" || raw.baseRef.trim() === \"\") {\n    issues.push({ path: \"baseRef\", message: \"is required and must be a non-empty string\" });\n  } else if (raw.baseRef.startsWith(\"-\")) {\n    issues.push({\n      path: \"baseRef\",\n      message: \"must be a branch, tag, or commit SHA and must not start with '-'\",\n    });\n  } else {\n    params.baseRef = raw.baseRef;\n  }\n  if (typeof raw.headRef !== \"string\") {\n    issues.push({ path: \"headRef\", message: \"is required and must be the full 40-character commit SHA\" });\n  } else if (!FULL_SHA_PATTERN.test(raw.headRef)) {\n    issues.push({ path: \"headRef\", message: \"must be the full 40-character commit SHA\" });\n  } else {\n    params.headRef = raw.headRef;\n  }\n  if (raw.includeUncommittedChanges !== undefined) {\n    if (typeof raw.includeUncommittedChanges !== \"boolean\") {\n      issues.push({ path: \"includeUncommittedChanges\", message: \"must be a boolean\" });\n    } else {\n      params.includeUncommittedChanges = raw.includeUncommittedChanges;\n    }\n  }\n  // Only two review modes exist for a Changes Tour. Omitting the field keeps\n  // the existing neutral behavior for direct callers.\n  if (raw.reviewMode !== undefined) {\n    if (raw.reviewMode !== \"neutral\" && raw.reviewMode !== \"critical\") {\n      issues.push({\n        path: \"reviewMode\",\n        message: 'must be \"neutral\" or \"critical\"',\n      });\n    } else {\n      params.reviewMode = raw.reviewMode;\n    }\n  }\n  return { params, issues };\n}\n\n// Fields shared by both tools: optional title, optional description (with\n// active URI scheme filtering), and a required step list.\nfunction validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {\n  const params: ProjectParams = {};\n  const workspacePath = isOptionalString(raw, \"workspacePath\", \"workspacePath\", issues);\n  if (workspacePath !== undefined) {\n    params.workspacePath = workspacePath;\n  }\n  const title = isOptionalString(raw, \"title\", \"title\", issues);\n  if (title !== undefined) {\n    params.title = title;\n  }\n  const description = isOptionalString(raw, \"description\", \"description\", issues);\n  if (description !== undefined) {\n    if (FORBIDDEN_URI_SCHEME.test(description)) {\n      issues.push({\n        path: \"description\",\n        message:\n          \"contains a forbidden URI scheme (command:, file:, vscode:, vscode-insiders:, javascript:)\",\n      });\n    }\n    params.description = description;\n  }\n  if (raw.fileName !== undefined) {\n    if (typeof raw.fileName !== \"string\") {\n      issues.push({ path: \"fileName\", message: \"must be a string\" });\n    } else {\n      const trimmed = raw.fileName.trim();\n      const stem = trimmed.endsWith(\".tour\") ? trimmed.slice(0, -\".tour\".length) : trimmed;\n      if (trimmed === \"\" || stem === \"\") {\n        issues.push({ path: \"fileName\", message: \"must be a non-empty file name\" });\n      } else if (/[/\\\\]/.test(trimmed) || stem === \".\" || stem === \"..\") {\n        issues.push({\n          path: \"fileName\",\n          message:\n            \"must be a bare file name without path separators; the tour is always written under .tours/\",\n        });\n      } else {\n        params.fileName = `${stem}.tour`;\n      }\n    }\n  }\n  if (raw.dryRun !== undefined) {\n    if (typeof raw.dryRun !== \"boolean\") {\n      issues.push({ path: \"dryRun\", message: \"must be a boolean\" });\n    } else {\n      params.dryRun = raw.dryRun;\n    }\n  }\n  if (raw.steps === undefined) {\n    issues.push({ path: \"steps\", message: \"is required\" });\n  } else if (!Array.isArray(raw.steps)) {\n    issues.push({ path: \"steps\", message: \"must be an array\" });\n  } else {\n    params.steps = raw.steps;\n  }\n  return params;\n}\n\nexport function validateSteps(\n  rawSteps: unknown[],\n  ctx: WorkspaceContext,\n  source: AnchorSource = { kind: \"workspace\" }\n): { steps?: TourStep[]; issues: Issue[] } {\n  const allIssues: Issue[] = [];\n  const steps: TourStep[] = [];\n  for (let index = 0; index < rawSteps.length; index++) {\n    const { step, issues } = validateStep(rawSteps[index], index, ctx, source);\n    allIssues.push(...issues);\n    if (step) {\n      steps.push(step);\n    }\n  }\n  if (allIssues.length > 0) {\n    return { issues: allIssues };\n  }\n  return { steps, issues: [] };\n}\n\n// Validate each step against Tour Anchor rules:\n// - at most one primary locator (file or directory);\n// - line, pattern, and selection are valid only with a file;\n// - line and pattern are mutually exclusive;\n// - the pattern must identify exactly one occurrence in the file;\n// - line and selection bounds are checked against the actual content.\nfunction validateStep(\n  raw: unknown,\n  index: number,\n  ctx: WorkspaceContext,\n  source: AnchorSource\n): { step?: TourStep; issues: Issue[] } {\n  const issues: Issue[] = [];\n  const base = `steps[${index}]`;\n  if (!isPlainObject(raw)) {\n    issues.push({ path: base, message: \"must be an object\" });\n    return { issues };\n  }\n  reportUnknownFields(raw, STEP_FIELDS, base, issues);\n\n  const description = isOptionalString(raw, \"description\", `${base}.description`, issues);\n  if (description === undefined && raw.description === undefined) {\n    issues.push({ path: `${base}.description`, message: \"is required and must be a string\" });\n  }\n\n  const title = isOptionalString(raw, \"title\", `${base}.title`, issues);\n\n  let questions: string[] | undefined;\n  if (raw.questions !== undefined) {\n    if (!Array.isArray(raw.questions)) {\n      issues.push({\n        path: `${base}.questions`,\n        message:\n          `${QUESTIONS_ARRAY_RULE}; ` +\n          `found: ${serializeFound(raw.questions)}`,\n      });\n    } else if (raw.questions.length > MAX_QUESTIONS) {\n      issues.push({\n        path: `${base}.questions`,\n        message:\n          `${QUESTIONS_ARRAY_RULE}; ` +\n          `found: ${serializeFound(raw.questions.length)} questions; the limit is ${MAX_QUESTIONS}`,\n      });\n    } else {\n      const validatedQuestions: string[] = [];\n      raw.questions.forEach((question, questionIndex) => {\n        if (typeof question !== \"string\" || !question.trim()) {\n          issues.push({\n            path: `${base}.questions[${questionIndex}]`,\n            message: `must be a non-empty string; found: ${serializeFound(question)}`,\n          });\n        } else {\n          validatedQuestions.push(question.trim());\n        }\n      });\n      questions = validatedQuestions;\n    }\n  }\n\n  const file = isOptionalString(raw, \"file\", `${base}.file`, issues);\n  const baseFile = isOptionalString(raw, \"baseFile\", `${base}.baseFile`, issues);\n  const directory = isOptionalString(raw, \"directory\", `${base}.directory`, issues);\n\n  let display: \"diff\" | undefined;\n  if (raw.display !== undefined) {\n    if (raw.display !== \"diff\") {\n      issues.push({ path: `${base}.display`, message: 'must be \"diff\"' });\n    } else {\n      display = \"diff\";\n    }\n    if (file === undefined) {\n      issues.push({ path: `${base}.display`, message: \"is only valid together with a file\" });\n    }\n  }\n  if (baseFile !== undefined) {\n    checkRelativeAnchor(baseFile, `${base}.baseFile`, issues);\n    if (file === undefined) {\n      issues.push({ path: `${base}.baseFile`, message: \"is only valid together with a file\" });\n    }\n  }\n\n  if (file !== undefined && directory !== undefined) {\n    issues.push({ path: base, message: \"a step cannot have both a file and a directory\" });\n  }\n\n  let line: number | undefined;\n  if (raw.line !== undefined) {\n    if (!isPositiveInteger(raw.line)) {\n      issues.push({ path: `${base}.line`, message: \"must be a positive integer\" });\n    } else {\n      line = raw.line;\n    }\n    if (file === undefined) {\n      issues.push({ path: `${base}.line`, message: \"is only valid together with a file\" });\n    }\n  }\n\n  let pattern: string | undefined;\n  if (raw.pattern !== undefined) {\n    if (typeof raw.pattern !== \"string\") {\n      issues.push({ path: `${base}.pattern`, message: \"must be a string\" });\n    } else if (raw.pattern.length > MAX_PATTERN_LENGTH) {\n      issues.push({\n        path: `${base}.pattern`,\n        message: `must be at most ${MAX_PATTERN_LENGTH} characters long (concise patterns are also more resistant to accidental edits in the anchored file)`,\n      });\n    } else {\n      pattern = raw.pattern;\n    }\n    if (file === undefined) {\n      issues.push({ path: `${base}.pattern`, message: \"is only valid together with a file\" });\n    }\n  }\n\n  if (line !== undefined && pattern !== undefined) {\n    issues.push({ path: base, message: \"line and pattern are mutually exclusive\" });\n  }\n\n  let selection: Selection | undefined;\n  if (raw.selection !== undefined) {\n    selection = validateSelection(raw.selection, `${base}.selection`, issues);\n    if (file === undefined) {\n      issues.push({ path: `${base}.selection`, message: \"is only valid together with a file\" });\n    }\n  }\n\n  // Step Markdown may contain only ordinary HTTPS links and images; active\n  // schemes are rejected.\n  if (description !== undefined && FORBIDDEN_URI_SCHEME.test(description)) {\n    issues.push({\n      path: `${base}.description`,\n      message:\n        \"contains a forbidden URI scheme (command:, file:, vscode:, vscode-insiders:, javascript:)\",\n    });\n  }\n\n  // Resolve the anchor's real path: read only after checking confinement to the\n  // workspace.\n  let fileContent: string | undefined;\n  let fileAnchorOk = true;\n  if (file !== undefined) {\n    const relativeOk = checkRelativeAnchor(file, `${base}.file`, issues);\n    const anchor: AnchorResult = !relativeOk ? { ok: false }\n      : source.kind === \"structure\" ? { ok: true }\n      : source.kind === \"commit\" ? checkCommitAnchor(source.anchors, file, \"file\", `${base}.file`, issues)\n      : checkAnchor(ctx, file, \"file\", `${base}.file`, issues);\n    if (anchor.ok && source.kind === \"commit\") {\n      fileContent = source.anchors.get(path.posix.normalize(normalizeSlashes(file)))?.contents;\n      if (fileContent === undefined) {\n        issues.push({ path: `${base}.file`, message: \"could not be read from the commit\" });\n      }\n    } else if (anchor.ok && anchor.realPath !== undefined) {\n      try {\n        fileContent = fs.readFileSync(anchor.realPath, \"utf8\");\n      } catch {\n        issues.push({ path: `${base}.file`, message: \"could not be read\" });\n      }\n    }\n    fileAnchorOk = anchor.ok;\n  }\n  if (directory !== undefined) {\n    if (checkRelativeAnchor(directory, `${base}.directory`, issues) && source.kind !== \"structure\") {\n      if (source.kind === \"commit\") {\n        checkCommitAnchor(source.anchors, directory, \"directory\", `${base}.directory`, issues);\n      } else {\n        checkAnchor(ctx, directory, \"directory\", `${base}.directory`, issues);\n      }\n    }\n  }\n\n  if (fileContent === undefined && !fileAnchorOk) {\n    for (const field of [\"line\", \"pattern\", \"selection\"] as const) {\n      if (raw[field] !== undefined) {\n        issues.push({\n          path: `${base}.${field}`,\n          message: \"cannot be validated because the file anchor is invalid\",\n        });\n      }\n    }\n  }\n\n  if (line !== undefined && fileContent !== undefined) {\n    const lineCount = fileContent.split(\"\\n\").length;\n    if (line > lineCount) {\n      issues.push({\n        path: `${base}.line`,\n        message: `is out of range: the file has ${lineCount} line(s)`,\n      });\n    }\n  }\n\n  if (pattern !== undefined && fileContent !== undefined) {\n    let regex: RegExp;\n    try {\n      regex = new RegExp(pattern);\n    } catch (error) {\n      issues.push({\n        path: `${base}.pattern`,\n        message: `is not a valid regular expression: ${(error as Error).message}`,\n      });\n      regex = undefined as unknown as RegExp;\n    }\n    if (regex) {\n      if (!safeRegex(regex)) {\n        issues.push({\n          path: `${base}.pattern`,\n          message: \"may cause excessive backtracking and is not allowed\",\n        });\n      } else {\n        const matches = fileContent.match(new RegExp(regex.source, \"g\")) ?? [];\n        if (matches.length !== 1) {\n          issues.push({\n            path: `${base}.pattern`,\n            message: `must match exactly one occurrence in the file (matched ${matches.length})`,\n          });\n        }\n      }\n    }\n  }\n\n  if (selection && fileContent !== undefined) {\n    validateSelectionBounds(selection, fileContent, base, issues);\n  }\n\n  if (issues.length > 0) {\n    return { issues };\n  }\n  return {\n    step: {\n      title,\n      description: description as string,\n      ...(questions !== undefined ? { questions } : {}),\n      file,\n      baseFile,\n      display,\n      directory,\n      line,\n      pattern,\n      selection,\n    },\n    issues: [],\n  };\n}\n\nfunction validateSelection(\n  raw: unknown,\n  base: string,\n  issues: Issue[]\n): Selection | undefined {\n  if (!isPlainObject(raw)) {\n    issues.push({ path: base, message: \"must be an object with start and end\" });\n    return undefined;\n  }\n  reportUnknownFields(raw, [\"start\", \"end\"], base, issues);\n  const start = validatePosition(raw.start, `${base}.start`, issues);\n  const end = validatePosition(raw.end, `${base}.end`, issues);\n  if (!start || !end) {\n    return undefined;\n  }\n  if (\n    start.line > end.line ||\n    (start.line === end.line && start.character > end.character)\n  ) {\n    issues.push({ path: base, message: \"the start position must be before the end position\" });\n    return undefined;\n  }\n  return { start, end };\n}\n\nfunction validatePosition(\n  raw: unknown,\n  base: string,\n  issues: Issue[]\n): Position | undefined {\n  if (!isPlainObject(raw)) {\n    issues.push({ path: base, message: \"must be an object with line and character\" });\n    return undefined;\n  }\n  reportUnknownFields(raw, [\"line\", \"character\"], base, issues);\n  let line: number | undefined;\n  if (!isPositiveInteger(raw.line)) {\n    issues.push({ path: `${base}.line`, message: \"is required and must be a positive integer\" });\n  } else {\n    line = raw.line;\n  }\n  let character: number | undefined;\n  if (!isPositiveInteger(raw.character)) {\n    issues.push({ path: `${base}.character`, message: \"is required and must be a positive integer\" });\n  } else {\n    character = raw.character;\n  }\n  if (line === undefined || character === undefined) {\n    return undefined;\n  }\n  return { line, character };\n}\n\nfunction validateSelectionBounds(\n  selection: Selection,\n  fileContent: string,\n  base: string,\n  issues: Issue[]\n): void {\n  const lines = fileContent.split(\"\\n\");\n  const maxLine = lines.length;\n  if (selection.start.line > maxLine) {\n    issues.push({\n      path: `${base}.selection.start.line`,\n      message: `is out of range: the file has ${maxLine} line(s)`,\n    });\n  } else {\n    const maxCharacter = lines[selection.start.line - 1].length + 1;\n    if (selection.start.character > maxCharacter) {\n      issues.push({\n        path: `${base}.selection.start.character`,\n        message: `is out of range: line ${selection.start.line} has ${maxCharacter} character slot(s)`,\n      });\n    }\n  }\n  if (selection.end.line > maxLine) {\n    issues.push({\n      path: `${base}.selection.end.line`,\n      message: `is out of range: the file has ${maxLine} line(s)`,\n    });\n  } else {\n    const maxCharacter = lines[selection.end.line - 1].length + 1;\n    if (selection.end.character > maxCharacter) {\n      issues.push({\n        path: `${base}.selection.end.character`,\n        message: `is out of range: line ${selection.end.line} has ${maxCharacter} character slot(s)`,\n      });\n    }\n  }\n}\n\ninterface AnchorResult {\n  ok: boolean;\n  realPath?: string;\n}\n\nfunction checkRelativeAnchor(value: string, errorPath: string, issues: Issue[]): boolean {\n  const normalized = path.posix.normalize(normalizeSlashes(value));\n  if (value.trim() === \"\" || value.includes(\"\\0\")) {\n    issues.push({ path: errorPath, message: \"must be a non-empty path without NUL characters\" });\n  } else if (path.isAbsolute(value) || path.win32.isAbsolute(value)) {\n    issues.push({ path: errorPath, message: \"must be relative to the workspace root\" });\n  } else if (normalized === \"..\" || normalized.startsWith(\"../\")) {\n    issues.push({ path: errorPath, message: \"resolves outside the workspace root\" });\n  } else {\n    return true;\n  }\n  return false;\n}\n\nfunction checkCommitAnchor(\n  anchors: ReadonlyMap<string, CommitAnchor>,\n  value: string,\n  kind: \"file\" | \"directory\",\n  errorPath: string,\n  issues: Issue[]\n): AnchorResult {\n  const anchor = anchors.get(path.posix.normalize(normalizeSlashes(value)));\n  if (!anchor) {\n    issues.push({ path: errorPath, message: \"does not exist in the analyzed commit\" });\n  } else if (anchor.kind !== kind) {\n    issues.push({ path: errorPath, message: `is not a regular ${kind} in the analyzed commit` });\n  } else {\n    return { ok: true };\n  }\n  return { ok: false };\n}\n\n// Verify that a file or directory anchor exists and remains confined to the\n// workspace: resolve its real path before reading, and reject symlinks that\n// escape the configured root.\nfunction checkAnchor(\n  ctx: WorkspaceContext,\n  value: string,\n  kind: \"file\" | \"directory\",\n  errorPath: string,\n  issues: Issue[]\n): AnchorResult {\n  if (value.trim() === \"\") {\n    issues.push({ path: errorPath, message: \"must not be empty\" });\n    return { ok: false };\n  }\n  if (path.isAbsolute(value)) {\n    issues.push({ path: errorPath, message: \"must be relative to the workspace root\" });\n    return { ok: false };\n  }\n  const target = path.resolve(ctx.root, value);\n  let realPath: string;\n  try {\n    realPath = fs.realpathSync(target);\n  } catch {\n    issues.push({ path: errorPath, message: \"does not exist in the workspace\" });\n    return { ok: false };\n  }\n  const relative = path.relative(ctx.realRoot, realPath);\n  if (relative.startsWith(\"..\") || path.isAbsolute(relative)) {\n    issues.push({\n      path: errorPath,\n      message: \"resolves outside the workspace root (symlinks escaping the workspace are not allowed)\",\n    });\n    return { ok: false };\n  }\n  let stat: fs.Stats;\n  try {\n    stat = fs.statSync(realPath);\n  } catch {\n    issues.push({ path: errorPath, message: \"does not exist in the workspace\" });\n    return { ok: false };\n  }\n  if (kind === \"file\" && !stat.isFile()) {\n    issues.push({ path: errorPath, message: \"is not a file\" });\n    return { ok: false };\n  }\n  if (kind === \"directory\" && !stat.isDirectory()) {\n    issues.push({ path: errorPath, message: \"is not a directory\" });\n    return { ok: false };\n  }\n  return { ok: true, realPath };\n}\n",
+      "baselineTokens": 17437,
+      "baselineHits": 3,
+      "baselineFiles": [
+        {
+          "path": "server.ts",
+          "lines": 1100
+        },
+        {
+          "path": "validation.ts",
+          "lines": 749
+        }
+      ],
+      "baselineTruncated": 0,
+      "apparentSavingPct": 99.8,
+      "found": 1,
+      "total": 2,
+      "recallPct": 50,
+      "falsePositives": [],
+      "rows": [
+        {
+          "from": "handleCreateProjectTour",
+          "to": "orientationStepWarnings",
+          "kind": "call",
+          "certainty": "provable",
+          "found": true,
+          "direction": "in",
+          "actionable": true
+        },
+        {
+          "from": "orientationStepWarnings",
+          "to": "diagramNodeCount",
+          "kind": "call",
+          "certainty": "provable",
+          "found": false,
+          "direction": "out",
+          "actionable": false
+        }
+      ],
+      "incoming": {
+        "total": 1,
+        "found": 1,
+        "actionable": 1
+      },
+      "outgoing": {
+        "total": 1,
+        "found": 0,
+        "actionable": 0
+      },
+      "scan": {
+        "files": 14,
+        "nodes": 69,
+        "edges": 146,
+        "durationMs": 613
+      }
+    }
+  ]
+}

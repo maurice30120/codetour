@@ -1,0 +1,119 @@
+{
+  "model": "mistral-small-latest",
+  "rows": [
+    {
+      "repetition": 1,
+      "generated": {
+        "code": "(q=>(r=search(q)).map(({file,l})=>({...read(file,l-5,l+5),file}))).bind(0)(params.query)",
+        "description": "Finds all occurrences of params.query via search(), then reads ±5 lines around each hit using read() (bounded to 100 lines). Returns array of {file,start,lines} objects with file context."
+      },
+      "usage": {
+        "prompt_tokens": 155,
+        "total_tokens": 250,
+        "completion_tokens": 95,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "service_tier": "standard"
+      },
+      "probes": [
+        {
+          "query": "totalPrice",
+          "error": "Script error: Invalid line range"
+        },
+        {
+          "query": "Catalog",
+          "error": "Script error: Invalid line range"
+        },
+        {
+          "query": "postOrder",
+          "error": "Script error: Invalid line range"
+        },
+        {
+          "query": "nonexistent_symbol_482",
+          "result": [],
+          "bytes": 2
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "generated": {
+        "code": "(q=>(r=search(q)).map(({file,l,t})=>({...read(file,Math.max(1,l-3),Math.min(100,l+3)),file,l,t})))(params.query)",
+        "description": "Compact JS expression to search for params.query, then read up to 7 lines around each occurrence (3 before, 3 after, clamped to 1-100) and return combined results with file, line numbers, and excerpts."
+      },
+      "usage": {
+        "prompt_tokens": 155,
+        "total_tokens": 266,
+        "completion_tokens": 111,
+        "prompt_tokens_details": {
+          "cached_tokens": 128
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "service_tier": "standard"
+      },
+      "probes": [
+        {
+          "query": "totalPrice",
+          "error": "Script error: Invalid line range"
+        },
+        {
+          "query": "Catalog",
+          "error": "Script error: Invalid line range"
+        },
+        {
+          "query": "postOrder",
+          "error": "Script error: Invalid line range"
+        },
+        {
+          "query": "nonexistent_symbol_482",
+          "result": [],
+          "bytes": 2
+        }
+      ]
+    },
+    {
+      "repetition": 3,
+      "generated": {
+        "code": "(q=>(r=search(q)).map(({file,line})=>({...read(file,Math.max(1,line-5),Math.min(read(file,1,1).lines,line+5)),file,line})))(params.query)",
+        "description": "Compact JS expression to search for params.query, then read bounded source excerpts (±5 lines) around each occurrence, minimizing subsequent I/O."
+      },
+      "usage": {
+        "prompt_tokens": 155,
+        "total_tokens": 250,
+        "completion_tokens": 95,
+        "prompt_tokens_details": {
+          "cached_tokens": 128
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "service_tier": "standard"
+      },
+      "probes": [
+        {
+          "query": "totalPrice",
+          "error": "Script error: Invalid line range"
+        },
+        {
+          "query": "Catalog",
+          "error": "Script error: Invalid line range"
+        },
+        {
+          "query": "postOrder",
+          "error": "Script error: Invalid line range"
+        },
+        {
+          "query": "nonexistent_symbol_482",
+          "result": [],
+          "bytes": 2
+        }
+      ]
+    }
+  ]
+}

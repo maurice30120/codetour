@@ -203,11 +203,11 @@ copilot --experimental
 Inside Copilot, try `/codetour` to select a Tour, or run:
 
 ```text
-/codetour project --renderer terminal
+/codetour project --renderer html
 ```
 
-This requests a specific Tour in the terminal. HTML is the default;
-`--renderer html` selects it explicitly. The adapter uses an
+This requests a specific Tour in HTML. Terminal is the default;
+`--renderer terminal` selects it explicitly. The adapter uses an
 experimental Copilot API. Its automated tests pass, but a real Copilot launch,
 argument forwarding, and reader survival after Copilot exits have not yet been
 validated; availability can depend on the installed Copilot version.

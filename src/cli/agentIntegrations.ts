@@ -54,6 +54,48 @@ function copilotExtensionDirectory(): string {
     path.join(os.homedir(), ".copilot", "extensions", "codetour");
 }
 
+function copilotMcpConfigPath(): string {
+  return process.env.CODETOUR_COPILOT_MCP_CONFIG || path.join(os.homedir(), ".copilot", "mcp-config.json");
+}
+
+interface CopilotMcpConfig {
+  mcpServers?: Record<string, { command?: string; args?: string[] } & Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
+async function readCopilotMcpConfig(file: string): Promise<CopilotMcpConfig> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(file, "utf8");
+  } catch {
+    return {};
+  }
+  try {
+    return JSON.parse(raw) as CopilotMcpConfig;
+  } catch {
+    throw new Error(`${file} is not valid JSON; fix it before installing so no existing server is lost.`);
+  }
+}
+
+// The server is launched in the session's working directory, so the entry
+// carries no --workspace-root and serves whichever worktree Copilot runs in.
+function codetourMcpEntry() {
+  const onPath = spawnSync("codetour", ["mcp", "--version"], { encoding: "utf8", windowsHide: true }).status === 0;
+  const [command, args] = onPath
+    ? ["codetour", ["mcp"]]
+    : [process.execPath, [path.resolve(process.argv[1] || "codetour"), "mcp"]];
+  return { type: "local", command, args, tools: ["*"] };
+}
+
+function isCodetourMcpEntry(entry: { args?: string[] } | undefined): boolean {
+  return !!entry && Array.isArray(entry.args) && entry.args[entry.args.length - 1] === "mcp";
+}
+
+async function writeCopilotMcpConfig(file: string, config: CopilotMcpConfig): Promise<void> {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+}
+
 interface FileState {
   name: string;
   state: "current" | "modified" | "missing";
@@ -112,14 +154,19 @@ const copilotIntegration: AgentIntegration = {
         throw new Error(`Could not verify ${target} after installation.`);
       }
     }
+    const mcpFile = copilotMcpConfigPath();
+    const mcpConfig = await readCopilotMcpConfig(mcpFile);
+    const entry = codetourMcpEntry();
+    mcpConfig.mcpServers = { ...mcpConfig.mcpServers, codetour: entry };
+    await writeCopilotMcpConfig(mcpFile, mcpConfig);
+    console.log(`Registered the 'codetour' MCP server in ${mcpFile}.`);
     if (differing.length) {
       console.log(`Replaced differing adapter files (${differing.join(", ")}) in ${directory}.`);
     }
     console.log(`Installed the CodeTour adapter in ${directory}.`);
     console.log("Start 'copilot --experimental' in a trusted Git worktree, accept the extension");
     console.log("(Load Only or Load & Augment), then run /codetour.");
-    const onPath = spawnSync("codetour", ["mcp", "--version"], { encoding: "utf8", windowsHide: true }).status === 0;
-    if (!onPath) {
+    if (entry.command !== "codetour") {
       console.log(
         `The adapter resolves the CodeTour CLI through CODETOUR_CLI or PATH. Keep this command on PATH or set:`
       );
@@ -142,6 +189,13 @@ const copilotIntegration: AgentIntegration = {
     const remaining = await fs.readdir(directory).catch(() => [] as string[]);
     if (!remaining.length) await fs.rmdir(directory);
     console.log(`Removed the CodeTour adapter from ${directory}.`);
+    const mcpFile = copilotMcpConfigPath();
+    const mcpConfig = await readCopilotMcpConfig(mcpFile);
+    if (isCodetourMcpEntry(mcpConfig.mcpServers?.codetour)) {
+      delete mcpConfig.mcpServers!.codetour;
+      await writeCopilotMcpConfig(mcpFile, mcpConfig);
+      console.log(`Removed the 'codetour' MCP server from ${mcpFile}.`);
+    }
   }
 };
 

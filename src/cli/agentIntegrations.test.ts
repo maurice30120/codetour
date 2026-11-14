@@ -17,7 +17,7 @@ function temporaryDirectory(prefix: string): string {
 function run(cwd: string, args: string[], env: Record<string, string> = {}) {
   return spawnSync(process.execPath, [cli, ...args], {
     cwd, encoding: "utf8",
-    env: { ...process.env, ...env }
+    env: { ...process.env, CODETOUR_COPILOT_MCP_CONFIG: path.join(cwd, "mcp-config.json"), ...env }
   });
 }
 
@@ -45,8 +45,12 @@ test("an install writes the adapter files and repeats without changing anything"
     for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
       assert.equal(readFileSync(path.join(extensionDir, name), "utf8"), content);
     }
+    const mcpFile = path.join(workspace, "mcp-config.json");
+    const registered = JSON.parse(readFileSync(mcpFile, "utf8")).mcpServers.codetour;
+    assert.equal(registered.args[registered.args.length - 1], "mcp");
     const second = run(workspace, ["--install", "copilot"], env);
     assert.equal(second.status, 0, second.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(mcpFile, "utf8")).mcpServers.codetour, registered);
     for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
       assert.equal(readFileSync(path.join(extensionDir, name), "utf8"), content);
     }
@@ -82,10 +86,17 @@ test("an uninstall removes only the files this installation owns", () => {
     const env = { CODETOUR_COPILOT_EXTENSIONS_DIR: extensionDir };
     assert.equal(run(workspace, ["--install", "copilot"], env).status, 0);
     writeFileSync(path.join(extensionDir, "other.mjs"), "// a foreign file this CLI never installed\n");
+    const mcpFile = path.join(workspace, "mcp-config.json");
+    const config = JSON.parse(readFileSync(mcpFile, "utf8"));
+    config.mcpServers.other = { command: "other", args: ["serve"] };
+    writeFileSync(mcpFile, JSON.stringify(config));
     const removed = run(workspace, ["--uninstall", "copilot"], env);
     assert.equal(removed.status, 0, removed.stderr);
     assert.ok(!existsSync(path.join(extensionDir, "adapter.mjs")));
     assert.ok(!existsSync(path.join(extensionDir, "extension.mjs")));
+    const after = JSON.parse(readFileSync(mcpFile, "utf8")).mcpServers;
+    assert.equal(after.codetour, undefined);
+    assert.deepEqual(after.other, { command: "other", args: ["serve"] });
     assert.equal(
       readFileSync(path.join(extensionDir, "other.mjs"), "utf8"),
       "// a foreign file this CLI never installed\n",

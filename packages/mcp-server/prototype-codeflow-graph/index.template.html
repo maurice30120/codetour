@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prototype — graphe de dépendances et tokens (issue #148)</title>
+<style>
+  :root {
+    --paper: #f7f5f0;
+    --ink: #1f2321;
+    --muted: #5f6663;
+    --line: #d9d5cc;
+    --accent: #0b6b53;
+    --accent-soft: #e2efe9;
+    --danger: #a3352b;
+    --danger-soft: #f6e4e1;
+    --warn: #8a5a12;
+    --warn-soft: #f7ecd8;
+    --ok: #0b6b53;
+    --ok-soft: #e2efe9;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.5;
+    font-size: 15px;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 48px 24px 96px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin: 0 0 10px;
+  }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 14px; letter-spacing: -.02em; }
+  .intro { font-size: 17px; color: var(--muted); max-width: 760px; margin: 0 0 18px; }
+  .meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 28px 0 36px; }
+  .kpi { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .kpi .v { font-size: 22px; font-weight: 650; letter-spacing: -.02em; }
+  .kpi .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  h2 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 36px 0 10px; }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  button {
+    font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button small { display: block; font-size: 11px; opacity: .75; font-weight: 400; }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 22px; margin-top: 22px; }
+  .verdict { border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; border: 1px solid; }
+  .verdict .headline { font-weight: 650; font-size: 16px; }
+  .verdict .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .verdict.danger { background: var(--danger-soft); border-color: #e3b9b2; }
+  .verdict.warn { background: var(--warn-soft); border-color: #e6d0a8; }
+  .verdict.ok { background: var(--ok-soft); border-color: #b5d5c9; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .split, .kpis { grid-template-columns: 1fr; } }
+  .box-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  pre {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.55; margin: 0;
+    background: #fbfaf7; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; overflow: auto; max-height: 320px; white-space: pre-wrap; word-break: break-word;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  td { padding: 6px; border-bottom: 1px solid #eeece6; vertical-align: top; }
+  td.dir { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .found { color: var(--ok); font-weight: 600; }
+  .missing { color: var(--danger); font-weight: 600; }
+  .rel { font-family: var(--mono); font-size: 12px; }
+  .files { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+  .files li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid #eeece6; font-family: var(--mono); font-size: 12px; }
+  .ledger { margin-top: 20px; }
+  .ledger tr.active td { background: var(--accent-soft); }
+  .ledger td.num { font-family: var(--mono); text-align: right; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); background: #fbfaf7; }
+  .chip.bad { border-color: #e3b9b2; color: var(--danger); background: var(--danger-soft); }
+  .chip.good { border-color: #b5d5c9; color: var(--ok); background: var(--ok-soft); }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); padding: 8px 12px; }
+  .tabs button.active { color: var(--accent); border-bottom-color: var(--accent); background: none; }
+  .scenario p { color: var(--muted); margin: 0 0 10px; max-width: 760px; }
+  .steps { display: flex; flex-direction: column; gap: 8px; }
+  .step { text-align: left; display: flex; gap: 10px; align-items: flex-start; }
+  .step .n { font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 18px; }
+  .step.done { border-color: var(--accent); }
+  .step-note { font-size: 13px; color: var(--muted); margin: 4px 0 0 28px; }
+  .limits { margin-top: 40px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 18px; }
+  .limits h2 { margin-top: 0; }
+  .limits ul { margin: 6px 0 0; padding-left: 20px; }
+  code { font-family: var(--mono); font-size: 12px; background: #eeece6; padding: 1px 5px; border-radius: 4px; }
+  details summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Prototype jetable · Piste A · issue #148</p>
+  <h1>Un graphe compact remplace-t-il vraiment les lectures&nbsp;?</h1>
+  <p class="intro">
+    On injecte dans le contexte un graphe de dépendances de 30–40 tokens au lieu de laisser l'agent
+    lire les fichiers. Est-ce que ça économise des tokens — et est-ce que la réponse reste utile pour
+    un Tour de review ?
+  </p>
+  <p class="intro" style="font-size:14.5px">
+    La barre n'est pas « 100 % de toutes les relations ». Pour un Tour de review qui modifie une fonction,
+    il faut que <strong>tous les appelants</strong> de cette fonction soient soit assertés, soit pointés
+    (fichier + ligne + candidats). Le côté sortant peut rester partiel. Les quatre attitudes ci-dessous
+    comparent le coût en tokens sous cette barre-là.
+  </p>
+  <p class="meta" id="meta"></p>
+  <div class="kpis" id="kpis"></div>
+
+  <h2>1. Cas observé</h2>
+  <div class="btn-row" id="cases"></div>
+
+  <h2>2. Ce que fait l'agent</h2>
+  <div class="btn-row" id="modes"></div>
+
+  <section class="panel" id="state"></section>
+
+  <h2>Parcours guidés</h2>
+  <section class="panel">
+    <div class="tabs" id="scenario-tabs"></div>
+    <div id="scenario-body"></div>
+  </section>
+
+  <section class="limits">
+    <h2>Ce que ce prototype ne prouve pas</h2>
+    <ul>
+      <li><strong>Le baseline est une simulation.</strong> Il compte <code>grep</code> + lecture intégrale des fichiers
+        qui mentionnent le nom, plafonné à 8 fichiers. Un agent réel lit parfois moins (s'il devine bien) ou plus.</li>
+      <li><strong>Les tokens sont comptés avec <code>gpt-tokenizer</code></strong>, pas avec le tokenizer exact de Claude
+        ou Copilot. Les écarts absolus bougeront de quelques pourcents, pas l'ordre de grandeur.</li>
+      <li><strong>Le graphe est celui de <code>@codeflow-map/core</code> 1.0.3 aujourd'hui.</strong> Une résolution
+        inter-fichiers maison changerait les chiffres — c'est justement la piste B.</li>
+      <li><strong>Les lignes « ? » sont une simulation de ce que le graphe pourrait dire.</strong> La bibliothèque
+        jette ces appels ; le prototype les reconstitue à partir des mêmes <code>RawCall</code> qu'elle a déjà en main.</li>
+      <li><strong>Un angle mort ne se pointe pas.</strong> Un nœud que l'extracteur n'a jamais vu (ex.
+        <code>diagramNodeCount</code>) ne produit ni arête ni ligne « ? » : l'absence totale et l'absence locale
+        sont indiscernables.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+
+const MODES = [
+  { id: "graph", label: "L'agent fait confiance au graphe", note: "payload seul" },
+  { id: "honest", label: "Graphe + ambiguïtés explicites", note: "payload avec ? + tranches ciblées" },
+  { id: "fill", label: "L'agent relit tout", note: "payload + fichiers entiers" },
+  { id: "baseline", label: "Sans graphe", note: "grep + lecture" },
+];
+
+const state = { caseId: DATA.cases[0].id, mode: "graph", scenario: 0, step: -1 };
+
+const SCENARIOS = [
+  {
+    tab: "Même classe",
+    intro: "Trois appelants, un this.audit(), une méthode héritée, un champ d'interface. Regardez ce que le graphe affirme, puis ce qu'il pourrait au moins pointer.",
+    steps: [
+      { caseId: "ts-user-service", mode: "graph", text: "Le graphe affirme this.audit et se tait sur le reste : 1 relation sur 8, sans dire qu'il en manque 7." },
+      { caseId: "ts-user-service", mode: "honest", text: "Avec des lignes « ? » pour les appels qu'il a vus sans pouvoir les attribuer : les trois appelants redeviennent actionnables. Reste le constructeur, invisible." },
+      { caseId: "ts-user-service", mode: "baseline", text: "Sans graphe : 3 petits fichiers, 353 tokens, toutes les relations. Sur des fichiers courts, le graphe ne gagne pas." },
+    ],
+  },
+  {
+    tab: "Homonyme",
+    intro: "Deux classes déclarent getUser(). Le pire cas pour une résolution par nom : deviner, se taire, ou pointer les deux candidats.",
+    steps: [
+      { caseId: "ts-admin-service", mode: "graph", text: "Le graphe abandonne : l'appelant de AdminService disparaît, et rien ne le signale." },
+      { caseId: "ts-admin-service", mode: "honest", text: "La ligne « ? » suffit : api.ts:7, deux candidats. L'agent sait quoi lire. 231 tokens au lieu de 353." },
+      { caseId: "ts-admin-service", mode: "baseline", text: "Sans graphe, l'agent lit api.ts et voit les deux appels — et le renommage des imports." },
+    ],
+  },
+  {
+    tab: "Dépôt réel",
+    intro: "Une vraie fonction de CodeTour. C'est là que le calcul de tokens change d'échelle — et où un angle mort d'extraction ne se voit pas.",
+    steps: [
+      { caseId: "repo-orientation-warnings", mode: "graph", text: "35 tokens, l'appelant trouvé. Mais l'appel sortant vers diagramNodeCount n'existe pas : le nœud n'a jamais été extrait." },
+      { caseId: "repo-orientation-warnings", mode: "honest", text: "Aucune ligne « ? » non plus : on ne pointe pas ce qu'on n'a pas vu. La couverture IN est bonne, la couverture OUT est aveugle." },
+      { caseId: "repo-orientation-warnings", mode: "baseline", text: "Le baseline réaliste : 2 fichiers, ~17 400 tokens. L'écart de coût est réel, la question est de savoir ce qu'on rate." },
+    ],
+  },
+];
+
+const byId = (id) => DATA.cases.find((c) => c.id === id);
+const pct = (n) => `${Math.round(n * 10) / 10} %`;
+const num = (n) => n.toLocaleString("fr-FR");
+
+function modeNumbers(testCase, mode) {
+  if (mode === "graph") {
+    return {
+      tokens: testCase.payloadTokens,
+      inRatio: testCase.incoming.actionable / testCase.incoming.total,
+      outRatio: testCase.outgoing.actionable / testCase.outgoing.total,
+      label: "payload seul",
+    };
+  }
+  if (mode === "honest") {
+    return {
+      tokens: testCase.honestTokens,
+      inRatio: testCase.incoming.actionable / testCase.incoming.total,
+      outRatio: testCase.outgoing.actionable / testCase.outgoing.total,
+      label: "payload + tranches ciblées",
+    };
+  }
+  if (mode === "fill") {
+    return {
+      tokens: testCase.payloadTokens + testCase.baselineTokens,
+      inRatio: 1,
+      outRatio: 1,
+      label: "payload + fichiers manquants",
+    };
+  }
+  return { tokens: testCase.baselineTokens, inRatio: 1, outRatio: 1, label: "grep + lecture" };
+}
+
+const ratio = (part, total) => (total === 0 ? 1 : part / total);
+const dirLabel = (testCase) => {
+  const inc = testCase.incoming;
+  const out = testCase.outgoing;
+  return `entrant ${inc.actionable}/${inc.total} · sortant ${out.actionable}/${out.total}`;
+};
+
+function verdict(testCase, mode) {
+  const numbers = modeNumbers(testCase, mode);
+  const missed = testCase.total - testCase.found;
+  const apparent = testCase.baselineTokens - testCase.payloadTokens;
+  const inc = testCase.incoming;
+  const out = testCase.outgoing;
+  if (mode === "graph" && missed > 0) {
+    return {
+      tone: inc.actionable < inc.total ? "danger" : "warn",
+      headline: `${num(testCase.payloadTokens)} tokens au lieu de ${num(testCase.baselineTokens)} — ${missed} relation${missed > 1 ? "s" : ""} sur ${testCase.total} absente${missed > 1 ? "s" : ""}.`,
+      sub: `Entrant actionnable ${inc.actionable}/${inc.total}, sortant ${out.actionable}/${out.total}. Le graphe ne distingue pas « aucun appelant » de « je n'ai pas su décider » : l'économie affichée (${num(apparent)} tokens) n'est fiable que si la question ne porte pas sur les appelants manquants.`,
+    };
+  }
+  if (mode === "graph") {
+    return {
+      tone: "ok",
+      headline: `${testCase.total}/${testCase.total} relations pour ${num(testCase.payloadTokens)} tokens.`,
+      sub: `Gain réel : ${num(apparent)} tokens (${pct(testCase.apparentSavingPct)}).`,
+    };
+  }
+  if (mode === "honest") {
+    const tone = inc.actionable < inc.total ? "warn" : "ok";
+    return {
+      tone,
+      headline: `${num(testCase.payloadGapTokens)} tokens de payload, ${num(testCase.targetedTokens)} de lectures ciblées — ${dirLabel(testCase)}.`,
+      sub: `Les appels vus mais non attribués deviennent des lignes « ? » avec leurs candidats, et l'agent ne lit que ${testCase.targetedRanges.length} tranche(s) de ${testCase.targetedRanges.reduce((n, range) => n + range.lines, 0)} lignes. Total ${num(numbers.tokens)} tokens${numbers.tokens <= testCase.baselineTokens ? `, soit ${num(testCase.baselineTokens - numbers.tokens)} de moins qu'une lecture complète` : `, soit ${num(numbers.tokens - testCase.baselineTokens)} de plus qu'une lecture complète (fichiers minuscules)`}.`,
+    };
+  }
+  if (mode === "fill") {
+    return {
+      tone: "warn",
+      headline: `Pour compléter sans lignes « ? », il faut relire les fichiers entiers : ${num(numbers.tokens)} tokens.`,
+      sub: `Soit ${num(testCase.payloadTokens)} tokens de plus que sans graphe. Sur ce cas, le pointeur ciblé (mode précédent) coûte ${num(testCase.honestTokens)} tokens.`,
+    };
+  }
+  return {
+    tone: "ok",
+    headline: `Sans graphe : ${num(testCase.baselineTokens)} tokens et ${testCase.total}/${testCase.total} relations.`,
+    sub: `Grep trouve ${testCase.baselineHits} occurrences dans ${testCase.baselineFiles.length} fichier(s) ; l'agent lit tout et reconstruit le graphe lui-même.`,
+  };
+}
+
+function render() {
+  const testCase = byId(state.caseId);
+  const numbers = modeNumbers(testCase, state.mode);
+  const v = verdict(testCase, state.mode);
+  const honest = state.mode === "honest";
+
+  document.getElementById("meta").textContent =
+    `${DATA.library} · ${DATA.tokenizer} · données du ${new Date(DATA.generatedAt).toLocaleString("fr-FR")}`;
+
+  const totals = DATA.cases.reduce(
+    (acc, c) => ({
+      baseline: acc.baseline + c.baselineTokens,
+      payload: acc.payload + c.payloadTokens,
+      found: acc.found + c.found,
+      total: acc.total + c.total,
+      inActionable: acc.inActionable + c.incoming.actionable,
+      inTotal: acc.inTotal + c.incoming.total,
+      outActionable: acc.outActionable + c.outgoing.actionable,
+      outTotal: acc.outTotal + c.outgoing.total,
+    }),
+    { baseline: 0, payload: 0, found: 0, total: 0, inActionable: 0, inTotal: 0, outActionable: 0, outTotal: 0 },
+  );
+  document.getElementById("kpis").innerHTML = [
+    ["Baseline cumulée", `${num(totals.baseline)} tok`, "grep + lecture des fichiers"],
+    ["Payload cumulé", `${num(totals.payload)} tok`, "ce que le graphe affirme seul"],
+    ["Entrant actionnable", `${totals.inActionable}/${totals.inTotal}`, "asserté ou pointé"],
+    ["Sortant actionnable", `${totals.outActionable}/${totals.outTotal}`, "asserté ou pointé"],
+  ]
+    .map(([l, value, note]) => `<div class="kpi"><div class="v">${value}</div><div class="l">${l} · ${note}</div></div>`)
+    .join("");
+
+  document.getElementById("cases").innerHTML = DATA.cases
+    .map(
+      (c) =>
+        `<button data-case="${c.id}" class="${c.id === state.caseId ? "active" : ""}">${c.label}<small>${c.found}/${c.total} relations · ${c.payloadTokens} tok</small></button>`,
+    )
+    .join("");
+
+  document.getElementById("modes").innerHTML = MODES.map(
+    (m) =>
+      `<button data-mode="${m.id}" class="${m.id === state.mode ? "active" : ""}">${m.label}<small>${m.note}</small></button>`,
+  ).join("");
+
+  const relationRows = testCase.rows
+    .map(
+      (row) => `<tr>
+        <td class="dir">${row.direction === "in" ? "IN" : "OUT"}</td>
+        <td class="rel">${row.from} → ${row.to}</td>
+        <td>${row.certainty === "hard" ? "interface / dynamique" : "statique"}</td>
+        <td class="${row.found ? "found" : row.actionable ? "" : "missing"}">${row.found ? "✓ assertée" : row.actionable ? "? pointée" : "✗ invisible"}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const fileRows = testCase.baselineFiles
+    .map((file) => `<li><span>${file.path}</span><span>${file.lines} lignes</span></li>`)
+    .join("");
+
+  const gapRows = testCase.gaps
+    .map(
+      (gap) => `<li><span>${gap.direction === "in" ? "IN " : "OUT"} ${gap.file}:${gap.line} ${gap.name}</span><span>${gap.candidates.length} cand.</span></li>`,
+    )
+    .join("");
+
+  const rangeRows = testCase.targetedRanges
+    .map(
+      (range) => `<li><span>${range.file}:${range.start}-${range.end}</span><span>${range.lines} lignes</span></li>`,
+    )
+    .join("");
+
+  const ledger = MODES.map((m) => {
+    const n = modeNumbers(testCase, m.id);
+    const gain = testCase.baselineTokens - n.tokens;
+    return `<tr class="${m.id === state.mode ? "active" : ""}">
+      <td>${m.label}</td>
+      <td class="num">${num(n.tokens)} tok</td>
+      <td class="num">${gain >= 0 ? "+" : "−"}${num(Math.abs(gain))}</td>
+      <td class="num">${testCase.incoming.actionable}/${testCase.incoming.total} · ${testCase.outgoing.actionable}/${testCase.outgoing.total}</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("state").innerHTML = `
+    <div class="verdict ${v.tone}">
+      <div class="headline">${v.headline}</div>
+      <div class="sub">${v.sub}</div>
+    </div>
+    <div class="split">
+      <div>
+        <p class="box-title">${honest ? "Payload avec ambiguïtés — " + num(testCase.payloadGapTokens) : "Payload injecté — " + num(testCase.payloadTokens)} tokens</p>
+        <pre>${escapeHtml(honest ? testCase.payloadWithGaps : testCase.payload)}</pre>
+        ${honest ? `<p class="box-title" style="margin-top:14px">Tranches lues — ${num(testCase.targetedTokens)} tokens</p>
+        <ul class="files">${rangeRows || "<li><span>aucune</span><span>0 ligne</span></li>"}</ul>` : ""}
+        <div class="chips">
+          <span class="chip">${testCase.scan.files} fichiers scannés</span>
+          <span class="chip">${testCase.scan.nodes} nœuds</span>
+          <span class="chip">${testCase.scan.edges} arêtes</span>
+          <span class="chip">${num(testCase.scan.durationMs)} ms</span>
+          <span class="chip ${testCase.gaps.length === 0 ? "bad" : ""}">${testCase.gaps.length} appel(s) non attribué(s)</span>
+        </div>
+      </div>
+      <div>
+        <p class="box-title">Vérité terrain — ${testCase.found}/${testCase.total} assertées · ${testCase.incoming.actionable}/${testCase.incoming.total} IN · ${testCase.outgoing.actionable}/${testCase.outgoing.total} OUT</p>
+        <table>
+          <thead><tr><th></th><th>Relation</th><th>Type</th><th>Graphe</th></tr></thead>
+          <tbody>${relationRows}</tbody>
+        </table>
+        <p style="font-size:12px;color:var(--muted);margin:10px 0 0">
+          « ✓ assertée » = arête produite. « ? pointée » = le graphe ne sait pas, mais désigne le site d'appel.
+          « ✗ invisible » = ni arête ni pointeur.
+        </p>
+        ${gapRows ? `<p class="box-title" style="margin-top:14px">Ce que le graphe voit sans pouvoir trancher</p><ul class="files">${gapRows}</ul>` : ""}
+        <div class="chips">
+          <span class="chip ${testCase.falsePositives.length ? "bad" : "good"}">${testCase.falsePositives.length} faux positif(s)</span>
+          <span class="chip ${testCase.incoming.actionable < testCase.incoming.total ? "bad" : "good"}">IN actionnable ${testCase.incoming.actionable}/${testCase.incoming.total}</span>
+          <span class="chip ${testCase.outgoing.actionable < testCase.outgoing.total ? "bad" : "good"}">OUT actionnable ${testCase.outgoing.actionable}/${testCase.outgoing.total}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="split" style="margin-top: 22px">
+      <div>
+        <p class="box-title">Sans graphe, l'agent lit</p>
+        <ul class="files">${fileRows}</ul>
+        <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
+          ${testCase.baselineHits} occurrences de <code>${testCase.grepToken}</code>${testCase.baselineTruncated ? ` · ${testCase.baselineTruncated} fichier(s) coupé(s)` : ""}
+        </p>
+        <details>
+          <summary>Voir le texte du baseline (extrait)</summary>
+          <pre>${escapeHtml(testCase.baselineText.slice(0, 4000))}${testCase.baselineText.length > 4000 ? "\n… (tronqué à l'affichage)" : ""}</pre>
+        </details>
+      </div>
+      <div>
+        <p class="box-title">Le budget selon l'attitude de l'agent</p>
+        <table class="ledger">
+          <thead><tr><th>Attitude</th><th>Tokens</th><th>vs baseline</th><th>IN · OUT actionnables</th></tr></thead>
+          <tbody>${ledger}</tbody>
+        </table>
+        <p style="font-size:12px;color:var(--muted);margin:10px 0 0">
+          « Ambiguïtés explicites » = payload + une ligne « ? » par appel vu mais non attribué, puis lecture
+          des seules tranches pointées (± 8 lignes). « Relit tout » = payload + fichiers entiers.
+        </p>
+      </div>
+    </div>
+    <p style="margin:18px 0 0;font-size:13.5px;color:var(--muted)">${testCase.question}</p>
+  `;
+
+  renderScenario();
+}
+
+function renderScenario() {
+  document.getElementById("scenario-tabs").innerHTML = SCENARIOS.map(
+    (scenario, index) =>
+      `<button data-scenario="${index}" class="${index === state.scenario ? "active" : ""}">${scenario.tab}</button>`,
+  ).join("");
+
+  const scenario = SCENARIOS[state.scenario];
+  const steps = scenario.steps
+    .map((step, index) => {
+      const testCase = byId(step.caseId);
+      const done = state.step >= index;
+      return `<div>
+        <button class="step ${done ? "done" : ""}" data-step="${index}">
+          <span class="n">${index + 1}</span>
+          <span>${testCase.label} · ${MODES.find((m) => m.id === step.mode).label}</span>
+        </button>
+        ${done ? `<p class="step-note">${step.text}</p>` : ""}
+      </div>`;
+    })
+    .join("");
+
+  document.getElementById("scenario-body").innerHTML = `
+    <p>${scenario.intro}</p>
+    <div class="steps">${steps}</div>
+  `;
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+document.addEventListener("click", (event) => {
+  const target = event.target.closest("button");
+  if (!target) return;
+  if (target.dataset.case) {
+    state.caseId = target.dataset.case;
+  } else if (target.dataset.mode) {
+    state.mode = target.dataset.mode;
+  } else if (target.dataset.scenario) {
+    state.scenario = Number(target.dataset.scenario);
+    state.step = -1;
+  } else if (target.dataset.step) {
+    state.step = Number(target.dataset.step);
+    const step = SCENARIOS[state.scenario].steps[state.step];
+    state.caseId = step.caseId;
+    state.mode = step.mode;
+  }
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

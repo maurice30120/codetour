@@ -33,8 +33,9 @@ test("the rail needs the full 100 columns before it appears", () => {
 test("the layout never goes below the reader's minimum width", () => {
   const layout = terminalLayout(20);
   assert.equal(layout.columns, 60);
-  assert.ok(layout.textWidth >= 20);
-  assert.ok(layout.codeWidth >= 20);
+  assert.equal(layout.textWidth, 18);
+  assert.equal(layout.codeWidth, 16);
+  assert.equal(layout.codeWidth + layout.conversationWidth + 8, 60);
 });
 
 test("the conversation panel keeps a readable width at every terminal size", () => {
@@ -42,18 +43,27 @@ test("the conversation panel keeps a readable width at every terminal size", () 
     const layout = terminalLayout(columns);
     assert.ok(layout.conversationWidth >= 36, "conversation too narrow at " + columns);
     assert.ok(layout.conversationWidth <= 48, "conversation too wide at " + columns);
-    assert.ok(layout.textWidth >= 20, "Step too narrow at " + columns);
+    assert.ok(layout.textWidth >= 18, "Step too narrow at " + columns);
   }
 });
 
-test("the status line's right budget follows the hint variant and never drops below 30", () => {
+test("wide screens give source more room while keeping paragraphs readable", () => {
+  const layout = terminalLayout(240);
+  assert.equal(layout.textWidth, 78);
+  assert.ok(layout.codeWidth > layout.textWidth);
+  assert.equal(layout.railWidth, 36);
+  assert.ok(layout.railLabelWidth > terminalLayout(120).railLabelWidth);
+  assert.ok(layout.codeWidth + layout.railWidth + layout.conversationWidth + 8 <= 240);
+});
+
+test("the status line's right budget leaves room for the hints and outer padding", () => {
   // The spelled-out hints consume 72 columns, the compact ones 48; the
   // right side yields its cells first (ADR 0028).
-  assert.equal(terminalLayout(120).statusRightWidth, 120 - 72);
-  assert.equal(terminalLayout(119).statusRightWidth, 119 - 48);
-  assert.equal(terminalLayout(80).statusRightWidth, 80 - 48);
-  // Below the usable minimum width the right side keeps its floor budget.
-  assert.equal(terminalLayout(30).statusRightWidth, 30);
+  assert.equal(terminalLayout(120).statusRightWidth, 120 - 72 - 2);
+  assert.equal(terminalLayout(119).statusRightWidth, 119 - 48 - 2);
+  assert.equal(terminalLayout(80).statusRightWidth, 80 - 48 - 2);
+  // At the minimum width voice state still fits without pushing out quit.
+  assert.equal(terminalLayout(30).statusRightWidth, 10);
 });
 
 test("fit truncates a label to the cells it may occupy", () => {

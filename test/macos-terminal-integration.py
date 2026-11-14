@@ -7,11 +7,27 @@ import json
 import os
 import pathlib
 import pty
+import re
 import select
 import signal
 import subprocess
 import tempfile
 import time
+
+
+def assert_native_selection_available(output):
+    """Mouse tracking diverts a native text drag into app mouse reports."""
+    active = set()
+    for parameters, action in re.findall(rb"\x1b\[\?([0-9;]+)([hl])", output):
+        for value in parameters.split(b";"):
+            mode = int(value)
+            if mode not in (9, 1000, 1001, 1002, 1003):
+                continue
+            if action == b"h":
+                active.add(mode)
+            else:
+                active.discard(mode)
+    assert not active, f"Native text selection is blocked by mouse tracking: {sorted(active)}"
 
 
 def main():
@@ -49,10 +65,12 @@ def main():
                         output.extend(os.read(fd, 65536))
                     except OSError:
                         pass
-                if stage == 0 and b"First step" in output and b"WORKSPACE_ROOT_CONTENT" in output:
+                if stage == 0 and b"First step" in output and b"WORKSPACE_ROOT_CONTENT" in output and b"\x1b[?2026l" in output:
+                    assert_native_selection_available(output)
                     os.write(fd, b"n")
                     stage = 1
                 if stage == 1 and b"Second step" in output:
+                    assert_native_selection_available(output)
                     os.write(fd, b"q")
                     stage = 2
                 done, result = os.waitpid(pid, os.WNOHANG)
@@ -62,7 +80,7 @@ def main():
             if stage != 2 or status != 0:
                 raise AssertionError(f"Navigation failed (stage={stage}, exit={status}):\n"
                                      + output[-3000:].decode(errors="replace"))
-            print("PASS: first step, next step and quit in a macOS pseudo-terminal")
+            print("PASS: native text selection, first step, next step and quit in a macOS pseudo-terminal")
         finally:
             if status is None:
                 os.kill(pid, signal.SIGKILL)
