@@ -2,6 +2,7 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
+  callTool,
   commitFile,
   headSha,
   initGitRepo,
@@ -10,7 +11,9 @@ import {
   withServer,
 } from "../helpers/test-utils";
 import {
+  CHANGES_TOUR_PROMPT_RESOURCE_TEMPLATE,
   PROJECT_TARGETED_CONTEXT_RESOURCE_URI,
+  PROJECT_TOUR_PROMPT_RESOURCE_URI,
   TARGETED_CONTEXT_RESOURCE_TEMPLATE,
   TARGETED_CONTEXT_PAGINATED_RESOURCE_TEMPLATE,
 } from "../../src/server";
@@ -37,17 +40,21 @@ async function readResourceText(client: Client, uri: string): Promise<string> {
   return content.text ?? "";
 }
 
-const REPO_TS = `export class UserRepository {
+const REPO_TS = `export interface IRepository {
+  find(id: number): string;
+}
+
+export class UserRepository implements IRepository {
   find(id: number): string {
     return \`user-\${id}\`;
   }
 }
 `;
 
-const SERVICE_TS = `import { UserRepository } from "./repo";
+const SERVICE_TS = `import { IRepository, UserRepository } from "./repo";
 
 export class UserService {
-  private repo = new UserRepository();
+  private repo: IRepository = new UserRepository();
 
   getUser(id: number): string {
     return this.repo.find(id);
@@ -88,6 +95,10 @@ async function fixtureRepo(): Promise<{ root: string; baseRef: string; headRef: 
   await commitFile(root, "src/caller.ts", CALLER_TS, "base caller");
   await commitFile(root, "src/legacy.go", GO_FILE, "base go");
   const baseRef = await headSha(root);
+  // repo.ts is touched at head too: the relations packet is built over the
+  // CHANGED files, so the IRepository port must be in the selection for the
+  // interface edge toward the port to be assertable.
+  await commitFile(root, "src/repo.ts", REPO_TS + "\n// head\n", "head repo");
   await commitFile(root, "src/service.ts", SERVICE_TS + "\n// head\n", "head service");
   await commitFile(root, "src/caller.ts", CALLER_TS + "\n// head\n", "head caller");
   await commitFile(root, "src/legacy.go", GO_FILE + "\n// head\n", "head go");
@@ -109,6 +120,24 @@ test("the Changes Tour context resource serves the depth-1 relations packet", as
       // The relations packet joined the selection (flag-on path of the resource).
       assert.match(text, /## Relations \(depth 1\)/);
       assert.match(text, /`loadUser` -> `UserService\.getUser`[^\n]*src\/caller\.ts:\d+/);
+      // Coherent statuses: every rendered edge line carries kind/callType and
+      // one of the #149 statuses, with file:line evidence.
+      const edgeLines = text.split("\n").filter(l => l.startsWith("- `") && l.includes(" -> `"));
+      assert.ok(edgeLines.length > 0, "the packet renders edge lines");
+      for (const line of edgeLines) {
+        assert.match(
+          line,
+          /\((call|new|super)\/(direct|interface|super|new), (resolved|heuristic|ambiguous|unresolved|unsupported)\) at [^\s:]+:\d+$/,
+          `coherent status on edge line: ${line}`
+        );
+      }
+      // The interface-typed field asserts toward the PORT with a heuristic
+      // status, never toward the implementation (#149 story 16).
+      assert.match(
+        text,
+        /`UserService\.getUser` -> `IRepository\.find` \(call\/interface, heuristic\) at src\/service\.ts:\d+/
+      );
+      assert.ok(!text.includes("UserService.getUser` -> `UserRepository.find"), "no edge toward the implementation");
       // The untyped view.render() is an explicit "?" pointer with candidates.
       assert.match(text, /\? `render`[^\n]*src\/caller\.ts:\d+/);
       assert.match(text, /candidates: [^\n]*UserService\.render/);
@@ -156,6 +185,57 @@ test("the Project Tour context resource also carries the relations packet", asyn
       // The out-of-pack Go file is explicitly unsupported here too.
       assert.match(text, /unsupported/i);
       assert.match(text, /legacy\.go/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("flag off (default): the historical generation pipeline is unchanged and no packet appears", async () => {
+  // Ticket #156 nappe 2, flag-off clause, at the highest MCP seam: the
+  // default (ADR 0033 off) path serves the exact historical responses — the
+  // generation tools and the generation prompts carry no relations packet.
+  const { root, baseRef, headRef } = await fixtureRepo();
+  try {
+    await withServer(root, async (client) => {
+      const changes = await callTool(client, "create_changes_tour", {
+        baseRef,
+        headRef,
+        steps: [{ description: "Load a user through the service.", file: "src/caller.ts" }],
+      });
+      assert.equal(changes.isError, false, changes.text);
+      assert.equal(changes.structured.stepCount, 1);
+      assert.ok(
+        !changes.text.includes("Relations (depth 1)"),
+        "flag off => no relations packet in the tool response"
+      );
+      assert.ok(
+        !("relations" in (changes.structured ?? {})),
+        "flag off => no relations key in the structured response"
+      );
+
+      const project = await callTool(client, "create_project_tour", {
+        steps: [{ description: "Overview of the workspace.", file: "src/caller.ts" }],
+      });
+      assert.equal(project.isError, false, project.text);
+      assert.ok(!project.text.includes("Relations (depth 1)"));
+
+      // The generation prompt resources are the historical ones too.
+      const changesPrompt = await readResourceText(
+        client,
+        CHANGES_TOUR_PROMPT_RESOURCE_TEMPLATE.replace("{reviewMode}", "neutral")
+      );
+      assert.ok(changesPrompt.includes("create_changes_tour"));
+      assert.ok(
+        !changesPrompt.includes("Relations (depth 1)"),
+        "flag off => no packet in the Changes Tour prompt"
+      );
+      const projectPrompt = await readResourceText(client, PROJECT_TOUR_PROMPT_RESOURCE_URI);
+      assert.ok(projectPrompt.includes("create_project_tour"));
+      assert.ok(
+        !projectPrompt.includes("Relations (depth 1)"),
+        "flag off => no packet in the Project Tour prompt"
+      );
     });
   } finally {
     rmrf(root);
