@@ -72,10 +72,12 @@ edge (toward the interface port with `callType: "interface"` + `heuristic`
 when the type is a known interface), anything else becomes an explicit
 ambiguity `site` with candidates — same-named methods never produce a false
 edge. `extractTypeScriptSymbols` returns the declarations as
-`ExtractedSymbol[]` (`name`, `kind`, `filePath`, 1-based `startLine`/`endLine`,
-plus `importedName`/`source` for imports); ticket #155 maps that shape onto
-the existing `extractSymbols` contract of `codetour-mcp`'s parsing module,
-replacing the regex spike of #114 while its consumers keep compiling.
+`ExtractedSymbol[]` (`name`, `kind` — class, interface, method, constructor,
+function, property, import, type-alias, enum — `filePath`, 1-based
+`startLine`/`endLine`/`startColumn`/`endColumn`, plus `importedName`/`source`
+for imports); ticket #155 maps that shape onto the existing `extractSymbols`
+contract of `codetour-mcp`'s parsing module, replacing the regex spike of #114
+while its consumers keep compiling.
 
 ## Usage
 
