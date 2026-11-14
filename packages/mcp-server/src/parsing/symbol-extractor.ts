@@ -1,13 +1,22 @@
 /**
  * Symbol Extractor Module for Targeted Context
- * 
+ *
  * This module provides multi-language parsing capabilities for extracting code symbols.
- * It currently uses a regex-based approach as a spike implementation.
- * The decision between Tree-sitter and repomap will be documented separately.
- * 
+ * TypeScript/JavaScript extraction is driven by the Tree-sitter pack of
+ * `codetour-relation-graph` (spec #149, ADR 0034): the #114 regex spike is
+ * replaced there, while the `extractSymbols(code, language)` contract below
+ * is preserved for its consumers. The other languages keep their spike
+ * extractors.
+ *
  * Part of Spec #92 - Targeted Context for Tour Generation
  * Ticket #114 - Spike: Tree-sitter vs repomap decision
+ * Ticket #155 - Delegation of the TypeScript extraction to the relation-graph pack
  */
+
+import {
+  extractTypeScriptSymbols,
+  type ExtractedSymbol,
+} from "codetour-relation-graph";
 
 export interface CodeSymbol {
   name: string;
@@ -389,27 +398,34 @@ export function extractSymbolsFromJava(code: string): CodeSymbol[] {
 
 /**
  * Extract symbols based on language
+ *
+ * Ticket #155 (spec #149, ADR 0034): TypeScript and JavaScript delegate to
+ * `extractTypeScriptSymbols` of `codetour-relation-graph` — the #114 regex
+ * spike is replaced by the tree-sitter pack. The contract of this function is
+ * unchanged: `Promise<CodeSymbol[]>`, 1-based locations with line and column
+ * fields, the historical kind vocabulary, empty array for unsupported
+ * languages.
  */
 export async function extractSymbols(
   code: string,
   language: string
 ): Promise<CodeSymbol[]> {
   const normalizedLanguage = language.toLowerCase();
-  
+
   // Check if language is supported
   const supportedLanguages = ["typescript", "python", "javascript", "java", "go", "rust", "cpp", "c", "ruby", "php"];
-  
+
   if (!supportedLanguages.includes(normalizedLanguage)) {
     // Graceful degradation: return empty array for unsupported languages
     console.warn(`Language '${language}' is not supported. Available languages: ${supportedLanguages.join(", ")}`);
     return [];
   }
-  
+
   // Route to the appropriate extractor
   switch (normalizedLanguage) {
     case "typescript":
     case "javascript":
-      return extractSymbolsFromTypeScript(code);
+      return extractSymbolsViaRelationGraph(code, normalizedLanguage);
     case "python":
       return extractSymbolsFromPython(code);
     case "java":
@@ -418,6 +434,53 @@ export async function extractSymbols(
       // For other languages, try TypeScript extractor as fallback
       return extractSymbolsFromTypeScript(code);
   }
+}
+
+/** Map an ExtractedSymbol of the relation-graph pack onto the CodeSymbol contract. */
+const CODE_SYMBOL_KIND: Record<ExtractedSymbol["kind"], CodeSymbol["kind"]> = {
+  class: "class",
+  interface: "interface",
+  method: "method",
+  constructor: "method",
+  function: "function",
+  property: "variable",
+  import: "namespace",
+  "type-alias": "type",
+  enum: "enum",
+};
+
+function toCodeSymbol(symbol: ExtractedSymbol): CodeSymbol {
+  const dot = symbol.name.lastIndexOf(".");
+  const parentName = dot >= 0 ? symbol.name.slice(0, dot) : undefined;
+  const name = dot >= 0 ? symbol.name.slice(dot + 1) : symbol.name;
+  return {
+    name,
+    kind: CODE_SYMBOL_KIND[symbol.kind] ?? "function",
+    location: {
+      startLine: symbol.startLine,
+      startColumn: symbol.startColumn ?? 1,
+      endLine: symbol.endLine,
+      endColumn: symbol.endColumn ?? symbol.startColumn ?? 1,
+    },
+    parentName,
+  };
+}
+
+/**
+ * The #155 delegation: parse through the prebuilt tree-sitter grammar of
+ * codetour-relation-graph (JavaScript sources go through the TypeScript
+ * grammar, as the spike did) and map onto the CodeSymbol contract.
+ */
+async function extractSymbolsViaRelationGraph(
+  code: string,
+  language: string
+): Promise<CodeSymbol[]> {
+  const packLanguage =
+    language === "tsx" || language === "typescriptreact" ? "tsx" : "typescript";
+  const extracted = await extractTypeScriptSymbols([
+    { path: "<inline>", content: code, language: packLanguage },
+  ]);
+  return extracted.map(toCodeSymbol);
 }
 
 /**
@@ -486,14 +549,15 @@ export function isLanguageSupported(language: string): boolean {
  */
 export function getParserInfo(): ParserInfo {
   return {
-    mechanism: "regex-based-spike",
-    version: "1.0.0",
+    mechanism:
+      "web-tree-sitter via codetour-relation-graph for TypeScript/JavaScript (#155); regex spike for the other languages (#114)",
+    version: "1.1.0",
     supportedLanguages: [
       "typescript", "python", "javascript", "java", "go", "rust", "cpp", "c", "ruby", "php"
     ],
     fallbackStrategy: "empty-array",
     lastUpdated: new Date().toISOString(),
-    note: "This is a spike implementation using regex patterns. Production implementation should use Tree-sitter or repomap.",
+    note: "TypeScript/JavaScript extraction is driven by the prebuilt tree-sitter grammars of codetour-relation-graph (spec #149, ADR 0034); the other languages keep the #114 regex spike.",
   };
 }
 

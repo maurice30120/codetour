@@ -5,6 +5,7 @@
 
 import { CodeSymbol } from "../parsing/symbol-extractor";
 import { TokenUsage, CostInfo } from "../cost-tracking/types";
+import type { RelationsPacket } from "./relations-packet";
 
 /**
  * Configuration for Project Tour Targeted Context feature
@@ -51,6 +52,11 @@ export interface ProjectTargetedContextConfig {
    * Whether to include node_modules in scanning
    */
   excludeNodeModules: boolean;
+  /**
+   * Targeted-slice window (± lines) around each relations ambiguity pointer.
+   * Defaults to 8 (spec #149). Only used when `enabled` is true (ADR 0033).
+   */
+  relationsWindow?: number;
 }
 
 /**
@@ -155,6 +161,12 @@ export interface ProjectTargetedContext {
     largestFiles: Array<{ filePath: string; size: number }>;
     mostSymbolicFiles: Array<{ filePath: string; symbolCount: number }>;
   };
+  /**
+   * Depth-1 relations packet (ticket #155, spec #149), produced from the same
+   * workspace scan. Present only when the flag is on; absent (key not set)
+   * when `enabled` is false, so the historical shape is unchanged (ADR 0033).
+   */
+  relations?: RelationsPacket;
 }
 
 /**

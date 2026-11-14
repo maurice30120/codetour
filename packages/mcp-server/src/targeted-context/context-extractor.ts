@@ -36,6 +36,11 @@ import {
   SymbolPage,
 } from "./types";
 import { estimateTokenCount } from "./token-estimate";
+import {
+  buildRelationsForSelection,
+  formatRelationsPacketForPrompt,
+  relationsSeedsFromSymbols,
+} from "./relations-packet";
 
 /**
  * Create a cost tracker for context extraction
@@ -370,12 +375,16 @@ export async function extractTargetedContext(
   
   const warnings: string[] = [];
   const fileContexts: FileContext[] = [];
-  
+  // The same scan pass feeds the relations packet (#155): selected files with
+  // their head content, regardless of whether a relation pack exists for
+  // their language (out-of-pack files surface as explicit `unsupported`).
+  const relationSources: { path: string; content: string }[] = [];
+
   // Create cost tracker
   const baseTracker = createContextCostTracker(mergedConfig);
   const costTracker = new ContextCostTracker(baseTracker);
   costTracker.start();
-  
+
   try {
     // Get changed files
     const selection = selectChangedFiles(
@@ -388,7 +397,7 @@ export async function extractTargetedContext(
     if (files.length === 0) {
       warnings.push("No changed files found between base and head refs.");
       costTracker.stop();
-      
+
       return {
         success: true,
         context: {
@@ -405,39 +414,59 @@ export async function extractTargetedContext(
         warnings,
       };
     }
-    
+
     // Read file contents from commit anchors
     const commitAnchors = await readCommitAnchors(ctx, headRef, files);
-    
+
     // Process each changed file
     for (const file of files) {
       const anchor = commitAnchors.get(normalizeSlashes(file));
-      
+
       if (!anchor || !anchor.contents) {
         warnings.push(`Skipping ${file}: no content available`);
         continue;
       }
-      
+
+      if (shouldIncludeFile(file, mergedConfig)) {
+        relationSources.push({
+          path: normalizeSlashes(file),
+          content: anchor.contents,
+        });
+      }
+
       const fileContext = await extractFileContext(
         file,
         anchor.contents,
         mergedConfig,
         costTracker
       );
-      
+
       if (fileContext) {
         fileContexts.push(fileContext);
       }
     }
-    
+
+    // Depth-1 relations packet over the same scan pass (#155). Failure is
+    // additive-only: the symbol selection stands, with a warning.
+    const relations = await buildRelationsForSelection(
+      relationSources,
+      relationsSeedsFromSymbols(fileContexts.flatMap(fc => fc.symbols)),
+      mergedConfig.relationsWindow,
+      warnings
+    );
+    if (relations) {
+      // Packet token cost tracked through the existing CostTracker (#118).
+      costTracker.trackOutputTokens(relations.tokens);
+    }
+
     // Calculate totals
     const totalSymbols = fileContexts.reduce(
       (sum, fc) => sum + fc.symbols.length,
       0
     );
-    
+
     costTracker.stop();
-    
+
     const context: TargetedContext = {
       enabled: true,
       baseRef,
@@ -449,7 +478,10 @@ export async function extractTargetedContext(
       generatedAt: new Date().toISOString(),
       durationMs: Date.now() - startTime,
     };
-    
+    if (relations) {
+      context.relations = relations;
+    }
+
     return {
       success: true,
       context,
@@ -496,12 +528,18 @@ export function formatTargetedContextForPrompt(context: TargetedContext): string
         : "";
       parts.push(`- **${symbol.kind}**: \`${symbol.name}\`${location}${documentation}`);
     }
-    
+
     parts.push("");
   }
-  
+
+  // The depth-1 relations packet (#155), when the flag is on.
+  if (context.relations) {
+    parts.push(formatRelationsPacketForPrompt(context.relations));
+    parts.push("");
+  }
+
   parts.push(`---\n\n`);
-  
+
   return parts.join("\n");
 }
 
@@ -558,9 +596,15 @@ export function formatPaginatedContextForPrompt(
     );
     parts.push("");
   }
-  
+
+  // The depth-1 relations packet scoped to this page (#155), when the flag is on.
+  if (context.relations) {
+    parts.push(formatRelationsPacketForPrompt(context.relations));
+    parts.push("");
+  }
+
   parts.push(`---\n\n`);
-  
+
   return parts.join("\n");
 }
 
@@ -637,7 +681,11 @@ export async function extractPaginatedTargetedContext(
   
   const warnings: string[] = [];
   const allFileContexts: { filePath: string; symbols: CodeSymbol[] }[] = [];
-  
+  // The same scan pass feeds the relations packet (#155): selected files with
+  // their head content, regardless of whether a relation pack exists for
+  // their language (out-of-pack files surface as explicit `unsupported`).
+  const relationSources: { path: string; content: string }[] = [];
+
   // Create cost tracker
   const baseTracker = createContextCostTracker(mergedConfig);
   const costTracker = new ContextCostTracker(baseTracker);
@@ -693,7 +741,12 @@ export async function extractPaginatedTargetedContext(
       if (!shouldIncludeFile(file, mergedConfig)) {
         continue;
       }
-      
+
+      relationSources.push({
+        path: normalizeSlashes(file),
+        content: anchor.contents,
+      });
+
       // Check if language is supported
       const language = detectLanguageFromPath(file);
       if (!isLanguageSupported(language)) {
@@ -737,9 +790,71 @@ export async function extractPaginatedTargetedContext(
       JSON.stringify({ fileContexts: allFileContexts })
     );
     costTracker.trackOutputTokens(outputTokens);
-    
+
+    // Create paginated context
+    const page = toPositiveInteger(pagination.page, 1);
+    const pageSize = toPositiveInteger(
+      pagination.pageSize,
+      toPositiveInteger(
+        mergedConfig.pageSize,
+        Math.max(1, mergedConfig.maxSymbols)
+      )
+    );
+
+    // Paginate across all files
+    const allSymbolsWithFile: { filePath: string; symbol: CodeSymbol }[] = [];
+    allFileContexts.forEach((fc) => {
+      fc.symbols.forEach((symbol) => {
+        allSymbolsWithFile.push({ filePath: fc.filePath, symbol });
+      });
+    });
+
+    const paginated = paginate(allSymbolsWithFile, { page, pageSize });
+
+    // Group symbols by file for the pages
+    const pages: SymbolPage[] = [];
+    const symbolsInPage = paginated.items;
+
+    // Create a map of file to its symbols
+    const fileSymbolMap = new Map<string, CodeSymbol[]>();
+    allFileContexts.forEach((fc) => {
+      fileSymbolMap.set(fc.filePath, fc.symbols);
+    });
+
+    // For each symbol in the page, group by file
+    const pageFileMap = new Map<string, CodeSymbol[]>();
+    symbolsInPage.forEach((item) => {
+      if (!pageFileMap.has(item.filePath)) {
+        pageFileMap.set(item.filePath, []);
+      }
+      pageFileMap.get(item.filePath)!.push(item.symbol);
+    });
+
+    // Create pages
+    pageFileMap.forEach((symbols, filePath) => {
+      pages.push({
+        filePath,
+        symbols,
+        totalFileSymbols: fileSymbolMap.get(filePath)?.length ?? 0,
+      });
+    });
+
+    // Depth-1 relations packet over the same scan pass (#155), scoped to the
+    // served page: the packet honors the existing pagination — its seeds are
+    // the symbols of this page. Flag off never reaches this code (ADR 0033).
+    const relations = await buildRelationsForSelection(
+      relationSources,
+      relationsSeedsFromSymbols(symbolsInPage.map((item) => item.symbol)),
+      mergedConfig.relationsWindow,
+      warnings
+    );
+    if (relations) {
+      // Packet token cost tracked through the existing CostTracker (#118).
+      costTracker.trackOutputTokens(relations.tokens);
+    }
+
     costTracker.stop();
-    
+
     // Create full context (for backward compatibility)
     const fullContext: TargetedContext = {
       enabled: true,
@@ -757,55 +872,7 @@ export async function extractPaginatedTargetedContext(
       generatedAt: new Date().toISOString(),
       durationMs: Date.now() - startTime,
     };
-    
-    // Create paginated context
-    const page = toPositiveInteger(pagination.page, 1);
-    const pageSize = toPositiveInteger(
-      pagination.pageSize,
-      toPositiveInteger(
-        mergedConfig.pageSize,
-        Math.max(1, mergedConfig.maxSymbols)
-      )
-    );
-    
-    // Paginate across all files
-    const allSymbolsWithFile: { filePath: string; symbol: CodeSymbol }[] = [];
-    allFileContexts.forEach((fc) => {
-      fc.symbols.forEach((symbol) => {
-        allSymbolsWithFile.push({ filePath: fc.filePath, symbol });
-      });
-    });
-    
-    const paginated = paginate(allSymbolsWithFile, { page, pageSize });
-    
-    // Group symbols by file for the pages
-    const pages: SymbolPage[] = [];
-    const symbolsInPage = paginated.items;
-    
-    // Create a map of file to its symbols
-    const fileSymbolMap = new Map<string, CodeSymbol[]>();
-    allFileContexts.forEach((fc) => {
-      fileSymbolMap.set(fc.filePath, fc.symbols);
-    });
-    
-    // For each symbol in the page, group by file
-    const pageFileMap = new Map<string, CodeSymbol[]>();
-    symbolsInPage.forEach((item) => {
-      if (!pageFileMap.has(item.filePath)) {
-        pageFileMap.set(item.filePath, []);
-      }
-      pageFileMap.get(item.filePath)!.push(item.symbol);
-    });
-    
-    // Create pages
-    pageFileMap.forEach((symbols, filePath) => {
-      pages.push({
-        filePath,
-        symbols,
-        totalFileSymbols: fileSymbolMap.get(filePath)?.length ?? 0,
-      });
-    });
-    
+
     const paginatedContext: PaginatedTargetedContext = {
       enabled: true,
       baseRef,
@@ -826,7 +893,10 @@ export async function extractPaginatedTargetedContext(
         prevCursor: paginated.prevCursor,
       },
     };
-    
+    if (relations) {
+      paginatedContext.relations = relations;
+    }
+
     return {
       success: true,
       context: fullContext,

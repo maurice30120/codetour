@@ -45,6 +45,7 @@ import {
 } from "./review-skill";
 import {
   detectTourType,
+  ensureRelationGraphRuntime,
   extractPaginatedTargetedContext,
   formatTargetedContextForPrompt,
   formatPaginatedContextForPrompt,
@@ -594,6 +595,12 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
 
 export function createServer(workspaceRoot: string): McpServer {
   const ctx = createContext(workspaceRoot);
+  // The MCP seam of the relation-graph module (#155, spec #149): register the
+  // built-in language packs once, and when running from a webpack bundle
+  // (VSIX/standalone) point Parser.init's locateFile at the staged .wasm
+  // assets next to the bundle. On the npm channel this configures nothing and
+  // the grammars resolve from node_modules. No new tool or resource.
+  ensureRelationGraphRuntime();
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     { capabilities: { tools: {}, resources: {}, prompts: {} } }

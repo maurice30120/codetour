@@ -21,6 +21,7 @@
  */
 
 export * from "./context-extractor";
+export * from "./relations-packet";
 export * from "./types";
 export * from "./project-context-extractor";
 export * from "./project-types";

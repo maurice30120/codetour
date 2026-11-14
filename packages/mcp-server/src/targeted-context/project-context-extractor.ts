@@ -31,6 +31,11 @@ import {
 } from "../cost-tracking/types";
 import { CostTracker } from "../cost-tracking/cost-tracker";
 import { estimateTokenCount } from "./token-estimate";
+import {
+  buildRelationsForSelection,
+  formatRelationsPacketForPrompt,
+  relationsSeedsFromSymbols,
+} from "./relations-packet";
 
 /**
  * Create a cost tracker for project context extraction
@@ -360,6 +365,10 @@ export async function extractProjectTargetedContext(
   
   const warnings: string[] = [];
   const fileContexts: ProjectFileContext[] = [];
+  // The same scan pass feeds the relations packet (#155): selected files with
+  // their content, regardless of whether a relation pack exists for their
+  // language (out-of-pack files surface as explicit `unsupported`).
+  const relationSources: { path: string; content: string }[] = [];
   const languages: Set<string> = new Set();
   const byLanguage: Record<string, { fileCount: number; symbolCount: number }> = {};
   const largestFiles: Array<{ filePath: string; size: number }> = [];
@@ -415,9 +424,16 @@ export async function extractProjectTargetedContext(
       try {
         const content = await fs.readFile(filePath, "utf-8");
         const language = detectLanguageFromPath(filePath);
-        
+
         languages.add(language);
-        
+
+        if (shouldIncludeFile(filePath, mergedConfig)) {
+          relationSources.push({
+            path: normalizeSlashes(path.relative(ctx.root, filePath)),
+            content,
+          });
+        }
+
         const fileContext = await extractFileContext(
           filePath,
           content,
@@ -456,14 +472,27 @@ export async function extractProjectTargetedContext(
       }
     }
     
+    // Depth-1 relations packet over the same scan pass (#155). Failure is
+    // additive-only: the symbol selection stands, with a warning.
+    const relations = await buildRelationsForSelection(
+      relationSources,
+      relationsSeedsFromSymbols(fileContexts.flatMap(fc => fc.symbols)),
+      mergedConfig.relationsWindow,
+      warnings
+    );
+    if (relations) {
+      // Packet token cost tracked through the existing CostTracker (#118).
+      costTracker.trackOutputTokens(relations.tokens);
+    }
+
     // Calculate totals
     const totalSymbols = fileContexts.reduce(
       (sum, fc) => sum + fc.symbols.length,
       0
     );
-    
+
     costTracker.stop();
-    
+
     const context: ProjectTargetedContext = {
       enabled: true,
       workspaceRoot: ctx.root,
@@ -481,7 +510,10 @@ export async function extractProjectTargetedContext(
         mostSymbolicFiles,
       },
     };
-    
+    if (relations) {
+      context.relations = relations;
+    }
+
     return {
       success: true,
       context,
@@ -571,9 +603,15 @@ export function formatProjectTargetedContextForPrompt(context: ProjectTargetedCo
     
     parts.push("");
   }
-  
+
+  // The depth-1 relations packet (#155), when the flag is on.
+  if (context.relations) {
+    parts.push(formatRelationsPacketForPrompt(context.relations));
+    parts.push("");
+  }
+
   parts.push(`---\n\n`);
-  
+
   return parts.join("\n");
 }
 

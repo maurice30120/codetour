@@ -5,6 +5,7 @@
 
 import { CodeSymbol } from "../parsing/symbol-extractor";
 import { TokenUsage, CostInfo } from "../cost-tracking/types";
+import type { RelationsPacket } from "./relations-packet";
 
 /**
  * Configuration for Targeted Context feature
@@ -52,6 +53,13 @@ export interface TargetedContextConfig {
    * Whether to track cost metrics for context generation
    */
   trackCost: boolean;
+  /**
+   * Targeted-slice window (± lines) around each relations ambiguity pointer.
+   * Defaults to 8 (spec #149). Only used when `enabled` is true: the relations
+   * packet of ticket #155 rides this existing flag — there is no new flag
+   * (ADR 0033).
+   */
+  relationsWindow?: number;
 }
 
 /**
@@ -133,6 +141,12 @@ export interface TargetedContext {
    * Duration of context generation in milliseconds
    */
   durationMs: number;
+  /**
+   * Depth-1 relations packet (ticket #155, spec #149), produced from the same
+   * scan pass. Present only when the flag is on; absent (key not set) when
+   * `enabled` is false, so the historical shape is unchanged (ADR 0033).
+   */
+  relations?: RelationsPacket;
 }
 
 /**
@@ -266,4 +280,10 @@ export interface PaginatedTargetedContext extends Omit<TargetedContext, 'files'>
    * Pagination metadata
    */
   pagination: Omit<PaginatedContextResult<SymbolPage>, 'items'>;
+  /**
+   * Depth-1 relations packet scoped to the served page (ticket #155): the
+   * existing pagination is honored — seeds are the symbols of this page.
+   * Present only when the flag is on.
+   */
+  relations?: RelationsPacket;
 }
