@@ -1,0 +1,107 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-11-12T15:37:30.838Z",
+  "environment": {
+    "repository": "codetour",
+    "workspaceRoot": "/Users/dhuyet/Documents/POC/codetour-wt/spec92-fix",
+    "branch": "fix/spec-92-uri-collision",
+    "sha": "fc62fbf6a26bbc5fd2a2b8cb964d9f1d4a3b5b02",
+    "baseRef": "8f42a4ff2364d55e11196dce1c99cbfbf109963b",
+    "headRef": "HEAD"
+  },
+  "configurations": {
+    "changes": {
+      "enabled": true,
+      "maxSymbols": 5000,
+      "pageSize": 200,
+      "maxFiles": 50,
+      "maxDepth": 10,
+      "includeExtensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".py",
+        ".java",
+        ".go"
+      ],
+      "excludeExtensions": [
+        ".test.",
+        ".spec.",
+        ".d.ts"
+      ],
+      "includeDocumentation": true,
+      "trackCost": true,
+      "excludeNodeModules": true
+    },
+    "project": {
+      "enabled": true,
+      "maxSymbolsPerFile": 50,
+      "maxFiles": 50,
+      "maxDepth": 10,
+      "includeExtensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".py",
+        ".java",
+        ".go",
+        ".rs"
+      ],
+      "excludeExtensions": [
+        ".test.",
+        ".spec.",
+        ".d.ts",
+        ".min.js"
+      ],
+      "includeDocumentation": true,
+      "trackCost": true,
+      "rootDirectories": [
+        "src",
+        "lib",
+        "packages",
+        "app",
+        "server"
+      ],
+      "excludeNodeModules": true
+    }
+  },
+  "results": [
+    {
+      "scenario": "changes-first-page",
+      "tourType": "changes",
+      "estimatedTokens": 1989,
+      "characters": 7955,
+      "symbols": 137,
+      "files": 17,
+      "pages": 1,
+      "durationMs": 203,
+      "warnings": []
+    },
+    {
+      "scenario": "changes-full-context",
+      "tourType": "changes",
+      "estimatedTokens": 1969,
+      "characters": 7876,
+      "symbols": 137,
+      "files": 19,
+      "pages": 1,
+      "durationMs": 203,
+      "targetTokens": 150000,
+      "warnings": []
+    },
+    {
+      "scenario": "project-full-context",
+      "tourType": "project",
+      "estimatedTokens": 983,
+      "characters": 3929,
+      "symbols": 283,
+      "files": 50,
+      "pages": 0,
+      "durationMs": 12,
+      "targetTokens": 400000,
+      "warnings": []
+    }
+  ]
+}
