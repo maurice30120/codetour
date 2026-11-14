@@ -52,6 +52,7 @@ import {
   getApproachCConfig,
   getApproachDConfig,
   PaginationOptions,
+  targetedContextEnabledFromEnv,
 } from "./targeted-context";
 import {
   extractProjectTargetedContext,
@@ -132,7 +133,8 @@ const TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
   "symbols and locations from the changed files between {baseRef} and {headRef}, " +
   "offered to the Tour Generator as a substitute for open-ended exploration. " +
   "Supports progressive exploration via pagination (use page and pageSize in request). " +
-  "Bounded to 5000 symbols, served 200 per page.";
+  "Bounded to 5000 symbols, served 200 per page. " +
+  "Off by default (ADR 0033): when the Targeted Context flag is off, this resource serves an empty context and no relations packet.";
 
 // URI for Targeted Context resource for Project Tour.
 // Part of spec #92, ticket #117
@@ -143,7 +145,8 @@ const PROJECT_TARGETED_CONTEXT_RESOURCE_DESCRIPTION =
   "Targeted Context for Project Tour generation: a bounded selection of code " +
   "symbols and locations from the entire workspace, offered to the Tour Generator " +
   "as a substitute for open-ended exploration. Bounded to 50 files, " +
-  "50 symbols per file.";
+  "50 symbols per file. Off by default (ADR 0033): when the flag is off, " +
+  "this resource serves an empty context and no relations packet.";
 
 // Mechanism choice (spec #94): the Changes Tour prompt is parameterized by
 // the review mode, so it is served as an MCP resource template rather than
@@ -724,7 +727,10 @@ export function createServer(workspaceRoot: string): McpServer {
           `(${TARGETED_CONTEXT_RESOURCE_TEMPLATE}).`
       );
     }
-    const config = getApproachCConfig();
+    // ADR 0033: the served resource honors the EXISTING Targeted Context
+    // flag, off by default — the relations packet (#155) is attached only
+    // when the flag is on; when off, the historical empty context is served.
+    const config = getApproachCConfig({ enabled: targetedContextEnabledFromEnv() });
 
     const pagination: PaginationOptions = {
       page,
@@ -821,7 +827,8 @@ export function createServer(workspaceRoot: string): McpServer {
     async (uri) => {
       // Automatic tour type selection (ticket #01): a request without refs is
       // a Project Tour, so it gets the Project Tour configuration.
-      const config = getApproachDConfig();
+      // ADR 0033, same as the Changes Tour resource above: default-off flag.
+      const config = getApproachDConfig({ enabled: targetedContextEnabledFromEnv() });
       const result = await extractProjectTargetedContext(ctx, config);
       
       if (!result.success) {

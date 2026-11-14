@@ -76,6 +76,20 @@ export const DEFAULT_TARGETED_CONTEXT_CONFIG: TargetedContextConfig = {
 };
 
 /**
+ * The EXISTING Targeted Context flag (ADR 0033: off by default, no new flag),
+ * resolved for one served run: the host opts the run in deliberately by
+ * setting CODETOUR_TARGETED_CONTEXT=1 in the server environment. An absent
+ * or unrecognized value keeps the default of record: off, so the historical
+ * generation pipeline is unchanged unless the flag is deliberately on.
+ */
+export function targetedContextEnabledFromEnv(
+  env: Record<string, string | undefined> = process.env
+): boolean {
+  const raw = (env.CODETOUR_TARGETED_CONTEXT ?? "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "on";
+}
+
+/**
  * Context information for a single file
  */
 export interface FileContext {

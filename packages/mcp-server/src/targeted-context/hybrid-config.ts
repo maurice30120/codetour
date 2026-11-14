@@ -29,7 +29,8 @@ import {
  * - Focus on changed files only
  * 
  * Default values from spec:
- * - enabled: true
+ * - enabled: false (ADR 0033: the flag is off by default — the bounds below
+ *   are the approach C bounds, NOT an always-on switch)
  * - maxSymbols: 5000
  * - maxFiles: 50
  * - pageSize: 200
@@ -44,7 +45,9 @@ const APPROACH_C_PAGE_SIZE = 200;
 const APPROACH_C_MAX_FILES = 50;
 
 export const APPROACH_C_CONFIG: TargetedContextConfig = {
-  enabled: true, // Enabled by default for Changes Tours
+  enabled: false, // Off by default (ADR 0033): the served codetour://context/*
+  // resources honor this existing flag; a host opts a run in deliberately
+  // (CODETOUR_TARGETED_CONTEXT=1) — there is no new flag.
   maxSymbols: APPROACH_C_MAX_SYMBOLS, // Maximum symbols to extract
   pageSize: APPROACH_C_PAGE_SIZE, // Symbols served per page
   maxFiles: APPROACH_C_MAX_FILES, // Maximum changed files processed
@@ -93,7 +96,7 @@ export function getApproachCConfig(
  * - Focus on key project files
  * 
  * Default values from spec:
- * - enabled: true
+ * - enabled: false (ADR 0033: off by default, as above)
  * - maxFiles: 50
  * - maxSymbolsPerFile: 50
  * - includeExtensions: TypeScript, JavaScript, Python, Java, Go, Rust
@@ -104,7 +107,7 @@ export function getApproachCConfig(
  * - excludeNodeModules: true
  */
 export const APPROACH_D_CONFIG: ProjectTargetedContextConfig = {
-  enabled: true, // Enabled by default for Project Tours
+  enabled: false, // Off by default (ADR 0033), same as Approach C above
   maxSymbolsPerFile: 50, // Maximum symbols per file
   maxFiles: 50, // Maximum number of files to scan
   maxDepth: 10, // Maximum depth of symbol hierarchy
@@ -158,9 +161,10 @@ export function getApproachDConfig(
 export function validateApproachCConfig(config: TargetedContextConfig): boolean {
   const errors: string[] = [];
 
-  // Check required fields
-  if (config.enabled !== true) {
-    errors.push("Approach C: enabled should be true");
+  // ADR 0033: `enabled` is the existing default-off flag, not a bound — the
+  // validators below check the approach bounds only.
+  if (typeof config.enabled !== "boolean") {
+    errors.push("Approach C: enabled should be a boolean flag");
   }
 
   if (config.maxSymbols !== APPROACH_C_MAX_SYMBOLS) {
@@ -220,9 +224,9 @@ export function validateApproachCConfig(config: TargetedContextConfig): boolean 
 export function validateApproachDConfig(config: ProjectTargetedContextConfig): boolean {
   const errors: string[] = [];
 
-  // Check required fields
-  if (config.enabled !== true) {
-    errors.push("Approach D: enabled should be true");
+  // ADR 0033: `enabled` is the existing default-off flag, not a bound.
+  if (typeof config.enabled !== "boolean") {
+    errors.push("Approach D: enabled should be a boolean flag");
   }
 
   if (config.maxFiles !== 50) {

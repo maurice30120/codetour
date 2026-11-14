@@ -62,7 +62,47 @@ async function fixtureRepo(): Promise<{
   return { root, baseRef, headRef };
 }
 
-test("the default Changes Tour context serves one bounded page", async () => {
+// ADR 0033: the Targeted Context flag is off by default; the host opts a run
+// in deliberately through CODETOUR_TARGETED_CONTEXT=1 (the existing flag, no
+// new one). These tests play the flag-on runs.
+const FLAG_ON = { CODETOUR_TARGETED_CONTEXT: "1" };
+
+test("flag off (default): the context resources serve the historical empty answer, no packet", async () => {
+  const { root, baseRef, headRef } = await fixtureRepo();
+  try {
+    await withServer(root, async (client) => {
+      // No env override: the default of record is off.
+      const changesText = await readResourceText(
+        client,
+        changesTourContextUri(baseRef, headRef)
+      );
+      assert.equal(
+        changesText,
+        "# Targeted Context\n\nNo context available.",
+        "flag off => the historical empty Changes Tour context"
+      );
+      assert.ok(!changesText.includes("Relations (depth 1)"), "no relations packet");
+
+      const paginatedText = await readResourceText(
+        client,
+        `${changesTourContextUri(baseRef, headRef)}?page=1&pageSize=200`
+      );
+      assert.equal(paginatedText, "# Targeted Context\n\nNo context available.");
+      assert.ok(!paginatedText.includes("Relations (depth 1)"), "no relations packet");
+
+      const projectText = await readResourceText(
+        client,
+        PROJECT_TARGETED_CONTEXT_RESOURCE_URI
+      );
+      assert.equal(projectText, "# Targeted Context\n\nNo context available.");
+      assert.ok(!projectText.includes("Relations (depth 1)"), "no relations packet");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("the default Changes Tour context serves one bounded page (flag on)", async () => {
   const { root, baseRef, headRef } = await fixtureRepo();
   try {
     await withServer(root, async (client) => {
@@ -75,13 +115,13 @@ test("the default Changes Tour context serves one bounded page", async () => {
       // everything at once.
       assert.match(text, /Page 1\/2/);
       assert.match(text, /Showing 200 symbols on this page/);
-    });
+    }, FLAG_ON);
   } finally {
     rmrf(root);
   }
 });
 
-test("the paginated Changes Tour context serves the requested page", async () => {
+test("the paginated Changes Tour context serves the requested page (flag on)", async () => {
   const { root, baseRef, headRef } = await fixtureRepo();
   try {
     await withServer(root, async (client) => {
@@ -90,13 +130,13 @@ test("the paginated Changes Tour context serves the requested page", async () =>
 
       assert.match(text, /Page 2\/2/);
       assert.match(text, /Showing 50 symbols on this page/);
-    });
+    }, FLAG_ON);
   } finally {
     rmrf(root);
   }
 });
 
-test("the Project Tour context serves the workspace symbols", async () => {
+test("the Project Tour context serves the workspace symbols (flag on)", async () => {
   const root = tempDir("codetour-project-context-");
   try {
     await initGitRepo(root);
@@ -122,7 +162,7 @@ test("the Project Tour context serves the workspace symbols", async () => {
       assert.match(text, /Targeted Context \(\d+ symbols from \d+ files\)/);
       assert.match(text, /src\/app\.ts/);
       assert.match(text, /greet/);
-    });
+    }, FLAG_ON);
   } finally {
     rmrf(root);
   }

@@ -20,11 +20,16 @@ import {
 
 // Ticket #155 acceptance, at the highest MCP seam (prior art:
 // test/integration/generation-prompt.test.ts): the host plays the Tour
-// Generator over stdio. The Targeted Context resource is the per-run opt-in
-// of ADR 0033, so reading it serves the selection WITH the relations packet;
-// the tool surface stays exactly the two generation tools (no new mandatory
-// MCP tool), and the flag-off path is pinned at the extractor seam in
-// test/unit/relations-packet.test.ts.
+// Generator over stdio. ADR 0033: the Targeted Context flag is off by
+// default; the host opts a run in deliberately through CODETOUR_TARGETED_
+// CONTEXT=1 (the existing flag, no new one). Reading the resource with the
+// flag on serves the selection WITH the relations packet; the tool surface
+// stays exactly the two generation tools (no new mandatory MCP tool), and
+// the flag-off path is pinned both here (served responses) and at the
+// extractor seam in test/unit/relations-packet.test.ts.
+
+// The per-run opt-in carrier of the existing flag (ADR 0033).
+const FLAG_ON = { CODETOUR_TARGETED_CONTEXT: "1" };
 
 function changesTourContextUri(baseRef: string, headRef: string): string {
   return TARGETED_CONTEXT_RESOURCE_TEMPLATE.replace("{baseRef}", baseRef).replace(
@@ -106,7 +111,7 @@ async function fixtureRepo(): Promise<{ root: string; baseRef: string; headRef: 
   return { root, baseRef, headRef };
 }
 
-test("the Changes Tour context resource serves the depth-1 relations packet", async () => {
+test("flag on: the Changes Tour context resource serves the depth-1 relations packet", async () => {
   const { root, baseRef, headRef } = await fixtureRepo();
   try {
     await withServer(root, async (client) => {
@@ -147,7 +152,7 @@ test("the Changes Tour context resource serves the depth-1 relations packet", as
       // Targeted slices around the ambiguity pointer.
       assert.match(text, /Targeted slices/);
       assert.match(text, /src\/caller\.ts lines \d+-\d+/);
-    });
+    }, FLAG_ON);
   } finally {
     rmrf(root);
   }
@@ -168,7 +173,7 @@ test("the paginated form pages the relations with the selection", async () => {
       assert.match(text, /Page 1\/\d+/);
       assert.match(text, /Showing 1 symbols on this page/);
       assert.match(text, /## Relations \(depth 1\)/);
-    });
+    }, FLAG_ON);
   } finally {
     rmrf(root);
   }
@@ -185,7 +190,7 @@ test("the Project Tour context resource also carries the relations packet", asyn
       // The out-of-pack Go file is explicitly unsupported here too.
       assert.match(text, /unsupported/i);
       assert.match(text, /legacy\.go/);
-    });
+    }, FLAG_ON);
   } finally {
     rmrf(root);
   }
@@ -194,10 +199,26 @@ test("the Project Tour context resource also carries the relations packet", asyn
 test("flag off (default): the historical generation pipeline is unchanged and no packet appears", async () => {
   // Ticket #156 nappe 2, flag-off clause, at the highest MCP seam: the
   // default (ADR 0033 off) path serves the exact historical responses — the
-  // generation tools and the generation prompts carry no relations packet.
+  // generation tools, the generation prompts AND the codetour://context/*
+  // resources carry no relations packet.
   const { root, baseRef, headRef } = await fixtureRepo();
   try {
     await withServer(root, async (client) => {
+      // The served Targeted Context resources are historical too: empty
+      // context, no relations packet (the resource URIs are unchanged).
+      const changesContext = await readResourceText(
+        client,
+        changesTourContextUri(baseRef, headRef)
+      );
+      assert.equal(changesContext, "# Targeted Context\n\nNo context available.");
+      assert.ok(!changesContext.includes("Relations (depth 1)"));
+      const projectContext = await readResourceText(
+        client,
+        PROJECT_TARGETED_CONTEXT_RESOURCE_URI
+      );
+      assert.equal(projectContext, "# Targeted Context\n\nNo context available.");
+      assert.ok(!projectContext.includes("Relations (depth 1)"));
+
       const changes = await callTool(client, "create_changes_tour", {
         baseRef,
         headRef,
