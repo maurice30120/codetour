@@ -66,7 +66,7 @@ test("the CLI selects from multiple Tours using its numbered prompt", () => {
   const { root } = fixture();
   try {
     const output = path.join(root, "selected.html");
-    const result = run(root, [], output, "2\n");
+    const result = run(root, ["--renderer", "html"], output, "2\n");
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Select an existing CodeTour/);
     assert.match(readFileSync(output, "utf8"), /Other/);
@@ -127,7 +127,7 @@ test("standalone HTML shows referenced Git snapshot rather than a dirty worktree
       title: "Snapshot", ref, steps: [{title: "Code", file: "code.ts", line: 1, description: "Example"}]
     }));
     const output = path.join(root, "snapshot.html");
-    const result = run(root, ["snapshot"], output);
+    const result = run(root, ["snapshot", "--renderer", "html"], output);
     assert.equal(result.status, 0, result.stderr);
     const html = readFileSync(output, "utf8");
     assert.match(html, /historical = 42/);
@@ -145,7 +145,7 @@ test("standalone HTML inlines an image from the Tour workspace", () => {
       title: "Image", steps: [{title: "Picture", description: "![Example](./image.png)"}]
     }));
     const output = path.join(root, "image.html");
-    const result = run(root, ["image"], output);
+    const result = run(root, ["image", "--renderer", "html"], output);
     assert.equal(result.status, 0, result.stderr);
     assert.match(readFileSync(output, "utf8"), /data:image\/png;base64,/);
   } finally { rmSync(root, {recursive: true, force: true}); }
@@ -160,7 +160,7 @@ test("standalone HTML renders Mermaid as a sanitized SVG", { timeout: 30000 }, (
         "**Diagram — Flow**\n\n```mermaid\nflowchart TD\nA[Start] --> B[End]\n```"}]
     }));
     const output = path.join(root, "diagram.html");
-    const result = spawnSync(process.execPath, [cli, "diagram"], {
+    const result = spawnSync(process.execPath, [cli, "diagram", "--renderer", "html"], {
       cwd: root, encoding: "utf8", timeout: 25000,
       env: { ...process.env, CODETOUR_TEST_HTML_OUTPUT: output }
     });
@@ -205,7 +205,7 @@ test("CLI selects a Tour by a filename containing spaces and Unicode", () => {
       title: "A different title", steps: [{description: "Filename selection"}]
     }));
     const output = path.join(root, "output.html");
-    const result = run(root, ["guide été"], output);
+    const result = run(root, ["guide été", "--renderer", "html"], output);
     assert.equal(result.status, 0, result.stderr);
     assert.match(readFileSync(output, "utf8"), /Filename selection/);
   } finally { rmSync(root, {recursive: true, force: true}); }
@@ -278,12 +278,35 @@ test("mcp is a reserved token; a Tour titled mcp stays selectable interactively"
     const listed = JSON.parse(run(root, ["--internal-list-tours"]).stdout) as { title: string }[];
     const selection = String(listed.findIndex(tour => tour.title === "mcp") + 1);
     const output = path.join(root, "reserved.html");
-    const opened = run(root, [], output, selection + "\n");
+    const opened = run(root, ["--renderer", "html"], output, selection + "\n");
     assert.equal(opened.status, 0, opened.stderr);
     assert.match(readFileSync(output, "utf8"), /A Tour named like the command/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("the CLI help documents the terminal renderer as the default", () => {
+  const { root } = fixture();
+  try {
+    const result = run(root, ["--help"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /--renderer <type>\s+open the Tour as terminal \(default\) or html/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("the CLI opens the terminal reader when no renderer is given", {skip: process.platform !== "darwin"}, () => {
+  const { root } = fixture();
+  try {
+    const bin = path.join(root, "bin"); mkdirSync(bin);
+    const launcher = path.join(bin, "open"); writeFileSync(launcher, "#!/bin/sh\nexit 42\n"); chmodSync(launcher, 0o755);
+    const env: NodeJS.ProcessEnv = { ...process.env, PATH: bin + path.delimiter + process.env.PATH };
+    delete env.CODETOUR_TEST_HTML_OUTPUT;
+    const result = spawnSync(process.execPath, [cli, "architecture"], {cwd: root, encoding: "utf8", env});
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Terminal launcher failed: 42/);
+    assert.doesNotMatch(result.stdout, /CodeTour: opened/);
+  } finally { rmSync(root, {recursive:true, force:true}); }
 });
 
 test("macOS CLI reports a failing graphical launcher", {skip: process.platform !== "darwin"}, () => {

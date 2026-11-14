@@ -60,6 +60,7 @@ export interface Warning {
 
 export interface SuccessResult {
   status: "created";
+  title: string;
   path: string;
   stepCount: number;
   warnings: Warning[];
@@ -67,6 +68,7 @@ export interface SuccessResult {
 
 export interface ValidatedResult {
   status: "validated";
+  title: string;
   stepCount: number;
   warnings: Warning[];
 }

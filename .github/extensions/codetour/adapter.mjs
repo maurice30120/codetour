@@ -92,7 +92,7 @@ function parse(raw) {
   // The final token is the renderer flag when present; the remaining text is
   // the exact Tour title (including spaces), optionally enclosed in quotes.
   let text = (raw || "").trim();
-  let renderer = "html";
+  let renderer = "terminal";
   const match = text.match(/(?:^|\s)--renderer(?:=|\s+)([^\s]+)\s*$/);
   if (match) { renderer = match[1]; text = text.slice(0, match.index).trim(); }
   if (renderer !== "html" && renderer !== "terminal") throw new Error("Unknown renderer; use html or terminal.");
@@ -116,12 +116,18 @@ function runCli(args, cwd, { detached = false } = {}) {
   });
 }
 
-async function select(session, prompt, choices) {
-  if (!session.capabilities?.ui?.elicitation) throw new Error("This choice requires an interactive Copilot session; use /codetour generate project or /codetour generate changes neutral|critical, or specify a Tour title.");
-  const answer = await session.ui.select(prompt, choices);
+// The adapter's only menu implementation: labels carry their number for the
+// CLI, and the answer maps back through its index so the offered order stays
+// the single source of truth. Returns the zero-based index, or null when the
+// user cancels.
+async function select(session, prompt, choices, unavailable = "This choice requires an interactive Copilot session; use /codetour generate project or /codetour generate changes neutral|critical, or specify a Tour title.") {
+  if (!session.capabilities?.ui?.elicitation) throw new Error(unavailable);
+  const labels = choices.map((label, index) => `${index + 1}. ${label}`);
+  const answer = await session.ui.select(prompt, labels);
   if (answer === null || answer === undefined) return null;
-  if (!choices.includes(answer)) throw new Error("Invalid CodeTour selection.");
-  return answer;
+  const index = labels.indexOf(answer);
+  if (index < 0) throw new Error("Invalid CodeTour selection.");
+  return index;
 }
 
 export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
@@ -134,22 +140,23 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
     const explicit = input.match(/^generate(?:\s+(project|changes)(?:\s+(neutral|critical))?)?(?:\s+(\S.*))?$/);
     let action = explicit ? "Generate" : "Read";
     if (!input) {
-      action = await select(session, "Read or generate a CodeTour?", ["Read", "Generate"]);
-      if (!action) return;
+      const choice = await select(session, "Read or generate a CodeTour?", ["Generate", "Read"]);
+      if (choice === null) return;
+      action = choice === 0 ? "Generate" : "Read";
     }
     if (action === "Generate") {
       let type = explicit?.[1];
       if (!type) {
-        const answer = await select(session, "Which type of Tour?", ["Project Tour", "Changes Tour"]);
-        if (!answer) return;
-        type = answer === "Project Tour" ? "project" : "changes";
+        const choice = await select(session, "Which type of Tour?", ["Project Tour", "Changes Tour"]);
+        if (choice === null) return;
+        type = choice === 0 ? "project" : "changes";
       }
       let reviewMode = explicit?.[2];
       if (type === "project" && reviewMode) throw new Error("Project Tours do not have a review mode.");
       if (type === "changes" && !reviewMode) {
-        const answer = await select(session, "Neutral or critical?", ["Neutral", "Critical"]);
-        if (!answer) return;
-        reviewMode = answer.toLowerCase();
+        const choice = await select(session, "Neutral or critical?", ["Neutral", "Critical"]);
+        if (choice === null) return;
+        reviewMode = choice === 0 ? "neutral" : "critical";
       }
       if (typeof session.send !== "function") throw new Error("This Copilot host cannot send a generation request to its agent.");
       let brief = (explicit?.[3] || "").trim();
@@ -169,11 +176,21 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
       // codetour mcp composes the generation prompt for this run, including
       // the user's orientation phrase and its language when one was given; the
       // adapter only relays the choices and the user's words.
-      const prompt = await servedPrompt(
-        cwd,
-        type === "project" ? "generate_project_tour" : "generate_changes_tour",
-        type === "project" ? (brief ? {brief} : {}) : {reviewMode, ...(brief ? {brief} : {})}
-      );
+      let prompt;
+      try {
+        prompt = await servedPrompt(
+          cwd,
+          type === "project" ? "generate_project_tour" : "generate_changes_tour",
+          type === "project" ? (brief ? {brief} : {}) : {reviewMode, ...(brief ? {brief} : {})}
+        );
+      } catch (error) {
+        // A bare spawn error would leave the user without the cause: name the
+        // MCP server and the repair path.
+        throw new Error(
+          `CodeTour MCP server 'codetour' is unavailable: ${error instanceof Error ? error.message : String(error)} ` +
+          "Run 'codetour --install copilot' and verify the server with 'copilot mcp list'."
+        );
+      }
       // The slash command has completed its choices; start the requested run now.
       // Enqueue leaves explicit commands waiting for another Enter on CLI 1.0.105.
       await session.send({prompt, mode: "immediate"});
@@ -191,11 +208,10 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
     } else {
       const tours = JSON.parse(await runCli(["--internal-list-tours"], cwd));
       if (tours.length > 1) {
-        if (!session.capabilities?.ui?.elicitation) throw new Error("Tour selection requires an interactive Copilot session; specify a Tour title.");
-        const labels = tours.map((tour, i) => `${i + 1}. ${tour.title}`);
-        const choice = await session.ui.select("Select a CodeTour", labels);
-        if (choice === null || choice === undefined) return;
-        const chosen = tours[labels.indexOf(choice)];
+        const choice = await select(session, "Select a CodeTour", tours.map(tour => tour.title),
+          "Tour selection requires an interactive Copilot session; specify a Tour title.");
+        if (choice === null) return;
+        const chosen = tours[choice];
         if (!chosen) throw new Error("Invalid Tour selection.");
         selected = chosen;
       } else {

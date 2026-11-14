@@ -374,6 +374,7 @@ test("dryRun with reviewMode critical validates without writing", async () => {
       assert.equal(response.isError, false, response.text);
       assert.equal(response.structured.status, "validated");
       assert.equal(response.structured.path, undefined);
+      assert.equal(response.structured.title, "Changes on feature");
     });
     assert.equal(
       fs.existsSync(`${root}/.tours/changes.tour`),

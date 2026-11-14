@@ -21,6 +21,75 @@ function changesTourPromptUri(reviewMode: string): string {
   );
 }
 
+// Every served generation prompt ends with an announcement step: once the
+// write has succeeded, the agent states the created tour's exact title and
+// path, as returned by the creation tool, on a dedicated line, in the
+// language the Tour was generated in (the orientation given); the presence
+// of that line completes the generation. The helper pins the contract, not
+// the wording: the marker locates the step, the follow-up assertions check
+// what it must carry, and the finality check pins it as the last step of
+// the served instructions — in the composed prompts/get form, only the
+// user's orientation clause may follow it.
+function assertAnnouncementStep(text: string, persistenceClause: string): void {
+  const marker = "Announce the created tour";
+  const index = text.indexOf(marker);
+  assert.ok(index >= 0, "the served prompt must contain the announcement step");
+  assert.ok(
+    index > text.indexOf(persistenceClause),
+    "the announcement step must follow the persistence instruction"
+  );
+  const lineEnd = text.indexOf("\n", index);
+  const step = lineEnd === -1 ? text.slice(index) : text.slice(index, lineEnd);
+  assert.ok(step.includes("title"), "the announcement step names the title");
+  assert.ok(step.includes("path"), "the announcement step names the path");
+  assert.ok(
+    step.includes("tool result"),
+    "the title and path come from the tool result, not from memory"
+  );
+  assert.ok(
+    step.includes("dedicated line"),
+    "the announcement is stated on a dedicated line"
+  );
+  assert.ok(
+    step.includes("language"),
+    "the announcement is stated in the Tour's language (the orientation given)"
+  );
+  const remainder =
+    lineEnd === -1 ? "" : text.slice(lineEnd).trim();
+  assert.ok(
+    remainder === "" ||
+      remainder.startsWith("## Tour orientation from the user"),
+    "the announcement must be the final step of the served instructions"
+  );
+}
+
+// When the session has no CodeTour tool at all, the agent must stop before
+// analyzing and name the cause, rather than silently producing a text answer
+// that looks like a Tour. The prompt carries the repair path the installer
+// documents, so the user can act without reading the adapter source.
+function assertUnavailableToolGuidance(text: string): void {
+  assert.ok(
+    /MCP server/i.test(text),
+    "the prompt must name the missing CodeTour MCP server"
+  );
+  assert.ok(
+    /not (?:registered|available|connected)/i.test(text),
+    "the prompt must distinguish an unregistered server from an unknown tool name"
+  );
+  assert.ok(
+    text.includes("codetour --install copilot"),
+    "the prompt must give the repair command"
+  );
+  assert.ok(
+    text.includes("copilot mcp list"),
+    "the prompt must give the verification command"
+  );
+  assert.ok(
+    /stop/i.test(text),
+    "the prompt must stop the run instead of continuing without the tool"
+  );
+}
+
 async function readResourceText(
   client: Client,
   uri: string
@@ -50,6 +119,24 @@ test("serves the Project Tour generation prompt resource", async () => {
       assert.ok(!text.includes("review mode"));
       assert.ok(!text.includes("neutral"));
       assert.ok(!text.includes("critical"));
+      // Anchors are recommended as a stable pattern or a line verified in
+      // the analyzed HEAD, never a guessed line number — the same guidance
+      // the Changes Tour prompt carries.
+      assert.ok(
+        text.includes("stable pattern"),
+        "the prompt recommends anchoring with a stable pattern"
+      );
+      assert.ok(
+        text.includes("verified"),
+        "the prompt accepts a line verified in the analyzed HEAD"
+      );
+      assert.ok(
+        text.includes("guess"),
+        "the prompt warns against guessed line numbers"
+      );
+      // The prompt ends with the announcement step for the created tour.
+      assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertUnavailableToolGuidance(text);
     });
   } finally {
     rmrf(root);
@@ -103,6 +190,23 @@ test("serves the neutral Changes Tour generation prompt", async () => {
       assert.ok(text.includes("factually"));
       assert.ok(text.includes("Do not judge"));
       assert.ok(!text.includes("Matt Pocock"));
+      // Anchors are recommended as a stable pattern or a line verified in
+      // the analyzed HEAD, never a guessed line number.
+      assert.ok(
+        text.includes("stable pattern"),
+        "the prompt recommends anchoring with a stable pattern"
+      );
+      assert.ok(
+        text.includes("verified"),
+        "the prompt accepts a line verified in the analyzed HEAD"
+      );
+      assert.ok(
+        text.includes("guess"),
+        "the prompt warns against guessed line numbers"
+      );
+      // The prompt ends with the announcement step for the created tour.
+      assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertUnavailableToolGuidance(text);
     });
   } finally {
     rmrf(root);
@@ -135,6 +239,9 @@ test("serves the critical Changes Tour generation prompt with the embedded skill
       assert.ok(text.includes("Spec"));
       assert.ok(text.includes("MIT"));
       assert.ok(text.includes("before any analysis"));
+      // Critical mode ends with the same announcement step.
+      assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertUnavailableToolGuidance(text);
     });
   } finally {
     rmrf(root);
@@ -204,6 +311,7 @@ test("serves the Project Tour generation prompt without orientation", async () =
         !text.includes("Tour orientation"),
         "no orientation clause without a brief"
       );
+      assertAnnouncementStep(text, "dryRun omitted to persist");
     });
   } finally {
     rmrf(root);
@@ -229,6 +337,8 @@ test("composes the Project Tour generation prompt with the user's orientation", 
         text.includes("that same language"),
         "the composed prompt sets the Tour's language from the brief"
       );
+      // The announcement step survives composition with the orientation.
+      assertAnnouncementStep(text, "dryRun omitted to persist");
     });
   } finally {
     rmrf(root);
@@ -248,11 +358,14 @@ test("composes the Changes Tour generation prompt with review mode and orientati
       assert.ok(text.includes("create_changes_tour"));
       assert.ok(text.includes("neutral"));
       assert.ok(text.includes(brief));
+      assertAnnouncementStep(text, "dryRun omitted to persist");
       const withoutBrief = await client.getPrompt({
         name: GENERATE_CHANGES_TOUR_PROMPT_NAME,
         arguments: { reviewMode: "critical" },
       });
-      assert.ok(promptText(withoutBrief.messages).includes("critical"));
+      const criticalText = promptText(withoutBrief.messages);
+      assert.ok(criticalText.includes("critical"));
+      assertAnnouncementStep(criticalText, "dryRun omitted to persist");
     });
   } finally {
     rmrf(root);

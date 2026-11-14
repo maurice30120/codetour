@@ -40,7 +40,7 @@ function buildProgram(): Command {
     .allowExcessArguments(false)
     .description("Read guided Tours of a codebase, and generate them with AI agents.")
     .argument("[title]", "Tour title or Tour file name")
-    .option("--renderer <type>", "open the Tour as html (default) or terminal")
+    .option("--renderer <type>", "open the Tour as terminal (default) or html")
     .option("--install <agent>", "install an agent integration: " + agentIds())
     .option("--uninstall <agent>", "remove an agent integration installed by this CLI")
     .option("--agents", "list every agent integration and its state")
@@ -239,7 +239,9 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
   }
   const tour = selected ?? await pickTour(tours, title);
 
-  if (options.renderer === "terminal") {
+  // The terminal reader is the default: only an explicit --renderer html
+  // opens the browser page.
+  if (options.renderer !== "html") {
     await launchTerminalReader(fileURLToPath(tour.id), root);
     console.log("CodeTour: opened independent terminal reader for " + tour.title);
     return;

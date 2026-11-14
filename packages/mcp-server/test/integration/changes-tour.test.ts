@@ -102,6 +102,7 @@ test("creates a changes tour with the exact head SHA as ref", async () => {
       assert.equal(response.structured.status, "created");
       assert.equal(response.structured.path, ".tours/changes.tour");
       assert.equal(response.structured.stepCount, 2);
+      assert.equal(response.structured.title, "Changes on feature");
       assert.deepEqual(response.structured.warnings, []);
     });
     const tour = readTourFile(root, ".tours/changes.tour");
@@ -155,6 +156,8 @@ test("uses the provided title when given", async () => {
         steps: [{ description: "d", file: "feature.txt" }],
       });
       assert.equal(response.isError, false);
+      assert.equal(response.structured.status, "created");
+      assert.equal(response.structured.title, "Custom Title");
     });
     assert.equal(readTourFile(root, ".tours/changes.tour").title, "Custom Title");
   } finally {
@@ -735,6 +738,21 @@ test("dryRun validates the proposal and writes nothing", async () => {
       assert.equal(response.structured.status, "validated");
       assert.equal(response.structured.stepCount, 1);
       assert.equal(response.structured.path, undefined);
+      assert.equal(response.structured.title, "Rehearsal");
+
+      const defaultTitle = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        dryRun: true,
+        steps: [{ description: "Default title rehearsal.", file: "feature.txt" }],
+      });
+      assert.equal(defaultTitle.isError, false, defaultTitle.text);
+      assert.equal(defaultTitle.structured.status, "validated");
+      assert.equal(
+        defaultTitle.structured.title,
+        "Changes on feature",
+        "a dry-run without a title must return the default title that would be written"
+      );
     });
     const tour = readTourFile(root, ".tours/changes.tour");
     assert.equal(tour.title, "Changes on feature");

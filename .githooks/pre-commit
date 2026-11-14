@@ -1,0 +1,41 @@
+#!/bin/sh
+# Fast local guard run before every commit: type checking plus the Copilot
+# adapter tests, so a broken change is refused before it reaches CI.
+#
+# Install it once per clone (the hook stays in the repository):
+#
+#   git config core.hooksPath .githooks
+#
+# Bypass it for a single commit with CODETOUR_SKIP_PRE_COMMIT=1. CI still runs
+# the full test suite for every pushed commit.
+set -u
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "pre-commit: not inside a Git worktree, skipping the local guard." >&2
+  exit 0
+}
+cd "$root" || exit 1
+
+if [ "${CODETOUR_SKIP_PRE_COMMIT:-}" = "1" ]; then
+  echo "pre-commit: skipped once (CODETOUR_SKIP_PRE_COMMIT=1)." >&2
+  exit 0
+fi
+
+# The guard reuses the installed dependencies and the last local build instead
+# of rebuilding, which is what keeps a commit in a few seconds. Say exactly
+# what is missing rather than failing deep inside the type check.
+missing=""
+[ -x node_modules/.bin/tsc ] || missing="$missing node_modules"
+[ -f dist/cli.js ] || missing="$missing dist/"
+for package in description-renderer mcp-server; do
+  [ -d "packages/$package/dist" ] || missing="$missing packages/$package/dist/"
+done
+if [ -n "$missing" ]; then
+  echo "pre-commit: the local guard needs its setup first (missing:$missing)." >&2
+  echo "  Run: npm ci && npm run build" >&2
+  echo "  Then commit again. CI still runs the full suite on every push." >&2
+  exit 1
+fi
+
+echo "pre-commit: type checking and Copilot adapter tests..." >&2
+exec npm run --silent check:fast

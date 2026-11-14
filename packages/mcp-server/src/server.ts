@@ -345,6 +345,7 @@ const issueSchema = z.object({
 });
 const toolResultSchema = z.object({
   status: z.enum(["created", "error", "validated"]),
+  title: z.string().optional(),
   path: z.string().optional(),
   stepCount: z.number().int().nonnegative().optional(),
   warnings: z.array(warningSchema).optional(),
@@ -424,6 +425,30 @@ const changesToolInputSchema = z
   })
   .passthrough();
 
+// A session whose tool catalog has no CodeTour creation tool cannot produce a
+// Tour. The prompt makes that state explicit and actionable instead of letting
+// the agent answer in prose as if a Tour existed.
+const MISSING_TOOL_GUIDANCE =
+  "- If neither name exists in your session's tools, stop before any analysis: " +
+  "the CodeTour MCP server is not registered or not connected for this session. " +
+  "Say so explicitly, give the repair command `codetour --install copilot`, and " +
+  "ask the user to verify the `codetour` server with `copilot mcp list` before " +
+  "retrying. Never present a text answer as if a Tour had been created.";
+
+// The final step of every served generation prompt, shared by the Project
+// Tour and Changes Tour builders: once the write has succeeded, the agent
+// states the created tour's exact title and path — as returned by the
+// creation tool, so not from memory — on a dedicated line, in the language
+// the Tour was generated in (the orientation given). The generation is
+// complete only once that line has been stated.
+const ANNOUNCEMENT_STEP =
+  "- Announce the created tour: once the write has succeeded, state on a " +
+  "dedicated line the tour's exact `title` and `path`, exactly as the tool " +
+  "result returns them, in the language the Tour was generated in (the " +
+  "orientation given), so the user knows which tour was created and where " +
+  "to find it. The generation is complete only once that line has been " +
+  "stated.";
+
 // Project Tour generation prompt served by the PROJECT_TOUR_PROMPT_RESOURCE_URI
 // resource. It addresses the host agent and cites the tool; it never mentions
 // a review mode, which only exists for Changes Tours.
@@ -443,18 +468,21 @@ function projectTourGenerationPrompt(): string {
       "they collaborate — rather than a flat file listing. One step covers one idea.",
     "- Anchor each explanation at the code that justifies it (Tour Anchor: file with " +
       "line, pattern, or selection, a directory for structural orientation, or no " +
-      "locator for general context), preferring a short, stable pattern over a line " +
-      "number so the anchor survives edits.",
+      "locator for general context). Anchor with a short, stable pattern, or a line " +
+      "you have verified in the analyzed head snapshot, rather than a guessed line " +
+      "number, so the anchor survives edits.",
     "- Propose the tour with the `create_project_tour` tool. Rehearse first: call the " +
       "tool once with dryRun true, correct every reported validation issue, then call " +
       "again with dryRun omitted to persist the tour.",
     "- Some hosts register MCP tools with a server-name prefix: Copilot exposes " +
       "this tool as `codetour-create_project_tour`. Search for the tool under " +
       "whichever name your session registers it; the tool contract is unchanged.",
+    MISSING_TOOL_GUIDANCE,
     "- The tour is written to the reserved destination `.tours/project.tour`, or " +
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_project_tour` tool " +
       "description.",
+    ANNOUNCEMENT_STEP,
     "",
   ].join("\n");
 }
@@ -463,7 +491,9 @@ function projectTourGenerationPrompt(): string {
 // resource for the requested review mode. Both modes share the contract
 // clauses (Git comparison, Tour Anchors, validation, destination, dryRun);
 // the critical mode additionally embeds the shared review skill pack with the
-// instruction to follow it in full before any analysis or step writing.
+// instruction to follow it in full before any analysis or step writing. The
+// announcement step comes after that pack so every served prompt, in every
+// mode, ends with the announcement.
 function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string {
   const modeClause =
     reviewMode === "neutral"
@@ -487,13 +517,16 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
       "commit messages or file names alone.",
     "- Anchor every explanation at the changed lines it concerns (Tour Anchor, in " +
       "the head snapshot), and explain each major change: what it does, how it is " +
-      "implemented, and its observable behavioral effect.",
+      "implemented, and its observable behavioral effect. Anchor with a short, " +
+      "stable pattern, or a line you have verified in the analyzed head snapshot, " +
+      "rather than a guessed line number, so the anchor survives later edits.",
     "- Propose the tour with the `create_changes_tour` tool. Rehearse first: call " +
       "the tool once with dryRun true, correct every reported validation issue, " +
       "then call again with dryRun omitted to persist the tour.",
     "- Some hosts register MCP tools with a server-name prefix: Copilot exposes " +
       "this tool as `codetour-create_changes_tour`. Search for the tool under " +
       "whichever name your session registers it; the tool contract is unchanged.",
+    MISSING_TOOL_GUIDANCE,
     "- The tour is written to the reserved destination `.tours/changes.tour`, or " +
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_changes_tour` tool " +
@@ -501,6 +534,7 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
     ...(reviewMode === "critical"
       ? ["", "## Embedded review instructions", "", criticalReviewSkillPack()]
       : []),
+    ANNOUNCEMENT_STEP,
     "",
   ].join("\n");
 }
@@ -716,10 +750,15 @@ async function handleCreateProjectTour(
     ...orientationStepWarnings(finalSteps),
   ];
 
+  // The title is computed before the dry-run branch so a rehearsal also
+  // returns the title that the persisted write would carry.
+  const title = params.title ?? "Project Overview";
+
   // Rehearsal: the proposal is fully validated but never written, so an
   // agent can verify its content before replacing the previous tour.
   if (params.dryRun === true) {
     return validatedResponse(
+      title,
       finalSteps.length,
       warnings,
       `Validated Project Tour proposal with ${finalSteps.length} step(s); nothing was written (dryRun).`
@@ -728,7 +767,7 @@ async function handleCreateProjectTour(
 
   const tour: TourFile = {
     $schema: CODETOUR_SCHEMA_URI,
-    title: params.title ?? "Project Overview",
+    title,
     ...(params.description !== undefined ? { description: params.description } : {}),
     steps: finalSteps,
   };
@@ -741,6 +780,7 @@ async function handleCreateProjectTour(
 
   return successResponse(
     normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, targetPath))),
+    title,
     finalSteps.length,
     warnings,
     `Created Project Tour at ${targetPath} with ${finalSteps.length} step(s).`
@@ -892,9 +932,11 @@ async function handleCreateChangesTour(
 
   const title = params.title ?? (await defaultChangesTitle(ctx, headRef));
   // Rehearsal: every check has run (Git, anchors against headRef, renames,
-  // Mermaid, warnings) but the tour is never written.
+  // Mermaid, warnings) but the tour is never written. The title that the
+  // persisted write would carry is returned with it.
   if (params.dryRun === true) {
     return validatedResponse(
+      title,
       finalSteps.length,
       warnings,
       `Validated Changes Tour proposal with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}); nothing was written (dryRun).`
@@ -938,6 +980,7 @@ async function handleCreateChangesTour(
 
   return successResponse(
     normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, targetPath))),
+    title,
     finalSteps.length,
     warnings,
     `Created Changes Tour at ${targetPath} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`
@@ -1022,44 +1065,54 @@ interface ToolResponse {
   isError?: boolean;
 }
 
+// The human-readable summary shared by the successful tool results: the
+// status message, the title that was (or would be) written, and any warnings.
+function resultText(
+  message: string,
+  title: string,
+  warnings: Warning[]
+): string {
+  return [
+    message,
+    `Title: ${title}`,
+    ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
+  ].join("\n");
+}
+
 function successResponse(
   relativePath: string,
+  title: string,
   stepCount: number,
   warnings: Warning[],
   message: string
 ): ToolResponse {
   const result: SuccessResult = {
     status: "created",
+    title,
     path: relativePath,
     stepCount,
     warnings,
   };
-  const text = [
-    message,
-    ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
-  ].join("\n");
   return {
-    content: [{ type: "text", text }],
+    content: [{ type: "text", text: resultText(message, title, warnings) }],
     structuredContent: result as unknown as Record<string, unknown>,
   };
 }
 
 function validatedResponse(
+  title: string,
   stepCount: number,
   warnings: Warning[],
   message: string
 ): ToolResponse {
   const result: ValidatedResult = {
     status: "validated",
+    title,
     stepCount,
     warnings,
   };
-  const text = [
-    message,
-    ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
-  ].join("\n");
   return {
-    content: [{ type: "text", text }],
+    content: [{ type: "text", text: resultText(message, title, warnings) }],
     structuredContent: result as unknown as Record<string, unknown>,
   };
 }

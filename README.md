@@ -170,8 +170,8 @@ node "$CODETOUR_ROOT/dist/cli.js" project --renderer terminal
 ```
 
 The HTML command opens a browser page; use **Next**, **Previous** and **Finish**
-to check the steps and their code context. HTML is the default when `--renderer`
-is omitted. The terminal command opens an independent terminal window: use
+to check the steps and their code context. The terminal is the default when
+`--renderer` is omitted; it opens an independent terminal window: use
 `n`/`p` or the arrow keys to move between steps, `j`/`k` to scroll, and `q` to
 finish. Check that the explanation and relevant source or diff correspond to
 the same Tour Step in both interfaces. Keep the invoking terminal open if using
@@ -203,11 +203,11 @@ copilot --experimental
 Inside Copilot, try `/codetour` to select a Tour, or run:
 
 ```text
-/codetour project --renderer terminal
+/codetour project --renderer html
 ```
 
-This requests a specific Tour in the terminal. HTML is the default;
-`--renderer html` selects it explicitly. The adapter uses an
+This requests a specific Tour in the HTML reader; without the flag, the
+terminal reader opens by default. The adapter uses an
 experimental Copilot API. Its automated tests pass, but a real Copilot launch,
 argument forwarding, and reader survival after Copilot exits have not yet been
 validated; availability can depend on the installed Copilot version.
@@ -264,6 +264,12 @@ npm ci --prefix packages/mcp-server
 npm test
 npm run package
 ```
+
+Install the local pre-commit guard once per clone with `git config core.hooksPath .githooks`:
+it type-checks and runs the fast Copilot adapter tests before every commit (a few
+seconds, no full build), and bypasses itself for one commit with
+`CODETOUR_SKIP_PRE_COMMIT=1`. It reuses the last `npm run build`, so build once
+after a fresh clone.
 
 Commit all three `package-lock.json` files when changing dependencies.
 For real VS Code playback checks and screenshots, follow the
