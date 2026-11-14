@@ -1,0 +1,4675 @@
+{
+  "model": "mistral-small-latest",
+  "root": "/tmp/postgres",
+  "commit": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "budget": {
+    "iterations": 20,
+    "calls": 60,
+    "tokens": 160000,
+    "durationMs": 180000
+  },
+  "concludeRatio": 0.6,
+  "repetitions": 2,
+  "tasks": [
+    {
+      "id": "pg-parse",
+      "objective": "Pour préparer un Project Tour sur le traitement des requêtes SQL simples, quelle fonction transforme query_string en arbres syntaxiques bruts et où est-elle appelée ? Cite les fichiers et lignes du code."
+    },
+    {
+      "id": "pg-analyze",
+      "objective": "Pour une étape de Project Tour, explique comment exec_simple_query analyse et réécrit un arbre syntaxique brut avant sa planification. Cite les appels et leurs définitions et distingue les relations non établies."
+    },
+    {
+      "id": "pg-flow",
+      "objective": "Pour préparer un Project Tour, retrace le flux de query_string dans exec_simple_query depuis le parsing jusqu'à la planification. Cite les lignes des appels et indique les éventuelles incertitudes."
+    }
+  ],
+  "rows": [
+    {
+      "repetition": 1,
+      "mode": "primitives_scoped_named_exclusive_contract_final",
+      "task": "pg-parse",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": null,
+      "selectedHits": null,
+      "selectedPrefix": null,
+      "namedTools": null,
+      "selectionMs": 240,
+      "result": {
+        "objective": "Identifier la fonction qui transforme une query_string en arbres syntaxiques bruts (raw parse trees) et localiser ses appels dans le code source.",
+        "entryPoints": [
+          {
+            "name": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 42,
+                "endLine": 42
+              },
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 35,
+                "endLine": 36
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "pg_parse_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 617,
+                "endLine": 617
+              }
+            ]
+          },
+          {
+            "name": "appels à raw_parser avec query_string",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          },
+          {
+            "name": "appels à raw_parser avec cmdstring",
+            "evidence": [
+              {
+                "file": "src/backend/commands/tablecmds.c",
+                "startLine": 16996,
+                "endLine": 16996
+              }
+            ]
+          },
+          {
+            "name": "appels à raw_parser avec str (RAW_PARSE_TYPE_NAME)",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parse_type.c",
+                "startLine": 756,
+                "endLine": 756
+              }
+            ]
+          },
+          {
+            "name": "appels à raw_parser dans SPI (src)",
+            "evidence": [
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2259,
+                "endLine": 2259
+              },
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2367,
+                "endLine": 2367
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "pg_parse_query",
+            "to": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          },
+          {
+            "from": "commandes SQL (tablecmds)",
+            "to": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/commands/tablecmds.c",
+                "startLine": 16996,
+                "endLine": 16996
+              }
+            ]
+          },
+          {
+            "from": "analyse de type (parse_type)",
+            "to": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parse_type.c",
+                "startLine": 756,
+                "endLine": 756
+              }
+            ]
+          },
+          {
+            "from": "SPI (executor)",
+            "to": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2259,
+                "endLine": 2259
+              },
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2367,
+                "endLine": 2367
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "Aucune preuve trouvée d'un appel direct à raw_parser avec un paramètre nommé exactement 'query_string' en dehors des cas où la variable locale est nommée 'query_string' (ex: postgres.c, spi.c).",
+          "L'existence d'autres points d'entrée ou composants appelant raw_parser n'a pas été exhaustivement vérifiée en dehors des fichiers listés.",
+          "Aucune documentation interne ou commentaire ne précise si raw_parser est la seule fonction capable de produire des raw parse trees à partir d'une query_string."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 112716,
+          "outputTokens": 1336,
+          "usageAvailable": true,
+          "modelCalls": 16,
+          "toolCalls": 15,
+          "durationMs": 17790,
+          "outputBytes": 35749,
+          "cost": null,
+          "memoryReuses": 6,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser query_string",
+              "pathPrefix": "src"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser",
+              "pathPrefix": "src"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser",
+              "pathPrefix": "src/backend/parser"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parser.c",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 620,
+            "endLine": 640
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/commands/tablecmds.c",
+            "startLine": 16990,
+            "endLine": 17010
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parse_type.c",
+            "startLine": 750,
+            "endLine": 770
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "query_string",
+              "pathPrefix": "src/backend/executor/spi.c"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2250,
+            "endLine": 2280
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2360,
+            "endLine": 2390
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "query_string",
+              "pathPrefix": "src/backend/nodes"
+            }
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "query_string",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 610,
+            "endLine": 650
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 3,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_scoped_named_exclusive_contract_final",
+      "task": "pg-analyze",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": null,
+      "selectedHits": null,
+      "selectedPrefix": null,
+      "namedTools": null,
+      "selectionMs": 210,
+      "result": {
+        "objective": "Expliquer comment exec_simple_query analyse et réécrit un arbre syntaxique brut avant sa planification, en citant les appels et leurs définitions, et en distinguant les relations non établies.",
+        "entryPoints": [
+          {
+            "name": "exec_simple_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1030,
+                "endLine": 1030
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "pg_parse_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 617,
+                "endLine": 617
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1083,
+                "endLine": 1083
+              }
+            ]
+          },
+          {
+            "name": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 42,
+                "endLine": 42
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          },
+          {
+            "name": "pg_analyze_and_rewrite_fixedparams",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 683,
+                "endLine": 683
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1213,
+                "endLine": 1213
+              }
+            ]
+          },
+          {
+            "name": "pg_analyze_and_rewrite_varparams",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 722,
+                "endLine": 722
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1550,
+                "endLine": 1550
+              }
+            ]
+          },
+          {
+            "name": "PortalRun",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/pquery.c",
+                "startLine": 788,
+                "endLine": 788
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1297,
+                "endLine": 1297
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "exec_simple_query",
+            "to": "pg_parse_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1083,
+                "endLine": 1083
+              }
+            ]
+          },
+          {
+            "from": "pg_parse_query",
+            "to": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "pg_analyze_and_rewrite_fixedparams",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1213,
+                "endLine": 1213
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "PortalRun",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1297,
+                "endLine": 1297
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "La fonction intermédiaire exacte entre pg_parse_query et raw_parser n'est pas explicitement citée dans les preuves (ex: appel direct ou via une autre fonction).",
+          "Le détail des étapes de réécriture (ex: appels à pg_rewrite_query ou aux règles de réécriture) n'est pas visible dans les preuves fournies.",
+          "La relation entre pg_analyze_and_rewrite_varparams et pg_analyze_and_rewrite_fixedparams n'est pas explicitement documentée dans les extraits lus.",
+          "L'enchaînement précis des contextes mémoire (ex: MessageContext) et leur impact sur l'analyse/réécriture n'est pas détaillé dans les preuves.",
+          "Le rôle exact de PortalRun dans la planification et l'exécution après réécriture n'est pas précisé dans les extraits fournis."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 107638,
+          "outputTokens": 1608,
+          "usageAvailable": true,
+          "modelCalls": 19,
+          "toolCalls": 18,
+          "durationMs": 19322,
+          "outputBytes": 31473,
+          "cost": null,
+          "memoryReuses": 7,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_parse_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_analyze_and_rewrite",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_analyze_and_rewrite",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "PortalRun",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1090
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1090,
+            "endLine": 1160
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 9,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_scoped_named_exclusive_contract_final",
+      "task": "pg-flow",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": null,
+      "selectedHits": null,
+      "selectedPrefix": null,
+      "namedTools": null,
+      "selectionMs": 221,
+      "error": "[\n  {\n    \"origin\": \"array\",\n    \"code\": \"too_small\",\n    \"minimum\": 1,\n    \"inclusive\": true,\n    \"path\": [\n      \"components\",\n      1,\n      \"evidence\"\n    ],\n    \"message\": \"Too small: expected array to have >=1 items\"\n  },\n  {\n    \"origin\": \"array\",\n    \"code\": \"too_small\",\n    \"minimum\": 1,\n    \"inclusive\": true,\n    \"path\": [\n      \"components\",\n      2,\n      \"evidence\"\n    ],\n    \"message\": \"Too small: expected array to have >=1 items\"\n  }\n]",
+      "observedUsage": {
+        "inputTokens": 114562,
+        "outputTokens": 879,
+        "responsesMissingUsage": 0
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {
+            "file": "src/backend/tcop"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1080
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1080,
+            "endLine": 1180
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1080,
+            "endLine": 1180
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1080,
+            "endLine": 1180
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1080,
+            "endLine": 1180
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "parsetree_list",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1080,
+            "endLine": 1180
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1080,
+            "endLine": 1180
+          }
+        }
+      ],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_scoped_named_exclusive_autoselect_contract_final",
+      "task": "pg-parse",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "query_string",
+      "selectedHits": 132,
+      "selectedPrefix": null,
+      "namedTools": null,
+      "selectionMs": 774,
+      "result": {
+        "objective": "Identifier la fonction qui transforme une query_string en arbres syntaxiques bruts et localiser ses appels dans le code source.",
+        "entryPoints": [
+          {
+            "name": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 42,
+                "endLine": 42
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "Fonction raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 35,
+                "endLine": 86
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "query_string",
+            "to": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          },
+          {
+            "from": "raw_parser",
+            "to": "List *",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 85,
+                "endLine": 85
+              }
+            ]
+          },
+          {
+            "from": "raw_parser",
+            "to": "cmdstring",
+            "evidence": [
+              {
+                "file": "src/backend/commands/tablecmds.c",
+                "startLine": 16996,
+                "endLine": 16996
+              }
+            ]
+          },
+          {
+            "from": "raw_parser",
+            "to": "str",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parse_type.c",
+                "startLine": 756,
+                "endLine": 756
+              }
+            ]
+          },
+          {
+            "from": "raw_parser",
+            "to": "src",
+            "evidence": [
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2259,
+                "endLine": 2259
+              },
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2367,
+                "endLine": 2367
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 30819,
+          "outputTokens": 737,
+          "usageAvailable": true,
+          "modelCalls": 9,
+          "toolCalls": 8,
+          "durationMs": 8449,
+          "outputBytes": 12950,
+          "cost": null,
+          "memoryReuses": 2,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "query_string"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parser.c",
+            "startLine": 35,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 620,
+            "endLine": 640
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/commands/tablecmds.c",
+            "startLine": 16990,
+            "endLine": 17010
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parse_type.c",
+            "startLine": 750,
+            "endLine": 770
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2250,
+            "endLine": 2280
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2360,
+            "endLine": 2390
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_scoped_named_exclusive_autoselect_contract_final",
+      "task": "pg-analyze",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "exec_simple_query",
+      "selectedHits": 5,
+      "selectedPrefix": "src/backend/tcop/",
+      "namedTools": null,
+      "selectionMs": 779,
+      "result": {
+        "objective": "Expliquer comment exec_simple_query analyse et réécrit un arbre syntaxique brut avant sa planification, en citant les appels et leurs définitions, et en distinguant les relations non établies.",
+        "entryPoints": [
+          {
+            "name": "exec_simple_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1025,
+                "endLine": 1025
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1030,
+                "endLine": 1030
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 4940,
+                "endLine": 4940
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 4943,
+                "endLine": 4943
+              }
+            ]
+          }
+        ],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Le rôle exact de exec_simple_query dans l'analyse et la réécriture d'un arbre syntaxique brut n'est pas documenté dans les lignes observées.",
+          "Aucune preuve n'a été trouvée sur la manière dont exec_simple_query interagit avec les phases d'analyse syntaxique ou de réécriture avant la planification.",
+          "Les définitions des appels internes (ex: pg_parse_query, pg_analyze_and_rewrite, pg_plan_query) ne sont pas visibles dans les lignes lues.",
+          "Aucune relation explicite entre exec_simple_query et les composants d'analyse/réécriture n'a été établie dans les preuves collectées."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 63887,
+          "outputTokens": 1020,
+          "usageAvailable": true,
+          "modelCalls": 20,
+          "toolCalls": 19,
+          "durationMs": 15681,
+          "outputBytes": 9714,
+          "cost": null,
+          "memoryReuses": 1,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcpip/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 2,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_scoped_named_exclusive_autoselect_contract_final",
+      "task": "pg-flow",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "exec_simple_query",
+      "selectedHits": 5,
+      "selectedPrefix": "src/backend/tcop/",
+      "namedTools": null,
+      "selectionMs": 730,
+      "result": {
+        "objective": "Retracer le flux de query_string dans exec_simple_query depuis le parsing jusqu'à la planification en citant les lignes des appels et en indiquant les éventuelles incertitudes.",
+        "entryPoints": [
+          {
+            "name": "exec_simple_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1030,
+                "endLine": 1030
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "Parsing",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1083,
+                "endLine": 1083
+              }
+            ]
+          },
+          {
+            "name": "Analyse et réécriture",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1213,
+                "endLine": 1214
+              }
+            ]
+          },
+          {
+            "name": "Planification",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1216,
+                "endLine": 1217
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "exec_simple_query",
+            "to": "pg_parse_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1083,
+                "endLine": 1083
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "pg_analyze_and_rewrite_fixedparams",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1213,
+                "endLine": 1214
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "pg_plan_queries",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1216,
+                "endLine": 1217
+              }
+            ]
+          },
+          {
+            "from": "pg_parse_query",
+            "to": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          },
+          {
+            "from": "pg_analyze_and_rewrite_fixedparams",
+            "to": "parse_analyze_fixedparams",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 700,
+                "endLine": 701
+              }
+            ]
+          },
+          {
+            "from": "pg_analyze_and_rewrite_fixedparams",
+            "to": "pg_rewrite_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 709,
+                "endLine": 709
+              }
+            ]
+          },
+          {
+            "from": "pg_plan_queries",
+            "to": "pg_plan_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1013,
+                "endLine": 1014
+              }
+            ]
+          },
+          {
+            "from": "pg_plan_query",
+            "to": "planner",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 918,
+                "endLine": 918
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "Le détail des fonctions intermédiaires comme parse_analyze_fixedparams, QueryRewrite, et planner n'est pas exploré ici. Leur implémentation exacte et leurs interactions internes ne sont pas documentées dans les extraits lus.",
+          "L'appel à pg_analyze_and_rewrite_fixedparams utilise NULL pour les paramètres de types et l'environnement de requête, ce qui peut masquer des comportements spécifiques selon le contexte d'exécution.",
+          "La gestion des transactions implicites (BeginImplicitTransactionBlock) et des snapshots actifs (PushActiveSnapshot) est mentionnée mais leur impact précis sur le flux n'est pas détaillé dans ces extraits."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 106075,
+          "outputTokens": 1455,
+          "usageAvailable": true,
+          "modelCalls": 15,
+          "toolCalls": 14,
+          "durationMs": 17460,
+          "outputBytes": 34398,
+          "cost": null,
+          "memoryReuses": 5,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1080
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1080,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1150,
+            "endLine": 1220
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_parse_query",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 617,
+            "endLine": 680
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_analyze_and_rewrite_fixedparams",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 683,
+            "endLine": 750
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_plan_queries",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 988,
+            "endLine": 1050
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 770,
+            "endLine": 850
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_plan_query",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 900,
+            "endLine": 980
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 3
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 7,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 3
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_scoped_memoryonly_autoselect_contract_final",
+      "task": "pg-parse",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "query_string",
+      "selectedHits": 132,
+      "selectedPrefix": null,
+      "namedTools": null,
+      "selectionMs": 754,
+      "result": {
+        "objective": "Identifier la fonction qui transforme query_string en arbres syntaxiques bruts et localiser ses appels dans le code source.",
+        "entryPoints": [
+          {
+            "name": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 42,
+                "endLine": 42
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "raw_parser (définition)",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 35,
+                "endLine": 60
+              }
+            ]
+          },
+          {
+            "name": "appels à raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              },
+              {
+                "file": "src/backend/commands/tablecmds.c",
+                "startLine": 16996,
+                "endLine": 16996
+              },
+              {
+                "file": "src/backend/parser/parse_type.c",
+                "startLine": 756,
+                "endLine": 756
+              },
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2259,
+                "endLine": 2259
+              },
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2367,
+                "endLine": 2367
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "raw_parser",
+            "to": "query_string",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 42,
+                "endLine": 42
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 28831,
+          "outputTokens": 729,
+          "usageAvailable": true,
+          "modelCalls": 9,
+          "toolCalls": 8,
+          "durationMs": 8951,
+          "outputBytes": 10751,
+          "cost": null,
+          "memoryReuses": 2,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "query_string"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser",
+              "pathPrefix": "src"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parser.c",
+            "startLine": 35,
+            "endLine": 60
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 620,
+            "endLine": 640
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/commands/tablecmds.c",
+            "startLine": 16990,
+            "endLine": 17010
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parse_type.c",
+            "startLine": 750,
+            "endLine": 770
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2250,
+            "endLine": 2280
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2360,
+            "endLine": 2390
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_scoped_memoryonly_autoselect_contract_final",
+      "task": "pg-analyze",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "exec_simple_query",
+      "selectedHits": 5,
+      "selectedPrefix": "src/backend/tcop/",
+      "namedTools": null,
+      "selectionMs": 766,
+      "error": "ENOENT: no such file or directory, realpath '/private/tmp/postgres/src/backend/tcp/postgres.c'",
+      "observedUsage": {
+        "inputTokens": 113610,
+        "outputTokens": 1559,
+        "responsesMissingUsage": 0
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1080
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1080,
+            "endLine": 1140
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1140,
+            "endLine": 1200
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1200,
+            "endLine": 1260
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1260,
+            "endLine": 1320
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1320,
+            "endLine": 1380
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1380,
+            "endLine": 1390
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_parse_query",
+              "pathPrefix": "src/backend/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 610,
+            "endLine": 680
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_analyze_and_rewrite_fixedparams",
+              "pathPrefix": "src/backend/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 680,
+            "endLine": 750
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_plan_queries",
+              "pathPrefix": "src/backend/"
+            }
+          }
+        }
+      ],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_scoped_memoryonly_autoselect_contract_final",
+      "task": "pg-flow",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "exec_simple_query",
+      "selectedHits": 5,
+      "selectedPrefix": "src/backend/tcop/",
+      "namedTools": null,
+      "selectionMs": 716,
+      "result": {
+        "objective": "Retracer le flux de query_string dans exec_simple_query depuis le parsing jusqu'à la planification en citant les lignes des appels.",
+        "entryPoints": [
+          {
+            "name": "exec_simple_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1030,
+                "endLine": 1030
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "Parsing (raw_parse)",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1083,
+                "endLine": 1083
+              }
+            ]
+          },
+          {
+            "name": "Analyse et réécriture (parse_analyze_fixedparams + pg_rewrite_query)",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1213,
+                "endLine": 1214
+              }
+            ]
+          },
+          {
+            "name": "Planification (pg_plan_queries)",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1216,
+                "endLine": 1217
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "exec_simple_query",
+            "to": "pg_parse_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1083,
+                "endLine": 1083
+              }
+            ]
+          },
+          {
+            "from": "pg_parse_query",
+            "to": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "pg_analyze_and_rewrite_fixedparams",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1213,
+                "endLine": 1214
+              }
+            ]
+          },
+          {
+            "from": "pg_analyze_and_rewrite_fixedparams",
+            "to": "parse_analyze_fixedparams",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 700,
+                "endLine": 701
+              }
+            ]
+          },
+          {
+            "from": "pg_analyze_and_rewrite_fixedparams",
+            "to": "pg_rewrite_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 709,
+                "endLine": 709
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "pg_plan_queries",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1216,
+                "endLine": 1217
+              }
+            ]
+          },
+          {
+            "from": "pg_plan_queries",
+            "to": "pg_plan_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1013,
+                "endLine": 1014
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "La fonction raw_parser n'est pas définie dans les fichiers lus ici ; son implémentation exacte (fichier et lignes) n'est pas visible dans les preuves collectées.",
+          "La fonction parse_analyze_fixedparams n'est pas définie dans les fichiers lus ici ; son implémentation exacte (fichiers et lignes) n'est pas visible dans les preuves collectées.",
+          "La fonction pg_rewrite_query n'est pas définie dans les fichiers lus ici ; son implémentation exacte (fichiers et lignes) n'est pas visible dans les preuves collectées.",
+          "La fonction pg_plan_query n'est pas définie dans les fichiers lus ici ; son implémentation exacte (fichiers et lignes) n'est pas visible dans les preuves collectées.",
+          "Le détail des appels intermédiaires entre pg_rewrite_query et la planification n'est pas visible dans les preuves collectées.",
+          "Le rôle exact de QueryEnvironment et des paramètres liés à la planification n'est pas détaillé dans les preuves collectées."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 119328,
+          "outputTokens": 1546,
+          "usageAvailable": true,
+          "modelCalls": 15,
+          "toolCalls": 14,
+          "durationMs": 18389,
+          "outputBytes": 38303,
+          "cost": null,
+          "memoryReuses": 4,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1101,
+            "endLine": 1200
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1201,
+            "endLine": 1300
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1301,
+            "endLine": 1350
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1351,
+            "endLine": 1380
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_parse_query",
+              "pathPrefix": "src/backend/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 610,
+            "endLine": 680
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_analyze_and_rewrite_fixedparams",
+              "pathPrefix": "src/backend/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 683,
+            "endLine": 780
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_plan_queries",
+              "pathPrefix": "src/backend/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 988,
+            "endLine": 1080
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 5,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_scoped_memoryonly_autoselect_contract_final",
+      "task": "pg-parse",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "query_string",
+      "selectedHits": 132,
+      "selectedPrefix": null,
+      "namedTools": null,
+      "selectionMs": 757,
+      "result": {
+        "objective": "Identifier la fonction qui transforme query_string en arbres syntaxiques bruts et les endroits où elle est appelée pour un projet de tour sur le traitement des requêtes SQL simples.",
+        "entryPoints": [
+          {
+            "name": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 42,
+                "endLine": 42
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "Fonction raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 35,
+                "endLine": 86
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "raw_parser",
+            "to": "postgres.c",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          },
+          {
+            "from": "raw_parser",
+            "to": "tablecmds.c",
+            "evidence": [
+              {
+                "file": "src/backend/commands/tablecmds.c",
+                "startLine": 16996,
+                "endLine": 16996
+              }
+            ]
+          },
+          {
+            "from": "raw_parser",
+            "to": "spi.c (2 occurrences)",
+            "evidence": [
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2259,
+                "endLine": 2259
+              },
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2367,
+                "endLine": 2367
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 35880,
+          "outputTokens": 725,
+          "usageAvailable": true,
+          "modelCalls": 10,
+          "toolCalls": 9,
+          "durationMs": 11095,
+          "outputBytes": 15509,
+          "cost": null,
+          "memoryReuses": 3,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "query_string"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "parse",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parser.c",
+            "startLine": 35,
+            "endLine": 60
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 620,
+            "endLine": 640
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/commands/tablecmds.c",
+            "startLine": 16990,
+            "endLine": 17010
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2250,
+            "endLine": 2280
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2360,
+            "endLine": 2390
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parser.c",
+            "startLine": 42,
+            "endLine": 120
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_scoped_memoryonly_autoselect_contract_final",
+      "task": "pg-analyze",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "exec_simple_query",
+      "selectedHits": 5,
+      "selectedPrefix": "src/backend/tcop/",
+      "namedTools": null,
+      "selectionMs": 757,
+      "result": {
+        "objective": "Expliquer comment exec_simple_query analyse et réécrit un arbre syntaxique brut avant sa planification, citer les appels et leurs définitions, et distinguer les relations non établies.",
+        "entryPoints": [
+          {
+            "name": "exec_simple_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1030,
+                "endLine": 1030
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1025,
+                "endLine": 1029
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "pg_parse_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1083,
+                "endLine": 1083
+              }
+            ]
+          },
+          {
+            "name": "pg_analyze_and_rewrite_fixedparams",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1213,
+                "endLine": 1214
+              }
+            ]
+          },
+          {
+            "name": "pg_plan_queries",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1216,
+                "endLine": 1217
+              }
+            ]
+          },
+          {
+            "name": "analyze_requires_snapshot",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1184,
+                "endLine": 1188
+              }
+            ]
+          },
+          {
+            "name": "PushActiveSnapshot / PopActiveSnapshot",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1186,
+                "endLine": 1187
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1230,
+                "endLine": 1230
+              }
+            ]
+          },
+          {
+            "name": "CreatePortal / PortalDefineQuery / PortalStart / PortalRun / PortalDrop",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1239,
+                "endLine": 1239
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1248,
+                "endLine": 1253
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1258,
+                "endLine": 1258
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1297,
+                "endLine": 1302
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1306,
+                "endLine": 1306
+              }
+            ]
+          },
+          {
+            "name": "MemoryContext management (MessageContext, per_parsetree_context)",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1077,
+                "endLine": 1077
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1202,
+                "endLine": 1211
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1208,
+                "endLine": 1208
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1292,
+                "endLine": 1292
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1364,
+                "endLine": 1364
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "exec_simple_query",
+            "to": "pg_parse_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1083,
+                "endLine": 1083
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "pg_analyze_and_rewrite_fixedparams",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1213,
+                "endLine": 1214
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "pg_plan_queries",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1216,
+                "endLine": 1217
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "analyze_requires_snapshot",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1184,
+                "endLine": 1188
+              }
+            ]
+          },
+          {
+            "from": "analyze_requires_snapshot",
+            "to": "PushActiveSnapshot",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1186,
+                "endLine": 1187
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "CreatePortal",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1239,
+                "endLine": 1239
+              }
+            ]
+          },
+          {
+            "from": "CreatePortal",
+            "to": "PortalDefineQuery",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1248,
+                "endLine": 1253
+              }
+            ]
+          },
+          {
+            "from": "PortalDefineQuery",
+            "to": "plantree_list",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1252,
+                "endLine": 1252
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "PortalStart",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1258,
+                "endLine": 1258
+              }
+            ]
+          },
+          {
+            "from": "PortalStart",
+            "to": "PortalRun",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1297,
+                "endLine": 1302
+              }
+            ]
+          },
+          {
+            "from": "PortalRun",
+            "to": "PortalDrop",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1306,
+                "endLine": 1306
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "MemoryContextSwitchTo (MessageContext)",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1077,
+                "endLine": 1077
+              }
+            ]
+          },
+          {
+            "from": "exec_simple_query",
+            "to": "AllocSetContextCreate (per_parsetree_context)",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1204,
+                "endLine": 1208
+              }
+            ]
+          },
+          {
+            "from": "per_parsetree_context",
+            "to": "MemoryContextDelete",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1364,
+                "endLine": 1364
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "La fonction pg_parse_query n'est pas définie dans les extraits lus ; son implémentation exacte (notamment la gestion des erreurs et la construction de l'arbre RawStmt) n'est pas visible ici.",
+          "La fonction analyze_requires_snapshot est appelée mais sa logique interne n'est pas détaillée dans les extraits ; on ne voit pas comment elle détermine si un snapshot est nécessaire pour une requête donnée.",
+          "Les interactions entre MemoryContext et les allocations pour les arbres de requêtes et de plans ne sont pas exhaustivement documentées dans les extraits fournis.",
+          "La relation entre pg_analyze_and_rewrite_fixedparams et la réécriture effective de l'arbre syntaxique n'est pas explicitée dans les lignes lues ; on ne voit pas les appels aux fonctions de réécriture (comme query_rewrite).",
+          "Aucune trace de l'appel à CreateCommandTag ou de la fonction GetCommandTagNameAndLen dans les fichiers lus ici ; leur implémentation exacte n'est pas visible."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 47981,
+          "outputTokens": 2348,
+          "usageAvailable": true,
+          "modelCalls": 10,
+          "toolCalls": 9,
+          "durationMs": 16091,
+          "outputBytes": 21660,
+          "cost": null,
+          "memoryReuses": 1,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1100,
+            "endLine": 1200
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1100,
+            "endLine": 1220
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1100,
+            "endLine": 1180
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1180,
+            "endLine": 1280
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1180,
+            "endLine": 1260
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1260,
+            "endLine": 1340
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1340,
+            "endLine": 1380
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 2,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_scoped_memoryonly_autoselect_contract_final",
+      "task": "pg-flow",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "exec_simple_query",
+      "selectedHits": 5,
+      "selectedPrefix": "src/backend/tcop/",
+      "namedTools": null,
+      "selectionMs": 715,
+      "error": "Model called a tool unavailable in this experiment",
+      "observedUsage": {
+        "inputTokens": 47795,
+        "outputTokens": 369,
+        "responsesMissingUsage": 0
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1080
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1080,
+            "endLine": 1130
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1130,
+            "endLine": 1180
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1180,
+            "endLine": 1230
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1230,
+            "endLine": 1280
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1280,
+            "endLine": 1330
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1330,
+            "endLine": 1380
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1380,
+            "endLine": 1400
+          }
+        }
+      ],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_scoped_named_exclusive_autoselect_contract_final",
+      "task": "pg-parse",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "query_string",
+      "selectedHits": 132,
+      "selectedPrefix": null,
+      "namedTools": null,
+      "selectionMs": 759,
+      "result": {
+        "objective": "Identifier la fonction qui transforme une query_string en arbres syntaxiques bruts et localiser ses appels dans le code source de PostgreSQL.",
+        "entryPoints": [
+          {
+            "name": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 42,
+                "endLine": 85
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 42,
+                "endLine": 85
+              }
+            ]
+          },
+          {
+            "name": "RAW_PARSE_DEFAULT",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 53,
+                "endLine": 53
+              }
+            ]
+          },
+          {
+            "name": "RAW_PARSE_TYPE_NAME",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 60,
+                "endLine": 60
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "query_string",
+            "to": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              },
+              {
+                "file": "src/backend/commands/tablecmds.c",
+                "startLine": 16996,
+                "endLine": 16996
+              },
+              {
+                "file": "src/backend/parser/parse_type.c",
+                "startLine": 756,
+                "endLine": 756
+              },
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2259,
+                "endLine": 2259
+              },
+              {
+                "file": "src/backend/executor/spi.c",
+                "startLine": 2367,
+                "endLine": 2367
+              }
+            ]
+          },
+          {
+            "from": "raw_parser",
+            "to": "arbres syntaxiques bruts",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 36,
+                "endLine": 39
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 30819,
+          "outputTokens": 621,
+          "usageAvailable": true,
+          "modelCalls": 9,
+          "toolCalls": 8,
+          "durationMs": 8709,
+          "outputBytes": 12950,
+          "cost": null,
+          "memoryReuses": 2,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "query_string"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parser.c",
+            "startLine": 35,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 620,
+            "endLine": 640
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/commands/tablecmds.c",
+            "startLine": 16990,
+            "endLine": 17010
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parse_type.c",
+            "startLine": 750,
+            "endLine": 770
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2250,
+            "endLine": 2280
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2360,
+            "endLine": 2390
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_scoped_named_exclusive_autoselect_contract_final",
+      "task": "pg-analyze",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "exec_simple_query",
+      "selectedHits": 5,
+      "selectedPrefix": "src/backend/tcop/",
+      "namedTools": null,
+      "selectionMs": 752,
+      "result": {
+        "objective": "Expliquer comment exec_simple_query analyse et réécrit un arbre syntaxique brut avant sa planification, en citant les appels et leurs définitions, et en distinguant les relations non établies.",
+        "entryPoints": [
+          {
+            "name": "exec_simple_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1025,
+                "endLine": 1025
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1030,
+                "endLine": 1030
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 4940,
+                "endLine": 4940
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 4943,
+                "endLine": 4943
+              }
+            ]
+          }
+        ],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Aucun détail n'est disponible sur la manière dont exec_simple_query analyse ou réécrit un arbre syntaxique brut avant planification (l'arbre syntaxique et les étapes de réécriture ne sont pas visibles dans les lignes citées).",
+          "Les appels internes à exec_simple_query (lignes 4940 et 4943) ne sont pas accompagnés de leur contexte fonctionnel ou des définitions des fonctions appelantes.",
+          "Aucune preuve n'est fournie sur les relations entre exec_simple_query et les composants de réécriture ou d'analyse syntaxique (par exemple, pg_parse_query, pg_analyze_and_rewrite, ou planner).",
+          "Le rôle exact de exec_simple_query dans le pipeline de traitement des requêtes (depuis l'analyse jusqu'à l'exécution) n'est pas documenté dans les lignes observées."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 61561,
+          "outputTokens": 1062,
+          "usageAvailable": true,
+          "modelCalls": 20,
+          "toolCalls": 19,
+          "durationMs": 15098,
+          "outputBytes": 9714,
+          "cost": null,
+          "memoryReuses": 1,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcap/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 2,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_scoped_named_exclusive_autoselect_contract_final",
+      "task": "pg-flow",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": "exec_simple_query",
+      "selectedHits": 5,
+      "selectedPrefix": "src/backend/tcop/",
+      "namedTools": null,
+      "selectionMs": 726,
+      "result": {
+        "objective": "Retracer le flux de query_string dans exec_simple_query depuis le parsing jusqu'à la planification en citant les lignes des appels et en indiquant les éventuelles incertitudes.",
+        "entryPoints": [
+          {
+            "name": "exec_simple_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1025,
+                "endLine": 1025
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1030,
+                "endLine": 1030
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "postgres.c",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1025,
+                "endLine": 1025
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1030,
+                "endLine": 1030
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 4940,
+                "endLine": 4940
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 4943,
+                "endLine": 4943
+              }
+            ]
+          }
+        ],
+        "relations": [],
+        "uncertainties": [
+          "Le contenu exact de la fonction exec_simple_query (définition, corps, appels internes) n'a pas pu être lu en raison d'une erreur technique. Les lignes 1025 à 1150 n'ont pas pu être consultées.",
+          "Aucune information sur le flux de query_string (parsing, planification) n'a pu être extraite directement depuis exec_simple_query.",
+          "Les appels internes à exec_simple_query (lignes 4940 et 4943) sont identifiés, mais leur contexte et leur rôle dans le flux global restent inconnus.",
+          "Aucune preuve directe des étapes de parsing, planification ou exécution n'a été obtenue."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 61978,
+          "outputTokens": 1101,
+          "usageAvailable": true,
+          "modelCalls": 20,
+          "toolCalls": 19,
+          "durationMs": 16477,
+          "outputBytes": 10154,
+          "cost": null,
+          "memoryReuses": 2,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop/"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1150
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 3
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 4,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 3
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_scoped_named_exclusive_contract_final",
+      "task": "pg-parse",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": null,
+      "selectedHits": null,
+      "selectedPrefix": null,
+      "namedTools": null,
+      "selectionMs": 228,
+      "result": {
+        "objective": "Identifier la fonction qui transforme une query_string en arbres syntaxiques bruts et localiser ses appels dans le code source.",
+        "entryPoints": [
+          {
+            "name": "pg_parse_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 617,
+                "endLine": 617
+              }
+            ]
+          },
+          {
+            "name": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 42,
+                "endLine": 42
+              },
+              {
+                "file": "src/include/parser/parser.h",
+                "startLine": 60,
+                "endLine": 60
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "Fonction raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 35,
+                "endLine": 86
+              }
+            ]
+          },
+          {
+            "name": "Fonction pg_parse_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 616,
+                "endLine": 626
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "pg_parse_query",
+            "to": "raw_parser",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          },
+          {
+            "from": "raw_parser",
+            "to": "query_string",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              }
+            ]
+          },
+          {
+            "from": "raw_parser",
+            "to": "RAW_PARSE_DEFAULT",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 626,
+                "endLine": 626
+              },
+              {
+                "file": "src/include/parser/parser.h",
+                "startLine": 39,
+                "endLine": 39
+              }
+            ]
+          },
+          {
+            "from": "raw_parser",
+            "to": "List *",
+            "evidence": [
+              {
+                "file": "src/backend/parser/parser.c",
+                "startLine": 42,
+                "endLine": 42
+              },
+              {
+                "file": "src/include/parser/parser.h",
+                "startLine": 60,
+                "endLine": 60
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "Aucune documentation interne dans les extraits lus ne précise explicitement que raw_parser retourne des 'arbres syntaxiques bruts' (raw parse trees), bien que le commentaire dans parser.c ligne 38 l'indique.",
+          "L'usage de query_string comme paramètre de raw_parser est observé dans postgres.c ligne 626, mais pas de preuve directe que cette variable est toujours le point d'entrée pour les requêtes SQL simples dans tous les contextes.",
+          "Aucun exemple de transformation effective d'une requête SQL simple en arbre syntaxique brut n'est cité dans les extraits lus; seule la fonction et ses appels sont identifiés."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 115904,
+          "outputTokens": 1209,
+          "usageAvailable": true,
+          "modelCalls": 16,
+          "toolCalls": 15,
+          "durationMs": 19062,
+          "outputBytes": 29879,
+          "cost": null,
+          "memoryReuses": 6,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser query_string",
+              "pathPrefix": "src"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser",
+              "pathPrefix": "src"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "raw_parser",
+              "pathPrefix": "src",
+              "offset": 10
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parser.c",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 600,
+            "endLine": 650
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/commands/tablecmds.c",
+            "startLine": 16990,
+            "endLine": 17010
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2250,
+            "endLine": 2280
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/executor/spi.c",
+            "startLine": 2360,
+            "endLine": 2390
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/parser/parse_type.c",
+            "startLine": 750,
+            "endLine": 770
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "query_string",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "pg_parse_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1075,
+            "endLine": 1105
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1488,
+            "endLine": 1518
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "RAW_PARSE_DEFAULT",
+              "pathPrefix": "src/include"
+            }
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 4,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_scoped_named_exclusive_contract_final",
+      "task": "pg-analyze",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": null,
+      "selectedHits": null,
+      "selectedPrefix": null,
+      "namedTools": null,
+      "selectionMs": 219,
+      "result": {
+        "objective": "Expliquer comment exec_simple_query analyse et réécrit un arbre syntaxique brut avant sa planification, en citant les appels et leurs définitions, et en distinguant les relations non établies.",
+        "entryPoints": [
+          {
+            "name": "exec_simple_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1030,
+                "endLine": 1030
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "Définition de exec_simple_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1025,
+                "endLine": 1025
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 1030,
+                "endLine": 1030
+              }
+            ]
+          },
+          {
+            "name": "Appels à exec_simple_query",
+            "evidence": [
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 4940,
+                "endLine": 4940
+              },
+              {
+                "file": "src/backend/tcop/postgres.c",
+                "startLine": 4943,
+                "endLine": 4943
+              }
+            ]
+          }
+        ],
+        "relations": [],
+        "uncertainties": [
+          "Aucune description du mécanisme d'analyse ou de réécriture de l'arbre syntaxique brut par exec_simple_query n'a été trouvée dans les lignes observées.",
+          "Aucune référence à la planification de la requête ou à l'arbre syntaxique n'a été identifiée dans les preuves collectées.",
+          "Les étapes intermédiaires entre la réception de la requête brute et la planification ne sont pas documentées dans les fichiers et lignes consultés."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 107595,
+          "outputTokens": 909,
+          "usageAvailable": true,
+          "modelCalls": 20,
+          "toolCalls": 19,
+          "durationMs": 16611,
+          "outputBytes": 22234,
+          "cost": null,
+          "memoryReuses": 10,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0,
+          "memoryResultsCompacted": 0,
+          "memoryResultsRepeated": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "2a7fe4ef55197ca4",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences, optionally by path prefix and page; inputs query, pathPrefix, offset.",
+          "code": "search(params.query,{pathPrefix:params.pathPrefix||\"\",offset:params.offset||0,limit:10})",
+          "parameters": [
+            "query",
+            "pathPrefix",
+            "offset"
+          ],
+          "successes": 14,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        }
+      ],
+      "probes": [],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_scoped_named_exclusive_contract_final",
+      "task": "pg-flow",
+      "selectedId": "2a7fe4ef55197ca4",
+      "selectedTerm": null,
+      "selectedHits": null,
+      "selectedPrefix": null,
+      "namedTools": null,
+      "selectionMs": 221,
+      "error": "[\n  {\n    \"origin\": \"array\",\n    \"code\": \"too_small\",\n    \"minimum\": 1,\n    \"inclusive\": true,\n    \"path\": [\n      \"components\",\n      0,\n      \"evidence\"\n    ],\n    \"message\": \"Too small: expected array to have >=1 items\"\n  },\n  {\n    \"origin\": \"array\",\n    \"code\": \"too_small\",\n    \"minimum\": 1,\n    \"inclusive\": true,\n    \"path\": [\n      \"components\",\n      1,\n      \"evidence\"\n    ],\n    \"message\": \"Too small: expected array to have >=1 items\"\n  }\n]",
+      "observedUsage": {
+        "inputTokens": 105740,
+        "outputTokens": 823,
+        "responsesMissingUsage": 0
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1020,
+            "endLine": 1150
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1200
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1200
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1200
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/backend/tcop/postgres.c",
+            "startLine": 1025,
+            "endLine": 1200
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        },
+        {
+          "name": "memory_run",
+          "arguments": {
+            "id": "2a7fe4ef55197ca4",
+            "params": {
+              "query": "exec_simple_query",
+              "pathPrefix": "src/backend/tcop"
+            }
+          }
+        }
+      ],
+      "validationFeedback": []
+    }
+  ]
+}

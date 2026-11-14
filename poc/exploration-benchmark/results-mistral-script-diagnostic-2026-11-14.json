@@ -1,0 +1,287 @@
+{
+  "model": "mistral-small-latest",
+  "records": [
+    {
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 3826,
+          "outputTokens": 172,
+          "usageAvailable": true,
+          "modelCalls": 4,
+          "toolCalls": 3,
+          "durationMs": 2694,
+          "outputBytes": 408,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "trace": [
+        {
+          "calls": [
+            {
+              "id": "GeStpLLSp",
+              "name": "memory_list",
+              "arguments": {}
+            }
+          ],
+          "toolMessages": []
+        },
+        {
+          "calls": [
+            {
+              "id": "TjiNZJVG3",
+              "name": "code",
+              "arguments": {
+                "code": "search(\"totalPrice\")",
+                "params": {
+                  "query": "totalPrice"
+                },
+                "remember": true,
+                "description": "Recherche de totalPrice dans le code"
+              }
+            }
+          ],
+          "toolMessages": [
+            {
+              "role": "tool",
+              "tool_call_id": "GeStpLLSp",
+              "content": "[]"
+            }
+          ]
+        },
+        {
+          "calls": [
+            {
+              "id": "QewFxWdob",
+              "name": "read",
+              "arguments": {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 10
+              }
+            }
+          ],
+          "toolMessages": [
+            {
+              "role": "tool",
+              "tool_call_id": "GeStpLLSp",
+              "content": "[]"
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "TjiNZJVG3",
+              "content": "[{\"file\":\"src/math.js\",\"line\":1,\"text\":\"export function totalPrice(price, quantity) {\"},{\"file\":\"src/order.js\",\"line\":1,\"text\":\"import { totalPrice } from './math.js';\"},{\"file\":\"src/order.js\",\"line\":5,\"text\":\"  return { id, total: totalPrice(item.price, quantity) };\"}]"
+            }
+          ]
+        },
+        {
+          "calls": [],
+          "toolMessages": [
+            {
+              "role": "tool",
+              "tool_call_id": "GeStpLLSp",
+              "content": "[]"
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "TjiNZJVG3",
+              "content": "[{\"file\":\"src/math.js\",\"line\":1,\"text\":\"export function totalPrice(price, quantity) {\"},{\"file\":\"src/order.js\",\"line\":1,\"text\":\"import { totalPrice } from './math.js';\"},{\"file\":\"src/order.js\",\"line\":5,\"text\":\"  return { id, total: totalPrice(item.price, quantity) };\"}]"
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "QewFxWdob",
+              "content": "[{\"line\":1,\"text\":\"export function totalPrice(price, quantity) {\"},{\"line\":2,\"text\":\"  return price * quantity;\"},{\"line\":3,\"text\":\"}\"}]"
+            }
+          ]
+        }
+      ],
+      "library": []
+    },
+    {
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [
+          {
+            "name": "totalPrice function",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "utilisation de totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 4839,
+          "outputTokens": 256,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 4387,
+          "outputBytes": 716,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "trace": [
+        {
+          "calls": [
+            {
+              "id": "17CZkQroi",
+              "name": "memory_list",
+              "arguments": {}
+            }
+          ],
+          "toolMessages": []
+        },
+        {
+          "calls": [
+            {
+              "id": "8dmioNsY1",
+              "name": "search",
+              "arguments": {
+                "query": "totalPrice"
+              }
+            }
+          ],
+          "toolMessages": [
+            {
+              "role": "tool",
+              "tool_call_id": "17CZkQroi",
+              "content": "[]"
+            }
+          ]
+        },
+        {
+          "calls": [
+            {
+              "id": "3YVSY3F6F",
+              "name": "read",
+              "arguments": {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 10
+              }
+            }
+          ],
+          "toolMessages": [
+            {
+              "role": "tool",
+              "tool_call_id": "17CZkQroi",
+              "content": "[]"
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "8dmioNsY1",
+              "content": "[{\"file\":\"src/math.js\",\"line\":1,\"text\":\"export function totalPrice(price, quantity) {\"},{\"file\":\"src/order.js\",\"line\":1,\"text\":\"import { totalPrice } from './math.js';\"},{\"file\":\"src/order.js\",\"line\":5,\"text\":\"  return { id, total: totalPrice(item.price, quantity) };\"}]"
+            }
+          ]
+        },
+        {
+          "calls": [
+            {
+              "id": "fka9OMxDR",
+              "name": "read",
+              "arguments": {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 10
+              }
+            }
+          ],
+          "toolMessages": [
+            {
+              "role": "tool",
+              "tool_call_id": "17CZkQroi",
+              "content": "[]"
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "8dmioNsY1",
+              "content": "[{\"file\":\"src/math.js\",\"line\":1,\"text\":\"export function totalPrice(price, quantity) {\"},{\"file\":\"src/order.js\",\"line\":1,\"text\":\"import { totalPrice } from './math.js';\"},{\"file\":\"src/order.js\",\"line\":5,\"text\":\"  return { id, total: totalPrice(item.price, quantity) };\"}]"
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "3YVSY3F6F",
+              "content": "[{\"line\":1,\"text\":\"export function totalPrice(price, quantity) {\"},{\"line\":2,\"text\":\"  return price * quantity;\"},{\"line\":3,\"text\":\"}\"}]"
+            }
+          ]
+        },
+        {
+          "calls": [],
+          "toolMessages": [
+            {
+              "role": "tool",
+              "tool_call_id": "17CZkQroi",
+              "content": "[]"
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "8dmioNsY1",
+              "content": "[{\"file\":\"src/math.js\",\"line\":1,\"text\":\"export function totalPrice(price, quantity) {\"},{\"file\":\"src/order.js\",\"line\":1,\"text\":\"import { totalPrice } from './math.js';\"},{\"file\":\"src/order.js\",\"line\":5,\"text\":\"  return { id, total: totalPrice(item.price, quantity) };\"}]"
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "3YVSY3F6F",
+              "content": "[{\"line\":1,\"text\":\"export function totalPrice(price, quantity) {\"},{\"line\":2,\"text\":\"  return price * quantity;\"},{\"line\":3,\"text\":\"}\"}]"
+            },
+            {
+              "role": "tool",
+              "tool_call_id": "fka9OMxDR",
+              "content": "[{\"line\":1,\"text\":\"import { totalPrice } from './math.js';\"},{\"line\":2,\"text\":\"\"},{\"line\":3,\"text\":\"export function createOrder(catalog, id, quantity) {\"},{\"line\":4,\"text\":\"  const item = catalog.find(id);\"},{\"line\":5,\"text\":\"  return { id, total: totalPrice(item.price, quantity) };\"},{\"line\":6,\"text\":\"}\"}]"
+            }
+          ]
+        }
+      ],
+      "library": []
+    }
+  ]
+}

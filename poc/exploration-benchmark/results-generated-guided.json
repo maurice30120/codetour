@@ -1,0 +1,314 @@
+{
+  "model": "mistral-small-latest",
+  "rows": [
+    {
+      "repetition": 1,
+      "generated": {
+        "code": "(() => { const hits = search(params.query).slice(0, 6); return hits.map(hit => read(hit.file, Math.max(1, hit.line - 5), hit.line + 5)); })()",
+        "description": "A compact JavaScript expression that searches for the literal symbol in params.query, limits results to 6 hits, and fetches bounded source excerpts around each occurrence using read. Returns an empty array if no hits are found."
+      },
+      "usage": {
+        "prompt_tokens": 238,
+        "total_tokens": 346,
+        "completion_tokens": 108,
+        "prompt_tokens_details": {
+          "cached_tokens": 128
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "service_tier": "standard"
+      },
+      "probes": [
+        {
+          "query": "totalPrice",
+          "result": [
+            {
+              "file": "src/math.js",
+              "start": 1,
+              "lines": [
+                "export function totalPrice(price, quantity) {",
+                "  return price * quantity;",
+                "}",
+                ""
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}"
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 617
+        },
+        {
+          "query": "Catalog",
+          "result": [
+            {
+              "file": "src/catalog.js",
+              "start": 1,
+              "lines": [
+                "export class Catalog {",
+                "  constructor(storage, logger) {",
+                "    this.storage = storage;",
+                "    this.logger = logger;",
+                "  }",
+                ""
+              ]
+            }
+          ],
+          "bytes": 174
+        },
+        {
+          "query": "postOrder",
+          "result": [
+            {
+              "file": "src/api.js",
+              "start": 1,
+              "lines": [
+                "import { createOrder } from './order.js';",
+                "",
+                "export function postOrder(catalog, request) {",
+                "  return createOrder(catalog, request.id, request.quantity);",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 208
+        },
+        {
+          "query": "nonexistent_symbol_482",
+          "result": [],
+          "bytes": 2
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "generated": {
+        "code": "(() => { const hits = search(params.query).slice(0, 6); return hits.map(hit => read(hit.file, Math.max(1, hit.line - 5), hit.line + 5)); })()",
+        "description": "A compact JavaScript expression that searches for the literal symbol specified by `params.query`, limits results to 6 hits, and returns bounded source excerpts around each occurrence using `read`. Returns an empty array if no hits are found."
+      },
+      "usage": {
+        "prompt_tokens": 238,
+        "total_tokens": 348,
+        "completion_tokens": 110,
+        "prompt_tokens_details": {
+          "cached_tokens": 208
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "service_tier": "standard"
+      },
+      "probes": [
+        {
+          "query": "totalPrice",
+          "result": [
+            {
+              "file": "src/math.js",
+              "start": 1,
+              "lines": [
+                "export function totalPrice(price, quantity) {",
+                "  return price * quantity;",
+                "}",
+                ""
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}"
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 617
+        },
+        {
+          "query": "Catalog",
+          "result": [
+            {
+              "file": "src/catalog.js",
+              "start": 1,
+              "lines": [
+                "export class Catalog {",
+                "  constructor(storage, logger) {",
+                "    this.storage = storage;",
+                "    this.logger = logger;",
+                "  }",
+                ""
+              ]
+            }
+          ],
+          "bytes": 174
+        },
+        {
+          "query": "postOrder",
+          "result": [
+            {
+              "file": "src/api.js",
+              "start": 1,
+              "lines": [
+                "import { createOrder } from './order.js';",
+                "",
+                "export function postOrder(catalog, request) {",
+                "  return createOrder(catalog, request.id, request.quantity);",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 208
+        },
+        {
+          "query": "nonexistent_symbol_482",
+          "result": [],
+          "bytes": 2
+        }
+      ]
+    },
+    {
+      "repetition": 3,
+      "generated": {
+        "code": "(() => { const hits = search(params.query).slice(0, 6); return hits.map(hit => read(hit.file, Math.max(1, hit.line - 5), hit.line + 5)); })()",
+        "description": "A compact JavaScript expression that searches for the literal symbol specified by `params.query`, limits results to 6 hits, and returns bounded source excerpts around each occurrence using `read`. Returns an empty array if no hits are found."
+      },
+      "usage": {
+        "prompt_tokens": 238,
+        "total_tokens": 348,
+        "completion_tokens": 110,
+        "prompt_tokens_details": {
+          "cached_tokens": 208
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "service_tier": "standard"
+      },
+      "probes": [
+        {
+          "query": "totalPrice",
+          "result": [
+            {
+              "file": "src/math.js",
+              "start": 1,
+              "lines": [
+                "export function totalPrice(price, quantity) {",
+                "  return price * quantity;",
+                "}",
+                ""
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}"
+              ]
+            },
+            {
+              "file": "src/order.js",
+              "start": 1,
+              "lines": [
+                "import { totalPrice } from './math.js';",
+                "",
+                "export function createOrder(catalog, id, quantity) {",
+                "  const item = catalog.find(id);",
+                "  return { id, total: totalPrice(item.price, quantity) };",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 617
+        },
+        {
+          "query": "Catalog",
+          "result": [
+            {
+              "file": "src/catalog.js",
+              "start": 1,
+              "lines": [
+                "export class Catalog {",
+                "  constructor(storage, logger) {",
+                "    this.storage = storage;",
+                "    this.logger = logger;",
+                "  }",
+                ""
+              ]
+            }
+          ],
+          "bytes": 174
+        },
+        {
+          "query": "postOrder",
+          "result": [
+            {
+              "file": "src/api.js",
+              "start": 1,
+              "lines": [
+                "import { createOrder } from './order.js';",
+                "",
+                "export function postOrder(catalog, request) {",
+                "  return createOrder(catalog, request.id, request.quantity);",
+                "}",
+                ""
+              ]
+            }
+          ],
+          "bytes": 208
+        },
+        {
+          "query": "nonexistent_symbol_482",
+          "result": [],
+          "bytes": 2
+        }
+      ]
+    }
+  ]
+}
