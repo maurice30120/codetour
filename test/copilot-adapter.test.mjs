@@ -625,7 +625,14 @@ async function withRecordingCli(root, run) {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
     if (previousRealCli === undefined) delete process.env.CODETOUR_REAL_CLI; else process.env.CODETOUR_REAL_CLI = previousRealCli;
     if (previousRecorded === undefined) delete process.env.CODETOUR_TEST_RECORDED_ARGS; else process.env.CODETOUR_TEST_RECORDED_ARGS = previousRecorded;
-    rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
+    try {
+      rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
+    } catch (error) {
+      // The detached recording reader may still hold the workspace as its cwd;
+      // Windows refuses to delete such a directory even after retries. The
+      // recorded launch is the contract under test, not the temp cleanup.
+      if (process.platform !== "win32") throw error;
+    }
   }
 }
 
