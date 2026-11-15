@@ -22,16 +22,23 @@
  * - Citations come from the harness's verified evidence references only.
  */
 
-import { spawn, execFileSync } from 'child_process';
+import { spawn, execFileSync, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { TokenTracker } from '../execution/tracker';
 import { AgentExecutor, AgentExecution, Question } from '../execution/manager';
-import { CallRecord } from '../storage/logger';
+import { SeriesType } from '../storage/logger';
+import { randomUUID } from 'crypto';
+import { sha256 } from '../storage/provenance';
 
 /** Real-harness trace item (matches exploration-poc CallTraceItem, additive subset). */
 export interface HarnessCallTraceItem {
   seq: number;
+  cachedInputTokens?: number | null;
+  cacheCreationInputTokens?: number | null;
+  execution?: unknown;
+  parameters?: unknown;
+  result?: unknown;
   type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try';
   name: string;
   startedAt: string;
@@ -46,6 +53,8 @@ export interface HarnessCallTraceItem {
 
 export interface HarnessExploreResult {
   objective: string;
+  modelConfig?: Record<string, unknown>;
+  modelUsed?: string;
   entryPoints?: Array<{ name: string; evidence: Array<{ file: string; startLine: number; endLine: number }> }>;
   components?: Array<{ name: string; evidence: Array<{ file: string; startLine: number; endLine: number }> }>;
   relations?: Array<{ from: string; to: string; evidence: Array<{ file: string; startLine: number; endLine: number }> }>;
@@ -64,6 +73,7 @@ export interface HarnessExploreResult {
 export interface CodeTourConfig {
   /** Explicit path to the exploration-poc CLI; resolved from the repo root when omitted. */
   harnessCliPath?: string;
+  memoryDir?: string;
   /** Path to the fixture workspace the harness explores (the directory the manager verifies per run). */
   fixtureRoot?: string;
   /** Wall-clock budget forwarded to the spawn (per run). */
@@ -120,6 +130,39 @@ export class CodeTourExecutor implements AgentExecutor {
   };
 
   private config: CodeTourConfig;
+  private activeSeries?: SeriesType;
+  private memoryPath?: string;
+  private child?: ChildProcess;
+
+  executionConfig(): Record<string, unknown> {
+    return { model: this.model, temperature: this.modelParams.temperature, maxTokens: this.modelParams.max_tokens, topP: this.modelParams.top_p };
+  }
+
+  async beginSeries(series: SeriesType): Promise<void> {
+    const root = this.config.memoryDir;
+    if (!root) throw new Error('NO-GO: CodeTour memoryDir must be configured outside the fixture');
+    const fixture = this.fixtureRootOf();
+    const resolved = path.resolve(root);
+    if (resolved === fixture || resolved.startsWith(fixture + path.sep)) throw new Error('NO-GO: memory must be outside the fixture');
+    this.memoryPath = path.join(resolved, `${series}-${randomUUID()}`);
+    fs.mkdirSync(this.memoryPath, { recursive: true });
+    this.activeSeries = series;
+  }
+
+  async cancel(): Promise<void> {
+    const child = this.child;
+    if (!child || child.exitCode !== null || child.signalCode !== null) return;
+    await new Promise<void>(resolve => { child.once('close', () => resolve()); child.kill('SIGKILL'); });
+  }
+
+  canonicalPromptHash(): string {
+    const root = findRepoRoot(__dirname);
+    if (!root) throw new Error('NO-GO: canonical prompt source unavailable');
+    const source = fs.readFileSync(path.join(root, 'packages/exploration-poc/src/decomposition-prompt.ts'), 'utf8');
+    const literal = /export const DECOMPOSITION_PROMPT\s*=\s*("(?:[^"\\]|\\.)*")\s*;/s.exec(source)?.[1];
+    if (!literal) throw new Error('NO-GO: canonical prompt cannot be verified');
+    return sha256(JSON.parse(literal));
+  }
 
   constructor(config: Partial<CodeTourConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -139,7 +182,8 @@ export class CodeTourExecutor implements AgentExecutor {
    * Execute a question through the REAL exploration harness.
    */
   async execute(question: Question, tracker: TokenTracker): Promise<AgentExecution> {
-    const cliPath = resolveHarnessCliPath();
+    const cliPath = this.config.harnessCliPath ? path.resolve(this.config.harnessCliPath) : resolveHarnessCliPath();
+    if (this.activeSeries !== question.series) await this.beginSeries(question.series);
     if (!fs.existsSync(cliPath)) {
       throw new Error(`NO-GO: exploration harness CLI not found at ${cliPath}`);
     }
@@ -151,33 +195,30 @@ export class CodeTourExecutor implements AgentExecutor {
     }
     const modelEnv = this.config.model ? this.config.model : undefined;
 
-    const stdout = await this.runHarness(cliPath, question, modelEnv);
-    const harness = parseHarnessOutput(stdout);
+    const output = await this.runHarness(cliPath, question, modelEnv);
+    const harness = parseHarnessOutput(output.stdout);
 
-    // The canonical prompt lives in ONE place (exploration-poc). The harness
-    // echoes its SHA-256 on every run; a run without that echo is refused —
-    // this is how the runner stays bound to the canonical prompt without
-    // duplicating the prompt text (no second copy to drift).
-    if (!harness.promptSha256) {
-      throw new Error('NO-GO: harness result carries no promptSha256 — cannot prove the canonical decomposition prompt was used');
-    }
-
-    // Map the REAL harness call trace into tracker calls. Real timestamps and
-    // durations come from the harness records (Date-based), usage from the
-    // provider response fields only.
-    for (const item of harness.callTrace ?? []) {
-      const callType = this.mapCallType(item.type, item.name);
-      const callId = tracker.startCall(callType, item.type === 'model' ? 'harness_model' : item.name, {
-        seq: item.seq,
-        started_at: item.startedAt,
-        ended_at: item.endedAt,
+    // Only model requests consume tokens. Local primitives and replays remain raw tools.
+    for (const item of (harness.callTrace ?? []).filter(item => item.type === 'model')) {
+      const callId = tracker.startCall(item.name.includes('consolidat') ? 'consolidation' : item.name.includes('select') ? 'memory_list' : 'prompt', item.name, {
+        seq: item.seq, started_at: item.startedAt, ended_at: item.endedAt,
       });
-      if (item.usageMissing || item.inputTokens === null || item.outputTokens === null) {
+      if (item.usageMissing || item.inputTokens == null || item.outputTokens == null) {
         tracker.completeCallWithMissingUsage(callId, item.outcome ?? null, item.error ?? null, item.durationMs);
       } else {
-        tracker.completeCall(callId, { input_tokens: item.inputTokens, output_tokens: item.outputTokens }, item.outcome ?? null, item.error ?? null, item.durationMs);
+        tracker.completeCall(callId, {
+          input_tokens: item.inputTokens, output_tokens: item.outputTokens,
+          cached_input_tokens: item.cachedInputTokens, cache_creation_input_tokens: item.cacheCreationInputTokens,
+          cache_included_in_input: true,
+        }, item.outcome ?? null, item.error ?? null, item.durationMs);
       }
     }
+    // Ingest spent tokens BEFORE rejecting invalid provenance or a failed process.
+    if (harness.promptSha256 !== this.canonicalPromptHash()) throw new Error('NO-GO: harness canonical prompt hash mismatch');
+    if (!harness.modelConfig || JSON.stringify(harness.modelConfig) !== JSON.stringify(this.executionConfig())) {
+      throw new Error('NO-GO: harness effective model configuration differs or is unreported');
+    }
+    if (output.code !== 0 && !harness.callTrace?.length) throw new Error('NO-GO: child failed without provider telemetry');
 
     // Structured result: steps and citations ONLY from harness-verified evidence.
     const evidenceItems = [...(harness.entryPoints ?? []), ...(harness.components ?? [])];
@@ -204,7 +245,9 @@ export class CodeTourExecutor implements AgentExecutor {
       functions_created: [],
       functions_reused: extractReusedFunctionIds(harness),
       agent_version: harnessRevision(),
-      model_used: modelEnv,
+      model_used: harness.modelUsed ?? modelEnv,
+      system_prompt_hash: harness.promptSha256,
+      tools: (harness.callTrace ?? []).filter(item => item.type !== 'model'),
       // A partial exploration is NOT a successful run: it is recorded as an
       // error with its stop reason (counted in the denominator, never erased),
       // while its trace data remains available for analysis.
@@ -214,37 +257,24 @@ export class CodeTourExecutor implements AgentExecutor {
   }
 
   /** Spawn the REAL harness CLI and capture its stdout. */
-  private runHarness(cliPath: string, question: Question, model: string | undefined): Promise<string> {
+  private runHarness(cliPath: string, question: Question, model: string | undefined): Promise<{stdout: string; code: number | null}> {
     const fixtureRoot = this.fixtureRootOf();
-    return new Promise<string>((resolve, reject) => {
-      const args = ['--code', fixtureRoot, question.objective];
+    return new Promise((resolve, reject) => {
+      const args = ['--code', '--memory', this.memoryPath!, fixtureRoot, question.objective];
       const child = spawn(process.execPath, [cliPath, ...args], {
-        cwd: path.dirname(cliPath),
-        env: model ? { ...process.env, MISTRAL_MODEL: model } : { ...process.env },
-        timeout: this.config.timeoutMs,
+        cwd: path.dirname(cliPath), timeout: this.config.timeoutMs,
+        env: { ...process.env, MISTRAL_MODEL: model, CODETOUR_MODEL_CONFIG: JSON.stringify(this.executionConfig()), CODETOUR_PROMPT_SHA256: this.canonicalPromptHash() },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
-
-      let stdout = '';
-      let stderr = '';
-      const spawnStart = Date.now();
-
+      this.child = child;
+      let stdout = ''; let stderr = '';
       child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
       child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
-
-      child.on('error', (error) => {
-        reject(new Error(`NO-GO: failed to spawn exploration harness: ${error.message}`));
-      });
-
-      child.on('close', (code, signal) => {
-        if (code === 0 && stdout.trim()) {
-          resolve(stdout);
-          return;
-        }
-        const reason = signal
-          ? `terminated by signal ${signal} after ${Date.now() - spawnStart}ms`
-          : `exit code ${code}`;
-        reject(new Error(`NO-GO: exploration harness failed (${reason}). stderr: ${stderr.slice(0, 2000)}`));
+      child.on('error', error => reject(new Error(`NO-GO: harness spawn failed: ${error.message}`)));
+      child.on('close', (code) => {
+        this.child = undefined;
+        if (stdout.trim()) resolve({ stdout, code });
+        else reject(new Error(`NO-GO: harness failed without a telemetry payload (exit ${code}): ${stderr.slice(0, 2000)}`));
       });
     });
   }
@@ -265,16 +295,7 @@ export class CodeTourExecutor implements AgentExecutor {
     return path.resolve(root);
   }
 
-  private mapCallType(type: string, name: string): CallRecord['call_type'] {
-    switch (type) {
-      case 'model': return 'prompt';
-      case 'memory_list': return 'memory_list';
-      case 'memory_run': return 'memory_run';
-      case 'function_try': return 'function_try';
-      case 'tool': return name === 'search' ? 'search' : 'tool';
-      default: return 'tool';
-    }
-  }
+
 }
 
 /** Parse the harness stdout JSON (the CLI prints exactly one JSON document). */

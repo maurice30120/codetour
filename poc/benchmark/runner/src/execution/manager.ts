@@ -15,7 +15,6 @@
  *   executors' provider-side records, or the run is refused.
  */
 
-import * as fs from 'fs';
 import { TokenTracker } from './tracker';
 import { AgentType, CallRecord, FixtureEvidence, ImmutableLogger, RunTrace, SeriesType, PhaseType } from '../storage/logger';
 import { verifyFixture } from '../storage/fixture-verification';
@@ -46,6 +45,11 @@ export interface Question {
  */
 export interface AgentExecution {
   calls: CallRecord[];
+  no_go?: string;
+  observed_model_config?: Record<string, unknown>;
+  system_prompt_hash?: string;
+  session_id?: string;
+  tools?: unknown[];
   result?: {
     tour_title?: string;
     steps?: Array<{
@@ -89,6 +93,7 @@ export interface ExecutionOptions {
    * default to — the caller must point at the actual fixture.
    */
   fixturePath?: string;
+  beforeRun?: (question: Question, agent: AgentType) => Promise<Partial<RunTrace>> | Partial<RunTrace>;
 }
 
 /**
@@ -111,6 +116,10 @@ export interface AgentExecutor {
    * @param tracker - Token tracker for this execution
    */
   execute(question: Question, tracker: TokenTracker): Promise<AgentExecution>;
+  beginSeries?(series: SeriesType): Promise<void>;
+  executionConfig?(): Record<string, unknown>;
+  promptFor?(question: Question): string;
+  cancel?(): Promise<void>;
 }
 
 /**
@@ -167,6 +176,7 @@ function buildRunTrace(params: {
 export class ExecutionManager {
   private readonly logger: ImmutableLogger;
   private readonly options: ExecutionOptions;
+  private readonly sessions = new Set<string>();
   private readonly agentExecutors: Map<AgentType, AgentExecutor> = new Map();
 
   constructor(
@@ -179,6 +189,7 @@ export class ExecutionManager {
       timeoutMs: options.timeoutMs ?? 300000, // 5 minutes default
       retryPolicy: options.retryPolicy ?? { maxRetries: 0, retryDelay: 0 },
       fixturePath: options.fixturePath,
+      beforeRun: options.beforeRun,
     };
   }
 
@@ -236,8 +247,12 @@ export class ExecutionManager {
     // Provider-usage tracking spans ALL attempts of this run: costs of failed
     // attempts accumulate (never reset or lost) and land in the run trace.
     let tracker: TokenTracker | undefined;
+    let provenance: Partial<RunTrace> = {};
+    let execution: AgentExecution | undefined;
 
     try {
+      provenance = await this.options.beforeRun?.(question, agentType) ?? {};
+      if (question.postgres_sha !== this.logger.expectedFixtureSha) throw new Error('NO-GO: Wrong PostgreSQL SHA');
       if (!verification.ok) {
         throw new Error(`NO-GO: fixture verification failed before run: ${verification.errors.join('; ')}`);
       }
@@ -245,7 +260,13 @@ export class ExecutionManager {
       tracker = new TokenTracker();
 
       // Execute with retry policy
-      const execution = await this.executeWithRetry(question, executor, tracker);
+      execution = await this.executeWithRetry(question, executor, tracker);
+      if (execution.no_go) throw new Error(`NO-GO: ${execution.no_go}`);
+      if (execution.session_id) {
+        const seen = this.sessions.has(execution.session_id) || this.logger.listRuns().some(run => run.session_id === execution!.session_id);
+        if (seen) throw new Error(`NO-GO: contaminated/reused Vibe session ${execution.session_id}`);
+        this.sessions.add(execution.session_id);
+      }
 
       // Check for missing usage — the tracker records reality; this run is
       // refused unless every call carried provider-side usage.
@@ -257,13 +278,13 @@ export class ExecutionManager {
       const totalTokens = tracker.calculateTotalTokens();
 
       // Build run trace — ONE builder for both success and error paths.
-      const trace = buildRunTrace({
+      const trace = { ...buildRunTrace({
         runId,
         timestamp,
         agent: agentType,
         agentVersion: execution.agent_version ?? executor.version,
         model: execution.model_used ?? executor.model,
-        modelParams: executor.modelParams,
+        modelParams: agentType === 'vibe-native' ? undefined : executor.modelParams,
         question,
         calls: tracker.getCalls(),
         functionsCreated: execution.functions_created,
@@ -273,7 +294,9 @@ export class ExecutionManager {
         result: execution.result,
         error: execution.error ?? null,
         status: execution.status,
-      });
+      }), ...provenance,
+        system_prompt_hash: execution.system_prompt_hash, session_id: execution.session_id, tools: execution.tools, observed_model_config: execution.observed_model_config,
+      };
 
       // Validate NO-GO controls
       const noGoResult = this.logger.validateNoGoControls(trace);
@@ -290,34 +313,31 @@ export class ExecutionManager {
 
       // Build error trace through the SAME builder as the success path; the
       // accumulated usage of all attempts is preserved (never reset).
-      const errorTrace = buildRunTrace({
+      const errorTrace = { ...buildRunTrace({
         runId,
         timestamp,
         agent: agentType,
         agentVersion: executor.version,
         model: executor.model,
-        modelParams: executor.modelParams,
+        modelParams: agentType === 'vibe-native' ? undefined : executor.modelParams,
         question,
         calls: tracker ? tracker.getCalls() : [],
         totalTokens: tracker
           ? tracker.calculateTotalTokens()
           : { input: 0, output: 0, total: 0, verified: false },
         fixtureVerification: fixtureEvidence,
+        result: execution?.result,
+        functionsCreated: execution?.functions_created,
+        functionsReused: execution?.functions_reused,
         error: errorMessage,
         status: 'error',
-      });
-      // The error trace legitimately records WHY the run failed (including
-      // fixture-verification failures). validateNoGoControls would refuse it
-      // (no calls, unverified tokens), so error traces bypass saveRun but are
-      // still persisted to disk for the audit trail.
-      try {
-        const tempPath = `${this.logger.getResultsDir()}/${errorTrace.run_id}.error.json`;
-        fs.writeFileSync(tempPath, JSON.stringify(errorTrace, null, 2), 'utf-8');
-      } catch {
-        // Persisting the failure record is best-effort; the original error propagates.
+      }), ...provenance, session_id: execution?.session_id, tools: execution?.tools, system_prompt_hash: execution?.system_prompt_hash };
+      if (/NO-GO/i.test(errorMessage) || tracker?.hasMissingUsage() || tracker?.getPendingCount() || !tracker?.getCalls().length) {
+        this.logger.saveFailure(errorTrace);
+        throw new Error(`NO-GO: ${errorMessage}`);
       }
-
-      throw error;
+      this.logger.saveRun(errorTrace);
+      return errorTrace;
     }
   }
 
@@ -337,7 +357,10 @@ export class ExecutionManager {
         // NOTE: the tracker is deliberately NOT cleared between attempts —
         // costs incurred by failed attempts accumulate into the same run
         // trace (no token loss, no fabricated zero-cost run).
-        const executionPromise = executor.execute(question, tracker);
+        const executionPromise = executor.execute({
+          id: question.id, objective: question.objective, series: question.series, phase: question.phase,
+          repeat_index: question.repeat_index, postgres_sha: question.postgres_sha,
+        }, tracker);
         let timer: NodeJS.Timeout | undefined;
         const timeoutPromise = new Promise<never>((_, reject) => {
           timer = setTimeout(() => {
@@ -362,6 +385,7 @@ export class ExecutionManager {
         // (network_error / service_unavailable / timeout). Agent failures are
         // recorded immediately and counted in the denominator — never
         // retried, never erased, never replaced.
+        if (tracker.hasMissingUsage()) throw new Error(`NO-GO: Token usage missing on failed attempt: ${lastError.message}`);
         if (!shouldRetry(lastError)) {
           throw lastError;
         }
@@ -397,31 +421,28 @@ export class ExecutionManager {
    */
   async executeAll(questions: Question[]): Promise<RunTrace[]> {
     const results: RunTrace[] = [];
-
-    for (const question of questions) {
-      try {
-        const { codetour, vibe } = await this.executePaired(question);
-        results.push(codetour, vibe);
-      } catch (error) {
-        console.error(`Error executing question ${question.id}:`, error);
-        // Continue with next question
+    const completed = new Set<SeriesType>();
+    let series: SeriesType | undefined;
+    for (let index = 0; index < questions.length; index++) {
+      const question = questions[index];
+      if (question.series !== series) {
+        if (completed.has(question.series)) throw new Error('NO-GO: non-contiguous learning series');
+        if (series) completed.add(series);
+        await this.beginSeries(question.series);
+        series = question.series;
       }
+      const agents: AgentType[] = index % 2 === 0 ? ['codetour', 'vibe-native'] : ['vibe-native', 'codetour'];
+      for (const agent of agents) results.push(await this.executeSingle(question, agent));
     }
-
     return results;
   }
 
-  /**
-   * Run a pilot execution (1-2 questions for connectivity testing)
-   * These runs are NOT counted in the main benchmark
-   */
+  async beginSeries(series: SeriesType): Promise<void> {
+    await this.getAgentExecutor('codetour').beginSeries?.(series);
+  }
+
   async runPilot(questions: Question[]): Promise<RunTrace[]> {
-    console.log('Running pilot execution (not counted in main benchmark)...');
-
-    // Limit to 2 questions for pilot
-    const pilotQuestions = questions.slice(0, Math.min(2, questions.length));
-
-    return this.executeAll(pilotQuestions);
+    return this.executeAll(questions.slice(0, 2));
   }
 
   /**
@@ -437,6 +458,7 @@ export class ExecutionManager {
     total_tokens: number;
   } {
     const runs = this.logger.listRuns();
+    if (runs.some(run => run.no_go || !run.total_tokens.verified)) throw new Error('NO-GO: Incomplete telemetry; campaign totals unavailable');
 
     const byAgent: Record<AgentType, number> = { codetour: 0, 'vibe-native': 0 };
     const bySeries: Record<SeriesType, number> = { R: 0, T: 0 };

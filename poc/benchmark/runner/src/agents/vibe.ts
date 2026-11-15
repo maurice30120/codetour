@@ -28,15 +28,18 @@ import { AgentExecutor, AgentExecution, Question } from '../execution/manager';
 import { findRepoRoot } from './codetour';
 
 /** Structural typing over the vibe-connector public API (avoids a build-order dependency). */
-interface VibeConnectorModule {
+export interface VibeConnectorModule {
   invokeVibeNativeAgent(question: string, config?: Record<string, unknown>): Promise<{
     id: string;
-    agent: { name: string; version: string; model: string };
+    agent: { name: string; version: string; model: string; modelConfig?: Record<string, unknown>; agentType?: string };
     question: string;
     response: string;
     tokens: { input: number; output: number; total: number };
     perCallUsage: Array<{
       callIndex: number;
+      sessionId?: string;
+      cachedInputTokens?: number | null;
+      totalTokens?: number | null;
       inputTokens: number | null;
       outputTokens: number | null;
       usageMissing: boolean;
@@ -80,8 +83,8 @@ const DEFAULT_CONFIG: VibeConfig = {
 };
 
 /** Locate and require the BUILT vibe-connector module. Explicit error when absent. */
-export function loadVibeConnector(from: string = __dirname): VibeConnectorModule {
-  const explicit = process.env.VIBE_CONNECTOR_PATH;
+export function loadVibeConnector(from: string = __dirname, moduleOverride?: string): VibeConnectorModule {
+  const explicit = moduleOverride ?? process.env.VIBE_CONNECTOR_PATH;
   const modulePath = explicit
     ? path.resolve(explicit)
     : (() => {
@@ -129,7 +132,7 @@ export class VibeExecutor implements AgentExecutor {
    * surfaces NO-GO. No result is ever fabricated.
    */
   async execute(question: Question, tracker: TokenTracker): Promise<AgentExecution> {
-    const connector = loadVibeConnector();
+    const connector = loadVibeConnector(__dirname, this.config.connectorModulePath);
 
     const workDir = this.workDirOf();
     const execution = await connector.invokeVibeNativeAgent(question.objective, {
@@ -137,6 +140,7 @@ export class VibeExecutor implements AgentExecutor {
       vibeCommand: this.config.vibeCommand,
       model: this.config.model && this.config.model !== 'vibe-native-subagent' ? this.config.model : undefined,
       maxTurns: this.config.maxTurns,
+      maxTokens: this.config.maxTokens,
       timeoutMs: this.config.timeoutMs,
     });
 
@@ -154,12 +158,12 @@ export class VibeExecutor implements AgentExecutor {
       const callId = tracker.startCall('prompt', 'vibe_native_llm_call', {
         call_index: call.callIndex,
         finish_reason: call.finishReason,
-        session_id: execution.id,
+        session_id: call.sessionId ?? execution.id,
       });
       if (call.usageMissing || call.inputTokens === null || call.outputTokens === null) {
         tracker.completeCallWithMissingUsage(callId, { note: 'LLM call returned no usage counters — run refused by NO-GO' });
       } else {
-        tracker.completeCall(callId, { input_tokens: call.inputTokens, output_tokens: call.outputTokens }, { session_id: execution.id });
+        tracker.completeCall(callId, { input_tokens: call.inputTokens, output_tokens: call.outputTokens, cached_input_tokens: call.cachedInputTokens, cache_included_in_input: true }, { session_id: execution.id });
       }
     }
 
@@ -175,22 +179,17 @@ export class VibeExecutor implements AgentExecutor {
     return {
       calls: tracker.getCalls(),
       result: {
-        raw_response: JSON.stringify({
-          session_id: execution.id,
-          agent: execution.agent,
-          outcome: execution.outcome,
-          stop_reason: execution.stopReason,
-          subagent: execution.subagent,
-          provenance_note: 'Response from the real vibe CLI native research sub-agent; file:line citations below are extracted from the response text.',
-          response: execution.response,
-          tools_used: execution.toolsUsed,
-        }),
+        raw_response: JSON.stringify(execution),
         citations,
       },
       functions_created: [],
       functions_reused: [],
       agent_version: execution.agent.version,
       model_used: execution.agent.model,
+      session_id: execution.id,
+      observed_model_config: execution.agent.modelConfig,
+      tools: execution.toolsUsed,
+      no_go: gateFailures.length ? gateFailures.join('; ') : undefined,
       status: succeeded ? 'success' : 'error',
       error: succeeded
         ? null

@@ -15,6 +15,7 @@
  */
 
 import { createHash } from 'crypto';
+import { ArtifactHash, sha256, verifyArtifacts } from './provenance';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -43,6 +44,13 @@ export interface CallRecord {
   result?: string | Record<string, unknown> | null;
   error?: string | null;
   usage_missing: boolean;
+  usage_source?: 'provider' | 'test';
+  provider_call_id?: string;
+  scope?: string;
+  cached_input_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+  /** Cache reads/writes are subsets of input; they are never added again. */
+  cache_included_in_input?: boolean;
 }
 
 export interface FunctionCreated {
@@ -71,6 +79,8 @@ export interface TotalTokens {
   output: number;
   total: number;
   verified: boolean;
+  cached_input?: number;
+  cache_creation_input?: number;
 }
 
 /**
@@ -88,6 +98,16 @@ export interface FixtureEvidence {
 }
 
 export interface RunTrace {
+  no_go?: boolean;
+  observed_model_config?: Record<string, unknown>;
+  config_hash?: string;
+  execution_config?: Record<string, unknown>;
+  question_hash?: string;
+  system_prompt_hash?: string;
+  fixture_hash?: string;
+  session_id?: string;
+  tools?: unknown[];
+  attempts?: Array<{ attempt: number; status: string; error?: string; call_ids: string[] }>;
   run_id: string;
   timestamp: string;
   agent: AgentType;
@@ -120,6 +140,8 @@ export interface RunTrace {
  * Configuration for the immutable logger
  */
 export interface LoggerConfig {
+  /** Offline tests only; never read from environment as a SHA override. */
+  testOnly?: { expectedFixtureSha: string };
   outputDir: string;
   resultsDir?: string;
   /** If true, validates schema before saving */
@@ -150,13 +172,16 @@ export function sumCallTokens(calls: CallRecord[]): TotalTokens {
   }
 
   const total = input + output;
-  const hasMissingUsage = calls.some(call => call.usage_missing);
+  const hasMissingUsage = calls.length === 0 || calls.some(call => call.usage_missing !== false ||
+    !Number.isSafeInteger(call.input_tokens) || call.input_tokens < 0 || !Number.isSafeInteger(call.output_tokens) || call.output_tokens < 0);
 
   return {
     input,
     output,
     total,
     verified: !hasMissingUsage,
+    cached_input: calls.reduce((n, c) => n + (c.cached_input_tokens ?? 0), 0),
+    cache_creation_input: calls.reduce((n, c) => n + (c.cache_creation_input_tokens ?? 0), 0),
   };
 }
 
@@ -168,8 +193,11 @@ export class ImmutableLogger {
   private readonly outputDir: string;
   private readonly resultsDir: string;
   private readonly immutable: boolean;
+  readonly expectedFixtureSha: string;
 
   constructor(config: LoggerConfig) {
+    if (config.testOnly && process.env.NODE_ENV !== 'test') throw new Error('NO-GO: testOnly requires NODE_ENV=test');
+    this.expectedFixtureSha = config.testOnly?.expectedFixtureSha ?? POSTGRES_SHA;
     this.outputDir = path.resolve(config.outputDir);
     this.resultsDir = path.resolve(
       config.resultsDir || path.join(this.outputDir, 'results/runs')
@@ -210,7 +238,7 @@ export class ImmutableLogger {
    * Validate that PostgreSQL SHA is correct
    */
   validatePostgresSha(sha: string): boolean {
-    return sha === POSTGRES_SHA;
+    return sha === this.expectedFixtureSha;
   }
 
   /**
@@ -281,10 +309,21 @@ export class ImmutableLogger {
       }
 
       // Check for negative token counts
-      if (call.input_tokens < 0 || call.output_tokens < 0) {
+      if (!Number.isSafeInteger(call.input_tokens) || !Number.isSafeInteger(call.output_tokens) || call.input_tokens < 0 || call.output_tokens < 0) {
         errors.push(`NO-GO: Negative token count for call ${call.call_id}`);
       }
     }
+
+    if (new Set(trace.calls.map(c => c.call_id)).size !== trace.calls.length) errors.push('NO-GO: duplicate call id');
+    for (const call of trace.calls) {
+      if (call.usage_source === 'test' && process.env.NODE_ENV !== 'test') errors.push('NO-GO: mock usage');
+      for (const value of [call.cached_input_tokens, call.cache_creation_input_tokens]) {
+        if (value != null && (!Number.isSafeInteger(value) || value < 0 || value > call.input_tokens)) errors.push('NO-GO: invalid cache counter');
+      }
+      if ((call.cached_input_tokens || call.cache_creation_input_tokens) && call.cache_included_in_input !== true) errors.push('NO-GO: unknown cache accounting convention');
+    }
+    const measured = sumCallTokens(trace.calls);
+    if (trace.total_tokens && (trace.total_tokens.input !== measured.input || trace.total_tokens.output !== measured.output || trace.total_tokens.total !== measured.total)) errors.push('NO-GO: totals differ from measured calls');
 
     // Check total_tokens
     if (!trace.total_tokens) {
@@ -415,43 +454,27 @@ export class ImmutableLogger {
       );
     }
 
-    // Calculate total tokens if not already set
-    if (!trace.total_tokens) {
-      trace.total_tokens = this.calculateTotalTokens(trace.calls);
-    }
+    return this.writeRecord(trace);
+  }
 
-    // Generate filename
-    const filename = `${trace.run_id}.json`;
-    const filepath = path.join(this.resultsDir, filename);
+  /** Fatal NO-GO evidence stays auditable, but is never a comparable result. */
+  saveFailure(trace: RunTrace): string {
+    if (trace.status === 'success') throw new Error('Failure record cannot be successful');
+    return this.writeRecord({ ...trace, no_go: true });
+  }
 
-    // Write atomically using temp file
-    const tempPath = `${filepath}.tmp`;
-
+  private writeRecord(trace: RunTrace): string {
+    if (!/^[a-zA-Z0-9_-]+$/.test(trace.run_id)) throw new Error('Invalid run id');
+    const filepath = path.join(this.resultsDir, `${trace.run_id}.json`);
+    const tempPath = `${filepath}.${uuidv4()}.tmp`;
     try {
-      // Write to temp file first
-      const content = JSON.stringify(trace, null, 2);
-      fs.writeFileSync(tempPath, content, 'utf-8');
-
-      // Make read-only if immutable mode
-      if (this.immutable) {
-        fs.chmodSync(tempPath, 0o444); // Read-only for everyone
-      }
-
-      // Atomic rename
-      fs.renameSync(tempPath, filepath);
-
-      // Make final file read-only if immutable
-      if (this.immutable) {
-        fs.chmodSync(filepath, 0o444);
-      }
-
+      fs.writeFileSync(tempPath, JSON.stringify(trace, null, 2), { flag: 'wx', mode: 0o600 });
+      if (this.immutable) fs.chmodSync(tempPath, 0o444);
+      // A hard link publishes the complete file atomically and cannot replace an id.
+      fs.linkSync(tempPath, filepath);
       return filepath;
-    } catch (error) {
-      // Clean up temp file if it exists
-      if (fs.existsSync(tempPath)) {
-        fs.unlinkSync(tempPath);
-      }
-      throw error;
+    } finally {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
     }
   }
 
@@ -537,6 +560,8 @@ export { POSTGRES_SHA, VALID_AGENTS, VALID_SERIES, VALID_STATUS, VALID_PHASES };
  *   READBACK; any mismatch aborts with an error and removes the lock.
  */
 export interface ManifestFreezeOptions {
+  executionConfig?: Record<string, unknown>;
+  artifacts?: ArtifactHash[];
   /** SHA-256 of the canonical decomposition prompt, recorded in the lock when provided. */
   promptSha256?: string;
 }
@@ -603,6 +628,9 @@ export function freezeManifest(manifestPath: string, lockPath?: string, options?
   const frozenAt = new Date().toISOString();
 
   const lockData = {
+    execution_config: options?.executionConfig,
+    execution_config_sha256: options?.executionConfig ? sha256(JSON.stringify(options.executionConfig)) : undefined,
+    artifacts: options?.artifacts,
     manifest_file: path.basename(manifestFile),
     manifest_sha256: manifestSha256,
     prompt_sha256: options?.promptSha256,
@@ -616,15 +644,21 @@ export function freezeManifest(manifestPath: string, lockPath?: string, options?
     ],
   };
 
-  // Atomic write, then read-only.
-  const tempPath = `${lockFile}.tmp`;
-  fs.writeFileSync(tempPath, JSON.stringify(lockData, null, 2), 'utf-8');
+  if (fs.existsSync(lockFile)) {
+    const prior = JSON.parse(fs.readFileSync(lockFile, 'utf8'));
+    if (!validateManifestFrozen(manifestFile, lockFile) || prior.manifest_sha256 !== manifestSha256 ||
+        prior.execution_config_sha256 !== lockData.execution_config_sha256 || JSON.stringify(prior.artifacts) !== JSON.stringify(lockData.artifacts)) {
+      throw new Error('NO-GO: existing manifest lock cannot be replaced');
+    }
+    return { lockPath: lockFile, manifestSha256, frozenAt: prior.frozen_at };
+  }
+  const tempPath = `${lockFile}.${uuidv4()}.tmp`;
+  fs.mkdirSync(path.dirname(lockFile), { recursive: true });
   try {
-    fs.renameSync(tempPath, lockFile);
-    fs.chmodSync(lockFile, 0o444);
-  } catch (error) {
+    fs.writeFileSync(tempPath, JSON.stringify(lockData, null, 2), { flag: 'wx', mode: 0o444 });
+    fs.linkSync(tempPath, lockFile);
+  } finally {
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-    throw error;
   }
 
   // VERIFY READBACK: the lock on disk must carry exactly the computed hash
@@ -662,6 +696,8 @@ export function validateManifestFrozen(manifestPath: string, lockPath?: string):
 
   try {
     const lockData = JSON.parse(fs.readFileSync(lockFile, 'utf-8')) as Record<string, unknown>;
+    if (lockData.artifacts !== undefined && !verifyArtifacts(lockData.artifacts, path.dirname(lockFile))) return false;
+    if (lockData.execution_config !== undefined && sha256(JSON.stringify(lockData.execution_config)) !== lockData.execution_config_sha256) return false;
 
     if (lockData.locked !== true) {
       console.error('NO-GO: Manifest lock file is not marked locked');

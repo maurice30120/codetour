@@ -150,10 +150,31 @@ describe('storage/logger', () => {
     });
 
     it('writes nothing when NO-GO controls fail', () => {
-      const bad = baseTrace({ agent: 'not-an-agent' }) as RunTrace;
+      const bad = baseTrace({ agent: 'not-an-agent' as RunTrace['agent'] }) as RunTrace;
       assert.throws(() => logger.saveRun(bad), /NO-GO controls failed/);
       const runIds = logger.listRunIds();
       assert.equal(runIds.filter(id => id.startsWith('run-test-')).length, 0);
     });
+  });
+});
+
+
+describe('append-only audit records', () => {
+  it('refuses an existing run id without changing its saved bytes', () => {
+    const dir = tmpDir('logger-append-');
+    const logger = new ImmutableLogger({ outputDir: dir });
+    const trace = baseTrace() as RunTrace;
+    logger.saveRun(trace);
+    assert.throws(() => logger.saveRun({ ...trace, error: 'replacement' }), /exist|immutable|duplicate/i);
+    assert.equal(logger.loadRun(trace.run_id)!.error, undefined);
+  });
+});
+
+describe('provider counters', () => {
+  it('rejects inconsistent totals and invalid numeric counters', () => {
+    const logger = new ImmutableLogger({ outputDir: tmpDir('logger-counters-') });
+    assert.equal(logger.validateNoGoControls(baseTrace({ total_tokens: { input: 1, output: 2, total: 3, verified: true } })).passed, false);
+    const trace = baseTrace() as RunTrace; trace.calls[0].input_tokens = NaN;
+    assert.equal(logger.validateNoGoControls(trace).passed, false);
   });
 });
