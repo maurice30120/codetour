@@ -1,0 +1,799 @@
+{
+  "version": "1.0",
+  "spec_version": "174",
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "date": "2026-11-15",
+  "description": "Sealed question set for PostgreSQL benchmark - 40 questions (20 R + 20 T)",
+  "series_R": [
+    {
+      "id": "R-Q1-R1",
+      "objective": "Identify and explain the main entry point function for PostgreSQL backend processes",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 1,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/main/main.c", "src/backend/tcop/postgres.c"],
+      "criteria": [
+        "Must identify PostgresMain as the main entry point function",
+        "Must explain its role in initializing backend processes",
+        "Must mention it is called from main() in postgres.c",
+        "Must describe at least one key responsibility"
+      ],
+      "relations_to_verify": [
+        {"from": "main", "to": "PostgresMain", "type": "calls", "file": "src/backend/tcop/postgres.c"},
+        {"from": "PostgresMain", "to": "BackendInitialize", "type": "calls", "file": "src/backend/main/main.c"}
+      ]
+    },
+    {
+      "id": "R-Q1-R2",
+      "objective": "Identify and explain the main entry point function for PostgreSQL backend processes",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 2,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/main/main.c", "src/backend/tcop/postgres.c"],
+      "criteria": [
+        "Must identify PostgresMain as the main entry point function",
+        "Must explain its role in initializing backend processes",
+        "Must mention it is called from main() in postgres.c",
+        "Must describe at least one key responsibility"
+      ],
+      "relations_to_verify": [
+        {"from": "main", "to": "PostgresMain", "type": "calls", "file": "src/backend/tcop/postgres.c"},
+        {"from": "PostgresMain", "to": "BackendInitialize", "type": "calls", "file": "src/backend/main/main.c"}
+      ]
+    },
+    {
+      "id": "R-Q1-R3",
+      "objective": "Identify and explain the main entry point function for PostgreSQL backend processes",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 3,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/main/main.c", "src/backend/tcop/postgres.c"],
+      "criteria": [
+        "Must identify PostgresMain as the main entry point function",
+        "Must explain its role in initializing backend processes",
+        "Must mention it is called from main() in postgres.c",
+        "Must describe at least one key responsibility"
+      ],
+      "relations_to_verify": [
+        {"from": "main", "to": "PostgresMain", "type": "calls", "file": "src/backend/tcop/postgres.c"},
+        {"from": "PostgresMain", "to": "BackendInitialize", "type": "calls", "file": "src/backend/main/main.c"}
+      ]
+    },
+    {
+      "id": "R-Q1-R4",
+      "objective": "Identify and explain the main entry point function for PostgreSQL backend processes",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 4,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/main/main.c", "src/backend/tcop/postgres.c"],
+      "criteria": [
+        "Must identify PostgresMain as the main entry point function",
+        "Must explain its role in initializing backend processes",
+        "Must mention it is called from main() in postgres.c",
+        "Must describe at least one key responsibility"
+      ],
+      "relations_to_verify": [
+        {"from": "main", "to": "PostgresMain", "type": "calls", "file": "src/backend/tcop/postgres.c"},
+        {"from": "PostgresMain", "to": "BackendInitialize", "type": "calls", "file": "src/backend/main/main.c"}
+      ]
+    },
+    {
+      "id": "R-Q2-R1",
+      "objective": "Trace the execution flow of a simple SQL query from receipt to result",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 1,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/tcop/fastpath.c"],
+      "criteria": [
+        "Must identify exec_simple_query as a key function in simple query execution",
+        "Must explain the role of pg_parse_query in parsing SQL",
+        "Must mention the connection between parsing and execution",
+        "Must describe at least 3 functions in the call chain"
+      ],
+      "relations_to_verify": [
+        {"from": "PostgresMain", "to": "exec_simple_query", "type": "calls", "file": "src/backend/tcop/postgres.c"},
+        {"from": "exec_simple_query", "to": "pg_parse_query", "type": "calls", "file": "src/backend/tcop/fastpath.c"}
+      ]
+    },
+    {
+      "id": "R-Q2-R2",
+      "objective": "Trace the execution flow of a simple SQL query from receipt to result",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 2,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/tcop/fastpath.c"],
+      "criteria": [
+        "Must identify exec_simple_query as a key function in simple query execution",
+        "Must explain the role of pg_parse_query in parsing SQL",
+        "Must mention the connection between parsing and execution",
+        "Must describe at least 3 functions in the call chain"
+      ],
+      "relations_to_verify": [
+        {"from": "PostgresMain", "to": "exec_simple_query", "type": "calls", "file": "src/backend/tcop/postgres.c"},
+        {"from": "exec_simple_query", "to": "pg_parse_query", "type": "calls", "file": "src/backend/tcop/fastpath.c"}
+      ]
+    },
+    {
+      "id": "R-Q2-R3",
+      "objective": "Trace the execution flow of a simple SQL query from receipt to result",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 3,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/tcop/fastpath.c"],
+      "criteria": [
+        "Must identify exec_simple_query as a key function in simple query execution",
+        "Must explain the role of pg_parse_query in parsing SQL",
+        "Must mention the connection between parsing and execution",
+        "Must describe at least 3 functions in the call chain"
+      ],
+      "relations_to_verify": [
+        {"from": "PostgresMain", "to": "exec_simple_query", "type": "calls", "file": "src/backend/tcop/postgres.c"},
+        {"from": "exec_simple_query", "to": "pg_parse_query", "type": "calls", "file": "src/backend/tcop/fastpath.c"}
+      ]
+    },
+    {
+      "id": "R-Q2-R4",
+      "objective": "Trace the execution flow of a simple SQL query from receipt to result",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 4,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/tcop/fastpath.c"],
+      "criteria": [
+        "Must identify exec_simple_query as a key function in simple query execution",
+        "Must explain the role of pg_parse_query in parsing SQL",
+        "Must mention the connection between parsing and execution",
+        "Must describe at least 3 functions in the call chain"
+      ],
+      "relations_to_verify": [
+        {"from": "PostgresMain", "to": "exec_simple_query", "type": "calls", "file": "src/backend/tcop/postgres.c"},
+        {"from": "exec_simple_query", "to": "pg_parse_query", "type": "calls", "file": "src/backend/tcop/fastpath.c"}
+      ]
+    },
+    {
+      "id": "R-Q3-R1",
+      "objective": "Explain the parser architecture and how SQL queries are parsed",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 1,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/parser/analyze.c", "src/backend/parser/gram.y", "src/backend/parser/parser.c"],
+      "criteria": [
+        "Must identify raw_parser as the core parsing function",
+        "Must explain the role of gram.y in parsing",
+        "Must mention pg_parse_query as the entry point for parsing",
+        "Must describe the relationship between raw_parser and the grammar"
+      ],
+      "relations_to_verify": [
+        {"from": "pg_parse_query", "to": "raw_parser", "type": "calls", "file": "src/backend/parser/parser.c"},
+        {"from": "raw_parser", "to": "gram.y", "type": "uses", "file": "src/backend/parser/gram.y"}
+      ]
+    },
+    {
+      "id": "R-Q3-R2",
+      "objective": "Explain the parser architecture and how SQL queries are parsed",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 2,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/parser/analyze.c", "src/backend/parser/gram.y", "src/backend/parser/parser.c"],
+      "criteria": [
+        "Must identify raw_parser as the core parsing function",
+        "Must explain the role of gram.y in parsing",
+        "Must mention pg_parse_query as the entry point for parsing",
+        "Must describe the relationship between raw_parser and the grammar"
+      ],
+      "relations_to_verify": [
+        {"from": "pg_parse_query", "to": "raw_parser", "type": "calls", "file": "src/backend/parser/parser.c"},
+        {"from": "raw_parser", "to": "gram.y", "type": "uses", "file": "src/backend/parser/gram.y"}
+      ]
+    },
+    {
+      "id": "R-Q3-R3",
+      "objective": "Explain the parser architecture and how SQL queries are parsed",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 3,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/parser/analyze.c", "src/backend/parser/gram.y", "src/backend/parser/parser.c"],
+      "criteria": [
+        "Must identify raw_parser as the core parsing function",
+        "Must explain the role of gram.y in parsing",
+        "Must mention pg_parse_query as the entry point for parsing",
+        "Must describe the relationship between raw_parser and the grammar"
+      ],
+      "relations_to_verify": [
+        {"from": "pg_parse_query", "to": "raw_parser", "type": "calls", "file": "src/backend/parser/parser.c"},
+        {"from": "raw_parser", "to": "gram.y", "type": "uses", "file": "src/backend/parser/gram.y"}
+      ]
+    },
+    {
+      "id": "R-Q3-R4",
+      "objective": "Explain the parser architecture and how SQL queries are parsed",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 4,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/parser/analyze.c", "src/backend/parser/gram.y", "src/backend/parser/parser.c"],
+      "criteria": [
+        "Must identify raw_parser as the core parsing function",
+        "Must explain the role of gram.y in parsing",
+        "Must mention pg_parse_query as the entry point for parsing",
+        "Must describe the relationship between raw_parser and the grammar"
+      ],
+      "relations_to_verify": [
+        {"from": "pg_parse_query", "to": "raw_parser", "type": "calls", "file": "src/backend/parser/parser.c"},
+        {"from": "raw_parser", "to": "gram.y", "type": "uses", "file": "src/backend/parser/gram.y"}
+      ]
+    },
+    {
+      "id": "R-Q4-R1",
+      "objective": "Describe how PostgreSQL manages client connections and backend processes",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 1,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/libpq/", "src/backend/main/main.c"],
+      "criteria": [
+        "Must identify BackendStartUp as involved in connection initialization",
+        "Must explain the fork model for backend processes",
+        "Must mention how client connections are accepted",
+        "Must describe the relationship between postmaster and backend processes"
+      ],
+      "relations_to_verify": [
+        {"from": "postmaster", "to": "BackendStartUp", "type": "spawns", "file": "src/backend/tcop/postgres.c"},
+        {"from": "BackendStartUp", "to": "PostgresMain", "type": "calls", "file": "src/backend/main/main.c"}
+      ]
+    },
+    {
+      "id": "R-Q4-R2",
+      "objective": "Describe how PostgreSQL manages client connections and backend processes",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 2,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/libpq/", "src/backend/main/main.c"],
+      "criteria": [
+        "Must identify BackendStartUp as involved in connection initialization",
+        "Must explain the fork model for backend processes",
+        "Must mention how client connections are accepted",
+        "Must describe the relationship between postmaster and backend processes"
+      ],
+      "relations_to_verify": [
+        {"from": "postmaster", "to": "BackendStartUp", "type": "spawns", "file": "src/backend/tcop/postgres.c"},
+        {"from": "BackendStartUp", "to": "PostgresMain", "type": "calls", "file": "src/backend/main/main.c"}
+      ]
+    },
+    {
+      "id": "R-Q4-R3",
+      "objective": "Describe how PostgreSQL manages client connections and backend processes",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 3,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/libpq/", "src/backend/main/main.c"],
+      "criteria": [
+        "Must identify BackendStartUp as involved in connection initialization",
+        "Must explain the fork model for backend processes",
+        "Must mention how client connections are accepted",
+        "Must describe the relationship between postmaster and backend processes"
+      ],
+      "relations_to_verify": [
+        {"from": "postmaster", "to": "BackendStartUp", "type": "spawns", "file": "src/backend/tcop/postgres.c"},
+        {"from": "BackendStartUp", "to": "PostgresMain", "type": "calls", "file": "src/backend/main/main.c"}
+      ]
+    },
+    {
+      "id": "R-Q4-R4",
+      "objective": "Describe how PostgreSQL manages client connections and backend processes",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 4,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/libpq/", "src/backend/main/main.c"],
+      "criteria": [
+        "Must identify BackendStartUp as involved in connection initialization",
+        "Must explain the fork model for backend processes",
+        "Must mention how client connections are accepted",
+        "Must describe the relationship between postmaster and backend processes"
+      ],
+      "relations_to_verify": [
+        {"from": "postmaster", "to": "BackendStartUp", "type": "spawns", "file": "src/backend/tcop/postgres.c"},
+        {"from": "BackendStartUp", "to": "PostgresMain", "type": "calls", "file": "src/backend/main/main.c"}
+      ]
+    },
+    {
+      "id": "R-Q5-R1",
+      "objective": "Explain the storage layer architecture and how data is stored on disk",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 1,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/access/", "src/backend/storage/", "src/include/storage/"],
+      "criteria": [
+        "Must identify buffer manager as part of storage",
+        "Must explain heap tuple storage format",
+        "Must mention WAL (Write-Ahead Logging) mechanism",
+        "Must describe at least one storage-related function"
+      ],
+      "relations_to_verify": [
+        {"from": "buffer manager", "to": "shared buffers", "type": "manages", "file": "src/backend/storage/buffer/"},
+        {"from": "WAL", "to": "disk", "type": "writes", "file": "src/backend/access/transam/"}
+      ]
+    },
+    {
+      "id": "R-Q5-R2",
+      "objective": "Explain the storage layer architecture and how data is stored on disk",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 2,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/access/", "src/backend/storage/", "src/include/storage/"],
+      "criteria": [
+        "Must identify buffer manager as part of storage",
+        "Must explain heap tuple storage format",
+        "Must mention WAL (Write-Ahead Logging) mechanism",
+        "Must describe at least one storage-related function"
+      ],
+      "relations_to_verify": [
+        {"from": "buffer manager", "to": "shared buffers", "type": "manages", "file": "src/backend/storage/buffer/"},
+        {"from": "WAL", "to": "disk", "type": "writes", "file": "src/backend/access/transam/"}
+      ]
+    },
+    {
+      "id": "R-Q5-R3",
+      "objective": "Explain the storage layer architecture and how data is stored on disk",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 3,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/access/", "src/backend/storage/", "src/include/storage/"],
+      "criteria": [
+        "Must identify buffer manager as part of storage",
+        "Must explain heap tuple storage format",
+        "Must mention WAL (Write-Ahead Logging) mechanism",
+        "Must describe at least one storage-related function"
+      ],
+      "relations_to_verify": [
+        {"from": "buffer manager", "to": "shared buffers", "type": "manages", "file": "src/backend/storage/buffer/"},
+        {"from": "WAL", "to": "disk", "type": "writes", "file": "src/backend/access/transam/"}
+      ]
+    },
+    {
+      "id": "R-Q5-R4",
+      "objective": "Explain the storage layer architecture and how data is stored on disk",
+      "series": "R",
+      "phase": "repetition",
+      "repeat_index": 4,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/access/", "src/backend/storage/", "src/include/storage/"],
+      "criteria": [
+        "Must identify buffer manager as part of storage",
+        "Must explain heap tuple storage format",
+        "Must mention WAL (Write-Ahead Logging) mechanism",
+        "Must describe at least one storage-related function"
+      ],
+      "relations_to_verify": [
+        {"from": "buffer manager", "to": "shared buffers", "type": "manages", "file": "src/backend/storage/buffer/"},
+        {"from": "WAL", "to": "disk", "type": "writes", "file": "src/backend/access/transam/"}
+      ]
+    }
+  ],
+  "series_T": [
+    {
+      "id": "T-Q1-P1",
+      "objective": "Create a code tour that traces the complete path from SQL query reception to parsing completion",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": true,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/tcop/fastpath.c", "src/backend/parser/"],
+      "criteria": [
+        "Must trace from client query receipt to parsed representation",
+        "Must identify at least 3 functions in the call chain",
+        "Must explain the role of each function",
+        "Must provide file and line references for each step"
+      ],
+      "relations_to_verify": [
+        {"from": "PostgresMain", "to": "exec_simple_query", "type": "calls", "file": "src/backend/tcop/postgres.c"},
+        {"from": "exec_simple_query", "to": "pg_parse_query", "type": "calls", "file": "src/backend/tcop/fastpath.c"},
+        {"from": "pg_parse_query", "to": "raw_parser", "type": "calls", "file": "src/backend/parser/parser.c"}
+      ]
+    },
+    {
+      "id": "T-Q2-P1",
+      "objective": "Create a code tour that explains the analyzer and rewriter phase of query processing",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": true,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/parser/analyze.c", "src/backend/rewrite/"],
+      "criteria": [
+        "Must identify pg_analyze_and_rewrite as a key function",
+        "Must explain semantic analysis of queries",
+        "Must describe query rewriting mechanism",
+        "Must trace at least one complete transformation path"
+      ],
+      "relations_to_verify": [
+        {"from": "pg_parse_query", "to": "pg_analyze_and_rewrite", "type": "calls", "file": "src/backend/tcop/fastpath.c"},
+        {"from": "pg_analyze_and_rewrite", "to": "parse_analyze", "type": "calls", "file": "src/backend/parser/analyze.c"}
+      ]
+    },
+    {
+      "id": "T-Q3-P1",
+      "objective": "Create a code tour that traces the query planning phase",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": true,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/optimizer/", "src/backend/planner"],
+      "criteria": [
+        "Must identify pg_plan_queries as the planner entry point",
+        "Must explain how parsed queries become execution plans",
+        "Must mention at least 3 planning functions",
+        "Must describe optimization steps"
+      ],
+      "relations_to_verify": [
+        {"from": "pg_analyze_and_rewrite", "to": "pg_plan_queries", "type": "calls"},
+        {"from": "pg_plan_queries", "to": "planner", "type": "calls", "file": "src/backend/optimizer/planner.c"}
+      ]
+    },
+    {
+      "id": "T-Q4-P1",
+      "objective": "Create a code tour that explains how PostgreSQL executes prepared statements",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": true,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/tcop/prepstmt.c", "src/backend/tcop/postgres.c"],
+      "criteria": [
+        "Must identify PrepareQuery as the preparation function",
+        "Must explain the difference from simple query execution",
+        "Must describe how prepared statements are stored",
+        "Must trace execution of a prepared statement"
+      ],
+      "relations_to_verify": [
+        {"from": "PostgresMain", "to": "PrepareQuery", "type": "calls", "file": "src/backend/tcop/prepstmt.c"},
+        {"from": "PrepareQuery", "to": "pg_plan_queries", "type": "calls"}
+      ]
+    },
+    {
+      "id": "T-Q5-P1",
+      "objective": "Create a code tour that traces error handling and message reporting",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": true,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/libpq/", "src/backend/tcop/postgres.c"],
+      "criteria": [
+        "Must identify elog as the error logging mechanism",
+        "Must explain error severity levels",
+        "Must describe how errors are reported to client",
+        "Must trace at least one error propagation path"
+      ],
+      "relations_to_verify": [
+        {"from": "any function", "to": "elog", "type": "calls", "file": "src/backend/libpq/pqcomm.c"},
+        {"from": "elog", "to": "send message to client", "type": "sends"}
+      ]
+    },
+    {
+      "id": "T-Q6-P1",
+      "objective": "Create a code tour that explains transaction management",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": true,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/access/transam/", "src/backend/commands/"],
+      "criteria": [
+        "Must identify BeginTransaction as transaction start",
+        "Must explain COMMIT and ROLLBACK handling",
+        "Must describe transaction state management",
+        "Must mention WAL involvement in transactions"
+      ],
+      "relations_to_verify": [
+        {"from": "BeginTransaction", "to": "WAL", "type": "uses", "file": "src/backend/access/transam/"},
+        {"from": "COMMIT", "to": "WAL flush", "type": "triggers"}
+      ]
+    },
+    {
+      "id": "T-Q7-P1",
+      "objective": "Create a code tour that traces memory management in PostgreSQL",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": true,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/utils/mmgr/", "src/backend/nodes/"],
+      "criteria": [
+        "Must identify MemoryContext as the memory management mechanism",
+        "Must explain memory allocation strategies",
+        "Must describe memory context hierarchy",
+        "Must trace memory allocation in at least one use case"
+      ],
+      "relations_to_verify": [
+        {"from": "MemoryContextCreate", "to": "MemoryContext", "type": "creates", "file": "src/backend/utils/mmgr/mcxt.c"},
+        {"from": "MemoryContext", "to": "palloc", "type": "provides"}
+      ]
+    },
+    {
+      "id": "T-Q8-P1",
+      "objective": "Create a code tour that explains catalog access and system tables",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": true,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/catalog/", "src/include/catalog/"],
+      "criteria": [
+        "Must identify pg_class and pg_attribute as catalog tables",
+        "Must explain how system catalogs are accessed",
+        "Must describe cache mechanisms for catalog access",
+        "Must trace at least one catalog lookup"
+      ],
+      "relations_to_verify": [
+        {"from": "SearchSysCache", "to": "system catalogs", "type": "queries", "file": "src/backend/catalog/catcache.c"},
+        {"from": "catalog cache", "to": "pg_class", "type": "caches"}
+      ]
+    },
+    {
+      "id": "T-Q9-P1",
+      "objective": "Create a code tour that explains the executor and how plans are executed",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": true,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/executor/", "src/include/executor/"],
+      "criteria": [
+        "Must identify ExecutorRun as the executor entry point",
+        "Must explain how query plans are executed",
+        "Must describe the role of scan nodes",
+        "Must trace execution of at least one node type"
+      ],
+      "relations_to_verify": [
+        {"from": "ExecutorRun", "to": "ExecProcNode", "type": "calls", "file": "src/backend/executor/execMain.c"},
+        {"from": "ExecProcNode", "to": "scan node functions", "type": "dispatches"}
+      ]
+    },
+    {
+      "id": "T-Q10-P1",
+      "objective": "Create a code tour that explains utility commands (CREATE, DROP, ALTER)",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": true,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/commands/", "src/backend/catalog/"],
+      "criteria": [
+        "Must identify at least 3 utility command handlers",
+        "Must explain how DDL commands are processed",
+        "Must describe catalog updates during DDL",
+        "Must trace at least one complete utility command path"
+      ],
+      "relations_to_verify": [
+        {"from": "ProcessUtility", "to": "utility command handlers", "type": "dispatches", "file": "src/backend/tcop/utility.c"},
+        {"from": "CREATE command", "to": "catalog update", "type": "triggers"}
+      ]
+    },
+    {
+      "id": "T-Q11-N1",
+      "objective": "Extend the query parsing tour to include syntax error handling",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": false,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/parser/parser.c", "src/backend/parser/gram.y", "src/backend/parser/scanner.c"],
+      "criteria": [
+        "Must identify error recovery mechanisms in parser",
+        "Must explain how syntax errors are detected",
+        "Must describe error reporting to client",
+        "Must trace error handling in at least one parse scenario"
+      ],
+      "relations_to_verify": [
+        {"from": "yyparse", "to": "error recovery", "type": "implements", "file": "src/backend/parser/gram.y"},
+        {"from": "parser error", "to": "elog", "type": "reports", "file": "src/backend/parser/parser.c"}
+      ]
+    },
+    {
+      "id": "T-Q12-N1",
+      "objective": "Extend the analyzer tour to explain type checking and coercion",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": false,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/parser/analyze.c", "src/backend/catalog/pg_type.c"],
+      "criteria": [
+        "Must identify type checking functions in analyze.c",
+        "Must explain implicit type coercion mechanism",
+        "Must describe how type information is retrieved from catalog",
+        "Must trace type checking for at least one SQL construct"
+      ],
+      "relations_to_verify": [
+        {"from": "parse_analyze", "to": "type checking", "type": "includes", "file": "src/backend/parser/analyze.c"},
+        {"from": "type checking", "to": "pg_type catalog", "type": "queries", "file": "src/backend/catalog/pg_type.c"}
+      ]
+    },
+    {
+      "id": "T-Q13-N1",
+      "objective": "Extend the planner tour to explain join strategies",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": false,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/optimizer/plan/", "src/backend/optimizer/path/"],
+      "criteria": [
+        "Must identify at least 3 join strategies (nested loop, hash, merge)",
+        "Must explain how join order is determined",
+        "Must describe cost estimation for joins",
+        "Must trace join planning for a multi-table query"
+      ],
+      "relations_to_verify": [
+        {"from": "planner", "to": "join planning", "type": "includes", "file": "src/backend/optimizer/plan/planner.c"},
+        {"from": "join planning", "to": "cost estimation", "type": "uses", "file": "src/backend/optimizer/path/costsize.c"}
+      ]
+    },
+    {
+      "id": "T-Q14-N1",
+      "objective": "Extend the executor tour to explain expression evaluation",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": false,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/executor/funcs.c", "src/backend/executor/expr.c"],
+      "criteria": [
+        "Must identify ExecEvalExpr as expression evaluation function",
+        "Must explain how scalar expressions are evaluated",
+        "Must describe function call execution",
+        "Must trace evaluation of at least one complex expression"
+      ],
+      "relations_to_verify": [
+        {"from": "ExecutorRun", "to": "expression evaluation", "type": "includes", "file": "src/backend/executor/execMain.c"},
+        {"from": "ExecEvalExpr", "to": "function execution", "type": "calls", "file": "src/backend/executor/funcs.c"}
+      ]
+    },
+    {
+      "id": "T-Q15-N1",
+      "objective": "Create a code tour that explains index access methods",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": false,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/access/index/", "src/backend/access/heap/"],
+      "criteria": [
+        "Must identify at least 2 index access method types",
+        "Must explain how index scans work",
+        "Must describe the relationship between index and heap access",
+        "Must trace index usage in query execution"
+      ],
+      "relations_to_verify": [
+        {"from": "index access method", "to": "heap access method", "type": "uses", "file": "src/backend/access/index/"},
+        {"from": "IndexScan", "to": "heap fetch", "type": "triggers", "file": "src/backend/access/heap/"}
+      ]
+    },
+    {
+      "id": "T-Q16-N1",
+      "objective": "Create a code tour that explains sorting and aggregation",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": false,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/executor/nodeSort.c", "src/backend/executor/nodeAgg.c"],
+      "criteria": [
+        "Must identify sorting implementation in nodeSort.c",
+        "Must explain aggregation mechanisms in nodeAgg.c",
+        "Must describe how ORDER BY and GROUP BY are processed",
+        "Must trace at least one sort or aggregation operation"
+      ],
+      "relations_to_verify": [
+        {"from": "ExecutorRun", "to": "Sort node", "type": "executes", "file": "src/backend/executor/nodeSort.c"},
+        {"from": "ExecutorRun", "to": "Agg node", "type": "executes", "file": "src/backend/executor/nodeAgg.c"}
+      ]
+    },
+    {
+      "id": "T-Q17-N1",
+      "objective": "Create a code tour that explains locking and concurrency control",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": false,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/storage/lmgr/", "src/backend/access/heap/"],
+      "criteria": [
+        "Must identify lock manager as concurrency control mechanism",
+        "Must explain different lock types (row, table, page)",
+        "Must describe lock acquisition and release",
+        "Must trace locking in at least one operation"
+      ],
+      "relations_to_verify": [
+        {"from": "LockAcquire", "to": "lock table", "type": "updates", "file": "src/backend/storage/lmgr/lock.c"},
+        {"from": "operation", "to": "LockAcquire", "type": "calls"}
+      ]
+    },
+    {
+      "id": "T-Q18-N1",
+      "objective": "Create a code tour that explains vacuum and maintenance operations",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": false,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/commands/vacuum.c", "src/backend/access/heap/vacuumlazy.c"],
+      "criteria": [
+        "Must identify VACUUM as a maintenance command",
+        "Must explain what vacuum does (dead tuple removal, stats update)",
+        "Must describe lazy vacuum mechanism",
+        "Must trace vacuum execution for a table"
+      ],
+      "relations_to_verify": [
+        {"from": "vacuum", "to": "heap scan", "type": "performs", "file": "src/backend/access/heap/vacuumlazy.c"},
+        {"from": "vacuum", "to": "stats update", "type": "updates"}
+      ]
+    },
+    {
+      "id": "T-Q19-N1",
+      "objective": "Create a code tour that explains checkpoints and recovery",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": false,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/backend/access/transam/ckpt.c", "src/backend/access/transam/xlog.c"],
+      "criteria": [
+        "Must identify CheckpointWrite as checkpoint initiation",
+        "Must explain checkpoint process and WAL flushing",
+        "Must describe recovery procedure",
+        "Must trace checkpoint creation and recovery steps"
+      ],
+      "relations_to_verify": [
+        {"from": "CheckpointWrite", "to": "WAL flush", "type": "triggers", "file": "src/backend/access/transam/ckpt.c"},
+        {"from": "recovery", "to": "WAL replay", "type": "uses", "file": "src/backend/access/transam/xlog.c"}
+      ]
+    },
+    {
+      "id": "T-Q20-N1",
+      "objective": "Create a code tour that explains access method interface and extensibility",
+      "series": "T",
+      "phase": "transfer",
+      "repeat_index": 1,
+      "is_priming": false,
+      "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "expected_areas": ["src/include/access/", "src/backend/access/", "src/backend/index/"],
+      "criteria": [
+        "Must identify the access method interface",
+        "Must explain how different access methods implement the interface",
+        "Must describe extensibility mechanism for new access methods",
+        "Must trace at least one access method operation"
+      ],
+      "relations_to_verify": [
+        {"from": "access method interface", "to": "heap access method", "type": "implements", "file": "src/backend/access/heap/"},
+        {"from": "access method interface", "to": "index access method", "type": "implements", "file": "src/backend/access/index/"}
+      ]
+    }
+  ],
+  "evaluation_criteria": {
+    "correct": "The response is relevant and central relations are accurate",
+    "evidence_supported": "All claims are supported by evidence from the code",
+    "major_missing_relation": "A major expected relation is absent",
+    "critical_false_claim": "A critical claim is false"
+  },
+  "notes": "This is a sealed question set. Questions and expectations are not revealed to agents during benchmarking."
+}

@@ -1,0 +1,42 @@
+{
+  "spec_version": "174",
+  "ticket": "T04",
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "questions_file": "poc/benchmark/postgres-questions.json",
+  "questions_hash": "sha256:6686a784207db62dac054e627b8b3db479297f9cc8409e371486d8968bb40895",
+  "expected_answers_file": "poc/benchmark/postgres-expected-answers.json",
+  "expected_answers_hash": "sha256:6c832614e0ca7beea9a45e103f84925193a9817f9fabcdfb1f164a926bf03f62",
+  "fixture_directory": "poc/benchmark/postgres",
+  "fixture_hash": "sha256:76904ae16521221394ad88dd61ae3e5dba841f87564565950762945d83727702",
+  "date": "2026-11-15",
+  "author": "spec-174-implementation",
+  "description": "Sealed manifest for PostgreSQL benchmark fixture and question set - T04",
+  "g3_validation": {
+    "sha_verified": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "clean_tree": true,
+    "read_only": true,
+    "same_tree_for_both_agents": true
+  },
+  "contents": {
+    "questions": {
+      "total": 40,
+      "series_R": 20,
+      "series_T": 20,
+      "series_T_priming": 10,
+      "series_T_neighboring": 10,
+      "version": "1.0"
+    },
+    "fixture": {
+      "repository": "https://github.com/postgres/postgres",
+      "sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "commit_message": "Drop support for named POSIX semaphores (the sem_open() kind).",
+      "read_only": true
+    }
+  },
+  "seal": {
+    "message": "SEALED MANIFEST - DO NOT MODIFY AFTER CREATION",
+    "timestamp": "2026-11-15",
+    "status": "G3 VALIDATED"
+  },
+  "notes": "This manifest is sealed and must not be modified after creation. All hashes are verified and G3 validation has passed."
+}
