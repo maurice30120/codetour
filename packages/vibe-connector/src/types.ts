@@ -26,6 +26,7 @@ export interface VibeNativeAgent {
 
 /** Usage counters attached to ONE LLM call, from the session journal action_result records. */
 export interface VibeCallUsage {
+  sessionId?: string;
   /** Index of the LLM call in the run (root session journal order). */
   callIndex: number;
   finishReason?: string;
@@ -75,7 +76,9 @@ export interface VibeConnectorConfig {
   /** Model alias passed as `--model` (headless). Defaults to the real alias 'mistral-medium-3.5'. */
   model?: string;
   maxTurns?: number;
+  maxTokens?: number;
   timeoutMs?: number;
+  outputDir?: string;
 }
 
 export interface VibeAvailability {

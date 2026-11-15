@@ -1,101 +1,64 @@
-/**
- * Sentinel Execution Script for T03
- * 
- * This script invokes the REAL Vibe native research sub-agent,
- * validates G1 and G2, and generates the manifeste.
- */
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { detectVibeAvailability, invokeVibeNativeAgent, validateG1, validateG2 } from '../src/agent';
+import { VibeExecution } from '../src/types';
 
-import { invokeVibeNativeAgent, validateG1, validateG2 } from '../src/agent';
-import * as path from 'path';
-import * as fs from 'fs';
+const PINNED_REVISION = '70c4a57b64d39c526eb4c44a925eb92a6e56f3c5';
 
-interface SentinelManifest {
-  execution: any;
-  g1Passed: boolean;
-  g2Passed: boolean;
-  timestamp: string;
-  connectorVersion: string;
-  vibeVersion: string;
-}
-
-async function runSentinelExecution(): Promise<void> {
-  console.log('\n=== T03 Sentinel Execution ===');
-  console.log('Invoking Vibe native research sub-agent...\n');
-  
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const value = (flag: string): string => {
+    const index = args.indexOf(flag);
+    if (index < 0 || !args[index + 1] || args[index + 1].startsWith('--')) {
+      throw new Error('Usage: sentinel-execution --fixture <path> --output <json>');
+    }
+    return path.resolve(args[index + 1]);
+  };
+  const output = value('--output');
+  fs.mkdirSync(path.dirname(output), { recursive: true });
+  const fd = fs.openSync(output, 'wx', 0o600);
+  let execution: VibeExecution | null = null;
+  const reasons: string[] = [];
+  const evidenceDir = `${output}.evidence`;
+  const timestamp = new Date().toISOString();
+  let fixture: string | null = null;
+  let revision: string | null = null;
+  const availability = detectVibeAvailability();
   try {
-    // Ask a question about the CodeTour codebase
-    const question = 'Explain the main entry point and architecture of the CodeTour codebase';
-    
-    // Invoke the native research sub-agent
-    const execution = await invokeVibeNativeAgent(question, {
-      maxTurns: 20,
-      timeoutMs: 300000,
-    });
-
-    console.log('\n--- Execution Details ---');
-    console.log(`Execution ID: ${execution.id}`);
-    console.log(`Agent: ${execution.agent.name}@${execution.agent.version}`);
-    console.log(`Model: ${execution.agent.model}`);
-    console.log(`Tokens (input/output/total): ${execution.tokens.input}/${execution.tokens.output}/${execution.tokens.total}`);
-    console.log(`Tools: ${execution.agent.tools.join(', ')}`);
-    console.log(`Duration: ${execution.durationMs}ms`);
-    
-    // Validate G1 and G2
-    const g1Passed = validateG1(execution);
-    const g2Passed = validateG2(execution);
-    
-    console.log('\n--- Gate Validation ---');
-    console.log(`G1 (Authentic Vibe): ${g1Passed ? '✓ PASSED' : '✗ FAILED'}`);
-    console.log(`G2 (Total Instrumentation): ${g2Passed ? '✓ PASSED' : '✗ FAILED'}`);
-    
-    if (g1Passed && g2Passed) {
-      console.log('\n✓ T03 READY: Both G1 and G2 passed!');
-      
-      // Save the manifeste
-      const manifest: SentinelManifest = {
-        execution,
-        g1Passed,
-        g2Passed,
-        timestamp: new Date().toISOString(),
-        connectorVersion: '0.1.0',
-        vibeVersion: execution.agent.version,
-      };
-      
-      const manifestPath = path.join(
-        process.cwd(),
-        '..',
-        '..',
-        'docs',
-        'specs',
-        'spec-174-tickets',
-        '03-connecteur-vibe-natif-manifeste.json'
+    fixture = value('--fixture');
+    if (args.length !== 4 || new Set([args[0], args[2]]).size !== 2) throw new Error('Only --fixture and --output are accepted');
+    if (!fs.statSync(fixture).isDirectory()) throw new Error('Fixture must be a directory');
+    const git = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: fixture, encoding: 'utf8' });
+    revision = git.status === 0 ? git.stdout.trim() : null;
+    if (revision !== PINNED_REVISION) reasons.push(`Fixture revision must be ${PINNED_REVISION}; observed ${revision ?? 'unavailable'}`);
+    if (!availability.available) reasons.push('Vibe CLI unavailable');
+    if (!process.env.MISTRAL_API_KEY?.trim()) reasons.push('MISTRAL_API_KEY absent; no model call attempted');
+    if (!reasons.length) {
+      execution = await invokeVibeNativeAgent(
+        'Where is the PostgreSQL backend startup entry point? Give the path, function name and supporting line references.',
+        { workDir: fixture, outputDir: evidenceDir, maxTurns: 8, maxTokens: 50000, timeoutMs: 180000 }
       );
-      
-      fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-      
-      console.log(`\n✓ Manifeste saved to: ${manifestPath}`);
-      console.log('\n=== T03 DONE ===');
-      console.log('G1 PASSED, G2 PASSED');
-      
-      process.exit(0);
-    } else {
-      console.log('\n✗ T03 NO-GO');
-      if (!g1Passed) {
-        console.log('G1 FAILED: Authentic Vibe not verified');
-      }
-      if (!g2Passed) {
-        console.log('G2 FAILED: Token instrumentation missing');
-      }
-      process.exit(1);
     }
   } catch (error) {
-    console.error('\n✗ T03 NO-GO: Error invoking Vibe native agent');
-    console.error(error);
-    process.exit(1);
+    reasons.push(error instanceof Error ? error.message : String(error));
   }
+  const g1Passed = execution !== null && validateG1(execution);
+  const g2Passed = execution !== null && validateG2(execution);
+  if (!g1Passed) reasons.push('G1: native research child execution not proven');
+  if (!g2Passed) reasons.push('G2: complete reconciled root and child usage not proven');
+  const manifest = {
+    status: g1Passed && g2Passed ? 'GO' : 'NO-GO', execution, g1Passed, g2Passed,
+    reasons, timestamp, fixture, revision, expectedRevision: PINNED_REVISION, availability,
+    evidenceDir: fs.existsSync(evidenceDir) ? evidenceDir : null,
+  };
+  try { fs.writeFileSync(fd, JSON.stringify(manifest, null, 2) + '\n'); }
+  finally { fs.closeSync(fd); }
+  console.log(`${manifest.status}: ${output}`);
+  process.exitCode = manifest.status === 'GO' ? 0 : 1;
 }
 
-runSentinelExecution().catch(() => {
-  process.exit(1);
+main().catch(error => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
 });

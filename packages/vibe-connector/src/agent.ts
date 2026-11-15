@@ -26,6 +26,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { sanitizeArtifacts, sanitizeEvidence } from './evidence';
 import {
   VibeAvailability,
   VibeCallUsage,
@@ -38,6 +39,7 @@ const DEFAULT_CONFIG: VibeConnectorConfig = {
   vibeCommand: 'vibe',
   model: 'mistral-medium-3.5',
   maxTurns: 20,
+  maxTokens: 50000,
   timeoutMs: 300000,
 };
 
@@ -106,30 +108,29 @@ export async function invokeVibeNativeAgent(
   question: string,
   config: Partial<VibeConnectorConfig> = {}
 ): Promise<VibeExecution> {
-  const mergedConfig: VibeConnectorConfig = { ...DEFAULT_CONFIG, ...config };
+  const mergedConfig = validateVibeConfig(config);
+  if (!question.trim()) throw new RangeError('question must not be empty');
   const workDir = resolveWorkDir(mergedConfig);
-
-  // Runtime availability check FIRST: an explicit failure, never a simulated run.
-  const availability = detectVibeAvailability(mergedConfig);
-  if (!availability.available) {
-    throw new VibeUnavailableError(`Vibe CLI is not available in this environment: ${availability.error}`);
+  const outputDir = mergedConfig.outputDir ? path.resolve(mergedConfig.outputDir) : fs.mkdtempSync(path.join(os.tmpdir(), 'vibe-native-'));
+  if (mergedConfig.outputDir) {
+    fs.mkdirSync(path.dirname(outputDir), { recursive: true });
+    fs.mkdirSync(outputDir, { mode: 0o700 });
   }
-
-  const executionId = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
-  const outputDir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vibe-native-')), executionId);
-  fs.mkdirSync(outputDir, { recursive: true });
-
-  // Build the command line for headless mode. All flags verified against
-  // `vibe --help` (vibe 3.1.2). --auto-approve/--trust allow real tool execution.
+  const executionId = crypto.randomUUID();
+  const prompt = `Use the native agents.spawn tool with these exact arguments: ${JSON.stringify({ name: 'native-research', config_name: 'explore', message: question })}. Wait for the child's result and return it. Delegate the research to that configured child.`;
   const args = [
-    '-p', question,
-    '--output', 'json',
-    '--max-turns', String(mergedConfig.maxTurns!),
-    '--output-dir', outputDir,
-    '--auto-approve',
-    '--trust',
+    '-p', prompt, '--output', 'json', '--max-turns', String(mergedConfig.maxTurns),
+    '--max-tokens', String(mergedConfig.maxTokens), '--time-limit', String(mergedConfig.timeoutMs! / 1000),
+    '--output-dir', outputDir, '--auto-approve', '--trust',
   ];
   if (mergedConfig.model) args.push('--model', mergedConfig.model);
+  const persist = (name: string, value: string): void => fs.writeFileSync(path.join(outputDir, name), String(sanitizeEvidence(value)), { mode: 0o600 });
+  persist('invocation.json', JSON.stringify({ command: mergedConfig.vibeCommand, args, workDir, question, executionId }, null, 2));
+  const availability = detectVibeAvailability(mergedConfig);
+  persist('availability.json', JSON.stringify(availability, null, 2));
+  if (!availability.available) {
+    throw new VibeUnavailableError(`Vibe CLI is not available: ${availability.error}. Evidence: ${outputDir}`);
+  }
 
   return new Promise<VibeExecution>((resolve, reject) => {
     let stdout = '';
@@ -139,46 +140,64 @@ export async function invokeVibeNativeAgent(
     const vibeProcess = spawn(mergedConfig.vibeCommand!, args, {
       cwd: workDir,
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: mergedConfig.timeoutMs,
+      timeout: mergedConfig.timeoutMs! + 10000,
+      killSignal: 'SIGKILL',
     });
 
     vibeProcess.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
     vibeProcess.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
 
-    vibeProcess.on('error', (error) => {
-      cleanupOutputDir(outputDir);
-      reject(new VibeUnavailableError(`Vibe CLI invocation failed: ${error.message}`));
-    });
+    let spawnError: Error | undefined;
+    vibeProcess.on('error', (error) => { spawnError = error; });
 
     vibeProcess.on('close', (code, signal) => {
       try {
+        persist('stdout.json', stdout);
+        persist('stderr.txt', stderr);
+        persist('process.json', JSON.stringify({ code, signal, error: spawnError?.message }, null, 2));
+        sanitizeArtifacts(outputDir);
+        if (spawnError) throw spawnError;
         const exportPath = path.join(outputDir, 'export.json');
         if (!fs.existsSync(exportPath)) {
-          cleanupOutputDir(outputDir);
           const reason = signal
             ? `terminated by signal ${signal}${code === null ? ' (likely the configured timeout was reached)' : ''}`
             : `exit code ${code}`;
-          reject(new Error(`Vibe invocation produced no export.json (${reason}). stderr: ${stderr.slice(0, 2000)}`));
-          return;
+          throw new Error(`Vibe invocation produced no export.json (${reason})`);
         }
         const exportData = parseJsonFile(exportPath) as Record<string, unknown>;
         if (exportData.error) {
-          cleanupOutputDir(outputDir);
-          reject(new Error(`Vibe invocation reported an error: ${String(exportData.error)}`));
-          return;
+          throw new Error(`Vibe invocation reported an error: ${JSON.stringify(exportData.error)}`);
         }
         const metaData = parseJsonFile(path.join(outputDir, 'session', 'meta.json')) as Record<string, unknown>;
         const journalRecords = readJournalRecords(outputDir);
 
-        const execution = buildExecution({ stdout, exportData, metaData, journalRecords, question, executionId, spawnElapsedMs: Date.now() - spawnStarted });
-        cleanupOutputDir(outputDir);
+        const execution = buildExecution({ stdout: String(sanitizeEvidence(stdout)), exportData, metaData, journalRecords, question, executionId, spawnElapsedMs: Date.now() - spawnStarted });
+        execution.executionMetadata.evidenceDir = outputDir;
+        execution.executionMetadata.command = mergedConfig.vibeCommand;
+        execution.executionMetadata.args = args;
+        execution.executionMetadata.processExitCode = code;
+        execution.executionMetadata.processSignal = signal;
+        persist('execution.json', JSON.stringify(execution, null, 2));
         resolve(execution);
       } catch (error) {
-        cleanupOutputDir(outputDir);
-        reject(error instanceof Error ? error : new Error(String(error)));
+        sanitizeArtifacts(outputDir);
+        const failure = new Error(String(sanitizeEvidence(`${error instanceof Error ? error.message : String(error)}. Evidence: ${outputDir}`)));
+        persist('failure.json', JSON.stringify({ error: failure.message }, null, 2));
+        reject(failure);
       }
     });
   });
+}
+
+export function validateVibeConfig(config: Partial<VibeConnectorConfig> = {}): VibeConnectorConfig {
+  const merged = { ...DEFAULT_CONFIG, ...config };
+  for (const key of ['maxTurns', 'maxTokens', 'timeoutMs'] as const) {
+    if (typeof merged[key] !== 'number' || !Number.isSafeInteger(merged[key]) || merged[key]! <= 0) {
+      throw new RangeError(`${key} must be a positive safe integer`);
+    }
+  }
+  if (!merged.vibeCommand?.trim()) throw new RangeError('vibeCommand must not be empty');
+  return merged;
 }
 
 function parseJsonFile(filePath: string): Record<string, unknown> {
@@ -186,19 +205,43 @@ function parseJsonFile(filePath: string): Record<string, unknown> {
   catch { return {}; }
 }
 
-export interface JournalRecord { type?: string; payload?: Record<string, unknown>; }
+export interface JournalRecord { type?: string; payload?: Record<string, unknown>; sessionId?: string; }
+
+function counter(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
 
 /** Read every recorded journal line of the session (REAL per-call telemetry). */
 export function readJournalRecords(outputDir: string): JournalRecord[] {
-  const journalDir = path.join(outputDir, 'session', 'journal');
-  if (!fs.existsSync(journalDir)) return [];
+  const baseDir = fs.realpathSync(outputDir);
+  const exportData = parseJsonFile(path.join(outputDir, 'export.json'));
+  const children = Array.isArray(exportData.subagents) ? exportData.subagents as Record<string, unknown>[] : [];
+  const sessions = [{ session_id: exportData.session_id, journal_dir: exportData.journal_dir ?? 'session' }, ...children];
   const records: JournalRecord[] = [];
-  for (const file of fs.readdirSync(journalDir).filter(name => name.endsWith('.jsonl')).sort()) {
-    const content = fs.readFileSync(path.join(journalDir, file), 'utf-8');
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      try { records.push(JSON.parse(trimmed) as JournalRecord); } catch { /* a partially flushed line stays ignored; validation sees the gap via missing per-call usage */ }
+  for (const session of sessions) {
+    const sessionId = typeof session.session_id === 'string' ? session.session_id : undefined;
+    const invalid = (): void => { records.push({ type: 'journal_invalid', sessionId }); };
+    if (typeof session.journal_dir !== 'string') { invalid(); continue; }
+    const sessionDir = path.resolve(baseDir, session.journal_dir);
+    const relative = path.relative(baseDir, sessionDir);
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) { invalid(); continue; }
+    const journalDir = path.join(sessionDir, 'journal');
+    if (!fs.existsSync(journalDir) || fs.realpathSync(journalDir) !== journalDir) { invalid(); continue; }
+    const files = fs.readdirSync(journalDir).filter(name => name.endsWith('.jsonl')).sort();
+    if (!files.length) invalid();
+    for (const file of files) {
+      const journalPath = path.join(journalDir, file);
+      if (!fs.lstatSync(journalPath).isFile()) { invalid(); continue; }
+      const content = fs.readFileSync(journalPath, 'utf-8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const record = JSON.parse(trimmed);
+          if (!record || typeof record !== 'object' || Array.isArray(record)) { invalid(); continue; }
+          records.push({ ...record, sessionId });
+        } catch { invalid(); }
+      }
     }
   }
   return records;
@@ -213,18 +256,25 @@ export function extractPerCallUsageAndTools(records: JournalRecord[]): { perCall
   for (const record of records) {
     if (record.type !== 'action_result') continue;
     const result = (record.payload?.result ?? {}) as Record<string, unknown>;
-    if (result.type && result.type !== 'completion_succeeded') continue; // failed/completed-elsewhere calls carry no usable counters
+    if (result.type !== 'completion_succeeded' && result.type !== 'completion_failed') continue;
     const inner = (result.result ?? {}) as Record<string, unknown>;
     const usage = inner.usage as Record<string, unknown> | undefined;
-    if (!usage) { completionsMissingUsage++; perCallUsage.push({ callIndex: perCallUsage.length, finishReason: inner.finish_reason as string | undefined, inputTokens: null, outputTokens: null, cachedInputTokens: null, totalTokens: null, usageMissing: true }); continue; }
+    const inputTokens = counter(usage?.input_tokens);
+    const outputTokens = counter(usage?.output_tokens);
+    const cachedInputTokens = counter(usage?.cached_input_tokens);
+    const totalTokens = counter(usage?.total_tokens);
+    const usageMissing = inputTokens === null || outputTokens === null || cachedInputTokens === null || totalTokens === null ||
+      totalTokens !== inputTokens + outputTokens || cachedInputTokens > inputTokens;
+    if (usageMissing) completionsMissingUsage++;
     perCallUsage.push({
       callIndex: perCallUsage.length,
+      sessionId: record.sessionId,
       finishReason: inner.finish_reason as string | undefined,
-      inputTokens: Number(usage.input_tokens ?? 0),
-      outputTokens: Number(usage.output_tokens ?? 0),
-      cachedInputTokens: Number(usage.cached_input_tokens ?? 0),
-      totalTokens: Number(usage.total_tokens ?? 0),
-      usageMissing: false,
+      inputTokens,
+      outputTokens,
+      cachedInputTokens,
+      totalTokens,
+      usageMissing,
     });
     for (const part of (Array.isArray(inner.parts) ? inner.parts : []) as Array<Record<string, unknown>>) {
       if (part.type === 'tool_call' && typeof part.name === 'string') {
@@ -293,7 +343,12 @@ export function buildExecution({ stdout, exportData, metaData, journalRecords, q
   executionId: string;
   spawnElapsedMs: number;
 }): VibeExecution {
-  const usage = (exportData.usage ?? {}) as Record<string, unknown>;
+  const sessions = [exportData, ...(Array.isArray(exportData.subagents) ? exportData.subagents as Record<string, unknown>[] : [])];
+  const total = (key: string): number => sessions.reduce((sum, session) => {
+    const value = counter((session.usage as Record<string, unknown> | undefined)?.[key]);
+    if (value === null) throw new Error(`Missing or invalid ${key} for session ${session.session_id}`);
+    return sum + value;
+  }, 0);
   const exportSessionId = typeof exportData.session_id === 'string' ? exportData.session_id : undefined;
   const metaSessionId = typeof metaData.session_id === 'string' ? metaData.session_id : undefined;
   const sessionId = exportSessionId ?? metaSessionId ?? executionId;
@@ -305,7 +360,9 @@ export function buildExecution({ stdout, exportData, metaData, journalRecords, q
   const activeModel = typeof config.active_model === 'string' && config.active_model.trim() ? config.active_model : undefined;
   if (!activeModel) throw new Error('export.json carries no config.active_model: cannot establish the executed model');
 
-  const { perCallUsage, toolsUsed, subagent, completionsMissingUsage } = extractPerCallUsageAndTools(journalRecords);
+  const { perCallUsage, toolsUsed, completionsMissingUsage } = extractPerCallUsageAndTools(journalRecords);
+  const researchChild = observedResearchChild(exportData, journalRecords, question);
+  const subagent = researchChild ? 'explore' : undefined;
 
   const startedAt = typeof exportData.started_at === 'string' ? exportData.started_at : (typeof metaData.start_time === 'string' ? metaData.start_time : undefined);
   const endedAt = typeof exportData.ended_at === 'string' ? exportData.ended_at : (typeof metaData.end_time === 'string' ? metaData.end_time : undefined);
@@ -318,9 +375,9 @@ export function buildExecution({ stdout, exportData, metaData, journalRecords, q
   if (!durationMs) durationMs = spawnElapsedMs; // real measured spawn duration as fallback, never invented
 
   const agent: VibeNativeAgent = {
-    name: subagent ?? (typeof config.default_agent === 'string' && config.default_agent.trim() ? config.default_agent : 'direct'),
+    name: researchChild ? String(researchChild.agent_name) : (typeof config.default_agent === 'string' && config.default_agent.trim() ? config.default_agent : 'direct'),
     version: vibeVersion,
-    model: activeModel,
+    model: researchChild ? String(researchChild.model) : activeModel,
     modelConfig: {
       temperature: typeof routedModelConfig.temperature === 'number' ? routedModelConfig.temperature : undefined,
       maxTokens: typeof routedModelConfig.max_output_tokens === 'number' ? routedModelConfig.max_output_tokens : undefined,
@@ -340,9 +397,9 @@ export function buildExecution({ stdout, exportData, metaData, journalRecords, q
     question,
     response: extractResponseFromOutput(stdout),
     tokens: {
-      input: Number(usage.input_tokens ?? 0),
-      output: Number(usage.output_tokens ?? 0),
-      total: Number(usage.total_tokens ?? 0),
+      input: total('input_tokens'),
+      output: total('output_tokens'),
+      total: total('total_tokens'),
     },
     perCallUsage,
     toolsUsed,
@@ -363,12 +420,33 @@ export function buildExecution({ stdout, exportData, metaData, journalRecords, q
       steps: exportData.steps,
       exportData,
       metaData,
+      journalRecords,
     },
   };
 }
 
-function cleanupOutputDir(outputDir: string): void {
-  try { if (fs.existsSync(outputDir)) fs.rmSync(outputDir, { recursive: true, force: true }); } catch { /* best effort */ }
+function observedResearchChild(exportData: Record<string, unknown>, records: JournalRecord[], question: string): Record<string, unknown> | undefined {
+  const children = Array.isArray(exportData.subagents) ? exportData.subagents as Record<string, unknown>[] : [];
+  return children.find(child => {
+    if (child.agent_type !== 'explore' || child.parent_session_id !== exportData.session_id ||
+      child.root_session_id !== exportData.session_id || typeof child.agent_name !== 'string' ||
+      typeof child.model !== 'string' || !child.model.trim() || !child.journal_dir) return false;
+    const childCalls = records.filter(record => record.sessionId === child.session_id);
+    if (!extractPerCallUsageAndTools(childCalls).perCallUsage.length || !extractPerCallUsageAndTools(childCalls).toolsUsed.length) return false;
+    return records.some(record => {
+      if (record.sessionId && record.sessionId !== exportData.session_id) return false;
+      const result = record.payload?.result as Record<string, unknown> | undefined;
+      if (record.type !== 'action_result' || result?.type !== 'completion_succeeded') return false;
+      const parts = (result.result as Record<string, unknown>)?.parts;
+      return Array.isArray(parts) && parts.some(part => {
+        if (part.type !== 'tool_call' || part.name !== 'agents.spawn' || !part.id || part.id !== child.spawn_call_id) return false;
+        try {
+          const args = JSON.parse(part.arguments_json);
+          return args.config_name === 'explore' && args.name === child.agent_name && args.message === question && !('instructions' in args);
+        } catch { return false; }
+      });
+    });
+  });
 }
 
 /**
@@ -379,11 +457,14 @@ function cleanupOutputDir(outputDir: string): void {
  */
 export function validateG1(execution: VibeExecution): boolean {
   const exportData = (execution.executionMetadata?.exportData ?? null) as Record<string, unknown> | null;
+  const child = exportData && observedResearchChild(exportData, execution.executionMetadata.journalRecords as JournalRecord[] ?? [], execution.question);
   const checks = [
+    execution.agent.agentType === 'subagent' && execution.subagent === 'explore',
+    !!child && child.agent_name === execution.agent.name,
     Boolean(execution.id?.trim()),
     // Version is the one the CLI reported in export.json for THIS run.
     Boolean(execution.agent.version?.trim()) && (!exportData || exportData.vibe_version === execution.agent.version),
-    Boolean(execution.agent.model?.trim()) && (!exportData || (exportData.config as Record<string, unknown> | undefined)?.active_model === execution.agent.model),
+    Boolean(execution.agent.model?.trim()) && child?.model === execution.agent.model,
     // Tools were extracted from the real execution (journal tool_call parts).
     Array.isArray(execution.toolsUsed) && execution.toolsUsed.length > 0 && execution.toolsUsed.every(tool => typeof tool === 'string' && tool.trim() !== ''),
     Boolean(execution.response?.trim()),
@@ -400,15 +481,34 @@ export function validateG1(execution: VibeExecution): boolean {
  */
 export function validateG2(execution: VibeExecution): boolean {
   const exportData = (execution.executionMetadata?.exportData ?? null) as Record<string, unknown> | null;
-  const exportUsage = (exportData?.usage ?? null) as Record<string, unknown> | null;
-  const checks = [
-    execution.tokens.input > 0,
-    execution.tokens.output > 0,
-    execution.tokens.total > 0,
-    !!exportUsage && Number(exportUsage.input_tokens ?? 0) > 0 && Number(exportUsage.output_tokens ?? 0) > 0,
-    // Per-call proof on THIS sentinel run:
-    execution.perCallUsage.length > 0,
-    execution.perCallUsage.every(call => !call.usageMissing && call.inputTokens !== null && call.outputTokens !== null),
-  ];
-  return checks.every(Boolean);
+  if (!exportData || execution.tokens.total <= 0) return false;
+  const records = execution.executionMetadata.journalRecords as JournalRecord[] ?? [];
+  if (records.some(record => record.type === 'journal_invalid')) return false;
+  const children = Array.isArray(exportData.subagents) ? exportData.subagents as Record<string, unknown>[] : [];
+  const sessions = [exportData, ...children];
+  const ids = sessions.map(session => session.session_id);
+  if (ids.some(id => typeof id !== 'string' || !id) || new Set(ids).size !== ids.length) return false;
+  if (records.some(record => record.sessionId && !ids.includes(record.sessionId))) return false;
+  const totals = { input: 0, output: 0, total: 0 };
+  for (const session of sessions) {
+    const calls = extractPerCallUsageAndTools(records.filter(record => (record.sessionId ?? exportData.session_id) === session.session_id)).perCallUsage;
+    const usage = session.usage as Record<string, unknown> | undefined;
+    if (!calls.length || calls.some(call => call.usageMissing)) return false;
+    const pairs = [
+      ['input_tokens', 'inputTokens'], ['output_tokens', 'outputTokens'],
+      ['cached_input_tokens', 'cachedInputTokens'], ['total_tokens', 'totalTokens'],
+    ] as const;
+    for (const [key, field] of pairs) {
+      const expected = counter(usage?.[key]);
+      if (expected === null || calls.some(call => counter(call[field]) === null) ||
+        calls.reduce((sum, call) => sum + call[field]!, 0) !== expected) return false;
+    }
+    if (usage!.total_tokens !== Number(usage!.input_tokens) + Number(usage!.output_tokens) ||
+      Number(usage!.cached_input_tokens) > Number(usage!.input_tokens)) return false;
+    if (session.steps !== undefined && session.steps !== null && session.steps !== calls.length) return false;
+    totals.input += Number(usage!.input_tokens);
+    totals.output += Number(usage!.output_tokens);
+    totals.total += Number(usage!.total_tokens);
+  }
+  return execution.tokens.input === totals.input && execution.tokens.output === totals.output && execution.tokens.total === totals.total;
 }
