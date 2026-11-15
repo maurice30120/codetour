@@ -2,8 +2,9 @@ import { resolve } from 'node:path';
 import { explore } from './explore.ts';
 import { mistral } from './mistral.ts';
 import { PROMPT_SHA256 } from './decomposition-prompt.ts';
-import type { Budget } from './explore.ts';
+import type { Budget, Model } from './explore.ts';
 
+let model: Model | undefined;
 try {
 const args = process.argv.slice(2);
 let codeMode = false;
@@ -31,10 +32,11 @@ while (args[0]?.startsWith('--')) {
 const [root, ...objective] = args;
 if (!root || !objective.length) throw new Error('Usage: npm run explore -- [--code] [--memory <directory>] [--tokens <n>] [--duration-ms <n>] [--temperature <n>] <workspace> <objective>');
 if (!Number.isFinite(temperature) || temperature < 0 || temperature > 1) throw new Error('Temperature must be between 0 and 1');
-const result = await explore({ root: resolve(root), objective: objective.join(' '), codeMode, memory, budget, model: mistral(process.env.MISTRAL_API_KEY ?? '', process.env.MISTRAL_MODEL, { temperature }) });
+model = mistral(process.env.MISTRAL_API_KEY ?? '', process.env.MISTRAL_MODEL, { temperature });
+const result = await explore({ root: resolve(root), objective: objective.join(' '), codeMode, memory, budget, model });
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 } catch (error) {
-  const failure = (error as any).exploration ?? { status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, metrics: { modelCalls: 0, toolCalls: 0, inputTokens: 0, outputTokens: 0, usageAvailable: false }, callTrace: [] };
+  const failure = ((error as any).exploration) ?? { status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model?.snapshot?.(), metrics: { modelCalls: 0, toolCalls: 0, inputTokens: 0, outputTokens: 0, usageAvailable: false }, callTrace: [] };
   process.stdout.write(`${JSON.stringify(failure, null, 2)}\n`);
   process.exitCode = 1;
 }

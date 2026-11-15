@@ -14,7 +14,11 @@ const resultSchema = z.object({ objective: z.string(), entryPoints: z.array(item
 export { DECOMPOSITION_PROMPT, PROMPT_SHA256 };
 
 export type ToolCall = { id: string; name: string; arguments: Record<string, unknown> };
-export type Model = { complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean }): Promise<{ toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }> };
+export type Model = {
+  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean }): Promise<{ toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
+  /** Actual provider parameters of the last request (real provenance, no defaults). */
+  snapshot?(): { model?: string; temperature?: number; maxOutputTokens?: number };
+};
 export type Budget = { iterations?: number; calls?: number; tokens?: number; durationMs?: number };
 const State = Annotation.Root({ messages: Annotation<any[]>({ reducer: (a, b) => a.concat(b), default: () => [] }), result: Annotation<any>, stopReason: Annotation<string> });
 
@@ -390,7 +394,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
     metrics.memoryPurges = library.purges();
   }
   metrics.durationMs = Date.now() - startedMs;
-  return { ...result, status: state.result === undefined || state.stopReason ? 'partial' : 'complete', stopReason: state.stopReason ?? null, promptSha256: PROMPT_SHA256, metrics, callTrace, consolidationReport };
+  return { ...result, status: state.result === undefined || state.stopReason ? 'partial' : 'complete', stopReason: state.stopReason ?? null, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
   } catch (error) {
     metrics.durationMs = Date.now() - startedMs;
     throw Object.assign(error instanceof Error ? error : new Error(String(error)), {

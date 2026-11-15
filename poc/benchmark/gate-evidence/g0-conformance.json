@@ -13,16 +13,16 @@
     "packages/exploration-poc",
     "packages/exploration-sandbox"
   ],
-  "source_digest": "df77a97209886f52fb799e30d8c0a2d1f599037d7001a0d3bbdcb5920af412ef",
-  "ran_at": "2026-11-15T21:46:07.972Z",
+  "source_digest": "06e5522a45bf0edf5cfb3a35d0381a430581d5e3941d4e4f8a35447f50002fb1",
+  "ran_at": "2026-11-15T21:51:54.649Z",
   "transcripts": [
     {
       "path": "g0-1.log",
-      "sha256": "9dc6ef509773760dba0d90c555defdde5b461f6e76a65189482e916bcdc578cb"
+      "sha256": "7228ebece071189da4eb3bbc8e59aff0fe9a5a6130122c2d174c86d129d0eec1"
     },
     {
       "path": "g0-2.log",
-      "sha256": "88e212227066195accdbbfb9727a6b3466d295b40e7f914144168260bff5bfe7"
+      "sha256": "932728d48f4116be011e1781eccad10c96dd1facde5d052afa888711fd3b793a"
     }
   ]
 }

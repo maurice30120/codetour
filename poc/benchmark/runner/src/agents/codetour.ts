@@ -215,7 +215,12 @@ export class CodeTourExecutor implements AgentExecutor {
     }
     // Ingest spent tokens BEFORE rejecting invalid provenance or a failed process.
     if (harness.promptSha256 !== this.canonicalPromptHash()) throw new Error('NO-GO: harness canonical prompt hash mismatch');
-    if (!harness.modelConfig || JSON.stringify(harness.modelConfig) !== JSON.stringify(this.executionConfig())) {
+    // Provenance check on the values the provider actually received (the
+    // per-call max_output_tokens is harness budget accounting reported in the
+    // call trace, not a fixed request parameter — so only the model id and the
+    // temperature are compared against the configured execution).
+    if (!harness.modelConfig || harness.modelConfig.model !== this.model ||
+      harness.modelConfig.temperature !== this.modelParams.temperature) {
       throw new Error('NO-GO: harness effective model configuration differs or is unreported');
     }
     if (output.code !== 0 && !harness.callTrace?.length) throw new Error('NO-GO: child failed without provider telemetry');

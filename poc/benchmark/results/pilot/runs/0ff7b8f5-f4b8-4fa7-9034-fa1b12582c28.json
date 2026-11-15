@@ -1,0 +1,84 @@
+{
+  "run_id": "0ff7b8f5-f4b8-4fa7-9034-fa1b12582c28",
+  "timestamp": "2026-11-15T21:47:19.103Z",
+  "agent": "codetour",
+  "agent_version": "exploration-poc-harness",
+  "model": "mistral-small-latest",
+  "model_params": {
+    "temperature": 0,
+    "max_tokens": 16384
+  },
+  "question_id": "PILOT-pg-config",
+  "series": "R",
+  "phase": "repetition",
+  "repeat_index": 1,
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "calls": [
+    {
+      "call_id": "call-2ae7281f-efd9-425a-a6c3-76d6911632f7-0",
+      "call_type": "prompt",
+      "input_tokens": 1737,
+      "output_tokens": 79,
+      "cache_included_in_input": true,
+      "duration_ms": 1127,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 0,
+        "started_at": "2026-11-15T21:47:21.532Z",
+        "ended_at": "2026-11-15T21:47:22.659Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    }
+  ],
+  "functions_created": [],
+  "functions_reused": [],
+  "total_tokens": {
+    "input": 1737,
+    "output": 79,
+    "total": 1816,
+    "verified": true,
+    "cached_input": 0,
+    "cache_creation_input": 0
+  },
+  "error": "NO-GO: harness effective model configuration differs or is unreported",
+  "status": "error",
+  "fixture_verification": {
+    "head_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "clean_tree": true,
+    "verified_at": "2026-11-15T21:47:19.103Z"
+  },
+  "manifest_hash": "2ce7396d58eb42e5bdbb36b88156aed2deef4f6eea6283a8afec5f1432d108d2",
+  "config_hash": "f59a72437b747f1e09d1697e3c2fe461d7b4c13cb807ae40fdb7665d11c74f7d",
+  "execution_config": {
+    "fixture_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "codetour": {
+      "model": "mistral-small-latest",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 16384
+      },
+      "maxTokens": 16384,
+      "temperature": 0
+    },
+    "vibe": {
+      "model": "mistral-medium-3.5",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 16384
+      },
+      "maxTokens": 16384,
+      "temperature": 0
+    },
+    "timeout_ms": 300000,
+    "retry_policy": {
+      "maxRetries": 0,
+      "retryDelay": 0
+    }
+  },
+  "prompt_hash": "2addf1bc6b973717749458ad99f7cf607e9c73e44abfc3c7bf0144426d0906e9",
+  "question_hash": "85f0915bbb43d99f6a71d7894ca84cf621efffdcfcce5db68790c2e6ffc4b653",
+  "fixture_hash": "1ae64b1c130a9bc03de0835845d5e8cf42f3e0726eb646d8ac62eb72870f0dfa",
+  "no_go": true
+}
