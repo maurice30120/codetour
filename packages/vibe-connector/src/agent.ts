@@ -246,7 +246,13 @@ function parseJsonFile(filePath: string): Record<string, unknown> {
   catch { return {}; }
 }
 
-export interface JournalRecord { type?: string; payload?: Record<string, unknown>; sessionId?: string; }
+export interface JournalRecord {
+  type?: string;
+  payload?: Record<string, unknown>;
+  sessionId?: string;
+  /** For `store_entry` records: the raw session-store message (rotation-robust tool evidence). */
+  message?: Record<string, unknown>;
+}
 
 function counter(value: unknown): number | null {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
@@ -284,6 +290,31 @@ export function readJournalRecords(outputDir: string): JournalRecord[] {
         } catch { invalid(); }
       }
     }
+    // Session-store chunks: the native unified session store persists the full
+    // conversation projection (messages incl. tool_call parts) under
+    // `<sessionDir>/chunks/*.json`. Journal rotation keeps only the last few
+    // records, so rotated-away tool_call parts remain provable from the chunk
+    // store. Chunks contribute tool-name evidence ONLY — usage counters are
+    // never taken from them (per-call usage stays journal-authoritative).
+    const chunkDir = path.join(sessionDir, 'chunks');
+    if (fs.existsSync(chunkDir) && fs.realpathSync(chunkDir) === chunkDir) {
+      const chunkFiles = fs.readdirSync(chunkDir).filter(name => name.endsWith('.json')).sort();
+      for (const file of chunkFiles) {
+        const chunkPath = path.join(chunkDir, file);
+        if (!fs.lstatSync(chunkPath).isFile()) continue;
+        try {
+          const entries = JSON.parse(fs.readFileSync(chunkPath, 'utf-8'));
+          if (!Array.isArray(entries)) continue;
+          for (const entry of entries) {
+            const message = entry && typeof entry === 'object' ? (entry as Record<string, unknown>).message : undefined;
+            if (!message || typeof message !== 'object' || Array.isArray(message)) continue;
+            records.push({ type: 'store_entry', sessionId, message: message as Record<string, unknown> });
+          }
+        } catch {
+          console.warn(`[vibe-connector] unreadable session-store chunk skipped: ${chunkPath}`);
+        }
+      }
+    }
   }
   return records;
 }
@@ -295,6 +326,18 @@ export function extractPerCallUsageAndTools(records: JournalRecord[]): { perCall
   let subagent: string | undefined;
   let completionsMissingUsage = 0;
   for (const record of records) {
+    if (record.type === 'store_entry') {
+      // Session-store projection entries carry the historical assistant turns
+      // (incl. tool_call parts) that journal rotation may have dropped.
+      // Tool-name evidence only — never usage.
+      const content = record.message?.content as Array<Record<string, unknown>> | undefined;
+      for (const part of Array.isArray(content) ? content : []) {
+        if (part?.type === 'tool_call' && typeof part.name === 'string') {
+          if (!toolsUsed.includes(part.name)) toolsUsed.push(part.name);
+        }
+      }
+      continue;
+    }
     if (record.type !== 'action_result') continue;
     const result = (record.payload?.result ?? {}) as Record<string, unknown>;
     if (result.type !== 'completion_succeeded' && result.type !== 'completion_failed') continue;
@@ -489,8 +532,11 @@ function observedResearchChild(exportData: Record<string, unknown>, records: Jou
     if (child.parent_session_id !== exportData.session_id ||
       child.root_session_id !== exportData.session_id || typeof child.agent_name !== 'string' ||
       typeof child.model !== 'string' || !child.model.trim() || !child.journal_dir) return false;
-    const childCalls = records.filter(record => record.sessionId === child.session_id);
-    if (!extractPerCallUsageAndTools(childCalls).perCallUsage.length || !extractPerCallUsageAndTools(childCalls).toolsUsed.length) return false;
+    const childUsage = extractPerCallUsageAndTools(records.filter(record => record.sessionId === child.session_id));
+    // A billed completion from the child's own journal proves the child ran;
+    // its tool-call parts may have been rotated away (only the final text
+    // completion survives long sessions), so tools stay out of this gate.
+    if (!childUsage.perCallUsage.length) return false;
     if (spawnCorrelation(exportData.session_id, sessionId, records, child, question)) return true;
     // Programmatic spawn (agents.spawn executed through run_typescript): the
     // runtime records the spawn ONLY in its own export block (spawn ids,
@@ -498,11 +544,9 @@ function observedResearchChild(exportData: Record<string, unknown>, records: Jou
     // child + a research/explore type + spawn_call_id + positive provider
     // usage over processed steps + real child journal records loaded from
     // the verified child directory (G2 reconciles programmatically).
-    const childUsage = extractPerCallUsageAndTools(childCalls);
     const childType = child.agent_type;
     const positiveUsage = child.usage && Number((child.usage as Record<string, unknown>).total_tokens) > 0;
     return Boolean(child.spawn_call_id && positiveUsage && Number(child.steps) > 0 &&
-      childUsage.perCallUsage.length &&
       typeof childType === 'string' && /^research$|^explore$/i.test(childType));
   });
 }
