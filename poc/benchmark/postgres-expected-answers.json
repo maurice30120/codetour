@@ -1,0 +1,1779 @@
+{
+  "version": "1.0",
+  "spec_version": "174",
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "date": "2026-11-15",
+  "description": "Semantic expectations for PostgreSQL benchmark questions - NOT revealed to agents",
+  "evaluation_guidelines": {
+    "general": "Verify claims against actual code at SHA 70c4a57b64d39c526eb4c44a925eb92a6e56f3c5. Multiple proof paths are valid. Lines alone are insufficient - semantic correctness is required.",
+    "correct_response": "Response must be factually accurate, cover all expected areas, and properly verify all required relations.",
+    "proof_paths": "Each expected answer includes multiple valid proof paths. Any single valid path is sufficient, but must be complete."
+  },
+  "expected_answers": {
+    "R-Q1-R1": {
+      "question_id": "R-Q1-R1",
+      "expected_areas": ["src/backend/main/main.c", "src/backend/tcop/postgres.c"],
+      "verification_criteria": [
+        {
+          "criteria": "PostgresMain is the main entry point",
+          "proof_paths": [
+            {
+              "path": "Entry point identification",
+              "steps": [
+                "PostgresMain function in src/backend/main/main.c line ~400",
+                "Called from main() in src/backend/tcop/postgres.c line ~420",
+                "Function signature: void PostgresMain(int argc, char *argv[], const char *username)"
+              ],
+              "files": ["src/backend/main/main.c:400", "src/backend/tcop/postgres.c:420"]
+            },
+            {
+              "path": "Documentation cross-reference",
+              "steps": [
+                "README or comments describe PostgresMain as backend entry point",
+                "Function documentation in main.c header"
+              ],
+              "files": ["src/backend/main/main.c:1-50"]
+            }
+          ]
+        },
+        {
+          "criteria": "Role in initializing backend processes",
+          "proof_paths": [
+            {
+              "path": "Initialization sequence",
+              "steps": [
+                "PostgresMain calls BackendInitialize()",
+                "BackendInitialize sets up process state",
+                "Establishes signal handlers, memory context"
+              ],
+              "files": ["src/backend/main/main.c:400-450"]
+            }
+          ]
+        },
+        {
+          "criteria": "Mentions at least 3 key responsibilities",
+          "proof_paths": [
+            {
+              "path": "Code analysis",
+              "steps": [
+                "Process initialization via BackendInitialize",
+                "Main loop execution via PostgresMain loop",
+                "Client request processing",
+                "Error handling setup"
+              ],
+              "files": ["src/backend/main/main.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "main",
+          "to": "PostgresMain",
+          "type": "calls",
+          "file": "src/backend/tcop/postgres.c",
+          "line": "~420",
+          "proof": "Direct function call in postgres.c main function"
+        },
+        {
+          "from": "PostgresMain",
+          "to": "BackendInitialize",
+          "type": "calls",
+          "file": "src/backend/main/main.c",
+          "line": "~410",
+          "proof": "First major call in PostgresMain"
+        }
+      ],
+      "semantic_checks": [
+        "Entry point correctly identified as PostgresMain (not main or postgres)",
+        "Explanation covers both initialization and execution phases",
+        "Distinction made between postmaster and backend entry points"
+      ]
+    },
+    "R-Q2-R1": {
+      "question_id": "R-Q2-R1",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/tcop/fastpath.c"],
+      "verification_criteria": [
+        {
+          "criteria": "exec_simple_query as key function",
+          "proof_paths": [
+            {
+              "path": "Function identification",
+              "steps": [
+                "exec_simple_query in src/backend/tcop/fastpath.c",
+                "Called for non-prepared simple queries",
+                "Handles complete execution of simple SELECT/INSERT/UPDATE/DELETE"
+              ],
+              "files": ["src/backend/tcop/fastpath.c:100-150"]
+            },
+            {
+              "path": "Usage in codebase",
+              "steps": [
+                "Search for exec_simple_query calls in postgres.c",
+                "Found in PostgresMain message processing loop"
+              ],
+              "files": ["src/backend/tcop/postgres.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "pg_parse_query role in parsing",
+          "proof_paths": [
+            {
+              "path": "Parse function chain",
+              "steps": [
+                "exec_simple_query calls pg_parse_query",
+                "pg_parse_query invokes raw_parser",
+                "raw_parser uses grammar from gram.y"
+              ],
+              "files": ["src/backend/tcop/fastpath.c", "src/backend/parser/parser.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "At least 3 functions in call chain",
+          "proof_paths": [
+            {
+              "path": "Complete chain",
+              "steps": [
+                "PostgresMain -> exec_simple_query -> pg_parse_query -> raw_parser",
+                "Each function has clear role in query processing"
+              ],
+              "files": ["src/backend/tcop/postgres.c", "src/backend/tcop/fastpath.c", "src/backend/parser/parser.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "PostgresMain",
+          "to": "exec_simple_query",
+          "type": "calls",
+          "file": "src/backend/tcop/postgres.c",
+          "proof": "In message processing switch statement"
+        },
+        {
+          "from": "exec_simple_query",
+          "to": "pg_parse_query",
+          "type": "calls",
+          "file": "src/backend/tcop/fastpath.c",
+          "proof": "First parsing step in exec_simple_query"
+        }
+      ],
+      "semantic_checks": [
+        "Query flow correctly distinguishes simple vs extended queries",
+        "Parsing phase separated from execution phase",
+        "At least one complete end-to-end path described"
+      ]
+    },
+    "R-Q3-R1": {
+      "question_id": "R-Q3-R1",
+      "expected_areas": ["src/backend/parser/analyze.c", "src/backend/parser/gram.y", "src/backend/parser/parser.c"],
+      "verification_criteria": [
+        {
+          "criteria": "raw_parser as core parsing function",
+          "proof_paths": [
+            {
+              "path": "Function definition",
+              "steps": [
+                "raw_parser in src/backend/parser/parser.c",
+                "Takes query string and returns parse tree",
+                "Uses flex/bison generated scanner/parser"
+              ],
+              "files": ["src/backend/parser/parser.c:100-200"]
+            }
+          ]
+        },
+        {
+          "criteria": "gram.y role in parsing",
+          "proof_paths": [
+            {
+              "path": "Grammar file",
+              "steps": [
+                "gram.y is bison grammar file",
+                "Defines SQL syntax rules",
+                "Generated parser.c from gram.y"
+              ],
+              "files": ["src/backend/parser/gram.y:1-100"]
+            }
+          ]
+        },
+        {
+          "criteria": "pg_parse_query as entry point",
+          "proof_paths": [
+            {
+              "path": "Entry point identification",
+              "steps": [
+                "pg_parse_query in src/backend/parser/parser.c",
+                "Public interface for parsing",
+                "Calls raw_parser internally"
+              ],
+              "files": ["src/backend/parser/parser.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "pg_parse_query",
+          "to": "raw_parser",
+          "type": "calls",
+          "file": "src/backend/parser/parser.c",
+          "proof": "pg_parse_query calls raw_parser with query string"
+        },
+        {
+          "from": "raw_parser",
+          "to": "gram.y",
+          "type": "uses",
+          "file": "src/backend/parser/gram.y",
+          "proof": "raw_parser uses grammar rules from generated code"
+        }
+      ],
+      "semantic_checks": [
+        "Parser architecture correctly describes layers (pg_parse_query -> raw_parser -> grammar)",
+        "Distinction made between hand-written and generated code",
+        "Bison/flex involvement mentioned"
+      ]
+    },
+    "R-Q4-R1": {
+      "question_id": "R-Q4-R1",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/libpq/", "src/backend/main/main.c"],
+      "verification_criteria": [
+        {
+          "criteria": "BackendStartUp in connection initialization",
+          "proof_paths": [
+            {
+              "path": "Connection setup",
+              "steps": [
+                "BackendStartUp in src/backend/tcop/backend_startup.c",
+                "Performs authentication and initialization",
+                "Called after fork from postmaster"
+              ],
+              "files": ["src/backend/tcop/backend_startup.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Fork model for backend processes",
+          "proof_paths": [
+            {
+              "path": "Process model",
+              "steps": [
+                "Postmaster forks for each connection",
+                "Backend process handles single client",
+                "Fork happens in postmaster main loop"
+              ],
+              "files": ["src/backend/tcop/postgres.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Client connection acceptance",
+          "proof_paths": [
+            {
+              "path": "Connection handling",
+              "steps": [
+                "Postmaster listens on socket",
+                "Accepts connection via libpq",
+                "Creates backend process"
+              ],
+              "files": ["src/backend/libpq/pqcomm.c", "src/backend/tcop/postgres.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "postmaster",
+          "to": "BackendStartUp",
+          "type": "spawns",
+          "file": "src/backend/tcop/postgres.c",
+          "proof": "Postmaster forks and execs backend which calls BackendStartUp"
+        },
+        {
+          "from": "BackendStartUp",
+          "to": "PostgresMain",
+          "type": "calls",
+          "file": "src/backend/main/main.c",
+          "proof": "After initialization, BackendStartUp calls PostgresMain"
+        }
+      ],
+      "semantic_checks": [
+        "Fork model correctly described",
+        "Postmaster vs backend distinction clear",
+        "Connection lifecycle explained"
+      ]
+    },
+    "R-Q5-R1": {
+      "question_id": "R-Q5-R1",
+      "expected_areas": ["src/backend/access/", "src/backend/storage/", "src/include/storage/"],
+      "verification_criteria": [
+        {
+          "criteria": "Buffer manager as part of storage",
+          "proof_paths": [
+            {
+              "path": "Buffer management",
+              "steps": [
+                "Buffer manager in src/backend/storage/buffer/",
+                "Manages shared buffers",
+                "Handles buffer pool for disk pages"
+              ],
+              "files": ["src/backend/storage/buffer/bufmgr.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Heap tuple storage format",
+          "proof_paths": [
+            {
+              "path": "Tuple storage",
+              "steps": [
+                "Heap tuples defined in src/include/storage/heapam.h",
+                "Structure: HeapTupleHeaderData + data",
+                "Stored in pages with line pointers"
+              ],
+              "files": ["src/include/storage/heapam.h"]
+            }
+          ]
+        },
+        {
+          "criteria": "WAL mechanism",
+          "proof_paths": [
+            {
+              "path": "Write-Ahead Logging",
+              "steps": [
+                "WAL implementation in src/backend/access/transam/",
+                "Write changes to WAL before data files",
+                "xlog.c as main WAL file"
+              ],
+              "files": ["src/backend/access/transam/xlog.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "buffer manager",
+          "to": "shared buffers",
+          "type": "manages",
+          "file": "src/backend/storage/buffer/",
+          "proof": "Buffer manager controls shared buffer pool"
+        },
+        {
+          "from": "WAL",
+          "to": "disk",
+          "type": "writes",
+          "file": "src/backend/access/transam/",
+          "proof": "WAL writes to disk before data changes"
+        }
+      ],
+      "semantic_checks": [
+        "Storage layers correctly identified (buffer manager, heap, WAL)",
+        "On-disk vs in-memory distinction clear",
+        "WAL purpose explained (durability, recovery)"
+      ]
+    },
+    "T-Q1-P1": {
+      "question_id": "T-Q1-P1",
+      "expected_areas": ["src/backend/tcop/postgres.c", "src/backend/tcop/fastpath.c", "src/backend/parser/"],
+      "verification_criteria": [
+        {
+          "criteria": "Trace from query receipt to parsing completion",
+          "proof_paths": [
+            {
+              "path": "Complete trace path",
+              "steps": [
+                "Query received via libpq (pqcomm.c)",
+                "Passed to PostgresMain message loop (postgres.c)",
+                "Dispatched to exec_simple_query (fastpath.c)",
+                "Parsed via pg_parse_query -> raw_parser (parser.c)",
+                "Parse tree returned"
+              ],
+              "files": ["src/backend/libpq/pqcomm.c", "src/backend/tcop/postgres.c", "src/backend/tcop/fastpath.c", "src/backend/parser/parser.c"]
+            },
+            {
+              "path": "Alternative via extended query",
+              "steps": [
+                "Parse message received",
+                "Dispatched to pg_parse_query directly",
+                "Same raw_parser execution",
+                "Parse tree cached or returned"
+              ],
+              "files": ["src/backend/tcop/postgres.c", "src/backend/parser/parser.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "At least 3 functions in call chain",
+          "proof_paths": [
+            {
+              "path": "Function chain",
+              "steps": [
+                "PostgresMain (message processing)",
+                "exec_simple_query (query execution)",
+                "pg_parse_query (parsing entry)",
+                "raw_parser (core parsing)"
+              ],
+              "files": ["postgres.c", "fastpath.c", "parser.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "PostgresMain",
+          "to": "exec_simple_query",
+          "type": "calls",
+          "file": "src/backend/tcop/postgres.c",
+          "line": "~450-500",
+          "proof": "In message type switch, simple query case"
+        },
+        {
+          "from": "exec_simple_query",
+          "to": "pg_parse_query",
+          "type": "calls",
+          "file": "src/backend/tcop/fastpath.c",
+          "line": "~110",
+          "proof": "First step in exec_simple_query"
+        },
+        {
+          "from": "pg_parse_query",
+          "to": "raw_parser",
+          "type": "calls",
+          "file": "src/backend/parser/parser.c",
+          "line": "~200",
+          "proof": "pg_parse_query invokes raw_parser"
+        }
+      ],
+      "semantic_checks": [
+        "Trace covers complete path from network to parse tree",
+        "Both simple and extended query paths mentioned or implied",
+        "Each function's role in chain explained"
+      ]
+    },
+    "T-Q2-P1": {
+      "question_id": "T-Q2-P1",
+      "expected_areas": ["src/backend/parser/analyze.c", "src/backend/rewrite/"],
+      "verification_criteria": [
+        {
+          "criteria": "pg_analyze_and_rewrite as key function",
+          "proof_paths": [
+            {
+              "path": "Main function",
+              "steps": [
+                "pg_analyze_and_rewrite in analyze.c",
+                "Combines parsing, analysis, and rewriting",
+                "Called for both simple and extended queries"
+              ],
+              "files": ["src/backend/parser/analyze.c:100-150"]
+            }
+          ]
+        },
+        {
+          "criteria": "Semantic analysis",
+          "proof_paths": [
+            {
+              "path": "Analysis functions",
+              "steps": [
+                "parse_analyze performs semantic analysis",
+                "Checks types, resolves names",
+                "Builds query tree with full type information"
+              ],
+              "files": ["src/backend/parser/analyze.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Query rewriting",
+          "proof_paths": [
+            {
+              "path": "Rewriter functions",
+              "steps": [
+                "pg_rewrite_query in rewriteHandler.c",
+                "Applies rewrite rules from pg_rewrite catalog",
+                "Handles views, rules, inheritance"
+              ],
+              "files": ["src/backend/rewrite/rewriteHandler.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "pg_parse_query",
+          "to": "pg_analyze_and_rewrite",
+          "type": "calls",
+          "file": "src/backend/tcop/fastpath.c",
+          "proof": "In exec_simple_query, after parsing"
+        },
+        {
+          "from": "pg_analyze_and_rewrite",
+          "to": "parse_analyze",
+          "type": "calls",
+          "file": "src/backend/parser/analyze.c",
+          "proof": "pg_analyze_and_rewrite calls parse_analyze"
+        }
+      ],
+      "semantic_checks": [
+        "Distinction between parsing, analysis, and rewriting clear",
+        "Rewrite rules and catalog involvement mentioned",
+        "Complete transformation pipeline described"
+      ]
+    },
+    "T-Q3-P1": {
+      "question_id": "T-Q3-P1",
+      "expected_areas": ["src/backend/optimizer/", "src/backend/planner"],
+      "verification_criteria": [
+        {
+          "criteria": "pg_plan_queries as planner entry point",
+          "proof_paths": [
+            {
+              "path": "Planner entry",
+              "steps": [
+                "pg_plan_queries in planner.c",
+                "Called after analysis and rewriting",
+                "Creates plan tree from query tree"
+              ],
+              "files": ["src/backend/optimizer/planner.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Query to plan transformation",
+          "proof_paths": [
+            {
+              "path": "Planning process",
+              "steps": [
+                "Takes query tree as input",
+                "Performs optimization",
+                "Outputs plan tree with executable nodes"
+              ],
+              "files": ["src/backend/optimizer/"]
+            }
+          ]
+        },
+        {
+          "criteria": "At least 3 planning functions",
+          "proof_paths": [
+            {
+              "path": "Planning functions",
+              "steps": [
+                "pg_plan_queries (main entry)",
+                "subquery_planner (for subqueries)",
+                "standard_planner (standard planning)",
+                "query_planner (main planning logic)"
+              ],
+              "files": ["src/backend/optimizer/planner.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "pg_analyze_and_rewrite",
+          "to": "pg_plan_queries",
+          "type": "calls",
+          "proof": "After analysis, queries are planned"
+        },
+        {
+          "from": "pg_plan_queries",
+          "to": "planner",
+          "type": "calls",
+          "file": "src/backend/optimizer/planner.c",
+          "proof": "pg_plan_queries calls planner functions"
+        }
+      ],
+      "semantic_checks": [
+        "Planning phase distinguished from analysis",
+        "Optimization steps mentioned",
+        "Plan tree structure explained"
+      ]
+    },
+    "T-Q4-P1": {
+      "question_id": "T-Q4-P1",
+      "expected_areas": ["src/backend/tcop/prepstmt.c", "src/backend/tcop/postgres.c"],
+      "verification_criteria": [
+        {
+          "criteria": "PrepareQuery as preparation function",
+          "proof_paths": [
+            {
+              "path": "Preparation function",
+              "steps": [
+                "PrepareQuery in prepstmt.c",
+                "Handles PREPARE statement",
+                "Parses, analyzes, plans but doesn't execute"
+              ],
+              "files": ["src/backend/tcop/prepstmt.c:100-200"]
+            }
+          ]
+        },
+        {
+          "criteria": "Difference from simple query",
+          "proof_paths": [
+            {
+              "path": "Comparison",
+              "steps": [
+                "Simple query: parse + plan + execute in one step",
+                "Prepared: parse + plan stored, execute later",
+                "Prepared allows parameterized queries",
+                "Prepared can be executed multiple times"
+              ],
+              "files": ["src/backend/tcop/fastpath.c", "src/backend/tcop/prepstmt.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Prepared statement storage",
+          "proof_paths": [
+            {
+              "path": "Storage mechanism",
+              "steps": [
+                "Stored in prepared statement cache",
+                "Identified by statement name",
+                "Plan tree saved for reuse"
+              ],
+              "files": ["src/backend/tcop/prepstmt.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "PostgresMain",
+          "to": "PrepareQuery",
+          "type": "calls",
+          "file": "src/backend/tcop/prepstmt.c",
+          "proof": "PrepareQuery called from message processing"
+        },
+        {
+          "from": "PrepareQuery",
+          "to": "pg_plan_queries",
+          "type": "calls",
+          "proof": "PrepareQuery calls planning functions"
+        }
+      ],
+      "semantic_checks": [
+        "Prepared vs simple query distinction clear",
+        "Parameterization benefit explained",
+        "Storage and retrieval mechanism described"
+      ]
+    },
+    "T-Q5-P1": {
+      "question_id": "T-Q5-P1",
+      "expected_areas": ["src/backend/libpq/", "src/backend/tcop/postgres.c"],
+      "verification_criteria": [
+        {
+          "criteria": "elog as error logging mechanism",
+          "proof_paths": [
+            {
+              "path": "Error logging",
+              "steps": [
+                "elog in elog.c",
+                "Handles all error/warning/message logging",
+                "Formats and outputs messages"
+              ],
+              "files": ["src/backend/libpq/elog.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Error severity levels",
+          "proof_paths": [
+            {
+              "path": "Severity levels",
+              "steps": [
+                "DEBUG, LOG, INFO, NOTICE, WARNING, ERROR, FATAL, PANIC",
+                "Defined in elog.h",
+                "Different handling for each level"
+              ],
+              "files": ["src/include/libpq/elog.h"]
+            }
+          ]
+        },
+        {
+          "criteria": "Error reporting to client",
+          "proof_paths": [
+            {
+              "path": "Client reporting",
+              "steps": [
+                "Errors sent via libpq protocol",
+                "Error message formatted as NoticeResponse",
+                "Severity, code, message sent to client"
+              ],
+              "files": ["src/backend/libpq/pqcomm.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "any function",
+          "to": "elog",
+          "type": "calls",
+          "file": "src/backend/libpq/pqcomm.c",
+          "proof": "Any function can call elog for logging"
+        },
+        {
+          "from": "elog",
+          "to": "send message to client",
+          "type": "sends",
+          "proof": "elog formats and sends error messages"
+        }
+      ],
+      "semantic_checks": [
+        "All severity levels mentioned",
+        "Client communication protocol explained",
+        "Error context and details included"
+      ]
+    },
+    "T-Q6-P1": {
+      "question_id": "T-Q6-P1",
+      "expected_areas": ["src/backend/access/transam/", "src/backend/commands/"],
+      "verification_criteria": [
+        {
+          "criteria": "BeginTransaction as transaction start",
+          "proof_paths": [
+            {
+              "path": "Transaction start",
+              "steps": [
+                "BeginTransaction in xact.c",
+                "Initializes transaction state",
+                "Assigns transaction ID"
+              ],
+              "files": ["src/backend/access/transam/xact.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "COMMIT and ROLLBACK handling",
+          "proof_paths": [
+            {
+              "path": "Transaction end",
+              "steps": [
+                "CommitTransaction in xact.c",
+                "AbortTransaction for rollback",
+                "WAL flushed on commit"
+              ],
+              "files": ["src/backend/access/transam/xact.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "WAL involvement",
+          "proof_paths": [
+            {
+              "path": "WAL and transactions",
+              "steps": [
+                "WAL records all changes",
+                "Commit record written to WAL",
+                "Recovery uses WAL to replay"
+              ],
+              "files": ["src/backend/access/transam/xlog.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "BeginTransaction",
+          "to": "WAL",
+          "type": "uses",
+          "file": "src/backend/access/transam/",
+          "proof": "Transaction uses WAL for durability"
+        },
+        {
+          "from": "COMMIT",
+          "to": "WAL flush",
+          "type": "triggers",
+          "proof": "Commit triggers WAL flush to disk"
+        }
+      ],
+      "semantic_checks": [
+        "ACID properties mentioned or implied",
+        "WAL before data principle explained",
+        "Transaction states described"
+      ]
+    },
+    "T-Q7-P1": {
+      "question_id": "T-Q7-P1",
+      "expected_areas": ["src/backend/utils/mmgr/", "src/backend/nodes/"],
+      "verification_criteria": [
+        {
+          "criteria": "MemoryContext as memory management",
+          "proof_paths": [
+            {
+              "path": "Memory contexts",
+              "steps": [
+                "MemoryContext in mcxt.c",
+                "Hierarchical memory management",
+                "Each context can have parent"
+              ],
+              "files": ["src/backend/utils/mmgr/mcxt.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Allocation strategies",
+          "proof_paths": [
+            {
+              "path": "Allocation methods",
+              "steps": [
+                "palloc for general allocation",
+                "repalloc for reallocation",
+                "pfree for freeing",
+                "Memory contexts track allocations"
+              ],
+              "files": ["src/backend/utils/mmgr/mcxt.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Context hierarchy",
+          "proof_paths": [
+            {
+              "path": "Hierarchy",
+              "steps": [
+                "TopMemoryContext as root",
+                "Child contexts for different purposes",
+                "Contexts can be reset or deleted"
+              ],
+              "files": ["src/backend/utils/mmgr/mcxt.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "MemoryContextCreate",
+          "to": "MemoryContext",
+          "type": "creates",
+          "file": "src/backend/utils/mmgr/mcxt.c",
+          "proof": "MemoryContextCreate allocates new context"
+        },
+        {
+          "from": "MemoryContext",
+          "to": "palloc",
+          "type": "provides",
+          "proof": "Memory contexts provide palloc interface"
+        }
+      ],
+      "semantic_checks": [
+        "Hierarchical structure explained",
+        "Automatic cleanup on context reset mentioned",
+        "Different context types described"
+      ]
+    },
+    "T-Q8-P1": {
+      "question_id": "T-Q8-P1",
+      "expected_areas": ["src/backend/catalog/", "src/include/catalog/"],
+      "verification_criteria": [
+        {
+          "criteria": "pg_class and pg_attribute as catalog tables",
+          "proof_paths": [
+            {
+              "path": "Catalog tables",
+              "steps": [
+                "pg_class stores table and index info",
+                "pg_attribute stores column info",
+                "Defined in src/include/catalog/ headers"
+              ],
+              "files": ["src/include/catalog/pg_class.h", "src/include/catalog/pg_attribute.h"]
+            }
+          ]
+        },
+        {
+          "criteria": "Catalog access mechanism",
+          "proof_paths": [
+            {
+              "path": "Access functions",
+              "steps": [
+                "GetSysCache for direct access",
+                "SearchSysCache for lookups",
+                "heap_open for table access"
+              ],
+              "files": ["src/backend/catalog/"]
+            }
+          ]
+        },
+        {
+          "criteria": "Cache mechanisms",
+          "proof_paths": [
+            {
+              "path": "Caching",
+              "steps": [
+                "CatCache for catalog cache",
+                "SysCache for system catalog cache",
+                "Cache invalidation on DDL"
+              ],
+              "files": ["src/backend/catalog/catcache.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "SearchSysCache",
+          "to": "system catalogs",
+          "type": "queries",
+          "file": "src/backend/catalog/catcache.c",
+          "proof": "SearchSysCache queries system catalogs"
+        },
+        {
+          "from": "catalog cache",
+          "to": "pg_class",
+          "type": "caches",
+          "proof": "Cache stores pg_class lookups"
+        }
+      ],
+      "semantic_checks": [
+        "Catalog vs regular tables distinction",
+        "Cache invalidation explained",
+        "At least 3 catalog tables mentioned"
+      ]
+    },
+    "T-Q9-P1": {
+      "question_id": "T-Q9-P1",
+      "expected_areas": ["src/backend/executor/", "src/include/executor/"],
+      "verification_criteria": [
+        {
+          "criteria": "ExecutorRun as executor entry point",
+          "proof_paths": [
+            {
+              "path": "Executor entry",
+              "steps": [
+                "ExecutorRun in execMain.c",
+                "Executes a query plan",
+                "Returns results or status"
+              ],
+              "files": ["src/backend/executor/execMain.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Plan execution",
+          "proof_paths": [
+            {
+              "path": "Execution process",
+              "steps": [
+                "Takes plan tree as input",
+                "Initializes executor state",
+                "Runs to completion or error"
+              ],
+              "files": ["src/backend/executor/execMain.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Scan nodes role",
+          "proof_paths": [
+            {
+              "path": "Scan nodes",
+              "steps": [
+                "SeqScan for sequential scans",
+                "IndexScan for index scans",
+                "Scan nodes fetch tuples from access methods"
+              ],
+              "files": ["src/backend/executor/nodeSeqscan.c", "src/backend/executor/nodeIndexscan.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "ExecutorRun",
+          "to": "ExecProcNode",
+          "type": "calls",
+          "file": "src/backend/executor/execMain.c",
+          "proof": "ExecutorRun calls ExecProcNode for each node"
+        },
+        {
+          "from": "ExecProcNode",
+          "to": "scan node functions",
+          "type": "dispatches",
+          "proof": "ExecProcNode dispatches to node-specific functions"
+        }
+      ],
+      "semantic_checks": [
+        "Executor vs planner distinction",
+        "Node types explained",
+        "State management described"
+      ]
+    },
+    "T-Q10-P1": {
+      "question_id": "T-Q10-P1",
+      "expected_areas": ["src/backend/commands/", "src/backend/catalog/"],
+      "verification_criteria": [
+        {
+          "criteria": "At least 3 utility command handlers",
+          "proof_paths": [
+            {
+              "path": "Utility commands",
+              "steps": [
+                "CreateTable in tablecmds.c",
+                "DropTable in tablecmds.c",
+                "AlterTable in tablecmds.c",
+                "CreateIndex in indexcmds.c",
+                "ProcessUtility dispatches to handlers"
+              ],
+              "files": ["src/backend/commands/tablecmds.c", "src/backend/commands/indexcmds.c", "src/backend/tcop/utility.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "DDL processing",
+          "proof_paths": [
+            {
+              "path": "DDL execution",
+              "steps": [
+                "Parse DDL statement",
+                "Call appropriate command function",
+                "Update system catalogs",
+                "Invalidate caches"
+              ],
+              "files": ["src/backend/tcop/utility.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Catalog updates",
+          "proof_paths": [
+            {
+              "path": "Catalog modification",
+              "steps": [
+                "Insert into pg_class for new table",
+                "Insert into pg_attribute for columns",
+                "Update dependencies"
+              ],
+              "files": ["src/backend/commands/tablecmds.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "ProcessUtility",
+          "to": "utility command handlers",
+          "type": "dispatches",
+          "file": "src/backend/tcop/utility.c",
+          "proof": "ProcessUtility calls appropriate handler based on statement type"
+        },
+        {
+          "from": "CREATE command",
+          "to": "catalog update",
+          "type": "triggers",
+          "proof": "CREATE inserts into catalog tables"
+        }
+      ],
+      "semantic_checks": [
+        "At least 3 DDL command types covered",
+        "Catalog update mechanism explained",
+        "Transaction handling for DDL mentioned"
+      ]
+    },
+    "T-Q11-N1": {
+      "question_id": "T-Q11-N1",
+      "expected_areas": ["src/backend/parser/parser.c", "src/backend/parser/gram.y", "src/backend/parser/scanner.c"],
+      "verification_criteria": [
+        {
+          "criteria": "Error recovery in parser",
+          "proof_paths": [
+            {
+              "path": "Recovery mechanisms",
+              "steps": [
+                "yyerror in gram.y handles syntax errors",
+                "Error recovery via yyparse state manipulation",
+                "Attempts to continue parsing after error"
+              ],
+              "files": ["src/backend/parser/gram.y"]
+            }
+          ]
+        },
+        {
+          "criteria": "Syntax error detection",
+          "proof_paths": [
+            {
+              "path": "Detection",
+              "steps": [
+                "Scanner returns unexpected token",
+                "Parser detects syntax error via grammar rules",
+                "yyparse calls yyerror"
+              ],
+              "files": ["src/backend/parser/gram.y", "src/backend/parser/scanner.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Error reporting",
+          "proof_paths": [
+            {
+              "path": "Reporting",
+              "steps": [
+                "yyerror formats error message",
+                "Includes line number and position",
+                "Reports via elog"
+              ],
+              "files": ["src/backend/parser/gram.y"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "yyparse",
+          "to": "error recovery",
+          "type": "implements",
+          "file": "src/backend/parser/gram.y",
+          "proof": "yyparse contains error recovery logic"
+        },
+        {
+          "from": "parser error",
+          "to": "elog",
+          "type": "reports",
+          "file": "src/backend/parser/parser.c",
+          "proof": "Parser errors reported via elog"
+        }
+      ],
+      "semantic_checks": [
+        "Error recovery vs detection distinction",
+        "At least one complete error scenario traced",
+        "Client-facing error message mentioned"
+      ]
+    },
+    "T-Q12-N1": {
+      "question_id": "T-Q12-N1",
+      "expected_areas": ["src/backend/parser/analyze.c", "src/backend/catalog/pg_type.c"],
+      "verification_criteria": [
+        {
+          "criteria": "Type checking in analyze.c",
+          "proof_paths": [
+            {
+              "path": "Type checking",
+              "steps": [
+                "coerce_type in analyze.c",
+                "find_typmod in analyze.c",
+                "Checks compatibility and converts types"
+              ],
+              "files": ["src/backend/parser/analyze.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Implicit coercion",
+          "proof_paths": [
+            {
+              "path": "Coercion mechanism",
+              "steps": [
+                "can_coerce_type checks if coercion possible",
+                "coerce_type performs the coercion",
+                "Uses type catalog for conversion functions"
+              ],
+              "files": ["src/backend/parser/analyze.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Type catalog access",
+          "proof_paths": [
+            {
+              "path": "Catalog access",
+              "steps": [
+                "get_type_io_data retrieves type info",
+                "lookup_type_cache looks up type OID",
+                "Type information stored in pg_type"
+              ],
+              "files": ["src/backend/catalog/pg_type.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "parse_analyze",
+          "to": "type checking",
+          "type": "includes",
+          "file": "src/backend/parser/analyze.c",
+          "proof": "parse_analyze includes type checking phase"
+        },
+        {
+          "from": "type checking",
+          "to": "pg_type catalog",
+          "type": "queries",
+          "file": "src/backend/catalog/pg_type.c",
+          "proof": "Type checking queries pg_type catalog"
+        }
+      ],
+      "semantic_checks": [
+        "Explicit vs implicit coercion distinction",
+        "Type catalog involvement explained",
+        "At least one coercion scenario traced"
+      ]
+    },
+    "T-Q13-N1": {
+      "question_id": "T-Q13-N1",
+      "expected_areas": ["src/backend/optimizer/plan/", "src/backend/optimizer/path/"],
+      "verification_criteria": [
+        {
+          "criteria": "At least 3 join strategies",
+          "proof_paths": [
+            {
+              "path": "Join strategies",
+              "steps": [
+                "NestLoop in joinpath.c",
+                "HashJoin in joinpath.c",
+                "MergeJoin in joinpath.c",
+                "Each has different cost characteristics"
+              ],
+              "files": ["src/backend/optimizer/path/joinpath.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Join order determination",
+          "proof_paths": [
+            {
+              "path": "Order determination",
+              "steps": [
+                "make_join_rel decides join order",
+                "Considers all possible join orders",
+                "Chooses cheapest based on costs"
+              ],
+              "files": ["src/backend/optimizer/path/joinpath.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Cost estimation",
+          "proof_paths": [
+            {
+              "path": "Cost calculation",
+              "steps": [
+                "cost_nestloop in costsize.c",
+                "cost_hashjoin in costsize.c",
+                "cost_mergejoin in costsize.c",
+                "Estimates CPU and I/O costs"
+              ],
+              "files": ["src/backend/optimizer/path/costsize.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "planner",
+          "to": "join planning",
+          "type": "includes",
+          "file": "src/backend/optimizer/plan/planner.c",
+          "proof": "Planner includes join planning phase"
+        },
+        {
+          "from": "join planning",
+          "to": "cost estimation",
+          "type": "uses",
+          "file": "src/backend/optimizer/path/costsize.c",
+          "proof": "Join planning uses cost estimation"
+        }
+      ],
+      "semantic_checks": [
+        "Join types clearly distinguished",
+        "Cost-based optimization explained",
+        "At least one multi-table scenario traced"
+      ]
+    },
+    "T-Q14-N1": {
+      "question_id": "T-Q14-N1",
+      "expected_areas": ["src/backend/executor/funcs.c", "src/backend/executor/expr.c"],
+      "verification_criteria": [
+        {
+          "criteria": "ExecEvalExpr as evaluation function",
+          "proof_paths": [
+            {
+              "path": "Evaluation function",
+              "steps": [
+                "ExecEvalExpr in execExpr.c",
+                "Evaluates expression trees",
+                "Handles operators, functions, constants"
+              ],
+              "files": ["src/backend/executor/execExpr.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Scalar expression evaluation",
+          "proof_paths": [
+            {
+              "path": "Scalar evaluation",
+              "steps": [
+                "ExecEvalScalarArrayOp for array operations",
+                "ExecEvalFunc for function calls",
+                "ExecEvalConst for constants"
+              ],
+              "files": ["src/backend/executor/execExpr.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Function call execution",
+          "proof_paths": [
+            {
+              "path": "Function execution",
+              "steps": [
+                "FunctionCallInfo prepared",
+                "Function looked up in pg_proc",
+                "Function executed with arguments"
+              ],
+              "files": ["src/backend/executor/funcs.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "ExecutorRun",
+          "to": "expression evaluation",
+          "type": "includes",
+          "file": "src/backend/executor/execMain.c",
+          "proof": "ExecutorRun includes expression evaluation"
+        },
+        {
+          "from": "ExecEvalExpr",
+          "to": "function execution",
+          "type": "calls",
+          "file": "src/backend/executor/funcs.c",
+          "proof": "ExecEvalExpr calls function execution code"
+        }
+      ],
+      "semantic_checks": [
+        "Expression vs query evaluation distinction",
+        "Function lookup mechanism mentioned",
+        "At least one complex expression type traced"
+      ]
+    },
+    "T-Q15-N1": {
+      "question_id": "T-Q15-N1",
+      "expected_areas": ["src/backend/access/index/", "src/backend/access/heap/"],
+      "verification_criteria": [
+        {
+          "criteria": "At least 2 index access method types",
+          "proof_paths": [
+            {
+              "path": "Index access methods",
+              "steps": [
+                "BTREE access method (btree)",
+                "HASH access method (hash)",
+                "GIST access method (gist)",
+                "GIN access method (gin)",
+                "Each implements standard access method interface"
+              ],
+              "files": ["src/backend/access/"]
+            }
+          ]
+        },
+        {
+          "criteria": "Index scan work",
+          "proof_paths": [
+            {
+              "path": "Index scan",
+              "steps": [
+                "IndexScan node in executor",
+                "Calls access method's amgettuple",
+                "Returns TID (tuple identifier)"
+              ],
+              "files": ["src/backend/executor/nodeIndexscan.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Index and heap relationship",
+          "proof_paths": [
+            {
+              "path": "Relationship",
+              "steps": [
+                "Index stores TIDs pointing to heap",
+                "Index scan returns TIDs",
+                "Heap fetch uses TIDs to retrieve tuples"
+              ],
+              "files": ["src/backend/access/heap/heapam.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "index access method",
+          "to": "heap access method",
+          "type": "uses",
+          "file": "src/backend/access/index/",
+          "proof": "Index access methods use heap access for tuple retrieval"
+        },
+        {
+          "from": "IndexScan",
+          "to": "heap fetch",
+          "type": "triggers",
+          "file": "src/backend/access/heap/",
+          "proof": "IndexScan triggers heap fetch for tuples"
+        }
+      ],
+      "semantic_checks": [
+        "Index vs heap distinction clear",
+        "TID concept explained",
+        "At least one index type operation traced"
+      ]
+    },
+    "T-Q16-N1": {
+      "question_id": "T-Q16-N1",
+      "expected_areas": ["src/backend/executor/nodeSort.c", "src/backend/executor/nodeAgg.c"],
+      "verification_criteria": [
+        {
+          "criteria": "Sorting in nodeSort.c",
+          "proof_paths": [
+            {
+              "path": "Sort implementation",
+              "steps": [
+                "ExecSort for sort node execution",
+                "Uses tuplesort.c for sorting",
+                "Supports external sort for large datasets"
+              ],
+              "files": ["src/backend/executor/nodeSort.c", "src/backend/utils/sort/tuplesort.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Aggregation in nodeAgg.c",
+          "proof_paths": [
+            {
+              "path": "Aggregation implementation",
+              "steps": [
+                "ExecAgg for aggregation node execution",
+                "Handles GROUP BY, aggregate functions",
+                "Uses hash or sort for grouping"
+              ],
+              "files": ["src/backend/executor/nodeAgg.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "ORDER BY and GROUP BY processing",
+          "proof_paths": [
+            {
+              "path": "Processing",
+              "steps": [
+                "ORDER BY uses Sort node",
+                "GROUP BY uses Agg node with grouping",
+                "Can be combined in query plans"
+              ],
+              "files": ["src/backend/executor/nodeSort.c", "src/backend/executor/nodeAgg.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "ExecutorRun",
+          "to": "Sort node",
+          "type": "executes",
+          "file": "src/backend/executor/nodeSort.c",
+          "proof": "ExecutorRun executes Sort nodes"
+        },
+        {
+          "from": "ExecutorRun",
+          "to": "Agg node",
+          "type": "executes",
+          "file": "src/backend/executor/nodeAgg.c",
+          "proof": "ExecutorRun executes Agg nodes"
+        }
+      ],
+      "semantic_checks": [
+        "Sort vs aggregation distinction",
+        "External sort mentioned for large datasets",
+        "At least one complete sort or aggregation traced"
+      ]
+    },
+    "T-Q17-N1": {
+      "question_id": "T-Q17-N1",
+      "expected_areas": ["src/backend/storage/lmgr/", "src/backend/access/heap/"],
+      "verification_criteria": [
+        {
+          "criteria": "Lock manager as concurrency control",
+          "proof_paths": [
+            {
+              "path": "Lock manager",
+              "steps": [
+                "lock.c in src/backend/storage/lmgr/",
+                "Manages all lock types",
+                "Uses lock table for tracking"
+              ],
+              "files": ["src/backend/storage/lmgr/lock.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Lock types",
+          "proof_paths": [
+            {
+              "path": "Lock types",
+              "steps": [
+                "Row-level locks (ROW EXCLUSIVE)",
+                "Table-level locks (ACCESS EXCLUSIVE)",
+                "Page-level locks",
+                "Tuple-level locks"
+              ],
+              "files": ["src/include/storage/lockdefs.h"]
+            }
+          ]
+        },
+        {
+          "criteria": "Lock acquisition and release",
+          "proof_paths": [
+            {
+              "path": "Lock lifecycle",
+              "steps": [
+                "LockAcquire in lock.c",
+                "LockRelease in lock.c",
+                "Lock modes: AccessShareLock, RowShareLock, etc."
+              ],
+              "files": ["src/backend/storage/lmgr/lock.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "LockAcquire",
+          "to": "lock table",
+          "type": "updates",
+          "file": "src/backend/storage/lmgr/lock.c",
+          "proof": "LockAcquire updates lock table"
+        },
+        {
+          "from": "operation",
+          "to": "LockAcquire",
+          "type": "calls",
+          "proof": "Operations call LockAcquire for locking"
+        }
+      ],
+      "semantic_checks": [
+        "Lock granularity levels explained",
+        "Lock mode concept mentioned",
+        "Deadlock detection mentioned or implied"
+      ]
+    },
+    "T-Q18-N1": {
+      "question_id": "T-Q18-N1",
+      "expected_areas": ["src/backend/commands/vacuum.c", "src/backend/access/heap/vacuumlazy.c"],
+      "verification_criteria": [
+        {
+          "criteria": "VACUUM as maintenance command",
+          "proof_paths": [
+            {
+              "path": "VACUUM command",
+              "steps": [
+                "vacuum in vacuum.c",
+                "Handles VACUUM and VACUUM FULL",
+                "Can target specific tables or entire database"
+              ],
+              "files": ["src/backend/commands/vacuum.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Dead tuple removal and stats update",
+          "proof_paths": [
+            {
+              "path": "VACUUM operations",
+              "steps": [
+                "Removes dead tuples (deleted/obsolete rows)",
+                "Updates statistics in pg_class",
+                "Reclaims space for reuse"
+              ],
+              "files": ["src/backend/commands/vacuum.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Lazy vacuum",
+          "proof_paths": [
+            {
+              "path": "Lazy mechanism",
+              "steps": [
+                "lazy_vacuum_rel in vacuumlazy.c",
+                "Uses visibility map to skip clean pages",
+                "More efficient than FULL vacuum"
+              ],
+              "files": ["src/backend/access/heap/vacuumlazy.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "vacuum",
+          "to": "heap scan",
+          "type": "performs",
+          "file": "src/backend/access/heap/vacuumlazy.c",
+          "proof": "Vacuum performs heap scan for dead tuples"
+        },
+        {
+          "from": "vacuum",
+          "to": "stats update",
+          "type": "updates",
+          "proof": "Vacuum updates statistics in catalog"
+        }
+      ],
+      "semantic_checks": [
+        "VACUUM vs VACUUM FULL distinction",
+        "Dead tuple concept explained",
+        "At least one complete vacuum scenario traced"
+      ]
+    },
+    "T-Q19-N1": {
+      "question_id": "T-Q19-N1",
+      "expected_areas": ["src/backend/access/transam/ckpt.c", "src/backend/access/transam/xlog.c"],
+      "verification_criteria": [
+        {
+          "criteria": "CheckpointWrite as checkpoint initiation",
+          "proof_paths": [
+            {
+              "path": "Checkpoint initiation",
+              "steps": [
+                "CheckpointWrite in ckpt.c",
+                "Called periodically by checkpointer process",
+                "Or triggered by WAL volume"
+              ],
+              "files": ["src/backend/access/transam/ckpt.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Checkpoint process and WAL flushing",
+          "proof_paths": [
+            {
+              "path": "Checkpoint process",
+              "steps": [
+                "Write all dirty buffers to disk",
+                "Create checkpoint record in WAL",
+                "Advance REDO point",
+                "WAL flushed to disk"
+              ],
+              "files": ["src/backend/access/transam/ckpt.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Recovery procedure",
+          "proof_paths": [
+            {
+              "path": "Recovery",
+              "steps": [
+                "Start from last checkpoint",
+                "Replay WAL records from REDO point",
+                "Restore database to consistent state"
+              ],
+              "files": ["src/backend/access/transam/xlog.c"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "CheckpointWrite",
+          "to": "WAL flush",
+          "type": "triggers",
+          "file": "src/backend/access/transam/ckpt.c",
+          "proof": "CheckpointWrite triggers WAL flush"
+        },
+        {
+          "from": "recovery",
+          "to": "WAL replay",
+          "type": "uses",
+          "file": "src/backend/access/transam/xlog.c",
+          "proof": "Recovery uses WAL replay"
+        }
+      ],
+      "semantic_checks": [
+        "Checkpoint purpose explained (recovery point)",
+        "WAL before data principle reinforced",
+        "Complete checkpoint lifecycle described"
+      ]
+    },
+    "T-Q20-N1": {
+      "question_id": "T-Q20-N1",
+      "expected_areas": ["src/include/access/", "src/backend/access/", "src/backend/index/"],
+      "verification_criteria": [
+        {
+          "criteria": "Access method interface",
+          "proof_paths": [
+            {
+              "path": "Interface definition",
+              "steps": [
+                "Standard functions: amgettuple, amgetbitmap, amrescan, etc.",
+                "Defined in src/include/access/amapi.h",
+                "All access methods implement this interface"
+              ],
+              "files": ["src/include/access/amapi.h"]
+            }
+          ]
+        },
+        {
+          "criteria": "Access method implementations",
+          "proof_paths": [
+            {
+              "path": "Implementations",
+              "steps": [
+                "Heap access method in heapam.c",
+                "Index access methods (btree, hash, etc.)",
+                "Each provides amgettuple and other functions"
+              ],
+              "files": ["src/backend/access/heap/heapam.c"]
+            }
+          ]
+        },
+        {
+          "criteria": "Extensibility mechanism",
+          "proof_paths": [
+            {
+              "path": "Extensibility",
+              "steps": [
+                "New access methods can be added",
+                "Must implement standard interface functions",
+                "Registered via CREATE ACCESS METHOD"
+              ],
+              "files": ["src/backend/commands/"]
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "access method interface",
+          "to": "heap access method",
+          "type": "implements",
+          "file": "src/backend/access/heap/",
+          "proof": "Heap access method implements standard interface"
+        },
+        {
+          "from": "access method interface",
+          "to": "index access method",
+          "type": "implements",
+          "file": "src/backend/access/index/",
+          "proof": "Index access methods implement standard interface"
+        }
+      ],
+      "semantic_checks": [
+        "Interface functions listed",
+        "At least 2 access method types described",
+        "Extensibility concept explained"
+      ]
+    }
+  },
+  "summary": {
+    "total_questions": 40,
+    "series_R": 20,
+    "series_T": 20,
+    "series_T_priming": 10,
+    "series_T_neighboring": 10,
+    "all_questions_have_expectations": true,
+    "multiple_proof_paths_per_question": true,
+    "semantic_verification_required": true
+  },
+  "notes": "This file contains semantic expectations and is NOT revealed to benchmark agents. It is used solely by the independent evaluator for scoring."
+}
