@@ -111,11 +111,116 @@ declare function getImports(filePath: string): Array<SourceLocation & { text: st
 declare function getGitDiff(revision1: string, revision2?: string): string;
 
 /**
- * git - Get current git information
+ * git_diff - Alias for getGitDiff (spec #174 primitive 8)
+ */
+declare function git_diff(revision1: string, revision2?: string): string;
+
+/**
+ * git - Get current git information (spec #174 primitive 7: git_log)
  * @param timeout - Timeout in milliseconds
  * @returns Git information string
  */
 declare function git(timeout?: number): string;
+
+/**
+ * git_log - Alias for git (spec #174 primitive 7)
+ */
+declare function git_log(timeout?: number): string;
+
+/**
+ * stat - Get file status (spec #174 primitive 6)
+ * @param path - File path
+ * @returns File status information
+ */
+declare function stat(path: string): {
+  path: string;
+  size: number;
+  mtime: number;
+  isFile: boolean;
+  isDirectory: boolean;
+  mode?: number;
+};
+
+/**
+ * statFile - Alias for stat
+ */
+declare function statFile(path: string): {
+  path: string;
+  size: number;
+  mtime: number;
+  isFile: boolean;
+  isDirectory: boolean;
+  mode?: number;
+};
+
+/**
+ * find - Find files by pattern (spec #174 primitive 5)
+ * @param pattern - Pattern to match
+ * @param maxResults - Maximum number of results
+ * @param directory - Directory to search in
+ * @returns Find result with files and truncated flag
+ */
+declare function find(pattern: string, maxResults?: number, directory?: string): {
+  files: string[];
+  truncated: boolean;
+};
+
+/**
+ * findFiles - Alias for find
+ */
+declare function findFiles(pattern: string, maxResults?: number, directory?: string): {
+  files: string[];
+  truncated: boolean;
+};
+
+/**
+ * grep - Regex search (spec #174 primitive 4)
+ * @param pattern - Regex pattern
+ * @param options - Search options
+ * @returns Search results
+ */
+declare function grep(pattern: string, options?: any): any;
+
+/**
+ * gitBlame - Get git blame (spec #174 primitive 9)
+ * @param filePath - File path
+ * @param revision - Revision (default: HEAD)
+ * @param startLine - Starting line
+ * @param endLine - Ending line
+ * @returns Blame result
+ */
+declare function gitBlame(filePath: string, revision?: string, startLine?: number, endLine?: number): {
+  file: string;
+  lines: Array<{
+    line: number;
+    commit: string;
+    author: string;
+    authorDate: number;
+    committer: string;
+    committerDate: number;
+    summary: string;
+    content: string;
+  }>;
+  revision: string;
+};
+
+/**
+ * git_blame - Alias for gitBlame (spec #174 primitive 9)
+ */
+declare function git_blame(filePath: string, revision?: string, startLine?: number, endLine?: number): {
+  file: string;
+  lines: Array<{
+    line: number;
+    commit: string;
+    author: string;
+    authorDate: number;
+    committer: string;
+    committerDate: number;
+    summary: string;
+    content: string;
+  }>;
+  revision: string;
+};
 
 // ============================================================================
 // Parameter Types for TypeScript Functions
@@ -168,7 +273,16 @@ type PrimitiveFunction =
   | typeof findReferences
   | typeof getImports
   | typeof getGitDiff
-  | typeof git;
+  | typeof git
+  | typeof git_diff
+  | typeof git_log
+  | typeof stat
+  | typeof statFile
+  | typeof find
+  | typeof findFiles
+  | typeof grep
+  | typeof gitBlame
+  | typeof git_blame;
 
 export {
   SourceLocation,

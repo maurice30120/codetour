@@ -11,7 +11,7 @@ const entrySchema = z.object({
   parameters: z.array(z.string()),
   successes: z.number().int().nonnegative(),
   failures: z.number().int().nonnegative(),
-  inactivity: z.number().int().nonnegative(),
+  // G0 requirement: NO inactivity tracking or purge
   fingerprint: z.string().optional(),
   version: z.number().int().nonnegative().optional(),
   replacedBy: z.string().optional(),
@@ -35,13 +35,19 @@ export async function scriptMemory(root: string, directory: string, options: { d
     await writeFile(temporary, JSON.stringify(entries), { mode: 0o600 });
     await rename(temporary, file);
   };
+  // Per spec #172 G0 requirement: NO inactivity purge
+  // Purge only when: successes + failures >= 3 AND failures >= 2 AND successes + failures === 3
+  // Also limit to 20 entries max
   const prune = () => {
     const original = entries.length;
-    entries = entries.filter(e => e.inactivity < 10 && !(e.successes + e.failures >= 3 && e.failures >= 2 && e.successes + e.failures === 3));
+    // Keep only entries that don't meet the failure condition
+    entries = entries.filter(e => !(e.successes + e.failures >= 3 && e.failures >= 2 && e.successes + e.failures === 3));
     purges += original - entries.length;
+    // Keep entries sorted by success rate for deterministic behavior
+    entries.sort((a, b) => (b.successes / Math.max(1, b.successes + b.failures) - a.successes / Math.max(1, a.successes + a.failures)) || b.successes - a.successes || a.id.localeCompare(b.id));
+    // Limit to 20 entries (G0 allows this limit, but NOT inactivity-based purge)
     while (entries.length > 20) {
-      entries.sort((a, b) => (a.successes / Math.max(1, a.successes + a.failures) - b.successes / Math.max(1, b.successes + b.failures)) || a.successes - b.successes || a.id.localeCompare(b.id));
-      entries.shift(); purges++;
+      entries.pop(); purges++;
     }
   };
   
@@ -93,6 +99,33 @@ export async function scriptMemory(root: string, directory: string, options: { d
     catalog: () => entries.map(({ id, objective, description, parameters, version, fingerprint }) => ({
       id, objective, description, parameters, version, fingerprint
     })),
+    // memory_list with query support (spec #172 G0 requirement)
+    memory_list: (query?: string) => {
+      if (!query) {
+        return entries.map(({ id, objective, description, parameters, version, fingerprint }) => ({
+          id, objective, description, parameters, version, fingerprint
+        }));
+      }
+      // Filter entries by query matching objective or description
+      const lowerQuery = query.toLowerCase();
+      return entries
+        .filter(e => 
+          e.objective.toLowerCase().includes(lowerQuery) ||
+          e.description.toLowerCase().includes(lowerQuery) ||
+          e.parameters.some(p => p.toLowerCase().includes(lowerQuery))
+        )
+        .map(({ id, objective, description, parameters, version, fingerprint }) => ({
+          id, objective, description, parameters, version, fingerprint
+        }));
+    },
+    // memory_run with params support (spec #172 G0 requirement)
+    memory_run: (id: string, params: Record<string, unknown> = {}) => {
+      const entry = entries.find(e => e.id === id);
+      if (!entry) throw new Error('Unknown script');
+      // Note: Actual execution happens in explore.ts via runScript with params
+      // This method just retrieves the entry and will be used by the caller
+      return { id, code: entry.code, params };
+    },
     sources: () => Object.fromEntries(entries.map(({ id, code }) => [id, code])),
     get: (id: string) => entries.find(e => e.id === id),
     async failure(id: string) {
@@ -114,18 +147,24 @@ export async function scriptMemory(root: string, directory: string, options: { d
       variantOf?: string;
     }[]) {
       // Update success/failure counts for existing entries
+      // G0 requirement: NO inactivity tracking
       for (const entry of entries) {
         const successes = successIds.filter(id => id === entry.id).length;
         if (successes) { 
           entry.successes += successes; 
-          entry.inactivity = 0; 
         }
-        else entry.inactivity++;
+        // G0: No inactivity tracking - removed
       }
       
-      // Process each candidate
+      // Process each candidate - G0 requirement: consolidation ONLY for verified candidates
+      // "sur version réellement essayée" means only consolidate versions that were actually tried and verified
       for (const candidate of candidates) {
         const { verified, fingerprint, version = 1, replaces, variantOf, ...candidateData } = candidate;
+        
+        // G0 requirement: Only consolidate verified candidates (Tour validated)
+        if (!verified) {
+          continue; // Skip unverified candidates - no consolidation
+        }
         
         // Always check for exact duplicates first
         if (hasDuplicate(candidate, entries)) {
@@ -155,7 +194,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
               ...candidateData,
               successes: verified && isValid ? 1 : 0,
               failures: verified && !isValid ? 1 : 0,
-              inactivity: 0,
+              // G0: No inactivity tracking
               fingerprint: candidateFingerprint,
               version,
               variantOf: replaces,
@@ -177,7 +216,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
               ...candidateData,
               successes: verified && isValid ? 1 : 0,
               failures: verified && !isValid ? 1 : 0,
-              inactivity: 0,
+              // G0: No inactivity tracking
               fingerprint: candidateFingerprint,
               version,
               variantOf,
@@ -209,7 +248,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
               ...candidateData,
               successes: verified && isValid ? 1 : 0,
               failures: verified && !isValid ? 1 : 0,
-              inactivity: 0,
+              // G0: No inactivity tracking
               fingerprint: candidateFingerprint,
               version,
               variantOf: baseEntry.id,
@@ -238,7 +277,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
             existingEntry.version = Math.max(existingEntry.version || 1, version);
             existingEntry.validated = true;
             existingEntry.successes += 1;
-            existingEntry.inactivity = 0;
+            // G0: No inactivity tracking
           } else if (verified && !isValid) {
             existingEntry.failures += 1;
           }
@@ -251,7 +290,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
             ...candidateData,
             successes: verified && isValid ? 1 : 0,
             failures: verified && !isValid ? 1 : 0,
-            inactivity: 0,
+            // G0: No inactivity tracking
             fingerprint: candidateFingerprint,
             version,
             validated: isValid

@@ -18,12 +18,11 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const limits = { iterations: budget.iterations ?? 8, calls: budget.calls ?? 32, tokens: budget.tokens ?? 32000, durationMs: budget.durationMs ?? 60000 };
   if (Object.values(limits).some(n => !Number.isFinite(n) || n <= 0)) throw new Error('Budgets must be positive');
   const started = Date.now();
-  const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0 };
+  const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0 };
   const tools = await workspace(root);
   const library = memory ? await scriptMemory(root, memory.directory, { deduplicate: memory.deduplicate }) : undefined;
   const attempts: { id?: string; candidate?: { objective: string; description: string; code: string; parameters: string[] }; params?: Record<string, unknown>; output: unknown }[] = [];
   const unusableIds = new Set<string>();
-  const previousSearchOutputs = new Map<string, { content: string; toolCallId: string }>();
   const reason = () => Date.now() - started >= limits.durationMs ? 'duration' : metrics.inputTokens + metrics.outputTokens >= limits.tokens ? 'tokens' : metrics.modelCalls + metrics.toolCalls >= limits.calls ? 'calls' : metrics.modelCalls >= limits.iterations ? 'iterations' : undefined;
   const graph = new StateGraph(State).addNode('model', async state => {
     const stopped = reason();
@@ -62,7 +61,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           output = await tools.read(call.arguments.file, start, Number(call.arguments.endLine ?? start + 99));
         }
         else if (call.name === 'git') output = await tools.git(limits.durationMs - (Date.now() - started));
-        else if (library && call.name === 'memory_list') output = library.catalog();
+        else if (library && call.name === 'memory_list') output = library.memory_list(call.arguments?.query);
         else if (library && call.name === 'memory_unusable' && typeof call.arguments.id === 'string') {
           const id = call.arguments.id;
           if (!attempts.some(a => a.id === id)) throw new Error('Script must have been executed in this run');
@@ -70,10 +69,11 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           output = { recordedAfterValidation: true };
         }
         else if (codeMode && ((call.name === 'code' && typeof call.arguments.code === 'string') || (library && call.name === 'memory_run' && typeof call.arguments.id === 'string'))) {
-          const stored = call.name === 'memory_run' ? library?.get(String(call.arguments.id)) : undefined;
+          // memory_run(id, params) - spec #172 G0 requirement
+          const stored = call.name === 'memory_run' ? library?.memory_run(String(call.arguments.id), call.arguments.params || {}) : undefined;
           if (call.name === 'memory_run' && !stored) throw new Error('Unknown script');
           const code = stored?.code ?? String(call.arguments.code);
-          const params = call.arguments.params ?? {};
+          const params = stored?.params ?? call.arguments.params ?? {};
           if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('Invalid parameters');
           const remaining = limits.durationMs - (Date.now() - started);
           if (remaining <= 0) return { messages: outputs, stopReason: 'duration' };
@@ -83,21 +83,22 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           try {
             if (stored) metrics.memoryReuses++;
             output = await runScript({ workspace: root, code, params, timeoutMs: Math.min(5000, remaining), signal: controller.signal });
-            if (stored && memory?.compactSearch && stored.code === 'search(params.query)' && Array.isArray(output)) {
-              const matches = output.slice(0, 8).map((item: any) => ({ ...item, text: typeof item.text === 'string' ? item.text.slice(0, 240) : item.text, textTruncated: typeof item.text === 'string' && item.text.length > 240 }));
-              const compact = { matches, returned: matches.length, observed: output.length, truncated: output.length > matches.length, searchIsBounded: true };
-              const key = JSON.stringify([stored.id, params]);
-              const serialized = JSON.stringify(compact);
-              const previous = previousSearchOutputs.get(key);
-              if (previous?.content === serialized) {
-                output = { repeated: true, query: (params as Record<string, unknown>).query, previousToolCallId: previous.toolCallId, message: 'The visible results are identical to the previous call; refer to that output.' };
-                metrics.memoryResultsRepeated++;
-              } else {
-                output = compact;
-                previousSearchOutputs.set(key, { content: serialized, toolCallId: call.id });
-                metrics.memoryResultsCompacted++;
-              }
-            }
+            // Response cache disabled per spec #172 G0 requirement: NO response cache
+            // if (stored && memory?.compactSearch && stored.code === 'search(params.query)' && Array.isArray(output)) {
+            //   const matches = output.slice(0, 8).map((item: any) => ({ ...item, text: typeof item.text === 'string' ? item.text.slice(0, 240) : item.text, textTruncated: typeof item.text === 'string' && item.text.length > 240 }));
+            //   const compact = { matches, returned: matches.length, observed: output.length, truncated: output.length > matches.length, searchIsBounded: true };
+            //   const key = JSON.stringify([stored.id, params]);
+            //   const serialized = JSON.stringify(compact);
+            //   const previous = previousSearchOutputs.get(key);
+            //   if (previous?.content === serialized) {
+            //     output = { repeated: true, query: (params as Record<string, unknown>).query, previousToolCallId: previous.toolCallId, message: 'The visible results are identical to the previous call; refer to that output.' };
+            //     metrics.memoryResultsRepeated++;
+            //   } else {
+            //     output = compact;
+            //     previousSearchOutputs.set(key, { content: serialized, toolCallId: call.id });
+            //     metrics.memoryResultsCompacted++;
+            //   }
+            // }
             const description = typeof call.arguments.description === 'string' ? call.arguments.description.trim().slice(0, 300) : '';
             let candidate = library && !stored && call.arguments.remember === true && description ? { objective: objective.slice(0, 500), description, code, parameters: Object.keys(params).slice(0, 30) } : undefined;
             if (candidate && memory?.queryContract && call.arguments.contract === 'literal_query') {

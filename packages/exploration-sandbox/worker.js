@@ -5,6 +5,8 @@ const { validateAndTranspile } = require('./typescript-validator');
 const { validatePrimitives, TraceValidator, validateFull } = require('./validation');
 
 async function main({ workspace, code, paramsJson, deadline }) {
+  const startTime = Date.now();
+  
   if (Date.now() >= deadline) throw new Error('Sandbox timeout');
   const root = fs.realpathSync(workspace);
   if (!fs.statSync(root).isDirectory()) throw new Error('Workspace must be a directory');
@@ -20,6 +22,7 @@ async function main({ workspace, code, paramsJson, deadline }) {
     errors: [],
     proofs: [], // Added for ticket 04 - proofs of calls
     revision: '', // Added for ticket 04 - git revision
+    durationMs: 0, // Added for G0 - execution duration
     validation: { // Added for ticket 04
       typeChecking: { valid: false, errors: [] },
       primitiveWhitelist: { valid: false, violations: [] },
@@ -470,6 +473,136 @@ async function main({ workspace, code, paramsJson, deadline }) {
       }
       return child.stdout.slice(0, 32768);
     },
+    // git_log - Alias for git (spec #174 primitive 7)
+    git_log: (timeout) => git(timeout),
+    // git_diff - Alias for getGitDiff (spec #174 primitive 8)
+    git_diff: (revision1, revision2) => getGitDiff(revision1, revision2),
+    // git_blame - Alias for gitBlame (spec #174 primitive 9)
+    git_blame: (filePath, revision, startLine, endLine) => gitBlame(filePath, revision, startLine, endLine),
+    // stat - Get file status (spec #174 primitive)
+    stat: (path) => {
+      trace.executedCalls.push({ name: 'stat', params: { path } });
+      if (!path || typeof path !== 'string' || path.length > 300) {
+        trace.errors.push({ code: 'STAT_001', line: 0, message: 'Invalid path' });
+        throw new Error('Invalid path');
+      }
+      const target = resolve(path);
+      const statResult = fs.statSync(target);
+      return {
+        path,
+        size: statResult.size,
+        mtime: statResult.mtimeMs,
+        isFile: statResult.isFile(),
+        isDirectory: statResult.isDirectory(),
+        mode: statResult.mode
+      };
+    },
+    // grep - Regex search (spec #174 primitive 4)
+    grep: (pattern, options) => {
+      trace.executedCalls.push({ name: 'grep', params: { pattern, options } });
+      if (!pattern || typeof pattern !== 'string' || pattern.length > 200) {
+        trace.errors.push({ code: 'GREP_001', line: 0, message: 'Invalid pattern' });
+        throw new Error('Invalid pattern');
+      }
+      try {
+        new RegExp(pattern);
+      } catch (e) {
+        trace.errors.push({ code: 'GREP_002', line: 0, message: 'Invalid regex pattern' });
+        throw new Error('Invalid regex pattern');
+      }
+      const scoped = options !== undefined;
+      const prefix = scoped ? (options.pathPrefix ?? '') : '';
+      const offset = scoped ? (options.offset ?? 0) : 0;
+      const pageSize = scoped ? (options.limit ?? 10) : 50;
+      if (typeof prefix !== 'string' || prefix.length > 300) {
+        trace.errors.push({ code: 'GREP_003', line: 0, message: 'Invalid prefix' });
+        throw new Error('Invalid prefix');
+      }
+      const patternRegex = new RegExp(pattern);
+      const files = listFiles(30000);
+      const matches = [];
+      let seen = 0, hasMore = false;
+      for (const file of files) {
+        if (prefix && !file.startsWith(prefix)) continue;
+        try {
+          const target = resolve(file);
+          const stat = fs.statSync(target);
+          if (!stat.isFile() || stat.size > 1048576) continue;
+          const text = fs.readFileSync(target, 'utf8');
+          if (text.includes('\0')) continue;
+          const lines = text.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            if (patternRegex.test(lines[i])) {
+              if (seen++ < offset) continue;
+              if (matches.length === pageSize) { hasMore = true; break; }
+              matches.push({ file, line: i + 1, text: lines[i].slice(0, 2000) });
+              if (!scoped && matches.length === pageSize) { hasMore = true; break; }
+            }
+            patternRegex.lastIndex = 0;
+          }
+        } catch { continue; }
+        if (hasMore) break;
+      }
+      return scoped ? { matches, offset, limit: pageSize, hasMore, fileScanLimitReached: files.length >= 30000 } : matches;
+    },
+    // find - Find files by pattern (spec #174 primitive)
+    find: (pattern, maxResults, directory) => {
+      trace.executedCalls.push({ name: 'find', params: { pattern, maxResults, directory } });
+      if (!pattern || typeof pattern !== 'string' || pattern.length > 200) {
+        trace.errors.push({ code: 'FIND_002', line: 0, message: 'Invalid pattern' });
+        throw new Error('Invalid pattern');
+      }
+      const maxResultsFinal = maxResults || 50;
+      if (maxResultsFinal < 1 || maxResultsFinal > 100) {
+        trace.errors.push({ code: 'FIND_003', line: 0, message: 'Invalid maxResults' });
+        throw new Error('Invalid maxResults');
+      }
+      const dir = directory || '';
+      const files = [];
+      const patternRegex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const filesList = listFiles(30000);
+      for (const file of filesList) {
+        if (dir && !file.startsWith(dir)) continue;
+        if (patternRegex.test(file)) {
+          files.push(file);
+          if (files.length >= maxResultsFinal) break;
+        }
+        patternRegex.lastIndex = 0;
+      }
+      return { files, truncated: files.length >= maxResultsFinal };
+    },
+    // git_blame - Get git blame (spec #174 primitive)
+    gitBlame: (filePath, revision, startLine, endLine) => {
+      trace.executedCalls.push({ name: 'gitBlame', params: { filePath, revision, startLine, endLine } });
+      if (!filePath || typeof filePath !== 'string' || filePath.length > 300) {
+        trace.errors.push({ code: 'GIT_004', line: 0, message: 'Invalid file path' });
+        throw new Error('Invalid file path');
+      }
+      const rev = revision || 'HEAD';
+      if (!rev || typeof rev !== 'string' || rev.length > 100) {
+        trace.errors.push({ code: 'GIT_005', line: 0, message: 'Invalid revision' });
+        throw new Error('Invalid revision');
+      }
+      const target = resolve(filePath);
+      // Simplified implementation - return file content with basic blame info
+      const lines = fs.readFileSync(target, 'utf8').split('\n');
+      const actualStartLine = startLine && Number.isInteger(startLine) && startLine >= 1 ? startLine : 1;
+      const actualEndLine = endLine && Number.isInteger(endLine) && endLine <= lines.length ? endLine : lines.length;
+      const blameLines = [];
+      for (let i = actualStartLine; i <= actualEndLine; i++) {
+        blameLines.push({
+          line: i,
+          commit: 'N/A',
+          author: 'N/A',
+          authorDate: 0,
+          committer: 'N/A',
+          committerDate: 0,
+          summary: 'N/A',
+          content: lines[i - 1].slice(0, 2000)
+        });
+      }
+      return { file: filePath, lines: blameLines, revision: rev };
+    },
     // Add TypeScript validation function for function_try
     validateTypeScript: (tsCode) => {
       trace.executedCalls.push({ name: 'validateTypeScript', params: {} });
@@ -506,7 +639,7 @@ async function main({ workspace, code, paramsJson, deadline }) {
     }
     
     // Inject params and primitives into globalThis
-    const wrapper = `const params = JSON.parse(__paramsJson); delete globalThis.__paramsJson;\nfor (const n of ['listFiles','readLines','readAround','searchText','searchIdentifiers','listSymbols','findDefinitions','findReferences','getImports','getGitDiff','list','read','search']) { globalThis[n] = (...args) => { const r = JSON.parse(globalThis['_'+n](...args)); if (r.error) throw Error(r.error); return r.value; }; }\n${finalCode}`;
+    const wrapper = `const params = JSON.parse(__paramsJson); delete globalThis.__paramsJson;\nfor (const n of ['listFiles','readLines','readAround','searchText','searchIdentifiers','listSymbols','findDefinitions','findReferences','getImports','getGitDiff','stat','find','gitBlame','grep','list','read','search','git','git_log','git_diff','git_blame']) { globalThis[n] = (...args) => { const r = JSON.parse(globalThis['_'+n](...args)); if (r.error) throw Error(r.error); return r.value; }; }\n${finalCode}`;
     
     const result = vm.evalCode(wrapper);
     
@@ -558,6 +691,9 @@ async function main({ workspace, code, paramsJson, deadline }) {
     }
     
     trace.results = JSON.parse(serialized);
+    
+    // Set execution duration (G0 requirement: traces include duration)
+    trace.durationMs = Date.now() - startTime;
     
     return { 
       value: JSON.parse(serialized),

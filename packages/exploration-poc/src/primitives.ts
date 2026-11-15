@@ -376,6 +376,105 @@ export interface GetGitDiffResult {
   rawDiff?: string;
 }
 
+/**
+ * stat - Get file status/information
+ * 
+ * Safety: Path validation
+ * Bounded: Not paginated
+ * Paginated: Not applicable
+ * Sourced: file path, size, modified time
+ */
+export interface StatOptions {
+  /** File path to stat */
+  path: string;
+}
+
+export interface StatResult {
+  /** File path */
+  path: string;
+  /** File size in bytes */
+  size: number;
+  /** Modification time (timestamp) */
+  mtime: number;
+  /** Whether it's a file */
+  isFile: boolean;
+  /** Whether it's a directory */
+  isDirectory: boolean;
+  /** File permissions (optional) */
+  mode?: number;
+}
+
+/**
+ * find - Find files by name pattern
+ * 
+ * Safety: Path validation, pattern validation
+ * Bounded: maxResults limit (default 50)
+ * Paginated: Not applicable
+ * Sourced: file paths
+ */
+export interface FindOptions {
+  /** Name pattern to match (glob-like) */
+  pattern: string;
+  /** Maximum number of results (default: 50) */
+  maxResults?: number;
+  /** Directory to search in */
+  directory?: string;
+}
+
+export interface FindResult {
+  /** List of matching file paths */
+  files: string[];
+  /** True if results were truncated */
+  truncated: boolean;
+}
+
+/**
+ * git_blame - Get git blame for a file
+ * 
+ * Safety: Path validation, revision validation
+ * Bounded: Output size limit
+ * Paginated: Not applicable
+ * Sourced: file, line numbers, commit info
+ */
+export interface GitBlameOptions {
+  /** File path to blame */
+  filePath: string;
+  /** Revision to blame (default: HEAD) */
+  revision?: string;
+  /** Starting line (optional) */
+  startLine?: number;
+  /** Ending line (optional) */
+  endLine?: number;
+}
+
+export interface BlameLine {
+  /** Line number */
+  line: number;
+  /** Commit hash */
+  commit: string;
+  /** Author name */
+  author: string;
+  /** Author date (timestamp) */
+  authorDate: number;
+  /** Committer name */
+  committer: string;
+  /** Committer date (timestamp) */
+  committerDate: number;
+  /** Summary of the commit */
+  summary: string;
+  /** The actual line content */
+  content: string;
+}
+
+export interface GitBlameResult {
+  /** File path */
+  file: string;
+  /** Blame information for each line */
+  lines: BlameLine[];
+  /** Revision used */
+  revision: string;
+}
+
 // ============================================================================
 // Workspace Interface
 // ============================================================================
@@ -475,6 +574,32 @@ export interface WorkspacePrimitives {
    * @returns Diff information
    */
   getGitDiff(options: GetGitDiffOptions): Promise<GetGitDiffResult>;
+
+  /**
+   * Get file status/information
+   * @param options - Stat options
+   * @returns File status information
+   */
+  stat(options: StatOptions): Promise<StatResult>;
+
+  /**
+   * Alias for stat (spec #174 primitive)
+   */
+  fileStat(options: StatOptions): Promise<StatResult>;
+
+  /**
+   * Find files by name pattern
+   * @param options - Find options
+   * @returns List of matching files
+   */
+  find(options: FindOptions): Promise<FindResult>;
+
+  /**
+   * Get git blame for a file
+   * @param options - Git blame options
+   * @returns Blame information for each line
+   */
+  gitBlame(options: GitBlameOptions): Promise<GitBlameResult>;
 }
 
 // ============================================================================

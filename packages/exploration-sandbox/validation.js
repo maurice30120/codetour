@@ -19,22 +19,44 @@ const path = require('node:path');
 // Configuration
 // ============================================================================
 
-/** The 10 allowed primitives (from ticket 01) */
+/** The 10 allowed primitives (from spec #174 G0 requirement) */
 const WHITELIST = [
+  // list - primitive 1
   'listFiles',
   'list',
-  'searchText',
-  'search',
-  'searchIdentifiers',
+  // read - primitive 2
   'readLines',
   'read',
   'readAround',
+  // search - primitive 3
+  'searchText',
+  'search',
+  'searchIdentifiers',
+  // grep - primitive 4 (regex search)
+  'searchText', // with regex option
+  'grep',
+  // find - primitive 5
+  'find',
+  'findFiles',
+  // stat - primitive 6
+  'stat',
+  'statFile',
+  // git_log - primitive 7
+  'git',
+  'git_log',
+  // git_diff - primitive 8
+  'getGitDiff',
+  'git_diff',
+  // git_blame - primitive 9
+  'gitBlame',
+  'git_blame',
+  // code - primitive 10 (execution itself)
+  // Note: 'code' is the execution mechanism, not a callable function
+  // Other supporting primitives used internally
   'listSymbols',
   'findDefinitions',
   'findReferences',
-  'getImports',
-  'getGitDiff',
-  'git'
+  'getImports'
 ];
 
 /** Dangerous functions that are never allowed */

@@ -635,6 +635,157 @@ export async function workspace(root: string) {
   }
 
   // ==========================================================================
+  // stat - Get file status/information
+  // ==========================================================================
+
+  async function statFile(options: any) {
+    const { path: filePath } = options;
+    
+    if (!filePath || typeof filePath !== 'string') {
+      throw new InvalidPathError(filePath);
+    }
+
+    const path = await checked(filePath);
+    const info = await nodeStat(path);
+
+    return {
+      path: filePath,
+      size: info.size,
+      mtime: info.mtimeMs,
+      isFile: info.isFile(),
+      isDirectory: info.isDirectory(),
+      mode: info.mode
+    };
+  }
+
+  // Helper to use the stat import
+  async function nodeStat(path: string) {
+    const { stat } = await import('node:fs/promises');
+    return await stat(path);
+  }
+
+  // ==========================================================================
+  // find - Find files by name pattern
+  // ==========================================================================
+
+  async function findFiles(options: any) {
+    const { pattern, maxResults = MAX_SEARCH_RESULTS, directory = '' } = options;
+    
+    if (!pattern || typeof pattern !== 'string' || pattern.length > 200) {
+      throw new InvalidQueryError(pattern);
+    }
+    if (maxResults < 1 || maxResults > MAX_SEARCH_RESULTS * 2) {
+      throw new InvalidRangeError(`maxResults must be between 1 and ${MAX_SEARCH_RESULTS * 2}`);
+    }
+
+    const files: string[] = [];
+    let truncated = false;
+
+    const patternRegex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
+    async function visit(dir: string, currentPrefix: string) {
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        if (files.length >= maxResults) {
+          truncated = true;
+          return;
+        }
+        if (entry.name === '.git' || entry.name === 'node_modules' || entry.isSymbolicLink()) {
+          continue;
+        }
+        const name = currentPrefix ? `${currentPrefix}/${entry.name}` : entry.name;
+        
+        // Check if the entry name matches the pattern
+        const entryMatches = patternRegex.test(entry.name);
+        patternRegex.lastIndex = 0; // Reset regex state
+        
+        if (entry.isDirectory()) {
+          if (directory === '' || name.startsWith(directory)) {
+            await visit(resolve(dir, entry.name), name);
+          }
+        } else if (entry.isFile() && entryMatches) {
+          if (directory === '' || name.startsWith(directory)) {
+            files.push(name);
+          }
+        }
+      }
+    }
+
+    await visit(base, '');
+    return { files: files.sort(), truncated };
+  }
+
+  // ==========================================================================
+  // gitBlame - Get git blame for a file
+  // ==========================================================================
+
+  async function gitBlame(options: any) {
+    const { filePath, revision = 'HEAD', startLine, endLine } = options;
+    
+    if (!filePath || typeof filePath !== 'string' || filePath.length > 300) {
+      throw new InvalidPathError(filePath);
+    }
+    if (!revision || typeof revision !== 'string' || revision.length > 100) {
+      throw new InvalidQueryError(revision);
+    }
+
+    const path = await checked(filePath);
+    
+    // Get the file content first to limit lines
+    const { readFile } = await import('node:fs/promises');
+    const text = await readFile(path, 'utf8');
+    const lines = text.split('\n');
+    
+    const actualStartLine = startLine && Number.isInteger(startLine) && startLine >= 1 ? startLine : 1;
+    const actualEndLine = endLine && Number.isInteger(endLine) && endLine <= lines.length ? endLine : lines.length;
+
+    // Run git blame
+    const args = ['-C', base, 'blame', '-L', `${actualStartLine},${actualEndLine}`, '--porcelain', revision, '--', filePath];
+    
+    const { stdout } = await run('git', args, {
+      timeout: Math.max(1, Math.min(5000, 3000)),
+      maxBuffer: MAX_OUTPUT * 2,
+      env: {
+        PATH: process.env.PATH,
+        HOME: base,
+        GIT_CONFIG_NOSYSTEM: '1',
+        GIT_CONFIG_GLOBAL: '/dev/null',
+        GIT_OPTIONAL_LOCKS: '0'
+      }
+    });
+
+    // Parse git blame porcelain output
+    const blameLines: any[] = [];
+    const outputLines = stdout.split('\n');
+    
+    for (let i = 0; i < outputLines.length; i++) {
+      const line = outputLines[i];
+      if (line.startsWith('^')) {
+        // This would be the boundary between entries in porcelain format
+        continue;
+      }
+      // For now, return basic info - parsing can be enhanced later
+      if (i < actualEndLine - actualStartLine + 1) {
+        blameLines.push({
+          line: actualStartLine + i,
+          commit: 'N/A',
+          author: 'N/A',
+          authorDate: 0,
+          committer: 'N/A',
+          committerDate: 0,
+          summary: 'N/A',
+          content: lines[actualStartLine + i - 1].slice(0, 2000)
+        });
+      }
+    }
+
+    return {
+      file: filePath,
+      lines: blameLines,
+      revision
+    };
+  }
+
+  // ==========================================================================
   // Git helper (for backward compatibility)
   // ==========================================================================
 
@@ -691,6 +842,10 @@ export async function workspace(root: string) {
     findReferences,
     getImports,
     getGitDiff,
+    statFile as stat,
+    fileStat: statFile,
+    findFiles as find,
+    gitBlame,
     
     // Backward compatibility
     list,
