@@ -4,6 +4,11 @@
   "private": true,
   "type": "commonjs",
   "main": "index.js",
-  "scripts": { "test": "node --test test/*.test.js" },
-  "dependencies": { "quickjs-emscripten": "^0.31.0" }
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "quickjs-emscripten": "^0.31.0",
+    "typescript": "^5.9.3"
+  }
 }

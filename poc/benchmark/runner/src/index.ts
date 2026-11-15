@@ -1,25 +1,38 @@
 /**
  * Benchmark Runner - Main Entry Point
- * Spec #174 - T05
- * 
+ * Spec #174 - T05 (remediated)
+ *
  * Main runner that orchestrates benchmark execution with:
- * - Paired agent execution (CodeTour and Vibe native)
+ * - Paired agent execution (CodeTour harness and Vibe native)
  * - Session isolation
- * - Token tracking from provider
+ * - Token tracking from provider-usage fields only
  * - Immutable logging
  * - NO-GO controls
+ * - Per-run fixture verification (before EVERY SINGLE RUN)
+ * - REAL manifest freeze (content hash + readback verification)
+ *
+ * Remediation notes (code-review findings):
+ * - POSTGRES_SHA has ONE source (storage/logger.ts) — re-exported here.
+ * - The Middle Man validators (validateProvenance/validateTokenUsage/...)
+ *   are REMOVED: callers use the ImmutableLogger controls directly via
+ *   getLogger() — the wrappers did no distinct work.
+ * - The run-result summary type is renamed RunSummary to stop the name
+ *   collision with logger.ts's RunResult (the run payload type).
+ * - runPilot now defaults to FALSE (the previous literal-true default made
+ *   "run only the main campaign" silently execute a pilot campaign too —
+ *   the runMain()/runAll() trap). runMain() never runs the pilot and never
+ *   double-executes the campaign (it no longer delegates to runAll()).
+ * - freezeManifest() delegates to the real implementation in storage/logger
+ *   (content hash, TBD refusal, readback verification) — no placeholder.
  */
 
 import fs from 'fs';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
-import { ImmutableLogger, RunTrace } from './storage/logger';
+import { ImmutableLogger, RunTrace, freezeManifest, validateManifestFrozen, POSTGRES_SHA } from './storage/logger';
+import { verifyFixture } from './storage/fixture-verification';
 import { ExecutionManager, Question } from './execution/manager';
-import { CodeTourExecutor, createCodeTourExecutor } from './agents/codetour';
-import { VibeExecutor, createVibeExecutor } from './agents/vibe';
-
-// PostgreSQL constants
-const POSTGRES_SHA = '70c4a57b64d39c526eb4c44a925eb92a6e56f3c5';
+import { CodeTourExecutor, CodeTourConfig } from './agents/codetour';
+import { VibeExecutor, VibeConfig } from './agents/vibe';
 
 /**
  * Configuration for the benchmark runner
@@ -29,7 +42,7 @@ export interface RunnerConfig {
   questionsFile: string;
   /** Path to the manifest JSON file */
   manifestFile: string;
-  /** Path to the PostgreSQL fixture */
+  /** Path to the PostgreSQL fixture clone (verified BEFORE EVERY RUN) */
   postgresPath: string;
   /** Output directory for run traces */
   outputDir: string;
@@ -42,16 +55,32 @@ export interface RunnerConfig {
     maxRetries: number;
     retryDelay: number;
   };
-  /** Whether to run pilot first */
+  /**
+   * Whether to run a pilot before the main execution. DEFAULT FALSE — a
+   * caller who wants a pilot must ask for it explicitly (the old literal-true
+   * default made every "main" invocation run a pilot first).
+   */
   runPilot?: boolean;
   /** Number of questions for pilot */
   pilotCount?: number;
+  /** CodeTour harness executor configuration (fixtureRoot wired from postgresPath). */
+  codetour?: Partial<CodeTourConfig>;
+  /** Vibe connector executor configuration (workDir wired from postgresPath). */
+  vibe?: Partial<VibeConfig>;
+  /**
+   * Directory holding the gate-evidence files produced by REAL executions
+   * (poc/benchmark/validate-gates.mjs). Every gate must find its evidence
+   * here; a gate without evidence fails (spec §1: tout G0-G5 non satisfait
+   * = NO-GO — no gate may be forced to true without proof).
+   */
+  gateEvidenceDir?: string;
 }
 
 /**
- * Result of a single run
+ * Summary of a single executed run (renamed from RunResult to stop the
+ * collision with storage/logger's RunResult run-payload type).
  */
-export interface RunResult {
+export interface RunSummary {
   runId: string;
   questionId: string;
   agent: 'codetour' | 'vibe-native';
@@ -59,6 +88,23 @@ export interface RunResult {
   totalTokens: { input: number; output: number; total: number };
   status: 'success' | 'error' | 'timeout';
   error?: string;
+}
+
+/** THE one trace-to-summary builder (single implementation, no duplicated literals). */
+function summarizeTrace(trace: RunTrace): RunSummary {
+  return {
+    runId: trace.run_id,
+    questionId: trace.question_id,
+    agent: trace.agent,
+    series: trace.series,
+    totalTokens: {
+      input: trace.total_tokens.input,
+      output: trace.total_tokens.output,
+      total: trace.total_tokens.total,
+    },
+    status: trace.status,
+    error: trace.error !== null && trace.error !== undefined ? trace.error : undefined,
+  };
 }
 
 /**
@@ -72,11 +118,11 @@ export class BenchmarkRunner {
   private readonly codeTourExecutor: CodeTourExecutor;
   private readonly vibeExecutor: VibeExecutor;
   private questions: Question[] = [];
-  private manifest: Record<string, unknown> = {};
 
   constructor(config: RunnerConfig) {
     this.config = {
-      runPilot: true,
+      // Deliberate default: NO pilot unless asked for.
+      runPilot: false,
       pilotCount: 2,
       ...config,
     };
@@ -89,20 +135,39 @@ export class BenchmarkRunner {
       immutable: true,
     });
 
-    // Initialize execution manager
+    // Initialize execution manager — the fixture path is REQUIRED: it is
+    // verified against the pre-registered SHA before every single run.
     this.executionManager = new ExecutionManager(this.logger, {
       maxConcurrent: config.maxConcurrent ?? 1,
       timeoutMs: config.timeoutMs ?? 300000, // 5 minutes
       retryPolicy: config.retryPolicy ?? { maxRetries: 0, retryDelay: 0 },
+      fixturePath: config.postgresPath,
     });
 
-    // Initialize agent executors
-    this.codeTourExecutor = createCodeTourExecutor();
-    this.vibeExecutor = createVibeExecutor();
+    // Initialize REAL agent executors: both arms explore THE fixture
+    // directory that the manager verifies per run (same_tree_for_both_agents).
+    this.codeTourExecutor = new CodeTourExecutor({
+      ...config.codetour,
+      fixtureRoot: config.postgresPath,
+      timeoutMs: config.timeoutMs ?? 300000,
+    });
+    this.vibeExecutor = new VibeExecutor({
+      ...config.vibe,
+      workDir: config.postgresPath,
+      timeoutMs: config.timeoutMs ?? 300000,
+    });
 
     // Register executors
     this.executionManager.registerAgentExecutor(this.codeTourExecutor);
     this.executionManager.registerAgentExecutor(this.vibeExecutor);
+  }
+
+  /**
+   * Direct access to the immutable logger (NO-GO controls and storage are
+   * used directly by callers — no Middle Man wrappers).
+   */
+  getLogger(): ImmutableLogger {
+    return this.logger;
   }
 
   /**
@@ -160,12 +225,11 @@ export class BenchmarkRunner {
   async loadManifest(): Promise<Record<string, unknown>> {
     const filePath = path.resolve(this.config.manifestFile);
     const content = fs.readFileSync(filePath, 'utf-8');
-    this.manifest = JSON.parse(content);
-    return this.manifest;
+    return JSON.parse(content) as Record<string, unknown>;
   }
 
   /**
-   * Validate PostgreSQL SHA
+   * Validate PostgreSQL SHA across loaded questions
    */
   validatePostgresSha(): boolean {
     if (!this.questions.length) {
@@ -176,37 +240,74 @@ export class BenchmarkRunner {
   }
 
   /**
-   * Validate all gates G0-G5
-   * G0: Conformity to #172 (from T02)
-   * G1: Authentic Vibe (from T03)
-   * G2: Total instrumentation (from T03)
-   * G3: Real fixture (from T04)
-   * G4: Independent evaluator (from T06 - not implemented yet)
-   * G5: Pre-registration (manifest sealed)
+   * Validate all gates G0-G5 against REAL, verifiable evidence. Every gate
+   * must point at evidence produced by an actual execution BEFORE the
+   * campaign (see poc/benchmark/validate-gates.mjs, the evidence producer):
+   *
+   * G0: the real #172-conformance test suite ran and passed.
+   * G1: the real sentinel executed the native Vibe research sub-agent —
+   *     real CLI version, real active model, observed subagent, non-empty tools.
+   * G2: that sentinel trace carries per-call provider usage and no call is
+   *     missing counters.
+   * G3: the fixture is verified ON DISK right now (git HEAD + clean tree)
+   *     and every question carries the pre-registered SHA.
+   * G4: the evaluator's pre-registered criteria exist and its adversarial
+   *     regression case (fabricated citation + unproven relation) is rejected.
+   * G5: the pre-registration manifest is frozen (content hash verified).
+   *
+   * Forcing any gate to true without its evidence file is a protocol
+   * violation (spec §0/§7: a NO-GO must never be dressed up as a pass).
    */
   async validateGates(): Promise<boolean> {
+    const readGateEvidence = (file: string): Record<string, unknown> | null => {
+      try {
+        const filePath = path.join(this.gateEvidenceDir(), file);
+        return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    };
+
     const checks: Record<string, boolean> = {};
 
-    // G0: Conformity to #172 - Assume passed from T02
-    checks.G0 = true;
+    const g0 = readGateEvidence('g0-conformance.json');
+    checks.G0 = g0 !== null
+      && g0['passed'] === true
+      && g0['failed_count'] === 0
+      && typeof g0['total_tests'] === 'number'
+      && (g0['total_tests'] as number) > 0
+      && typeof g0['command'] === 'string'
+      && (g0['command'] as string).length > 0;
 
-    // G1: Authentic Vibe - Assume passed from T03
-    checks.G1 = true;
+    const g1 = readGateEvidence('g1-sentinel.json');
+    checks.G1 = g1 !== null
+      && g1['g1_passed'] === true
+      && typeof g1['session_id'] === 'string' && (g1['session_id'] as string).length > 0
+      && typeof g1['vibe_version'] === 'string' && (g1['vibe_version'] as string).length > 0
+      && typeof g1['model'] === 'string' && (g1['model'] as string).length > 0
+      && g1['subagent_detected'] === true
+      && typeof g1['tools_count'] === 'number' && (g1['tools_count'] as number) > 0;
 
-    // G2: Total instrumentation - We track all calls
-    checks.G2 = true;
+    const g2 = readGateEvidence('g2-instrumentation.json');
+    checks.G2 = g2 !== null
+      && g2['g2_passed'] === true
+      && typeof g2['calls_total'] === 'number' && (g2['calls_total'] as number) > 0
+      && g2['calls_without_usage'] === 0;
 
-    // G3: Real fixture
-    checks.G3 = this.validatePostgresSha();
+    // G3: REAL on-disk verification NOW (git HEAD + clean tree), plus the
+    // question-carried SHAs (both checks must hold).
+    checks.G3 = this.validatePostgresSha() && await this.verifyFixtureOnDisk();
 
-    // G4: Independent evaluator - From T06, not implemented yet
-    // For T05, we just check that the structure is in place
-    checks.G4 = true;
+    const g4 = readGateEvidence('g4-evaluator.json');
+    checks.G4 = g4 !== null
+      && g4['criteria_registered'] === true
+      && g4['adversarial_case_rejected'] === true;
 
-    // G5: Pre-registration
+    // G5: pre-registration — REAL check: lock exists and the current manifest
+    // content hashes to the recorded digest.
     try {
       await this.loadManifest();
-      checks.G5 = true;
+      checks.G5 = validateManifestFrozen(this.config.manifestFile);
     } catch {
       checks.G5 = false;
     }
@@ -215,20 +316,41 @@ export class BenchmarkRunner {
 
     if (!allPassed) {
       const failed = Object.entries(checks)
-        .filter(([_, v]) => !v)
+        .filter(([, v]) => !v)
         .map(([k]) => k);
-      console.error(`NO-GO: Failed gates: ${failed.join(', ')}`);
+      console.error(`NO-GO: Failed gates (no valid evidence): ${failed.join(', ')}`);
     }
 
     return allPassed;
   }
 
+  /** Directory holding gate evidence files (produced by validate-gates.mjs). */
+  private gateEvidenceDir(): string {
+    return this.config.gateEvidenceDir
+      ?? path.join(process.cwd(), 'poc', 'benchmark', 'gate-evidence');
+  }
+
+  /** REAL fixture verification on disk: actual git HEAD plus clean tree. */
+  private async verifyFixtureOnDisk(): Promise<boolean> {
+    try {
+      const verification = await verifyFixture(this.config.postgresPath, POSTGRES_SHA);
+      if (!verification.ok) {
+        console.error(`NO-GO G3: fixture verification failed on disk: ${verification.errors.join('; ')}`);
+      }
+      return verification.ok;
+    } catch (error) {
+      console.error(`NO-GO G3: fixture verification could not run: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
   /**
-   * Run the pilot (1-2 questions for connectivity testing)
+   * Run the pilot (1-2 questions for connectivity testing). Runs only when
+   * explicitly configured (runPilot: true).
    */
   async runPilot(): Promise<void> {
     if (!this.config.runPilot) {
-      console.log('Pilot skipped');
+      console.log('Pilot skipped (runPilot is not enabled)');
       return;
     }
 
@@ -239,147 +361,57 @@ export class BenchmarkRunner {
       throw new Error('No questions available for pilot');
     }
 
-    console.log(`Running pilot with ${pilotQuestions.length} question(s)...`);
+    console.log(`Running pilot with ${pilotQuestions.length} question(s)... (NOT counted in the main benchmark)`);
 
-    // Run pilot with both agents for each question
     for (const question of pilotQuestions) {
       console.log(`Pilot: Running question ${question.id}...`);
 
       try {
-        // Run CodeTour
-        console.log(`  - Running CodeTour for ${question.id}...`);
         await this.executionManager.executeSingle(question, 'codetour');
-        console.log(`  - CodeTour completed for ${question.id}`);
-
-        // Run Vibe
-        console.log(`  - Running Vibe Native for ${question.id}...`);
         await this.executionManager.executeSingle(question, 'vibe-native');
-        console.log(`  - Vibe Native completed for ${question.id}`);
       } catch (error) {
         console.error(`  - Pilot error for ${question.id}:`, error);
-        // Continue with next question
       }
     }
 
-    console.log('Pilot completed successfully');
+    console.log('Pilot completed');
   }
 
   /**
-   * Freeze the manifest and prompts
-   * After this, no changes are allowed
+   * Freeze the manifest with the REAL implementation (content hash, TBD
+   * refusal, readback verification). After this, the campaign must refuse to
+   * run if the manifest changes (validated by validateGates / campaign checks).
    */
   async freezeManifest(): Promise<void> {
-    // In a real implementation, this would create a cryptographic hash
-    // of the manifest and prompts and store it
-    console.log('Manifest and prompts frozen');
-
-    // For now, we just log that this happened
-    // The actual freezing would be done by committing the manifest
-    // and prompt files with a specific hash
+    await this.loadManifest();
+    freezeManifest(this.config.manifestFile, path.join(this.config.outputDir, 'manifest-lock.json'));
+    console.log('Manifest frozen (real content hash verified by readback)');
   }
 
   /**
-   * Execute a single run with a specific agent
+   * Execute every loaded question with paired agents. THE shared
+   * orchestration used by runAll/post-pilot flows (no duplicated loops).
    */
-  async runSingle(params: {
-    question: Question;
-    agent: 'codetour' | 'vibe-native';
-  }): Promise<RunResult> {
-    const trace = await this.executionManager.executeSingle(
-      params.question,
-      params.agent
-    );
-
-    return {
-      runId: trace.run_id,
-      questionId: trace.question_id,
-      agent: trace.agent,
-      series: trace.series,
-      totalTokens: trace.total_tokens,
-      status: trace.status,
-      error: trace.error ? trace.error : undefined,
-    };
-  }
-
-  /**
-   * Run all questions with paired agents
-   * This is the main benchmark execution
-   */
-  async runAll(): Promise<RunResult[]> {
-    // Load questions
-    if (this.questions.length === 0) {
-      await this.loadQuestions();
-    }
-
-    // Validate all gates
-    if (!(await this.validateGates())) {
-      throw new Error('NO-GO: Gates G0-G5 not all satisfied');
-    }
-
-    console.log('All gates G0-G5 validated. Starting benchmark...');
-
-    // Run pilot first
-    if (this.config.runPilot) {
-      await this.runPilot();
-    }
-
-    // Freeze manifest after pilot
-    await this.freezeManifest();
-
-    console.log('Starting main benchmark execution...');
-
-    // Execute all questions with paired agents
-    const results: RunResult[] = [];
+  private async executeAllQuestions(): Promise<RunSummary[]> {
+    const results: RunSummary[] = [];
 
     for (let i = 0; i < this.questions.length; i++) {
       const question = this.questions[i];
       console.log(`Running question ${i + 1}/${this.questions.length}: ${question.id}...`);
 
       try {
-        // Execute paired (both agents for the same question)
         const { codetour, vibe } = await this.executionManager.executePaired(question);
-
-        results.push({
-          runId: codetour.run_id,
-          questionId: codetour.question_id,
-          agent: codetour.agent,
-          series: codetour.series,
-          totalTokens: codetour.total_tokens,
-          status: codetour.status,
-          error: codetour.error ? codetour.error : undefined,
-        });
-
-        results.push({
-          runId: vibe.run_id,
-          questionId: vibe.question_id,
-          agent: vibe.agent,
-          series: vibe.series,
-          totalTokens: vibe.total_tokens,
-          status: vibe.status,
-          error: vibe.error ? vibe.error : undefined,
-        });
-
+        results.push(summarizeTrace(codetour), summarizeTrace(vibe));
         console.log(`  Completed: CodeTour (${codetour.total_tokens.total} tokens) and Vibe (${vibe.total_tokens.total} tokens)`);
       } catch (error) {
-        console.error(`  Error executing question ${question.id}:`, error);
-        // Add error results for both agents
-        const errorResult = {
-          runId: uuidv4(),
-          questionId: question.id,
-          agent: 'codetour' as const,
-          series: question.series,
-          totalTokens: { input: 0, output: 0, total: 0, verified: false },
-          status: 'error' as const,
-          error: error instanceof Error ? error.message : String(error),
-        };
-        results.push(errorResult);
-
-        const errorResult2 = {
-          ...errorResult,
-          runId: uuidv4(),
-          agent: 'vibe-native' as const,
-        };
-        results.push(errorResult2);
+        // Agent/infrastructure failures are recorded and count in the
+        // denominator (never erased, never replaced with fabricated runs).
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`  Error executing question ${question.id}:`, message);
+        results.push(
+          { runId: '', questionId: question.id, agent: 'codetour', series: question.series, totalTokens: { input: 0, output: 0, total: 0 }, status: 'error', error: message },
+          { runId: '', questionId: question.id, agent: 'vibe-native', series: question.series, totalTokens: { input: 0, output: 0, total: 0 }, status: 'error', error: message }
+        );
       }
     }
 
@@ -387,30 +419,62 @@ export class BenchmarkRunner {
   }
 
   /**
-   * Run only the main benchmark (80 runs) without pilot
+   * Run only a single run with one agent
    */
-  async runMain(): Promise<RunResult[]> {
-    // Load questions
+  async runSingle(params: {
+    question: Question;
+    agent: 'codetour' | 'vibe-native';
+  }): Promise<RunSummary> {
+    const trace = await this.executionManager.executeSingle(params.question, params.agent);
+    return summarizeTrace(trace);
+  }
+
+  /**
+   * Full execution flow: gates -> (optional pilot, only when explicitly
+   * enabled) -> freeze -> main execution.
+   */
+  async runAll(): Promise<RunSummary[]> {
     if (this.questions.length === 0) {
       await this.loadQuestions();
     }
 
-    // Validate all gates
     if (!(await this.validateGates())) {
       throw new Error('NO-GO: Gates G0-G5 not all satisfied');
     }
 
-    console.log('Starting main benchmark execution (80 runs)...');
+    console.log('All gates G0-G5 validated.');
 
-    // Freeze manifest before main run
+    await this.runPilot();
     await this.freezeManifest();
 
-    // Execute all questions with paired agents
-    return this.runAll();
+    console.log('Starting main benchmark execution...');
+    return this.executeAllQuestions();
   }
 
   /**
-   * Get summary of all runs
+   * Run the MAIN benchmark only: gates -> freeze -> main runs. NO pilot is
+   * executed and the campaign is NOT run twice (the previous implementation
+   * delegated to runAll(), which re-ran the pilot and executed everything a
+   * second time).
+   */
+  async runMain(): Promise<RunSummary[]> {
+    if (this.questions.length === 0) {
+      await this.loadQuestions();
+    }
+
+    if (!(await this.validateGates())) {
+      throw new Error('NO-GO: Gates G0-G5 not all satisfied');
+    }
+
+    console.log('Starting main benchmark execution (pilot skipped in runMain)...');
+
+    await this.freezeManifest();
+
+    return this.executeAllQuestions();
+  }
+
+  /**
+   * Get summary of all logged runs
    */
   getSummary(): ReturnType<ExecutionManager['getSummary']> {
     return this.executionManager.getSummary();
@@ -422,63 +486,8 @@ export class BenchmarkRunner {
   getAllRuns(): RunTrace[] {
     return this.logger.listRuns();
   }
-
-  /**
-   * NO-GO Control: Validate provenance
-   * @throws Error if provenance is missing or invalid
-   */
-  validateProvenance(trace: Partial<RunTrace>): void {
-    const result = this.logger.validateProvenance(trace);
-    if (!result.passed) {
-      throw new Error(`NO-GO: ${result.errors.join('; ')}`);
-    }
-  }
-
-  /**
-   * NO-GO Control: Validate token usage
-   * @throws Error if usage is missing
-   */
-  validateTokenUsage(trace: Partial<RunTrace>): void {
-    const result = this.logger.validateTokenUsage(trace);
-    if (!result.passed) {
-      throw new Error(`NO-GO: ${result.errors.join('; ')}`);
-    }
-  }
-
-  /**
-   * NO-GO Control: Validate PostgreSQL SHA
-   * @throws Error if SHA is wrong
-   */
-  validatePostgresShaCheck(trace: Partial<RunTrace>): void {
-    const result = this.logger.validatePostgresShaCheck(trace);
-    if (!result.passed) {
-      throw new Error(`NO-GO: ${result.errors.join('; ')}`);
-    }
-  }
-
-  /**
-   * NO-GO Control: Validate fixture integrity
-   * @throws Error if fixture is corrupted
-   */
-  validateFixtureIntegrity(trace: Partial<RunTrace>): void {
-    const result = this.logger.validateFixtureIntegrity(trace);
-    if (!result.passed) {
-      throw new Error(`NO-GO: ${result.errors.join('; ')}`);
-    }
-  }
-
-  /**
-   * Run all NO-GO controls
-   * @throws Error if any control fails
-   */
-  validateNoGoControls(trace: Partial<RunTrace>): void {
-    const result = this.logger.validateNoGoControls(trace);
-    if (!result.passed) {
-      throw new Error(`NO-GO: ${result.errors.join('; ')}`);
-    }
-  }
 }
 
 // Export types
 export type { Question };
-export { POSTGRES_SHA };
+export { POSTGRES_SHA, freezeManifest, validateManifestFrozen };

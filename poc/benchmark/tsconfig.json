@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "typeRoots": ["./runner/node_modules/@types"],
+    "types": ["node"]
+  },
+  "include": ["pilot.ts", "main-campaign.ts", "execute.ts", "runner/src/**/*"],
+  "exclude": ["node_modules", "runner/node_modules", "runner/dist", "runner/test"]
+}

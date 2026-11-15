@@ -842,9 +842,9 @@ export async function workspace(root: string) {
     findReferences,
     getImports,
     getGitDiff,
-    statFile as stat,
+    stat: statFile,
     fileStat: statFile,
-    findFiles as find,
+    find: findFiles,
     gitBlame,
     
     // Backward compatibility

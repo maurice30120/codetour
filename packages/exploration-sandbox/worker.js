@@ -4,10 +4,21 @@ const { getQuickJS } = require('quickjs-emscripten');
 const { validateAndTranspile } = require('./typescript-validator');
 const { validatePrimitives, TraceValidator, validateFull } = require('./validation');
 
-async function main({ workspace, code, paramsJson, deadline }) {
+async function main({ workspace, code, paramsJson, deadline, memorizedNames = [] }) {
   const startTime = Date.now();
   
   if (Date.now() >= deadline) throw new Error('Sandbox timeout');
+  // Belt and braces: reject memorized-procedure nesting inside the worker too.
+  if (Array.isArray(memorizedNames) && memorizedNames.length > 0) {
+    for (const name of memorizedNames) {
+      if (new RegExp(`\\b${String(name).replace(/\$/g, '\\$')}\\b`).test(code)) {
+        throw new Error(`NESTING_REJECTED: memorized procedure "${name}" cannot be called from inside another memorized procedure`);
+      }
+    }
+    if (/\b(memory_list|memory_run|function_try|memory_unusable)\b/.test(code)) {
+      throw new Error('NESTING_REJECTED: memory tools cannot be called from inside a memorized procedure');
+    }
+  }
   const root = fs.realpathSync(workspace);
   if (!fs.statSync(root).isDirectory()) throw new Error('Workspace must be a directory');
   

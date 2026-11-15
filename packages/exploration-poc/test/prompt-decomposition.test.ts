@@ -35,6 +35,7 @@ test('C1: with useful memory - uses memory_list and memory_run with valid params
                 code: 'search(params.query)', 
                 params: { query: 'getUser' }, 
                 remember: true, 
+                name: 'findApiFunction',
                 description: 'Search for function' 
               } 
             }] };
@@ -140,10 +141,10 @@ test('C2: with empty memory - creates targeted parameterized function via code/f
       codeMode: true, 
       memory, 
       model: {
-        async complete() {
+        async complete(messages) {
           // Verify the system prompt contains the decomposition text
           assert.match(messages[0].content, /Avant d'explorer/);
-          assert.match(messages[0].content, /fonction réutilisable via/);
+          assert.match(messages[0].content, /essaie une procédure TypeScript paramétrée/);
           assert.match(messages[0].content, /function_try\(source, params\)/);
           
           if (step === 0) {
@@ -167,6 +168,7 @@ test('C2: with empty memory - creates targeted parameterized function via code/f
                   code: 'search(params.query)', 
                   params: { query: 'value' }, 
                   remember: true, 
+                  name: 'findIndexValue',
                   description: 'Search for value' 
                 } 
               }] 
@@ -218,7 +220,7 @@ test('C3: need covered by primitive - uses primitive directly without creating f
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
           assert.match(messages[0].content, /Avant d'explorer/);
-          assert.match(messages[0].content, /primitive disponible/);
+          assert.match(messages[0].content, /utilise d'abord les primitives permanentes/);
           
           if (step === 0) {
             // Use list primitive directly
@@ -281,6 +283,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
                 code: 'search(params.query)', 
                 params: { query: 'getUser' }, 
                 remember: true, 
+                name: 'searchApiFunctions',
                 description: 'Search for API functions' 
               } 
             }] };
@@ -315,6 +318,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
                 code: 'search(params.query)', 
                 params: { query: 'query' }, 
                 remember: true, 
+                name: 'searchDbFunctions',
                 description: 'Search for DB functions' 
               } 
             }] };
@@ -338,6 +342,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
     let firstMemoryRunCalled = false;
     let secondMemoryRunCalled = false;
     let memoryToMemoryCall = false;
+    let catalog: Array<{ id: string }> = [];
     
     const result = await explore({ 
       root, 
@@ -347,7 +352,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
       model: {
         async complete(messages) {
           // Verify the system prompt encourages composition
-          assert.match(messages[0].content, /compose les besoins si cela évite des appels/);
+          assert.match(messages[0].content, /n'imbrique aucune procédure mémorisée dans une autre/);
           
           if (step === 0) {
             memoryListCalled = true;
@@ -355,7 +360,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
             return { toolCalls: [{ id: 'list', name: 'memory_list', arguments: {} }] };
           }
           if (step === 1) {
-            const catalog = JSON.parse(messages.at(-1).content);
+            catalog = JSON.parse(messages.at(-1).content);
             assert.ok(catalog.length >= 2, 'Should have at least 2 functions in memory');
             
             // Use first function
@@ -415,7 +420,7 @@ test('C5: error or missing proof - explicit correction or uncertainty, no false 
       model: {
         async complete(messages) {
           // Verify the system prompt handles missing proofs
-          assert.match(messages[0].content, /signale les relations non démontrées/);
+          assert.match(messages[0].content, /avec limites et incertitudes/);
           
           if (step === 0) {
             // Try to search for something that doesn't exist
@@ -487,6 +492,7 @@ test('C6: token comparison - compare prompt and call tokens, decomposition not a
                   code: 'search(params.query)', 
                   params: { query: 'handler' }, 
                   remember: true, 
+                  name: 'findApiHandler',
                   description: 'Find handler' 
                 } 
               }], 

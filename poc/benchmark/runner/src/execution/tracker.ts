@@ -1,22 +1,19 @@
 /**
  * Token Tracker for Benchmark Execution
- * Spec #174 - T05
- * 
+ * Spec #174 - T05 (remediated)
+ *
  * Tracks all token usage from LLM calls, including provider-side counters.
  * Ensures no call is recorded without usage data.
+ *
+ * Remediation notes (code-review findings):
+ * - Total token summing is delegated to the SINGLE implementation in
+ *   storage/logger.ts (sumCallTokens) — no duplicate implementation here.
+ * - completeCall accepts the REAL measured duration of the call (from the
+ *   provider/harness records). The local Date-delta stays as a fallback but
+ *   real per-call durations are preferred, never invented.
  */
 
-import { CallRecord } from '../storage/logger';
-
-/**
- * Total tokens interface for convenience
- */
-export interface TotalTokens {
-  input: number;
-  output: number;
-  total: number;
-  verified: boolean;
-}
+import { CallRecord, sumCallTokens, TotalTokens } from '../storage/logger';
 
 /**
  * Interface for a single LLM call's token usage
@@ -78,23 +75,26 @@ export class TokenTracker {
   /**
    * Complete a call with token usage
    * @param call_id - The call ID from startCall
-   * @param usage - Token usage from provider
+   * @param usage - Token usage from the PROVIDER (never estimated)
    * @param result - Optional result
    * @param error - Optional error
+   * @param measuredDurationMs - Real measured duration of the call from the
+   *   execution record (preferred over the local Date-delta fallback)
    */
   completeCall(
     call_id: string,
     usage: TokenUsage,
     result?: string | Record<string, unknown> | null,
-    error?: string | null
+    error?: string | null,
+    measuredDurationMs?: number
   ): void {
     const pendingCall = this.pendingCalls.get(call_id);
-    
+
     if (!pendingCall) {
       throw new Error(`Call ${call_id} not found in pending calls`);
     }
 
-    const duration_ms = Date.now() - pendingCall.start_time;
+    const duration_ms = measuredDurationMs ?? (Date.now() - pendingCall.start_time);
 
     const callRecord: CallRecord = {
       call_id: pendingCall.call_id,
@@ -119,19 +119,21 @@ export class TokenTracker {
    * @param call_id - The call ID from startCall
    * @param result - Optional result
    * @param error - Optional error
+   * @param measuredDurationMs - Real measured duration of the call, when known
    */
   completeCallWithMissingUsage(
     call_id: string,
     result?: string | Record<string, unknown> | null,
-    error?: string | null
+    error?: string | null,
+    measuredDurationMs?: number
   ): void {
     const pendingCall = this.pendingCalls.get(call_id);
-    
+
     if (!pendingCall) {
       throw new Error(`Call ${call_id} not found in pending calls`);
     }
 
-    const duration_ms = Date.now() - pendingCall.start_time;
+    const duration_ms = measuredDurationMs ?? (Date.now() - pendingCall.start_time);
 
     const callRecord: CallRecord = {
       call_id: pendingCall.call_id,
@@ -143,7 +145,7 @@ export class TokenTracker {
       parameters: pendingCall.parameters,
       result,
       error,
-      usage_missing: true, // Usage is missing
+      usage_missing: true, // Usage is missing — NO-GO will refuse this run
     };
 
     this.calls.push(callRecord);
@@ -154,15 +156,16 @@ export class TokenTracker {
    * Fail a call with an error
    * @param call_id - The call ID from startCall
    * @param error - Error message
+   * @param measuredDurationMs - Real measured duration of the call, when known
    */
-  failCall(call_id: string, error: string): void {
+  failCall(call_id: string, error: string, measuredDurationMs?: number): void {
     const pendingCall = this.pendingCalls.get(call_id);
-    
+
     if (!pendingCall) {
       throw new Error(`Call ${call_id} not found in pending calls`);
     }
 
-    const duration_ms = Date.now() - pendingCall.start_time;
+    const duration_ms = measuredDurationMs ?? (Date.now() - pendingCall.start_time);
 
     const callRecord: CallRecord = {
       call_id: pendingCall.call_id,
@@ -204,24 +207,10 @@ export class TokenTracker {
 
   /**
    * Calculate total tokens from all completed calls
+   * (delegates to the single implementation in storage/logger.ts)
    */
   calculateTotalTokens(): TotalTokens {
-    let input = 0;
-    let output = 0;
-
-    for (const call of this.calls) {
-      input += call.input_tokens;
-      output += call.output_tokens;
-    }
-
-    const total = input + output;
-
-    return {
-      input,
-      output,
-      total,
-      verified: !this.hasMissingUsage(),
-    };
+    return sumCallTokens(this.calls);
   }
 
   /**
