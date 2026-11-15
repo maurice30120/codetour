@@ -1,0 +1,2948 @@
+{
+  "metadata": {
+    "timestamp": "2026-11-15T11:12:07.055Z",
+    "pocMetadata": {
+      "timestamp": "2026-11-14T13:06:55.582Z",
+      "model": "mistral-small-latest",
+      "budget": {
+        "iterations": 8,
+        "calls": 32,
+        "tokens": 32000,
+        "durationMs": 60000
+      }
+    },
+    "vibeMetadata": {
+      "timestamp": "2026-11-15T11:11:41.291Z",
+      "model": "mistral-small-latest",
+      "budget": {
+        "iterations": 8,
+        "calls": 32,
+        "tokens": 32000,
+        "durationMs": 60000
+      }
+    },
+    "pricing": {
+      "inputPrice": 0.000003,
+      "outputPrice": 0.000006
+    }
+  },
+  "tokenCurves": {
+    "poc": [
+      4871,
+      6316,
+      6316,
+      9269,
+      6286,
+      6175,
+      6899,
+      6850,
+      6850,
+      6899,
+      7053,
+      6850
+    ],
+    "vibe": [
+      7473,
+      7873,
+      7604,
+      8604,
+      8508,
+      7720,
+      8856,
+      8913,
+      8030,
+      8959,
+      8789,
+      9447,
+      7325,
+      6783,
+      6603
+    ],
+    "pocWithMemory": [
+      4871,
+      6316,
+      6316,
+      9269,
+      6286,
+      6175
+    ],
+    "pocWithoutMemory": [
+      6899,
+      6850,
+      6850,
+      6899,
+      7053,
+      6850
+    ]
+  },
+  "dispersionAnalysis": {
+    "poc": {
+      "inputTokens": {
+        "min": 4488,
+        "max": 8802,
+        "mean": 6446.5,
+        "median": 6701,
+        "stdDev": 966.8641321302596
+      },
+      "outputTokens": {
+        "min": 146,
+        "max": 467,
+        "mean": 273,
+        "median": 218,
+        "stdDev": 131.09411377581628
+      },
+      "totalTokens": {
+        "min": 4871,
+        "max": 9269,
+        "mean": 6719.5,
+        "median": 6850,
+        "stdDev": 955.4092927466567
+      },
+      "cost": {
+        "min": 0.015762,
+        "max": 0.029208,
+        "mean": 0.020977499999999996,
+        "median": 0.020997,
+        "stdDev": 0.0028855554491293354
+      },
+      "duration": {
+        "min": 3565,
+        "max": 6476,
+        "mean": 5042.083333333333,
+        "median": 4633.5,
+        "stdDev": 1070.2493057175457
+      }
+    },
+    "vibe": {
+      "inputTokens": {
+        "min": 6104,
+        "max": 8991,
+        "mean": 7615.2,
+        "median": 7588,
+        "stdDev": 811.1822812003066
+      },
+      "outputTokens": {
+        "min": 382,
+        "max": 593,
+        "mean": 483.93333333333334,
+        "median": 468,
+        "stdDev": 62.25481685959908
+      },
+      "totalTokens": {
+        "min": 6603,
+        "max": 9447,
+        "mean": 8099.133333333333,
+        "median": 8030,
+        "stdDev": 820.4097241961213
+      },
+      "cost": {
+        "min": 0.021306000000000002,
+        "max": 0.029709,
+        "mean": 0.025749199999999993,
+        "median": 0.025416,
+        "stdDev": 0.0025025806200800007
+      },
+      "duration": {
+        "min": 5016,
+        "max": 7965,
+        "mean": 6320.4,
+        "median": 5764,
+        "stdDev": 1042.2750628632857
+      }
+    }
+  },
+  "marginalTokenCost": {
+    "poc": [
+      0.015762,
+      0.020229000000000004,
+      0.020229000000000004,
+      0.029208,
+      0.020049,
+      0.019383,
+      0.021135,
+      0.020997,
+      0.020997,
+      0.021135,
+      0.021609000000000003,
+      0.020997
+    ],
+    "vibe": [
+      0.023772,
+      0.025398,
+      0.024033,
+      0.027540000000000002,
+      0.027183000000000002,
+      0.024572999999999998,
+      0.027948,
+      0.028038,
+      0.025416,
+      0.028617,
+      0.027771,
+      0.029709,
+      0.023121,
+      0.021813,
+      0.021306000000000002
+    ]
+  },
+  "cumulativeTokenCost": {
+    "poc": [
+      0.015762,
+      0.03599100000000001,
+      0.05622000000000001,
+      0.08542800000000002,
+      0.10547700000000002,
+      0.12486000000000001,
+      0.145995,
+      0.166992,
+      0.187989,
+      0.20912399999999998,
+      0.23073299999999997,
+      0.25172999999999995
+    ],
+    "vibe": [
+      0.023772,
+      0.049170000000000005,
+      0.073203,
+      0.100743,
+      0.127926,
+      0.152499,
+      0.180447,
+      0.208485,
+      0.233901,
+      0.262518,
+      0.29028899999999996,
+      0.31999799999999995,
+      0.34311899999999995,
+      0.3649319999999999,
+      0.3862379999999999
+    ]
+  },
+  "tokensPerCorrectTour": {
+    "poc": {
+      "totalTokens": 80634,
+      "correctRuns": 6,
+      "tokensPerCorrectTour": 13439,
+      "completionRate": 0.5
+    },
+    "vibe": {
+      "totalTokens": 121487,
+      "correctRuns": 10,
+      "tokensPerCorrectTour": 12148.7,
+      "completionRate": 0.6666666666666666
+    }
+  },
+  "breakEvenPoint": {
+    "reached": true,
+    "pocCost": 0.25172999999999995,
+    "vibeCost": 0.3862379999999999,
+    "pocAvgCost": 0.020977499999999996,
+    "vibeAvgCost": 0.025749199999999993,
+    "savings": 0.13450799999999996,
+    "tokenSavings": 40853
+  },
+  "verdict": "indéterminé",
+  "measurements": {
+    "exploration": {
+      "poc": [
+        {
+          "run": "function-1-1",
+          "calls": 1,
+          "tokens": 6753
+        },
+        {
+          "run": "function-1-2",
+          "calls": 1,
+          "tokens": 6701
+        },
+        {
+          "run": "function-1-3",
+          "calls": 1,
+          "tokens": 6701
+        },
+        {
+          "run": "function-2-1",
+          "calls": 1,
+          "tokens": 6753
+        },
+        {
+          "run": "function-2-2",
+          "calls": 1,
+          "tokens": 6903
+        },
+        {
+          "run": "function-2-3",
+          "calls": 1,
+          "tokens": 6701
+        }
+      ],
+      "vibe": [
+        {
+          "run": "function-1-1",
+          "calls": 1,
+          "tokens": 7022
+        },
+        {
+          "run": "function-1-2",
+          "calls": 1,
+          "tokens": 7280
+        },
+        {
+          "run": "class-1-1",
+          "calls": 1,
+          "tokens": 7197
+        },
+        {
+          "run": "class-1-2",
+          "calls": 1,
+          "tokens": 8028
+        },
+        {
+          "run": "flow-1-1",
+          "calls": 1,
+          "tokens": 7955
+        },
+        {
+          "run": "flow-1-2",
+          "calls": 1,
+          "tokens": 7249
+        },
+        {
+          "run": "function-2-1",
+          "calls": 1,
+          "tokens": 8396
+        },
+        {
+          "run": "function-2-2",
+          "calls": 1,
+          "tokens": 8480
+        },
+        {
+          "run": "class-2-1",
+          "calls": 1,
+          "tokens": 7588
+        },
+        {
+          "run": "class-2-2",
+          "calls": 1,
+          "tokens": 8379
+        },
+        {
+          "run": "flow-2-1",
+          "calls": 1,
+          "tokens": 8321
+        },
+        {
+          "run": "flow-2-2",
+          "calls": 1,
+          "tokens": 8991
+        }
+      ]
+    },
+    "search": {
+      "poc": [
+        {
+          "run": "function-1-1",
+          "calls": 3,
+          "tokens": 6753
+        },
+        {
+          "run": "function-1-2",
+          "calls": 3,
+          "tokens": 6701
+        },
+        {
+          "run": "function-1-3",
+          "calls": 3,
+          "tokens": 6701
+        },
+        {
+          "run": "function-2-1",
+          "calls": 1,
+          "tokens": 8802
+        },
+        {
+          "run": "function-2-1",
+          "calls": 3,
+          "tokens": 6753
+        },
+        {
+          "run": "function-2-2",
+          "calls": 3,
+          "tokens": 6903
+        },
+        {
+          "run": "function-2-3",
+          "calls": 3,
+          "tokens": 6701
+        }
+      ],
+      "vibe": [
+        {
+          "run": "function-1-1",
+          "calls": 2,
+          "tokens": 7022
+        },
+        {
+          "run": "function-1-2",
+          "calls": 2,
+          "tokens": 7280
+        },
+        {
+          "run": "class-1-1",
+          "calls": 2,
+          "tokens": 7197
+        },
+        {
+          "run": "class-1-2",
+          "calls": 2,
+          "tokens": 8028
+        },
+        {
+          "run": "flow-1-1",
+          "calls": 2,
+          "tokens": 7955
+        },
+        {
+          "run": "flow-1-2",
+          "calls": 2,
+          "tokens": 7249
+        },
+        {
+          "run": "function-2-1",
+          "calls": 2,
+          "tokens": 8396
+        },
+        {
+          "run": "function-2-2",
+          "calls": 2,
+          "tokens": 8480
+        },
+        {
+          "run": "class-2-1",
+          "calls": 2,
+          "tokens": 7588
+        },
+        {
+          "run": "class-2-2",
+          "calls": 2,
+          "tokens": 8379
+        },
+        {
+          "run": "flow-2-1",
+          "calls": 2,
+          "tokens": 8321
+        },
+        {
+          "run": "flow-2-2",
+          "calls": 2,
+          "tokens": 8991
+        }
+      ]
+    },
+    "diagnostics": {
+      "poc": [
+        {
+          "run": "function-1-1",
+          "calls": 4,
+          "tokens": 6753
+        },
+        {
+          "run": "function-1-2",
+          "calls": 4,
+          "tokens": 6701
+        },
+        {
+          "run": "function-1-3",
+          "calls": 4,
+          "tokens": 6701
+        },
+        {
+          "run": "function-1-1",
+          "calls": 2,
+          "tokens": 4488
+        },
+        {
+          "run": "function-1-2",
+          "calls": 2,
+          "tokens": 5889
+        },
+        {
+          "run": "function-1-3",
+          "calls": 2,
+          "tokens": 5889
+        },
+        {
+          "run": "function-2-1",
+          "calls": 4,
+          "tokens": 8802
+        },
+        {
+          "run": "function-2-2",
+          "calls": 2,
+          "tokens": 5889
+        },
+        {
+          "run": "function-2-3",
+          "calls": 2,
+          "tokens": 5889
+        },
+        {
+          "run": "function-2-1",
+          "calls": 4,
+          "tokens": 6753
+        },
+        {
+          "run": "function-2-2",
+          "calls": 4,
+          "tokens": 6903
+        },
+        {
+          "run": "function-2-3",
+          "calls": 4,
+          "tokens": 6701
+        }
+      ],
+      "vibe": [
+        {
+          "run": "function-1-1",
+          "calls": 3,
+          "tokens": 7022
+        },
+        {
+          "run": "function-1-2",
+          "calls": 3,
+          "tokens": 7280
+        },
+        {
+          "run": "class-1-1",
+          "calls": 3,
+          "tokens": 7197
+        },
+        {
+          "run": "class-1-2",
+          "calls": 3,
+          "tokens": 8028
+        },
+        {
+          "run": "flow-1-1",
+          "calls": 3,
+          "tokens": 7955
+        },
+        {
+          "run": "flow-1-2",
+          "calls": 3,
+          "tokens": 7249
+        },
+        {
+          "run": "function-2-1",
+          "calls": 3,
+          "tokens": 8396
+        },
+        {
+          "run": "function-2-2",
+          "calls": 3,
+          "tokens": 8480
+        },
+        {
+          "run": "class-2-1",
+          "calls": 3,
+          "tokens": 7588
+        },
+        {
+          "run": "class-2-2",
+          "calls": 3,
+          "tokens": 8379
+        },
+        {
+          "run": "flow-2-1",
+          "calls": 3,
+          "tokens": 8321
+        },
+        {
+          "run": "flow-2-2",
+          "calls": 3,
+          "tokens": 8991
+        }
+      ]
+    },
+    "corrections": {
+      "poc": [],
+      "vibe": []
+    },
+    "selection": {
+      "poc": [
+        {
+          "run": "function-1-1",
+          "scriptCalls": 1
+        },
+        {
+          "run": "function-1-2",
+          "scriptCalls": 1
+        },
+        {
+          "run": "function-1-3",
+          "scriptCalls": 1
+        },
+        {
+          "run": "function-2-1",
+          "scriptCalls": 1
+        },
+        {
+          "run": "function-2-2",
+          "scriptCalls": 1
+        },
+        {
+          "run": "function-2-3",
+          "scriptCalls": 1
+        }
+      ],
+      "vibe": []
+    },
+    "consolidation": {
+      "poc": [
+        {
+          "run": "function-1-2",
+          "reuses": 1,
+          "purges": 0
+        },
+        {
+          "run": "function-1-3",
+          "reuses": 1,
+          "purges": 0
+        },
+        {
+          "run": "function-2-2",
+          "reuses": 1,
+          "purges": 0
+        },
+        {
+          "run": "function-2-3",
+          "reuses": 1,
+          "purges": 0
+        }
+      ],
+      "vibe": []
+    },
+    "qualityAndCoverage": {
+      "poc": {
+        "proofs": 30,
+        "correct": 0,
+        "incorrect": 0,
+        "coverage": 0
+      },
+      "vibe": {
+        "proofs": 30,
+        "correct": 0,
+        "incorrect": 0,
+        "coverage": 0
+      }
+    },
+    "failures": {
+      "poc": [],
+      "vibe": []
+    },
+    "partialTours": {
+      "poc": [
+        {
+          "run": "function-1-1",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        },
+        {
+          "run": "function-1-2",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        },
+        {
+          "run": "function-1-3",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        },
+        {
+          "run": "function-2-1",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        },
+        {
+          "run": "function-2-2",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        },
+        {
+          "run": "function-2-3",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        }
+      ],
+      "vibe": [
+        {
+          "run": "function-1-2",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        },
+        {
+          "run": "flow-1-2",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        },
+        {
+          "run": "function-2-1",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        },
+        {
+          "run": "class-2-2",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        },
+        {
+          "run": "flow-2-1",
+          "stopReason": "iterations",
+          "uncertainties": [
+            "Exploration stopped before a structured result was produced."
+          ]
+        }
+      ]
+    },
+    "configurationDifferences": []
+  },
+  "summary": {
+    "poc": {
+      "runs": 12,
+      "complete": 6,
+      "partial": 6,
+      "avgTokens": 6719.5,
+      "totalCost": 0.25172999999999995,
+      "avgCost": 0.020977499999999996
+    },
+    "vibe": {
+      "runs": 15,
+      "complete": 10,
+      "partial": 5,
+      "avgTokens": 8099.133333333333,
+      "totalCost": 0.3862379999999999,
+      "avgCost": 0.025749199999999993
+    }
+  },
+  "rawData": {
+    "poc": {
+      "runs": [
+        {
+          "task": "function",
+          "repetition": 1,
+          "mode": "off",
+          "run": 1,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "read",
+            "read",
+            "search",
+            "search"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 4493,
+          "result": {
+            "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 6753,
+              "outputTokens": 146,
+              "usageAvailable": true,
+              "modelCalls": 8,
+              "toolCalls": 8,
+              "durationMs": 4493,
+              "outputBytes": 1919,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 6753,
+            "outputTokens": 146,
+            "usageAvailable": true,
+            "modelCalls": 8,
+            "toolCalls": 8,
+            "durationMs": 4493,
+            "outputBytes": 1919,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 1,
+          "mode": "off",
+          "run": 2,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "read",
+            "read",
+            "search",
+            "search"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 5241,
+          "result": {
+            "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 6701,
+              "outputTokens": 149,
+              "usageAvailable": true,
+              "modelCalls": 8,
+              "toolCalls": 8,
+              "durationMs": 5241,
+              "outputBytes": 1606,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 6701,
+            "outputTokens": 149,
+            "usageAvailable": true,
+            "modelCalls": 8,
+            "toolCalls": 8,
+            "durationMs": 5241,
+            "outputBytes": 1606,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 1,
+          "mode": "off",
+          "run": 3,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "read",
+            "read",
+            "search",
+            "search"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 3832,
+          "result": {
+            "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 6701,
+              "outputTokens": 149,
+              "usageAvailable": true,
+              "modelCalls": 8,
+              "toolCalls": 8,
+              "durationMs": 3832,
+              "outputBytes": 1606,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 6701,
+            "outputTokens": 149,
+            "usageAvailable": true,
+            "modelCalls": 8,
+            "toolCalls": 8,
+            "durationMs": 3832,
+            "outputBytes": 1606,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 1,
+          "mode": "on",
+          "run": 1,
+          "calls": [
+            "code",
+            "read",
+            "read"
+          ],
+          "scriptCalls": [
+            {
+              "name": "code",
+              "arguments": {
+                "code": "search(params.query)",
+                "params": {
+                  "query": "totalPrice"
+                },
+                "remember": true,
+                "description": "Find literal occurrences of totalPrice"
+              }
+            }
+          ],
+          "library": [
+            {
+              "id": "5ee03a6dffc225db",
+              "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+              "description": "Find literal occurrences of totalPrice",
+              "code": "search(params.query)",
+              "parameters": [
+                "query"
+              ],
+              "successes": 1,
+              "failures": 0,
+              "inactivity": 0
+            }
+          ],
+          "wallTimeMs": 6411,
+          "result": {
+            "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+            "entryPoints": [
+              {
+                "name": "totalPrice",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "math.js",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              },
+              {
+                "name": "order.js",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 1,
+                    "endLine": 6
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "totalPrice",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              },
+              {
+                "from": "totalPrice",
+                "to": "price * quantity",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 2,
+                    "endLine": 2
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 4488,
+              "outputTokens": 383,
+              "usageAvailable": true,
+              "modelCalls": 4,
+              "toolCalls": 3,
+              "durationMs": 6410,
+              "outputBytes": 714,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 4488,
+            "outputTokens": 383,
+            "usageAvailable": true,
+            "modelCalls": 4,
+            "toolCalls": 3,
+            "durationMs": 6410,
+            "outputBytes": 714,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 1,
+          "mode": "on",
+          "run": 2,
+          "calls": [
+            "memory_list",
+            "memory_run",
+            "read",
+            "read"
+          ],
+          "scriptCalls": [
+            {
+              "name": "memory_run",
+              "arguments": {
+                "id": "5ee03a6dffc225db",
+                "params": {
+                  "query": "totalPrice"
+                }
+              }
+            }
+          ],
+          "library": [
+            {
+              "id": "5ee03a6dffc225db",
+              "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+              "description": "Find literal occurrences of totalPrice",
+              "code": "search(params.query)",
+              "parameters": [
+                "query"
+              ],
+              "successes": 2,
+              "failures": 0,
+              "inactivity": 0
+            }
+          ],
+          "wallTimeMs": 3930,
+          "result": {
+            "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+            "entryPoints": [
+              {
+                "name": "totalPrice definition",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              },
+              {
+                "name": "totalPrice usage",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 1,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "math.js",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              },
+              {
+                "name": "order.js",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 1,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "totalPrice",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              },
+              {
+                "from": "totalPrice",
+                "to": "price * quantity",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 2,
+                    "endLine": 2
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 5889,
+              "outputTokens": 427,
+              "usageAvailable": true,
+              "modelCalls": 5,
+              "toolCalls": 4,
+              "durationMs": 3929,
+              "outputBytes": 883,
+              "cost": null,
+              "memoryReuses": 1,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 5889,
+            "outputTokens": 427,
+            "usageAvailable": true,
+            "modelCalls": 5,
+            "toolCalls": 4,
+            "durationMs": 3929,
+            "outputBytes": 883,
+            "cost": null,
+            "memoryReuses": 1,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 1,
+          "mode": "on",
+          "run": 3,
+          "calls": [
+            "memory_list",
+            "memory_run",
+            "read",
+            "read"
+          ],
+          "scriptCalls": [
+            {
+              "name": "memory_run",
+              "arguments": {
+                "id": "5ee03a6dffc225db",
+                "params": {
+                  "query": "totalPrice"
+                }
+              }
+            }
+          ],
+          "library": [
+            {
+              "id": "5ee03a6dffc225db",
+              "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+              "description": "Find literal occurrences of totalPrice",
+              "code": "search(params.query)",
+              "parameters": [
+                "query"
+              ],
+              "successes": 3,
+              "failures": 0,
+              "inactivity": 0
+            }
+          ],
+          "wallTimeMs": 4671,
+          "result": {
+            "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+            "entryPoints": [
+              {
+                "name": "totalPrice definition",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              },
+              {
+                "name": "totalPrice usage",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 1,
+                    "endLine": 6
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "math.js",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              },
+              {
+                "name": "order.js",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 1,
+                    "endLine": 6
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "totalPrice",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              },
+              {
+                "from": "totalPrice",
+                "to": "price * quantity",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 2,
+                    "endLine": 2
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 5889,
+              "outputTokens": 427,
+              "usageAvailable": true,
+              "modelCalls": 5,
+              "toolCalls": 4,
+              "durationMs": 4670,
+              "outputBytes": 883,
+              "cost": null,
+              "memoryReuses": 1,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 5889,
+            "outputTokens": 427,
+            "usageAvailable": true,
+            "modelCalls": 5,
+            "toolCalls": 4,
+            "durationMs": 4670,
+            "outputBytes": 883,
+            "cost": null,
+            "memoryReuses": 1,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 2,
+          "mode": "on",
+          "run": 1,
+          "calls": [
+            "code",
+            "read",
+            "read",
+            "search",
+            "read",
+            "read"
+          ],
+          "scriptCalls": [
+            {
+              "name": "code",
+              "arguments": {
+                "code": "search(params.query)",
+                "params": {
+                  "query": "totalPrice"
+                },
+                "remember": true,
+                "description": "Find literal occurrences of totalPrice"
+              }
+            }
+          ],
+          "library": [
+            {
+              "id": "5ee03a6dffc225db",
+              "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+              "description": "Find literal occurrences of totalPrice",
+              "code": "search(params.query)",
+              "parameters": [
+                "query"
+              ],
+              "successes": 1,
+              "failures": 0,
+              "inactivity": 0
+            }
+          ],
+          "wallTimeMs": 6476,
+          "result": {
+            "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+            "entryPoints": [
+              {
+                "name": "math.js",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              },
+              {
+                "name": "order.js",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 1,
+                    "endLine": 6
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "totalPrice (math.js)",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              },
+              {
+                "name": "createOrder (order.js)",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 3,
+                    "endLine": 6
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "totalPrice",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 1,
+                    "endLine": 1
+                  },
+                  {
+                    "file": "src/order.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 8802,
+              "outputTokens": 467,
+              "usageAvailable": true,
+              "modelCalls": 7,
+              "toolCalls": 6,
+              "durationMs": 6476,
+              "outputBytes": 1346,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 8802,
+            "outputTokens": 467,
+            "usageAvailable": true,
+            "modelCalls": 7,
+            "toolCalls": 6,
+            "durationMs": 6476,
+            "outputBytes": 1346,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 2,
+          "mode": "on",
+          "run": 2,
+          "calls": [
+            "memory_list",
+            "memory_run",
+            "read",
+            "read"
+          ],
+          "scriptCalls": [
+            {
+              "name": "memory_run",
+              "arguments": {
+                "id": "5ee03a6dffc225db",
+                "params": {
+                  "query": "totalPrice"
+                }
+              }
+            }
+          ],
+          "library": [
+            {
+              "id": "5ee03a6dffc225db",
+              "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+              "description": "Find literal occurrences of totalPrice",
+              "code": "search(params.query)",
+              "parameters": [
+                "query"
+              ],
+              "successes": 2,
+              "failures": 0,
+              "inactivity": 0
+            }
+          ],
+          "wallTimeMs": 6400,
+          "result": {
+            "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+            "entryPoints": [
+              {
+                "name": "math.js",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              },
+              {
+                "name": "order.js",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 1,
+                    "endLine": 6
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "totalPrice function",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              },
+              {
+                "name": "createOrder function",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 3,
+                    "endLine": 6
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "totalPrice",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 1,
+                    "endLine": 1
+                  },
+                  {
+                    "file": "src/order.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 5889,
+              "outputTokens": 397,
+              "usageAvailable": true,
+              "modelCalls": 5,
+              "toolCalls": 4,
+              "durationMs": 6399,
+              "outputBytes": 883,
+              "cost": null,
+              "memoryReuses": 1,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 5889,
+            "outputTokens": 397,
+            "usageAvailable": true,
+            "modelCalls": 5,
+            "toolCalls": 4,
+            "durationMs": 6399,
+            "outputBytes": 883,
+            "cost": null,
+            "memoryReuses": 1,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 2,
+          "mode": "on",
+          "run": 3,
+          "calls": [
+            "memory_list",
+            "memory_run",
+            "read",
+            "read"
+          ],
+          "scriptCalls": [
+            {
+              "name": "memory_run",
+              "arguments": {
+                "id": "5ee03a6dffc225db",
+                "params": {
+                  "query": "totalPrice"
+                }
+              }
+            }
+          ],
+          "library": [
+            {
+              "id": "5ee03a6dffc225db",
+              "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+              "description": "Find literal occurrences of totalPrice",
+              "code": "search(params.query)",
+              "parameters": [
+                "query"
+              ],
+              "successes": 3,
+              "failures": 0,
+              "inactivity": 0
+            }
+          ],
+          "wallTimeMs": 3566,
+          "result": {
+            "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+            "entryPoints": [
+              {
+                "name": "totalPrice function",
+                "evidence": [
+                  {
+                    "file": "src/math.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "order module",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 1,
+                    "endLine": 6
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "totalPrice",
+                "evidence": [
+                  {
+                    "file": "src/order.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 5889,
+              "outputTokens": 286,
+              "usageAvailable": true,
+              "modelCalls": 5,
+              "toolCalls": 4,
+              "durationMs": 3565,
+              "outputBytes": 883,
+              "cost": null,
+              "memoryReuses": 1,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 5889,
+            "outputTokens": 286,
+            "usageAvailable": true,
+            "modelCalls": 5,
+            "toolCalls": 4,
+            "durationMs": 3565,
+            "outputBytes": 883,
+            "cost": null,
+            "memoryReuses": 1,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 2,
+          "mode": "off",
+          "run": 1,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "read",
+            "read",
+            "search",
+            "search"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 4597,
+          "result": {
+            "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 6753,
+              "outputTokens": 146,
+              "usageAvailable": true,
+              "modelCalls": 8,
+              "toolCalls": 8,
+              "durationMs": 4597,
+              "outputBytes": 1868,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 6753,
+            "outputTokens": 146,
+            "usageAvailable": true,
+            "modelCalls": 8,
+            "toolCalls": 8,
+            "durationMs": 4597,
+            "outputBytes": 1868,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 2,
+          "mode": "off",
+          "run": 2,
+          "calls": [
+            "list",
+            "read",
+            "read",
+            "read",
+            "read",
+            "search",
+            "search",
+            "search"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 6468,
+          "result": {
+            "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 6903,
+              "outputTokens": 150,
+              "usageAvailable": true,
+              "modelCalls": 8,
+              "toolCalls": 8,
+              "durationMs": 6468,
+              "outputBytes": 2167,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 6903,
+            "outputTokens": 150,
+            "usageAvailable": true,
+            "modelCalls": 8,
+            "toolCalls": 8,
+            "durationMs": 6468,
+            "outputBytes": 2167,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 2,
+          "mode": "off",
+          "run": 3,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "read",
+            "read",
+            "search",
+            "search"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 4425,
+          "result": {
+            "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 6701,
+              "outputTokens": 149,
+              "usageAvailable": true,
+              "modelCalls": 8,
+              "toolCalls": 8,
+              "durationMs": 4425,
+              "outputBytes": 1606,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 6701,
+            "outputTokens": 149,
+            "usageAvailable": true,
+            "modelCalls": 8,
+            "toolCalls": 8,
+            "durationMs": 4425,
+            "outputBytes": 1606,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        }
+      ],
+      "metadata": {
+        "timestamp": "2026-11-14T13:06:55.582Z",
+        "model": "mistral-small-latest",
+        "budget": {
+          "iterations": 8,
+          "calls": 32,
+          "tokens": 32000,
+          "durationMs": 60000
+        }
+      }
+    },
+    "vibe": {
+      "runs": [
+        {
+          "task": "function",
+          "repetition": 1,
+          "mode": "vibe",
+          "run": 1,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 7965,
+          "result": {
+            "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+            "entryPoints": [
+              {
+                "name": "function",
+                "evidence": [
+                  {
+                    "file": "src/function.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "function.js",
+                "evidence": [
+                  {
+                    "file": "src/function.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "function",
+                "evidence": [
+                  {
+                    "file": "src/function.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 7022,
+              "outputTokens": 451,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 7965,
+              "outputBytes": 1469,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 7022,
+            "outputTokens": 451,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 7965,
+            "outputBytes": 1469,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 1,
+          "mode": "vibe",
+          "run": 2,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 7174,
+          "result": {
+            "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 7280,
+              "outputTokens": 593,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 7174,
+              "outputBytes": 1491,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 7280,
+            "outputTokens": 593,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 7174,
+            "outputBytes": 1491,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "class",
+          "repetition": 1,
+          "mode": "vibe",
+          "run": 1,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 7514,
+          "result": {
+            "objective": "Analyser la structure de la classe Order et ses méthodes.",
+            "entryPoints": [
+              {
+                "name": "class",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "class.js",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "class",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 7197,
+              "outputTokens": 407,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 7514,
+              "outputBytes": 1065,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 7197,
+            "outputTokens": 407,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 7514,
+            "outputBytes": 1065,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "class",
+          "repetition": 1,
+          "mode": "vibe",
+          "run": 2,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 5016,
+          "result": {
+            "objective": "Analyser la structure de la classe Order et ses méthodes.",
+            "entryPoints": [
+              {
+                "name": "class",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "class.js",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "class",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 8028,
+              "outputTokens": 576,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 5016,
+              "outputBytes": 1024,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 8028,
+            "outputTokens": 576,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 5016,
+            "outputBytes": 1024,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "flow",
+          "repetition": 1,
+          "mode": "vibe",
+          "run": 1,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 7301,
+          "result": {
+            "objective": "Décrire le flux de traitement des commandes.",
+            "entryPoints": [
+              {
+                "name": "flow",
+                "evidence": [
+                  {
+                    "file": "src/flow.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "flow.js",
+                "evidence": [
+                  {
+                    "file": "src/flow.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "flow",
+                "evidence": [
+                  {
+                    "file": "src/flow.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 7955,
+              "outputTokens": 553,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 7301,
+              "outputBytes": 1166,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 7955,
+            "outputTokens": 553,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 7301,
+            "outputBytes": 1166,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "flow",
+          "repetition": 1,
+          "mode": "vibe",
+          "run": 2,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 7454,
+          "result": {
+            "objective": "Décrire le flux de traitement des commandes.",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 7249,
+              "outputTokens": 471,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 7454,
+              "outputBytes": 1355,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 7249,
+            "outputTokens": 471,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 7454,
+            "outputBytes": 1355,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 2,
+          "mode": "vibe",
+          "run": 1,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 7369,
+          "result": {
+            "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 8396,
+              "outputTokens": 460,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 7369,
+              "outputBytes": 1330,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 8396,
+            "outputTokens": 460,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 7369,
+            "outputBytes": 1330,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "function",
+          "repetition": 2,
+          "mode": "vibe",
+          "run": 2,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 5430,
+          "result": {
+            "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+            "entryPoints": [
+              {
+                "name": "function",
+                "evidence": [
+                  {
+                    "file": "src/function.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "function.js",
+                "evidence": [
+                  {
+                    "file": "src/function.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "function",
+                "evidence": [
+                  {
+                    "file": "src/function.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 8480,
+              "outputTokens": 433,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 5430,
+              "outputBytes": 1489,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 8480,
+            "outputTokens": 433,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 5430,
+            "outputBytes": 1489,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "class",
+          "repetition": 2,
+          "mode": "vibe",
+          "run": 1,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 6981,
+          "result": {
+            "objective": "Analyser la structure de la classe Order et ses méthodes.",
+            "entryPoints": [
+              {
+                "name": "class",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "class.js",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "class",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 7588,
+              "outputTokens": 442,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 6981,
+              "outputBytes": 1146,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 7588,
+            "outputTokens": 442,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 6981,
+            "outputBytes": 1146,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "class",
+          "repetition": 2,
+          "mode": "vibe",
+          "run": 2,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 5342,
+          "result": {
+            "objective": "Analyser la structure de la classe Order et ses méthodes.",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 8379,
+              "outputTokens": 580,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 5342,
+              "outputBytes": 1454,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 8379,
+            "outputTokens": 580,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 5342,
+            "outputBytes": 1454,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "flow",
+          "repetition": 2,
+          "mode": "vibe",
+          "run": 1,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 5540,
+          "result": {
+            "objective": "Décrire le flux de traitement des commandes.",
+            "entryPoints": [],
+            "components": [],
+            "relations": [],
+            "uncertainties": [
+              "Exploration stopped before a structured result was produced."
+            ],
+            "status": "partial",
+            "stopReason": "iterations",
+            "metrics": {
+              "inputTokens": 8321,
+              "outputTokens": 468,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 5540,
+              "outputBytes": 1469,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 8321,
+            "outputTokens": 468,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 5540,
+            "outputBytes": 1469,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "flow",
+          "repetition": 2,
+          "mode": "vibe",
+          "run": 2,
+          "calls": [
+            "list",
+            "search",
+            "read",
+            "read",
+            "search",
+            "read"
+          ],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 5185,
+          "result": {
+            "objective": "Décrire le flux de traitement des commandes.",
+            "entryPoints": [
+              {
+                "name": "flow",
+                "evidence": [
+                  {
+                    "file": "src/flow.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "flow.js",
+                "evidence": [
+                  {
+                    "file": "src/flow.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "flow",
+                "evidence": [
+                  {
+                    "file": "src/flow.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 8991,
+              "outputTokens": 456,
+              "usageAvailable": true,
+              "modelCalls": 6,
+              "toolCalls": 6,
+              "durationMs": 5185,
+              "outputBytes": 1385,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 8991,
+            "outputTokens": 456,
+            "usageAvailable": true,
+            "modelCalls": 6,
+            "toolCalls": 6,
+            "durationMs": 5185,
+            "outputBytes": 1385,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "vibe-transfer",
+          "repetition": 13,
+          "mode": "vibe",
+          "run": 13,
+          "calls": [],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 5737,
+          "result": {
+            "objective": "Comprendre comment totalPrice calcule son résultat.",
+            "entryPoints": [
+              {
+                "name": "function",
+                "evidence": [
+                  {
+                    "file": "src/function.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "function.js",
+                "evidence": [
+                  {
+                    "file": "src/function.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "function",
+                "evidence": [
+                  {
+                    "file": "src/function.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 6943,
+              "outputTokens": 382,
+              "usageAvailable": true,
+              "modelCalls": 5,
+              "toolCalls": 3,
+              "durationMs": 5737,
+              "outputBytes": 1153,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 6943,
+            "outputTokens": 382,
+            "usageAvailable": true,
+            "modelCalls": 5,
+            "toolCalls": 3,
+            "durationMs": 5737,
+            "outputBytes": 1153,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "vibe-transfer",
+          "repetition": 14,
+          "mode": "vibe",
+          "run": 14,
+          "calls": [],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 5034,
+          "result": {
+            "objective": "Analyser la structure de Order.",
+            "entryPoints": [
+              {
+                "name": "class",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "class.js",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "class",
+                "evidence": [
+                  {
+                    "file": "src/class.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 6295,
+              "outputTokens": 488,
+              "usageAvailable": true,
+              "modelCalls": 4,
+              "toolCalls": 3,
+              "durationMs": 5034,
+              "outputBytes": 865,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 6295,
+            "outputTokens": 488,
+            "usageAvailable": true,
+            "modelCalls": 4,
+            "toolCalls": 3,
+            "durationMs": 5034,
+            "outputBytes": 865,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        },
+        {
+          "task": "vibe-transfer",
+          "repetition": 15,
+          "mode": "vibe",
+          "run": 15,
+          "calls": [],
+          "scriptCalls": [],
+          "library": [],
+          "wallTimeMs": 5764,
+          "result": {
+            "objective": "Décrire le flux de traitement.",
+            "entryPoints": [
+              {
+                "name": "flow",
+                "evidence": [
+                  {
+                    "file": "src/flow.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "components": [
+              {
+                "name": "flow.js",
+                "evidence": [
+                  {
+                    "file": "src/flow.js",
+                    "startLine": 1,
+                    "endLine": 3
+                  }
+                ]
+              }
+            ],
+            "relations": [
+              {
+                "from": "createOrder",
+                "to": "flow",
+                "evidence": [
+                  {
+                    "file": "src/flow.js",
+                    "startLine": 5,
+                    "endLine": 5
+                  }
+                ]
+              }
+            ],
+            "uncertainties": [],
+            "status": "complete",
+            "stopReason": null,
+            "metrics": {
+              "inputTokens": 6104,
+              "outputTokens": 499,
+              "usageAvailable": true,
+              "modelCalls": 5,
+              "toolCalls": 3,
+              "durationMs": 5764,
+              "outputBytes": 1055,
+              "cost": null,
+              "memoryReuses": 0,
+              "memoryPurges": 0
+            }
+          },
+          "metrics": {
+            "inputTokens": 6104,
+            "outputTokens": 499,
+            "usageAvailable": true,
+            "modelCalls": 5,
+            "toolCalls": 3,
+            "durationMs": 5764,
+            "outputBytes": 1055,
+            "cost": null,
+            "memoryReuses": 0,
+            "memoryPurges": 0
+          }
+        }
+      ],
+      "metadata": {
+        "timestamp": "2026-11-15T11:11:41.291Z",
+        "model": "mistral-small-latest",
+        "budget": {
+          "iterations": 8,
+          "calls": 32,
+          "tokens": 32000,
+          "durationMs": 60000
+        }
+      }
+    }
+  }
+}

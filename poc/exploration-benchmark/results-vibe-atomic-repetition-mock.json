@@ -1,0 +1,721 @@
+{
+  "timestamp": "2026-11-15T11:11:41.290Z",
+  "model": "mistral-small-latest",
+  "budget": {
+    "iterations": 8,
+    "calls": 32,
+    "tokens": 32000,
+    "durationMs": 60000
+  },
+  "rows": [
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "vibe",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 7965,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+        "entryPoints": [
+          {
+            "name": "function",
+            "evidence": [
+              {
+                "file": "src/function.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "function.js",
+            "evidence": [
+              {
+                "file": "src/function.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "function",
+            "evidence": [
+              {
+                "file": "src/function.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 7022,
+          "outputTokens": 451,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 7965,
+          "outputBytes": 1469,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "vibe",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 7174,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 7280,
+          "outputTokens": 593,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 7174,
+          "outputBytes": 1491,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 1,
+      "mode": "vibe",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 7514,
+      "result": {
+        "objective": "Analyser la structure de la classe Order et ses méthodes.",
+        "entryPoints": [
+          {
+            "name": "class",
+            "evidence": [
+              {
+                "file": "src/class.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "class.js",
+            "evidence": [
+              {
+                "file": "src/class.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "class",
+            "evidence": [
+              {
+                "file": "src/class.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 7197,
+          "outputTokens": 407,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 7514,
+          "outputBytes": 1065,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 1,
+      "mode": "vibe",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 5016,
+      "result": {
+        "objective": "Analyser la structure de la classe Order et ses méthodes.",
+        "entryPoints": [
+          {
+            "name": "class",
+            "evidence": [
+              {
+                "file": "src/class.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "class.js",
+            "evidence": [
+              {
+                "file": "src/class.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "class",
+            "evidence": [
+              {
+                "file": "src/class.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 8028,
+          "outputTokens": 576,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 5016,
+          "outputBytes": 1024,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 1,
+      "mode": "vibe",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 7301,
+      "result": {
+        "objective": "Décrire le flux de traitement des commandes.",
+        "entryPoints": [
+          {
+            "name": "flow",
+            "evidence": [
+              {
+                "file": "src/flow.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "flow.js",
+            "evidence": [
+              {
+                "file": "src/flow.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "flow",
+            "evidence": [
+              {
+                "file": "src/flow.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 7955,
+          "outputTokens": 553,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 7301,
+          "outputBytes": 1166,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 1,
+      "mode": "vibe",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 7454,
+      "result": {
+        "objective": "Décrire le flux de traitement des commandes.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 7249,
+          "outputTokens": 471,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 7454,
+          "outputBytes": 1355,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 2,
+      "mode": "vibe",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 7369,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 8396,
+          "outputTokens": 460,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 7369,
+          "outputBytes": 1330,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 2,
+      "mode": "vibe",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 5430,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+        "entryPoints": [
+          {
+            "name": "function",
+            "evidence": [
+              {
+                "file": "src/function.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "function.js",
+            "evidence": [
+              {
+                "file": "src/function.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "function",
+            "evidence": [
+              {
+                "file": "src/function.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 8480,
+          "outputTokens": 433,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 5430,
+          "outputBytes": 1489,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 2,
+      "mode": "vibe",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 6981,
+      "result": {
+        "objective": "Analyser la structure de la classe Order et ses méthodes.",
+        "entryPoints": [
+          {
+            "name": "class",
+            "evidence": [
+              {
+                "file": "src/class.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "class.js",
+            "evidence": [
+              {
+                "file": "src/class.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "class",
+            "evidence": [
+              {
+                "file": "src/class.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 7588,
+          "outputTokens": 442,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 6981,
+          "outputBytes": 1146,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 2,
+      "mode": "vibe",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 5342,
+      "result": {
+        "objective": "Analyser la structure de la classe Order et ses méthodes.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 8379,
+          "outputTokens": 580,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 5342,
+          "outputBytes": 1454,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 2,
+      "mode": "vibe",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 5540,
+      "result": {
+        "objective": "Décrire le flux de traitement des commandes.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 8321,
+          "outputTokens": 468,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 5540,
+          "outputBytes": 1469,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 2,
+      "mode": "vibe",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 5185,
+      "result": {
+        "objective": "Décrire le flux de traitement des commandes.",
+        "entryPoints": [
+          {
+            "name": "flow",
+            "evidence": [
+              {
+                "file": "src/flow.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "flow.js",
+            "evidence": [
+              {
+                "file": "src/flow.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "flow",
+            "evidence": [
+              {
+                "file": "src/flow.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 8991,
+          "outputTokens": 456,
+          "usageAvailable": true,
+          "modelCalls": 6,
+          "toolCalls": 6,
+          "durationMs": 5185,
+          "outputBytes": 1385,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "description": "Mock Vibe benchmark data for comparison with POC",
+    "generated": "2026-11-15T11:11:41.290Z",
+    "note": "This is simulated data. Real Vibe comparator data should replace this."
+  }
+}

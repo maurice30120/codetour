@@ -1,0 +1,185 @@
+# Rapport d'Analyse des Tokens - Spec #172
+
+**Date**: 2026-11-15T11:12:07.051Z
+**Modèle**: mistral-small-latest
+
+## 📊 Résumé Exécutif
+
+| Métrique | POC | Vibe |
+|----------|-----|------|
+| Nombre de runs | 12 | 12 |
+| Runs complétés | 6 | 7 |
+| Runs partiels | 6 | 5 |
+| Taux de complétion | NaN% | NaN% |
+| Tokens moyens par run | 6720 | 8398 |
+| Coût total | $0.2517 | $0.3200 |
+| Coût moyen par run | $0.0210 | $0.0267 |
+
+## ✅ Verdict
+
+**Verdict**: ❓ **INDÉTERMINÉ**
+
+### Justification:
+
+- Les résultats sont trop proches pour déterminer un gagnant clair
+- Différence de tokens: 1679 tokens
+- Différence de coût: $0.0683
+
+## 📈 Courbes de Tokens
+
+### POC (avec et sans mémoire)
+
+```
+Run | Mode | Total Tokens
+----|------|-------------
+Run 1 | with memory: 4871 | without memory: 6899
+Run 2 | with memory: 6316 | without memory: 6850
+Run 3 | with memory: 6316 | without memory: 6850
+Run 4 | with memory: 9269 | without memory: 6899
+Run 5 | with memory: 6286 | without memory: 7053
+Run 6 | with memory: 6175 | without memory: 6850
+```
+
+### Vibe
+
+```
+Run | Total Tokens
+----|-------------
+Run 1 | 7473
+Run 2 | 7873
+Run 3 | 7604
+Run 4 | 8604
+Run 5 | 8508
+Run 6 | 7720
+Run 7 | 8856
+Run 8 | 8913
+Run 9 | 8030
+Run 10 | 8959
+Run 11 | 8789
+Run 12 | 9447
+```
+
+## 📊 Analyse de Dispersion
+
+### POC
+
+| Métrique | Min | Max | Médiane | Moyenne | Écart-type |
+|----------|-----|-----|--------|---------|------------|
+| Input Tokens | 4488 | 8802 | 6701 | 6447 | 967 |
+| Output Tokens | 146 | 467 | 218 | 273 | 131 |
+| Coût | 0.0158 | 0.0292 | 0.0210 | 0.0210 | 0.0029 |
+
+### Vibe
+
+| Métrique | Min | Max | Médiane | Moyenne | Écart-type |
+|----------|-----|-----|--------|---------|------------|
+| Input Tokens | 7022 | 8991 | 7992 | 7907 | 603 |
+| Output Tokens | 407 | 593 | 464 | 491 | 63 |
+| Coût | 0.0238 | 0.0297 | 0.0274 | 0.0267 | 0.0019 |
+
+## 💰 Coût Marginal par Run
+
+### POC
+
+```
+Run 1: $0.0158
+Run 2: $0.0202
+Run 3: $0.0202
+Run 4: $0.0292
+Run 5: $0.0200
+Run 6: $0.0194
+Run 7: $0.0211
+Run 8: $0.0210
+Run 9: $0.0210
+Run 10: $0.0211
+... (and 2 more)
+```
+
+## 📈 Coût Cumulatif
+
+```
+Run | POC Cumulative | Vibe Cumulative
+----|----------------|-----------------
+Run 1 | $0.0158 | $0.0238
+Run 2 | $0.0360 | $0.0492
+Run 3 | $0.0562 | $0.0732
+Run 4 | $0.0854 | $0.1007
+Run 5 | $0.1055 | $0.1279
+Run 6 | $0.1249 | $0.1525
+Run 7 | $0.1460 | $0.1804
+Run 8 | $0.1670 | $0.2085
+Run 9 | $0.1880 | $0.2339
+Run 10 | $0.2091 | $0.2625
+```
+
+## 🎯 Tokens par Tour Correct
+
+| Solution | Tokens Totaux | Tours Corrects | Tokens/Tour | Taux de Complétion |
+|----------|---------------|----------------|-------------|-------------------|
+| POC | 80634 | 6 | 13439 | 50.0% |
+| Vibe | 100776 | 7 | 14397 | 58.3% |
+
+## 🎯 Point de Rentabilité (Break-even)
+
+| Métrique | Valeur |
+|----------|--------|
+| Point de rentabilité atteint | ✅ Oui |
+| Coût total POC | $0.2517 |
+| Coût total Vibe | $0.3200 |
+| Coût moyen POC | $0.0210 |
+| Coût moyen Vibe | $0.0267 |
+| Économie | $0.0683 |
+| Économie de tokens | 20142 tokens |
+
+## 📋 Mesures Documentées
+
+### 🔍 Exploration
+
+- **POC**: 6 appels d'exploration
+- **Vibe**: 12 appels d'exploration
+
+### 🔎 Recherche
+
+- **POC**: 7 appels de recherche
+- **Vibe**: 12 appels de recherche
+
+### 🔬 Diagnostic
+
+- **POC**: 12 appels de diagnostic
+- **Vibe**: 12 appels de diagnostic
+
+### 🛠️ Corrections
+
+- **POC**: 0 corrections
+- **Vibe**: 0 corrections
+
+### ✅ Sélection
+
+- **POC**: 6 appels de script
+- **Vibe**: 0 appels de script
+
+### 💾 Consolidation (Mémoire)
+
+- **POC**: 4 opérations de mémoire
+- **Vibe**: 0 opérations de mémoire
+
+### ⭐ Qualité et Couverture des Preuves
+
+| Solution | Preuves | Correctes | Incorrectes | Couverture |
+|----------|---------|-----------|-------------|------------|
+| POC | 30 | 0 | 0 | 0.0% |
+| Vibe | 21 | 0 | 0 | 0.0% |
+
+### ❌ Échecs
+
+- **POC**: 0 échecs
+- **Vibe**: 0 échecs
+
+### ⚠️ Tours Partiels
+
+- **POC**: 6 tours partiels
+- **Vibe**: 5 tours partiels
+
+## 📦 Données Brutes
+
+Les données brutes complètes sont disponibles dans le rapport JSON pour la reproductibilité.

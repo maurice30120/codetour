@@ -1,0 +1,248 @@
+{
+  "metadata": {
+    "timestamp": "2026-11-15T11:12:07.067Z",
+    "pocMetadata": {
+      "model": "mistral-small-latest"
+    },
+    "vibeMetadata": {
+      "model": "mistral-small-latest"
+    },
+    "pricing": {
+      "inputPrice": 0.000003,
+      "outputPrice": 0.000006
+    }
+  },
+  "tokenCurves": {
+    "poc": [],
+    "vibe": [
+      31556,
+      64907,
+      107530,
+      31440,
+      62623,
+      63079
+    ],
+    "pocWithMemory": [],
+    "pocWithoutMemory": []
+  },
+  "dispersionAnalysis": {
+    "poc": {
+      "inputTokens": {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "stdDev": 0
+      },
+      "outputTokens": {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "stdDev": 0
+      },
+      "totalTokens": {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "stdDev": 0
+      },
+      "cost": {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "stdDev": 0
+      },
+      "duration": {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "stdDev": 0
+      }
+    },
+    "vibe": {
+      "inputTokens": {
+        "min": 30819,
+        "max": 106075,
+        "mean": 59189.833333333336,
+        "median": 61769.5,
+        "stdDev": 25309.7046632095
+      },
+      "outputTokens": {
+        "min": 621,
+        "max": 1455,
+        "mean": 999.3333333333334,
+        "median": 1041,
+        "stdDev": 269.03448766943535
+      },
+      "totalTokens": {
+        "min": 31440,
+        "max": 107530,
+        "mean": 60189.166666666664,
+        "median": 62851,
+        "stdDev": 25573.619059600376
+      },
+      "cost": {
+        "min": 0.09618299999999999,
+        "max": 0.32695500000000005,
+        "mean": 0.18356550000000002,
+        "median": 0.1917975,
+        "stdDev": 0.07751291720255407
+      },
+      "duration": {
+        "min": 8449,
+        "max": 17460,
+        "mean": 13645.666666666666,
+        "median": 15389.5,
+        "stdDev": 3655.896226949313
+      }
+    }
+  },
+  "marginalTokenCost": {
+    "poc": [],
+    "vibe": [
+      0.09687899999999999,
+      0.19778099999999998,
+      0.32695500000000005,
+      0.09618299999999999,
+      0.191055,
+      0.19254000000000002
+    ]
+  },
+  "cumulativeTokenCost": {
+    "poc": [],
+    "vibe": [
+      0.09687899999999999,
+      0.29466,
+      0.621615,
+      0.717798,
+      0.908853,
+      1.101393
+    ]
+  },
+  "tokensPerCorrectTour": {
+    "poc": {
+      "totalTokens": 0,
+      "correctRuns": 0,
+      "tokensPerCorrectTour": 0,
+      "completionRate": null
+    },
+    "vibe": {
+      "totalTokens": 361135,
+      "correctRuns": 6,
+      "tokensPerCorrectTour": 60189.166666666664,
+      "completionRate": 1
+    }
+  },
+  "breakEvenPoint": {
+    "reached": true,
+    "pocCost": 0,
+    "vibeCost": 1.101393,
+    "pocAvgCost": null,
+    "vibeAvgCost": 0.18356550000000002,
+    "savings": 1.101393,
+    "tokenSavings": 361135
+  },
+  "verdict": "indéterminé",
+  "measurements": {
+    "exploration": {
+      "poc": [],
+      "vibe": []
+    },
+    "search": {
+      "poc": [],
+      "vibe": []
+    },
+    "diagnostics": {
+      "poc": [],
+      "vibe": []
+    },
+    "corrections": {
+      "poc": [],
+      "vibe": []
+    },
+    "selection": {
+      "poc": [],
+      "vibe": []
+    },
+    "consolidation": {
+      "poc": [
+        {
+          "run": "pg-parse-1-undefined",
+          "reuses": 2,
+          "purges": 0
+        },
+        {
+          "run": "pg-analyze-1-undefined",
+          "reuses": 5,
+          "purges": 0
+        },
+        {
+          "run": "pg-flow-1-undefined",
+          "reuses": 4,
+          "purges": 0
+        },
+        {
+          "run": "pg-parse-2-undefined",
+          "reuses": 2,
+          "purges": 0
+        },
+        {
+          "run": "pg-analyze-2-undefined",
+          "reuses": 5,
+          "purges": 0
+        },
+        {
+          "run": "pg-flow-2-undefined",
+          "reuses": 3,
+          "purges": 0
+        }
+      ],
+      "vibe": []
+    },
+    "qualityAndCoverage": {
+      "poc": {
+        "proofs": 67,
+        "correct": 0,
+        "incorrect": 0,
+        "coverage": 0
+      },
+      "vibe": {
+        "proofs": 29,
+        "correct": 0,
+        "incorrect": 0,
+        "coverage": 0
+      }
+    },
+    "failures": {
+      "poc": [],
+      "vibe": []
+    },
+    "partialTours": {
+      "poc": [],
+      "vibe": []
+    },
+    "configurationDifferences": []
+  },
+  "summary": {
+    "poc": {
+      "runs": 0,
+      "complete": 0,
+      "partial": 0,
+      "avgTokens": 0,
+      "totalCost": 0,
+      "avgCost": 0
+    },
+    "vibe": {
+      "runs": 6,
+      "complete": 6,
+      "partial": 0,
+      "avgTokens": 60189.166666666664,
+      "totalCost": 1.101393,
+      "avgCost": 0.18356550000000002
+    }
+  }
+}
