@@ -13,7 +13,7 @@
     "poc/benchmark/evaluator"
   ],
   "source_digest": "923a6b26f7a2a61ff56ac299e73f3f1708fc64ce34926e73e2a49378e45d925b",
-  "ran_at": "2026-11-15T21:42:20.389Z",
+  "ran_at": "2026-11-15T21:46:07.979Z",
   "transcripts": [
     {
       "path": "g4-1.log",
@@ -21,7 +21,7 @@
     },
     {
       "path": "g4-2.log",
-      "sha256": "5f5731ba5466cdaf18ca98cc3b607a1bed1d6b6fdb672c1dc7ae3275f257930a"
+      "sha256": "73743649e5152cc7d83277ec084c4af009d1907c9c84cf9f349c87d1339ef9cf"
     }
   ]
 }
