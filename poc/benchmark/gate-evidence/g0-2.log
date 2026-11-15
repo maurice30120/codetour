@@ -2,151 +2,151 @@ TAP version 13
 # Subtest: a script combines bounded reads and returns compact evidence
 ok 1 - a script combines bounded reads and returns compact evidence
   ---
-  duration_ms: 903.247545
+  duration_ms: 841.647866
   type: 'test'
   ...
 # Subtest: scripts cannot access Node, network, writes or files outside the workspace
 ok 2 - scripts cannot access Node, network, writes or files outside the workspace
   ---
-  duration_ms: 5333.864949
+  duration_ms: 4439.333044
   type: 'test'
   ...
 # Subtest: infinite computation and excess memory are stopped
 ok 3 - infinite computation and excess memory are stopped
   ---
-  duration_ms: 2244.316068
+  duration_ms: 1760.123813
   type: 'test'
   ...
 # Subtest: the timeout covers worker startup and accepts small remaining budgets
 ok 4 - the timeout covers worker startup and accepts small remaining budgets
   ---
-  duration_ms: 22.49161
+  duration_ms: 22.346903
   type: 'test'
   ...
 # Subtest: cancellation interrupts a running script
 ok 5 - cancellation interrupts a running script
   ---
-  duration_ms: 3.275237
+  duration_ms: 3.848491
   type: 'test'
   ...
 # Subtest: reads reject files and ranges above the workspace limits
 ok 6 - reads reject files and ranges above the workspace limits
   ---
-  duration_ms: 2556.613976
+  duration_ms: 2175.152851
   type: 'test'
   ...
 # Subtest: a stored script receives new JSON parameters without changing its code
 ok 7 - a stored script receives new JSON parameters without changing its code
   ---
-  duration_ms: 2187.640866
+  duration_ms: 1990.943856
   type: 'test'
   ...
 # Subtest: search reaches files beyond the bounded listing
 ok 8 - search reaches files beyond the bounded listing
   ---
-  duration_ms: 1510.74161
+  duration_ms: 1508.995049
   type: 'test'
   ...
 # Subtest: scoped search filters before paging and signals remaining results
 ok 9 - scoped search filters before paging and signals remaining results
   ---
-  duration_ms: 1990.512807
+  duration_ms: 2120.292017
   type: 'test'
   ...
 # Subtest: strict execution checks plain source types and denies indirect legacy host calls
 ok 10 - strict execution checks plain source types and denies indirect legacy host calls
   ---
-  duration_ms: 4570.681918
+  duration_ms: 3613.628122
   type: 'test'
   ...
 # Subtest: strict trials validate actual params and expose the executed source contract and calls
 ok 11 - strict trials validate actual params and expose the executed source contract and calls
   ---
-  duration_ms: 2731.757991
+  duration_ms: 2297.946631
   type: 'test'
   ...
 # Subtest: canonical primitives return real symbols, imports and exact references with zero context
 ok 12 - canonical primitives return real symbols, imports and exact references with zero context
   ---
-  duration_ms: 1519.174145
+  duration_ms: 1147.998536
   type: 'test'
   ...
 # Subtest: git diff rejects revision options before git can create a file
 ok 13 - git diff rejects revision options before git can create a file
   ---
-  duration_ms: 1441.031898
+  duration_ms: 1176.694706
   type: 'test'
   ...
 # Subtest: TypeScript code with type annotations is transpiled and executed
 ok 14 - TypeScript code with type annotations is transpiled and executed
   ---
-  duration_ms: 1279.829363
+  duration_ms: 1048.608273
   type: 'test'
   ...
 # Subtest: TypeScript code with interface definitions is transpiled
 ok 15 - TypeScript code with interface definitions is transpiled
   ---
-  duration_ms: 1173.428092
+  duration_ms: 1005.121635
   type: 'test'
   ...
 # Subtest: TypeScript syntax errors return compact error messages
 ok 16 - TypeScript syntax errors return compact error messages
   ---
-  duration_ms: 851.070307
+  duration_ms: 711.686474
   type: 'test'
   ...
 # Subtest: TypeScript type errors in strict mode return compact error messages
 ok 17 - TypeScript type errors in strict mode return compact error messages
   ---
-  duration_ms: 1358.328553
+  duration_ms: 810.091812
   type: 'test'
   ...
 # Subtest: JavaScript code still works without TypeScript validation
 ok 18 - JavaScript code still works without TypeScript validation
   ---
-  duration_ms: 1178.318571
+  duration_ms: 938.574253
   type: 'test'
   ...
 # Subtest: TypeScript code using only allowed primitives executes successfully
 ok 19 - TypeScript code using only allowed primitives executes successfully
   ---
-  duration_ms: 1174.503507
+  duration_ms: 1051.6892
   type: 'test'
   ...
 # Subtest: TypeScript code with disallowed function calls is rejected
 ok 20 - TypeScript code with disallowed function calls is rejected
   ---
-  duration_ms: 985.86766
+  duration_ms: 752.376011
   type: 'test'
   ...
 # Subtest: TypeScript code with Function constructor is rejected
 ok 21 - TypeScript code with Function constructor is rejected
   ---
-  duration_ms: 997.357162
+  duration_ms: 808.552141
   type: 'test'
   ...
 # Subtest: TypeScript code can use allowed global objects
 ok 22 - TypeScript code can use allowed global objects
   ---
-  duration_ms: 1233.095475
+  duration_ms: 1016.4005
   type: 'test'
   ...
 # Subtest: Trace information is included in the output
 ok 23 - Trace information is included in the output
   ---
-  duration_ms: 864.939237
+  duration_ms: 825.275532
   type: 'test'
   ...
 # Subtest: TypeScript arrow function with explicit return type works
 ok 24 - TypeScript arrow function with explicit return type works
   ---
-  duration_ms: 836.324406
+  duration_ms: 847.317185
   type: 'test'
   ...
 # Subtest: TypeScript generic types are transpiled correctly
 ok 25 - TypeScript generic types are transpiled correctly
   ---
-  duration_ms: 1030.955721
+  duration_ms: 820.554697
   type: 'test'
   ...
 1..25
@@ -157,5 +157,5 @@ ok 25 - TypeScript generic types are transpiled correctly
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 17084.714888
+# duration_ms 15136.585148
 

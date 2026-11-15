@@ -268,7 +268,17 @@ export class CodeTourExecutor implements AgentExecutor {
       const args = ['--code', '--memory', this.memoryPath!, fixtureRoot, question.objective];
       const child = spawn(process.execPath, [cliPath, ...args], {
         cwd: path.dirname(cliPath), timeout: this.config.timeoutMs,
-        env: { ...process.env, MISTRAL_MODEL: model, CODETOUR_MODEL_CONFIG: JSON.stringify(this.executionConfig()), CODETOUR_PROMPT_SHA256: this.canonicalPromptHash() },
+        // Fairness envelope (spec §4): the harness must explore with the SAME
+        // token and wall-clock ceilings as the native arm (600000/600000 from
+        // RunnerConfig) — never the CLI's 32k default, which truncated
+        // explorations (observed: stopReason 'tokens' at 35k in-run).
+        env: {
+          ...process.env, MISTRAL_MODEL: model,
+          CODETOUR_MODEL_CONFIG: JSON.stringify(this.executionConfig()),
+          CODETOUR_PROMPT_SHA256: this.canonicalPromptHash(),
+          CODETOUR_TOKEN_BUDGET: String(this.config.maxTokens),
+          CODETOUR_TIME_BUDGET_MS: String(this.config.timeoutMs),
+        },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
       this.child = child;

@@ -90,9 +90,17 @@ export async function runPilot(config: RunnerConfig = PILOT_CONFIG, campaignConf
   for (const question of questions) {
     for (const agent of ['codetour', 'vibe-native'] as const) results.push(await runner.runSingle({ question, agent }));
   }
-  const noGoChecks = runner.getAllRuns().map(trace => runner.getLogger().validateNoGoControls(trace));
+  // Completeness: pair each run of THIS execution with its trace by runId.
+  // listRuns() reads every trace file in the output directory, so stale files
+  // from previously archived executions must neither satisfy nor invalidate
+  // the current pilot evidence.
+  const traceById = new Map(runner.getAllRuns().map(trace => [trace.run_id, trace]));
+  const noGoChecks = results.map(result => {
+    const trace = traceById.get(result.runId);
+    return trace ? runner.getLogger().validateNoGoControls(trace) : { passed: false, errors: [`No trace recorded for run ${result.runId}`] };
+  });
   const errors = results.filter(result => result.status !== 'success').map(result => result.error ?? `Pilot ${result.runId} failed.`);
-  if (noGoChecks.length !== results.length || noGoChecks.some(check => !check.passed)) errors.push('Pilot evidence is incomplete.');
+  if (noGoChecks.some(check => !check.passed)) errors.push('Pilot evidence is incomplete.');
   if (errors.length > 0) return { success: false, results, errors, noGoChecks, manifestFrozen: false };
   const campaign = new BenchmarkRunner(campaignConfig);
   await campaign.loadQuestions();

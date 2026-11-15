@@ -2,259 +2,259 @@ TAP version 13
 # Subtest: CLI forwards per-run budgets and model configuration and emits measured failure traces
 ok 1 - CLI forwards per-run budgets and model configuration and emits measured failure traces
   ---
-  duration_ms: 5246.070704
+  duration_ms: 3893.197682
   type: 'test'
   ...
 # Subtest: a candidate actually executed during a validated Tour is consolidated under its canonical name
 ok 2 - a candidate actually executed during a validated Tour is consolidated under its canonical name
   ---
-  duration_ms: 188.060407
+  duration_ms: 129.365084
   type: 'test'
   ...
 # Subtest: non-executed or unverified candidates are refused: only executed procedures consolidate
 ok 3 - non-executed or unverified candidates are refused: only executed procedures consolidate
   ---
-  duration_ms: 5.798415
+  duration_ms: 7.22539
   type: 'test'
   ...
 # Subtest: the consolidation trigger requires success AND proof availability AND contract respected
 ok 4 - the consolidation trigger requires success AND proof availability AND contract respected
   ---
-  duration_ms: 9.194712
+  duration_ms: 15.749005
   type: 'test'
   ...
 # Subtest: canonical naming is enforced at consolidation with a clear error
 ok 5 - canonical naming is enforced at consolidation with a clear error
   ---
-  duration_ms: 5.510835
+  duration_ms: 5.415035
   type: 'test'
   ...
 # Subtest: dedup decides on question + périmètre + contrat, never on the name alone
 ok 6 - dedup decides on question + périmètre + contrat, never on the name alone
   ---
-  duration_ms: 10.230477
+  duration_ms: 11.546708
   type: 'test'
   ...
 # Subtest: an INDÉTERMINÉ comparison keeps both entries and flags the relation instead of inventing equivalence
 ok 7 - an INDÉTERMINÉ comparison keeps both entries and flags the relation instead of inventing equivalence
   ---
-  duration_ms: 7.59434
+  duration_ms: 6.057165
   type: 'test'
   ...
 # Subtest: replacing a stored function requires verification on candidate params AND a representative reference set
 ok 8 - replacing a stored function requires verification on candidate params AND a representative reference set
   ---
-  duration_ms: 9.430997
+  duration_ms: 13.997171
   type: 'test'
   ...
 # Subtest: replacement with invalid candidate or reference proofs is refused
 ok 9 - replacement with invalid candidate or reference proofs is refused
   ---
-  duration_ms: 7.146012
+  duration_ms: 8.341513
   type: 'test'
   ...
 # Subtest: replacement is refused when the old version has no recorded reference cases
 ok 10 - replacement is refused when the old version has no recorded reference cases
   ---
-  duration_ms: 8.34148
+  duration_ms: 7.983829
   type: 'test'
   ...
 # Subtest: failure traces and observations recorded during a run never mutate the catalogue before finish
 ok 11 - failure traces and observations recorded during a run never mutate the catalogue before finish
   ---
-  duration_ms: 6.772756
+  duration_ms: 66.286104
   type: 'test'
   ...
 # Subtest: purges reflect the failure rule (G0: never inactivity-based) and stay visible in metrics
 ok 12 - purges reflect the failure rule (G0: never inactivity-based) and stay visible in metrics
   ---
-  duration_ms: 7.622614
+  duration_ms: 13.981141
   type: 'test'
   ...
 # Subtest: compareCandidates outcomes: duplicate, distinct and indéterminé
 ok 13 - compareCandidates outcomes: duplicate, distinct and indéterminé
   ---
-  duration_ms: 0.458689
+  duration_ms: 0.308504
   type: 'test'
   ...
 # Subtest: the model receives the complete structured evidence contract
 ok 14 - the model receives the complete structured evidence contract
   ---
-  duration_ms: 475.745024
+  duration_ms: 238.351746
   type: 'test'
   ...
 # Subtest: an exploration returns a verified entry point from a workspace
 ok 15 - an exploration returns a verified entry point from a workspace
   ---
-  duration_ms: 70.619
+  duration_ms: 19.663049
   type: 'test'
   ...
 # Subtest: a run stopped by its iteration budget returns an explicit partial result and metrics
 ok 16 - a run stopped by its iteration budget returns an explicit partial result and metrics
   ---
-  duration_ms: 21.49618
+  duration_ms: 17.252517
   type: 'test'
   ...
 # Subtest: a model cannot cite a line outside the workspace file
 ok 17 - a model cannot cite a line outside the workspace file
   ---
-  duration_ms: 12.409732
+  duration_ms: 11.549587
   type: 'test'
   ...
 # Subtest: code mode lets the model filter workspace evidence before receiving it
 ok 18 - code mode lets the model filter workspace evidence before receiving it
   ---
-  duration_ms: 2138.188136
+  duration_ms: 1826.665755
   type: 'test'
   ...
 # Subtest: a stalled model is interrupted by the duration budget
 ok 19 - a stalled model is interrupted by the duration budget
   ---
-  duration_ms: 36.239663
+  duration_ms: 34.617788
   type: 'test'
   ...
 # Subtest: model output cannot cite a file outside the workspace
 ok 20 - model output cannot cite a file outside the workspace
   ---
-  duration_ms: 9.496524
+  duration_ms: 7.056056
   type: 'test'
   ...
 # Subtest: a trailing newline does not create an extra evidence line
 ok 21 - a trailing newline does not create an extra evidence line
   ---
-  duration_ms: 10.560992
+  duration_ms: 7.498565
   type: 'test'
   ...
 # Subtest: final evidence is checked against current file contents rather than the read cache
 ok 22 - final evidence is checked against current file contents rather than the read cache
   ---
-  duration_ms: 13.139135
+  duration_ms: 11.262067
   type: 'test'
   ...
 # Subtest: explore bounds a single oversized item and an escaped multibyte object
 ok 23 - explore bounds a single oversized item and an escaped multibyte object
   ---
-  duration_ms: 3679.159238
+  duration_ms: 3003.475845
   type: 'test'
   ...
 # Subtest: scriptMemory retains more than twenty independent procedures across reloads
 ok 24 - scriptMemory retains more than twenty independent procedures across reloads
   ---
-  duration_ms: 94.825459
+  duration_ms: 42.14021
   type: 'test'
   ...
 # Subtest: explore executes function_try source with typed params and canonical primitives
 ok 25 - explore executes function_try source with typed params and canonical primitives
   ---
-  duration_ms: 1977.32332
+  duration_ms: 1608.82901
   type: 'test'
   ...
 # Subtest: explore preserves measured calls when final evidence validation fails
 ok 26 - explore preserves measured calls when final evidence validation fails
   ---
-  duration_ms: 10.022985
+  duration_ms: 9.493976
   type: 'test'
   ...
 # Subtest: a validated Tour selects an executed strict procedure and reuses its typed canonical contract
 ok 27 - a validated Tour selects an executed strict procedure and reuses its typed canonical contract
   ---
-  duration_ms: 4840.26315
+  duration_ms: 4139.722311
   type: 'test'
   ...
 # Subtest: primitive truncation is explicit and fabricated relation output is not labelled primitive-derived
 ok 28 - primitive truncation is explicit and fabricated relation output is not labelled primitive-derived
   ---
-  duration_ms: 2703.612254
+  duration_ms: 2184.468842
   type: 'test'
   ...
 # Subtest: compact search marks truncation and suppresses only unchanged repeated results
 ok 29 - compact search marks truncation and suppresses only unchanged repeated results
   ---
-  duration_ms: 4928.346932
+  duration_ms: 4056.2068
   type: 'test'
   ...
 # Subtest: deduplication refuses a decided duplicate and flags indéterminé comparisons instead of merging them
 ok 30 - deduplication refuses a decided duplicate and flags indéterminé comparisons instead of merging them
   ---
-  duration_ms: 12.257352
+  duration_ms: 35.114449
   type: 'test'
   ...
 # Subtest: declared literal search contract gives feedback and stores only the repaired candidate
 ok 31 - declared literal search contract gives feedback and stores only the repaired candidate
   ---
-  duration_ms: 8085.557865
+  duration_ms: 6778.528217
   type: 'test'
   ...
 # Subtest: optional query probe rejects a hardcoded search but preserves a parameterized search
 ok 32 - optional query probe rejects a hardcoded search but preserves a parameterized search
   ---
-  duration_ms: 2771.106738
+  duration_ms: 2720.129506
   type: 'test'
   ...
 # Subtest: non-truncated execution without structural proof is refused at consolidation
 ok 33 - non-truncated execution without structural proof is refused at consolidation
   ---
-  duration_ms: 693.227851
+  duration_ms: 704.466141
   type: 'test'
   ...
 # Subtest: a search result can support a wider cited range and the catalog is included on the next run
 ok 34 - a search result can support a wider cited range and the catalog is included on the next run
   ---
-  duration_ms: 1398.735592
+  duration_ms: 1388.900062
   type: 'test'
   ...
 # Subtest: memory saves a useful parameterized script and reruns it on current repository contents
 ok 35 - memory saves a useful parameterized script and reruns it on current repository contents
   ---
-  duration_ms: 1545.850865
+  duration_ms: 1383.978823
   type: 'test'
   ...
 # Subtest: G0: interrupted runs do not age a script and inactive runs are never purged
 ok 36 - G0: interrupted runs do not age a script and inactive runs are never purged
   ---
-  duration_ms: 898.800515
+  duration_ms: 796.77893
   type: 'test'
   ...
 # Subtest: a reference hidden by output truncation cannot cause a script to be saved
 ok 37 - a reference hidden by output truncation cannot cause a script to be saved
   ---
-  duration_ms: 714.785422
+  duration_ms: 693.197293
   type: 'test'
   ...
 # Subtest: a first failure after a file change is retained and two errors in three attempts purge it
 ok 38 - a first failure after a file change is retained and two errors in three attempts purge it
   ---
-  duration_ms: 2176.166024
+  duration_ms: 2105.1863
   type: 'test'
   ...
 # Subtest: the model can mark an output unusable for its declared subject after execution
 ok 39 - the model can mark an output unusable for its declared subject after execution
   ---
-  duration_ms: 2146.598018
+  duration_ms: 2090.524264
   type: 'test'
   ...
 # Subtest: named memory tool maps its parameters to the selected memory script
 ok 40 - named memory tool maps its parameters to the selected memory script
   ---
-  duration_ms: 371.842777
+  duration_ms: 164.957313
   type: 'test'
   ...
 # Subtest: scoped named search forwards prefix and pagination to the stored function
 ok 41 - scoped named search forwards prefix and pagination to the stored function
   ---
-  duration_ms: 1.999175
+  duration_ms: 0.870319
   type: 'test'
   ...
 # Subtest: memory exploration exposes canonical function_try and query discovery with configured temperature
 ok 42 - memory exploration exposes canonical function_try and query discovery with configured temperature
   ---
-  duration_ms: 6.01765
+  duration_ms: 2.345209
   type: 'test'
   ...
 # Subtest: malformed provider output keeps reported usage in the exploration failure trace
 ok 43 - malformed provider output keeps reported usage in the exploration failure trace
   ---
-  duration_ms: 274.690088
+  duration_ms: 303.062276
   type: 'test'
   ...
 # Subtest: Workspace Primitives
@@ -262,610 +262,610 @@ ok 43 - malformed provider output keeps reported usage in the exploration failur
         # Subtest: returns all files in the workspace
         ok 1 - returns all files in the workspace
           ---
-          duration_ms: 6.029516
+          duration_ms: 6.038013
           type: 'test'
           ...
         # Subtest: respects maxFiles limit
         ok 2 - respects maxFiles limit
           ---
-          duration_ms: 2.181089
+          duration_ms: 1.302928
           type: 'test'
           ...
         # Subtest: filters by prefix
         ok 3 - filters by prefix
           ---
-          duration_ms: 0.964256
+          duration_ms: 0.989397
           type: 'test'
           ...
         # Subtest: includes directories when requested
         ok 4 - includes directories when requested
           ---
-          duration_ms: 1.638864
+          duration_ms: 1.009831
           type: 'test'
           ...
         # Subtest: throws on invalid maxFiles
         ok 5 - throws on invalid maxFiles
           ---
-          duration_ms: 1.230941
+          duration_ms: 1.167793
           type: 'test'
           ...
         1..5
     ok 1 - listFiles
       ---
-      duration_ms: 13.604309
+      duration_ms: 12.018866
       type: 'suite'
       ...
     # Subtest: readLines
         # Subtest: reads specific lines from a file
         ok 1 - reads specific lines from a file
           ---
-          duration_ms: 4.7471
+          duration_ms: 5.378302
           type: 'test'
           ...
         # Subtest: respects line range limits
         ok 2 - respects line range limits
           ---
-          duration_ms: 1.259277
+          duration_ms: 1.547907
           type: 'test'
           ...
         # Subtest: returns totalLines
         ok 3 - returns totalLines
           ---
-          duration_ms: 1.712787
+          duration_ms: 1.310669
           type: 'test'
           ...
         # Subtest: throws on invalid line range
         ok 4 - throws on invalid line range
           ---
-          duration_ms: 0.354777
+          duration_ms: 0.340689
           type: 'test'
           ...
         # Subtest: throws on file too large (simulated)
         ok 5 - throws on file too large (simulated)
           ---
-          duration_ms: 4.445511
+          duration_ms: 5.480688
           type: 'test'
           ...
         1..5
     ok 2 - readLines
       ---
-      duration_ms: 13.166771
+      duration_ms: 14.729651
       type: 'suite'
       ...
     # Subtest: searchText
         # Subtest: finds text in files
         ok 1 - finds text in files
           ---
-          duration_ms: 7.575692
+          duration_ms: 5.565506
           type: 'test'
           ...
         # Subtest: respects pagination
         ok 2 - respects pagination
           ---
-          duration_ms: 6.801825
+          duration_ms: 7.4997
           type: 'test'
           ...
         # Subtest: filters by pathPrefix
         ok 3 - filters by pathPrefix
           ---
-          duration_ms: 2.05956
+          duration_ms: 1.700058
           type: 'test'
           ...
         # Subtest: case insensitive search
         ok 4 - case insensitive search
           ---
-          duration_ms: 6.320387
+          duration_ms: 4.777422
           type: 'test'
           ...
         # Subtest: returns query and metadata
         ok 5 - returns query and metadata
           ---
-          duration_ms: 6.007958
+          duration_ms: 4.000861
           type: 'test'
           ...
         # Subtest: throws on invalid query
         ok 6 - throws on invalid query
           ---
-          duration_ms: 0.392121
+          duration_ms: 0.357944
           type: 'test'
           ...
         1..6
     ok 3 - searchText
       ---
-      duration_ms: 29.779866
+      duration_ms: 24.405754
       type: 'suite'
       ...
     # Subtest: searchIdentifiers
         # Subtest: finds exact identifier matches
         ok 1 - finds exact identifier matches
           ---
-          duration_ms: 8.002399
+          duration_ms: 7.206585
           type: 'test'
           ...
         # Subtest: uses word boundaries for matching
         ok 2 - uses word boundaries for matching
           ---
-          duration_ms: 9.126545
+          duration_ms: 8.394869
           type: 'test'
           ...
         # Subtest: respects pagination
         ok 3 - respects pagination
           ---
-          duration_ms: 2.332263
+          duration_ms: 2.957327
           type: 'test'
           ...
         # Subtest: throws on invalid identifier
         ok 4 - throws on invalid identifier
           ---
-          duration_ms: 0.259362
+          duration_ms: 0.273295
           type: 'test'
           ...
         # Subtest: handles special regex characters in identifier
         ok 5 - handles special regex characters in identifier
           ---
-          duration_ms: 4.035741
+          duration_ms: 4.42274
           type: 'test'
           ...
         1..5
     ok 4 - searchIdentifiers
       ---
-      duration_ms: 24.155997
+      duration_ms: 23.688374
       type: 'suite'
       ...
     # Subtest: readAround
         # Subtest: reads context around a line
         ok 1 - reads context around a line
           ---
-          duration_ms: 2.014944
+          duration_ms: 2.12324
           type: 'test'
           ...
         # Subtest: respects contextLines limit
         ok 2 - respects contextLines limit
           ---
-          duration_ms: 1.065306
+          duration_ms: 1.241539
           type: 'test'
           ...
         # Subtest: handles edge of file
         ok 3 - handles edge of file
           ---
-          duration_ms: 0.968245
+          duration_ms: 1.044839
           type: 'test'
           ...
         # Subtest: throws on invalid line number
         ok 4 - throws on invalid line number
           ---
-          duration_ms: 0.279884
+          duration_ms: 0.285046
           type: 'test'
           ...
         # Subtest: throws on invalid contextLines
         ok 5 - throws on invalid contextLines
           ---
-          duration_ms: 0.237457
+          duration_ms: 0.241976
           type: 'test'
           ...
         1..5
     ok 5 - readAround
       ---
-      duration_ms: 4.868915
+      duration_ms: 5.252954
       type: 'suite'
       ...
     # Subtest: listSymbols
         # Subtest: finds symbols in workspace
         ok 1 - finds symbols in workspace
           ---
-          duration_ms: 6.719299
+          duration_ms: 7.710523
           type: 'test'
           ...
         # Subtest: finds specific symbol kinds
         ok 2 - finds specific symbol kinds
           ---
-          duration_ms: 4.164227
+          duration_ms: 4.076426
           type: 'test'
           ...
         # Subtest: respects pagination
         ok 3 - respects pagination
           ---
-          duration_ms: 3.4992
+          duration_ms: 2.42149
           type: 'test'
           ...
         # Subtest: filters by pathPrefix
         ok 4 - filters by pathPrefix
           ---
-          duration_ms: 2.426187
+          duration_ms: 2.204554
           type: 'test'
           ...
         # Subtest: symbols have correct structure
         ok 5 - symbols have correct structure
           ---
-          duration_ms: 4.186464
+          duration_ms: 4.93067
           type: 'test'
           ...
         1..5
     ok 6 - listSymbols
       ---
-      duration_ms: 21.460652
+      duration_ms: 21.850275
       type: 'suite'
       ...
     # Subtest: findDefinitions
         # Subtest: finds definitions of symbols
         ok 1 - finds definitions of symbols
           ---
-          duration_ms: 5.442602
+          duration_ms: 5.524873
           type: 'test'
           ...
         # Subtest: finds class definitions
         ok 2 - finds class definitions
           ---
-          duration_ms: 6.238464
+          duration_ms: 4.881324
           type: 'test'
           ...
         # Subtest: finds constant definitions
         ok 3 - finds constant definitions
           ---
-          duration_ms: 9.639558
+          duration_ms: 4.689623
           type: 'test'
           ...
         # Subtest: respects pagination
         ok 4 - respects pagination
           ---
-          duration_ms: 3.048668
+          duration_ms: 5.387592
           type: 'test'
           ...
         # Subtest: returns file and line information
         ok 5 - returns file and line information
           ---
-          duration_ms: 5.018082
+          duration_ms: 128.06873
           type: 'test'
           ...
         1..5
     ok 7 - findDefinitions
       ---
-      duration_ms: 29.838865
+      duration_ms: 149.031875
       type: 'suite'
       ...
     # Subtest: findReferences
         # Subtest: finds references to symbols
         ok 1 - finds references to symbols
           ---
-          duration_ms: 4.521299
+          duration_ms: 10.400723
           type: 'test'
           ...
         # Subtest: finds references to classes
         ok 2 - finds references to classes
           ---
-          duration_ms: 3.60175
+          duration_ms: 4.490197
           type: 'test'
           ...
         # Subtest: respects pagination
         ok 3 - respects pagination
           ---
-          duration_ms: 5.395238
+          duration_ms: 3.527744
           type: 'test'
           ...
         # Subtest: returns source information
         ok 4 - returns source information
           ---
-          duration_ms: 136.599653
+          duration_ms: 3.43715
           type: 'test'
           ...
         1..4
     ok 8 - findReferences
       ---
-      duration_ms: 150.487875
+      duration_ms: 22.222415
       type: 'suite'
       ...
     # Subtest: getImports
         # Subtest: finds imports in a file
         ok 1 - finds imports in a file
           ---
-          duration_ms: 9.94652
+          duration_ms: 4.077415
           type: 'test'
           ...
         # Subtest: finds require statements
         ok 2 - finds require statements
           ---
-          duration_ms: 6.669669
+          duration_ms: 1.796424
           type: 'test'
           ...
         # Subtest: returns file information
         ok 3 - returns file information
           ---
-          duration_ms: 3.189327
+          duration_ms: 1.176554
           type: 'test'
           ...
         # Subtest: handles files with no imports
         ok 4 - handles files with no imports
           ---
-          duration_ms: 2.173882
+          duration_ms: 1.219366
           type: 'test'
           ...
         # Subtest: throws on invalid file path
         ok 5 - throws on invalid file path
           ---
-          duration_ms: 0.696339
+          duration_ms: 0.335428
           type: 'test'
           ...
         1..5
     ok 9 - getImports
       ---
-      duration_ms: 23.024874
+      duration_ms: 8.95175
       type: 'suite'
       ...
     # Subtest: getGitDiff
         # Subtest: returns diff between HEAD and previous commit
         ok 1 - returns diff between HEAD and previous commit
           ---
-          duration_ms: 304.06848
+          duration_ms: 301.526224
           type: 'test'
           ...
         # Subtest: returns diff with default revision2 as HEAD
         ok 2 - returns diff with default revision2 as HEAD
           ---
-          duration_ms: 94.04993
+          duration_ms: 87.463958
           type: 'test'
           ...
         # Subtest: respects file path filter
         ok 3 - respects file path filter
           ---
-          duration_ms: 88.545401
+          duration_ms: 85.370457
           type: 'test'
           ...
         # Subtest: throws on invalid revision
         ok 4 - throws on invalid revision
           ---
-          duration_ms: 0.332101
+          duration_ms: 0.336838
           type: 'test'
           ...
         1..4
     ok 10 - getGitDiff
       ---
-      duration_ms: 487.312934
+      duration_ms: 475.085996
       type: 'suite'
       ...
     # Subtest: Backward Compatibility
         # Subtest: list() returns file list
         ok 1 - list() returns file list
           ---
-          duration_ms: 2.016981
+          duration_ms: 1.903924
           type: 'test'
           ...
         # Subtest: read() returns line array
         ok 2 - read() returns line array
           ---
-          duration_ms: 1.441651
+          duration_ms: 1.031898
           type: 'test'
           ...
         # Subtest: search() returns matches
         ok 3 - search() returns matches
           ---
-          duration_ms: 7.19698
+          duration_ms: 7.47069
           type: 'test'
           ...
         # Subtest: git() returns commit info
         ok 4 - git() returns commit info
           ---
-          duration_ms: 67.975211
+          duration_ms: 69.318114
           type: 'test'
           ...
         1..4
     ok 11 - Backward Compatibility
       ---
-      duration_ms: 78.987282
+      duration_ms: 80.089546
       type: 'suite'
       ...
     # Subtest: Security
         # Subtest: rejects path outside workspace
         ok 1 - rejects path outside workspace
           ---
-          duration_ms: 1.548341
+          duration_ms: 1.402681
           type: 'test'
           ...
         # Subtest: rejects symlink escape
         ok 2 - rejects symlink escape
           ---
-          duration_ms: 2.547812
+          duration_ms: 1.962867
           type: 'test'
           ...
         # Subtest: rejects binary files
         ok 3 - rejects binary files
           ---
-          duration_ms: 0.179316
+          duration_ms: 0.187384
           type: 'test'
           ...
         # Subtest: limits file scan
         ok 4 - limits file scan
           ---
-          duration_ms: 1.323959
+          duration_ms: 0.659265
           type: 'test'
           ...
         # Subtest: limits search results
         ok 5 - limits search results
           ---
-          duration_ms: 2.737326
+          duration_ms: 4.070957
           type: 'test'
           ...
         1..5
     ok 12 - Security
       ---
-      duration_ms: 8.706027
+      duration_ms: 8.653474
       type: 'suite'
       ...
     # Subtest: Pagination and Sourcing
         # Subtest: searchText results are sourced with file and line
         ok 1 - searchText results are sourced with file and line
           ---
-          duration_ms: 5.267579
+          duration_ms: 9.106321
           type: 'test'
           ...
         # Subtest: searchIdentifiers results are sourced
         ok 2 - searchIdentifiers results are sourced
           ---
-          duration_ms: 4.644391
+          duration_ms: 5.233158
           type: 'test'
           ...
         # Subtest: listSymbols results are sourced
         ok 3 - listSymbols results are sourced
           ---
-          duration_ms: 5.315178
+          duration_ms: 7.969816
           type: 'test'
           ...
         # Subtest: findDefinitions results are sourced
         ok 4 - findDefinitions results are sourced
           ---
-          duration_ms: 5.951642
+          duration_ms: 4.669087
           type: 'test'
           ...
         # Subtest: findReferences results are sourced
         ok 5 - findReferences results are sourced
           ---
-          duration_ms: 4.27894
+          duration_ms: 4.74864
           type: 'test'
           ...
         # Subtest: getImports results are sourced
         ok 6 - getImports results are sourced
           ---
-          duration_ms: 1.123875
+          duration_ms: 1.416202
           type: 'test'
           ...
         # Subtest: readLines results are sourced
         ok 7 - readLines results are sourced
           ---
-          duration_ms: 0.770489
+          duration_ms: 1.319956
           type: 'test'
           ...
         # Subtest: readAround results are sourced
         ok 8 - readAround results are sourced
           ---
-          duration_ms: 1.738065
+          duration_ms: 1.328487
           type: 'test'
           ...
         1..8
     ok 13 - Pagination and Sourcing
       ---
-      duration_ms: 29.669544
+      duration_ms: 36.38689
       type: 'suite'
       ...
     1..13
 ok 44 - Workspace Primitives
   ---
-  duration_ms: 1371.406766
+  duration_ms: 1263.349158
   type: 'suite'
   ...
 # Subtest: C1: with useful memory - uses memory_list and memory_run with valid params, no redundant function
 ok 45 - C1: with useful memory - uses memory_list and memory_run with valid params, no redundant function
   ---
-  duration_ms: 2825.571827
+  duration_ms: 2280.786185
   type: 'test'
   ...
 # Subtest: C2: with empty memory - creates targeted parameterized function via code/function_try
 ok 46 - C2: with empty memory - creates targeted parameterized function via code/function_try
   ---
-  duration_ms: 1385.371218
+  duration_ms: 1102.895428
   type: 'test'
   ...
 # Subtest: C3: need covered by primitive - uses primitive directly without creating function
 ok 47 - C3: need covered by primitive - uses primitive directly without creating function
   ---
-  duration_ms: 12.646527
+  duration_ms: 13.585681
   type: 'test'
   ...
 # Subtest: C4: composite need - reuses multiple small operations, no chained memory calls
 ok 48 - C4: composite need - reuses multiple small operations, no chained memory calls
   ---
-  duration_ms: 4108.168046
+  duration_ms: 3775.060233
   type: 'test'
   ...
 # Subtest: C5: error or missing proof - explicit correction or uncertainty, no false success
 ok 49 - C5: error or missing proof - explicit correction or uncertainty, no false success
   ---
-  duration_ms: 12.492062
+  duration_ms: 12.153264
   type: 'test'
   ...
 # Subtest: C6: token comparison - compare prompt and call tokens, decomposition not automatically useful
 ok 50 - C6: token comparison - compare prompt and call tokens, decomposition not automatically useful
   ---
-  duration_ms: 1029.609153
+  duration_ms: 849.357076
   type: 'test'
   ...
 # Subtest: Spec \#172 G0 — sandbox constraints (real execution)
     # Subtest: runs whitelisted primitives inside the sandbox
     ok 1 - runs whitelisted primitives inside the sandbox
       ---
-      duration_ms: 3459.418769
+      duration_ms: 2694.79509
       type: 'test'
       ...
     # Subtest: executes TypeScript with params and returns the result
     ok 2 - executes TypeScript with params and returns the result
       ---
-      duration_ms: 1398.412024
+      duration_ms: 1224.222649
       type: 'test'
       ...
     # Subtest: rejects invalid TypeScript and infinite loops (bounded execution)
     ok 3 - rejects invalid TypeScript and infinite loops (bounded execution)
       ---
-      duration_ms: 1299.905904
+      duration_ms: 1196.718255
       type: 'test'
       ...
     # Subtest: enforces input bounds on code and params
     ok 4 - enforces input bounds on code and params
       ---
-      duration_ms: 4.936414
+      duration_ms: 4.359323
       type: 'test'
       ...
     # Subtest: \#174: rejects memorized-procedure nesting and memory tools inside memorized code
     ok 5 - \#174: rejects memorized-procedure nesting and memory tools inside memorized code
       ---
-      duration_ms: 4.694862
+      duration_ms: 4.282779
       type: 'test'
       ...
     1..5
 ok 51 - Spec \#172 G0 — sandbox constraints (real execution)
   ---
-  duration_ms: 6217.335414
+  duration_ms: 5127.101476
   type: 'suite'
   ...
 # Subtest: Spec \#172 G0 — workspace primitives guard the fixture boundary
     # Subtest: refuses paths outside the workspace, oversized queries and missing files
     ok 1 - refuses paths outside the workspace, oversized queries and missing files
       ---
-      duration_ms: 6.022903
+      duration_ms: 5.550307
       type: 'test'
       ...
     # Subtest: exposes bounded search with source locations
     ok 2 - exposes bounded search with source locations
       ---
-      duration_ms: 9.200556
+      duration_ms: 21.032302
       type: 'test'
       ...
     1..2
 ok 52 - Spec \#172 G0 — workspace primitives guard the fixture boundary
   ---
-  duration_ms: 15.637952
+  duration_ms: 27.00202
   type: 'suite'
   ...
 # Subtest: Spec \#172 G0 — memory catalogue contract
     # Subtest: memory_list(query) filters the projection; projection carries NO function source
     ok 1 - memory_list(query) filters the projection; projection carries NO function source
       ---
-      duration_ms: 11.622804
+      duration_ms: 15.214142
       type: 'test'
       ...
     # Subtest: G0: no inactivity purge — entries survive untouched runs; failure rule purges only clearly-failed entries
     ok 2 - G0: no inactivity purge — entries survive untouched runs; failure rule purges only clearly-failed entries
       ---
-      duration_ms: 25.234987
+      duration_ms: 95.339347
       type: 'test'
       ...
     # Subtest: \#174: naming convention rejects non-conforming names with a clear error
     ok 3 - \#174: naming convention rejects non-conforming names with a clear error
       ---
-      duration_ms: 3.886218
+      duration_ms: 4.608785
       type: 'test'
       ...
     1..3
 ok 53 - Spec \#172 G0 — memory catalogue contract
   ---
-  duration_ms: 41.206113
+  duration_ms: 115.634858
   type: 'suite'
   ...
 1..53
@@ -876,5 +876,5 @@ ok 53 - Spec \#172 G0 — memory catalogue contract
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 30123.847044
+# duration_ms 26442.046502
 
