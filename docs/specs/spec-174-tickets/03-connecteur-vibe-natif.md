@@ -2,7 +2,7 @@
 
 **Spec**: [Spec #174 — Benchmark PostgreSQL réel vs sous-agent Vibe natif + décomposition des tâches](../../../specs/postgres-real-benchmark-2026-11-15.md)
 
-**Status**: ⏳ Not Started
+**Status**: ✅ Done
 **Priority**: Critical
 **Blocked By**: None
 **Blocks**: T05 (Runner et compteurs), T07 (Pilote + 80 runs)
@@ -215,11 +215,11 @@ G2 passe si:
 
 ## Validation
 
-- [ ] Adaptateur crée et fonctionnel
-- [ ] Exécution sentinelle réussie
-- [ ] Manifeste complet avec toutes les métadonnées
-- [ ] G1 validé (sous-agent natif prouvé)
-- [ ] G2 validé (instrumentation complète)
+- [x] Adaptateur crée et fonctionnel
+- [x] Exécution sentinelle réussie
+- [x] Manifeste complet avec toutes les métadonnées
+- [x] G1 validé (sous-agent natif prouvé)
+- [x] G2 validé (instrumentation complète)
 
 ## Preuves requises
 
