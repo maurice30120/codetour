@@ -11,5 +11,5 @@ PASS test/normalizer.test.ts
 Test Suites: 4 passed, 4 total
 Tests:       15 passed, 15 total
 Snapshots:   0 total
-Time:        5.982 s, estimated 6 s
+Time:        6.076 s
 Ran all test suites.

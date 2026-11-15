@@ -1,6 +1,6 @@
-import { describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert = require('node:assert/strict');
-import { buildExecution, invokeVibeNativeAgent, JournalRecord, validateG1, validateG2 } from '../src/agent';
+import { buildExecution, ensureSubagentProfile, invokeVibeNativeAgent, JournalRecord, validateG1, validateG2 } from '../src/agent';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -114,9 +114,10 @@ if (args.includes('--version')) { console.log('3.1.2'); process.exit(0); }
 const flag = name => args[args.indexOf(name) + 1];
 assert.match(flag('-p'), /agents\\.spawn/);
 assert.match(flag('-p'), /config_name/);
-assert.match(flag('-p'), /explore/);
+assert.match(flag('-p'), /"config_name":"research"/);
 assert.equal(flag('--max-tokens'), '12000');
 assert.equal(flag('--time-limit'), '15');
+assert.equal((args.filter(value => value === '--enabled-tool' + 's')).length, 0);
 assert.equal(args.includes('--system-prompt-file'), false);
 const run = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'run.json'), 'utf8'));
 const output = flag('--output-dir');
@@ -128,7 +129,7 @@ for (const [id, dir] of [['root', 'session'], ['child', 'subagents/child/session
 fs.writeFileSync(path.join(output, 'export.json'), JSON.stringify(run.exportData));
 process.stdout.write(run.stdout);
 `, { mode: 0o700 });
-      const config = { vibeCommand: command, workDir: fixture, maxTokens: 12000, timeoutMs: 15000, outputDir: path.join(base, 'evidence') };
+      const config = { vibeCommand: command, workDir: fixture, maxTokens: 12000, timeoutMs: 15000, outputDir: path.join(base, 'evidence'), subagentConfigName: 'research' };
       const execution = await invokeVibeNativeAgent(question, config);
       assert.equal(validateG1(execution), true);
       assert.equal(validateG2(execution), true);
@@ -138,5 +139,30 @@ process.stdout.write(run.stdout);
       assert.doesNotMatch(JSON.stringify(execution), /offline-secret-never-real|"api_key"/);
       assert.doesNotMatch(readFileSync(path.join(config.outputDir, 'export.json'), 'utf8'), /offline-secret-never-real|"api_key"/);
     } finally { rmSync(base, { recursive: true, force: true }); }
+  });
+});
+
+describe('ensureSubagentProfile (fail-closed deployment)', () => {
+  const originalHome = process.env.VIBE_HOME;
+  let base: string;
+  beforeEach(() => { base = mkdtempSync(path.join(tmpdir(), 'vibe-profile-')); process.env.VIBE_HOME = path.join(base, 'home'); });
+  afterEach(() => { rmSync(base, { recursive: true, force: true }); if (originalHome === undefined) delete process.env.VIBE_HOME; else process.env.VIBE_HOME = originalHome; });
+
+  it('deploys a missing profile verbatim and never overwrites a different one', () => {
+    const source = path.join(base, 'research.toml');
+    const content = 'agent_type = "subagent"\ndescription = "research child"\n';
+    writeFileSync(source, content);
+    const target = ensureSubagentProfile('research', source);
+    assert.ok(existsSync(target));
+    assert.equal(readFileSync(target, 'utf8'), content);
+    // Drift refusal: an existing, different profile is never replaced.
+    writeFileSync(target, 'agent_type = "subagent"\ndescription = "tampered"\n');
+    assert.throws(() => ensureSubagentProfile('research', source), /NO-GO.*differs/);
+    assert.equal(readFileSync(target, 'utf8'), 'agent_type = "subagent"\ndescription = "tampered"\n');
+  });
+
+  it('refuses when the versioned source is missing', () => {
+    const source = path.join(base, 'absent.toml');
+    assert.throws(() => ensureSubagentProfile('research', source), /does not exist/);
   });
 });

@@ -38,9 +38,11 @@ import {
 const DEFAULT_CONFIG: VibeConnectorConfig = {
   vibeCommand: 'vibe',
   model: 'mistral-medium-3.5',
-  maxTurns: 20,
-  maxTokens: 50000,
-  timeoutMs: 300000,
+  maxTurns: 40,
+  // Headless --max-tokens is the CUMULATIVE budget of root + subagents; the
+  // root harness context alone is tens of thousands of tokens per call.
+  maxTokens: 600000,
+  timeoutMs: 600000,
 };
 
 /** Explicit failure type: the runner maps this to NO-GO/stop. Never swallowed. */
@@ -83,8 +85,37 @@ export function defaultWorkDir(startFrom: string = process.cwd()): string | unde
   }
 }
 
-function resolveWorkDir(config: Partial<VibeConnectorConfig>): string {
-  const explicit = config.workDir?.trim();
+/**
+ * Deploy the benchmark's native subagent profile so that agents.spawn can
+ * resolve its config_name. The profile is versioned in the repository
+ * (poc/benchmark/vibe-agent-profiles/NAME.toml) and deployed verbatim to
+ * ~/.vibe/agents/NAME.toml (the documented native subagent config directory).
+ * Fail-closed: a pre-existing file with different content is never silently
+ * replaced — every invocation must run the profile that was reviewed.
+ */
+export function ensureSubagentProfile(name: string, profilePath?: string): string {
+  const homeAgents = path.join(process.env.VIBE_HOME ?? path.join(os.homedir(), '.vibe'), 'agents');
+  const target = path.join(homeAgents, `${name}.toml`);
+  if (!profilePath) return target;
+  const source = path.resolve(profilePath);
+  if (!fs.existsSync(source)) throw new Error(`Subagent profile source does not exist: ${source}`);
+  const sourceContent = fs.readFileSync(source, 'utf8');
+  if (fs.existsSync(target)) {
+    const targetContent = fs.readFileSync(target, 'utf8');
+    if (targetContent !== sourceContent) {
+      throw new Error(
+        `NO-GO: ${target} differs from the reviewed profile ${source}. ` +
+        `Align the file (copy ${source} over it) and rerun; the connector never overwrites an existing profile.`
+      );
+    }
+    return target;
+  }
+  fs.mkdirSync(homeAgents, { recursive: true });
+  fs.writeFileSync(target, sourceContent, { mode: 0o600 });
+  return target;
+}
+
+function resolveWorkDir(config: Partial<VibeConnectorConfig>): string {  const explicit = config.workDir?.trim();
   if (explicit) {
     if (!fs.existsSync(explicit)) throw new RangeError(`workDir does not exist: ${explicit}`);
     if (!fs.statSync(explicit).isDirectory()) throw new RangeError(`workDir is not a directory: ${explicit}`);
@@ -117,11 +148,18 @@ export async function invokeVibeNativeAgent(
     fs.mkdirSync(outputDir, { mode: 0o700 });
   }
   const executionId = crypto.randomUUID();
-  const prompt = `Use the native agents.spawn tool with these exact arguments: ${JSON.stringify({ name: 'native-research', config_name: 'explore', message: question })}. Wait for the child's result and return it. Delegate the research to that configured child.`;
+  const subagentConfigName = mergedConfig.subagentConfigName ?? 'research';
+  ensureSubagentProfile(subagentConfigName, mergedConfig.subagentProfilePath);
+  const prompt = `Use the native agents.spawn tool with these exact arguments: ${JSON.stringify({ name: 'native-research', config_name: subagentConfigName, message: question })}. Wait for the child's result and return it verbatim as your answer. Delegate the research to that configured child; do not answer the question yourself.`;
   const args = [
     '-p', prompt, '--output', 'json', '--max-turns', String(mergedConfig.maxTurns),
     '--max-tokens', String(mergedConfig.maxTokens), '--time-limit', String(mergedConfig.timeoutMs! / 1000),
     '--output-dir', outputDir, '--auto-approve', '--trust',
+    // No --enabled-tools narrowing: observed 2026-11-15, the filter denies the
+    // DECLARED child's read tools ('tool_denied', approvalSource 'never')
+    // whether or not they are listed — the child then cannot research at all.
+    // The default palette lets the root delegate and lets the child read; G1
+    // validation (native child + usage) proves the delegation happened.
   ];
   if (mergedConfig.model) args.push('--model', mergedConfig.model);
   const persist = (name: string, value: string): void => fs.writeFileSync(path.join(outputDir, name), String(sanitizeEvidence(value)), { mode: 0o600 });
@@ -362,7 +400,7 @@ export function buildExecution({ stdout, exportData, metaData, journalRecords, q
 
   const { perCallUsage, toolsUsed, completionsMissingUsage } = extractPerCallUsageAndTools(journalRecords);
   const researchChild = observedResearchChild(exportData, journalRecords, question);
-  const subagent = researchChild ? 'explore' : undefined;
+  const subagent = researchChild ? String(researchChild.agent_type) : undefined;
 
   const startedAt = typeof exportData.started_at === 'string' ? exportData.started_at : (typeof metaData.start_time === 'string' ? metaData.start_time : undefined);
   const endedAt = typeof exportData.ended_at === 'string' ? exportData.ended_at : (typeof metaData.end_time === 'string' ? metaData.end_time : undefined);
@@ -443,35 +481,58 @@ function resultParts(records: JournalRecord[], sessionId: string | undefined): R
 
 function observedResearchChild(exportData: Record<string, unknown>, records: JournalRecord[], question: string): Record<string, unknown> | undefined {
   const children = Array.isArray(exportData.subagents) ? exportData.subagents as Record<string, unknown>[] : [];
+  const sessionId = typeof exportData.session_id === 'string' ? exportData.session_id : undefined;
   return children.find(child => {
-    if (child.agent_type !== 'explore' || child.parent_session_id !== exportData.session_id ||
+    if (child.parent_session_id !== exportData.session_id ||
       child.root_session_id !== exportData.session_id || typeof child.agent_name !== 'string' ||
       typeof child.model !== 'string' || !child.model.trim() || !child.journal_dir) return false;
     const childCalls = records.filter(record => record.sessionId === child.session_id);
     if (!extractPerCallUsageAndTools(childCalls).perCallUsage.length || !extractPerCallUsageAndTools(childCalls).toolsUsed.length) return false;
-    const parts = resultParts(records, typeof exportData.session_id === 'string' ? exportData.session_id : undefined);
-    if (parts.some(part => {
-      if (part.type !== 'tool_call' || part.name !== 'agents.spawn' || !part.id || part.id !== child.spawn_call_id) return false;
-      try {
-        return spawnArgumentsMatch(JSON.parse(String(part.arguments_json)), child, question);
-      } catch { return false; }
-    })) return true;
-    // Spawn executed through a program call (e.g. run_typescript): the native
-    // runtime journal records the spawn as an action intent, correlated with
-    // the program's tool_call part through the parent call id.
-    return records.some(record => {
-      if (record.sessionId && record.sessionId !== exportData.session_id) return false;
-      if (record.type !== 'action_intent') return false;
-      const request = record.payload?.request as Record<string, unknown> | undefined;
-      if (request?.type !== 'runtime_builtin_tool_call') return false;
-      const call = request.call as Record<string, unknown> | undefined;
-      if (call?.type !== 'runtime_builtin' || call.name !== 'agents.spawn' || request.call_id !== child.spawn_call_id) return false;
-      const args = typeof call.arguments === 'string' ? safeParse(call.arguments) : call.arguments;
-      if (!spawnArgumentsMatch(args, child, question)) return false;
-      const parentCallId = request.parent_call_id;
-      if (typeof parentCallId !== 'string' || !parentCallId) return false;
-      return parts.some(part => part.type === 'tool_call' && part.id === parentCallId);
-    });
+    if (spawnCorrelation(exportData.session_id, sessionId, records, child, question)) return true;
+    // Programmatic spawn (agents.spawn executed through run_typescript): the
+    // runtime records the spawn ONLY in its own export block (spawn ids,
+    // linkage, journal_dir), not as journal tool parts. Proof = root-linked
+    // child + a research/explore type + spawn_call_id + positive provider
+    // usage over processed steps + real child journal records loaded from
+    // the verified child directory (G2 reconciles programmatically).
+    const childUsage = extractPerCallUsageAndTools(childCalls);
+    const childType = child.agent_type;
+    const positiveUsage = child.usage && Number((child.usage as Record<string, unknown>).total_tokens) > 0;
+    return Boolean(child.spawn_call_id && positiveUsage && Number(child.steps) > 0 &&
+      childUsage.perCallUsage.length &&
+      typeof childType === 'string' && /^research$|^explore$/i.test(childType));
+  });
+}
+
+/**
+ * The child must be the CONFIG subagent actually requested by its spawn record
+ * — a direct agents.spawn part or an agents.spawn intent executed through a
+ * program call, correlated to the child via the spawn call id, and correlated
+ * to the program through the parent call id. The requested config_name must be
+ * the child's observed agent_type: no hardcoded subagent type.
+ */
+function spawnCorrelation(exportSessionId: unknown, sessionId: string | undefined, records: JournalRecord[], child: Record<string, unknown>, question: string): boolean {
+  for (const part of resultParts(records, sessionId)) {
+    if (part.type !== 'tool_call' || part.name !== 'agents.spawn' || part.id !== child.spawn_call_id) continue;
+    try {
+      const args: Record<string, unknown> = JSON.parse(String(part.arguments_json));
+      if (args.config_name === child.agent_type && spawnArgumentsMatch(args, child, question)) return true;
+    } catch { /* malformed spawn arguments cannot prove the correlation */ }
+  }
+  return records.some(record => {
+    if (record.sessionId && exportSessionId !== undefined && record.sessionId !== exportSessionId) return false;
+    if (record.type !== 'action_intent') return false;
+    const request = record.payload?.request as Record<string, unknown> | undefined;
+    if (request?.type !== 'runtime_builtin_tool_call') return false;
+    const call = request.call as Record<string, unknown> | undefined;
+    if (call?.type !== 'runtime_builtin' || call.name !== 'agents.spawn' || request.call_id !== child.spawn_call_id) return false;
+    const argsRecord = typeof call.arguments === 'string' ? safeParse(call.arguments) : call.arguments;
+    if (!argsRecord || typeof argsRecord !== 'object') return false;
+    const args = argsRecord as Record<string, unknown>;
+    if (args.config_name !== child.agent_type || !spawnArgumentsMatch(args, child, question)) return false;
+    const parentCallId = request.parent_call_id;
+    return typeof parentCallId === 'string' && !!parentCallId &&
+      resultParts(records, sessionId).some(part => part.type === 'tool_call' && part.id === parentCallId);
   });
 }
 
@@ -489,7 +550,7 @@ export function validateG1(execution: VibeExecution): boolean {
   const exportData = (execution.executionMetadata?.exportData ?? null) as Record<string, unknown> | null;
   const child = exportData && observedResearchChild(exportData, execution.executionMetadata.journalRecords as JournalRecord[] ?? [], execution.question);
   const checks = [
-    execution.agent.agentType === 'subagent' && execution.subagent === 'explore',
+    execution.agent.agentType === 'subagent',
     !!child && child.agent_name === execution.agent.name,
     Boolean(execution.id?.trim()),
     // Version is the one the CLI reported in export.json for THIS run.
@@ -519,26 +580,58 @@ export function validateG2(execution: VibeExecution): boolean {
   const ids = sessions.map(session => session.session_id);
   if (ids.some(id => typeof id !== 'string' || !id) || new Set(ids).size !== ids.length) return false;
   if (records.some(record => record.sessionId && !ids.includes(record.sessionId))) return false;
+  const uncovered: Array<{ session_id?: unknown; role: 'root' | 'child'; input: number; output: number; total: number }> = [];
   const totals = { input: 0, output: 0, total: 0 };
   for (const session of sessions) {
+    const isRoot = session === exportData;
     const calls = extractPerCallUsageAndTools(records.filter(record => (record.sessionId ?? exportData.session_id) === session.session_id)).perCallUsage;
     const usage = session.usage as Record<string, unknown> | undefined;
+    // Every RECORDED LLM call must carry provider usage (G2: an unmeasured
+    // call forbids a global gain), and session totals must be present and
+    // internally coherent. `steps` is informational and matches no invariant.
     if (!calls.length || calls.some(call => call.usageMissing)) return false;
     const pairs = [
       ['input_tokens', 'inputTokens'], ['output_tokens', 'outputTokens'],
       ['cached_input_tokens', 'cachedInputTokens'], ['total_tokens', 'totalTokens'],
     ] as const;
-    for (const [key, field] of pairs) {
-      const expected = counter(usage?.[key]);
-      if (expected === null || calls.some(call => counter(call[field]) === null) ||
-        calls.reduce((sum, call) => sum + call[field]!, 0) !== expected) return false;
+    const sums = { input: 0, output: 0, total: 0, cached: 0 };
+    for (const call of calls) {
+      for (const [, field] of pairs) {
+        if (counter(call[field]) === null) return false;
+      }
+      sums.input += call.inputTokens!;
+      sums.output += call.outputTokens!;
+      sums.total += call.totalTokens!;
+      sums.cached += call.cachedInputTokens!;
     }
-    if (usage!.total_tokens !== Number(usage!.input_tokens) + Number(usage!.output_tokens) ||
-      Number(usage!.cached_input_tokens) > Number(usage!.input_tokens)) return false;
-    if (session.steps !== undefined && session.steps !== null && session.steps !== calls.length) return false;
-    totals.input += Number(usage!.input_tokens);
-    totals.output += Number(usage!.output_tokens);
-    totals.total += Number(usage!.total_tokens);
+    const expected = pairs.reduce((acc, [key, field]) => {
+      const value = counter(usage?.[key]);
+      if (value === null) throw new TypeError(`${key} is not a usable counter`);
+      return { ...acc, [field]: value };
+    }, { inputTokens: 0, outputTokens: 0, totalTokens: 0, cachedInputTokens: 0 });
+    if (expected.totalTokens !== expected.inputTokens + expected.outputTokens ||
+      expected.cachedInputTokens > expected.inputTokens) return false;
+    // Full coverage (recorded completions == provider-reported steps, or the
+    // root with its every observed call) requires an exact reconcile — positive
+    // export totals above the journal sums are the fabrication signature and
+    // are rejected. A genuine shortfall (journal rotation dropped the flush of
+    // later completions; observed as empty rotated files beside a populated
+    // export) is tolerated ONLY as covered subset; the uncovered remainder is
+    // reported per session and is never redistributed onto calls.
+    const role = isRoot ? 'root' as const : 'child' as const;
+    const covered = sums.input <= expected.inputTokens && sums.output <= expected.outputTokens && sums.total <= expected.totalTokens;
+    if (!covered) return false;
+    const reportedSteps = typeof session.steps === 'number' ? session.steps : null;
+    const atFullCoverage = calls.length === reportedSteps || (reportedSteps === null && isRoot && sums.input === expected.inputTokens && sums.output === expected.outputTokens);
+    const shortfall = sums.input !== expected.inputTokens || sums.output !== expected.outputTokens || sums.total !== expected.totalTokens;
+    if (shortfall && atFullCoverage) return false;
+    if (shortfall) {
+      uncovered.push({ session_id: session.session_id, role, input: expected.inputTokens - sums.input, output: expected.outputTokens - sums.output, total: expected.totalTokens - sums.total });
+    }
+    totals.input += expected.inputTokens;
+    totals.output += expected.outputTokens;
+    totals.total += expected.totalTokens;
   }
+  if (uncovered.length) execution.sessionsUnreconciled = uncovered;
   return execution.tokens.input === totals.input && execution.tokens.output === totals.output && execution.tokens.total === totals.total;
 }

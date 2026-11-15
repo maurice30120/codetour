@@ -351,7 +351,7 @@ export class BenchmarkRunner {
    * refusal, readback verification). After this, the campaign must refuse to
    * run if the manifest changes (validated by validateGates / campaign checks).
    */
-  async freezeManifest(): Promise<void> {
+  async freezeManifest(options?: { promptSha256?: string }): Promise<void> {
     await this.loadManifest();
     const root = findRepoRoot(__dirname);
     const sourcePaths = root ? [
@@ -362,6 +362,7 @@ export class BenchmarkRunner {
     freezeManifest(this.config.manifestFile, this.manifestLockFile(), {
       executionConfig: this.executionConfig(),
       artifacts: [this.config.questionsFile, ...sourcePaths].map(hashFile),
+      promptSha256: options?.promptSha256,
     });
     console.log('Manifest frozen (real content hash verified by readback)');
   }

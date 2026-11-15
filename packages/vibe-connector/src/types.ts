@@ -55,6 +55,8 @@ export interface VibeExecution {
   toolsUsed: string[];
   /** Name of the subagent invoked through the task tool, when the journal proves it. */
   subagent?: string;
+  /** Provider-reported session totals not attributable to recorded completions (journal rotation), per session. Never redistributed; absent after a full reconcile. */
+  sessionsUnreconciled?: Array<{ session_id?: unknown; role: 'root' | 'child'; input: number; output: number; total: number }>;
   /** export.json `outcome` (e.g. 'finished', 'token_limit'). */
   outcome?: string;
   /** export.json `stop_reason`. */
@@ -79,6 +81,19 @@ export interface VibeConnectorConfig {
   maxTokens?: number;
   timeoutMs?: number;
   outputDir?: string;
+  /**
+   * Native subagent configuration name spawned through agents.spawn
+   * (config_name). Defaults to 'research' — the CodeTour benchmark's research
+   * subagent profile (poc/benchmark/vibe-agent-profiles/research.toml,
+   * deployed to ~/.vibe/agents/research.toml by the connector).
+   */
+  subagentConfigName?: string;
+  /**
+   * On-disk profile TOML backing subagentConfigName. When set, the connector
+   * deploys this exact file to ~/.vibe/agents/NAME.toml if absent, and refuses
+   * to run if a DIFFERENT file already exists under that name.
+   */
+  subagentProfilePath?: string;
 }
 
 export interface VibeAvailability {

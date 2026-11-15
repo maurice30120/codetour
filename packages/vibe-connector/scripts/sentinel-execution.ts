@@ -35,10 +35,17 @@ async function main(): Promise<void> {
     if (!availability.available) reasons.push('Vibe CLI unavailable');
     if (!process.env.MISTRAL_API_KEY?.trim()) reasons.push('MISTRAL_API_KEY absent; no model call attempted');
     if (!reasons.length) {
-      execution = await invokeVibeNativeAgent(
-        'Where is the PostgreSQL backend startup entry point? Give the path, function name and supporting line references.',
-        { workDir: fixture, outputDir: evidenceDir, maxTurns: 8, maxTokens: 50000, timeoutMs: 180000 }
-      );
+      // Profile versioned with the repository: review before running; the
+      // connector refuses a drifted ~/.vibe/agents/research.toml (never
+      // overwrite), the profile bytes are part of the sentinel evidence.
+      const profile = path.resolve(__dirname, '../../../../poc/benchmark/vibe-agent-profiles/research.toml');
+      if (!fs.existsSync(profile)) reasons.push(`Profile not found: ${profile}`);
+      if (!reasons.length) {
+        execution = await invokeVibeNativeAgent(
+          'Where is the PostgreSQL backend startup entry point? Give the path, function name and supporting line references.',
+          { workDir: fixture, outputDir: evidenceDir, subagentConfigName: 'research', subagentProfilePath: profile, maxTurns: 40, maxTokens: 600000, timeoutMs: 900000 }
+        );
+      }
     }
   } catch (error) {
     reasons.push(error instanceof Error ? error.message : String(error));
