@@ -20,6 +20,16 @@ Générer un **rapport contradictoire** avec:
 
 **Ce ticket ne peut démarrer qu'après T07.**
 
+## Addendum — complément #174 (15 novembre 2026)
+
+Source : [revue croisée #174](https://github.com/maurice30120/codetour/issues/174#issuecomment-6898714632) (correction n°7) et [complément au protocole #174](https://github.com/maurice30120/codetour/issues/174) / [complément validé #172](https://github.com/maurice30120/codetour/issues/172).
+
+- **Jamais convertir un nombre d'appels (ou de réutilisations) en économie de tokens attribuée à une fonction sans contrefactuel valide** : les appels/réutilisations sont des traces descriptives ; le gain se mesure sur les tokens totaux cumulés par Tour correct, y compris création, essais, diagnostics et consolidation.
+- **Distinguer « validée techniquement » (condition d'entrée) et « bénéfice démontré expérimentalement » (preuve a posteriori)** pour toute capacité évoquée ; une procédure peut être validée techniquement sans que son bénéfice soit démontré.
+- **Distinguer performance produit et mécanisme mémoire** : la campagne principale compare **deux systèmes et deux outillages** (Vibe natif vs CodeTour) ; le verdict porte sur le **gain produit**, pas sur l'effet causal propre de la mémoire.
+- **Ablation optionnelle** (CodeTour, même harness, avec/sans mémoire) : diagnostic d'attribution **séparé** des 80 runs ; elle ne remplace pas Vibe et ne modifie pas la pré-régistration.
+- L'inférence statistique suit l'**unité indépendante pré-enregistrée** (famille de questions / séquence, cf. spec §5/§7) ; si les 5 familles de R ne suffisent pas, le verdict est **INDÉTERMINÉ**.
+
 ## Périmètre
 
 - **Analyse**: Calcul des métriques à partir des données brutes

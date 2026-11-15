@@ -2,7 +2,7 @@
 
 **Spec**: [Spec #174 — Benchmark PostgreSQL réel vs sous-agent Vibe natif + décomposition des tâches](../../../specs/postgres-real-benchmark-2026-11-15.md)
 
-**Status**: ✅ Done
+**Status**: 🔴 NO-GO — campagne INVALIDÉE (15/11/2026) : traces fabriquées ; à réexécuter après réconciliation de la source versionnée
 **Priority**: High
 **Blocked By**: T01 (Prompt), T02 (Audit #172), T03 (Vibe natif), T04 (Fixture), T05 (Runner), T06 (Évaluateur)
 **Blocks**: T08 (Rapport)
@@ -15,6 +15,18 @@ Exécuter:
 
 **Toutes les portes G0-G5 doivent être satisfaites avant de commencer.**
 
+## 🔴 Invalidation de la campagne (15 novembre 2026)
+
+La campagne intégrée le 15/11/2026 est **INVALIDÉE et annulée (NO-GO)** : la revue de code a démontré des exécuteurs **simulés** et des traces **fabriquées** (≈ 41 ms pour 480 appels LLM fictifs). **Aucun chiffre, aucune trace et aucune conclusion en provenance de cette campagne ne sont exploitables** ; les fichiers de traces existants sont des artefacts d'invalidation, pas des mesures.
+
+Conditions impératives pour toute re-campagne ([revue croisée #174](https://github.com/maurice30120/codetour/issues/174#issuecomment-6898714632), complément au [protocole #174](https://github.com/maurice30120/codetour/issues/174)) :
+
+- Appliquer d'abord le **prompt canonique unique** de la spec §2.2 (ancienne version « besoins concrets » supersédée) au POC, avec **SHA-256 calculé au gel G5** et référencé par le manifeste.
+- **Mécanisme de gel réel** : hash calculé depuis le **contenu effectif du manifeste** ; manifeste **gelé AVANT le premier run mesuré** ; **aucun champ TBD** autorisé dans le manifeste gelé.
+- Contrôle **SHA PostgreSQL + arbre propre AVANT CHAQUE RUN**, obligatoire et journalisé.
+- Pilote de connectivité sur des **tâches hors benchmark**, **jamais compté** ; corrections techniques **versionnées** ; **aucun tuning** du contenu/critères à partir des résultats mesurés.
+- Exécutions et traces **réelles** : commande/API lancée, modèle, usage tokens par appel fourni par le fournisseur, horodatages et durées cohérents, request ids quand disponibles. Tout exécuteur simulé ou trace synthétique = NO-GO immédiat.
+
 ## Périmètre
 
 - **Pilote**: Test de la collecte et des garde-fous
@@ -24,7 +36,7 @@ Exécuter:
 ## Livrables
 
 1. **Traces du pilote**: Preuve que la collecte fonctionne
-2. **Manifeste gelé**: Prompts et protocole figés après le pilote
+2. **Manifeste gelé**: Prompts et protocole figés selon le calendrier sans équivoque de la spec §4 — **gel G5 final AVANT le premier run mesuré** (pilote hors benchmark jamais compté, corrections techniques versionnées)
 3. **80 traces complètes**: horodatées et immuables
 4. **Validation**: Toutes les portes satisfaites, tous les runs retrouvables
 
@@ -52,11 +64,11 @@ Exécuter:
 - Les résultats du pilote **ne sont pas** inclus dans le benchmark principal
 - Les coûts du pilote **ne sont pas** inclus dans les calculs
 
-✅ **Gel après le pilote**:
-- Tous les prompts figés
-- Le manifeste figé
-- Le protocole figé
-- **Aucune modification** après le pilote
+✅ **Gel sans équivoque (correction n°9, revue croisée #174 — remplace « gel après le pilote »)**:
+- Questions et critères préparés **avant tout test**
+- Pilotage hors benchmark : pilote sur **tâches hors benchmark**, **jamais compté** ; corrections techniques **versionnées**
+- **Gel G5 final AVANT le premier run mesuré** — hash calculé depuis le **contenu effectif du manifeste**, **aucun champ TBD**
+- **Aucun ajustement** du contenu ou des critères à partir des résultats mesurés
 
 ### Campagne principale (80 runs)
 
@@ -146,6 +158,8 @@ Exécuter:
 ## Implémentation
 
 ### Étape 1: Préparer le pilote
+
+> ⚠️ **Les questions du pilote doivent être HORS benchmark** (ni série R, ni série T, ni proches de leurs objectifs) et le pilote n'est **jamais compté**. L'exemple suivant est illustratif : le remplacer par des tâches hors benchmark. Le **gel G5 du manifeste intervient AVANT le premier run mesuré**, jamais « après ajustement » du contenu.
 
 ```typescript
 // pilot.ts
