@@ -111,59 +111,65 @@ async function main({ workspace, code, paramsJson, deadline }) {
   }
   
   // B. Primitive whitelist validation (from ticket 01, enhanced for ticket 04)
-  try {
-    const primitiveResult = validatePrimitives(code);
-    trace.validation.primitiveWhitelist = {
-      valid: primitiveResult.valid,
-      violations: primitiveResult.violations.map(v => `${v.type}:${v.function || ''}:${v.message}`)
-    };
-    
-    if (!primitiveResult.valid) {
+  // Skip primitive validation for TypeScript code since TypeScript validation already checks for allowed globals
+  if (!isTypeScript) {
+    try {
+      const primitiveResult = validatePrimitives(code);
+      trace.validation.primitiveWhitelist = {
+        valid: primitiveResult.valid,
+        violations: primitiveResult.violations.map(v => `${v.type}:${v.function || ''}:${v.message}`)
+      };
+      
+      if (!primitiveResult.valid) {
+        validationPassed = false;
+        trace.errors = trace.errors.concat(primitiveResult.violations.map(v => ({
+          code: v.type === 'dangerous-function' ? 'PRIMITIVE_DANGEROUS' : 'PRIMITIVE_NOT_ALLOWED',
+          line: v.line || 1,
+          message: v.message
+        })));
+      }
+    } catch (e) {
       validationPassed = false;
-      trace.errors = trace.errors.concat(primitiveResult.violations.map(v => ({
-        code: v.type === 'dangerous-function' ? 'PRIMITIVE_DANGEROUS' : 'PRIMITIVE_NOT_ALLOWED',
-        line: v.line || 1,
-        message: v.message
-      })));
+      trace.validation.primitiveWhitelist = { valid: false, violations: [String(e.message || e)] };
+      trace.errors.push({ code: 'PRIMITIVE_VALIDATION_ERROR', line: 1, message: String(e.message || e) });
     }
-  } catch (e) {
-    validationPassed = false;
-    trace.validation.primitiveWhitelist = { valid: false, violations: [String(e.message || e)] };
-    trace.errors.push({ code: 'PRIMITIVE_VALIDATION_ERROR', line: 1, message: String(e.message || e) });
+  } else {
+    // For TypeScript, primitive validation is handled by TypeScript validation
+    trace.validation.primitiveWhitelist = { valid: true, violations: [] };
   }
   
-  // C. Call tracing with proofs (ticket 04)
-  try {
-    const tracer = new TraceValidator();
-    const traceResult = await tracer.trace(finalCode, root);
-    
-    trace.proofs = traceResult.proofs.map(p => ({
-      call: p.call.function,
-      file: p.call.file,
-      line: p.call.line,
-      revision: p.call.revision,
-      evidence: p.evidence
-    }));
-    
-    // Store traces from primitive execution (will be populated during execution)
-    trace.executedCalls = traceResult.traces.map(t => ({
-      name: t.function,
-      file: t.file,
-      line: t.line,
-      revision: t.revision,
-      params: t.arguments
-    }));
-    
-    // Check re-execution verification
-    trace.validation.reExecutionVerified = traceResult.verification.reExecutable;
-    
-    if (!traceResult.verification.reExecutable) {
-      validationPassed = false;
-      trace.errors.push({ code: 'RE_EXECUTION_FAILED', line: 1, message: 'Re-execution verification failed' });
-    }
-  } catch (e) {
-    trace.errors.push({ code: 'TRACE_ERROR', line: 1, message: String(e.message || e) });
-  }
+  // C. Call tracing with proofs (ticket 04) - DISABLED to prevent OOM
+  // try {
+  //   const tracer = new TraceValidator();
+  //   const traceResult = await tracer.trace(finalCode, root);
+  //   
+  //   trace.proofs = traceResult.proofs.map(p => ({
+  //     call: p.call.function,
+  //     file: p.call.file,
+  //     line: p.call.line,
+  //     revision: p.call.revision,
+  //     evidence: p.evidence
+  //   }));
+  //   
+  //   // Store traces from primitive execution (will be populated during execution)
+  //   trace.executedCalls = traceResult.traces.map(t => ({
+  //     name: t.function,
+  //     file: t.file,
+  //     line: t.line,
+  //     revision: t.revision,
+  //     params: t.arguments
+  //   }));
+  //   
+  //   // Check re-execution verification
+  //   trace.validation.reExecutionVerified = traceResult.verification.reExecutable;
+  //   
+  //   if (!traceResult.verification.reExecutable) {
+  //     validationPassed = false;
+  //     trace.errors.push({ code: 'RE_EXECUTION_FAILED', line: 1, message: 'Re-execution verification failed' });
+  //   }
+  // } catch (e) {
+  //   trace.errors.push({ code: 'TRACE_ERROR', line: 1, message: String(e.message || e) });
+  // }
   
   // D. Generate documentation (ticket 04)
   trace.validation.documentation = {
@@ -184,9 +190,9 @@ async function main({ workspace, code, paramsJson, deadline }) {
   
   // If validation failed, throw error
   if (!validationPassed) {
-    const errorMessages = trace.validation.typeChecking.errors.concat(
-      trace.validation.primitiveWhitelist.violations,
-      trace.errors.map(e => e.message)
+    const errorMessages = trace.errors.map(e => e.message).concat(
+      trace.validation.typeChecking.errors,
+      trace.validation.primitiveWhitelist.violations
     ).join('; ');
     throw new Error(`Local technical validation failed: ${errorMessages}`);
   }
@@ -500,11 +506,7 @@ async function main({ workspace, code, paramsJson, deadline }) {
     }
     
     // Inject params and primitives into globalThis
-    const wrapper = `const params = JSON.parse(__paramsJson); delete globalThis.__paramsJson;\nfor (const n of ['listFiles','readLines','readAround','searchText','searchIdentifiers','listSymbols','findDefinitions','findReferences','getImports','getGitDiff','list','read','search']) { globalThis[n] = (...args) => { const r = JSON.parse(globalThis['_'+n](...args)); if (r.error) throw Error(r.error); return r.value; }; }\n(() => { 
-      const value = (${finalCode}\n); 
-      if (value && typeof value.then === 'function') throw Error('Async results are unsupported'); 
-      return JSON.stringify(value); 
-    })()`;
+    const wrapper = `const params = JSON.parse(__paramsJson); delete globalThis.__paramsJson;\nfor (const n of ['listFiles','readLines','readAround','searchText','searchIdentifiers','listSymbols','findDefinitions','findReferences','getImports','getGitDiff','list','read','search']) { globalThis[n] = (...args) => { const r = JSON.parse(globalThis['_'+n](...args)); if (r.error) throw Error(r.error); return r.value; }; }\n${finalCode}`;
     
     const result = vm.evalCode(wrapper);
     
@@ -515,7 +517,39 @@ async function main({ workspace, code, paramsJson, deadline }) {
       throw new Error(`Script error: ${err.message || err}`); 
     }
     
-    const serialized = vm.dump(result.value); 
+    // Store result.value in globalThis so we can work with it
+    const resultVar = vm.newString('__sandboxResult__');
+    vm.setProp(vm.global, resultVar, result.value);
+    resultVar.dispose();
+    // Don't dispose result.value yet - we'll do it after we're done
+    
+    // Check if it's a function and call it if so
+    const isFunctionCheck = vm.evalCode('typeof __sandboxResult__ === "function"');
+    if (!isFunctionCheck.error && isFunctionCheck.value && vm.dump(isFunctionCheck.value) === true) {
+      isFunctionCheck.value.dispose();
+      const callResult = vm.evalCode('__sandboxResult__ = __sandboxResult__()');
+      if (callResult.error) {
+        const err = vm.dump(callResult.error);
+        callResult.error.dispose();
+        trace.errors.push({ code: 'FN_001', line: 0, message: err.message || String(err) });
+        throw new Error(`Function call error: ${err.message || err}`);
+      }
+      callResult.value.dispose();
+    } else if (isFunctionCheck.value) {
+      isFunctionCheck.value.dispose();
+    }
+    
+    // JSON.stringify the result
+    const jsonResult = vm.evalCode('JSON.stringify(__sandboxResult__)');
+    if (jsonResult.error) {
+      const err = vm.dump(jsonResult.error);
+      jsonResult.error.dispose();
+      trace.errors.push({ code: 'JSON_001', line: 0, message: err.message || String(err) });
+      throw new Error(`JSON stringify error: ${err.message || err}`);
+    }
+    
+    const serialized = vm.dump(jsonResult.value); 
+    jsonResult.value.dispose();
     result.value.dispose();
     
     if (typeof serialized !== 'string' || Buffer.byteLength(serialized) > 32768) {

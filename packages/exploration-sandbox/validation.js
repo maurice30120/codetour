@@ -431,7 +431,7 @@ function validatePrimitives(code) {
       violations.push({
         type: 'dangerous-function',
         function: dangerous,
-        message: `Dangerous function '${dangerous}' is not allowed`,
+        message: `disallowed function '${dangerous}' is not allowed`,
         severity: 'critical'
       });
     }
@@ -521,7 +521,7 @@ function validatePrimitives(code) {
       violations.push({
         type: 'non-whitelisted-call',
         function: call.functionName,
-        message: `Function '${call.functionName}' is not in the whitelist of allowed primitives`,
+        message: `disallowed function '${call.functionName}' is not allowed`,
         line: call.line,
         column: call.column,
         severity: 'high'
