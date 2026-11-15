@@ -1,7 +1,7 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
-function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scripts }) {
+function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scripts, strict = false, includeTrace = false }) {
   if (typeof workspace !== 'string' || typeof code !== 'string' || code.length > 32768 || !Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 30000) {
     return Promise.reject(new Error('Invalid sandbox input'));
   }
@@ -31,7 +31,7 @@ function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scr
   if (signal?.aborted) return Promise.reject(new Error('Sandbox aborted'));
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + timeoutMs;
-    const child = spawn(process.execPath, ['--max-old-space-size=64', path.join(__dirname, 'worker.js')], { stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: process.env.PATH || '' } });
+    const child = spawn(process.execPath, [`--max-old-space-size=${strict ? 192 : 64}`, path.join(__dirname, 'worker.js')], { stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: process.env.PATH || '' } });
     let output = '', error = '', finished = false;
     const finish = (err, value) => {
       if (finished) return;
@@ -47,18 +47,19 @@ function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scr
     child.on('error', e => finish(e));
     child.stdout.on('data', chunk => {
       output += chunk;
-      if (Buffer.byteLength(output) > 65536) { child.kill('SIGKILL'); finish(new Error('Sandbox output limit exceeded')); }
+      if (Buffer.byteLength(output) > 131072) { child.kill('SIGKILL'); finish(new Error('Sandbox output limit exceeded')); }
     });
     child.stderr.on('data', chunk => { error = (error + chunk).slice(0, 1000); });
     child.on('close', status => {
       if (status !== 0) return finish(new Error(`Sandbox failed: ${error || status}`));
       try {
         const result = JSON.parse(output);
-        finish(result.error ? new Error(result.error) : null, result.value);
+        const failure = result.error ? Object.assign(new Error(result.error), { trace: result.trace }) : null;
+        finish(failure, includeTrace ? { value: result.value, trace: result.trace } : result.value);
       } catch { finish(new Error('Invalid sandbox output')); }
     });
     child.stdin.on('error', () => {});
-    child.stdin.end(JSON.stringify({ workspace, code, paramsJson, deadline, memorizedNames }));
+    child.stdin.end(JSON.stringify({ workspace, code, paramsJson, deadline, memorizedNames, strict }));
   });
 }
 module.exports = { runScript };

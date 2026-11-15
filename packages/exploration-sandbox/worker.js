@@ -3,8 +3,10 @@ const path = require('node:path');
 const { getQuickJS } = require('quickjs-emscripten');
 const { validateAndTranspile } = require('./typescript-validator');
 const { validatePrimitives, TraceValidator, validateFull } = require('./validation');
+const { validateStrict, primitiveNames } = require('./strict-validator');
+let executionTrace;
 
-async function main({ workspace, code, paramsJson, deadline, memorizedNames = [] }) {
+async function main({ workspace, code, paramsJson, deadline, memorizedNames = [], strict = false }) {
   const startTime = Date.now();
   
   if (Date.now() >= deadline) throw new Error('Sandbox timeout');
@@ -42,6 +44,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     },
     rollback: null // Added for ticket 04
   };
+  executionTrace = trace;
 
   // Get git revision for tracing (ticket 04)
   try {
@@ -80,7 +83,12 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
   let validationPassed = true;
   
   // A. TypeScript validation (from ticket 02, enhanced for ticket 04)
-  if (isTypeScript || code.includes(': ') || code.includes('interface ') || code.includes('type ')) {
+  if (strict) {
+    const checked = validateStrict(code, JSON.parse(paramsJson));
+    finalCode = checked.javascript;
+    trace.contract = { paramsSchema: checked.paramsSchema, returns: checked.returns };
+    trace.validation.typeChecking = { valid: true, errors: [] };
+  } else if (isTypeScript || code.includes(': ') || code.includes('interface ') || code.includes('type ')) {
     try {
       const validationResult = await validateAndTranspile(code, 'input.ts');
       
@@ -126,7 +134,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
   
   // B. Primitive whitelist validation (from ticket 01, enhanced for ticket 04)
   // Skip primitive validation for TypeScript code since TypeScript validation already checks for allowed globals
-  if (!isTypeScript) {
+  if (!strict && !isTypeScript) {
     try {
       const primitiveResult = validatePrimitives(code);
       trace.validation.primitiveWhitelist = {
@@ -303,11 +311,11 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
         trace.errors.push({ code: 'READ_005', line: 0, message: 'Invalid context' });
         throw new Error('Invalid context');
       }
-      const startLine = Math.max(1, line - (contextLines || 5));
-      const endLine = line + (contextLines || 5);
+      const startLine = Math.max(1, line - (contextLines ?? 5));
+      const endLine = line + (contextLines ?? 5);
       return read(file, startLine, endLine);
     },
-    searchText: (query) => search(query),
+    searchText: (query, options) => operations.search(query, options),
     search: (query, options) => {
       trace.executedCalls.push({ name: 'search', params: { query, options } });
       if (typeof query !== 'string' || !query || query.length > 200) {
@@ -371,6 +379,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
           if (!stat.isFile() || stat.size > 1048576) continue;
           const lines = fs.readFileSync(target, 'utf8').split('\n');
           for (let i = 0; i < lines.length; i++) {
+            pattern.lastIndex = 0;
             if (pattern.test(lines[i])) found.push({ file, line: i + 1, text: lines[i].slice(0, 500) });
             if (found.length >= 50) return found;
           }
@@ -382,9 +391,9 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
       trace.executedCalls.push({ name: 'listSymbols', params: {} });
       const symbols = [];
       const patterns = [
-        { regex: /function\\s+(\\w+)/g, kind: 'function' },
-        { regex: /class\\s+(\\w+)/g, kind: 'class' },
-        { regex: /const\\s+(\\w+)/g, kind: 'constant' }
+        { regex: /function\s+(\w+)/g, kind: 'function' },
+        { regex: /class\s+(\w+)/g, kind: 'class' },
+        { regex: /const\s+(\w+)/g, kind: 'constant' }
       ];
       const files = listFiles(30000);
       for (const file of files) {
@@ -409,7 +418,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     },
     findDefinitions: (symbol) => {
       trace.executedCalls.push({ name: 'findDefinitions', params: { symbol } });
-      if (!symbol || typeof symbol !== 'string' || symbol.length > 200) {
+      if (typeof symbol !== 'string' || symbol.length > 200 || !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(symbol)) {
         trace.errors.push({ code: 'FIND_001', line: 0, message: 'Invalid symbol' });
         throw new Error('Invalid symbol');
       }
@@ -441,7 +450,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     },
     findReferences: (symbol) => {
       trace.executedCalls.push({ name: 'findReferences', params: { symbol } });
-      return searchIdentifiers(symbol);
+      return operations.searchIdentifiers(symbol);
     },
     getImports: (filePath) => {
       trace.executedCalls.push({ name: 'getImports', params: { filePath } });
@@ -458,27 +467,28 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
       const text = fs.readFileSync(target, 'utf8');
       const imports = [];
       const lines = text.split('\n');
-      const importRegex = /^\\s*(?:import|require)\\s*[\\'"`]?[^\\'"`;]+[\\'"`]?/;
+      const importRegex = /^\s*(?:import\b|.*\brequire\s*\()/;
       for (let i = 0; i < lines.length; i++) {
         if (importRegex.test(lines[i])) {
           imports.push({ file: filePath, line: i + 1, text: lines[i].slice(0, 500) });
+          if (imports.length >= 50) break;
         }
       }
       return imports;
     },
     getGitDiff: (revision1, revision2) => {
       trace.executedCalls.push({ name: 'getGitDiff', params: { revision1, revision2 } });
-      if (!revision1 || typeof revision1 !== 'string' || revision1.length > 100) {
+      if (typeof revision1 !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_./~^{}-]{0,99}$/.test(revision1)) {
         trace.errors.push({ code: 'GIT_001', line: 0, message: 'Invalid revision' });
         throw new Error('Invalid revision');
       }
       const revision = revision2 || 'HEAD';
-      if (!revision || typeof revision !== 'string' || revision.length > 100) {
+      if (typeof revision !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_./~^{}-]{0,99}$/.test(revision)) {
         trace.errors.push({ code: 'GIT_002', line: 0, message: 'Invalid revision' });
         throw new Error('Invalid revision');
       }
-      const child = require('node:child_process').spawnSync('git', ['-C', root, 'diff', '--no-color', revision1, revision], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
-      if (child.error) {
+      const child = require('node:child_process').spawnSync('git', ['-C', root, '--no-pager', 'diff', '--no-color', '--no-ext-diff', '--no-textconv', revision1, revision, '--'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: Math.max(1, deadline - Date.now()), env: { PATH: process.env.PATH, HOME: root, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_OPTIONAL_LOCKS: '0' } });
+      if (child.error || child.status !== 0) {
         trace.errors.push({ code: 'GIT_003', line: 0, message: 'Git diff failed' });
         throw new Error('Git diff failed');
       }
@@ -622,22 +632,29 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
   };
   
   const QuickJS = await getQuickJS();
+  trace.source = code;
+  trace.fingerprint = require('node:crypto').createHash('sha256').update(code).digest('hex');
+  trace.identifier = trace.fingerprint;
+  trace.parameters = JSON.parse(paramsJson);
   const runtime = QuickJS.newRuntime();
   runtime.setMemoryLimit(16 * 1024 * 1024);
   runtime.setMaxStackSize(512 * 1024);
   runtime.setInterruptHandler(() => Date.now() > deadline);
   const vm = runtime.newContext();
+  const runtimeCalls = [];
   
   try {
     const parameterString = vm.newString(paramsJson);
     vm.setProp(vm.global, '__paramsJson', parameterString);
     parameterString.dispose();
     
-    for (const [name, operation] of Object.entries(operations)) {
+    for (const [name, operation] of Object.entries(operations).filter(([name]) => !strict || primitiveNames.includes(name))) {
       const fn = vm.newFunction(`_${name}`, (...args) => {
         try { 
           limit(); 
+          if (strict) runtimeCalls.push({ name, params: args.map(arg => vm.dump(arg)) });
           const result = operation(...args.map(arg => vm.dump(arg)));
+          if (strict && (Array.isArray(result) && result.length >= ({ listFiles: 500, searchText: 50, searchIdentifiers: 50, listSymbols: 100, findDefinitions: 20, findReferences: 50, getImports: 50 }[name] ?? Infinity) || result?.hasMore || result?.fileScanLimitReached || name === 'getGitDiff' && Buffer.byteLength(result) >= 32768)) trace.truncated = true;
           return vm.newString(JSON.stringify({ value: result }));
         }
         catch (error) { 
@@ -650,7 +667,8 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     }
     
     // Inject params and primitives into globalThis
-    const wrapper = `const params = JSON.parse(__paramsJson); delete globalThis.__paramsJson;\nfor (const n of ['listFiles','readLines','readAround','searchText','searchIdentifiers','listSymbols','findDefinitions','findReferences','getImports','getGitDiff','stat','find','gitBlame','grep','list','read','search','git','git_log','git_diff','git_blame']) { globalThis[n] = (...args) => { const r = JSON.parse(globalThis['_'+n](...args)); if (r.error) throw Error(r.error); return r.value; }; }\n${finalCode}`;
+    const names = strict ? primitiveNames : ['listFiles','readLines','readAround','searchText','searchIdentifiers','listSymbols','findDefinitions','findReferences','getImports','getGitDiff','stat','find','gitBlame','grep','list','read','search','git','git_log','git_diff','git_blame'];
+    const wrapper = `const params = JSON.parse(__paramsJson); delete globalThis.__paramsJson;\nfor (const n of ${JSON.stringify(names)}) { const host = globalThis['_'+n]; delete globalThis['_'+n]; globalThis[n] = (...args) => { const r = JSON.parse(host(...args)); if (r.error) throw Error(r.error); return r.value; }; }\n${strict ? 'Object.defineProperty(Function.prototype, "constructor", { value: undefined }); globalThis.eval = undefined; globalThis.Function = undefined;' : ''}\n${finalCode}`;
     
     const result = vm.evalCode(wrapper);
     
@@ -671,7 +689,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     const isFunctionCheck = vm.evalCode('typeof __sandboxResult__ === "function"');
     if (!isFunctionCheck.error && isFunctionCheck.value && vm.dump(isFunctionCheck.value) === true) {
       isFunctionCheck.value.dispose();
-      const callResult = vm.evalCode('__sandboxResult__ = __sandboxResult__()');
+      const callResult = vm.evalCode('__sandboxResult__ = __sandboxResult__(params)');
       if (callResult.error) {
         const err = vm.dump(callResult.error);
         callResult.error.dispose();
@@ -701,7 +719,8 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
       throw new Error('Result must be JSON within output limit');
     }
     
-    trace.results = JSON.parse(serialized);
+    trace.results = Buffer.byteLength(serialized) <= 8000 ? JSON.parse(serialized) : { truncated: true, bytes: Buffer.byteLength(serialized) };
+    if (strict) trace.executedCalls = runtimeCalls;
     
     // Set execution duration (G0 requirement: traces include duration)
     trace.durationMs = Date.now() - startTime;
@@ -730,6 +749,6 @@ process.stdin.on('end', async () => {
   catch (error) { 
     // Extract compact error message
     const errorMessage = String(error.message || error).slice(0, 500);
-    process.stdout.write(JSON.stringify({ error: errorMessage }));
+    process.stdout.write(JSON.stringify({ error: errorMessage, trace: executionTrace }));
   }
 });

@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 const paramSchemaShape = z.object({
   name: z.string().min(1),
-  type: z.enum(['string', 'number', 'boolean', 'unknown']).default('unknown'),
+  type: z.string().min(1).max(200).default('unknown'),
   description: z.string().max(200).optional(),
 });
 
@@ -48,6 +48,7 @@ const entrySchema = z.object({
   replacedBy: z.string().optional(),
   variantOf: z.string().optional(),
   validated: z.boolean().optional(),
+  executionMode: z.enum(['strict', 'legacy']).optional(),
   referenceCases: z.array(z.object({ params: z.record(z.string(), z.unknown()), ok: z.boolean(), at: z.string() })).max(5).default([])
 });
 type Entry = z.infer<typeof entrySchema>;
@@ -73,6 +74,8 @@ export interface ConsolidationCandidate {
   description: string;
   code: string;
   parameters: string[];
+  paramsSchema?: Array<{ name: string; type: string }>;
+  executionMode?: 'strict' | 'legacy';
   /** Canonical name: camelCase, verbe+domaine+objet. Mandatory for consolidation. */
   name: string;
   /** Output contract declared with the candidate. */
@@ -132,7 +135,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
   await mkdir(directory, { recursive: true });
   const file = join(directory, `${digest(repo)}.json`);
   let entries: Entry[];
-  try { entries = z.array(entrySchema).max(20).parse(JSON.parse(await readFile(file, 'utf8'))); }
+  try { entries = z.array(entrySchema).parse(JSON.parse(await readFile(file, 'utf8'))); }
   catch (error: any) { if (error?.code === 'ENOENT') entries = []; else throw new Error('Invalid script memory'); }
   let purges = 0;
   const persist = async () => {
@@ -140,15 +143,10 @@ export async function scriptMemory(root: string, directory: string, options: { d
     await writeFile(temporary, JSON.stringify(entries), { mode: 0o600 });
     await rename(temporary, file);
   };
-  // Per spec #172 G0 requirement: NO inactivity purge.
-  // Purge only entries with a clearly failed record (>=3 runs, >=2 failures, exactly 3 total runs),
-  // and cap the catalogue at 20 entries.
   const prune = () => {
     const original = entries.length;
     entries = entries.filter(e => !(e.successes + e.failures >= 3 && e.failures >= 2 && e.successes + e.failures === 3));
     purges += original - entries.length;
-    entries.sort((a, b) => (b.successes / Math.max(1, b.successes + b.failures) - a.successes / Math.max(1, a.successes + a.failures)) || b.successes - a.successes || a.id.localeCompare(b.id));
-    while (entries.length > 20) { entries.pop(); purges++; }
   };
 
   const generateFingerprint = (code: string, parameters: string[]): string => digest(`${code}\0${[...parameters].sort().join(',')}`).slice(0, 16);
@@ -282,7 +280,8 @@ export async function scriptMemory(root: string, directory: string, options: { d
             description: candidate.description,
             code: candidate.code,
             parameters: candidate.parameters,
-            paramsSchema: candidate.parameters.map(name => ({ name, type: 'unknown' as const })),
+            paramsSchema: candidate.paramsSchema ?? candidate.parameters.map(name => ({ name, type: 'unknown' })),
+            executionMode: candidate.executionMode,
             outputContract: candidate.returns ? { returns: candidate.returns, itemFields: ['file', 'line'], bounds: { maxItems: 50, maxBytes: 8000 } } : undefined,
             limits: { maxItems: 50, maxBytes: 8000 },
             uncertaintyCases: candidate.uncertaintyCases ?? [],
@@ -304,7 +303,8 @@ export async function scriptMemory(root: string, directory: string, options: { d
           existing.description = candidate.description;
           existing.objective = candidate.objective;
           existing.parameters = candidate.parameters;
-          existing.paramsSchema = candidate.parameters.map(name => ({ name, type: 'unknown' as const }));
+          existing.paramsSchema = candidate.paramsSchema ?? candidate.parameters.map(name => ({ name, type: 'unknown' }));
+          existing.executionMode = candidate.executionMode;
           if (candidate.returns) existing.outputContract = { returns: candidate.returns, itemFields: ['file', 'line'], bounds: { maxItems: 50, maxBytes: 8000 } };
           existing.fingerprint = digest(`${candidate.code}\0${[...candidate.parameters].sort().join(',')}`).slice(0, 16);
           existing.version = Math.max(existing.version || 1, candidate.version ?? 1);
@@ -318,7 +318,8 @@ export async function scriptMemory(root: string, directory: string, options: { d
             description: candidate.description,
             code: candidate.code,
             parameters: candidate.parameters,
-            paramsSchema: candidate.parameters.map(name => ({ name, type: 'unknown' as const })),
+            paramsSchema: candidate.paramsSchema ?? candidate.parameters.map(name => ({ name, type: 'unknown' })),
+            executionMode: candidate.executionMode,
             outputContract: candidate.returns ? { returns: candidate.returns, itemFields: ['file', 'line'], bounds: { maxItems: 50, maxBytes: 8000 } } : undefined,
             limits: { maxItems: 50, maxBytes: 8000 },
             uncertaintyCases: candidate.uncertaintyCases ?? [],

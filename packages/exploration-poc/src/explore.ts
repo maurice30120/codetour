@@ -2,9 +2,10 @@ import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { z } from 'zod';
 import { workspace } from './workspace.ts';
 import { scriptMemory } from './memory.ts';
-import type { ReplacementVerification } from './memory.ts';
+import type { ConsolidationCandidate, ReplacementVerification } from './memory.ts';
 import { boundedOutput, looksLikeEvidence, sampleEvidenceRefs } from './memory-output.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256 } from './decomposition-prompt.ts';
+import { primitiveNames } from './tool-contract.ts';
 
 const evidence = z.object({ file: z.string().min(1), startLine: z.number().int().positive(), endLine: z.number().int().positive() });
 const item = z.object({ name: z.string(), evidence: z.array(evidence).min(1) });
@@ -31,11 +32,12 @@ export interface CallTraceItem {
   usageMissing: boolean;
   outcome?: string;
   error?: string;
+  execution?: unknown;
 }
 
 interface Attempt {
   id?: string;
-  candidate?: { objective: string; description: string; name?: string; returns?: string; code: string; parameters: string[] };
+  candidate?: { objective: string; description: string; name?: string; returns?: string; code: string; parameters: string[]; paramsSchema?: Array<{ name: string; type: string }>; executionMode?: 'strict' | 'legacy'; revision?: string };
   params?: Record<string, unknown>;
   output: unknown;
   proofValid?: boolean;
@@ -54,6 +56,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const recordCall = (base: Omit<CallTraceItem, 'seq' | 'startedAt' | 'endedAt' | 'durationMs' | 'startedAt'>, startedAt: Date, endedAt: Date): void => {
     callTrace.push({ ...base, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() });
   };
+  try {
   const tools = await workspace(root);
   const library = memory ? await scriptMemory(root, memory.directory, { deduplicate: memory.deduplicate }) : undefined;
   // Background revision lookup (lazily filled): used for staleness + sourcing.
@@ -109,7 +112,21 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       let attempt: Attempt | undefined;
       let scriptCall: { type: 'memory_run' | 'function_try'; name: string } | undefined;
       try {
-        if (call.name === 'list') output = await tools.list();
+        if (primitiveNames.has(call.name)) {
+          const { runScript } = await import('../../exploration-sandbox/index.js');
+          const args = call.arguments;
+          const expressions: Record<string, string> = {
+            listFiles: 'listFiles(params.maxFiles)', searchText: 'searchText(params.query)', searchIdentifiers: 'searchIdentifiers(params.identifier)',
+            readLines: 'readLines(params.file, params.startLine, params.endLine)', readAround: 'readAround(params.file, params.line, params.contextLines)',
+            listSymbols: 'listSymbols()', findDefinitions: 'findDefinitions(params.symbol)', findReferences: 'findReferences(params.symbol)',
+            getImports: 'getImports(params.file)', getGitDiff: 'getGitDiff(params.revision1, params.revision2)'
+          };
+          const defaults = { listFiles: { maxFiles: 500 }, readAround: { contextLines: 5 }, getGitDiff: { revision2: 'HEAD' } };
+          const params = { ...(defaults[call.name as keyof typeof defaults] ?? {}), ...args };
+          const execution = await runScript({ workspace: root, code: expressions[call.name], params, strict: true, includeTrace: true, timeoutMs: Math.min(5000, Math.max(1, limits.durationMs - (Date.now() - startedMs))) });
+          output = boundedOutput(execution.value, { revision: await resolveRevision(), sourceTruncated: execution.trace.truncated, primitiveDerived: true });
+        }
+        else if (call.name === 'list') output = await tools.list();
         else if (call.name === 'search' && typeof call.arguments.query === 'string') output = await tools.search(call.arguments.query);
         else if (call.name === 'read' && typeof call.arguments.file === 'string') {
           const start = Number(call.arguments.startLine ?? 1);
@@ -123,10 +140,10 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           unusableIds.add(id);
           output = { recordedAfterValidation: true };
         }
-        else if (codeMode && ((call.name === 'code' && typeof call.arguments.code === 'string') || (library && call.name === 'memory_run' && typeof call.arguments.id === 'string'))) {
+        else if (codeMode && ((call.name === 'code' && typeof call.arguments.code === 'string') || (call.name === 'function_try' && typeof call.arguments.source === 'string') || (library && call.name === 'memory_run' && typeof call.arguments.id === 'string'))) {
           const stored = call.name === 'memory_run' ? library?.get(String(call.arguments.id)) : undefined;
           if (call.name === 'memory_run' && !stored) throw new Error('Unknown script');
-          const code = stored?.code ?? String(call.arguments.code);
+          const code = stored?.code ?? String(call.arguments.source ?? call.arguments.code);
           const params = call.arguments.params ?? {};
           if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('Invalid parameters');
           const remaining = limits.durationMs - (Date.now() - startedMs);
@@ -148,11 +165,13 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
                 output = { staleness: { signal: 'stored-revision-differs', storedRevision: stored.revision, currentRevision: revision, note: `Proofs were consolidated at revision ${stored.revision}. Re-verify before relying on them; prefer re-exploring with the permanent primitives if the references below look obsolete.` } };
               }
             }
-            raw = await runScript({ workspace: root, code, params, scripts: library?.sources(), timeoutMs: Math.min(5000, remaining), signal: controller.signal });
+            const strict = call.name === 'function_try' || stored?.executionMode === 'strict';
+            const execution = await runScript({ workspace: root, code, params, scripts: strict ? undefined : library?.sources(), strict, includeTrace: true, timeoutMs: Math.min(5000, remaining), signal: controller.signal });
+            raw = execution.value;
             const runEnded = new Date();
             // Compact, structured, bounded, sourced output for memory_run AND function_try.
-            const bounded = boundedOutput(raw, { revision: await resolveRevision(), maxItems: stored?.limits?.maxItems, maxBytes: stored?.limits?.maxBytes });
-            recordCall({ type: scriptCall.type, name: scriptCall.name, inputTokens: null, outputTokens: null, usageMissing: false, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}` }, runStarted, runEnded);
+            const bounded = boundedOutput(raw, { revision: await resolveRevision(), maxItems: stored?.limits?.maxItems, maxBytes: stored?.limits?.maxBytes, sourceTruncated: execution.trace.truncated, primitiveDerived: execution.trace.executedCalls.length > 0 });
+            recordCall({ type: scriptCall.type, name: scriptCall.name, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}` }, runStarted, runEnded);
             output = output && typeof output === 'object' && 'staleness' in (output as Record<string, unknown>) ? { ...(output as Record<string, unknown>), result: bounded } : bounded;
             if (stored && memory?.compactSearch && stored.code === 'search(params.query)' && Array.isArray(raw)) {
               const matches = raw.slice(0, 8).map((match: any) => ({ ...match, text: typeof match.text === 'string' ? match.text.slice(0, 240) : match.text, textTruncated: typeof match.text === 'string' && match.text.length > 240 }));
@@ -177,7 +196,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             // decision — such an attempt is never offered for consolidation.
             const viewTruncated = Boolean((bounded as { truncated?: boolean } | null)?.truncated);
             let candidate = library && !stored && call.arguments.remember === true && description && !viewTruncated
-              ? { objective: objective.slice(0, 500), description, name: name || undefined, returns, code, parameters: Object.keys(params).slice(0, 30), revision: await resolveRevision() }
+              ? { objective: String(call.arguments.question ?? objective).slice(0, 500), description, name: name || undefined, returns: strict ? execution.trace.contract.returns : returns, code, parameters: Object.keys(params).slice(0, 30), paramsSchema: execution.trace.contract?.paramsSchema, executionMode: strict ? 'strict' as const : 'legacy' as const, revision: await resolveRevision() }
               : undefined;
             if (candidate && memory?.queryContract && call.arguments.contract === 'literal_query') {
               const { probeLiteralQuery } = await import('./query-probe.mjs');
@@ -218,7 +237,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           finally { clearTimeout(timer); }
         }
         else throw new Error('Unknown tool or invalid arguments');
-      } catch { output = { error: 'Tool failed or arguments rejected' }; }
+      } catch (error) { output = { error: String((error as Error).message ?? error).slice(0, 500) }; }
       if (!scriptCall) {
         // Plain primitives and memory catalogue calls: real timestamps and durations.
         const toolEnded = new Date();
@@ -240,7 +259,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     }
     return { messages: outputs, stopReason: reason() };
   }).addEdge(START, 'model').addConditionalEdges('model', state => state.result !== undefined || state.stopReason ? END : 'model').compile();
-  const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (périmètre), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params before using other search tools, verify its proofs, and complete only what is missing. Otherwise start by finding a relevant symbol with code, set remember=true, a canonical name (camelCase verbe+domaine+objet, e.g. searchPostgresSymbols) and a generic description. Use a JavaScript expression, not statements; list() returns paths, search(text) returns {file,line,text}, and read(file,start,end) returns {file,start,lines}. Make each function a small composable operation with one purpose, clear inputs and compact file/line outputs; combine operations across calls in your Tour logic — never call one memorized function from inside another, and only the ten permanent primitives run inside memorized code. Put changing values in params AND reference them in code: for example {"code":"search(params.query)","params":{"query":"symbol"},"remember":true,"name":"searchPostgresSymbols","description":"Find literal occurrences","returns":"SearchMatch[] {file,line,text}"}. Replace symbol with the actual search term. Never hardcode the query in the code when it is supplied in params. You can read additional context after a search. If a stored function was selected for its declared subject but returned an unusable output, call memory_unusable; do not do so for an unrelated subject.${memory?.queryContract ? ' When remembering a generic literal search that accepts only params.query and returns source references, set contract to literal_query. Its tool output includes memoryValidation; if it fails or is inconclusive, fix the expression and try again. Other methods should not declare this contract.' : ''}` : '';
+  const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (périmètre), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. If a permanent primitive suffices, use it directly without creating a procedure. The ten primitives are listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports and getGitDiff. Only a missing reusable functional question warrants function_try(source, params). Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Name useful procedures camelCase verbe+domaine+objet and parameterize variations. Supply question as a stable canonical question independent of this Tour, description as its scope, and remember=true only to propose an executed trial for post-Tour selection. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
   const state = await graph.invoke({ messages: [{ role: 'system', content: `${DECOMPOSITION_PROMPT}
 
 Explore the repository using the tools. Assess whether the evidence answers the objective; if essential evidence is missing, use further tools before returning. Record unresolved gaps in uncertainties. Return only JSON matching this exact shape: {"objective":"...","entryPoints":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"components":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"relations":[{"from":"...","to":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"uncertainties":["..."]}. Use empty arrays when needed. Each evidence must be an array of objects with real file paths and integer line numbers, not a string. Do not write a tour.${memoryInstructions}` }, { role: 'user', content: objective }] });
@@ -258,7 +277,35 @@ Explore the repository using the tools. Assess whether the evidence answers the 
     for (const observation of runtimeObservations) library.observeRun(observation.id, observation.params, observation.ok);
   }
   let consolidationReport: unknown;
-  if (library && state.result !== undefined) {
+  if (library && state.result !== undefined && !state.stopReason) {
+    const eligible = attempts.filter(attempt => attempt.candidate?.executionMode === 'strict');
+    let selected = new Set<string>();
+    if (eligible.length && !reason()) {
+      const selectionStarted = new Date();
+      const controller = new AbortController();
+      const remaining = Math.max(1, limits.durationMs - (Date.now() - startedMs));
+      const timer = setTimeout(() => controller.abort(), remaining);
+      try {
+        metrics.modelCalls++;
+        const response = await Promise.race([
+          model.complete([
+            { role: 'system', content: 'Select useful executed procedures for future Tours. This Tour has passed structural evidence validation only, not semantic verification. Return JSON {"selected":["canonicalName"]}; select only from the executed candidates below. You may select none. Compare canonical question, scope, inputs, output and limits with existing entries; prefer reuse over equivalent duplicates.' },
+            { role: 'user', content: JSON.stringify({ tour: result, catalog: library.catalog(), executedCandidates: eligible.map(attempt => ({ name: attempt.candidate!.name, question: attempt.candidate!.objective, description: attempt.candidate!.description, paramsSchema: attempt.candidate!.paramsSchema, returns: attempt.candidate!.returns, output: boundedOutput(attempt.output, { revision: currentRevision ?? 'unknown-revision' }) })) }) }
+          ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(1024, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode: false, memory: false }),
+          new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('budget-duration')), { once: true }))
+        ]);
+        const usage = response.usage;
+        metrics.inputTokens += usage?.inputTokens ?? 0;
+        metrics.outputTokens += usage?.outputTokens ?? 0;
+        if (!usage) metrics.usageAvailable = false;
+        recordCall({ type: 'model', name: 'memory-selection', inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, usageMissing: !usage }, selectionStarted, new Date());
+        const names = (response.result as { selected?: unknown })?.selected;
+        if (Array.isArray(names) && !reason()) selected = new Set(names.filter((name): name is string => typeof name === 'string'));
+      } catch (error) {
+        metrics.usageAvailable = false;
+        recordCall({ type: 'model', name: 'memory-selection', inputTokens: null, outputTokens: null, usageMissing: true, error: String(error) }, selectionStarted, new Date());
+      } finally { clearTimeout(timer); }
+    }
     const retained = [...result.entryPoints, ...result.components, ...result.relations].flatMap(x => x.evidence);
     const matches = (value: any): boolean => {
       if (!value || typeof value !== 'object') return false;
@@ -271,14 +318,24 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       return Object.values(value).some(matches);
     };
     const successful = attempts.filter(a => (!a.id || !unusableIds.has(a.id)) && matches(a.output));
-    const candidates: Array<{
-      objective: string; description: string; name: string; returns?: string; code: string; parameters: string[];
-      verified: boolean;
-      consolidationSignal: { executedSuccessfully: boolean; proofAvailable: boolean; contractRespected: boolean };
-      replaces?: string; regression?: ReplacementVerification; version?: number; variantOf?: string; revision?: string;
-    }> = [];
+    const candidates: ConsolidationCandidate[] = [];
     for (const attempt of attempts) {
       if (!attempt.candidate || attempt.output == null) continue;
+      if (attempt.candidate.executionMode === 'strict') {
+        if (!selected.has(attempt.candidate.name ?? '')) continue;
+        const remaining = limits.durationMs - (Date.now() - startedMs);
+        if (remaining <= 0) continue;
+        const verificationStarted = new Date();
+        try {
+          const { runScript } = await import('../../exploration-sandbox/index.js');
+          const rerun = await runScript({ workspace: root, code: attempt.candidate.code, params: attempt.params, strict: true, includeTrace: true, timeoutMs: Math.min(5000, remaining) });
+          recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, execution: rerun.trace, outcome: 'reexecuted' }, verificationStarted, new Date());
+          if (JSON.stringify(rerun.value) !== JSON.stringify(attempt.output)) continue;
+        } catch (error) {
+          recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, verificationStarted, new Date());
+          continue;
+        }
+      }
       // Optional counterfactual check: only a nonempty unchanged result proves this
       // particular probe cannot distinguish queries. Empty/error probes are inconclusive.
       if (memory?.validateQuery && typeof attempt.params?.query === 'string' && Array.isArray(attempt.output) && attempt.output.length > 0) {
@@ -313,6 +370,8 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         returns: attempt.candidate.returns,
         code: attempt.candidate.code,
         parameters: attempt.candidate.parameters,
+        paramsSchema: attempt.candidate.paramsSchema,
+        executionMode: attempt.candidate.executionMode,
         verified: matches(attempt.output),
         consolidationSignal: { executedSuccessfully: true, proofAvailable: structuralProof, contractRespected },
         replaces,
@@ -328,6 +387,12 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   }
   metrics.durationMs = Date.now() - startedMs;
   return { ...result, status: state.result === undefined || state.stopReason ? 'partial' : 'complete', stopReason: state.stopReason ?? null, promptSha256: PROMPT_SHA256, metrics, callTrace, consolidationReport };
+  } catch (error) {
+    metrics.durationMs = Date.now() - startedMs;
+    throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
+      exploration: { objective, status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, metrics, callTrace }
+    });
+  }
 }
 
 /**

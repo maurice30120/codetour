@@ -27,7 +27,7 @@ export interface BoundedOutput<T> {
   /** Sourcing: workspace revision the execution ran against. */
   revision: string;
   /** Provenance of the evidence inside the result. */
-  provenance: 'primitive-derived';
+  provenance: 'primitive-derived' | 'unverified';
   /** What remains uncertain about this output (empty if fully bounded and proven). */
   uncertainty: string[];
 }
@@ -49,14 +49,14 @@ export function looksLikeEvidence(value: unknown): boolean {
  */
 export function boundedOutput(
   value: unknown,
-  options: { revision: string; maxItems?: number; maxBytes?: number; unbounded?: Array<{ items?: unknown[]; raw?: unknown }> }
+  options: { revision: string; maxItems?: number; maxBytes?: number; sourceTruncated?: boolean; primitiveDerived?: boolean; unbounded?: Array<{ items?: unknown[]; raw?: unknown }> }
 ): BoundedOutput<unknown> {
   const maxItems = options.maxItems ?? DEFAULT_MAX_ITEMS;
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
-  const uncertainty: string[] = [];
+  const uncertainty: string[] = [options.primitiveDerived ? 'Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.' : 'No primitive-derived evidence is verified for this output; relations remain unverified.'];
   let result: unknown = value;
   let observed: number | null = null;
-  let truncated = false;
+  let truncated = options.sourceTruncated ?? false;
 
   if (Array.isArray(value)) {
     observed = value.length;
@@ -72,7 +72,7 @@ export function boundedOutput(
   if (bytes > maxBytes) {
     if (Array.isArray(result)) {
       let items = result.slice(0, Math.max(1, result.length));
-      while (items.length > 1 && serializedBytes(items) > maxBytes) items = items.slice(0, items.length - 1);
+      while (items.length > 0 && serializedBytes(items) > maxBytes) items = items.slice(0, items.length - 1);
       truncated = truncated || items.length < (observed ?? items.length);
       result = items;
     } else {
@@ -95,7 +95,7 @@ export function boundedOutput(
     bounds: { maxItems, maxBytes },
     bytes,
     revision: options.revision,
-    provenance: 'primitive-derived',
+    provenance: options.primitiveDerived ? 'primitive-derived' : 'unverified',
     uncertainty,
   };
 }
@@ -108,7 +108,7 @@ function contentPreview(value: unknown, maxBytes: number): unknown {
   const stringified = typeof value === 'string' ? value : JSON.stringify(value);
   if (stringified === undefined) return { preview: String(value) };
   let text = stringified.slice(0, maxBytes);
-  while (Buffer.byteLength(text) > maxBytes) text = text.slice(0, Math.floor(text.length * 0.8));
+  while (serializedBytes({ preview: text }) > maxBytes && text.length) text = text.slice(0, Math.floor(text.length * 0.8));
   return { preview: text };
 }
 
