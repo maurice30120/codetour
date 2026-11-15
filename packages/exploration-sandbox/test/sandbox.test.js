@@ -73,16 +73,17 @@ test('a stored script receives new JSON parameters without changing its code', a
   await assert.rejects(runScript({ workspace: root, code, params: { query: 'x'.repeat(9000) } }), /parameter/i);
 });
 
-test('stored expressions compose with parameters and share sandbox limits', async t => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'explore-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.writeFileSync(path.join(root, 'app.txt'), 'alpha\nbeta\n');
-  const id = '0123456789abcdef';
-  const scripts = { [id]: 'search(params.query)' };
-  assert.deepEqual(await runScript({ workspace: root, code: `script("${id}", {query: params.term})`, params: { term: 'beta' }, scripts }), [{ file: 'app.txt', line: 2, text: 'beta' }]);
-  await assert.rejects(runScript({ workspace: root, code: `script("${id}", {})`, scripts: { [id]: `script("${id}", {})` } }), /nesting|stack/i);
-  await assert.rejects(runScript({ workspace: root, code: 'script("missing", {})', scripts }), /Unknown script/);
-});
+// REMOVED: script() function violates spec requirement "Aucun appel entre fonctions apprises"
+// test('stored expressions compose with parameters and share sandbox limits', async t => {
+//   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'explore-'));
+//   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+//   fs.writeFileSync(path.join(root, 'app.txt'), 'alpha\nbeta\n');
+//   const id = '0123456789abcdef';
+//   const scripts = { [id]: 'search(params.query)' };
+//   assert.deepEqual(await runScript({ workspace: root, code: `script("${id}", {query: params.term})`, params: { term: 'beta' }, scripts }), [{ file: 'app.txt', line: 2, text: 'beta' }]);
+//   await assert.rejects(runScript({ workspace: root, code: `script("${id}", {})`, scripts: { [id]: `script("${id}", {})` } }), /nesting|stack/i);
+//   await assert.rejects(runScript({ workspace: root, code: 'script("missing", {})', scripts }), /Unknown script/);
+// });
 
 test('search reaches files beyond the bounded listing', async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'explore-'));

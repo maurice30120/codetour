@@ -1,7 +1,7 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
-function runScript({ workspace, code, params = {}, scripts = {}, timeoutMs = 3000, signal }) {
+function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal }) {
   if (typeof workspace !== 'string' || typeof code !== 'string' || code.length > 32768 || !Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 30000) {
     return Promise.reject(new Error('Invalid sandbox input'));
   }
@@ -9,7 +9,6 @@ function runScript({ workspace, code, params = {}, scripts = {}, timeoutMs = 300
   try { paramsJson = JSON.stringify(params); }
   catch { return Promise.reject(new Error('Invalid JSON parameters')); }
   if (typeof paramsJson !== 'string' || Buffer.byteLength(paramsJson) > 8192) return Promise.reject(new Error('Invalid JSON parameters')); 
-  if (!scripts || typeof scripts !== 'object' || Array.isArray(scripts) || Object.keys(scripts).length > 20 || Object.entries(scripts).some(([id, source]) => !/^[a-f0-9]{16}$/.test(id) || typeof source !== 'string' || source.length > 32768) || Buffer.byteLength(JSON.stringify(scripts)) > 655360) return Promise.reject(new Error('Invalid scripts'));
   if (signal?.aborted) return Promise.reject(new Error('Sandbox aborted'));
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + timeoutMs;
@@ -40,7 +39,7 @@ function runScript({ workspace, code, params = {}, scripts = {}, timeoutMs = 300
       } catch { finish(new Error('Invalid sandbox output')); }
     });
     child.stdin.on('error', () => {});
-    child.stdin.end(JSON.stringify({ workspace, code, paramsJson, scripts, deadline }));
+    child.stdin.end(JSON.stringify({ workspace, code, paramsJson, deadline }));
   });
 }
 module.exports = { runScript };

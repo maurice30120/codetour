@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { getQuickJS } = require('quickjs-emscripten');
 
-async function main({ workspace, code, paramsJson, scripts = {}, deadline }) {
+async function main({ workspace, code, paramsJson, deadline }) {
   if (Date.now() >= deadline) throw new Error('Sandbox timeout');
   const root = fs.realpathSync(workspace);
   if (!fs.statSync(root).isDirectory()) throw new Error('Workspace must be a directory');
@@ -88,9 +88,6 @@ async function main({ workspace, code, paramsJson, scripts = {}, deadline }) {
     const parameterString = vm.newString(paramsJson);
     vm.setProp(vm.global, '__paramsJson', parameterString);
     parameterString.dispose();
-    const scriptsString = vm.newString(JSON.stringify(scripts));
-    vm.setProp(vm.global, '__scriptsJson', scriptsString);
-    scriptsString.dispose();
     for (const [name, operation] of Object.entries(operations)) {
       const fn = vm.newFunction(`_${name}`, (...args) => {
         try { limit(); return vm.newString(JSON.stringify({ value: operation(...args.map(arg => vm.dump(arg))) })); }
@@ -98,7 +95,7 @@ async function main({ workspace, code, paramsJson, scripts = {}, deadline }) {
       });
       vm.setProp(vm.global, `_${name}`, fn); fn.dispose();
     }
-    const wrapper = `const params = JSON.parse(__paramsJson); delete globalThis.__paramsJson;\nconst sources = JSON.parse(__scriptsJson); delete globalThis.__scriptsJson;\nfor (const n of ['list','read','search']) { globalThis[n] = (...args) => { const r = JSON.parse(globalThis['_'+n](...args)); if (r.error) throw Error(r.error); return r.value; }; }\nlet depth = 0; globalThis.script = (id, args) => { if (!Object.prototype.hasOwnProperty.call(sources,id)) throw Error('Unknown script'); if (++depth > 20) throw Error('Script nesting limit'); try { return Function('params', 'return (' + sources[id] + '\\n)')(args); } finally { depth--; } };\n(() => { const value = (${code}\n); if (value && typeof value.then === 'function') throw Error('Async results are unsupported'); return JSON.stringify(value); })()`;
+    const wrapper = `const params = JSON.parse(__paramsJson); delete globalThis.__paramsJson;\nfor (const n of ['list','read','search']) { globalThis[n] = (...args) => { const r = JSON.parse(globalThis['_'+n](...args)); if (r.error) throw Error(r.error); return r.value; }; }\n(() => { const value = (${code}\n); if (value && typeof value.then === 'function') throw Error('Async results are unsupported'); return JSON.stringify(value); })()`;
     const result = vm.evalCode(wrapper);
     if (result.error) { const err = vm.dump(result.error); result.error.dispose(); throw new Error(`Script error: ${err.message || err}`); }
     const serialized = vm.dump(result.value); result.value.dispose();
