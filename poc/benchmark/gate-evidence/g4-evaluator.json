@@ -1,0 +1,27 @@
+{
+  "gate": "G4",
+  "passed": true,
+  "exit_code": 0,
+  "total_tests": 15,
+  "failed_count": 0,
+  "command": "npm run build (poc/benchmark/evaluator)\nnpm test -- --runInBand (poc/benchmark/evaluator)",
+  "commands": [
+    "npm run build (poc/benchmark/evaluator)",
+    "npm test -- --runInBand (poc/benchmark/evaluator)"
+  ],
+  "source_paths": [
+    "poc/benchmark/evaluator"
+  ],
+  "source_digest": "923a6b26f7a2a61ff56ac299e73f3f1708fc64ce34926e73e2a49378e45d925b",
+  "ran_at": "2026-11-15T20:40:07.623Z",
+  "transcripts": [
+    {
+      "path": "g4-1.log",
+      "sha256": "aba7cd4862b8828857b2b1a07c23ec404447235802c919c0367a0ecec8774fe0"
+    },
+    {
+      "path": "g4-2.log",
+      "sha256": "c47ef95b72361872ce5207206b0755baf4980771a43c2770cbe265aa78a73659"
+    }
+  ]
+}

@@ -72,7 +72,7 @@ export class TourGrader {
     if (this.config.semantic_reviewer) {
       try {
         const review = await this.config.semantic_reviewer.review(structuredClone({
-          response, question, verified_citations: citations, criteria_version: 't06-v2',
+          response, question: this.blindQuestion(question), verified_citations: citations, criteria_version: 't06-v2',
         }));
         this.applyReview(result, response, question, review, validIds);
       } catch (error) {
@@ -80,6 +80,21 @@ export class TourGrader {
       }
     }
     return result;
+  }
+
+  /** The reviewer sees the blind question context only: no run metadata, no
+    * ordering phase, no token usage. Whitelist, not blacklist. */
+  private blindQuestion(question: Question): Question {
+    return {
+      id: question.id,
+      objective: question.objective,
+      series: question.series,
+      postgres_sha: question.postgres_sha,
+      expected_areas: structuredClone(question.expected_areas),
+      relations_to_verify: structuredClone(question.relations_to_verify),
+      criteria: structuredClone(question.criteria),
+      ...(question.thresholds ? { thresholds: structuredClone(question.thresholds) } : {}),
+    };
   }
 
   private applyReview(result: EvaluationResult, response: BlindedResponse, question: Question,

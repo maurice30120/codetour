@@ -425,6 +425,22 @@ export function buildExecution({ stdout, exportData, metaData, journalRecords, q
   };
 }
 
+function spawnArgumentsMatch(args: unknown, child: Record<string, unknown>, question: string): boolean {
+  if (!args || typeof args !== 'object') return false;
+  const argumentsRecord = args as Record<string, unknown>;
+  return argumentsRecord.config_name === 'explore' && argumentsRecord.name === child.agent_name && argumentsRecord.message === question && !('instructions' in argumentsRecord);
+}
+
+function resultParts(records: JournalRecord[], sessionId: string | undefined): Record<string, unknown>[] {
+  return records.flatMap(record => {
+    if (record.sessionId && record.sessionId !== sessionId) return [];
+    const result = record.payload?.result as Record<string, unknown> | undefined;
+    if (record.type !== 'action_result' || result?.type !== 'completion_succeeded') return [];
+    const parts = (result.result as Record<string, unknown>)?.parts;
+    return Array.isArray(parts) ? parts as Record<string, unknown>[] : [];
+  });
+}
+
 function observedResearchChild(exportData: Record<string, unknown>, records: JournalRecord[], question: string): Record<string, unknown> | undefined {
   const children = Array.isArray(exportData.subagents) ? exportData.subagents as Record<string, unknown>[] : [];
   return children.find(child => {
@@ -433,20 +449,34 @@ function observedResearchChild(exportData: Record<string, unknown>, records: Jou
       typeof child.model !== 'string' || !child.model.trim() || !child.journal_dir) return false;
     const childCalls = records.filter(record => record.sessionId === child.session_id);
     if (!extractPerCallUsageAndTools(childCalls).perCallUsage.length || !extractPerCallUsageAndTools(childCalls).toolsUsed.length) return false;
+    const parts = resultParts(records, typeof exportData.session_id === 'string' ? exportData.session_id : undefined);
+    if (parts.some(part => {
+      if (part.type !== 'tool_call' || part.name !== 'agents.spawn' || !part.id || part.id !== child.spawn_call_id) return false;
+      try {
+        return spawnArgumentsMatch(JSON.parse(String(part.arguments_json)), child, question);
+      } catch { return false; }
+    })) return true;
+    // Spawn executed through a program call (e.g. run_typescript): the native
+    // runtime journal records the spawn as an action intent, correlated with
+    // the program's tool_call part through the parent call id.
     return records.some(record => {
       if (record.sessionId && record.sessionId !== exportData.session_id) return false;
-      const result = record.payload?.result as Record<string, unknown> | undefined;
-      if (record.type !== 'action_result' || result?.type !== 'completion_succeeded') return false;
-      const parts = (result.result as Record<string, unknown>)?.parts;
-      return Array.isArray(parts) && parts.some(part => {
-        if (part.type !== 'tool_call' || part.name !== 'agents.spawn' || !part.id || part.id !== child.spawn_call_id) return false;
-        try {
-          const args = JSON.parse(part.arguments_json);
-          return args.config_name === 'explore' && args.name === child.agent_name && args.message === question && !('instructions' in args);
-        } catch { return false; }
-      });
+      if (record.type !== 'action_intent') return false;
+      const request = record.payload?.request as Record<string, unknown> | undefined;
+      if (request?.type !== 'runtime_builtin_tool_call') return false;
+      const call = request.call as Record<string, unknown> | undefined;
+      if (call?.type !== 'runtime_builtin' || call.name !== 'agents.spawn' || request.call_id !== child.spawn_call_id) return false;
+      const args = typeof call.arguments === 'string' ? safeParse(call.arguments) : call.arguments;
+      if (!spawnArgumentsMatch(args, child, question)) return false;
+      const parentCallId = request.parent_call_id;
+      if (typeof parentCallId !== 'string' || !parentCallId) return false;
+      return parts.some(part => part.type === 'tool_call' && part.id === parentCallId);
     });
   });
+}
+
+function safeParse(value: string): unknown {
+  try { return JSON.parse(value); } catch { return undefined; }
 }
 
 /**

@@ -89,7 +89,11 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
         new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('budget-duration')); }, remainingMs); })
       ]);
     } catch (error) {
-      recordCall({ type: 'model', name: 'model', inputTokens: null, outputTokens: null, usageMissing: true, error: controller.signal.aborted ? 'budget-duration' : String(error) }, modelCallStarted, new Date());
+      const usage: { inputTokens: number; outputTokens: number } | undefined = (error as { usage?: { inputTokens: number; outputTokens: number } })?.usage;
+      recordCall({ type: 'model', name: 'model', inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, usageMissing: !usage, error: controller.signal.aborted ? 'budget-duration' : String(error) }, modelCallStarted, new Date());
+      metrics.inputTokens += usage?.inputTokens ?? 0;
+      metrics.outputTokens += usage?.outputTokens ?? 0;
+      if (!usage) metrics.usageAvailable = false;
       if (controller.signal.aborted) return { stopReason: 'duration' };
       throw error;
     } finally { if (timer) clearTimeout(timer); }

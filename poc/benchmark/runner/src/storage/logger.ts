@@ -580,8 +580,12 @@ export interface ManifestFreezeResult {
 export function findPlaceholderFields(value: unknown, prefix = ''): string[] {
   const found: string[] = [];
   const walk = (node: unknown, pathSoFar: string): void => {
+    if (node === null) {
+      found.push(pathSoFar || '<root>');
+      return;
+    }
     if (typeof node === 'string') {
-      if (node === 'TBD' || /TBD/.test(node) || /placeholder/i.test(node)) {
+      if (node === '' || node === 'TBD' || /TBD/.test(node) || /placeholder/i.test(node)) {
         found.push(pathSoFar || '<root>');
       }
       return;
@@ -620,7 +624,7 @@ export function freezeManifest(manifestPath: string, lockPath?: string, options?
   const placeholders = findPlaceholderFields(manifestData);
   if (placeholders.length > 0) {
     throw new Error(
-      `NO-GO: cannot freeze — manifest still carries TBD/placeholder fields (resolve them before freezing, e.g. record the models/params actually available): ${placeholders.join(', ')}`
+      `NO-GO: cannot freeze — manifest still carries unresolved model/configuration fields (resolve them before freezing, e.g. record the models/params actually available): ${placeholders.join(', ')}`
     );
   }
 

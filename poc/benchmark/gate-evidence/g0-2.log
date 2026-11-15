@@ -1,0 +1,161 @@
+TAP version 13
+# Subtest: a script combines bounded reads and returns compact evidence
+ok 1 - a script combines bounded reads and returns compact evidence
+  ---
+  duration_ms: 743.065541
+  type: 'test'
+  ...
+# Subtest: scripts cannot access Node, network, writes or files outside the workspace
+ok 2 - scripts cannot access Node, network, writes or files outside the workspace
+  ---
+  duration_ms: 4282.707943
+  type: 'test'
+  ...
+# Subtest: infinite computation and excess memory are stopped
+ok 3 - infinite computation and excess memory are stopped
+  ---
+  duration_ms: 1554.848816
+  type: 'test'
+  ...
+# Subtest: the timeout covers worker startup and accepts small remaining budgets
+ok 4 - the timeout covers worker startup and accepts small remaining budgets
+  ---
+  duration_ms: 24.02672
+  type: 'test'
+  ...
+# Subtest: cancellation interrupts a running script
+ok 5 - cancellation interrupts a running script
+  ---
+  duration_ms: 3.442824
+  type: 'test'
+  ...
+# Subtest: reads reject files and ranges above the workspace limits
+ok 6 - reads reject files and ranges above the workspace limits
+  ---
+  duration_ms: 2099.767939
+  type: 'test'
+  ...
+# Subtest: a stored script receives new JSON parameters without changing its code
+ok 7 - a stored script receives new JSON parameters without changing its code
+  ---
+  duration_ms: 1971.757414
+  type: 'test'
+  ...
+# Subtest: search reaches files beyond the bounded listing
+ok 8 - search reaches files beyond the bounded listing
+  ---
+  duration_ms: 1449.443151
+  type: 'test'
+  ...
+# Subtest: scoped search filters before paging and signals remaining results
+ok 9 - scoped search filters before paging and signals remaining results
+  ---
+  duration_ms: 1930.346757
+  type: 'test'
+  ...
+# Subtest: strict execution checks plain source types and denies indirect legacy host calls
+ok 10 - strict execution checks plain source types and denies indirect legacy host calls
+  ---
+  duration_ms: 3351.399313
+  type: 'test'
+  ...
+# Subtest: strict trials validate actual params and expose the executed source contract and calls
+ok 11 - strict trials validate actual params and expose the executed source contract and calls
+  ---
+  duration_ms: 2058.716303
+  type: 'test'
+  ...
+# Subtest: canonical primitives return real symbols, imports and exact references with zero context
+ok 12 - canonical primitives return real symbols, imports and exact references with zero context
+  ---
+  duration_ms: 1147.845809
+  type: 'test'
+  ...
+# Subtest: git diff rejects revision options before git can create a file
+ok 13 - git diff rejects revision options before git can create a file
+  ---
+  duration_ms: 1086.509269
+  type: 'test'
+  ...
+# Subtest: TypeScript code with type annotations is transpiled and executed
+ok 14 - TypeScript code with type annotations is transpiled and executed
+  ---
+  duration_ms: 937.590095
+  type: 'test'
+  ...
+# Subtest: TypeScript code with interface definitions is transpiled
+ok 15 - TypeScript code with interface definitions is transpiled
+  ---
+  duration_ms: 879.910855
+  type: 'test'
+  ...
+# Subtest: TypeScript syntax errors return compact error messages
+ok 16 - TypeScript syntax errors return compact error messages
+  ---
+  duration_ms: 606.051421
+  type: 'test'
+  ...
+# Subtest: TypeScript type errors in strict mode return compact error messages
+ok 17 - TypeScript type errors in strict mode return compact error messages
+  ---
+  duration_ms: 874.913204
+  type: 'test'
+  ...
+# Subtest: JavaScript code still works without TypeScript validation
+ok 18 - JavaScript code still works without TypeScript validation
+  ---
+  duration_ms: 883.62631
+  type: 'test'
+  ...
+# Subtest: TypeScript code using only allowed primitives executes successfully
+ok 19 - TypeScript code using only allowed primitives executes successfully
+  ---
+  duration_ms: 902.825579
+  type: 'test'
+  ...
+# Subtest: TypeScript code with disallowed function calls is rejected
+ok 20 - TypeScript code with disallowed function calls is rejected
+  ---
+  duration_ms: 761.922436
+  type: 'test'
+  ...
+# Subtest: TypeScript code with Function constructor is rejected
+ok 21 - TypeScript code with Function constructor is rejected
+  ---
+  duration_ms: 744.095499
+  type: 'test'
+  ...
+# Subtest: TypeScript code can use allowed global objects
+ok 22 - TypeScript code can use allowed global objects
+  ---
+  duration_ms: 907.265702
+  type: 'test'
+  ...
+# Subtest: Trace information is included in the output
+ok 23 - Trace information is included in the output
+  ---
+  duration_ms: 813.089478
+  type: 'test'
+  ...
+# Subtest: TypeScript arrow function with explicit return type works
+ok 24 - TypeScript arrow function with explicit return type works
+  ---
+  duration_ms: 791.763404
+  type: 'test'
+  ...
+# Subtest: TypeScript generic types are transpiled correctly
+ok 25 - TypeScript generic types are transpiled correctly
+  ---
+  duration_ms: 832.470781
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 14330.923624
+

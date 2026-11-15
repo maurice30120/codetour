@@ -1,0 +1,28 @@
+{
+  "gate": "G0",
+  "passed": true,
+  "exit_code": 0,
+  "total_tests": 150,
+  "failed_count": 0,
+  "command": "/usr/local/Cellar/node/26.0.0/bin/node --test --test-reporter=tap test/cli.test.ts test/consolidation.test.ts test/explore.test.ts test/finish-t02.test.ts test/memory.test.ts test/mistral-memory.test.ts test/primitives.test.ts test/prompt-decomposition.test.ts test/spec-172-conformance.test.ts (packages/exploration-poc)\n/usr/local/Cellar/node/26.0.0/bin/node --test --test-reporter=tap test/sandbox.test.js test/strict-contract.test.js test/typescript-validation.test.js (packages/exploration-sandbox)",
+  "commands": [
+    "/usr/local/Cellar/node/26.0.0/bin/node --test --test-reporter=tap test/cli.test.ts test/consolidation.test.ts test/explore.test.ts test/finish-t02.test.ts test/memory.test.ts test/mistral-memory.test.ts test/primitives.test.ts test/prompt-decomposition.test.ts test/spec-172-conformance.test.ts (packages/exploration-poc)",
+    "/usr/local/Cellar/node/26.0.0/bin/node --test --test-reporter=tap test/sandbox.test.js test/strict-contract.test.js test/typescript-validation.test.js (packages/exploration-sandbox)"
+  ],
+  "source_paths": [
+    "packages/exploration-poc",
+    "packages/exploration-sandbox"
+  ],
+  "source_digest": "df77a97209886f52fb799e30d8c0a2d1f599037d7001a0d3bbdcb5920af412ef",
+  "ran_at": "2026-11-15T20:40:07.616Z",
+  "transcripts": [
+    {
+      "path": "g0-1.log",
+      "sha256": "6e95a5b7152e69e12608bfc61a37235af95a05b68777465ab2a6eda95fd7d06e"
+    },
+    {
+      "path": "g0-2.log",
+      "sha256": "dbe92e86b797dbb3bb8663571f8c5e7156da1c4d1388bb1a7af16af28e0afee7"
+    }
+  ]
+}
