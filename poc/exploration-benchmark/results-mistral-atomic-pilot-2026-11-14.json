@@ -1,0 +1,706 @@
+{
+  "timestamp": "2026-11-14T13:05:15.524Z",
+  "model": "mistral-small-latest",
+  "budget": {
+    "iterations": 8,
+    "calls": 32,
+    "tokens": 32000,
+    "durationMs": 60000
+  },
+  "rows": [
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "off",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "read",
+        "read",
+        "search",
+        "search"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 5236,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6701,
+          "outputTokens": 149,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 5236,
+          "outputBytes": 1606,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "off",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "read",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 5082,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+        "entryPoints": [
+          {
+            "name": "src/math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 2
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "src/order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "src/catalog.js",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 10
+              }
+            ]
+          },
+          {
+            "name": "src/api.js",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "postOrder (api.js)",
+            "to": "createOrder (order.js)",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder (order.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "createOrder (order.js)",
+            "to": "find (catalog.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5536,
+          "outputTokens": 532,
+          "usageAvailable": true,
+          "modelCalls": 7,
+          "toolCalls": 6,
+          "durationMs": 5082,
+          "outputBytes": 1436,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "on",
+      "run": 1,
+      "calls": [
+        "code",
+        "read",
+        "read"
+      ],
+      "wallTimeMs": 9675,
+      "error": "Expected ',' or '}' after property value in JSON at position 344 (line 1 column 345)"
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "on",
+      "run": 2,
+      "calls": [
+        "code",
+        "read",
+        "read"
+      ],
+      "scriptCalls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "wallTimeMs": 3104,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat",
+        "entryPoints": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 4288,
+          "outputTokens": 373,
+          "usageAvailable": true,
+          "modelCalls": 4,
+          "toolCalls": 3,
+          "durationMs": 3103,
+          "outputBytes": 714,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 2,
+      "mode": "on",
+      "run": 1,
+      "calls": [
+        "code",
+        "search",
+        "read",
+        "search",
+        "search",
+        "code",
+        "code",
+        "code"
+      ],
+      "scriptCalls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "const files = list();\nconst deps = [];\n\nfor (const file of files) {\n  if (file.includes(\"Catalog\")) {\n    const content = read(file, 1, 100);\n    for (let i = 0; i < content.length; i++) {\n      const line = content[i];\n      const importMatch = line.match(/import\\s+.*?from\\s+[\"'](.*?)[\"']/);\n      const requireMatch = line.match(/require\\([\"'](.*?)[\"']\\)/);\n      if (importMatch || requireMatch) {\n        const dep = importMatch ? importMatch[1] : requireMatch[1];\n        deps.push({ file, line: i + 1, dep });\n      }\n    }\n  }\n}\n\ndeps;",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les dépendances importées ou requises dans les fichiers contenant \"Catalog\""
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "const files = list();\nconst deps = [];\n\nfor (const file of files) {\n  if (file.includes(\"Catalog\")) {\n    const content = read(file, 1, 100);\n    for (let i = 0; i < content.length; i++) {\n      const line = content[i];\n      const importMatch = line.match(/import\\s+.*?from\\s+[\"'](.*?)[\"']/) || line.match(/import\\s+(\\{.*?\\}|\\w+)\\s+from\\s+[\"'](.*?)[\"']/);\n      const requireMatch = line.match(/require\\([\"'](.*?)[\"']\\)/);\n      if (importMatch) {\n        const dep = importMatch[2] || importMatch[1];\n        deps.push({ file, line: i + 1, dep });\n      } else if (requireMatch) {\n        const dep = requireMatch[1];\n        deps.push({ file, line: i + 1, dep });\n      }\n    }\n  }\n}\n\ndeps;",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les dépendances importées ou requises dans les fichiers contenant \"Catalog\" avec une analyse plus robuste"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "const files = list();\nconst deps = [];\n\nfor (const file of files) {\n  if (file.includes(\"Catalog\")) {\n    const content = read(file, 1, 100);\n    for (let i = 0; i < content.length; i++) {\n      const line = content[i];\n      const importMatch = line.match(/import\\s+.*?from\\s+[\"'](.*?)[\"']/);\n      const requireMatch = line.match(/require\\([\"'](.*?)[\"']\\)/);\n      if (importMatch) {\n        const dep = importMatch[1];\n        deps.push({ file, line: i + 1, dep });\n      } else if (requireMatch) {\n        const dep = requireMatch[1];\n        deps.push({ file, line: i + 1, dep });\n      }\n    }\n  }\n}\n\ndeps;",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les dépendances importées ou requises dans les fichiers contenant \"Catalog\" avec une analyse plus robuste"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "const files = list();\nconst deps = [];\n\nfor (const file of files) {\n  if (file.includes(\"Catalog\")) {\n    const content = read(file, 1, 100);\n    for (let i = 0; i < content.length; i++) {\n      const line = content[i];\n      const importMatch = line.match(/import\\s+.*?from\\s+[\"'](.*?)[\"']/);\n      const requireMatch = line.match(/require\\([\"'](.*?)[\"']\\)/);\n      if (importMatch) {\n        const dep = importMatch[1];\n        deps.push({ file: file, line: i + 1, dep });\n      } else if (requireMatch) {\n        const dep = requireMatch[1];\n        deps.push({ file: file, line: i + 1, dep });\n      }\n    }\n  }\n}\n\ndeps",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les dépendances importées ou requises dans les fichiers contenant \"Catalog\""
+          }
+        }
+      ],
+      "library": [],
+      "wallTimeMs": 12437,
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 11407,
+          "outputTokens": 1161,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 12437,
+          "outputBytes": 847,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 2,
+      "mode": "on",
+      "run": 2,
+      "calls": [
+        "code",
+        "search",
+        "read",
+        "search",
+        "search",
+        "search",
+        "search",
+        "search"
+      ],
+      "scriptCalls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "const files = list();\nconst deps = [];\n\nfor (const file of files) {\n  if (file.includes(\"Catalog\")) {\n    const content = read(file, 1, 100);\n    for (let i = 0; i < content.length; i++) {\n      const line = content[i];\n      const importMatch = line.match(/import\\s+.*?from\\s+[\"'](.*?)[\"']|require\\([\"'](.*?)[\"']\\)/);\n      if (importMatch) {\n        const dep = importMatch[1] || importMatch[2];\n        if (dep) {\n          deps.push({ file, startLine: i + 1, endLine: i + 1 });\n        }\n      }\n    }\n  }\n}\n\nreturn deps;",
+            "params": {},
+            "remember": true,
+            "description": "Find dependencies in files containing 'Catalog'"
+          }
+        }
+      ],
+      "library": [],
+      "wallTimeMs": 6013,
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 10528,
+          "outputTokens": 327,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 6013,
+          "outputBytes": 1175,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 2,
+      "mode": "off",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "search",
+        "read",
+        "search",
+        "read",
+        "read",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 5291,
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6102,
+          "outputTokens": 147,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 5291,
+          "outputBytes": 1424,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 2,
+      "mode": "off",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "search",
+        "read",
+        "search",
+        "read",
+        "read",
+        "search",
+        "read"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 4361,
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6687,
+          "outputTokens": 161,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 9,
+          "durationMs": 4361,
+          "outputBytes": 1589,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 3,
+      "mode": "off",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "search",
+        "read",
+        "search",
+        "read",
+        "search"
+      ],
+      "scriptCalls": [],
+      "library": [],
+      "wallTimeMs": 4282,
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6327,
+          "outputTokens": 131,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4282,
+          "outputBytes": 1526,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 3,
+      "mode": "off",
+      "run": 2,
+      "calls": [
+        "list",
+        "read",
+        "read",
+        "read",
+        "search",
+        "read",
+        "search",
+        "code"
+      ],
+      "scriptCalls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "const files = ['src/api.js', 'src/order.js', 'src/math.js', 'src/catalog.js'];\nconst flow = [];\n\nfiles.forEach(file => {\n  const content = read(file, 1, 100);\n  content.forEach(line => {\n    if (line.text.includes('postOrder') || line.text.includes('createOrder') || line.text.includes('totalPrice') || line.text.includes('find')) {\n      flow.push({ file: file, line: line.line, text: line.text });\n    }\n  });\n});\n\nflow;"
+          }
+        }
+      ],
+      "library": [],
+      "wallTimeMs": 6543,
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6809,
+          "outputTokens": 283,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 6543,
+          "outputBytes": 1591,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 3,
+      "mode": "on",
+      "run": 1,
+      "calls": [
+        "code",
+        "search",
+        "read",
+        "read",
+        "read",
+        "search",
+        "read",
+        "search"
+      ],
+      "scriptCalls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "remember": true,
+            "description": "Lister les fichiers du dépôt"
+          }
+        }
+      ],
+      "library": [],
+      "wallTimeMs": 5940,
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 9471,
+          "outputTokens": 175,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 5940,
+          "outputBytes": 1487,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 3,
+      "mode": "on",
+      "run": 2,
+      "calls": [
+        "code",
+        "search",
+        "read",
+        "read",
+        "read",
+        "search",
+        "search",
+        "search"
+      ],
+      "scriptCalls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "remember": true,
+            "description": "Lister les fichiers du dépôt pour identifier les points d'entrée et les fichiers pertinents"
+          }
+        }
+      ],
+      "library": [],
+      "wallTimeMs": 5622,
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 9554,
+          "outputTokens": 172,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 5622,
+          "outputBytes": 1469,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    }
+  ]
+}

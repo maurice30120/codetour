@@ -1,0 +1,13 @@
+{
+  "name": "codetour-exploration-poc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "explore": "node src/cli.ts"
+  },
+  "dependencies": {
+    "@langchain/langgraph": "^1.0.0",
+    "zod": "^4.0.0"
+  }
+}

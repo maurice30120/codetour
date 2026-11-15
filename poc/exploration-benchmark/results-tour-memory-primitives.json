@@ -1,0 +1,1414 @@
+{
+  "model": "mistral-small-latest",
+  "budget": {
+    "iterations": 12,
+    "calls": 40,
+    "tokens": 48000,
+    "durationMs": 90000
+  },
+  "rows": [
+    {
+      "repetition": 1,
+      "mode": "validated",
+      "task": "project-route",
+      "result": {
+        "objective": "Pour préparer un Project Tour, propose un parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape. N’invente pas d’appel.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 19038,
+          "outputTokens": 467,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 12,
+          "durationMs": 8037,
+          "outputBytes": 2005,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "description": "Lister les fichiers du dépôt pour identifier les points d'entrée et les fichiers pertinents"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"postOrder\")",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de postOrder pour identifier l'entrée du parcours"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"createOrder\")",
+            "params": {
+              "query": "createOrder"
+            },
+            "remember": true,
+            "description": "Trouver la définition et les appels de createOrder pour comprendre la création de la commande"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"totalPrice\")",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Trouver la définition et les appels de totalPrice pour comprendre le calcul du total"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"catalog.find\")",
+            "params": {
+              "query": "catalog.find"
+            },
+            "remember": true,
+            "description": "Vérifier l'implémentation de la méthode find dans le catalogue pour comprendre la récupération de l'item"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"storage.get\")",
+            "params": {
+              "query": "storage.get"
+            },
+            "remember": true,
+            "description": "Vérifier l'implémentation de la méthode get dans le stockage pour comprendre la récupération des données"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 11,
+            "endLine": 40
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "class Storage"
+          }
+        }
+      ],
+      "library": [],
+      "probes": []
+    },
+    {
+      "repetition": 1,
+      "mode": "validated",
+      "task": "project-collaboration",
+      "result": {
+        "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 17299,
+          "outputTokens": 277,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 12,
+          "durationMs": 6839,
+          "outputBytes": 2003,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"inject\")",
+            "params": {
+              "query": "inject"
+            },
+            "remember": true,
+            "description": "Find injection points and usages"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"provider\")",
+            "params": {
+              "query": "provider"
+            },
+            "remember": true,
+            "description": "Find provider-based dependency injections"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"service\")",
+            "params": {
+              "query": "service"
+            },
+            "remember": true,
+            "description": "Find service declarations and usages"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "logger"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "Catalog"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "createOrder"
+          }
+        }
+      ],
+      "library": [],
+      "probes": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives",
+      "task": "project-route",
+      "result": {
+        "objective": "Pour préparer un Project Tour, propose un parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape. N’invente pas d’appel.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 20759,
+          "outputTokens": 497,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 12,
+          "durationMs": 7719,
+          "outputBytes": 2498,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "description": "Lister les fichiers du dépôt pour identifier les points d'entrée et les fichiers pertinents"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"postOrder\")",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de postOrder pour identifier l'entrée du parcours"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"createOrder\")",
+            "params": {
+              "query": "createOrder"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de createOrder pour identifier son implémentation"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"totalPrice\")",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de totalPrice pour identifier son implémentation"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"catalog.find\")",
+            "params": {
+              "query": "catalog.find"
+            },
+            "remember": true,
+            "description": "Vérifier l'implémentation de la méthode find sur catalog pour comprendre comment l'item est récupéré"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"storage.get\")",
+            "params": {
+              "query": "storage.get"
+            },
+            "remember": true,
+            "description": "Vérifier l'implémentation de la méthode get sur storage pour comprendre comment l'item est récupéré"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"logger.info\")",
+            "params": {
+              "query": "logger.info"
+            },
+            "remember": true,
+            "description": "Vérifier l'implémentation du logger pour comprendre les logs associés"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "description": "Find literal occurrences; input query.",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "fb7716e66948d94b",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives",
+      "task": "project-collaboration",
+      "result": {
+        "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 19146,
+          "outputTokens": 456,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 12,
+          "durationMs": 8431,
+          "outputBytes": 1809,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "description": "Lister les fichiers du workspace pour identifier les points d'entrée et les fichiers de configuration"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"inject\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les occurrences de termes liés à l'injection de dépendances"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"dependency\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les occurrences de termes liés aux dépendances"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"require\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les appels require ou import pour identifier les dépendances injectées"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"import\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les déclarations d'import pour identifier les dépendances injectées"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"order\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les occurrences liées au traitement de commande pour établir les liens"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"createOrder\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les appels à createOrder pour comprendre son utilisation"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"postOrder\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les appels à postOrder pour comprendre son rôle dans le traitement de commande"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "description": "Find literal occurrences; input query.",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "fb7716e66948d94b",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives",
+      "task": "project-route",
+      "result": {
+        "objective": "Pour préparer un Project Tour, propose un parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape. N’invente pas d’appel.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 20767,
+          "outputTokens": 496,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 12,
+          "durationMs": 9011,
+          "outputBytes": 2498,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "description": "Lister les fichiers du dépôt pour identifier les points d’entrée et les fichiers pertinents"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"postOrder\")",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de postOrder pour identifier l’entrée du parcours"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"createOrder\")",
+            "params": {
+              "query": "createOrder"
+            },
+            "remember": true,
+            "description": "Trouver la définition de createOrder pour comprendre la création de l’ordre"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"totalPrice\")",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Trouver la définition de totalPrice pour comprendre le calcul du total"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"catalog.find\")",
+            "params": {
+              "query": "catalog.find"
+            },
+            "remember": true,
+            "description": "Vérifier l’implémentation de la méthode find dans le catalog pour comprendre la récupération de l’item"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"storage.get\")",
+            "params": {
+              "query": "storage.get"
+            },
+            "remember": true,
+            "description": "Vérifier l’implémentation de la méthode get dans storage pour comprendre la récupération des données"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"logger.info\")",
+            "params": {
+              "query": "logger.info"
+            },
+            "remember": true,
+            "description": "Vérifier l’implémentation du logger pour comprendre les logs"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "description": "Find literal occurrences; input query.",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "fb7716e66948d94b",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives",
+      "task": "project-collaboration",
+      "result": {
+        "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 19636,
+          "outputTokens": 529,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 12,
+          "durationMs": 10185,
+          "outputBytes": 1563,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "description": "Lister les fichiers du dépôt pour identifier les points d'entrée et les fichiers de configuration"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"inject\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les occurrences de termes liés à l'injection de dépendances"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"dependency\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les occurrences de termes liés aux dépendances"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"Order\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les références à Order pour comprendre le traitement de commande"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "read(\"src/api.js\", 1, 10)",
+            "params": {},
+            "description": "Lire le contenu du fichier api.js pour identifier les dépendances et leur utilisation"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "read(\"src/order.js\", 1, 20)",
+            "params": {},
+            "description": "Lire le contenu du fichier order.js pour identifier la logique de traitement de commande"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "read(\"src/math.js\", 1, 10)",
+            "params": {},
+            "description": "Lire le contenu du fichier math.js pour identifier les dépendances mathématiques utilisées"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "read(\"src/catalog.js\", 1, 20)",
+            "params": {},
+            "description": "Lire le contenu du fichier catalog.js pour identifier la structure du catalogue et son utilisation"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"storage\\|logger\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les occurrences de storage et logger pour identifier les dépendances injectées"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"new Catalog\")",
+            "params": {},
+            "remember": true,
+            "description": "Rechercher les instantiations de Catalog pour identifier les dépendances injectées"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"Catalog\")",
+            "params": {},
+            "description": "Rechercher toutes les références à Catalog pour identifier son utilisation"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "read(\"src/api.js\", 1, 15)",
+            "params": {},
+            "description": "Relire api.js pour vérifier si Catalog est utilisé et comment"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "description": "Find literal occurrences; input query.",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "99712702402e44e2",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "objective": "Composable repository primitive",
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "fb7716e66948d94b",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "mode": "validated",
+      "task": "project-route",
+      "result": {
+        "objective": "Pour préparer un Project Tour, propose un parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape. N’invente pas d’appel.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 18998,
+          "outputTokens": 411,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 12,
+          "durationMs": 7894,
+          "outputBytes": 2098,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "description": "Lister les fichiers du dépôt pour identifier les points d'entrée et les fichiers pertinents"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"postOrder\")",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de postOrder pour identifier l'entrée du parcours"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"createOrder\")",
+            "params": {
+              "query": "createOrder"
+            },
+            "remember": true,
+            "description": "Trouver la définition et les appels de createOrder pour comprendre la création de commande"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"totalPrice\")",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Trouver la définition et les appels de totalPrice pour comprendre le calcul du total"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"find\")",
+            "params": {
+              "query": "find"
+            },
+            "remember": true,
+            "description": "Vérifier l'implémentation de la méthode find dans le catalogue pour comprendre la récupération de l'item"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage.get"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 21,
+            "endLine": 40
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        }
+      ],
+      "library": [],
+      "probes": []
+    },
+    {
+      "repetition": 2,
+      "mode": "validated",
+      "task": "project-collaboration",
+      "result": {
+        "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 16437,
+          "outputTokens": 328,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 12,
+          "durationMs": 6778,
+          "outputBytes": 1660,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"inject\")",
+            "params": {
+              "query": "inject"
+            },
+            "remember": true,
+            "description": "Find injection points and dependencies"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"DI\")",
+            "params": {
+              "query": "DI"
+            },
+            "remember": true,
+            "description": "Find dependency injection patterns"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"Provider\")",
+            "params": {
+              "query": "Provider"
+            },
+            "remember": true,
+            "description": "Find provider-based dependencies"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"Service\")",
+            "params": {
+              "query": "Service"
+            },
+            "remember": true,
+            "description": "Find service registrations and usages"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"Command\")",
+            "params": {
+              "query": "Command"
+            },
+            "remember": true,
+            "description": "Find command-related code"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "logger"
+          }
+        }
+      ],
+      "library": [],
+      "probes": []
+    }
+  ]
+}
