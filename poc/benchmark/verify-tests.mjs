@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { GATE_SOURCES, sourceDigest } from './preflight.mjs';
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -31,7 +32,12 @@ export function verifyTests({ root = defaultRoot, evidenceDir = path.join(root, 
     const tests = runs.reduce((sum, result) => sum + result.total_tests, 0);
     const failures = runs.reduce((sum, result) => sum + result.failed_count, 0);
     const passed = runs.every(result => result.exit_code === 0) && tests > 0 && failures === 0;
-    evidence[gate] = { gate, passed, exit_code: passed ? 0 : 1, total_tests: tests, failed_count: failures, command: runs.map(result => result.command).join('\n'), commands: runs.map(result => result.command), source_digest: sourceDigest(root, GATE_SOURCES[gate]), ran_at: new Date().toISOString(), transcripts: runs };
+    const transcripts = runs.map((result, index) => {
+      const filename = `${gate.toLowerCase()}-${index + 1}.log`;
+      fs.writeFileSync(path.join(evidenceDir, filename), result.output);
+      return { path: filename, sha256: createHash('sha256').update(result.output).digest('hex') };
+    });
+    evidence[gate] = { gate, passed, exit_code: passed ? 0 : 1, total_tests: tests, failed_count: failures, command: runs.map(result => result.command).join('\n'), commands: runs.map(result => result.command), source_paths: GATE_SOURCES[gate], source_digest: sourceDigest(root, GATE_SOURCES[gate]), ran_at: new Date().toISOString(), transcripts };
     fs.writeFileSync(path.join(evidenceDir, filename), `${JSON.stringify(evidence[gate], null, 2)}\n`);
   }
   return evidence;

@@ -12,17 +12,19 @@ const sha256 = content => createHash('sha256').update(content).digest('hex');
 
 export function sourceDigest(root, directories) {
   const digest = createHash('sha256');
+  const files = [];
   const visit = relative => {
     const filename = path.join(root, relative);
-    if (!fs.existsSync(filename)) { digest.update(`missing:${relative}\n`); return; }
+    if (!fs.existsSync(filename)) return;
     if (fs.lstatSync(filename).isSymbolicLink()) return;
     if (fs.statSync(filename).isDirectory()) {
       for (const name of fs.readdirSync(filename).sort()) {
         if (!['node_modules', 'dist', '.git', 'coverage', '.DS_Store'].includes(name)) visit(path.join(relative, name));
       }
-    } else digest.update(`${relative}\0`).update(fs.readFileSync(filename)).update('\0');
+    } else if (/\.(?:ts|mjs|js|json)$/.test(filename)) files.push(relative);
   };
   directories.forEach(visit);
+  for (const relative of [...new Set(files)].sort()) digest.update(`${relative.split(path.sep).join('/')}\0`).update(fs.readFileSync(path.join(root, relative))).update('\0');
   return digest.digest('hex');
 }
 
@@ -35,9 +37,27 @@ function testEvidence(root, evidenceDir, gate, filename) {
   const passed = evidence?.passed === true && evidence.exit_code === 0
     && evidence.failed_count === 0 && Number.isSafeInteger(evidence.total_tests) && evidence.total_tests > 0
     && Array.isArray(evidence.commands) && evidence.commands.length > 0
+    && JSON.stringify(evidence.source_paths) === JSON.stringify(GATE_SOURCES[gate])
+    && validTranscripts(evidence.transcripts, evidenceDir)
     && Number.isFinite(Date.parse(evidence.ran_at))
     && evidence.source_digest === sourceDigest(root, GATE_SOURCES[gate]);
   return { passed, reason: passed ? 'Tests executed against the current source.' : 'Missing, failed or stale test evidence.', evidence_file: path.join(evidenceDir, filename) };
+}
+
+function validTranscripts(transcripts, evidenceDir) {
+  if (!Array.isArray(transcripts) || transcripts.length === 0) return false;
+  try {
+    const logs = transcripts.map(transcript => {
+      if (typeof transcript.path !== 'string') throw new Error('Missing transcript path.');
+      const filename = path.resolve(evidenceDir, transcript.path);
+      if (!filename.startsWith(`${path.resolve(evidenceDir)}${path.sep}`)) throw new Error('Transcript outside evidence directory.');
+      const bytes = fs.readFileSync(filename);
+      if (sha256(bytes) !== transcript.sha256) throw new Error('Transcript digest mismatch.');
+      return bytes.toString('utf8');
+    });
+    const noFailures = logs.every(log => !/(?:#|ℹ) fail [1-9]\d*|Tests:.*[1-9]\d* failed/.test(log));
+    return noFailures && logs.some(log => /(?:#|ℹ) tests [1-9]\d*|Tests:.*[1-9]\d* passed/.test(log));
+  } catch { return false; }
 }
 
 function fixtureGate(fixturePath) {

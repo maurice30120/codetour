@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { inspectPreflight, sourceDigest } from '../preflight.mjs';
 
 async function workspace(context) {
@@ -39,9 +40,18 @@ test('test evidence stops being valid when the tested source changes', async con
   const root = await workspace(context);
   const sources = ['packages/exploration-poc', 'packages/exploration-sandbox'];
   const digest = sourceDigest(root, sources);
-  await writeFile(join(root, 'poc/benchmark/gate-evidence/g0-conformance.json'), JSON.stringify({ gate: 'G0', passed: true, exit_code: 0, total_tests: 1, failed_count: 0, source_digest: digest, commands: ['node --test'], ran_at: new Date().toISOString() }));
+  const transcript = 'TAP version 13\n# tests 1\n# pass 1\n# fail 0\n';
+  await writeFile(join(root, 'poc/benchmark/gate-evidence/g0.log'), transcript);
+  await writeFile(join(root, 'poc/benchmark/gate-evidence/g0-conformance.json'), JSON.stringify({ gate: 'G0', passed: true, exit_code: 0, total_tests: 1, failed_count: 0, source_digest: digest, source_paths: sources, commands: ['node --test'], ran_at: new Date().toISOString(), transcripts: [{ path: 'g0.log', sha256: createHash('sha256').update(transcript).digest('hex') }] }));
   assert.equal((await inspectPreflight({ root, env: {} })).gates.G0.passed, true);
   await writeFile(join(root, 'packages/exploration-poc/src/explore.ts'), 'export const version = 2;');
+  assert.equal((await inspectPreflight({ root, env: {} })).gates.G0.passed, false);
+});
+
+test('a passing test flag without its bound transcript is rejected', async context => {
+  const root = await workspace(context);
+  const sources = ['packages/exploration-poc', 'packages/exploration-sandbox'];
+  await writeFile(join(root, 'poc/benchmark/gate-evidence/g0-conformance.json'), JSON.stringify({ gate: 'G0', passed: true, exit_code: 0, total_tests: 1, failed_count: 0, source_digest: sourceDigest(root, sources), source_paths: sources, commands: ['node --test'], ran_at: new Date().toISOString() }));
   assert.equal((await inspectPreflight({ root, env: {} })).gates.G0.passed, false);
 });
 
