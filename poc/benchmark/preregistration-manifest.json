@@ -35,8 +35,9 @@
     "causal_attribution": "substantial model or budget differences prevent causal attribution"
   },
   "parameters": {
-    "max_input_output_tokens_per_request": 16384,
-    "timeout_ms": 300000,
+    "max_input_output_tokens_per_request": 600000,
+    "budget_note": "same ceiling for both arms (fairness, spec section 4); token_limit per request observed to interrupt the native arm at 16384 before its root could finish delegating — corrected before any measured run, applicable to the pilot's uncounted runs as well",
+    "timeout_ms": 600000,
     "max_infrastructure_retries": 0,
     "temperature": "TBD_verify_effective_configuration_of_both_agents",
     "cache_policy": "provider cache tokens reported separately and included only once in input"

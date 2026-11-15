@@ -11,9 +11,13 @@ export const CAMPAIGN_CONFIG: RunnerConfig = {
   postgresPath: process.env.CODETOUR_FIXTURE_PATH ?? path.join(BENCHMARK_ROOT, 'postgres'),
   outputDir: path.join(BENCHMARK_ROOT, 'results'),
   gateEvidenceDir: path.join(BENCHMARK_ROOT, 'gate-evidence'),
-  timeoutMs: 300000,
-  codetour: { model: process.env.MISTRAL_MODEL ?? 'mistral-small-latest', maxTokens: 16384, temperature: 0 },
-  vibe: { model: process.env.VIBE_MODEL ?? 'mistral-medium-3.5', maxTokens: 16384, temperature: 0 },
+  timeoutMs: 600000,
+  // SAME token envelope for both arms (spec §4 fairness): a ceiling, not a
+  // target. The native root session context alone needs tens of thousands of
+  // input tokens per call; the 16384 draft value interrupted every run at
+  // token_limit before the delegation could complete (observed 2026-11-15).
+  codetour: { model: process.env.MISTRAL_MODEL ?? 'mistral-small-latest', maxTokens: 600000, temperature: 0 },
+  vibe: { model: process.env.VIBE_MODEL ?? 'mistral-medium-3.5', maxTokens: 600000, temperature: 0 },
   retryPolicy: { maxRetries: 0, retryDelay: 0 },
   runPilot: false,
 };
