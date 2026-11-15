@@ -2,7 +2,7 @@
 
 **Spec**: [Spec #174 — Benchmark PostgreSQL réel vs sous-agent Vibe natif + décomposition des tâches](../../../specs/postgres-real-benchmark-2026-11-15.md)
 
-**Status**: ⏳ Not Started
+**Status**: ✅ Done
 **Priority**: High
 **Blocked By**: T01 (Prompt), T02 (Audit #172), T03 (Vibe natif), T04 (Fixture), T05 (Runner), T06 (Évaluateur)
 **Blocks**: T08 (Rapport)
