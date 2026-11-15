@@ -9,12 +9,12 @@
  * Usage:
  *   node vibe-adapter.mjs <mode>
  * 
- * Where <mode> is one of: baseline, code-mode, vibe-baseline, vibe-research
+ * Where <mode> is one of: baseline, code-mode, memory-on, memory-off, vibe-baseline, vibe-research
  * And stdin contains: {root, objective, mode, budget}
  */
 
 import { spawn } from 'node:child_process';
-import { mkdir, rm, readFile } from 'node:fs/promises';
+import { mkdir, rm, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout } from 'node:timers/promises';
@@ -39,7 +39,7 @@ if (!expectedMode) {
   process.exit(1);
 }
 
-// Mode must be one of the valid modes and must match what was passed
+// Mode must be one of the valid modes
 const validModes = ['baseline', 'code-mode', 'memory-on', 'memory-off', 'vibe-baseline', 'vibe-research'];
 if (!validModes.includes(expectedMode)) {
   process.stderr.write(`Error: Invalid mode. Expected one of: ${validModes.join(', ')}\n`);
@@ -109,8 +109,44 @@ try {
     }
   }
 
-  // Extract evidence from Vibe's session output
-  const evidence = extractEvidence(stdout, absRoot);
+  // Parse stdout as JSON array
+  let sessionData = [];
+  try {
+    sessionData = JSON.parse(stdout);
+    if (!Array.isArray(sessionData)) {
+      sessionData = [];
+    }
+  } catch {
+    sessionData = [];
+  }
+
+  // Also try to read from journal files
+  try {
+    const journalDir = path.join(vibeOutputDir, 'session', 'journal');
+    const files = await readdir(journalDir);
+    for (const file of files) {
+      if (file.endsWith('.jsonl')) {
+        const journalPath = path.join(journalDir, file);
+        const journalContent = await readFile(journalPath, 'utf8');
+        const lines = journalContent.split('\n').filter(l => l.trim());
+        for (const line of lines) {
+          try {
+            const entry = JSON.parse(line);
+            if (entry.payload) {
+              sessionData.push(entry.payload);
+            }
+          } catch {
+            // Skip malformed lines
+          }
+        }
+      }
+    }
+  } catch {
+    // Journal directory might not exist
+  }
+
+  // Extract evidence from session data
+  const evidence = extractEvidenceFromSession(sessionData, absRoot);
   
   // Vibe's export.json uses snake_case for usage keys
   const usage = exportData?.usage ?? {};
@@ -180,32 +216,79 @@ function mapStopReason(reason) {
     'time_limit': 'duration',
     'limit': 'iterations',
     'interrupted': 'interrupted',
-    'finished': null, // Map to null so status becomes 'completed'
+    'finished': null, // Map to null for completed status
+    'iteration_limit': 'iterations',
   };
-  return mapping[reason] ?? reason;
+  const mapped = mapping[reason];
+  return mapped !== undefined ? mapped : reason;
 }
 
 /**
- * Extract evidence from Vibe's JSON output
+ * Extract evidence from session data (conversation entries)
  */
-function extractEvidence(stdout, root) {
+function extractEvidenceFromSession(entries, root) {
   const evidence = [];
-  try {
-    const sessionOutput = JSON.parse(stdout);
-    if (!Array.isArray(sessionOutput)) return evidence;
-    
-    for (const entry of sessionOutput) {
-      // Extract from bash/grep tool output
-      if (entry.type === 'effect' && entry.detail?.toolName === 'file_system.bash') {
-        const outputText = entry.state?.outputText || entry.state?.output?.stdout || '';
-        evidence.push(...parseGrepOutput(outputText, root));
+  
+  for (const entry of entries) {
+    // Handle effect entries with tool calls
+    if (entry.type === 'effect') {
+      const toolName = entry.toolName || entry.detail?.toolName;
+      
+      // Extract from bash tool output
+      if (toolName === 'file_system.bash') {
+        const output = entry.state?.output?.stdout || entry.state?.outputText || '';
+        if (output) {
+          evidence.push(...parseToolOutput(output, root));
+        }
+      }
+      
+      // Extract from grep tool output
+      if (toolName === 'grep') {
+        const output = entry.state?.output;
+        if (output) {
+          // Handle both string and object output
+          if (typeof output === 'string') {
+            evidence.push(...parseToolOutput(output, root));
+          } else if (output.matches) {
+            // Output is an object with matches field
+            evidence.push(...parseGrepMatches(output.matches, root));
+          } else if (output.parsedMatches) {
+            // Output has parsedMatches with file, line, content
+            evidence.push(...parseGrepParsedMatches(output.parsedMatches, root));
+          }
+        }
+      }
+      
+      // Extract from read_resource tool (Vibe's native tool)
+      if (toolName === 'read_resource') {
+        const file = entry.input?.uri || entry.state?.input?.uri;
+        if (file) {
+          const normalized = normalizeFilePath(file, root);
+          if (normalized) {
+            evidence.push({ file: normalized, startLine: 1, endLine: 1 });
+          }
+        }
+      }
+      
+      // Extract from list_resources tool
+      if (toolName === 'list_resources') {
+        const resources = entry.state?.output?.resources || [];
+        for (const resource of resources) {
+          const file = resource.uri || resource.path;
+          if (file) {
+            const normalized = normalizeFilePath(file, root);
+            if (normalized) {
+              evidence.push({ file: normalized, startLine: 1, endLine: 1 });
+            }
+          }
+        }
       }
       
       // Extract from read_file tool
-      if (entry.type === 'effect' && entry.detail?.toolName === 'read_file') {
-        const file = entry.state?.input?.file;
-        const startLine = entry.state?.input?.startLine ?? 1;
-        const endLine = entry.state?.input?.endLine ?? startLine;
+      if (toolName === 'read_file') {
+        const file = entry.input?.file || entry.state?.input?.file;
+        const startLine = entry.input?.startLine ?? entry.state?.input?.startLine ?? 1;
+        const endLine = entry.input?.endLine ?? entry.state?.input?.endLine ?? startLine;
         if (file) {
           const normalized = normalizeFilePath(file, root);
           if (normalized) evidence.push({ file: normalized, startLine, endLine });
@@ -213,41 +296,68 @@ function extractEvidence(stdout, root) {
       }
       
       // Extract from file_system.read tool
-      if (entry.type === 'effect' && entry.detail?.toolName === 'file_system.read') {
-        const file = entry.state?.output?.file;
-        const startLine = entry.state?.output?.startLine ?? 1;
-        const endLine = entry.state?.output?.endLine ?? startLine;
+      if (toolName === 'file_system.read') {
+        const file = entry.input?.path || entry.state?.input?.path || entry.state?.output?.file;
+        const startLine = entry.input?.startLine ?? entry.state?.input?.startLine ?? 1;
+        const endLine = entry.input?.endLine ?? entry.state?.input?.endLine ?? startLine;
         if (file) {
           const normalized = normalizeFilePath(file, root);
           if (normalized) evidence.push({ file: normalized, startLine, endLine });
         }
       }
-      
-      // Extract from assistant messages
-      if (entry.type === 'message' && entry.role === 'assistant' && entry.content) {
-        for (const contentItem of entry.content) {
-          if (contentItem.text) {
-            evidence.push(...parseTextForFileRefs(contentItem.text, root));
-          }
+    }
+    
+    // Extract from assistant messages - this is where line numbers are mentioned
+    if (entry.type === 'message' && entry.role === 'assistant' && entry.content) {
+      for (const contentItem of entry.content) {
+        if (contentItem.text) {
+          evidence.push(...parseTextForFileRefs(contentItem.text, root));
         }
       }
     }
-  } catch {
-    // If stdout is not JSON, try to extract from raw text
-    evidence.push(...parseTextForFileRefs(stdout, root));
   }
   
   return deduplicateEvidence(evidence);
 }
 
 /**
- * Parse grep output format: file:line:content
+ * Parse grep parsed matches (with file, line, content)
  */
-function parseGrepOutput(text, root) {
+function parseGrepParsedMatches(matches, root) {
   const evidence = [];
-  const lines = text.split('\n');
+  if (!Array.isArray(matches)) return evidence;
+  
+  for (const match of matches) {
+    const file = match.file || match.filePath;
+    const line = match.line || match.lineNumber || 1;
+    if (file) {
+      const normalized = normalizeFilePath(file, root);
+      if (normalized) {
+        evidence.push({ 
+          file: normalized, 
+          startLine: parseInt(line, 10) || 1, 
+          endLine: parseInt(line, 10) || 1 
+        });
+      }
+    }
+  }
+  return evidence;
+}
+
+/**
+ * Parse grep matches string
+ */
+function parseGrepMatches(matches, root) {
+  const evidence = [];
+  if (typeof matches !== 'string') return evidence;
+  
+  const lines = matches.split('\n');
   for (const line of lines) {
-    const match = line.match(/^(\S+):(\d+):/);
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    // Parse file:line:content format
+    const match = trimmed.match(/^([^:]+):(\d+):/);
     if (match) {
       const normalized = normalizeFilePath(match[1], root);
       if (normalized) {
@@ -263,15 +373,80 @@ function parseGrepOutput(text, root) {
 }
 
 /**
- * Parse text for file:line or file:line-line patterns
+ * Parse tool output (like bash ls or grep) for file references
+ */
+function parseToolOutput(text, root) {
+  const evidence = [];
+  const lines = text.split('\n');
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    // Try to parse as grep -n output: file:line:content
+    const grepNMatch = trimmed.match(/^([^:]+):(\d+):/);
+    if (grepNMatch) {
+      const normalized = normalizeFilePath(grepNMatch[1], root);
+      if (normalized) {
+        evidence.push({ 
+          file: normalized, 
+          startLine: parseInt(grepNMatch[2], 10), 
+          endLine: parseInt(grepNMatch[2], 10) 
+        });
+      }
+      continue;
+    }
+    
+    // Try to parse as grep -n output without trailing colon: file:line content
+    const grepNMatch2 = trimmed.match(/^([^:]+):(\d+)\s/);
+    if (grepNMatch2) {
+      const normalized = normalizeFilePath(grepNMatch2[1], root);
+      if (normalized) {
+        evidence.push({ 
+          file: normalized, 
+          startLine: parseInt(grepNMatch2[2], 10), 
+          endLine: parseInt(grepNMatch2[2], 10) 
+        });
+      }
+      continue;
+    }
+    
+    // Try to parse as grep output with range: file:start-end:content
+    const grepRangeMatch = trimmed.match(/^([^:]+):(\d+)-(\d+):/);
+    if (grepRangeMatch) {
+      const normalized = normalizeFilePath(grepRangeMatch[1], root);
+      if (normalized) {
+        evidence.push({ 
+          file: normalized, 
+          startLine: parseInt(grepRangeMatch[2], 10), 
+          endLine: parseInt(grepRangeMatch[3], 10) 
+        });
+      }
+      continue;
+    }
+    
+    // If it's just a file path, add it with line 1
+    const normalized = normalizeFilePath(trimmed, root);
+    if (normalized) {
+      evidence.push({ file: normalized, startLine: 1, endLine: 1 });
+    }
+  }
+  
+  return evidence;
+}
+
+/**
+ * Parse text for file references and line numbers
+ * Only extracts explicit line number references to avoid false positives
  */
 function parseTextForFileRefs(text, root) {
   const evidence = [];
   
-  // Pattern: filename.ext:line
-  const fileLineRegex = /([^\s:\/]+\.(?:js|ts|json|cjs|mjs|txt|md)):(\d+)/g;
+  // Pattern 1: backtick file at line N (e.g., `src/catalog.js` (line 8) or `src/catalog.js` (ligne 8))
+  // This is the most reliable pattern
+  const backtickLineRegex = /`([^\s:`]+\.(?:js|ts|json|cjs|mjs|txt|md))`\s*\((?:lignes?|lines?|row|rows?|lineas?)\s*(\d+)\)/gi;
   let match;
-  while ((match = fileLineRegex.exec(text)) !== null) {
+  while ((match = backtickLineRegex.exec(text)) !== null) {
     const normalized = normalizeFilePath(match[1], root);
     if (normalized) {
       evidence.push({ 
@@ -282,15 +457,15 @@ function parseTextForFileRefs(text, root) {
     }
   }
   
-  // Pattern: filename.ext:start-end
-  const fileRangeRegex = /([^\s:\/]+\.(?:js|ts|json|cjs|mjs|txt|md)):(\d+)-(\d+)/g;
-  while ((match = fileRangeRegex.exec(text)) !== null) {
+  // Pattern 2: | file | line | (table format) - line number might be in bold
+  const tableRegex = /\|\s*`([^`\s:\/]+\.(?:js|ts|json|cjs|mjs|txt|md))`\s*\|\s*(?:\*\*)?(\d+)(?:\*\*)?\s*\|/g;
+  while ((match = tableRegex.exec(text)) !== null) {
     const normalized = normalizeFilePath(match[1], root);
     if (normalized) {
       evidence.push({ 
         file: normalized, 
         startLine: parseInt(match[2], 10), 
-        endLine: parseInt(match[3], 10) 
+        endLine: parseInt(match[2], 10) 
       });
     }
   }
@@ -303,15 +478,27 @@ function parseTextForFileRefs(text, root) {
  */
 function normalizeFilePath(filePath, root) {
   try {
+    // Skip if filePath contains colon (likely a code snippet, not a file path)
+    if (filePath.includes(':') && !path.isAbsolute(filePath)) {
+      return null;
+    }
+    
     let normalized;
     
     if (path.isAbsolute(filePath)) {
+      // On macOS, /private/tmp is symlinked to /tmp, so resolve both
+      const realRoot = path.resolve(root);
+      const realFilePath = path.resolve(filePath);
+      
       // Check if within root directory
-      if (filePath.startsWith(root)) {
-        normalized = path.relative(root, filePath);
+      if (realFilePath.startsWith(realRoot)) {
+        normalized = path.relative(realRoot, realFilePath);
+      } else if (realFilePath.startsWith('/private' + realRoot)) {
+        // Handle /private/tmp vs /tmp
+        normalized = path.relative(realRoot, realFilePath.replace('/private', ''));
       } else {
         // Try to extract from full path containing workspace
-        const parts = filePath.split(path.sep);
+        const parts = realFilePath.split(path.sep);
         const workspaceIdx = parts.findIndex(p => p === 'workspace');
         if (workspaceIdx !== -1 && workspaceIdx < parts.length - 1) {
           normalized = parts.slice(workspaceIdx + 1).join('/');
@@ -333,6 +520,16 @@ function normalizeFilePath(filePath, root) {
     // Remove leading slash
     if (normalized.startsWith('/')) {
       normalized = normalized.slice(1);
+    }
+    
+    // Remove trailing slash
+    if (normalized.endsWith('/')) {
+      normalized = normalized.slice(0, -1);
+    }
+    
+    // Skip if the result contains invalid characters
+    if (normalized.includes(':') || normalized.includes('`')) {
+      return null;
     }
     
     return normalized;
