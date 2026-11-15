@@ -1,0 +1,405 @@
+{
+  "spec": "174",
+  "gate": "G5",
+  "status": "PRE-REGISTERED",
+  "preregistration_timestamp": "2026-11-15T17:55:00Z",
+  "description": "Pre-registration manifest for Spec #174 PostgreSQL benchmark. THIS FILE MUST NOT BE MODIFIED AFTER CREATION. Any modification invalidates the benchmark.",
+  "seal": {
+    "message": "PRE-REGISTRATION MANIFEST - FROZEN - DO NOT MODIFY",
+    "warning": "Modifying this file after preregistration will invalidate all benchmark results and trigger NO-GO.",
+    "validation_required": "All G0-G5 gates must be satisfied before benchmark execution."
+  },
+  "gates_status": {
+    "G0": {
+      "status": "VALIDATED",
+      "ticket": "T02",
+      "evidence": "Audit #172 conformité POC complète"
+    },
+    "G1": {
+      "status": "VALIDATED",
+      "ticket": "T03",
+      "evidence": "Vibe authentique prouvé avec sous-agent natif"
+    },
+    "G2": {
+      "status": "VALIDATED",
+      "ticket": "T03",
+      "evidence": "Instrumentation totale validée"
+    },
+    "G3": {
+      "status": "VALIDATED",
+      "ticket": "T04",
+      "evidence": "Fixture PostgreSQL valide au SHA 70c4a57b64d39c526eb4c44a925eb92a6e56f3c5"
+    },
+    "G4": {
+      "status": "VALIDATED",
+      "ticket": "T06",
+      "evidence": "Évaluateur indépendant aveugle fonctionnel"
+    },
+    "G5": {
+      "status": "VALIDATED",
+      "ticket": "T07",
+      "evidence": "Ce manifeste - pre-registration complete",
+      "validation_timestamp": "2026-11-15T17:55:00Z"
+    }
+  },
+  "fixture": {
+    "repository": "https://github.com/postgres/postgres",
+    "sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "commit_message": "Drop support for named POSIX semaphores (the sem_open() kind).",
+    "read_only": true,
+    "same_tree_for_both_agents": true,
+    "verification_script": "poc/benchmark/verify-fixture.sh",
+    "fixture_hash": "sha256:76904ae16521221394ad88dd61ae3e5dba841f87564565950762945d83727702",
+    "g3_manifest_reference": "poc/benchmark/manifest.json"
+  },
+  "questions": {
+    "file": "poc/benchmark/postgres-questions.json",
+    "hash": "sha256:6686a784207db62dac054e627b8b3db479297f9cc8409e371486d8968bb40895",
+    "total": 40,
+    "series_R": {
+      "count": 20,
+      "description": "Répétition - 5 questions de compréhension, chacune répétée 4 fois",
+      "execution_order": "fixed_predefined_alternating"
+    },
+    "series_T": {
+      "count": 20,
+      "description": "Transfert - 10 questions d'amorçage + 10 questions voisines",
+      "priming": 10,
+      "neighboring": 10,
+      "execution_order": "fixed_predefined_alternating",
+      "codeTour_memory": "reset_to_empty_at_start_of_T"
+    },
+    "ordering": {
+      "type": "counterbalanced",
+      "alternation": "between_agents",
+      "note": "Same order for both agents, alternating to limit service effects"
+    }
+  },
+  "expected_answers": {
+    "file": "poc/benchmark/postgres-expected-answers.json",
+    "hash": "sha256:6c832614e0ca7beea9a45e103f84925193a9817f9fabcdfb1f164a926bf03f62",
+    "semantic_expectations": true,
+    "not_visible_to_agents": true,
+    "used_for": "blind_evaluation_verification"
+  },
+  "prompts": {
+    "decomposition_injection": {
+      "ticket": "T01",
+      "location": "packages/exploration-poc/src/explore.ts",
+      "version": "1.0",
+      "text": "Avant d'explorer, décompose mentalement l'objectif du Tour en quelques besoins concrets et indépendants : localiser les points d'entrée, repérer les appels ou définitions, suivre les relations, vérifier les lignes de preuve. Pour chaque besoin, recherche d'abord une fonction réutilisable via memory_list(query). Si elle convient, utilise memory_run(id, params) avec les bons paramètres. Sinon, utilise une primitive disponible ou essaie avec function_try(source, params) la plus petite fonction TypeScript réutilisable qui répond à ce besoin. Privilégie les opérations ciblées, paramétrées et vérifiables. Ne crée pas une fonction si un appel existant suffit. Ne recommence pas une recherche de catalogue sans raison nouvelle. Regroupe les besoins si cela évite des appels, arrête l'exploration dès que les preuves sont suffisantes, et signale les relations non démontrées. Ne mémorise jamais une réponse figée : seules des procédures réellement exécutées sont candidates à la consolidation après validation du Tour.",
+      "applies_to": "CodeTour_agent_only",
+      "vibe_native": "unchanged_default_prompt"
+    },
+    "common_format": {
+      "output_format": "structured_json",
+      "required_fields": [
+        "tour_title",
+        "steps",
+        "citations",
+        "claims",
+        "relations"
+      ],
+      "note": "Both agents must produce responses in the same format for blind evaluation"
+    }
+  },
+  "agents": {
+    "codetour": {
+      "name": "CodeTour",
+      "type": "POC_with_memory",
+      "memory": {
+        "initial_state_R": "empty",
+        "initial_state_T": "empty",
+        "persistence": "between_requests_in_series_R_only",
+        "reset_between_series": true
+      },
+      "primitives": [
+        "function_try",
+        "memory_list",
+        "memory_run",
+        "list",
+        "read",
+        "search"
+      ],
+      "whitelist": "TypeScript_strict_mode",
+      "execution": "QuickJS",
+      "consolidation": "after_Tour_validation_only"
+    },
+    "vibe-native": {
+      "name": "Vibe Native",
+      "type": "vibe_research_subagent",
+      "memory": "independent_sessions_for_each_request",
+      "tools": "native_vibe_tools",
+      "prompt": "default_vibe_prompt_no_modification",
+      "execution": "native_vibe_execution"
+    }
+  },
+  "models": {
+    "primary": {
+      "name": "TBD_by_availability",
+      "version": "TBD_at_execution_time",
+      "temperature": 0,
+      "provider": "TBD",
+      "note": "Must be identical for both agents when Vibe allows. Document any divergence."
+    },
+    "constraints": {
+      "same_model_for_both_agents": "required_if_possible",
+      "document_divergences": true,
+      "substantial_difference": "blocks_causal_attribution"
+    }
+  },
+  "parameters": {
+    "token_limits": {
+      "per_request": 16384,
+      "total_per_series": "uncapped_but_tracked",
+      "note": "All tokens counted: input, output, orchestrator, sub-agent, retries, corrections, consolidation"
+    },
+    "execution": {
+      "timeout_seconds": 300,
+      "max_retries": 3,
+      "retry_policy": "only_for_infrastructure_failures",
+      "note": "Agent failures count in denominator, infrastructure failures trigger replay"
+    },
+    "cache_policy": {
+      "type": "none_for_benchmark_purposes",
+      "note": "No caching of responses between runs. Each run is independent.",
+      "cache_hit_tokens": "declared_separately_without_double_counting"
+    }
+  },
+  "evaluation": {
+    "grader": {
+      "ticket": "T06",
+      "implementation": "poc/benchmark/evaluator/",
+      "type": "independent_blind_evaluator",
+      "blind_to": [
+        "agent",
+        "execution_order",
+        "token_cost",
+        "run_id"
+      ],
+      "verification_against": "real_PostgreSQL_code_at_G3_SHA"
+    },
+    "criteria": {
+      "correct": {
+        "definition": "Response is relevant, central relations are correct, proofs are verifiable",
+        "threshold": "all_criteria_must_pass"
+      },
+      "evidence_supported": {
+        "definition": "All claims are supported by valid citations",
+        "threshold": true
+      },
+      "major_missing_relation": {
+        "definition": "A critical relation is absent from the response",
+        "threshold": false
+      },
+      "critical_false_claim": {
+        "definition": "A claim that is critically false is present",
+        "threshold": false
+      }
+    },
+    "scoring": {
+      "tour_correct": {
+        "requires": [
+          "correct === true",
+          "evidence_supported === true",
+          "major_missing_relation === false",
+          "critical_false_claim === false"
+        ]
+      },
+      "coverage": {
+        "type": "0-1",
+        "description": "Proportion of expected areas covered by citations"
+      }
+    },
+    "arbitration": {
+      "process": "second_independent_grader",
+      "final_judgment": "arbitrator_judgment",
+      "preservation": "initial_verdict_and_arbitration_reason_recorded"
+    }
+  },
+  "thresholds": {
+    "primary_metric": "relative_reduction_in_tokens_per_correct_Tour",
+    "per_series": true,
+    "minimum_gain": {
+      "series_R": "20%",
+      "series_T": "20%",
+      "combined": "20%",
+      "note": "Bootstrap paired 95% CI strictly > 0"
+    },
+    "quality_degradation": {
+      "max_correct_rate_difference": "5_percentage_points",
+      "max_additional_critical_false_claims": 0,
+      "note": "CodeTour correct rate must be within 5pp of Vibe, with no additional critical false claims"
+    },
+    "statistical_validity": {
+      "confidence_level": "95%",
+      "method": "bootstrap_paired",
+      "minimum_sample": 80,
+      "extension_trigger": "CI_includes_zero"
+    },
+    "verdicts": {
+      "VALIDATED": [
+        "All G0-G5 gates satisfied",
+        "≥20% gain on each series",
+        "CI > 0 on each series",
+        "Quality degradation ≤ 5pp",
+        "No additional critical false claims"
+      ],
+      "INVALIDATED": [
+        "Complete data but <20% gain on any series",
+        "Quality degradation > 5pp",
+        "Additional critical false claims"
+      ],
+      "INDETERMINED": [
+        "Statistical uncertainty prevents conclusion",
+        "Score undefined (zero correct Tours)",
+        "Important comparison not paired"
+      ],
+      "NO-GO": [
+        "Fictitious data",
+        "True native sub-agent not used",
+        "Telemetry incomplete",
+        "G0-G5 gates not all satisfied"
+      ]
+    }
+  },
+  "execution_protocol": {
+    "pilot": {
+      "enabled": true,
+      "purpose": "test_data_collection_and_guards",
+      "questions_count": 2,
+      "not_counted": true,
+      "costs_not_included": true,
+      "freeze_after": [
+        "prompts",
+        "manifest",
+        "protocol"
+      ]
+    },
+    "main_campaign": {
+      "total_runs": 80,
+      "series_R": {
+        "runs": 40,
+        "codetour": 20,
+        "vibe-native": 20
+      },
+      "series_T": {
+        "runs": 40,
+        "codetour": 20,
+        "vibe-native": 20
+      },
+      "extension_optional": {
+        "trigger": "CI_includes_zero",
+        "target": 50,
+        "per_series_per_agent": true,
+        "total_max": 200,
+        "rules": "already_preregistered_no_changes"
+      }
+    },
+    "isolation": {
+      "sessions": "independent",
+      "memory": "no_sharing_between_agents",
+      "sha_verification": "before_each_run",
+      "clean_tree_verification": "before_each_run"
+    },
+    "tracing": {
+      "run_id": "unique_per_execution",
+      "timestamp": "iso8601",
+      "immutable": true,
+      "storage": "append-only_or_read-only_after_write",
+      "hash_verification": "after_campaign",
+      "required_fields": [
+        "run_id",
+        "timestamp",
+        "agent",
+        "question_id",
+        "status",
+        "model_version",
+        "postgres_sha",
+        "manifest_hash",
+        "all_llm_calls_with_tokens",
+        "total_tokens",
+        "raw_result",
+        "citations"
+      ],
+      "no_secrets": true
+    },
+    "failure_handling": {
+      "agent_failures": "count_in_denominator_no_replacement",
+      "infrastructure_failures": "trigger_replay",
+      "replay_rule": "common_documented_rule",
+      "replay_cases": [
+        "network_error",
+        "service_unavailable",
+        "timeout"
+      ],
+      "note": "Partial runs, errors, timeouts all count in denominator"
+    }
+  },
+  "measurement": {
+    "primary_source": "real_token_counts_from_provider",
+    "included": [
+      "all_llm_input_tokens",
+      "all_llm_output_tokens",
+      "orchestrator_calls",
+      "sub-agent_calls",
+      "retries",
+      "corrections",
+      "consolidation_calls"
+    ],
+    "excluded": [
+      "evaluator_costs_assign_to_separate_category"
+    ],
+    "cache_tokens": "declared_separately_without_double_counting",
+    "partial_data": "NO-GO_invalidates_comparison",
+    "missing_usage": "mark_usage_missing=true_and_no_global_gain_calculation"
+  },
+  "analysis": {
+    "metrics": [
+      "tokens_total_cumulative_per_series",
+      "tokens_marginal_per_request",
+      "tokens_per_rank",
+      "learning_curve",
+      "correct_tour_rate",
+      "tokens_per_correct_tour",
+      "coverage",
+      "relevance",
+      "false_relations_rate",
+      "functions_reused",
+      "learning_costs",
+      "break-even_in_tokens"
+    ],
+    "decision_criteria": "tokens_per_correct_Tour_only",
+    "not_considered": [
+      "latency",
+      "monetary_cost",
+      "prompt_size_alone",
+      "call_count_alone"
+    ]
+  },
+  "files_reference": {
+    "prompts": "packages/exploration-poc/src/explore.ts",
+    "questions": "poc/benchmark/postgres-questions.json",
+    "expected_answers": "poc/benchmark/postgres-expected-answers.json",
+    "fixture": "poc/benchmark/postgres/",
+    "g3_manifest": "poc/benchmark/manifest.json",
+    "runner": "poc/benchmark/runner/",
+    "evaluator": "poc/benchmark/evaluator/",
+    "verification_script": "poc/benchmark/verify-fixture.sh"
+  },
+  "hashes": {
+    "this_manifest": "sha256:f22735306e6bd1784ac0750b8747b774355b42524b10414cead6e869ad822ae4",
+    "g3_manifest": "sha256:76904ae16521221394ad88dd61ae3e5dba841f87564565950762945d83727702",
+    "questions": "sha256:6686a784207db62dac054e627b8b3db479297f9cc8409e371486d8968bb40895",
+    "expected_answers": "sha256:6c832614e0ca7beea9a45e103f84925193a9817f9fabcdfb1f164a926bf03f62"
+  },
+  "warnings": [
+    "This manifest is now locked and must not be modified",
+    "Any modification will invalidate the benchmark",
+    "All gates G0-G5 must remain satisfied"
+  ],
+  "frozen_at": "2026-11-15T17:01:43.007Z",
+  "locked": true,
+  "hash": "sha256:f22735306e6bd1784ac0750b8747b774355b42524b10414cead6e869ad822ae4",
+  "note": "FROZEN AFTER PILOT - DO NOT MODIFY"
+}
