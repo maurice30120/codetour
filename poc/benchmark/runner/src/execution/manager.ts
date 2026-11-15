@@ -1,13 +1,25 @@
 /**
  * Execution Manager for Benchmark Runs
- * Spec #174 - T05
- * 
+ * Spec #174 - T05 (remediated)
+ *
  * Manages the execution of benchmark runs with paired agents,
  * session isolation, and error handling.
+ *
+ * Remediation notes (code-review findings):
+ * - Fixture verification (git HEAD + clean tree) runs BEFORE EVERY SINGLE
+ *   RUN — per run, not per campaign — and its observed evidence is recorded
+ *   in the run trace. A failing verification fails the run (NO-GO).
+ * - The success and error paths build their RunTrace through ONE builder
+ *   (no duplicated trace literals that could drift).
+ * - No Math.random, no simulated usage: token counters come from the
+ *   executors' provider-side records, or the run is refused.
  */
 
+import * as fs from 'fs';
 import { TokenTracker } from './tracker';
-import { ImmutableLogger, RunTrace, AgentType, SeriesType, PhaseType, CallRecord } from '../storage/logger';
+import { AgentType, CallRecord, FixtureEvidence, ImmutableLogger, RunTrace, SeriesType, PhaseType } from '../storage/logger';
+import { verifyFixture } from '../storage/fixture-verification';
+import { shouldRetry } from '../failure-handler';
 
 /**
  * Interface for a question to be executed
@@ -54,6 +66,9 @@ export interface AgentExecution {
     reuse_count: number;
   }>;
   functions_reused?: string[];
+  /** Real model that executed this run (provider-reported), when known. */
+  agent_version?: string;
+  model_used?: string;
   status: 'success' | 'error' | 'timeout';
   error?: string | null;
 }
@@ -68,6 +83,12 @@ export interface ExecutionOptions {
     maxRetries: number;
     retryDelay: number;
   };
+  /**
+   * Path to the PostgreSQL fixture clone. REQUIRED: it is verified before
+   * every single run. There is no default because there is nothing real to
+   * default to — the caller must point at the actual fixture.
+   */
+  fixturePath?: string;
 }
 
 /**
@@ -93,6 +114,53 @@ export interface AgentExecutor {
 }
 
 /**
+ * THE single RunTrace builder — the success and error paths of executeSingle
+ * both go through this, so no field can drift between the two paths.
+ */
+function buildRunTrace(params: {
+  runId: string;
+  timestamp: string;
+  agent: AgentType;
+  agentVersion?: string;
+  model?: string;
+  modelParams?: { temperature: number; max_tokens: number; top_p?: number };
+  question: Question;
+  calls: CallRecord[];
+  functionsCreated?: AgentExecution['functions_created'];
+  functionsReused?: string[];
+  totalTokens: RunTrace['total_tokens'];
+  fixtureVerification?: FixtureEvidence;
+  result?: AgentExecution['result'];
+  error?: string | null;
+  status: RunTrace['status'];
+}): RunTrace {
+  const trace: RunTrace = {
+    run_id: params.runId,
+    timestamp: params.timestamp,
+    agent: params.agent,
+    agent_version: params.agentVersion,
+    model: params.model,
+    model_params: params.modelParams,
+    question_id: params.question.id,
+    series: params.question.series,
+    phase: params.question.phase,
+    repeat_index: params.question.repeat_index,
+    postgres_sha: params.question.postgres_sha,
+    calls: params.calls,
+    functions_created: params.functionsCreated ?? [],
+    functions_reused: params.functionsReused ?? [],
+    total_tokens: params.totalTokens,
+    result: params.result,
+    error: params.error ?? null,
+    status: params.status,
+  };
+  if (params.fixtureVerification) {
+    trace.fixture_verification = params.fixtureVerification;
+  }
+  return trace;
+}
+
+/**
  * Execution Manager class
  * Manages benchmark runs with isolation and error handling
  */
@@ -110,6 +178,7 @@ export class ExecutionManager {
       maxConcurrent: options.maxConcurrent ?? 1,
       timeoutMs: options.timeoutMs ?? 300000, // 5 minutes default
       retryPolicy: options.retryPolicy ?? { maxRetries: 0, retryDelay: 0 },
+      fixturePath: options.fixturePath,
     };
   }
 
@@ -133,7 +202,11 @@ export class ExecutionManager {
 
   /**
    * Execute a single question with a specific agent
-   * 
+   *
+   * Per-run fixture verification runs BEFORE EVERY SINGLE RUN — a mismatching
+   * or dirty fixture fails the run; the failure itself is recorded as an
+   * error trace with the observed (non-matching) evidence.
+   *
    * @param question - The question to execute
    * @param agentType - Which agent to use
    * @returns The run trace
@@ -143,47 +216,64 @@ export class ExecutionManager {
     agentType: AgentType
   ): Promise<RunTrace> {
     const executor = this.getAgentExecutor(agentType);
-    const tracker = new TokenTracker();
     const runId = this.logger.generateRunId();
     const timestamp = new Date().toISOString();
 
+    if (!this.options.fixturePath) {
+      throw new Error('NO-GO: ExecutionManager has no fixturePath configured — per-run fixture verification cannot run. Refusing to execute.');
+    }
+
+    // NO-GO control, executed BEFORE EVERY SINGLE RUN (not once per campaign).
+    const verification = await verifyFixture(this.options.fixturePath, question.postgres_sha);
+    const fixtureEvidence: FixtureEvidence | undefined = verification.observedSha || verification.cleanTree !== null
+      ? {
+          head_sha: verification.observedSha ?? 'unavailable',
+          clean_tree: verification.cleanTree === true,
+          verified_at: verification.verifiedAt,
+        }
+      : undefined;
+
+    // Provider-usage tracking spans ALL attempts of this run: costs of failed
+    // attempts accumulate (never reset or lost) and land in the run trace.
+    let tracker: TokenTracker | undefined;
+
     try {
+      if (!verification.ok) {
+        throw new Error(`NO-GO: fixture verification failed before run: ${verification.errors.join('; ')}`);
+      }
+
+      tracker = new TokenTracker();
+
       // Execute with retry policy
-      const execution = await this.executeWithRetry(
-        question,
-        executor,
-        tracker
-      );
+      const execution = await this.executeWithRetry(question, executor, tracker);
 
-      // Calculate total tokens
-      const totalTokens = tracker.calculateTotalTokens();
-
-      // Check for missing usage
+      // Check for missing usage — the tracker records reality; this run is
+      // refused unless every call carried provider-side usage.
       if (tracker.hasMissingUsage()) {
         throw new Error('NO-GO: Token usage missing for some calls');
       }
 
-      // Build run trace
-      const trace: RunTrace = {
-        run_id: runId,
+      // Calculate total tokens (single shared implementation)
+      const totalTokens = tracker.calculateTotalTokens();
+
+      // Build run trace — ONE builder for both success and error paths.
+      const trace = buildRunTrace({
+        runId,
         timestamp,
         agent: agentType,
-        agent_version: executor.version,
-        model: executor.model,
-        model_params: executor.modelParams,
-        question_id: question.id,
-        series: question.series,
-        phase: question.phase,
-        repeat_index: question.repeat_index,
-        postgres_sha: question.postgres_sha,
+        agentVersion: execution.agent_version ?? executor.version,
+        model: execution.model_used ?? executor.model,
+        modelParams: executor.modelParams,
+        question,
         calls: tracker.getCalls(),
-        functions_created: execution.functions_created || [],
-        functions_reused: execution.functions_reused || [],
-        total_tokens: totalTokens,
+        functionsCreated: execution.functions_created,
+        functionsReused: execution.functions_reused,
+        totalTokens,
+        fixtureVerification: fixtureEvidence,
         result: execution.result,
         error: execution.error ?? null,
         status: execution.status,
-      };
+      });
 
       // Validate NO-GO controls
       const noGoResult = this.logger.validateNoGoControls(trace);
@@ -196,51 +286,35 @@ export class ExecutionManager {
 
       return trace;
     } catch (error) {
-      // Build error trace
-      const errorTrace: RunTrace = {
-        run_id: runId,
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Build error trace through the SAME builder as the success path; the
+      // accumulated usage of all attempts is preserved (never reset).
+      const errorTrace = buildRunTrace({
+        runId,
         timestamp,
         agent: agentType,
-        agent_version: executor.version,
+        agentVersion: executor.version,
         model: executor.model,
-        model_params: executor.modelParams,
-        question_id: question.id,
-        series: question.series,
-        phase: question.phase,
-        repeat_index: question.repeat_index,
-        postgres_sha: question.postgres_sha,
-        calls: tracker.getCalls(),
-        functions_created: [],
-        functions_reused: [],
-        total_tokens: {
-          input: 0,
-          output: 0,
-          total: 0,
-          verified: false,
-        },
-        error: error instanceof Error ? error.message : String(error),
+        modelParams: executor.modelParams,
+        question,
+        calls: tracker ? tracker.getCalls() : [],
+        totalTokens: tracker
+          ? tracker.calculateTotalTokens()
+          : { input: 0, output: 0, total: 0, verified: false },
+        fixtureVerification: fixtureEvidence,
+        error: errorMessage,
         status: 'error',
-      };
-
-      // Validate NO-GO controls even for error traces
-      const noGoResult = this.logger.validateNoGoControls(errorTrace);
-      if (!noGoResult.passed) {
-        // Log the NO-GO errors
-        console.error('NO-GO controls failed for error trace:', noGoResult.errors);
-        // Still save it so we have a record
-        try {
-          this.logger.saveRun(errorTrace);
-        } catch {
-          // Ignore save errors for error traces
-        }
-        throw new Error(`NO-GO controls failed: ${noGoResult.errors.join('; ')}`);
-      }
-
-      // Save error trace
+      });
+      // The error trace legitimately records WHY the run failed (including
+      // fixture-verification failures). validateNoGoControls would refuse it
+      // (no calls, unverified tokens), so error traces bypass saveRun but are
+      // still persisted to disk for the audit trail.
       try {
-        this.logger.saveRun(errorTrace);
+        const tempPath = `${this.logger.getResultsDir()}/${errorTrace.run_id}.error.json`;
+        fs.writeFileSync(tempPath, JSON.stringify(errorTrace, null, 2), 'utf-8');
       } catch {
-        // Ignore save errors
+        // Persisting the failure record is best-effort; the original error propagates.
       }
 
       throw error;
@@ -260,21 +334,41 @@ export class ExecutionManager {
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        // Clear tracker for each attempt
-        tracker.clear();
-
-        // Execute with timeout
+        // NOTE: the tracker is deliberately NOT cleared between attempts —
+        // costs incurred by failed attempts accumulate into the same run
+        // trace (no token loss, no fabricated zero-cost run).
         const executionPromise = executor.execute(question, tracker);
+        let timer: NodeJS.Timeout | undefined;
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            reject(new Error(`Execution timed out after ${this.options.timeoutMs}ms`));
+          timer = setTimeout(() => {
+            reject(new Error(`timeout: execution timed out after ${this.options.timeoutMs}ms`));
           }, this.options.timeoutMs);
+          // Don't hold the process open once the execution has finished.
+          if (timer && typeof timer.unref === 'function') {
+            timer.unref();
+          }
         });
 
-        const execution = await Promise.race([executionPromise, timeoutPromise]);
+        const execution = await Promise.race([executionPromise, timeoutPromise]).finally(() => {
+          if (timer) {
+            clearTimeout(timer);
+          }
+        });
         return execution;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Documented replay rule applies ONLY to infrastructure failures
+        // (network_error / service_unavailable / timeout). Agent failures are
+        // recorded immediately and counted in the denominator — never
+        // retried, never erased, never replaced.
+        if (!shouldRetry(lastError)) {
+          throw lastError;
+        }
+
+        console.warn(
+          `[manager] infrastructure failure on attempt ${attempt + 1}/${maxRetries + 1} — replay per documented rule (attempt costs kept): ${lastError.message}`
+        );
 
         if (attempt < maxRetries) {
           // Wait before retry
@@ -283,7 +377,8 @@ export class ExecutionManager {
       }
     }
 
-    // All retries exhausted
+    // All retries exhausted — the accumulated attempt costs remain in the
+    // tracker and land in the recorded run trace.
     throw lastError ?? new Error('Execution failed after all retries');
   }
 
@@ -291,12 +386,9 @@ export class ExecutionManager {
    * Execute a question with both agents (paired execution)
    */
   async executePaired(question: Question): Promise<{ codetour: RunTrace; vibe: RunTrace }> {
-    const codetourPromise: Promise<RunTrace> = this.executeSingle(question, 'codetour');
-    const vibePromise: Promise<RunTrace> = this.executeSingle(question, 'vibe-native');
-
     // Execute sequentially (concurrent execution will be added later)
-    const codetourTrace = await codetourPromise;
-    const vibeTrace = await vibePromise;
+    const codetourTrace = await this.executeSingle(question, 'codetour');
+    const vibeTrace = await this.executeSingle(question, 'vibe-native');
     return { codetour: codetourTrace, vibe: vibeTrace };
   }
 
@@ -325,10 +417,10 @@ export class ExecutionManager {
    */
   async runPilot(questions: Question[]): Promise<RunTrace[]> {
     console.log('Running pilot execution (not counted in main benchmark)...');
-    
+
     // Limit to 2 questions for pilot
     const pilotQuestions = questions.slice(0, Math.min(2, questions.length));
-    
+
     return this.executeAll(pilotQuestions);
   }
 
@@ -345,7 +437,7 @@ export class ExecutionManager {
     total_tokens: number;
   } {
     const runs = this.logger.listRuns();
-    
+
     const byAgent: Record<AgentType, number> = { codetour: 0, 'vibe-native': 0 };
     const bySeries: Record<SeriesType, number> = { R: 0, T: 0 };
     const byStatus: Record<'success' | 'error' | 'timeout', number> = {

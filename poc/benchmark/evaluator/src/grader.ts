@@ -5,6 +5,9 @@
  * against PostgreSQL code at SHA 70c4a57b64d39c526eb4c44a925eb92a6e56f3c5
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 import {
   AgentResponse,
   Claim,
@@ -61,9 +64,8 @@ export class TourGrader {
   private config: GraderConfig;
   private verificationOptions: VerificationOptions;
   
-  // Cache for file reads to improve performance
+  // Cache for file reads to improve performance (real reads, real cache)
   private fileCache: Map<string, string> = new Map();
-  private citationVerificationCache: Map<string, CitationVerificationResult> = new Map();
 
   constructor(config: Partial<GraderConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -158,7 +160,7 @@ export class TourGrader {
         }
       }
       
-      if (claimResult.false) {
+      if (claimResult.isFalse) {
         result.critical_false_claim = true;
         result.correct = false;
         const claim = response.claims.find(c => c.id === claimResult.claim_id);
@@ -175,21 +177,41 @@ export class TourGrader {
       }
     }
 
-    // Step 2: Check for missing relations
+    // Step 2: Check for missing relations — a critical relation counts as
+    // missing when it is not provided OR provided-but-unverified against the
+    // real code (a found-but-unverified relation is NOT an acceptable proof).
     const relationResults = await this.checkRelations(
       response.relations,
-      question.relations_to_verify || []
+      question.relations_to_verify || [],
+      response.citations
     );
     result.relation_results = relationResults;
     
     const missingCritical = relationResults.filter(
-      r => !r.found && r.expected.critical
+      r => (!r.found || !r.verified) && r.expected.critical
     );
     
     if (missingCritical.length > 0) {
       result.major_missing_relation = true;
       result.missing_relations = missingCritical.map(r => r.expected);
       result.correct = false;
+    }
+
+    // Fabricated relation evidence — a citation pointing at a nonexistent
+    // file or an out-of-range line — is a critical false claim (spec §6:
+    // proofs are verified against the real code, fabricated proofs fail).
+    const fabricatedRelations = relationResults.filter(r => r.fabricated);
+    if (fabricatedRelations.length > 0) {
+      result.critical_false_claim = true;
+      result.correct = false;
+      result.failed_claims.push({
+        claim: `Relation${fabricatedRelations.length > 1 ? 's' : ''} with fabricated citation evidence: ${fabricatedRelations.map(r => r.relation_id).join(', ')}`,
+        claim_id: 'relation-fabricated-evidence',
+        reason: 'fabricated_evidence',
+        expected: 'Citations pointing at existing files and lines in the fixture',
+        actual: 'Citations pointing at nonexistent files or out-of-range lines',
+        severity: 'critical',
+      });
     }
 
     // Step 3: Calculate coverage
@@ -224,7 +246,7 @@ export class TourGrader {
     claim_id: string;
     supported: boolean;
     verified: boolean;
-    false: boolean;
+    isFalse: boolean;
     reason?: string;
     expected?: string;
   }>> {
@@ -233,14 +255,11 @@ export class TourGrader {
     for (const claim of response.claims) {
       const claimResult = await this.evaluateClaim(claim, response.citations);
       
-      // Check if this claim addresses expected relations or areas
-      const isExpected = this.isClaimExpected(claim, question);
-      
       results.push({
         claim_id: claim.id,
         supported: claimResult.supported,
         verified: claimResult.verified,
-        false: claimResult.false,
+        isFalse: claimResult.isFalse,
         reason: claimResult.reason,
         expected: claimResult.expected,
       });
@@ -251,6 +270,11 @@ export class TourGrader {
 
   /**
    * Evaluate a single claim
+   *
+   * A claim is supported only by citations that verify against the real
+   * fixture code. A citation pointing at a nonexistent file or line is
+   * FABRICATED evidence: for a critical claim this makes the claim a false
+   * claim (spec §6); for any claim it makes the claim unsupported.
    */
   private async evaluateClaim(
     claim: Claim,
@@ -258,7 +282,7 @@ export class TourGrader {
   ): Promise<{
     supported: boolean;
     verified: boolean;
-    false: boolean;
+    isFalse: boolean;
     reason?: string;
     expected?: string;
   }> {
@@ -267,7 +291,7 @@ export class TourGrader {
       return {
         supported: false,
         verified: false,
-        false: false,
+        isFalse: false,
         reason: 'No citations provided',
       };
     }
@@ -282,7 +306,7 @@ export class TourGrader {
       return {
         supported: false,
         verified: false,
-        false: false,
+        isFalse: false,
         reason: 'Citations not found',
       };
     }
@@ -290,26 +314,23 @@ export class TourGrader {
     // Verify each supporting citation
     let anyValid = false;
     let anyFalse = false;
+    let anyFabricated = false;
     let reason: string | undefined;
     let expected: string | undefined;
     
     for (const citation of supportingCitations) {
-      const cacheKey = `${citation.file}:${citation.line}`;
-      let verification: CitationVerificationResult;
-      
-      // Check cache
-      if (this.citationVerificationCache.has(cacheKey)) {
-        verification = this.citationVerificationCache.get(cacheKey)!;
-      } else {
-        verification = await this.verifyCitation(citation);
-        this.citationVerificationCache.set(cacheKey, verification);
-      }
+      const verification = await this.verifyCitation(citation);
       
       if (verification.valid) {
         anyValid = true;
       } else {
-        // Check if the citation exists but doesn't support the claim
-        if (verification.file_exists && verification.line_valid) {
+        if (!verification.file_exists || !verification.line_valid) {
+          // The cited location does not exist in the fixture: fabricated
+          // evidence, not merely an insufficient one.
+          anyFabricated = true;
+          reason = verification.error || 'Citation points at a nonexistent file/line';
+          expected = 'An existing file and line inside the fixture at the pinned SHA';
+        } else if (verification.file_exists && verification.line_valid) {
           // The line exists but doesn't match the claimed content
           // This could indicate a false claim
           anyFalse = true;
@@ -321,39 +342,28 @@ export class TourGrader {
 
     // If at least one valid citation, the claim is supported
     const supported = anyValid;
-    const verified = anyValid && !anyFalse;
-    const isFalse = anyFalse && !anyValid;
+    const verified = anyValid && !anyFalse && !anyFabricated;
+    const isFalse = (anyFalse || (anyFabricated && claim.critical === true)) && !anyValid;
+    const notSupportedReason = anyFabricated
+      ? 'Fabricated evidence (citation to nonexistent file/line)'
+      : 'No valid citation supporting this claim';
     
     // Special case: if claim is critical and false, mark as false
-    if (claim.critical && isFalse) {
+    if (claim.critical && (isFalse || (anyFabricated && !anyValid))) {
       return {
         supported: false,
         verified: false,
-        false: true,
-        reason: reason || 'Critical claim contradicted by code',
+        isFalse: true,
+        reason: reason || notSupportedReason,
         expected,
       };
-    }
-    
-    // If no valid citations, check if the claim is about a known relation
-    // that we can verify directly
-    if (!anyValid) {
-      // Try to verify the claim semantically
-      const semanticVerification = await this.verifyClaimSemantically(claim);
-      if (semanticVerification.verified) {
-        return {
-          supported: true,
-          verified: true,
-          false: false,
-        };
-      }
     }
     
     return {
       supported,
       verified,
-      false: isFalse,
-      reason,
+      isFalse,
+      reason: reason,
       expected,
     };
   }
@@ -486,71 +496,46 @@ export class TourGrader {
   }
 
   /**
-   * Check if a claim is expected based on the question
-   */
-  private isClaimExpected(claim: Claim, question: Question): boolean {
-    // Check if claim mentions any expected relations
-    for (const expectedRelation of question.relations_to_verify || []) {
-      if (claim.statement.includes(expectedRelation.from) && 
-          claim.statement.includes(expectedRelation.to)) {
-        return true;
-      }
-    }
-    
-    // Check if claim mentions any expected areas
-    for (const expectedArea of question.expected_areas || []) {
-      if (claim.statement.includes(expectedArea.file)) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
-
-  /**
-   * Semantic verification of a claim (without direct citation)
-   */
-  private async verifyClaimSemantically(claim: Claim): Promise<{ verified: boolean; reason?: string }> {
-    // This is a placeholder for semantic verification
-    // In a real implementation, this might use:
-    // 1. Pattern matching against known PostgreSQL code patterns
-    // 2. LLM-based verification (but that would violate G4 independence)
-    // 3. Pre-defined knowledge about PostgreSQL
-    
-    // For now, we'll return false to force explicit citations
-    return { verified: false, reason: 'Semantic verification not implemented' };
-  }
-
-  /**
-   * Check relations against expected relations
+   * Check relations against expected relations, verifying every provided
+   * relation's citations against the REAL fixture code. A relation is
+   * `verified` only when its citation evidence proves it against the code;
+   * `fabricated` marks evidence pointing at nonexistent files/lines (a
+   * critical false claim, spec §6).
    */
   private async checkRelations(
     providedRelations: Relation[],
-    expectedRelations: ExpectedRelation[]
+    expectedRelations: ExpectedRelation[],
+    responseCitations: Citation[]
   ): Promise<Array<{
     relation_id: string;
     expected: ExpectedRelation;
     found: boolean;
     verified: boolean;
+    fabricated: boolean;
+    reason?: string;
   }>> {
     const results = [];
     
     for (const expected of expectedRelations) {
       let found = false;
       let verified = false;
-      let bestMatch: Relation | undefined;
+      let fabricated = false;
+      let reason: string | undefined;
       
       // Look for matching relation
       for (const provided of providedRelations) {
         if (this.relationsMatch(provided, expected)) {
           found = true;
-          bestMatch = provided;
           
-          // Verify the relation by checking citations
-          if (bestMatch.citations && bestMatch.citations.length > 0) {
-            verified = await this.verifyRelation(bestMatch, expected);
+          // Verify the relation against the real code through its citations
+          if (provided.citations && provided.citations.length > 0) {
+            const verification = await this.verifyRelation(provided, expected, responseCitations);
+            verified = verification.verified;
+            fabricated = verification.fabricated;
+            reason = verification.reason;
           } else {
             verified = false;
+            reason = 'Relation provided without any citation';
           }
           break;
         }
@@ -561,6 +546,8 @@ export class TourGrader {
         expected,
         found,
         verified,
+        fabricated,
+        reason,
       });
     }
     
@@ -595,25 +582,76 @@ export class TourGrader {
   }
 
   /**
-   * Verify a relation by checking its citations
+   * Verify a relation against the REAL code. Every citation must point at an
+   * existing file with a valid line; the cited context must carry structural
+   * evidence of the claimed relation: both endpoint symbols present, and for
+   * a directional `calls` relation the target in call syntax. Citations to
+   * nonexistent files/lines are fabricated evidence, never a valid proof.
    */
   private async verifyRelation(
     provided: Relation,
-    expected: ExpectedRelation
-  ): Promise<boolean> {
+    expected: ExpectedRelation,
+    responseCitations: Citation[]
+  ): Promise<{ verified: boolean; fabricated: boolean; reason?: string }> {
     // If no citations, cannot verify
     if (!provided.citations || provided.citations.length === 0) {
-      return false;
+      return { verified: false, fabricated: false, reason: 'No citations provided for relation' };
     }
     
-    // In a real implementation, we would:
-    // 1. Read the PostgreSQL files referenced in citations
-    // 2. Verify that the relation actually exists in the code
-    // 3. Check that the type of relation is correct
+    // The directional requirement comes from the PRE-REGISTERED expectation,
+    // not from what the response chose to claim: a 'uses' prose claim cannot
+    // verify an expected 'calls' relation.
+    const directional = (expected.type || provided.type) === 'calls';
+    const fromSymbol = this.lastSymbolOf(provided.from);
+    const toSymbol = this.lastSymbolOf(provided.to);
+
+    for (const citationRef of provided.citations) {
+      const citation = responseCitations.find(c => c.id === citationRef);
+      if (!citation) {
+        return { verified: false, fabricated: true, reason: `Relation cites unknown citation id: ${citationRef}` };
+      }
+
+      const fileContent = await this.readFile(this.getPostgresFilePath(citation.file));
+      if (fileContent === null) {
+        return { verified: false, fabricated: true, reason: `Citation file not found in fixture: ${citation.file}` };
+      }
+      const lines = fileContent.split('\n');
+      if (citation.line < 1 || citation.line > lines.length) {
+        return { verified: false, fabricated: true, reason: `Citation line out of range: ${citation.file}:${citation.line}` };
+      }
+
+      // Structural evidence inside the cited context window.
+      const window = this.getContextLines(citation, lines).join('\n');
+      if (fromSymbol && toSymbol) {
+        if (!window.includes(fromSymbol) || !window.includes(toSymbol)) {
+          return {
+            verified: false,
+            fabricated: false,
+            reason: `Cited context does not evidence both endpoints (${fromSymbol}, ${toSymbol})`,
+          };
+        }
+        if (directional && !new RegExp(`${this.escapeRegExp(toSymbol)}\\s*\\(`).test(window)) {
+          return {
+            verified: false,
+            fabricated: false,
+            reason: `Call direction not evidenced in cited context (no ${toSymbol}(...) invocation)`,
+          };
+        }
+      }
+    }
     
-    // For now, we'll assume the relation is verified if it has citations
-    // This is a simplification - real implementation would verify against actual code
-    return true;
+    return { verified: true, fabricated: false };
+  }
+
+  /** Last meaningful identifier of an entity name (strip scopes/paths). */
+  private lastSymbolOf(entity: string): string | undefined {
+    const parts = entity.split(/[./::\\]+/).filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : undefined;
+  }
+
+  /** Escape a symbol for safe inclusion in a RegExp. */
+  private escapeRegExp(symbol: string): string {
+    return symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   /**
@@ -631,9 +669,19 @@ export class TourGrader {
     let coveredAreas = 0;
     
     for (const expectedArea of expectedAreas) {
-      // Check if any citation covers this area
+      // Check if any VERIFIED citation covers this area: the cited file must
+      // REALLY exist in the fixture and the cited line must exist — a
+      // citation to a nonexistent file/line cannot cover anything.
       for (const citation of citations) {
         if (citation.file === expectedArea.file) {
+          const content = await this.readFile(this.getPostgresFilePath(citation.file));
+          if (content === null) {
+            continue; // nonexistent/unreadable file cannot prove coverage
+          }
+          const lineCount = content.split('\n').length;
+          if (citation.line < 1 || citation.line > lineCount) {
+            continue; // fabricated line number
+          }
           // Check if line is in expected range
           if (expectedArea.lines) {
             if (Array.isArray(expectedArea.lines)) {
@@ -762,24 +810,30 @@ export class TourGrader {
   }
 
   /**
-   * Read a file from disk (with caching)
+   * Read a file from disk (with caching). Reads the REAL file from the
+   * fixture: any path resolved outside the fixture root is rejected, so a
+   * citation can only prove itself against the checked-out PostgreSQL tree.
+   * A nonexistent file returns null (verification then reports
+   * file_exists=false — fabricated evidence).
    */
-  private async readFile(path: string): Promise<string | null> {
+  private async readFile(filePath: string): Promise<string | null> {
     // Check cache
-    if (this.fileCache.has(path)) {
-      return this.fileCache.get(path)!;
+    if (this.fileCache.has(filePath)) {
+      return this.fileCache.get(filePath)!;
     }
     
-    // In the sandbox environment, we need to use tools.file_system
-    // For now, return null and let the verifier handle it
-    // In a real implementation, this would read from the filesystem
-    
-    // For testing purposes, we'll return a mock file content
-    // Real implementation would use: fs.readFileSync or similar
-    
-    // Placeholder: return null to indicate file not found
-    // The actual implementation would need filesystem access
-    return null;
+    try {
+      const root = path.resolve(this.config.postgres_path);
+      const resolved = path.resolve(filePath);
+      if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+        return null; // outside the fixture: cannot be used as evidence
+      }
+      const content = fs.readFileSync(resolved, 'utf-8');
+      this.fileCache.set(filePath, content);
+      return content;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -787,7 +841,6 @@ export class TourGrader {
    */
   clearCaches(): void {
     this.fileCache.clear();
-    this.citationVerificationCache.clear();
   }
 
   /**

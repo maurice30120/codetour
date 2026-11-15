@@ -16,7 +16,7 @@ test('compact search marks truncation and suppresses only unchanged repeated res
     await writeFile(file, Array.from({ length: 10 }, (_, i) => `const alpha${i} = 1;`).join('\n'));
     const memory = { directory: join(base, 'memory'), compactSearch: true };
     const store = await scriptMemory(root, memory.directory);
-    await store.finish([], [{ objective: 'Find', description: 'Search', code: 'search(params.query)', parameters: ['query'], verified: true }]);
+    await store.finish([], [{ objective: 'Find', description: 'Search', name: 'searchRepoLiterals', code: 'search(params.query)', parameters: ['query'], verified: true, consolidationSignal: { executedSuccessfully: true, proofAvailable: true, contractRespected: true } }]);
     const id = store.catalog()[0].id;
     let step = 0;
     const result = await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
@@ -42,20 +42,33 @@ test('compact search marks truncation and suppresses only unchanged repeated res
   } finally { await rm(base, { recursive: true, force: true }); }
 });
 
-test('optional deduplication skips new exact code duplicates without changing existing ids', async () => {
+test('deduplication refuses a decided duplicate and flags indéterminé comparisons instead of merging them', async () => {
   const root = await mkdtemp(join(tmpdir(), 'memory-dedup-'));
   const { scriptMemory } = await import('../src/memory.ts');
   try {
     const directory = join(root, 'memory');
-    const legacy = await scriptMemory(root, directory);
-    const candidate = { objective: 'Search', description: 'First', code: 'search(params.query)', parameters: ['query'], verified: true };
-    await legacy.finish([], [candidate, { ...candidate, description: 'Legacy duplicate' }]);
-    const oldIds = legacy.catalog().map(e => e.id);
-    const store = await scriptMemory(root, directory, { deduplicate: true });
-    await store.finish([], [{ ...candidate, description: 'Another duplicate' }, { ...candidate, description: 'Different code', code: 'search(params.query).slice(0,5)' }]);
-    assert.deepEqual(store.catalog().slice(0, 2).map(e => e.id), oldIds);
-    assert.equal(store.catalog().length, 3);
-    assert.ok(oldIds.every(id => store.get(id)));
+    const store = await scriptMemory(root, directory);
+    const candidate = { objective: 'Search', description: 'First', name: 'searchRepoLiterals', code: 'search(params.query)', parameters: ['query'], verified: true, returns: 'SearchMatch[] {file,line,text}', consolidationSignal: { executedSuccessfully: true, proofAvailable: true, contractRespected: true } };
+    // Same question + périmètre + contrat under ANOTHER name => duplicate, not stored.
+    await store.finish([], [candidate, { ...candidate, name: 'findRepoLiterals' }]);
+    const idsAfterDuplicate = store.catalog().map(e => e.id);
+    assert.equal(idsAfterDuplicate.length, 1);
+    assert.deepEqual(store.catalog().map(e => e.id), ['searchRepoLiterals']);
+    assert.ok(store.get('searchRepoLiterals'));
+    // Same question + périmètre + DIFFERENT contract => a distinct entry.
+    await store.finish([], [{ ...candidate, name: 'countRepoLiterals', code: 'search(params.query).length', returns: '{count: number}' }]);
+    const catalog = store.catalog();
+    assert.equal(catalog.length, 2);
+    assert.equal(catalog.find(e => e.id === 'countRepoLiterals')?.variantOf, undefined);
+    // Indéterminé comparison (the stored entry declares NO contract, the
+    // candidate does): BOTH entries are kept, the new one flagged variantOf —
+    // no invented equivalence.
+    await store.finish([], [{ ...candidate, name: 'listRepoLiterals', code: 'search(params.query).slice(0, 5)', returns: undefined }]);
+    await store.finish([], [{ ...candidate, name: 'indexRepoLiterals', code: 'search(params.query).slice(0, 8)', returns: 'SearchMatch[]' }]);
+    const after = store.catalog();
+    assert.equal(after.length, 4);
+    assert.equal(after.find(e => e.id === 'indexRepoLiterals')?.variantOf, 'listRepoLiterals');
+    void idsAfterDuplicate;
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -69,10 +82,10 @@ test('declared literal search contract gives feedback and stores only the repair
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
     await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
-      if (step++ === 0) return { toolCalls: [{ id: 'bad', name: 'code', arguments: { code: 'search("alpha")', params: { query: 'alpha' }, remember: true, description: 'Find literal', contract: 'literal_query' } }] };
+      if (step++ === 0) return { toolCalls: [{ id: 'bad', name: 'code', arguments: { code: 'search("alpha")', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Find literal', contract: 'literal_query' } }] };
       if (step === 2) {
         assert.equal(JSON.parse(messages.at(-1).content).memoryValidation.status, 'fail');
-        return { toolCalls: [{ id: 'fixed', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, description: 'Find literal', contract: 'literal_query' } }] };
+        return { toolCalls: [{ id: 'fixed', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Find literal', contract: 'literal_query' } }] };
       }
       assert.equal(JSON.parse(messages.at(-1).content).memoryValidation.status, 'pass');
       return { result: { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
@@ -94,7 +107,7 @@ test('optional query probe rejects a hardcoded search but preserves a parameteri
       const memory = { directory: join(base, rejected ? 'bad' : 'good'), validateQuery: true };
       let step = 0;
       const result = await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-        if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code, params: { query: 'alpha' }, remember: true, description: 'Find symbol' } }] };
+        if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code, params: { query: 'alpha' }, remember: true, name: 'probeRepoSymbol', description: 'Find symbol' } }] };
         return { result: { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
       } } });
       assert.equal(result.metrics.memoryQueryRejects, Number(rejected));
@@ -104,7 +117,7 @@ test('optional query probe rejects a hardcoded search but preserves a parameteri
   } finally { await rm(base, { recursive: true, force: true }); }
 });
 
-test('a successful non-truncated candidate remains available without claiming verified success', async () => {
+test('non-truncated execution without structural proof is refused at consolidation', async () => {
   const base = await mkdtemp(join(tmpdir(), 'script-candidate-'));
   const root = join(base, 'repo');
   const { mkdir } = await import('node:fs/promises');
@@ -114,12 +127,14 @@ test('a successful non-truncated candidate remains available without claiming ve
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
     await explore({ root, objective: 'Test', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'code', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'missing' }, remember: true, description: 'Find symbol' } }] };
+      if (step++ === 0) return { toolCalls: [{ id: 'code', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'missing' }, remember: true, name: 'probeRepoSymbol', description: 'Find symbol' } }] };
       return { result: { objective: 'Test', entryPoints: [], components: [], relations: [], uncertainties: ['No match'] } };
     } } });
     step = 0;
     await explore({ root, objective: 'Inspect', codeMode: true, memory, model: { async complete(messages) {
-      if (step++ === 0) { assert.match(messages[0].content, /Find symbol/); }
+      // Correction 3: the consolidation trigger needs structural proof
+      // availability — an empty result is executed but consolidates nothing.
+      if (step++ === 0) { assert.match(messages[0].content, /Available entries: \[\]/); }
       return { result: { objective: 'Inspect', entryPoints: [], components: [], relations: [], uncertainties: [] } };
     } } });
   } finally { await rm(base, { recursive: true, force: true }); }
@@ -136,13 +151,13 @@ test('a search result can support a wider cited range and the catalog is include
     await writeFile(join(root, 'main.ts'), 'function alpha() {\n  return 1;\n}\n');
     let step = 0;
     await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'code', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, description: 'Find symbols' } }] };
+      if (step++ === 0) return { toolCalls: [{ id: 'code', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoSymbols', description: 'Find symbols' } }] };
       return { result: final };
     } } });
     step = 0;
     const second = await explore({ root, objective: 'Find alpha again', codeMode: true, memory, model: { async complete(messages) {
       if (step++ === 0) {
-        const catalog = JSON.parse(messages[0].content.match(/Available functions: (\[.*?\])\. If a listed function/)![1]);
+        const catalog = JSON.parse(messages[0].content.match(/Available entries: (\[.*?\])\. If a listed function/)![1]);
         assert.equal(catalog.length, 1);
         return { toolCalls: [{ id: 'reuse', name: 'memory_run', arguments: { id: catalog[0].id, params: { query: 'alpha' } } }] };
       }
@@ -162,7 +177,7 @@ test('memory saves a useful parameterized script and reruns it on current reposi
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
     await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, description: 'Find a literal' } }] };
+      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Find a literal' } }] };
       return { result: { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
     } } });
     await writeFile(join(root, 'main.ts'), 'first\nconst beta = 2;\n');
@@ -181,7 +196,7 @@ test('memory saves a useful parameterized script and reruns it on current reposi
   } finally { await rm(base, { recursive: true, force: true }); }
 });
 
-test('interrupted runs do not age a script, and ten evaluated inactive runs purge it', async () => {
+test('G0: interrupted runs do not age a script and inactive runs are never purged', async () => {
   const base = await mkdtemp(join(tmpdir(), 'script-retention-'));
   const root = join(base, 'repo');
   const { mkdir } = await import('node:fs/promises');
@@ -192,7 +207,7 @@ test('interrupted runs do not age a script, and ten evaluated inactive runs purg
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
     await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, description: 'Literal search' } }] };
+      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Literal search' } }] };
       return { result: { ...empty, entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
     } } });
     await explore({ root, objective: 'Interrupted', codeMode: true, memory, budget: { iterations: 1 }, model: { async complete() { return { toolCalls: [{ id: 'one', name: 'list', arguments: {} }] }; } } });
@@ -205,13 +220,20 @@ test('interrupted runs do not age a script, and ten evaluated inactive runs purg
       return { result: empty };
     } } });
     assert.equal(count, 1);
+    // G0: no inactivity-based purge — the unused script survives further runs.
     step = 0;
     await explore({ root, objective: 'Inspect again', codeMode: true, memory, model: { async complete(messages) {
       if (step++ === 0) return { toolCalls: [{ id: 'catalog', name: 'memory_list', arguments: {} }] };
       count = JSON.parse(messages.at(-1).content).length;
       return { result: empty };
     } } });
-    assert.equal(count, 0);
+    assert.equal(count, 1);
+    // Interrupted and inactive runs never age the entry either.
+    const { scriptMemory } = await import('../src/memory.ts');
+    const store = await scriptMemory(root, memory.directory);
+    const entry: any = store.get('findRepoLiteral');
+    assert.equal(entry.successes, 1);
+    assert.equal(entry.failures, 0);
   } finally { await rm(base, { recursive: true, force: true }); }
 });
 
@@ -226,7 +248,7 @@ test('a reference hidden by output truncation cannot cause a script to be saved'
     let step = 0;
     const final = { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] };
     await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: '({padding:"x".repeat(15000),file:"main.ts",line:1})', remember: true, description: 'test' } }] };
+      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: '({padding:"x".repeat(15000),file:"main.ts",line:1})', remember: true, name: 'padRepoOutput', description: 'test' } }] };
       return { result: final };
     } } });
     step = 0;
@@ -249,7 +271,7 @@ test('a first failure after a file change is retained and two errors in three at
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
     await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'read(params.file)', params: { file: 'main.ts' }, remember: true, description: 'Read file' } }] };
+      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'read(params.file)', params: { file: 'main.ts' }, remember: true, name: 'readRepoFile', description: 'Read file' } }] };
       return { result: { ...empty, entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
     } } });
     await rm(join(root, 'main.ts'));
@@ -285,7 +307,7 @@ test('the model can mark an output unusable for its declared subject after execu
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
     await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, description: 'Find identifier' } }] };
+      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoIdentifier', description: 'Find identifier' } }] };
       return { result: { ...empty, entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
     } } });
     for (let i = 0; i < 2; i++) {

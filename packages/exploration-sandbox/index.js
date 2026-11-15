@@ -1,9 +1,28 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
-function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal }) {
+function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scripts }) {
   if (typeof workspace !== 'string' || typeof code !== 'string' || code.length > 32768 || !Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 30000) {
     return Promise.reject(new Error('Invalid sandbox input'));
+  }
+  // Issue #174 complement: procedures call ONLY the ten permanent primitives.
+  // Composition across procedure outputs belongs to the agent's Tour logic,
+  // never inside memorized code. Reject any memorized function calling another
+  // memorized function (or the memory tools) with an explicit error.
+  let memorizedNames = [];
+  if (scripts !== undefined) {
+    if (!scripts || typeof scripts !== 'object' || Array.isArray(scripts)) {
+      return Promise.reject(new Error('Invalid sandbox input: scripts must be an object of name -> source'));
+    }
+    memorizedNames = Object.keys(scripts);
+    for (const name of memorizedNames) {
+      if (new RegExp(`\\b${name.replace(/\$/g, '\\$')}\\b`).test(code)) {
+        return Promise.reject(new Error(`NESTING_REJECTED: memorized procedure "${name}" cannot be called from inside another memorized procedure; compose in the Tour logic instead`));
+      }
+    }
+    if (/\b(memory_list|memory_run|function_try|memory_unusable)\b/.test(code)) {
+      return Promise.reject(new Error('NESTING_REJECTED: memory tools cannot be called from inside a memorized procedure; only the ten permanent primitives are callable'));
+    }
   }
   let paramsJson;
   try { paramsJson = JSON.stringify(params); }
@@ -39,7 +58,7 @@ function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal }) {
       } catch { finish(new Error('Invalid sandbox output')); }
     });
     child.stdin.on('error', () => {});
-    child.stdin.end(JSON.stringify({ workspace, code, paramsJson, deadline }));
+    child.stdin.end(JSON.stringify({ workspace, code, paramsJson, deadline, memorizedNames }));
   });
 }
 module.exports = { runScript };

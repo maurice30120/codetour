@@ -1,43 +1,102 @@
 /**
- * Vibe Native Agent Wrapper
- * Spec #174 - T05
- * 
- * Wraps the Vibe native research sub-agent for benchmark execution.
- * Implements the AgentExecutor interface.
+ * Vibe Native Agent Executor — REAL connector invocation (remediation).
+ *
+ * This replaces the fabricated simulator (previously: invented sessions,
+ * Math.random() file/line "citations", fake retry/orchestrator calls with
+ * hardcoded token estimates). The Vibe arm now invokes the REAL vibe CLI
+ * through packages/vibe-connector (its native research sub-agent invocation)
+ * and maps its REAL telemetry into the run trace.
+ *
+ * Hard honesty rules enforced here:
+ * - The connector must be present (built) and the vibe CLI available, or the
+ *   execution FAILS explicitly — the runner surfaces that as NO-GO/stop.
+ *   There is no simulated fallback path.
+ * - Per-call token usage comes from the real session journal
+ *   (perCallUsage, G2 evidence); a call without counters is recorded as
+ *   usage_missing and the run is refused by the NO-GO controls.
+ * - Citations are only file:line pairs actually present in the real response
+ *   text (extracted, never generated).
+ * - The real agent identity (vibe_version, active_model, observed subagent)
+ *   is recorded; nothing is renamed to satisfy a check.
  */
 
+import { createRequire } from 'module';
+import * as fs from 'fs';
+import * as path from 'path';
 import { TokenTracker } from '../execution/tracker';
-import { AgentExecutor, Question, AgentExecution } from '../execution/manager';
+import { AgentExecutor, AgentExecution, Question } from '../execution/manager';
+import { findRepoRoot } from './codetour';
 
-/**
- * Configuration for Vibe agent
- */
-export interface VibeConfig {
-  model: string;
-  temperature: number;
-  maxTokens: number;
-  topP?: number;
-  /** API endpoint or CLI path for Vibe */
-  endpoint?: string;
-  /** Whether to use native research sub-agent */
-  useNativeResearch: boolean;
+/** Structural typing over the vibe-connector public API (avoids a build-order dependency). */
+interface VibeConnectorModule {
+  invokeVibeNativeAgent(question: string, config?: Record<string, unknown>): Promise<{
+    id: string;
+    agent: { name: string; version: string; model: string };
+    question: string;
+    response: string;
+    tokens: { input: number; output: number; total: number };
+    perCallUsage: Array<{
+      callIndex: number;
+      inputTokens: number | null;
+      outputTokens: number | null;
+      usageMissing: boolean;
+      finishReason?: string;
+    }>;
+    toolsUsed: string[];
+    subagent?: string;
+    outcome?: string;
+    stopReason?: string | null;
+    durationMs: number;
+    executionMetadata: Record<string, unknown>;
+  }>;
+  validateG1(execution: unknown): boolean;
+  validateG2(execution: unknown): boolean;
 }
 
 /**
- * Default configuration for Vibe
+ * Configuration for the Vibe native executor.
  */
+export interface VibeConfig {
+  /** Explicit path to the built vibe-connector entry (dist/src/index.js). Resolved from the repo root when omitted. */
+  connectorModulePath?: string;
+  /** Fixture working directory handed to the vibe CLI (the directory the manager verifies per run). */
+  workDir?: string;
+  /** Path/name of the vibe CLI executable. */
+  vibeCommand?: string;
+  /** Model alias for headless runs. */
+  model?: string;
+  maxTurns: number;
+  timeoutMs: number;
+  temperature: number;
+  maxTokens: number;
+  topP?: number;
+}
+
 const DEFAULT_CONFIG: VibeConfig = {
-  model: 'mistral-large',
-  temperature: 0.7,
-  maxTokens: 4000,
-  topP: 0.95,
-  useNativeResearch: true,
+  maxTurns: 20,
+  timeoutMs: 300000,
+  temperature: 0,
+  maxTokens: 4096,
 };
 
-/**
- * Vibe Agent Executor
- * Wraps the Vibe native research sub-agent and tracks token usage
- */
+/** Locate and require the BUILT vibe-connector module. Explicit error when absent. */
+export function loadVibeConnector(from: string = __dirname): VibeConnectorModule {
+  const explicit = process.env.VIBE_CONNECTOR_PATH;
+  const modulePath = explicit
+    ? path.resolve(explicit)
+    : (() => {
+        const root = findRepoRoot(from);
+        if (!root) throw new Error('NO-GO: vibe-connector package not found searching upward; set VIBE_CONNECTOR_PATH explicitly');
+        return path.join(root, 'packages', 'vibe-connector', 'dist', 'src', 'index.js');
+      })();
+
+  if (!fs.existsSync(modulePath)) {
+    throw new Error(`NO-GO: vibe-connector build output not found at ${modulePath}. Run 'npm run build' in packages/vibe-connector — there is no simulated fallback.`);
+  }
+  const require_ = createRequire(__filename);
+  return require_(modulePath) as VibeConnectorModule;
+}
+
 export class VibeExecutor implements AgentExecutor {
   readonly name = 'vibe-native' as const;
   readonly version: string;
@@ -49,12 +108,13 @@ export class VibeExecutor implements AgentExecutor {
   };
 
   private config: VibeConfig;
-  private sessionId: string | null = null;
 
   constructor(config: Partial<VibeConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.version = '1.0.0';
-    this.model = this.config.model;
+    // Real identity comes from the execution (vibe_version / active_model),
+    // recorded per run in the trace; instance-level labels state the channel.
+    this.version = 'vibe-connector';
+    this.model = this.config.model ?? 'vibe-native-subagent';
     this.modelParams = {
       temperature: this.config.temperature,
       max_tokens: this.config.maxTokens,
@@ -63,144 +123,104 @@ export class VibeExecutor implements AgentExecutor {
   }
 
   /**
-   * Create a new session for Vibe
-   * Each run should be in a separate session for isolation
-   */
-  createSession(): void {
-    this.sessionId = `vibe-session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  /**
-   * End the current session
-   */
-  endSession(): void {
-    this.sessionId = null;
-  }
-
-  /**
-   * Execute a question with Vibe native research sub-agent
-   * This simulates the Vibe execution with proper token tracking
+   * Execute a question by invoking the REAL vibe CLI (native research
+   * sub-agent) through vibe-connector. Availability problems and invocation
+   * failures propagate as explicit errors — the runner records them and
+   * surfaces NO-GO. No result is ever fabricated.
    */
   async execute(question: Question, tracker: TokenTracker): Promise<AgentExecution> {
-    // Create a new session for this run (isolation)
-    this.createSession();
+    const connector = loadVibeConnector();
 
-    // Start with the initial prompt
-    const promptCallId = tracker.startCall('prompt', 'vibe_prompt', {
-      objective: question.objective,
-      session_id: this.sessionId,
-      use_native_research: this.config.useNativeResearch,
+    const workDir = this.workDirOf();
+    const execution = await connector.invokeVibeNativeAgent(question.objective, {
+      workDir,
+      vibeCommand: this.config.vibeCommand,
+      model: this.config.model && this.config.model !== 'vibe-native-subagent' ? this.config.model : undefined,
+      maxTurns: this.config.maxTurns,
+      timeoutMs: this.config.timeoutMs,
     });
 
-    // Simulate token usage for prompt
-    const promptUsage = {
-      input_tokens: 1500, // Estimated tokens for prompt
-      output_tokens: 800,
-    };
+    // Real gates, evaluated on real telemetry (the connector's own checks).
+    const g1 = connector.validateG1(execution);
+    const g2 = connector.validateG2(execution);
+    const gateFailures: string[] = [];
+    if (!g1) gateFailures.push('G1 (Authentic Vibe) failed');
+    if (!g2) gateFailures.push('G2 (Total instrumentation) failed');
 
-    tracker.completeCall(promptCallId, promptUsage, {
-      content: `Starting exploration: ${question.objective}`,
-      session_id: this.sessionId,
-    });
-
-    // Simulate native research sub-agent calls
-    // Vibe native research uses its own tools internally
-    const researchCallIds: string[] = [];
-
-    // Simulate search/tool calls by the native research sub-agent
-    if (question.expected_areas && question.expected_areas.length > 0) {
-      for (let i = 0; i < Math.min(3, question.expected_areas.length); i++) {
-        const researchCallId = tracker.startCall('search', 'vibe_research_search', {
-          query: question.objective,
-          area: question.expected_areas[i],
-          session_id: this.sessionId,
-        });
-        researchCallIds.push(researchCallId);
-
-        // Simulate search token usage
-        const searchUsage = {
-          input_tokens: 200,
-          output_tokens: 300,
-        };
-
-        tracker.completeCall(researchCallId, searchUsage, {
-          results: [
-            {
-              file: question.expected_areas[i],
-              line: Math.floor(Math.random() * 1000) + 1,
-              content: `Code at ${question.expected_areas[i]}`,
-            },
-          ],
-        });
+    // Per-call telemetry from the REAL session journal. Each recorded LLM call
+    // gets a call record with REAL provider usage, or an explicit
+    // usage_missing record (which NO-GO refuses).
+    for (const call of execution.perCallUsage) {
+      const callId = tracker.startCall('prompt', 'vibe_native_llm_call', {
+        call_index: call.callIndex,
+        finish_reason: call.finishReason,
+        session_id: execution.id,
+      });
+      if (call.usageMissing || call.inputTokens === null || call.outputTokens === null) {
+        tracker.completeCallWithMissingUsage(callId, { note: 'LLM call returned no usage counters — run refused by NO-GO' });
+      } else {
+        tracker.completeCall(callId, { input_tokens: call.inputTokens, output_tokens: call.outputTokens }, { session_id: execution.id });
       }
     }
 
-    // Simulate internal orchestrator calls
-    const orchestratorCallId = tracker.startCall('tool', 'vibe_orchestrator', {
-      session_id: this.sessionId,
-      action: 'consolidate_results',
-    });
+    // Observed tool names from the real execution are recorded in the result
+    // payload (they carry no provider usage of their own — creating a call
+    // record with zero tokens would be fabricated telemetry).
 
-    const orchestratorUsage = {
-      input_tokens: 400,
-      output_tokens: 250,
-    };
+    // Citations: only file:line references that actually occur in the real
+    // response text. Never generated.
+    const citations = extractCitations(execution.response);
 
-    tracker.completeCall(orchestratorCallId, orchestratorUsage, {
-      consolidated: true,
-      findings: question.expected_areas?.length || 0,
-    });
-
-    // Simulate potential retry (with usage tracking)
-    const retryCallId = tracker.startCall('retry', 'vibe_retry', {
-      session_id: this.sessionId,
-      reason: 'needed more information',
-    });
-
-    const retryUsage = {
-      input_tokens: 300,
-      output_tokens: 150,
-    };
-
-    tracker.completeCall(retryCallId, retryUsage, {
-      retried: true,
-    });
-
-    // End the session
-    this.endSession();
-
-    // Build the result
-    const searchResults = question.expected_areas?.map((area) => ({
-      file: area,
-      line: Math.floor(Math.random() * 1000) + 1,
-    })) || [];
-
-    const result = {
-      tour_title: `Tour: ${question.objective} (Vibe Native)`,
-      steps: searchResults.map((r) => ({
-        step_id: `step-${r.file}`,
-        description: `Step: Analyzing ${r.file}`,
-        file: r.file,
-        line: r.line,
-        citations: [`${r.file}:${r.line}`],
-      })),
-      raw_response: JSON.stringify({
-        objective: question.objective,
-        steps: searchResults.length,
-        method: 'native research sub-agent',
-        session_id: this.sessionId,
-      }),
-      citations: searchResults.map(r => `${r.file}:${r.line}`),
-    };
-
+    const succeeded = gateFailures.length === 0 && execution.tokens.total > 0 && (execution.outcome === 'finished' || execution.outcome === 'success');
     return {
       calls: tracker.getCalls(),
-      result,
-      functions_created: [], // Vibe doesn't create functions in the same way
+      result: {
+        raw_response: JSON.stringify({
+          session_id: execution.id,
+          agent: execution.agent,
+          outcome: execution.outcome,
+          stop_reason: execution.stopReason,
+          subagent: execution.subagent,
+          provenance_note: 'Response from the real vibe CLI native research sub-agent; file:line citations below are extracted from the response text.',
+          response: execution.response,
+          tools_used: execution.toolsUsed,
+        }),
+        citations,
+      },
+      functions_created: [],
       functions_reused: [],
-      status: 'success',
+      agent_version: execution.agent.version,
+      model_used: execution.agent.model,
+      status: succeeded ? 'success' : 'error',
+      error: succeeded
+        ? null
+        : `Vibe arm did not complete with gates satisfied: ${[...gateFailures, execution.outcome ? `outcome=${execution.outcome}` : 'outcome unknown', execution.stopReason ? `stop_reason=${execution.stopReason}` : '']
+          .filter(Boolean)
+          .join('; ')}`,
     };
   }
+
+  /**
+   * The vibe CLI runs in the fixture directory the manager verified — the
+   * same tree for both agents. Unconfigured => explicit NO-GO (never a
+   * hardcoded worktree path).
+   */
+  private workDirOf(): string {
+    const workDir = this.config.workDir ?? process.env.VIBE_FIXTURE_PATH;
+    if (!workDir) {
+      throw new Error('NO-GO: Vibe executor has no workDir configured (pass config.postgresPath or set VIBE_FIXTURE_PATH) — refusing to pick an ambient directory');
+    }
+    if (!fs.existsSync(workDir)) {
+      throw new Error(`NO-GO: workDir does not exist: ${workDir}`);
+    }
+    return path.resolve(workDir);
+  }
+}
+
+/** Extract file:line references that REALLY appear in the response text. */
+export function extractCitations(response: string): string[] {
+  const matches = response.match(/[A-Za-z0-9_\-./]+\.[A-Za-z]{1,5}:\d+/g) ?? [];
+  return [...new Set(matches)];
 }
 
 /**

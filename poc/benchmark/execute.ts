@@ -10,9 +10,9 @@
 
 import fs from 'fs';
 import path from 'path';
-import { runPilot, freezeManifest } from './pilot';
+import { runPilot } from './pilot';
 import { runMainCampaign, verifyAllRunsImmutable } from './main-campaign';
-import { validateManifestFrozen } from './pilot';
+import { validateManifestFrozen } from './runner/src/storage/logger';
 
 /**
  * Main execution function
@@ -63,8 +63,12 @@ async function executeT07() {
     return { success: false, phase: 'pilot', results };
   }
 
-  // Verify manifest is frozen before continuing
-  if (!validateManifestFrozen()) {
+  // Verify manifest is frozen before continuing (real validation: lock
+  // present + current manifest content hashes to the recorded digest)
+  if (!validateManifestFrozen(
+    path.join(__dirname, 'preregistration-manifest.json'),
+    path.join(__dirname, 'manifest-lock.json')
+  )) {
     console.error('\n❌ MANIFEST NOT FROZEN - Cannot proceed to main campaign');
     return { success: false, phase: 'manifest_validation', results };
   }

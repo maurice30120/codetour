@@ -163,6 +163,10 @@ describe('TourGrader', () => {
     });
 
     it('should calculate coverage correctly', async () => {
+      const fixtureDir = await makeFixtureWithFiles({
+        'src/backend/tcop/postgres.c': padToLine(100, 'exec_simple_query(const char *query)'),
+        'src/backend/parser/parser.c': padToLine(50, 'pg_parse_query(const char *query)'),
+      });
       const expectedAreas: ExpectedArea[] = [
         {
           file: 'src/backend/tcop/postgres.c',
@@ -221,13 +225,17 @@ describe('TourGrader', () => {
         relations: [],
       };
 
-      const result = await grader.evaluate(response, question);
+      const fixtureGrader = new TourGrader({ postgres_path: fixtureDir });
+      const result = await fixtureGrader.evaluate(response, question);
 
       // Should have 100% coverage (2 areas covered, 2 expected)
       expect(result.coverage).toBe(1);
     });
 
     it('should calculate partial coverage', async () => {
+      const fixtureDir = await makeFixtureWithFiles({
+        'src/backend/tcop/postgres.c': padToLine(100, 'exec_simple_query(const char *query)'),
+      });
       const expectedAreas: ExpectedArea[] = [
         {
           file: 'src/backend/tcop/postgres.c',
@@ -279,7 +287,8 @@ describe('TourGrader', () => {
         relations: [],
       };
 
-      const result = await grader.evaluate(response, question);
+      const fixtureGrader = new TourGrader({ postgres_path: fixtureDir });
+      const result = await fixtureGrader.evaluate(response, question);
 
       // Should have 50% coverage (1 area covered, 2 expected)
       expect(result.coverage).toBe(0.5);
@@ -299,7 +308,7 @@ describe('TourGrader', () => {
 
       expect(result.supported).toBe(false);
       expect(result.verified).toBe(false);
-      expect(result.false).toBe(false);
+      expect(result.isFalse).toBe(false);
       expect(result.reason).toContain('No citations');
     });
 

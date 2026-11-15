@@ -10,6 +10,8 @@
  * G4 Compliance: The blinder is critical for maintaining evaluation independence.
  */
 
+import { createHash } from 'crypto';
+
 import {
   AgentResponse,
   BlindedResponse,
@@ -20,15 +22,22 @@ import {
 } from './types';
 
 /**
- * Generates a random evaluation ID
- * Uses a simple counter-based approach for reproducibility in tests
- * In production, would use crypto.randomUUID()
+ * Generates an evaluation ID.
+ * - With `content`: DETERMINISTIC content hash — the same blinded content
+ *   always yields the same ID, so the evaluation map and the evaluation set
+ *   agree (reconstruction works). Identical anonymized responses collide by
+ *   design: a blind evaluator cannot distinguish them anyway.
+ * - Without `content`: unique counter-based ID (kept for tooling/tests).
  */
-let evaluationIdCounter = 0;
-
-export function generateEvaluationId(): string {
-  return `eval-${Date.now()}-${++evaluationIdCounter}`;
+export function generateEvaluationId(content?: unknown): string {
+  if (content === undefined) {
+    return `eval-${Date.now()}-${++evaluationIdCounter}`;
+  }
+  const hash = createHash('sha256').update(JSON.stringify(content)).digest('hex');
+  return `eval-${hash.slice(0, 16)}`;
 }
+
+let evaluationIdCounter = 0;
 
 export function generateSetId(): string {
   return `set-${Date.now()}`;
@@ -71,18 +80,34 @@ export function anonymizeResponse(response: AgentResponse): BlindedResponse {
     citations,
     claims,
     relations,
-    ...rest
   } = response;
 
-  // Create blinded response
+  // Deterministic content-based ID: the evaluation map and the evaluation
+  // set are built from the SAME blinded content, so reconstruction agrees.
+  const evaluationContent = {
+    question_id,
+    objective,
+    series,
+    phase,
+    repeat_index,
+    tour,
+    citations,
+    claims,
+    relations,
+  };
+
+  // Create blinded response. The response's OWN postgres_sha is propagated
+  // (provenance is data, not something the blinder may silently rewrite):
+  // a run claiming a wrong SHA will be flagged by verifyBlinding, not
+  // laundered into validity here.
   const blinded: BlindedResponse = {
-    evaluation_id: generateEvaluationId(),
+    evaluation_id: generateEvaluationId(evaluationContent),
     question_id: question_id || '',
     objective: objective || '',
     series: series || '',
     phase,
     repeat_index,
-    postgres_sha: POSTGRES_SHA,
+    postgres_sha: response.postgres_sha ?? POSTGRES_SHA,
     tour,
     citations: citations || [],
     claims: claims || [],
@@ -306,28 +331,35 @@ export function createEvaluationMap(
  * 
  * @param set - The blinded evaluation set
  * @param map - The evaluation map created by createEvaluationMap
- * @returns Array of original responses with evaluation results
+ * @param results - Evaluation results aligned with the ORIGINAL responses
+ *   order (results[i] is the verdict of responses[i] — the map, not the
+ *   shuffled set order, ties a result to a response)
+ * @returns Array sorted by responseIndex; each entry carries the original
+ *   indices and its own result
  */
 export function reconstructWithResults<T>(
   set: EvaluationSet,
   map: Map<string, { responseIndex: number; questionIndex: number }>,
   results: T[]
 ): Array<{ responseIndex: number; questionIndex: number; result: T }> {
-  const reconstructed = [];
+  const reconstructed: Array<{ responseIndex: number; questionIndex: number; result: T }> = [];
   
   for (let i = 0; i < set.items.length; i++) {
     const item = set.items[i];
     const mapping = map.get(item.evaluation_id);
     
-    if (mapping && results[i]) {
+    if (mapping && results[mapping.responseIndex] !== undefined) {
       reconstructed.push({
         responseIndex: mapping.responseIndex,
         questionIndex: mapping.questionIndex,
-        result: results[i],
+        result: results[mapping.responseIndex],
       });
     }
   }
   
+  // Deterministic output order (the set order is shuffled; the result array
+  // is not).
+  reconstructed.sort((a, b) => a.responseIndex - b.responseIndex);
   return reconstructed;
 }
 
