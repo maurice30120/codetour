@@ -1,7 +1,7 @@
 {
   "spec": "174",
   "version": "2.0",
-  "status": "DRAFT_NOT_PREREGISTERED",
+  "status": "PREREGISTERED",
   "source": "https://github.com/maurice30120/codetour/issues/174",
   "functional_source": "https://github.com/maurice30120/codetour/issues/172",
   "fixture": {
@@ -12,25 +12,33 @@
   },
   "questions": {
     "file": "poc/benchmark/postgres-questions.json",
-    "hash": "TBD_after_code_verified_fixture_revision",
-    "series_R": { "questions": 5, "repetitions": 4, "requests_per_agent": 20 },
-    "series_T": { "priming": 10, "transfer": 10, "requests_per_agent": 20 },
+    "hash": "sha256:d4f896a391a41050cd3a3f784be762ce9d2f5f9f329694ce6fe5673793a5ba86",
+    "series_R": {
+      "questions": 5,
+      "repetitions": 4,
+      "requests_per_agent": 20
+    },
+    "series_T": {
+      "priming": 10,
+      "transfer": 10,
+      "requests_per_agent": 20
+    },
     "agent_order": "counterbalanced_by_question_index",
     "memory": "empty at each series start; retained within series"
   },
   "expected_answers": {
     "file": "poc/benchmark/postgres-expected-answers.json",
-    "hash": "TBD_after_code_verified_fixture_revision",
+    "hash": "sha256:8d241c2a7df6c6ba28ffd5f2999674945d6285b09277d66f12fcf5f22157242d",
     "visible_to_agents": false
   },
   "prompts": {
     "codetour": "packages/exploration-poc/src/decomposition-prompt.ts",
-    "hash": "TBD_bind_exact_prompt_and_harness_before_freeze",
+    "hash": "sha256:96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c",
     "vibe": "native research agent with its unmodified system instructions"
   },
   "models": {
-    "codetour": "TBD_real_provider_model_and_version_from_pilot",
-    "vibe": "TBD_root_and_native_research_models_from_sentinel",
+    "codetour": "provider alias mistral-small-latest (configured for the CodeTour arm; exact per-run identity in trace.model)",
+    "vibe": "vibe CLI 3.1.2; root session 77c3b8a8-4288-57f2-4e54-535cb81aac64 configured mistral-vibe-cli-latest; native research child (research) on model mistral-vibe-cli-latest; per-run identity in trace.model",
     "document_divergences": true,
     "causal_attribution": "substantial model or budget differences prevent causal attribution"
   },
@@ -39,13 +47,19 @@
     "budget_note": "same ceiling for both arms (fairness, spec section 4); token_limit per request observed to interrupt the native arm at 16384 before its root could finish delegating — corrected before any measured run, applicable to the pilot's uncounted runs as well",
     "timeout_ms": 600000,
     "max_infrastructure_retries": 0,
-    "temperature": "TBD_verify_effective_configuration_of_both_agents",
+    "temperature": "CodeTour: 0; Vibe: provider default for the root session (sentinel observed 1 on the root) and its native child — recorded as a documented divergence, not equalized",
     "cache_policy": "provider cache tokens reported separately and included only once in input"
   },
   "evaluation": {
     "criteria_file": "poc/benchmark/evaluator/criteria-pre-registered.json",
-    "criteria_hash": "TBD_after_evaluator_acceptance",
-    "blind_to": ["agent", "run_id", "rank", "memory", "tokens"],
+    "criteria_hash": "sha256:c3f7638e7ede1a69c5aeed3922c14cad29a996548577a1bc88880a436e5f8fd0",
+    "blind_to": [
+      "agent",
+      "run_id",
+      "rank",
+      "memory",
+      "tokens"
+    ],
     "semantic_uncertainty": "manual independent review and recorded arbitration; never automatic semantic success",
     "production_judge": false
   },
@@ -57,12 +71,15 @@
     "must_pass_each_series": true
   },
   "statistics": {
-    "method": "TBD_preregister_dependency_aware_paired_sampling_and_sensitivity_analysis",
+    "method": "Paired, dependency-aware bootstrap (10,000 resamples, seed 174) over the pre-registered independent units — in series R the 5 question families (4 repetitions each), in series T the learning sequences — of the cumulative tokens per correct Tour per agent. The 95% confidence interval of the relative reduction must be strictly positive on EACH series; leave-one-family-out re-computation and the cumulative-denominator including failed runs form the sensitivity plan. Fewer than 5 independent information units, an unmatched comparison, or any missing usage forbids a global reduction and yields INDÉTERMINÉ.",
     "independent_unit": "question family or independent learning sequence, never repeated run by default",
     "bootstrap_iterations": 10000,
     "seed": 174,
     "insufficient_independent_units": "INDETERMINED",
-    "extension": { "enabled": false, "reason": "Additional question families and stopping rules have not been preregistered." }
+    "extension": {
+      "enabled": false,
+      "reason": "Additional question families and stopping rules have not been preregistered."
+    }
   },
   "execution": {
     "total_runs": 80,
@@ -74,7 +91,15 @@
   },
   "measurement": {
     "primary": "tokens cumulés par Tour correct",
-    "include": ["creation", "exploration", "diagnostics", "retries", "corrections", "selection", "consolidation"],
+    "include": [
+      "creation",
+      "exploration",
+      "diagnostics",
+      "retries",
+      "corrections",
+      "selection",
+      "consolidation"
+    ],
     "evaluator_costs": "reported separately and symmetrically",
     "per_function_savings_without_counterfactual": false
   }
