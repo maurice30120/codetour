@@ -1,0 +1,33 @@
+{
+  "run_id": "58d18068-2f2e-481e-89bb-a0b42d0a451a",
+  "timestamp": "2026-11-15T22:19:59.610Z",
+  "agent": "codetour",
+  "agent_version": "exploration-poc-harness",
+  "model": "mistral-small-latest",
+  "model_params": {
+    "temperature": 0,
+    "max_tokens": 600000
+  },
+  "question_id": "PILOT-pg-config",
+  "series": "R",
+  "phase": "repetition",
+  "repeat_index": 1,
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "calls": [],
+  "functions_created": [],
+  "functions_reused": [],
+  "total_tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "verified": false
+  },
+  "error": "NO-GO: sealed manifest artifacts changed",
+  "status": "error",
+  "fixture_verification": {
+    "head_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "clean_tree": true,
+    "verified_at": "2026-11-15T22:19:59.610Z"
+  },
+  "no_go": true
+}
