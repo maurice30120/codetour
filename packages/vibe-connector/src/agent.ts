@@ -228,7 +228,10 @@ export async function invokeVibeNativeAgent(
 }
 
 export function validateVibeConfig(config: Partial<VibeConnectorConfig> = {}): VibeConnectorConfig {
-  const merged = { ...DEFAULT_CONFIG, ...config };
+  // Explicit `undefined` fields (spread from a caller with optional keys)
+  // must not override the defaults.
+  const present = Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) as Partial<VibeConnectorConfig>;
+  const merged = { ...DEFAULT_CONFIG, ...present };
   for (const key of ['maxTurns', 'maxTokens', 'timeoutMs'] as const) {
     if (typeof merged[key] !== 'number' || !Number.isSafeInteger(merged[key]) || merged[key]! <= 0) {
       throw new RangeError(`${key} must be a positive safe integer`);
