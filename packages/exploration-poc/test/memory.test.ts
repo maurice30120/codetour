@@ -142,7 +142,7 @@ test('a search result can support a wider cited range and the catalog is include
     step = 0;
     const second = await explore({ root, objective: 'Find alpha again', codeMode: true, memory, model: { async complete(messages) {
       if (step++ === 0) {
-        const catalog = JSON.parse(messages[0].content.match(/Available scripts: (\[.*?\])\. If a listed script/)![1]);
+        const catalog = JSON.parse(messages[0].content.match(/Available functions: (\[.*?\])\. If a listed function/)![1]);
         assert.equal(catalog.length, 1);
         return { toolCalls: [{ id: 'reuse', name: 'memory_run', arguments: { id: catalog[0].id, params: { query: 'alpha' } } }] };
       }

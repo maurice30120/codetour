@@ -6,7 +6,7 @@ import { runScript } from '../../exploration-sandbox/index.js';
 
 // This evaluates the narrow contract “literal query -> file/line evidence”.
 // It is not a validator for arbitrary scripts or for their security.
-export async function probeLiteralQuery(code, scripts = {}, deadline = Infinity) {
+export async function probeLiteralQuery(code, deadline = Infinity) {
   const root = await mkdtemp(path.join(tmpdir(), 'codetour-param-probe-'));
   const first = `alpha_${randomUUID().replaceAll('-', '')}`;
   const second = `beta_${randomUUID().replaceAll('-', '')}`;
@@ -18,7 +18,7 @@ export async function probeLiteralQuery(code, scripts = {}, deadline = Infinity)
     for (const query of [first, second, absent]) {
       const remaining = deadline - Date.now();
       if (remaining <= 0) return { status: 'inconclusive', reason: 'Probe exceeded the time budget.' };
-      try { samples.push(await runScript({ workspace: root, code, params: { query }, scripts, timeoutMs: Math.min(3000, remaining) })); }
+      try { samples.push(await runScript({ workspace: root, code, params: { query }, timeoutMs: Math.min(3000, remaining) })); }
       catch (error) { return { status: 'inconclusive', reason: `Probe could not run: ${error.message}` }; }
     }
     function references(value) {
