@@ -46,7 +46,10 @@ export function validateTestEvidence(evidence: Record<string, unknown> | null, r
     if (computeSourceDigest(repoRoot, evidence.source_paths as string[]) !== evidence.source_digest) return false;
     if (!verifyArtifacts(evidence.transcripts, evidenceDir)) return false;
     const outputs = (evidence.transcripts as ArtifactHash[]).map(a => fs.readFileSync(path.resolve(evidenceDir, a.path), 'utf8'));
-    return outputs.some(output => /(?:#|ℹ) tests [1-9]\d*/.test(output)) &&
-      outputs.every(output => !/(?:#|ℹ) fail [1-9]\d*/.test(output)) && outputs.some(output => /(?:#|ℹ) fail 0\b/.test(output));
+    // Accept node:test (TAP 'tests N' / '# fail 0') and Jest ('Tests: N passed'
+    // — Jest prints a failure count only when it is non-zero) transcripts.
+    return outputs.some(output => /(?:#|ℹ) tests [1-9]\d*/.test(output) || /Tests: [1-9]\d* passed/.test(output)) &&
+      outputs.every(output => !/(?:#|ℹ) fail [1-9]\d*/.test(output) && !/Tests:.*[1-9]\d* failed/.test(output)) &&
+      outputs.some(output => /(?:#|ℹ) fail 0\b/.test(output) || /Tests: [1-9]\d* passed/.test(output));
   } catch { return false; }
 }
