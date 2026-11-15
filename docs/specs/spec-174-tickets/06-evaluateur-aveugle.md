@@ -2,7 +2,7 @@
 
 **Spec**: [Spec #174 — Benchmark PostgreSQL réel vs sous-agent Vibe natif + décomposition des tâches](../../../specs/postgres-real-benchmark-2026-11-15.md)
 
-**Status**: ✅ Done
+**Status**: ✅ Done — ⚠️ compléments #174 (15/11/2026) à appliquer avant G5 (voir addendum)
 **Priority**: High
 **Blocked By**: T04 (Fixture PostgreSQL) - COMPLETED
 **Blocks**: T07 (Pilote + 80 runs)
@@ -17,6 +17,15 @@ Créer un **évaluateur indépendant et aveugle** qui:
 4. Fournit un verdict justifié pour chaque demande
 
 **Ce ticket bloque T07**. Si G4 ne passe pas, NO-GO.
+
+## Addendum — complément #174 et corrections (15 novembre 2026)
+
+Source : [revue croisée #174](https://github.com/maurice30120/codetour/issues/174#issuecomment-6898714632) (corrections n°6 et n°8) et [complément au protocole #174](https://github.com/maurice30120/codetour/issues/174) / [complément validé #172](https://github.com/maurice30120/codetour/issues/172).
+
+- **Aucun second LLM juge systématique en production** : `function_try` valide la **technique**, pas la vérité métier ; la **qualité sémantique** des réponses est mesurée **uniquement** par cet évaluateur indépendant et aveugle du benchmark, et c'est le **seul** juge de la sémantique.
+- **Critères préenregistrés** : grille et seuils figés dans le manifeste G5 **avant** tout run ; aucun critère ajouté ou ajusté après l'observation des résultats.
+- **Correction statistique (n°8) — unité d'inférence = famille de questions** : dans la série R, 20 exécutions = **5 questions distinctes × 4 répétitions**, jamais 20 observations indépendantes ; le bootstrap apparié naïf par run surestime potentiellement la confiance. Pré-enregistrer l'unité indépendante (famille/séquence), une méthode adaptée à l'apprentissage cumulatif et un plan de sensibilité ; **si 5 familles ne suffisent pas, verdict INDÉTERMINÉ** ; l'extension à 50 augmente la **diversité** des questions/familles et aucun jeu de questions n'est modifié après observation.
+- **Sortie tronquée ≠ exhaustive** : l'évaluateur ne considère jamais qu'une absence de résultat prouve une absence dans le code ; vérifier le signal de troncature avant de conclure à un manque ou à une preuve exacte.
 
 ## Périmètre
 

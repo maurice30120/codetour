@@ -2,7 +2,7 @@
 
 **Spec**: [Spec #174 — Benchmark PostgreSQL réel vs sous-agent Vibe natif + décomposition des tâches](../../../specs/postgres-real-benchmark-2026-11-15.md)
 
-**Status**: ⏳ Not Started
+**Status**: 🔴 Re-opened — complément + corrections (#174, 15/11/2026)
 **Priority**: Critical
 **Blocked By**: None
 **Blocks**: T05 (Runner et compteurs), T07 (Pilote + 80 runs)
@@ -19,6 +19,20 @@ Vérifier et valider que le POC CodeTour est **100% conforme** à la spec #172. 
 - La mémoire et la consolidation
 
 **Ce ticket bloque le benchmark principal** (T07). Si G0 n'est pas satisfait, NO-GO.
+
+## 🔴 Re-ouverture — complément #174 et corrections bloquantes (15 novembre 2026)
+
+Réouverture exigée par la [revue croisée #174](https://github.com/maurice30120/codetour/issues/174#issuecomment-6898714632) et le [complément au protocole #174](https://github.com/maurice30120/codetour/issues/174) / [complément validé #172](https://github.com/maurice30120/codetour/issues/172). À auditer **en plus** de la matrice initiale, **avant G0** :
+
+1. **Contrat `memory_list(query)`** : exposer pour chaque entrée `id`, **question canonique**, **description/périmètre**, **paramètres typés**, **contrat de sortie** et **limites/cas d'incertitude** — **sans lecture du code source** de la fonction (ni code ni réponse enregistrée renvoyés).
+2. **Contrat de sortie `memory_run` / `function_try`** : sortie **compacte, structurée, bornée et sourcée** (fichier/lignes/révision), avec relation démontrée vs incertitude, état vide, erreurs et **signal de troncature** ; une sortie tronquée n'est jamais interprétée comme exhaustive ; bornes en octets/items/tokens et moyen de retrouver le détail (curseur ou lecture ciblée) ; limites de sécurité QuickJS testées par abus (imports, réseau, écriture FS, ressources).
+3. **Normalisation du nommage** : question canonique stable ; nom TypeScript `camelCase` en `verbe + domaine + objet` ; variantes = paramètres ; le nom seul n'est jamais une preuve d'équivalence.
+4. **Règle de déduplication** : sur **question + périmètre + contrat**, jamais sur le nom seul ; « pas deux capacités pour une même question » est un objectif **testé sur des cas de référence**, pas une garantie absolue ; autoriser « non déterminé » plutôt qu'une équivalence inventée ; pas d'embeddings ni de classifieur.
+5. **Robustesse au remplacement + rollback** : `memory_run` contrôle **révision + validité des preuves** ; résultat incertain/obsolète ⇒ **signal explicite** et exploration alternative, jamais une preuve périmée ; avant de **remplacer** une fonction mémorisée, vérifier la candidate sur **ses propres paramètres ET un jeu représentatif de tests de l'ancienne version** (aucune régression silencieuse) ; **rollback conservé**.
+6. **Signal concret de validation de Tour** (déclencheur de consolidation) : disponibilité d'une **sortie/contrat structuré**, **preuves structurelles**, **statut d'exécution** — **jamais** le juge aveugle du benchmark (a posteriori) ; définir le **cas Tour partiel/échec** : pas de consolidation, traces toujours enregistrées pendant le run, **aucune mutation du catalogue en cours de run**.
+7. **Les 7 tests d'acceptation avant G0** (cf. G0 dans la spec, complément #174) : (1) deux formulations de la même question ne créent pas deux capacités ; (2) même fonction réutilisée sans relecture du code ; (3) primitive suffisante ⇒ aucune création ; (4) question composite ⇒ procédures indépendantes et exploration du manque ; (5) sortie avec preuves et limites, signal de bornage/troncature ; (6) candidate non exécutée refusée ; (7) résultat syntaxiquement plausible mais preuve de relation absente ⇒ incertitude/échec explicite.
+
+Rappels du complément : une procédure mémorisée n'appelle **que les dix primitives permanentes** ; la composition se fait **par l'agent pendant le Tour**, jamais dans le code mémorisé ; consolidation **ajouter/remplacer/ignorer** uniquement, recouvrements partiels tolérés ; pas de moteur de score, d'index sémantique, de graphe de dépendances ni de purge par inactivité.
 
 ## Périmètre
 

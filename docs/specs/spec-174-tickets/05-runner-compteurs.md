@@ -18,6 +18,15 @@ Créer un **runner équitable** qui:
 
 **Ce ticket bloque T07**. Ne peut pas démarrer avant que T02, T03, T04 soient terminés.
 
+## ⚠️ Addendum — invalidation T07 + mécanisme de gel réel (15 novembre 2026)
+
+La campagne T07 intégrée le 15/11/2026 est **INVALIDÉE (NO-GO)** : la revue de code a démontré des **traces fabriquées** — exécuteurs simulés, ≈ 41 ms pour 480 appels LLM fictifs. **Aucun de ses chiffres n'est exploitable.** Conséquences pour ce ticket :
+
+- Le **mécanisme de gel doit être réel** : hash calculé à partir du **contenu effectif du manifeste**, manifeste **gelé AVANT le premier run mesuré**, et **aucun champ TBD** autorisé dans le manifeste gelé.
+- Le contrôle **SHA PostgreSQL + arbre propre est obligatoire AVANT CHAQUE RUN** (pas seulement par série), exécuté et journalisé à chaque run.
+- Le pilote de connectivité s'exécute sur des **tâches hors benchmark** et n'est **jamais compté** ; les corrections techniques qu'il révèle sont **versionnées** ; **aucun ajustement** du contenu/critères à partir des résultats mesurés (cf. correction n°9 de la [revue croisée #174](https://github.com/maurice30120/codetour/issues/174#issuecomment-6898714632)).
+- Les traces doivent venir d'exécutions **réelles** : commande/API lancée, modèle, usage tokens par appel fourni par le fournisseur, horodatages et durées cohérents entre appels, request ids du fournisseur quand disponibles ; tout générateur simulé en chemin de production = NO-GO immédiat.
+
 ## Périmètre
 
 - **Runner**: Script/programme qui orchestrer les exécutions
@@ -111,9 +120,11 @@ Créer un **runner équitable** qui:
 - Entrer dans les chiffres de la série principale
 - Modifier les seuils
 
-✅ **Geler les prompts et le plan après le pilote**:
-- Aucun changement après le pilote
-- Toutes les modifications doivent être pré-enregistrées
+✅ **Gel sans équivoque (correction n°9, revue croisée #174 — remplace « geler après le pilote »)**:
+- Questions, critères et grilles préparés **avant tout test**
+- Pilote **hors benchmark**, jamais compté ; corrections techniques **versionnées**
+- **Gel G5 final AVANT le premier run mesuré** : hash calculé depuis le **contenu effectif du manifeste**, **aucun champ TBD** autorisé
+- **Aucun ajustement** du contenu ou des critères à partir des résultats mesurés
 
 ## Implémentation
 
@@ -284,10 +295,11 @@ class BenchmarkRunner {
       throw new Error('NO-GO: Gates G0-G5 not all satisfied');
     }
 
-    // Pilote de connectivité (non compté)
+    // Pilote de connectivité : tâches HORS benchmark, jamais compté
     await this.runPilot();
     
-    // Geler le manifeste et les prompts
+    // Gel G5 : hash calculé depuis le CONTENU DU MANIFESTE, AVANT le premier
+    // run mesuré, aucun champ TBD autorisé (cf. addendum invalidation T07, 15/11/2026)
     await this.freezeManifest();
 
     // Exécuter les 80 runs
