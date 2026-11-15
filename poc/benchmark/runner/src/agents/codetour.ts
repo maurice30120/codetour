@@ -265,7 +265,19 @@ export class CodeTourExecutor implements AgentExecutor {
   private runHarness(cliPath: string, question: Question, model: string | undefined): Promise<{stdout: string; code: number | null}> {
     const fixtureRoot = this.fixtureRootOf();
     return new Promise((resolve, reject) => {
-      const args = ['--code', '--memory', this.memoryPath!, fixtureRoot, question.objective];
+      // Loop-guard caps, sized to be UNBINDING under the sealed fairness
+      // envelope (600000 tokens / 600000 ms): the observed minimum input per
+      // model call (>= 1741 tokens) bounds model calls to <= 344 before the
+      // token ceiling stops a run, so 384 iterations can never fire first;
+      // local primitives spend no tokens and are bounded by the same wall
+      // clock, so 4096 calls stays out of reach. The BINDING limits are the
+      // two pre-registered envelopes only — hidden 8/32 CLI defaults made the
+      // executed protocol diverge from the manifest (observed partial
+      // 'iterations' stop).
+      const args = [
+        '--code', '--memory', this.memoryPath!, fixtureRoot, question.objective,
+        '--iterations', String(384), '--calls', String(4096),
+      ];
       const child = spawn(process.execPath, [cliPath, ...args], {
         cwd: path.dirname(cliPath), timeout: this.config.timeoutMs,
         // Fairness envelope (spec §4): the harness must explore with the SAME
