@@ -6,7 +6,7 @@
 
 **Integration Branch**: `spec-174-integration`
 
-**Status**: Not started
+**Status**: In progress — G0–G5 passed with real evidence (see [REPRISE-2026-11-15.md](./REPRISE-2026-11-15.md)); campaign 80 runs at 2/80 (attempt 5 paused), blind evaluation and T08 report remaining.
 
 ## Summary
 
@@ -27,12 +27,12 @@ All gates must be satisfied before main benchmark:
 
 | Gate | Description | Status |
 |------|-------------|--------|
-| G0 | POC conformance to #172: 10 primitives, TypeScript strict, QuickJS, memory_list, memory_run, consolidation | ❌ |
-| G1 | Authentic Vibe: proof of real native sub-agent invocation | ❌ |
-| G2 | Total instrumentation: reliable counters for every model call | ❌ |
-| G3 | Real fixture: PostgreSQL at fixed SHA, read-only clone | ❌ |
-| G4 | Independent evaluator: blind verification protocol | ❌ |
-| G5 | Pre-registration: manifesto hashed, not modified during benchmark | ❌ |
+| G0 | POC conformance to #172: 10 primitives, TypeScript strict, QuickJS, memory_list, memory_run, consolidation | ✅ |
+| G1 | Authentic Vibe: proof of real native sub-agent invocation | ✅ |
+| G2 | Total instrumentation: reliable counters for every model call | ✅ |
+| G3 | Real fixture: PostgreSQL at fixed SHA, read-only clone | ✅ |
+| G4 | Independent evaluator: blind verification protocol | ✅ |
+| G5 | Pre-registration: manifesto hashed, not modified during benchmark | ✅ |
 
 **NO-GO if any gate fails**
 
