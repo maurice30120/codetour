@@ -1,0 +1,1963 @@
+{
+  "timestamp": "2026-11-14T13:53:31.949Z",
+  "model": "mistral-small-latest",
+  "budget": {
+    "iterations": 8,
+    "calls": 32,
+    "tokens": 32000,
+    "durationMs": 60000
+  },
+  "candidates": [
+    {
+      "description": "Find literal occurrences of a symbol; query is the exact text.",
+      "code": "search(params.query)",
+      "parameters": [
+        "query"
+      ]
+    },
+    {
+      "description": "Find up to 8 occurrences and read surrounding source lines. Inputs: query, radius (1 to 15).",
+      "code": "search(params.query).slice(0,8).map(x => read(x.file, Math.max(1,x.line-Math.min(15,Math.max(1,params.radius || 5))), x.line+Math.min(15,Math.max(1,params.radius || 5))))",
+      "parameters": [
+        "query",
+        "radius"
+      ]
+    },
+    {
+      "description": "Find occurrences of several literal symbols. Input: queries, an array of up to 4 strings.",
+      "code": "params.queries.slice(0,4).map(query => ({query, matches:search(query).slice(0,10)}))",
+      "parameters": [
+        "queries"
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "repetition": 1,
+      "task": "function",
+      "mode": "off",
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+        "entryPoints": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 2
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "name": "catalog.js",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 10
+              }
+            ]
+          },
+          {
+            "name": "api.js",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 4
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder (order.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "postOrder (api.js)",
+            "to": "createOrder (order.js)",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "Catalog.find (catalog.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "Aucune incertitude majeure : la fonction totalPrice est clairement définie comme un simple produit du prix et de la quantité."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5659,
+          "outputTokens": 557,
+          "usageAvailable": true,
+          "modelCalls": 7,
+          "toolCalls": 6,
+          "durationMs": 6607,
+          "outputBytes": 1459,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "totalPrice"
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "task": "function",
+      "mode": "atomic",
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "order",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "order.createOrder",
+            "to": "math.totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 4828,
+          "outputTokens": 285,
+          "usageAvailable": true,
+          "modelCalls": 4,
+          "toolCalls": 3,
+          "durationMs": 3494,
+          "outputBytes": 714,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "task": "function",
+      "mode": "toolbox",
+      "result": {
+        "objective": "Comprendre comment totalPrice calcule son résultat",
+        "entryPoints": [
+          {
+            "name": "Définition de totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 2
+              }
+            ]
+          },
+          {
+            "name": "Utilisation de totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "Fonction totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 2
+              }
+            ]
+          },
+          {
+            "name": "Fonction createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 6858,
+          "outputTokens": 396,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 3706,
+          "outputBytes": 902,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "totalPrice("
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "task": "class",
+      "mode": "off",
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6112,
+          "outputTokens": 145,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4368,
+          "outputBytes": 1424,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "require"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "import"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "Catalog"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "task": "class",
+      "mode": "atomic",
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 10818,
+          "outputTokens": 120,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4118,
+          "outputBytes": 1256,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "Catalog"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of Catalog"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "import"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "logger"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "new Catalog"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "Catalog"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "task": "class",
+      "mode": "toolbox",
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 11776,
+          "outputTokens": 256,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4858,
+          "outputBytes": 1529,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "Catalog"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of Catalog"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "import"
+            },
+            "remember": true,
+            "description": "Find import statements in the repository"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "from './"
+            },
+            "remember": true,
+            "description": "Find all relative imports"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "require("
+            },
+            "remember": true,
+            "description": "Find CommonJS require statements"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "task": "flow",
+      "mode": "off",
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6876,
+          "outputTokens": 152,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4298,
+          "outputBytes": 1825,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "postOrder"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "createOrder"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "totalPrice"
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "task": "flow",
+      "mode": "atomic",
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 11186,
+          "outputTokens": 261,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4843,
+          "outputBytes": 1898,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of postOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "createOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of createOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "find"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of find"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "task": "flow",
+      "mode": "toolbox",
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 12123,
+          "outputTokens": 272,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 5131,
+          "outputBytes": 1567,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of postOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "createOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of createOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "total:"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of total:"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "find("
+            },
+            "remember": true,
+            "description": "Find literal occurrences of find("
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "task": "function",
+      "mode": "toolbox",
+      "result": {
+        "objective": "Comprendre comment totalPrice calcule son résultat",
+        "entryPoints": [
+          {
+            "name": "Définition de totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "Utilisation de totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder (order.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 10299,
+          "outputTokens": 448,
+          "usageAvailable": true,
+          "modelCalls": 7,
+          "toolCalls": 6,
+          "durationMs": 5927,
+          "outputBytes": 1428,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 3
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 6
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "task": "function",
+      "mode": "atomic",
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [
+          {
+            "name": "totalPrice definition",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "totalPrice usage",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "totalPrice",
+            "to": "price * quantity",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 2,
+                "endLine": 2
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 4828,
+          "outputTokens": 426,
+          "usageAvailable": true,
+          "modelCalls": 4,
+          "toolCalls": 3,
+          "durationMs": 3691,
+          "outputBytes": 714,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "task": "function",
+      "mode": "off",
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+        "entryPoints": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "catalog.js",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 10
+              }
+            ]
+          },
+          {
+            "name": "api.js",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "api.js (postOrder)",
+            "to": "order.js (createOrder)",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "order.js (createOrder)",
+            "to": "math.js (totalPrice)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "order.js (createOrder)",
+            "to": "catalog.js (Catalog.find)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 6735,
+          "outputTokens": 554,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 7,
+          "durationMs": 5323,
+          "outputBytes": 1572,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 3
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "task": "class",
+      "mode": "toolbox",
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 11497,
+          "outputTokens": 125,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4616,
+          "outputBytes": 1190,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "Catalog"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of Catalog"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "import"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "from 'src/catalog.js'"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "require"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "logger"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "task": "class",
+      "mode": "atomic",
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 11238,
+          "outputTokens": 271,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 14,
+          "durationMs": 4645,
+          "outputBytes": 1893,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "Catalog"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of Catalog"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "import"
+            },
+            "remember": true,
+            "description": "Find import statements in the repository"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "from 'catalog'"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "from \"./catalog\""
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "require('catalog')"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "require(\"./catalog\")"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "logger"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "new Catalog"
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "task": "class",
+      "mode": "off",
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6721,
+          "outputTokens": 149,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4351,
+          "outputBytes": 1649,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "search",
+          "arguments": {
+            "query": "Catalog"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "import"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage"
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "task": "flow",
+      "mode": "toolbox",
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 13022,
+          "outputTokens": 243,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 10,
+          "durationMs": 4942,
+          "outputBytes": 2264,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of postOrder"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "total"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of total"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "catalog"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of catalog"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "find"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 15
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "task": "flow",
+      "mode": "atomic",
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 11186,
+          "outputTokens": 261,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4886,
+          "outputBytes": 1898,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of postOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "createOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of createOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 100
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "find"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of find"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "task": "flow",
+      "mode": "off",
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6330,
+          "outputTokens": 148,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 5986,
+          "outputBytes": 1487,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "postOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 50
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "find("
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage.get"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,675 @@
+{
+  "timestamp": "2026-11-14T12:56:42.714Z",
+  "model": "mistral-small-latest",
+  "budget": {
+    "iterations": 8,
+    "calls": 32,
+    "tokens": 32000,
+    "durationMs": 60000
+  },
+  "rows": [
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "off",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "read",
+        "search",
+        "read",
+        "search"
+      ],
+      "wallTimeMs": 4018,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6737,
+          "outputTokens": 146,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4018,
+          "outputBytes": 1919,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "off",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "read",
+        "read",
+        "read"
+      ],
+      "wallTimeMs": 6028,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat.",
+        "entryPoints": [
+          {
+            "name": "src/math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "src/order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "src/catalog.js",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 10
+              }
+            ]
+          },
+          {
+            "name": "src/api.js",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "postOrder (api.js)",
+            "to": "createOrder (order.js)",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder (order.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "createOrder (order.js)",
+            "to": "find (catalog.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5536,
+          "outputTokens": 532,
+          "usageAvailable": true,
+          "modelCalls": 7,
+          "toolCalls": 6,
+          "durationMs": 6028,
+          "outputBytes": 1436,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "on",
+      "run": 1,
+      "calls": [
+        "memory_list",
+        "search",
+        "read",
+        "read"
+      ],
+      "wallTimeMs": 3933,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [],
+        "components": [
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 1
+              },
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 4764,
+          "outputTokens": 284,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 3931,
+          "outputBytes": 716,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "function",
+      "repetition": 1,
+      "mode": "on",
+      "run": 2,
+      "calls": [
+        "memory_list",
+        "search",
+        "read",
+        "read"
+      ],
+      "wallTimeMs": 2957,
+      "result": {
+        "objective": "Comment totalPrice calcule-t-elle son résultat ?",
+        "entryPoints": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "components": [],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 4764,
+          "outputTokens": 239,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 2957,
+          "outputBytes": 716,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 2,
+      "mode": "on",
+      "run": 1,
+      "calls": [
+        "memory_list",
+        "search",
+        "read",
+        "search",
+        "search",
+        "search",
+        "search",
+        "list"
+      ],
+      "wallTimeMs": 3755,
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 8559,
+          "outputTokens": 90,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 3755,
+          "outputBytes": 1353,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 2,
+      "mode": "on",
+      "run": 2,
+      "calls": [
+        "memory_list",
+        "search",
+        "read",
+        "search",
+        "search",
+        "search",
+        "list",
+        "read"
+      ],
+      "wallTimeMs": 5425,
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 8527,
+          "outputTokens": 108,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 5425,
+          "outputBytes": 1441,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 2,
+      "mode": "off",
+      "run": 1,
+      "calls": [
+        "list",
+        "search",
+        "search",
+        "read",
+        "search",
+        "read",
+        "read",
+        "read"
+      ],
+      "wallTimeMs": 3831,
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6109,
+          "outputTokens": 151,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 3831,
+          "outputBytes": 1424,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "class",
+      "repetition": 2,
+      "mode": "off",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "search",
+        "read",
+        "search",
+        "read",
+        "read",
+        "read"
+      ],
+      "wallTimeMs": 4493,
+      "result": {
+        "objective": "Quelles dépendances la classe Catalog utilise-t-elle et où ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6194,
+          "outputTokens": 150,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4493,
+          "outputBytes": 1521,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 3,
+      "mode": "off",
+      "run": 1,
+      "calls": [
+        "list",
+        "read",
+        "read",
+        "read",
+        "search",
+        "read",
+        "search",
+        "code"
+      ],
+      "wallTimeMs": 7299,
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6809,
+          "outputTokens": 575,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 7299,
+          "outputBytes": 1591,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 3,
+      "mode": "off",
+      "run": 2,
+      "calls": [
+        "list",
+        "search",
+        "read",
+        "search",
+        "read",
+        "search",
+        "read",
+        "search"
+      ],
+      "wallTimeMs": 4096,
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 6324,
+          "outputTokens": 130,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4096,
+          "outputBytes": 1526,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 3,
+      "mode": "on",
+      "run": 1,
+      "calls": [
+        "memory_list",
+        "list",
+        "read",
+        "read",
+        "search",
+        "read",
+        "search"
+      ],
+      "wallTimeMs": 4979,
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [
+          {
+            "name": "postOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 3,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "postOrder",
+            "to": "createOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 8272,
+          "outputTokens": 405,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 7,
+          "durationMs": 4979,
+          "outputBytes": 1116,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "task": "flow",
+      "repetition": 3,
+      "mode": "on",
+      "run": 2,
+      "calls": [
+        "memory_list",
+        "search",
+        "read",
+        "search",
+        "read",
+        "search",
+        "read",
+        "search"
+      ],
+      "wallTimeMs": 4619,
+      "result": {
+        "objective": "Quel est le flux de postOrder jusqu'au calcul du total ?",
+        "entryPoints": [],
+        "components": [],
+        "relations": [],
+        "uncertainties": [
+          "Exploration stopped before a structured result was produced."
+        ],
+        "status": "partial",
+        "stopReason": "iterations",
+        "metrics": {
+          "inputTokens": 8525,
+          "outputTokens": 132,
+          "usageAvailable": true,
+          "modelCalls": 8,
+          "toolCalls": 8,
+          "durationMs": 4619,
+          "outputBytes": 1411,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,4168 @@
+{
+  "model": "mistral-small-latest",
+  "budget": {
+    "iterations": 12,
+    "calls": 40,
+    "tokens": 48000,
+    "durationMs": 90000
+  },
+  "rows": [
+    {
+      "repetition": 1,
+      "mode": "memory_contract_final",
+      "task": "project-route",
+      "result": {
+        "objective": "Parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape",
+        "entryPoints": [
+          {
+            "name": "postOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 3,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "api.js",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "catalog.js",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 11
+              }
+            ]
+          },
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "postOrder (api.js:3-5)",
+            "to": "createOrder (api.js:4)",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder (order.js:3-6)",
+            "to": "totalPrice (order.js:5)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "createOrder (order.js:3-6)",
+            "to": "catalog.find (order.js:4)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "catalog.find (catalog.js:7-10)",
+            "to": "storage.get (catalog.js:9)",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 9,
+                "endLine": 9
+              }
+            ]
+          },
+          {
+            "from": "totalPrice (math.js:1-3)",
+            "to": "multiplication (math.js:2)",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 2,
+                "endLine": 2
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "Le type et l’implémentation exacte de storage.get (src/catalog.js:9) n’ont pas été observés (fichier ou ligne manquants).",
+          "Le contenu de la requête (request) passée à postOrder n’est pas détaillé (seulement request.id et request.quantity sont utilisés).",
+          "L’implémentation de Catalog.storage et son appel à get ne sont pas visibles dans les fichiers listés."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 19762,
+          "outputTokens": 925,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 11,
+          "durationMs": 9316,
+          "outputBytes": 2222,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of postOrder",
+            "contract": "literal_query"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "createOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "find"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage.get"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "get"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        }
+      ],
+      "library": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "objective": "Pour préparer un Project Tour, propose un parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape. N’invente pas d’appel.",
+          "description": "Find literal occurrences of postOrder",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": [
+        {
+          "status": "pass",
+          "reason": "Two matching queries and an absent query passed."
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "mode": "memory_contract_final",
+      "task": "project-collaboration",
+      "result": {
+        "objective": "Identifier les dépendances injectées dans Catalog, leurs usages, et le lien avec le traitement de commande, en citant les fichiers et lignes des déclarations, usages et relations.",
+        "entryPoints": [
+          {
+            "name": "postOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 3,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "Catalog",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 11
+              }
+            ]
+          },
+          {
+            "name": "createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 1
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "postOrder",
+            "to": "createOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "Catalog",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "Catalog",
+            "to": "storage",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 3,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "from": "Catalog",
+            "to": "logger",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "Catalog.find",
+            "to": "logger",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 8,
+                "endLine": 8
+              }
+            ]
+          },
+          {
+            "from": "Catalog.find",
+            "to": "storage",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 9,
+                "endLine": 9
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "Aucune preuve trouvée sur l'injection effective de 'storage' ou 'logger' dans Catalog depuis un appelant (ex: postOrder).",
+          "Aucune preuve trouvée sur l'existence ou l'injection d'un OrderProcessor ou OrderService dans le codebase.",
+          "Aucune preuve trouvée sur la manière dont Catalog est instancié avec ses dépendances (storage, logger) dans le contexte de postOrder.",
+          "Aucune preuve trouvée sur le calcul du total dans le contexte d'une commande (ex: passage de quantity ou d'autres paramètres)."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 19205,
+          "outputTokens": 1059,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 11,
+          "durationMs": 11098,
+          "outputBytes": 1667,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_list",
+          "arguments": {}
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of postOrder",
+            "contract": "literal_query"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "Catalog"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of Catalog"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "OrderProcessor"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of OrderProcessor"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "orderProcessor"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of orderProcessor"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "inject"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of inject"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "OrderService"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of OrderService"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "objective": "Pour préparer un Project Tour, propose un parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape. N’invente pas d’appel.",
+          "description": "Find literal occurrences of postOrder",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "6ae9bf5589ba1cb1",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of Catalog",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "f2f489fe96b0edd5",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of OrderProcessor",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "3ddcf03658c54eae",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of orderProcessor",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "675833144de1c173",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of inject",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "59c6c68ade3502dc",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of OrderService",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "6ae9bf5589ba1cb1",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "6ae9bf5589ba1cb1",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "6ae9bf5589ba1cb1",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "f2f489fe96b0edd5",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "f2f489fe96b0edd5",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "f2f489fe96b0edd5",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "3ddcf03658c54eae",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "3ddcf03658c54eae",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "3ddcf03658c54eae",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "675833144de1c173",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "675833144de1c173",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "675833144de1c173",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "59c6c68ade3502dc",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "59c6c68ade3502dc",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "59c6c68ade3502dc",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": [
+        {
+          "status": "pass",
+          "reason": "Two matching queries and an absent query passed."
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "mode": "memory_contract_final",
+      "task": "project-transfer",
+      "result": {
+        "objective": "Pour une étape du Project Tour, retrouve la définition de totalPrice, explique le calcul et donne le fichier et les lignes qui le prouvent.",
+        "entryPoints": [],
+        "components": [
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5535,
+          "outputTokens": 289,
+          "usageAvailable": true,
+          "modelCalls": 3,
+          "toolCalls": 4,
+          "durationMs": 2810,
+          "outputBytes": 889,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice",
+            "contract": "literal_query"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 1
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 5
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "objective": "Pour préparer un Project Tour, propose un parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape. N’invente pas d’appel.",
+          "description": "Find literal occurrences of postOrder",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "6ae9bf5589ba1cb1",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of Catalog",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "f2f489fe96b0edd5",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of OrderProcessor",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "3ddcf03658c54eae",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of orderProcessor",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "675833144de1c173",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of inject",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "59c6c68ade3502dc",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of OrderService",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Pour une étape du Project Tour, retrouve la définition de totalPrice, explique le calcul et donne le fichier et les lignes qui le prouvent.",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "6ae9bf5589ba1cb1",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "6ae9bf5589ba1cb1",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "6ae9bf5589ba1cb1",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "f2f489fe96b0edd5",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "f2f489fe96b0edd5",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "f2f489fe96b0edd5",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "3ddcf03658c54eae",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "3ddcf03658c54eae",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "3ddcf03658c54eae",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "675833144de1c173",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "675833144de1c173",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "675833144de1c173",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "59c6c68ade3502dc",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "59c6c68ade3502dc",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "59c6c68ade3502dc",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": [
+        {
+          "status": "pass",
+          "reason": "Two matching queries and an absent query passed."
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_contract_final",
+      "task": "project-route",
+      "result": {
+        "objective": "Parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape",
+        "entryPoints": [
+          {
+            "name": "postOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 3,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "Catalog.find",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 7,
+                "endLine": 10
+              }
+            ]
+          },
+          {
+            "name": "storage.get",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 9,
+                "endLine": 9
+              }
+            ]
+          },
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "postOrder",
+            "to": "createOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "Catalog.find",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "Catalog.find",
+            "to": "storage.get",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 9,
+                "endLine": 9
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "L'implémentation réelle de storage.get (fichier et lignes) n'a pas été observée : seul son appel dans Catalog.find est visible.",
+          "Le contenu de la méthode logger.info dans Catalog.find n'a pas été détaillé (fichier et lignes).",
+          "Aucune preuve de l'existence d'une méthode ou fonction retournant le total final n'a été trouvée : seul le calcul dans totalPrice est visible."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 21307,
+          "outputTokens": 996,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 11,
+          "durationMs": 10738,
+          "outputBytes": 2055,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 6
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "description": "Lister les fichiers du dépôt"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"postOrder\")",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de postOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"createOrder\")",
+            "params": {
+              "query": "createOrder"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de createOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"totalPrice\")",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"catalog.find\")",
+            "params": {
+              "query": "catalog.find"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de catalog.find"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\".find(\")",
+            "params": {
+              "query": ".find("
+            },
+            "remember": true,
+            "description": "Trouver les implémentations de .find"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"storage.get\")",
+            "params": {
+              "query": "storage.get"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de storage.get"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences; input query.",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        }
+      ],
+      "probes": [
+        {
+          "id": "fb7716e66948d94b",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_contract_final",
+      "task": "project-collaboration",
+      "result": {
+        "objective": "Pour une étape de Project Tour sur Catalog, expliquer quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré.",
+        "entryPoints": [
+          {
+            "name": "src/api.js",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "src/catalog.js",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 11
+              }
+            ]
+          },
+          {
+            "name": "src/order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "src/math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "src/api.js",
+            "to": "src/order.js",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 1
+              },
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "src/order.js",
+            "to": "src/math.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 1
+              },
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "src/order.js",
+            "to": "src/catalog.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "src/catalog.js",
+            "to": "injected storage",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 2,
+                "endLine": 2
+              }
+            ]
+          },
+          {
+            "from": "src/catalog.js",
+            "to": "injected logger",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 2,
+                "endLine": 2
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "Aucune preuve explicite de l'injection effective des dépendances 'storage' et 'logger' dans Catalog (pas de callsites ou de tests montrant l'injection).",
+          "Aucune preuve directe de l'utilisation des dépendances 'storage' et 'logger' dans le traitement de commande (seule la méthode find est appelée dans createOrder).",
+          "Aucune preuve de l'injection des dépendances 'storage' et 'logger' depuis l'extérieur (ex: app.js ou index.js) n'est présente dans les fichiers observés.",
+          "Le lien entre le traitement de commande et les dépendances injectées (storage, logger) n'est pas explicitement démontré dans les fichiers analysés."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 20441,
+          "outputTokens": 1098,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 11,
+          "durationMs": 11578,
+          "outputBytes": 1722,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 1
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "remember": false,
+            "description": "Lister les fichiers du dépôt pour identifier les points d'entrée et les fichiers de configuration"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"inject\")",
+            "params": {
+              "query": "inject"
+            },
+            "remember": true,
+            "description": "Rechercher les occurrences de l'injection de dépendances"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"dependency\")",
+            "params": {
+              "query": "dependency"
+            },
+            "remember": true,
+            "description": "Rechercher les occurrences liées aux dépendances"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"require\")",
+            "params": {
+              "query": "require"
+            },
+            "remember": true,
+            "description": "Rechercher les appels require pour identifier les dépendances injectées"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"import\")",
+            "params": {
+              "query": "import"
+            },
+            "remember": true,
+            "description": "Rechercher les déclarations import pour identifier les dépendances injectées"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"order\")",
+            "params": {
+              "query": "order"
+            },
+            "remember": false,
+            "description": "Rechercher les occurrences liées au traitement de commande"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"createOrder\")",
+            "params": {
+              "query": "createOrder"
+            },
+            "remember": false,
+            "description": "Rechercher les appels à createOrder pour comprendre le lien avec le traitement de commande"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences; input query.",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "7a11db2fdcd2b8a1",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Rechercher les occurrences de l'injection de dépendances",
+          "code": "search(\"inject\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "b12311293dbe5e09",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Rechercher les occurrences liées aux dépendances",
+          "code": "search(\"dependency\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "77ae677b8c58ac2b",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Rechercher les appels require pour identifier les dépendances injectées",
+          "code": "search(\"require\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "fb7716e66948d94b",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "7a11db2fdcd2b8a1",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "7a11db2fdcd2b8a1",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "7a11db2fdcd2b8a1",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "b12311293dbe5e09",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "b12311293dbe5e09",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "b12311293dbe5e09",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "77ae677b8c58ac2b",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "77ae677b8c58ac2b",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "77ae677b8c58ac2b",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 1,
+      "mode": "primitives_contract_final",
+      "task": "project-transfer",
+      "result": {
+        "objective": "Pour une étape du Project Tour, retrouve la définition de totalPrice, explique le calcul et donne le fichier et les lignes qui le prouvent.",
+        "entryPoints": [
+          {
+            "name": "totalPrice definition and usage",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              },
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "totalPrice function",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "Order processing using totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder (src/order.js:3)",
+            "to": "totalPrice (src/math.js:1)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5193,
+          "outputTokens": 421,
+          "usageAvailable": true,
+          "modelCalls": 3,
+          "toolCalls": 4,
+          "durationMs": 4104,
+          "outputBytes": 889,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice",
+            "contract": "literal_query"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 1
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 5
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 3
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences; input query.",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 3
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 3
+        },
+        {
+          "id": "7a11db2fdcd2b8a1",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Rechercher les occurrences de l'injection de dépendances",
+          "code": "search(\"inject\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "b12311293dbe5e09",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Rechercher les occurrences liées aux dépendances",
+          "code": "search(\"dependency\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "77ae677b8c58ac2b",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Rechercher les appels require pour identifier les dépendances injectées",
+          "code": "search(\"require\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Pour une étape du Project Tour, retrouve la définition de totalPrice, explique le calcul et donne le fichier et les lignes qui le prouvent.",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "fb7716e66948d94b",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "7a11db2fdcd2b8a1",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "7a11db2fdcd2b8a1",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "7a11db2fdcd2b8a1",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "b12311293dbe5e09",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "b12311293dbe5e09",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "b12311293dbe5e09",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "77ae677b8c58ac2b",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "77ae677b8c58ac2b",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "77ae677b8c58ac2b",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": [
+        {
+          "status": "pass",
+          "reason": "Two matching queries and an absent query passed."
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_contract_final",
+      "task": "project-route",
+      "result": {
+        "objective": "Parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape",
+        "entryPoints": [
+          {
+            "name": "postOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 3,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "Catalog",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 11
+              }
+            ]
+          },
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "postOrder",
+            "to": "createOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "Catalog.find",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "Catalog.find",
+            "to": "storage.get",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 9,
+                "endLine": 9
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "L'implémentation réelle de la méthode 'get' sur le storage n'a pas été observée (seule son invocation via catalog.find(id) est visible).",
+          "Le contenu et le type de l'objet retourné par storage.get(id) ne sont pas documentés dans les fichiers lus.",
+          "Le rôle exact du logger dans Catalog.find n'est pas détaillé au-delà de l'appel this.logger.info."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 21795,
+          "outputTokens": 971,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 11,
+          "durationMs": 10642,
+          "outputBytes": 2411,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 5
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "description": "Lister les fichiers du dépôt pour identifier les points d'entrée et les fichiers pertinents"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"postOrder\")",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de postOrder pour identifier l'entrée du parcours"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"createOrder\")",
+            "params": {
+              "query": "createOrder"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de createOrder pour identifier son implémentation"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"totalPrice\")",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Trouver les occurrences de totalPrice pour identifier son implémentation"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"catalog.find\")",
+            "params": {
+              "query": "catalog.find"
+            },
+            "remember": true,
+            "description": "Vérifier l'implémentation de la méthode find sur le catalog"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"storage.get\")",
+            "params": {
+              "query": "storage.get"
+            },
+            "remember": true,
+            "description": "Vérifier l'implémentation de la méthode get sur le storage"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences; input query.",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        }
+      ],
+      "probes": [
+        {
+          "id": "fb7716e66948d94b",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_contract_final",
+      "task": "project-collaboration",
+      "result": {
+        "objective": "Pour une étape de Project Tour sur Catalog, expliquer quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+        "entryPoints": [
+          {
+            "name": "src/api.js",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "name": "src/order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "src/math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "src/catalog.js",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 11
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "Catalog",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 11
+              }
+            ]
+          },
+          {
+            "name": "Order",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "Math",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "API",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "API",
+            "to": "Order",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 1
+              }
+            ]
+          },
+          {
+            "from": "Order",
+            "to": "Math",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 1
+              }
+            ]
+          },
+          {
+            "from": "Order",
+            "to": "Catalog",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "API",
+            "to": "Catalog",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "Aucune preuve explicite d'injection de dépendances (ex: constructeur Catalog(storage, logger) mais pas d'appel avec des instances concrètes).",
+          "Aucune preuve directe de la manière dont les dépendances (storage, logger) sont fournies ou instanciées dans Catalog.",
+          "Aucune preuve du cycle de vie ou de l'initialisation des dépendances dans le contexte global de l'application.",
+          "Aucune preuve explicite du lien entre le traitement de commande et les dépendances injectées (ex: comment storage et logger sont utilisés dans un flux complet)."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 19364,
+          "outputTokens": 1066,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 11,
+          "durationMs": 10897,
+          "outputBytes": 1488,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 2
+        }
+      },
+      "calls": [
+        {
+          "name": "list",
+          "arguments": {}
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "list()",
+            "params": {},
+            "remember": false,
+            "description": "List workspace file paths"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"inject\")",
+            "params": {
+              "query": "inject"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of inject"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"dependency\")",
+            "params": {
+              "query": "dependency"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of dependency"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"require\")",
+            "params": {
+              "query": "require"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of require"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"import\")",
+            "params": {
+              "query": "import"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of import"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"Catalog\")",
+            "params": {
+              "query": "Catalog"
+            },
+            "remember": true,
+            "description": "Find usages of Catalog class"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences; input query.",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "67b912239287423f",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of inject",
+          "code": "search(\"inject\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "74c60b01719f25cc",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of dependency",
+          "code": "search(\"dependency\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        },
+        {
+          "id": "c22bdc9f9a4dd31f",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of require",
+          "code": "search(\"require\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "fb7716e66948d94b",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "67b912239287423f",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "67b912239287423f",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "67b912239287423f",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "74c60b01719f25cc",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "74c60b01719f25cc",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "74c60b01719f25cc",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "c22bdc9f9a4dd31f",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "c22bdc9f9a4dd31f",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "c22bdc9f9a4dd31f",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "primitives_contract_final",
+      "task": "project-transfer",
+      "result": {
+        "objective": "Pour une étape du Project Tour, retrouve la définition de totalPrice, explique le calcul et donne le fichier et les lignes qui le prouvent.",
+        "entryPoints": [
+          {
+            "name": "totalPrice definition",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "totalPrice usage in order processing",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder (order.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5142,
+          "outputTokens": 432,
+          "usageAvailable": true,
+          "modelCalls": 3,
+          "toolCalls": 4,
+          "durationMs": 5243,
+          "outputBytes": 889,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice",
+            "contract": "literal_query"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 1
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 5
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "9c100359ac3f51cc",
+          "objective": "Composable repository primitive",
+          "description": "List workspace file paths; no parameters.",
+          "code": "list()",
+          "parameters": [],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 3
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "objective": "Composable repository primitive",
+          "description": "Find literal occurrences; input query.",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 3
+        },
+        {
+          "id": "99712702402e44e2",
+          "objective": "Composable repository primitive",
+          "description": "Read a numbered source range; inputs file, start, end.",
+          "code": "read(params.file,params.start,params.end)",
+          "parameters": [
+            "file",
+            "start",
+            "end"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 3
+        },
+        {
+          "id": "67b912239287423f",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of inject",
+          "code": "search(\"inject\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "74c60b01719f25cc",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of dependency",
+          "code": "search(\"dependency\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "c22bdc9f9a4dd31f",
+          "objective": "Pour une étape de Project Tour sur Catalog, explique quelles dépendances sont injectées, où chacune est utilisée, et quel lien avec le traitement de commande est effectivement démontré. Cite les fichiers et les lignes des déclarations, usages et relation ; distingue les relations incertaines.",
+          "description": "Find literal occurrences of require",
+          "code": "search(\"require\")",
+          "parameters": [
+            "query"
+          ],
+          "successes": 0,
+          "failures": 0,
+          "inactivity": 1
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Pour une étape du Project Tour, retrouve la définition de totalPrice, explique le calcul et donne le fichier et les lignes qui le prouvent.",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "fb7716e66948d94b",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "fb7716e66948d94b",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "67b912239287423f",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "67b912239287423f",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "67b912239287423f",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "74c60b01719f25cc",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "74c60b01719f25cc",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "74c60b01719f25cc",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "c22bdc9f9a4dd31f",
+          "query": "totalPrice",
+          "value": []
+        },
+        {
+          "id": "c22bdc9f9a4dd31f",
+          "query": "Catalog",
+          "value": []
+        },
+        {
+          "id": "c22bdc9f9a4dd31f",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": [
+        {
+          "status": "pass",
+          "reason": "Two matching queries and an absent query passed."
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "mode": "memory_contract_final",
+      "task": "project-route",
+      "result": {
+        "objective": "Parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape.",
+        "entryPoints": [
+          {
+            "name": "postOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 3,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "Catalog.find",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 7,
+                "endLine": 10
+              }
+            ]
+          },
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "postOrder",
+            "to": "createOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "Catalog.find",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "Catalog.find",
+            "to": "storage.get",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 9,
+                "endLine": 9
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "Le type et l'implémentation exacte de storage.get ne sont pas visibles dans les fichiers listés (src/catalog.js, src/api.js, src/order.js, src/math.js).",
+          "Aucune preuve n'est disponible sur la manière dont l'objet storage est instancié ou passé à Catalog."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 19762,
+          "outputTokens": 742,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 11,
+          "durationMs": 9374,
+          "outputBytes": 2222,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of postOrder",
+            "contract": "literal_query"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "createOrder"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 30
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "totalPrice"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "find"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage.get"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "get"
+          }
+        },
+        {
+          "name": "list",
+          "arguments": {}
+        }
+      ],
+      "library": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "objective": "Pour préparer un Project Tour, propose un parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape. N’invente pas d’appel.",
+          "description": "Find literal occurrences of postOrder",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": [
+        {
+          "status": "pass",
+          "reason": "Two matching queries and an absent query passed."
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "mode": "memory_contract_final",
+      "task": "project-collaboration",
+      "result": {
+        "objective": "Identifier les dépendances injectées dans Catalog, leurs usages, et le lien avec le traitement de commande, avec les fichiers et lignes correspondants.",
+        "entryPoints": [
+          {
+            "name": "postOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 3,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "Catalog",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 10
+              }
+            ]
+          },
+          {
+            "name": "createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "postOrder",
+            "to": "createOrder",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "Catalog",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "Catalog",
+            "to": "storage",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 3,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "from": "Catalog",
+            "to": "logger",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          }
+        ],
+        "uncertainties": [
+          "Aucune instance concrète de Catalog n'est instanciée dans les fichiers observés (ex: new Catalog(...)), donc la manière dont storage et logger sont fournis reste incertaine.",
+          "Le type et l'origine de storage (ex: Map, objet, service externe) ne sont pas précisés dans les fichiers lus.",
+          "Le type et l'origine de logger (ex: console, service de logging) ne sont pas précisés dans les fichiers lus.",
+          "Aucun appel effectif à Catalog.find(id) n'est visible dans les fichiers lus hormis dans createOrder, donc le lien direct entre Catalog et le traitement de commande repose uniquement sur cette unique utilisation."
+        ],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 22306,
+          "outputTokens": 916,
+          "usageAvailable": true,
+          "modelCalls": 12,
+          "toolCalls": 14,
+          "durationMs": 10592,
+          "outputBytes": 2869,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 2
+        }
+      },
+      "calls": [
+        {
+          "name": "memory_list",
+          "arguments": {}
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"postOrder\")",
+            "params": {
+              "query": "postOrder"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of postOrder"
+          }
+        },
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(\"catalog\")",
+            "params": {
+              "query": "catalog"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of catalog"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/api.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "totalPrice"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "math.js"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 5
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "Catalog"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/catalog.js",
+            "startLine": 1,
+            "endLine": 20
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "storage"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "logger"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "new Catalog"
+          }
+        },
+        {
+          "name": "search",
+          "arguments": {
+            "query": "Catalog {"
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "objective": "Pour préparer un Project Tour, propose un parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape. N’invente pas d’appel.",
+          "description": "Find literal occurrences of postOrder",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 1
+        }
+      ],
+      "probes": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": []
+    },
+    {
+      "repetition": 2,
+      "mode": "memory_contract_final",
+      "task": "project-transfer",
+      "result": {
+        "objective": "Retrouver la définition de totalPrice, expliquer le calcul et donner le fichier et les lignes qui le prouvent.",
+        "entryPoints": [
+          {
+            "name": "Définition de totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "Utilisation de totalPrice dans createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "createOrder",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 3,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder",
+            "to": "totalPrice",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "totalPrice",
+            "to": "calcul",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 2,
+                "endLine": 2
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 4128,
+          "outputTokens": 478,
+          "usageAvailable": true,
+          "modelCalls": 3,
+          "toolCalls": 4,
+          "durationMs": 4920,
+          "outputBytes": 889,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0,
+          "memoryQueryRejects": 0
+        }
+      },
+      "calls": [
+        {
+          "name": "code",
+          "arguments": {
+            "code": "search(params.query)",
+            "params": {
+              "query": "totalPrice"
+            },
+            "remember": true,
+            "description": "Find literal occurrences of totalPrice",
+            "contract": "literal_query"
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 1
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/order.js",
+            "startLine": 1,
+            "endLine": 10
+          }
+        },
+        {
+          "name": "read",
+          "arguments": {
+            "file": "src/math.js",
+            "startLine": 1,
+            "endLine": 5
+          }
+        }
+      ],
+      "library": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "objective": "Pour préparer un Project Tour, propose un parcours ordonné depuis postOrder jusqu’au calcul du total, en expliquant les appels et en donnant les fichiers et lignes qui justifient chaque étape. N’invente pas d’appel.",
+          "description": "Find literal occurrences of postOrder",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 2
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "objective": "Pour une étape du Project Tour, retrouve la définition de totalPrice, explique le calcul et donne le fichier et les lignes qui le prouvent.",
+          "description": "Find literal occurrences of totalPrice",
+          "code": "search(params.query)",
+          "parameters": [
+            "query"
+          ],
+          "successes": 1,
+          "failures": 0,
+          "inactivity": 0
+        }
+      ],
+      "probes": [
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "f9d80f0825e93ccf",
+          "query": "unseen_missing_902",
+          "value": []
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "totalPrice",
+          "value": [
+            {
+              "file": "src/math.js",
+              "line": 1,
+              "text": "export function totalPrice(price, quantity) {"
+            },
+            {
+              "file": "src/order.js",
+              "line": 1,
+              "text": "import { totalPrice } from './math.js';"
+            },
+            {
+              "file": "src/order.js",
+              "line": 5,
+              "text": "  return { id, total: totalPrice(item.price, quantity) };"
+            }
+          ]
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "Catalog",
+          "value": [
+            {
+              "file": "src/catalog.js",
+              "line": 1,
+              "text": "export class Catalog {"
+            }
+          ]
+        },
+        {
+          "id": "5ee03a6dffc225db",
+          "query": "unseen_missing_902",
+          "value": []
+        }
+      ],
+      "validationFeedback": [
+        {
+          "status": "pass",
+          "reason": "Two matching queries and an absent query passed."
+        }
+      ]
+    }
+  ]
+}
