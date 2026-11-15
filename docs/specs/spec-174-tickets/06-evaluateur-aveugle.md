@@ -2,11 +2,11 @@
 
 **Spec**: [Spec #174 — Benchmark PostgreSQL réel vs sous-agent Vibe natif + décomposition des tâches](../../../specs/postgres-real-benchmark-2026-11-15.md)
 
-**Status**: ⏳ Not Started
+**Status**: ✅ Done
 **Priority**: High
-**Blocked By**: T04 (Fixture PostgreSQL)
+**Blocked By**: T04 (Fixture PostgreSQL) - COMPLETED
 **Blocks**: T07 (Pilote + 80 runs)
-**Gate**: G4 (Évaluateur indépendant)
+**Gate**: G4 (Évaluateur indépendant) - ✅ VALIDATED
 
 ## Objectif
 
@@ -464,12 +464,12 @@ Le runner doit:
 
 ## Validation
 
-- [ ] Format commun des réponses défini
-- [ ] Grille d'évaluation implémentée
-- [ ] Export anonymisé fonctionnel
-- [ ] Processus d'arbitrage défini
-- [ ] Tests de l'évaluateur passent
-- [ ] G4 validé (évaluateur indépendant fonctionnel)
+- [x] ✅ Format commun des réponses défini
+- [x] ✅ Grille d'évaluation implémentée
+- [x] ✅ Export anonymisé fonctionnel
+- [x] ✅ Processus d'arbitrage défini
+- [x] ✅ Tests de l'évaluateur passent
+- [x] ✅ G4 validé (évaluateur indépendant fonctionnel)
 
 ## Preuves requises
 
