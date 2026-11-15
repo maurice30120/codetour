@@ -32,15 +32,15 @@ if (!root || !objective) {
   process.exit(1);
 }
 
-// Validate mode (must match process.argv[2] as per the benchmark runner)
-const expectedMode = process.argv[2];
+// Validate mode (use from request if not provided as argument)
+const expectedMode = process.argv[2] || mode;
 if (!expectedMode) {
-  process.stderr.write('Error: mode is required as command-line argument\n');
+  process.stderr.write('Error: mode is required as command-line argument or in request\n');
   process.exit(1);
 }
 
 // Mode must be one of the valid modes
-const validModes = ['baseline', 'code-mode', 'memory-on', 'memory-off', 'vibe-baseline', 'vibe-research'];
+const validModes = ['baseline', 'code-mode', 'memory-on', 'memory-off', 'vibe-baseline', 'vibe-research', 'vibe-repetition', 'vibe-transfer'];
 if (!validModes.includes(expectedMode)) {
   process.stderr.write(`Error: Invalid mode. Expected one of: ${validModes.join(', ')}\n`);
   process.exit(1);

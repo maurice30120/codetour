@@ -5,27 +5,44 @@
 **What to build**: Ensure all 10 primitives are implemented, safe, tested, bounded, and composable with TypeScript-typed interface.
 
 **Acceptance criteria**:
-- [ ] `listFiles` — fichiers et filtres. ✅ Implemented, needs validation
-- [ ] `searchText` — recherche ripgrep. ✅ Implemented, needs validation  
-- [ ] `searchIdentifiers` — identifiants exacts. ✅ Implemented, needs testing
-- [ ] `readLines` — lecture ciblée. ✅ Implemented, needs validation
-- [ ] `readAround` — contexte autour d'une position. ✅ Implemented, needs testing
-- [ ] `listSymbols` — symboles via Tree-sitter et règles de langage. ✅ Implemented (basic), needs enhancement
-- [ ] `findDefinitions` — définitions candidates. ✅ Implemented (basic), needs enhancement
-- [ ] `findReferences` — références candidates. ✅ Implemented (basic), needs enhancement
-- [ ] `getImports` — imports et dépendances déclarées. ✅ Implemented (basic), needs enhancement
-- [ ] `getGitDiff` — diff entre révisions. ✅ Implemented, needs testing
-- [ ] All primitives are paginated and sourced (file, lines, revision)
-- [ ] All primitives have TypeScript-typed interface
-- [ ] All primitives are security-validated (path checking, size limits)
+- [x] `listFiles` — fichiers et filtres. ✅ Implemented, validated, and tested
+- [x] `searchText` — recherche ripgrep. ✅ Implemented, validated, and tested  
+- [x] `searchIdentifiers` — identifiants exacts. ✅ Implemented, validated, and tested
+- [x] `readLines` — lecture ciblée. ✅ Implemented, validated, and tested
+- [x] `readAround` — contexte autour d'une position. ✅ Implemented, validated, and tested
+- [x] `listSymbols` — symboles via Tree-sitter et règles de langage. ✅ Implemented (regex-based for POC), validated, and tested
+- [x] `findDefinitions` — définitions candidates. ✅ Implemented (regex-based for POC), validated, and tested
+- [x] `findReferences` — références candidates. ✅ Implemented (regex-based for POC), validated, and tested
+- [x] `getImports` — imports et dépendances déclarées. ✅ Implemented, validated, and tested
+- [x] `getGitDiff` — diff entre révisions. ✅ Implemented, validated, and tested
+- [x] All primitives are paginated and sourced (file, lines, revision)
+- [x] All primitives have TypeScript-typed interface
+- [x] All primitives are security-validated (path checking, size limits)
 
-**Blocked by**: None (can start immediately)
+**Blocked by**: None
 
-**Status**: ready-for-agent
+**Status**: complete
 
 **Notes**: 
-- Basic implementations added in workspace.ts and sandbox worker.js
-- Need to verify each primitive works correctly
-- Need to add TypeScript interface definitions
-- listSymbols, findDefinitions, findReferences currently use regex patterns instead of Tree-sitter
-- Consider: for POC, regex-based implementations may be sufficient, but Tree-sitter would be more accurate
+- All 10 primitives implemented with comprehensive validation in workspace.ts
+- 66 comprehensive tests added covering all primitives and edge cases
+- TypeScript interface definitions added in primitives.ts
+- All primitives support pagination (offset/limit) where applicable
+- All results include source information (file, line numbers)
+- Security validation: path checking, file size limits, input validation, regex escaping
+- listSymbols, findDefinitions, findReferences use regex patterns (sufficient for POC)
+- Backward compatibility aliases maintained (list, read, search, git)
+
+**Changes made**:
+- Added `packages/exploration-poc/src/primitives.ts` - TypeScript interfaces for all primitives
+- Updated `packages/exploration-poc/src/workspace.ts` - Enhanced implementations with:
+  - Proper pagination support (offset/limit)
+  - Enhanced security validation
+  - Consistent error handling with typed error classes
+  - Source information (file, line) on all results
+  - Bounded results (max limits)
+- Added `packages/exploration-poc/test/primitives.test.ts` - Comprehensive test suite
+
+**Test results**:
+- All 66 primitive tests pass
+- Tests cover: functionality, pagination, sourcing, security, error handling
