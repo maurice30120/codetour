@@ -1,283 +1,99 @@
-/**
- * Spec #174 - T06: Arbitrator Module
- * 
- * Handles disagreement resolution between multiple graders.
- * 
- * G4 Compliance Requirements:
- * - If evaluators disagree: second evaluation by arbitrator
- * - Preserve initial verdict and arbitration reason
- * - Final judgment = arbitrator judgment
- */
+import { AgentResponse, BlindedResponse, Arbitration, EvaluationResult, FinalEvaluation, Question } from './types';
+import { TourGrader } from './grader';
+import { anonymizeResponse } from './blinder';
 
-import {
-  AgentResponse,
-  Arbitration,
-  EvaluationResult,
-  FinalEvaluation,
-  Question,
-} from './types';
-import { TourGrader, createGrader } from './grader';
-
-/**
- * Arbitrator class for resolving evaluation disagreements
- */
 export class Arbitrator {
-  private graders: TourGrader[];
-  private arbitratorGrader: TourGrader;
-  
-  constructor(graders: TourGrader[] = []) {
-    if (graders.length === 0) {
-      // Create default graders
-      this.graders = [
-        createGrader(),
-        createGrader(),
-      ];
-    } else {
-      this.graders = graders;
+  constructor(private graders: TourGrader[] = [], private arbitratorGrader?: TourGrader) {
+    const all = [...graders, ...(arbitratorGrader ? [arbitratorGrader] : [])];
+    const ids = all.map(g => g.getConfig().semantic_reviewer?.id);
+    if (all.length && (ids.some(id => !id?.trim()) || new Set(ids).size !== ids.length)) {
+      throw new Error('Independent reviewers must have distinct nonempty identities');
     }
-    
-    // Arbitrator uses a separate grader instance
-    this.arbitratorGrader = createGrader();
+    const configurations = all.map(g => {
+      const config = g.getConfig();
+      return JSON.stringify([config.postgres_path, config.postgres_sha, config.thresholds,
+        config.strict_mode, config.verify_all_citations]);
+    });
+    if (new Set(configurations).size > 1) throw new Error('All graders must use the same fixture and criteria');
   }
 
-  /**
-   * Perform arbitration on a response
-   * 
-   * Process:
-   * 1. Get initial evaluation from first grader
-   * 2. Get second evaluation from second grader
-   * 3. If they agree, use that judgment
-   * 4. If they disagree, use arbitrator judgment
-   * 5. Always preserve initial verdict and arbitration reason
-   * 
-   * @param response - The agent response to evaluate
-   * @param question - The question
-   * @returns Promise<Arbitration> - The arbitration record
-   */
-  async arbitrate(
-    response: AgentResponse,
-    question: Question
-  ): Promise<Arbitration> {
-    // Step 1: Get initial evaluations from all graders
-    const initialJudgments: EvaluationResult[] = [];
-    
-    for (const grader of this.graders) {
-      const judgment = await grader.evaluate(response, question);
-      initialJudgments.push(judgment);
-    }
-    
-    // Check if all graders agree
-    const allAgree = this.doJudgmentsAgree(...initialJudgments);
-    
-    if (allAgree) {
-      // If all agree, use the first judgment
-      const finalJudgment = initialJudgments[0];
-      
-      return {
-        evaluation_id: response.run_id || `arb-${Date.now()}`,
-        question_id: question.id,
-        initial_judgments: initialJudgments,
-        arbitrator_judgment: finalJudgment,
-        final_judgment: finalJudgment,
-        reason: 'All graders agreed',
-        arbitrated_at: new Date().toISOString(),
-      };
-    }
-    
-    // Step 2: If disagreement, use arbitrator
-    const arbitratorJudgment = await this.arbitratorGrader.evaluate(response, question);
-    
-    // Step 3: Create arbitration record
+  async arbitrate(input: AgentResponse | BlindedResponse, question: Question): Promise<Arbitration> {
+    if (this.graders.length < 2) throw new Error('At least two independent reviewers are required');
+    const response = 'run_id' in input ? anonymizeResponse(input) : structuredClone(input);
+    const initial = await Promise.all(this.graders.map(g => g.evaluate(structuredClone(response), question)));
+    const agree = initial.every(j => this.decisions(j) === this.decisions(initial[0]));
+    const unresolved = initial.some(j => j.review_required);
+    if (agree && !unresolved) return {
+      status: 'agreed', evaluation_id: response.evaluation_id, question_id: question.id,
+      initial_judgments: initial, arbitrator_judgment: initial[0], final_judgment: initial[0],
+      reason: 'All independent graders agreed', arbitrated_at: new Date().toISOString(),
+    };
+    const reason = agree ? 'Initial judgments require manual review' : 'Independent graders disagree';
+    const final = this.arbitratorGrader ?
+      await this.arbitratorGrader.evaluate(structuredClone(response), question) :
+      { ...initial[0], correct: false, evidence_supported: false, review_required: true,
+        justification: 'Manual arbitration required; no independent adjudicator supplied.' };
+    const pending = !this.arbitratorGrader || final.review_required === true;
     return {
-      evaluation_id: response.run_id || `arb-${Date.now()}`,
-      question_id: question.id,
-      initial_judgments: initialJudgments,
-      arbitrator_judgment: arbitratorJudgment,
-      final_judgment: arbitratorJudgment,
-      reason: this.describeDisagreement(initialJudgments),
+      status: pending ? 'pending' : 'arbitrated',
+      evaluation_id: response.evaluation_id, question_id: question.id,
+      initial_judgments: initial,
+      arbitrator_judgment: this.arbitratorGrader ? final : undefined,
+      final_judgment: final, reason: reason + (pending ? '; manual arbitration required' : '; using adjudicator judgment'),
+      arbitrator_id: this.arbitratorGrader?.getConfig().semantic_reviewer?.id,
       arbitrated_at: new Date().toISOString(),
-      disagreement_details: this.getDisagreementDetails(initialJudgments),
+      disagreement_details: initial.map(j => j.justification).join(' | '),
     };
   }
 
-  /**
-   * Batch arbitration for multiple responses
-   */
-  async arbitrateBatch(
-    responses: AgentResponse[],
-    questions: Question[]
-  ): Promise<Arbitration[]> {
-    if (responses.length !== questions.length) {
-      throw new Error('Responses and questions must have the same length');
-    }
-    
-    const arbitrations: Arbitration[] = [];
-    
-    for (let i = 0; i < responses.length; i++) {
-      const arbitration = await this.arbitrate(responses[i], questions[i]);
-      arbitrations.push(arbitration);
-    }
-    
-    return arbitrations;
+  private decisions(j: EvaluationResult): string {
+    return JSON.stringify({
+      correct: j.correct, evidence_supported: j.evidence_supported,
+      major_missing_relation: j.major_missing_relation, critical_false_claim: j.critical_false_claim,
+      coverage: j.coverage, quality_score: j.quality_score, review_required: j.review_required,
+      criteria_version: j.criteria_version, verified_lines: j.verified_lines,
+      failed_claims: j.failed_claims.map(f => [f.claim_id, f.reason, f.severity]),
+      missing_relations: j.missing_relations,
+      claims: j.claim_results?.map(c => [c.claim_id, c.supported, c.verified, c.false]),
+      relations: j.relation_results,
+      criteria: j.semantic_review?.criteria.map(c => [c.criterion_id, c.met, c.citations]),
+    });
   }
 
-  /**
-   * Check if multiple judgments agree
-   * 
-   * Two judgments agree if:
-   * - correct values match
-   * - evidence_supported values match
-   * - major_missing_relation values match
-   * - critical_false_claim values match
-   */
-  private doJudgmentsAgree(...judgments: EvaluationResult[]): boolean {
-    if (judgments.length === 0) return true;
-    if (judgments.length === 1) return true;
-    
-    const first = judgments[0];
-    
-    for (let i = 1; i < judgments.length; i++) {
-      const other = judgments[i];
-      
-      if (first.correct !== other.correct) return false;
-      if (first.evidence_supported !== other.evidence_supported) return false;
-      if (first.major_missing_relation !== other.major_missing_relation) return false;
-      if (first.critical_false_claim !== other.critical_false_claim) return false;
-    }
-    
-    return true;
+  async arbitrateBatch(responses: Array<AgentResponse | BlindedResponse>, questions: Question[]): Promise<Arbitration[]> {
+    if (responses.length !== questions.length) throw new Error('Responses and questions must have the same length');
+    const records: Arbitration[] = [];
+    for (let i = 0; i < responses.length; i++) records.push(await this.arbitrate(responses[i], questions[i]));
+    return records;
   }
 
-  /**
-   * Describe the nature of disagreement
-   */
-  private describeDisagreement(judgments: EvaluationResult[]): string {
-    const discrepancies: string[] = [];
-    
-    for (let i = 0; i < judgments.length; i++) {
-      for (let j = i + 1; j < judgments.length; j++) {
-        const j1 = judgments[i];
-        const j2 = judgments[j];
-        
-        if (j1.correct !== j2.correct) {
-          discrepancies.push(`Grader ${i + 1} said correct=${j1.correct}, Grader ${j + 1} said correct=${j2.correct}`);
-        }
-        if (j1.evidence_supported !== j2.evidence_supported) {
-          discrepancies.push(`Grader ${i + 1} said evidence_supported=${j1.evidence_supported}, Grader ${j + 1} said evidence_supported=${j2.evidence_supported}`);
-        }
-        if (j1.major_missing_relation !== j2.major_missing_relation) {
-          discrepancies.push(`Grader ${i + 1} said major_missing_relation=${j1.major_missing_relation}, Grader ${j + 1} said major_missing_relation=${j2.major_missing_relation}`);
-        }
-        if (j1.critical_false_claim !== j2.critical_false_claim) {
-          discrepancies.push(`Grader ${i + 1} said critical_false_claim=${j1.critical_false_claim}, Grader ${j + 1} said critical_false_claim=${j2.critical_false_claim}`);
-        }
-      }
-    }
-    
-    if (discrepancies.length === 0) {
-      return 'Judgments disagree but reasons unclear';
-    }
-    
-    return discrepancies.join('; ');
-  }
-
-  /**
-   * Get detailed disagreement information
-   */
-  private getDisagreementDetails(judgments: EvaluationResult[]): string {
-    const details: string[] = [];
-    
-    for (let i = 0; i < judgments.length; i++) {
-      const j = judgments[i];
-      details.push(`Grader ${i + 1}: correct=${j.correct}, evidence=${j.evidence_supported}, ` +
-        `missing_relation=${j.major_missing_relation}, false_claim=${j.critical_false_claim}, ` +
-        `coverage=${j.coverage}, quality=${j.quality_score}, ` +
-        `failed_claims=${j.failed_claims?.length || 0}`);
-    }
-    
-    return details.join(' | ');
-  }
-
-  /**
-   * Create a final evaluation record including arbitration
-   */
-  createFinalEvaluation(
-    arbitration: Arbitration,
-    agent: string,
-    runId: string
-  ): FinalEvaluation {
+  createFinalEvaluation(arbitration: Arbitration, agent: string, runId: string): FinalEvaluation {
+    if (arbitration.status === 'pending') throw new Error('Manual arbitration is still pending');
     return {
-      evaluation_id: arbitration.evaluation_id,
-      question_id: arbitration.question_id,
-      agent,
-      run_id: runId,
-      result: arbitration.final_judgment,
-      arbitration,
-      evaluated_at: arbitration.arbitrated_at,
-      finalized_at: new Date().toISOString(),
+      evaluation_id: arbitration.evaluation_id, question_id: arbitration.question_id,
+      agent, run_id: runId, result: arbitration.final_judgment, arbitration,
+      evaluated_at: arbitration.arbitrated_at, finalized_at: new Date().toISOString(),
     };
   }
 
-  /**
-   * Count statistics from arbitrations
-   */
-  getStatistics(arbitrations: Arbitration[]): {
-    total: number;
-    agreed: number;
-    disagreed: number;
-    overturned: number;
-    arbitrationRate: number;
+  getStatistics(records: Arbitration[]): {
+    total: number; agreed: number; disagreed: number; overturned: number; arbitrationRate: number;
   } {
-    let agreed = 0;
-    let disagreed = 0;
-    let overturned = 0;
-    
-    for (const arb of arbitrations) {
-      if (arb.reason.includes('agreed')) {
-        agreed++;
-      } else {
-        disagreed++;
-        
-        // Check if arbitrator overturned initial majority
-        const initialCorrect = arb.initial_judgments.map(j => j.correct);
-        const majorityCorrect = initialCorrect.reduce((acc, c) => acc + (c ? 1 : 0), 0) > initialCorrect.length / 2;
-        
-        if (arb.final_judgment.correct !== majorityCorrect) {
-          overturned++;
-        }
-      }
-    }
-    
-    const total = arbitrations.length;
-    
-    return {
-      total,
-      agreed,
-      disagreed,
-      overturned,
-      arbitrationRate: total > 0 ? disagreed / total : 0,
-    };
+    const agreed = records.filter(r => r.status === 'agreed').length;
+    const disagreed = records.length - agreed;
+    const overturned = records.filter(r => r.status === 'arbitrated' &&
+      r.final_judgment.correct !==
+        (r.initial_judgments.filter(j => j.correct).length > r.initial_judgments.length / 2)).length;
+    return { total: records.length, agreed, disagreed, overturned,
+      arbitrationRate: records.length ? disagreed / records.length : 0 };
   }
 }
 
-/**
- * Simple arbitration function (for basic use cases)
- */
-export async function simpleArbitrate(
-  response: AgentResponse,
-  question: Question,
-  grader1: TourGrader,
-  grader2: TourGrader
-): Promise<Arbitration> {
-  const arbitrator = new Arbitrator([grader1, grader2]);
-  return arbitrator.arbitrate(response, question);
+export async function simpleArbitrate(response: AgentResponse | BlindedResponse, question: Question,
+  grader1: TourGrader, grader2: TourGrader, adjudicator?: TourGrader): Promise<Arbitration> {
+  return new Arbitrator([grader1, grader2], adjudicator).arbitrate(response, question);
 }
 
-/**
- * Create a default arbitrator
- */
-export function createArbitrator(): Arbitrator {
-  return new Arbitrator();
+export function createArbitrator(graders: TourGrader[] = [], adjudicator?: TourGrader): Arbitrator {
+  return new Arbitrator(graders, adjudicator);
 }
-
-export type { EvaluationResult, AgentResponse, Question, Arbitration, FinalEvaluation };

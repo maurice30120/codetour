@@ -1,669 +1,101 @@
-/**
- * Spec #174 - T06: Grader Tests
- * 
- * Tests for the TourGrader class
- * 
- * These tests verify that:
- * 1. Claims are properly evaluated against PostgreSQL code
- * 2. Missing relations are detected
- * 3. Coverage is calculated correctly
- * 4. The grader rejects proofs that point to correct line but claim wrong relation
- * 5. Quality thresholds are applied correctly
- */
+import { rmSync, symlinkSync } from 'fs';
+import { join } from 'path';
+import { TourGrader } from '../src/grader';
+import { fixture, reviewed } from './fixture';
+import { anonymizeResponse } from '../src/blinder';
 
-import {
-  AgentResponse,
-  Claim,
-  Citation,
-  ExpectedArea,
-  ExpectedRelation,
-  Question,
-  Relation,
-  Tour,
-  TourStep,
-  POSTGRES_SHA,
-} from '../src/types';
-import { TourGrader, createGrader } from '../src/grader';
+describe('TourGrader.evaluate', () => {
+  let f: ReturnType<typeof fixture>;
+  beforeEach(() => { f = fixture(); });
+  afterEach(() => rmSync(f.root, { recursive: true, force: true }));
 
-describe('TourGrader', () => {
-  let grader: TourGrader;
-
-  beforeEach(() => {
-    // Reset before each test
-    grader = createGrader();
+  it('accepts a complete tour whose claims and directed relations have justified independent review and real committed evidence', async () => {
+    const grader = new TourGrader({ postgres_path: f.root, postgres_sha: f.sha, semantic_reviewer: reviewed() });
+    const result = await grader.evaluate(f.response, f.question);
+    expect(result).toMatchObject({ correct: true, evidence_supported: true, coverage: 1,
+      major_missing_relation: false, critical_false_claim: false, review_required: false,
+      review_id: 'human-review-1', verified_lines: ['query.c:2'] });
   });
 
-  describe('Initialization', () => {
-    it('should initialize with default configuration', () => {
-      const config = grader.getConfig();
-      expect(config.postgres_sha).toBe(POSTGRES_SHA);
-      expect(config.thresholds.min_coverage).toBe(0.7);
-      expect(config.thresholds.max_missing_critical_relations).toBe(0);
-      expect(config.thresholds.max_false_claims).toBe(0);
-    });
-
-    it('should throw error if postgres_sha is not correct for G4', () => {
-      expect(() => {
-        new TourGrader({ postgres_sha: 'wrong-sha' });
-      }).toThrow(`postgres_sha must be ${POSTGRES_SHA} for G4 compliance`);
-    });
-
-    it('should allow custom configuration', () => {
-      const customGrader = new TourGrader({
-        thresholds: {
-          min_coverage: 0.8,
-          max_missing_critical_relations: 1,
-          max_false_claims: 1,
-          critical_false_claim_weight: 2.0,
-        },
-      });
-      const config = customGrader.getConfig();
-      expect(config.thresholds.min_coverage).toBe(0.8);
-    });
+  it('keeps natural language claims unsupported without independent semantic review, even with exact code citations', async () => {
+    const grader = new TourGrader({ postgres_path: f.root, postgres_sha: f.sha });
+    const result = await grader.evaluate(f.response, f.question);
+    expect(result.correct).toBe(false);
+    expect(result.evidence_supported).toBe(false);
+    expect(result.failed_claims).toEqual(expect.arrayContaining([
+      expect.objectContaining({ claim_id: expect.any(String), reason: 'unsupported' }),
+    ]));
+    expect(result.justification).toMatch(/review|unsupported/i);
   });
 
-  describe('evaluate() - Full evaluation', () => {
-    const baseQuestion: Question = {
-      id: 'q1',
-      objective: 'Find the exec_simple_query function and its callers',
-      series: 'R',
-      postgres_sha: POSTGRES_SHA,
-      expected_areas: [],
-      relations_to_verify: [],
-      criteria: [],
-    };
-
-    it('should evaluate a correct response as correct', async () => {
-      const response = createCorrectResponse('q1');
-      const result = await grader.evaluate(response, baseQuestion);
-
-      // A response with valid citations should be correct
-      // (Assuming the grader can't verify files in test environment)
-      expect(result).toBeDefined();
-      expect(result.evaluation_id).toBeDefined();
-      expect(result.evaluated_at).toBeDefined();
-    });
-
-    it('should detect unsupported claims', async () => {
-      const response: AgentResponse = {
-        run_id: 'run-1',
-        agent: 'CodeTour',
-        timestamp: new Date().toISOString(),
-        question_id: 'q1',
-        objective: 'Find the exec_simple_query function',
-        series: 'R',
-        tour: {
-          title: 'Test Tour',
-          description: 'A test tour',
-          steps: [],
-        },
-        citations: [],
-        claims: [
-          {
-            id: 'claim-1',
-            statement: 'exec_simple_query is in src/backend/tcop/postgres.c',
-            confidence: 0.9,
-            citations: [], // No citations!
-          },
-        ],
-        relations: [],
-      };
-
-      const result = await grader.evaluate(response, baseQuestion);
-
-      expect(result.evidence_supported).toBe(false);
-      expect(result.failed_claims.length).toBeGreaterThan(0);
-      expect(result.failed_claims[0].reason).toBe('unsupported');
-    });
-
-    it('should detect missing critical relations', async () => {
-      const question: Question = {
-        id: 'q1',
-        objective: 'Find the exec_simple_query function and its callers',
-        series: 'R',
-        postgres_sha: POSTGRES_SHA,
-        expected_areas: [],
-        relations_to_verify: [
-          {
-            from: 'exec_simple_query',
-            to: 'pg_parse_query',
-            type: 'calls',
-            critical: true,
-            description: 'exec_simple_query calls pg_parse_query',
-          },
-        ],
-        criteria: [],
-      };
-
-      const response: AgentResponse = {
-        run_id: 'run-1',
-        agent: 'CodeTour',
-        timestamp: new Date().toISOString(),
-        question_id: 'q1',
-        objective: 'Find the exec_simple_query function and its callers',
-        series: 'R',
-        tour: {
-          title: 'Test Tour',
-          description: 'A test tour',
-          steps: [],
-        },
-        citations: [],
-        claims: [],
-        relations: [
-          // Missing the critical relation
-        ],
-      };
-
-      const result = await grader.evaluate(response, question);
-
-      expect(result.major_missing_relation).toBe(true);
-      expect(result.correct).toBe(false);
-      expect(result.missing_relations.length).toBe(1);
-      expect(result.missing_relations[0].from).toBe('exec_simple_query');
-    });
-
-    it('should calculate coverage correctly', async () => {
-      const fixtureDir = await makeFixtureWithFiles({
-        'src/backend/tcop/postgres.c': padToLine(100, 'exec_simple_query(const char *query)'),
-        'src/backend/parser/parser.c': padToLine(50, 'pg_parse_query(const char *query)'),
-      });
-      const expectedAreas: ExpectedArea[] = [
-        {
-          file: 'src/backend/tcop/postgres.c',
-          lines: [100, 101, 102],
-          description: 'exec_simple_query definition',
-          critical: true,
-        },
-        {
-          file: 'src/backend/parser/parser.c',
-          lines: [50, 51],
-          description: 'pg_parse_query definition',
-          critical: true,
-        },
-      ];
-
-      const question: Question = {
-        id: 'q1',
-        objective: 'Find the exec_simple_query function and its callers',
-        series: 'R',
-        postgres_sha: POSTGRES_SHA,
-        expected_areas,
-        relations_to_verify: [],
-        criteria: [],
-      };
-
-      // Response with citations covering both areas
-      const response: AgentResponse = {
-        run_id: 'run-1',
-        agent: 'CodeTour',
-        timestamp: new Date().toISOString(),
-        question_id: 'q1',
-        objective: 'Find the exec_simple_query function and its callers',
-        series: 'R',
-        tour: {
-          title: 'Test Tour',
-          description: 'A test tour',
-          steps: [],
-        },
-        citations: [
-          {
-            id: 'cit-1',
-            file: 'src/backend/tcop/postgres.c',
-            line: 100,
-            content: 'exec_simple_query(const char *query)',
-            context: '',
-          },
-          {
-            id: 'cit-2',
-            file: 'src/backend/parser/parser.c',
-            line: 50,
-            content: 'pg_parse_query(const char *query)',
-            context: '',
-          },
-        ],
-        claims: [],
-        relations: [],
-      };
-
-      const fixtureGrader = new TourGrader({ postgres_path: fixtureDir });
-      const result = await fixtureGrader.evaluate(response, question);
-
-      // Should have 100% coverage (2 areas covered, 2 expected)
-      expect(result.coverage).toBe(1);
-    });
-
-    it('should calculate partial coverage', async () => {
-      const fixtureDir = await makeFixtureWithFiles({
-        'src/backend/tcop/postgres.c': padToLine(100, 'exec_simple_query(const char *query)'),
-      });
-      const expectedAreas: ExpectedArea[] = [
-        {
-          file: 'src/backend/tcop/postgres.c',
-          lines: [100, 101, 102],
-          description: 'exec_simple_query definition',
-          critical: true,
-        },
-        {
-          file: 'src/backend/parser/parser.c',
-          lines: [50, 51],
-          description: 'pg_parse_query definition',
-          critical: true,
-        },
-      ];
-
-      const question: Question = {
-        id: 'q1',
-        objective: 'Find the exec_simple_query function and its callers',
-        series: 'R',
-        postgres_sha: POSTGRES_SHA,
-        expected_areas,
-        relations_to_verify: [],
-        criteria: [],
-      };
-
-      // Response with citations covering only one area
-      const response: AgentResponse = {
-        run_id: 'run-1',
-        agent: 'CodeTour',
-        timestamp: new Date().toISOString(),
-        question_id: 'q1',
-        objective: 'Find the exec_simple_query function and its callers',
-        series: 'R',
-        tour: {
-          title: 'Test Tour',
-          description: 'A test tour',
-          steps: [],
-        },
-        citations: [
-          {
-            id: 'cit-1',
-            file: 'src/backend/tcop/postgres.c',
-            line: 100,
-            content: 'exec_simple_query(const char *query)',
-            context: '',
-          },
-        ],
-        claims: [],
-        relations: [],
-      };
-
-      const fixtureGrader = new TourGrader({ postgres_path: fixtureDir });
-      const result = await fixtureGrader.evaluate(response, question);
-
-      // Should have 50% coverage (1 area covered, 2 expected)
-      expect(result.coverage).toBe(0.5);
-    });
+  it.each(['partial', 'error', 'truncated'] as const)('keeps %s runs incorrect even when the available content is reviewed as supported', async state => {
+    if (state === 'truncated') f.response.truncated = true;
+    else f.response.status = state;
+    const grader = new TourGrader({ postgres_path: f.root, postgres_sha: f.sha, semantic_reviewer: reviewed() });
+    const result = await grader.evaluate(f.response, f.question);
+    expect(result.correct).toBe(false);
+    expect(result.justification).toMatch(/incomplete/i);
   });
 
-  describe('evaluateClaim() - Claim verification', () => {
-    it('should reject claim with no citations', async () => {
-      const claim: Claim = {
-        id: 'claim-1',
-        statement: 'exec_simple_query exists',
-        confidence: 1,
-        citations: [],
-      };
-
-      const result = await grader.evaluateClaim(claim, []);
-
-      expect(result.supported).toBe(false);
-      expect(result.verified).toBe(false);
-      expect(result.isFalse).toBe(false);
-      expect(result.reason).toContain('No citations');
-    });
-
-    it('should reject claim with non-existent citations', async () => {
-      const claim: Claim = {
-        id: 'claim-1',
-        statement: 'exec_simple_query exists',
-        confidence: 1,
-        citations: ['non-existent-citation'],
-      };
-
-      const citations: Citation[] = []; // Empty, so citation doesn't exist
-
-      const result = await grader.evaluateClaim(claim, citations);
-
-      expect(result.supported).toBe(false);
-      expect(result.reason).toContain('Citations not found');
-    });
-
-    it('should handle critical claims appropriately', async () => {
-      const claim: Claim = {
-        id: 'claim-1',
-        statement: 'exec_simple_query calls pg_parse_query',
-        confidence: 1,
-        citations: [],
-        critical: true,
-      };
-
-      const result = await grader.evaluateClaim(claim, []);
-
-      // Critical claim with no support should be marked as false
-      expect(result.supported).toBe(false);
-    });
+  it('treats a claim with no evidence as unknown rather than claiming it is false', async () => {
+    f.response.claims[0].citations = [];
+    const grader = new TourGrader({ postgres_path: f.root, postgres_sha: f.sha, semantic_reviewer: reviewed() });
+    const result = await grader.evaluate(f.response, f.question);
+    expect(result).toMatchObject({ correct: false, evidence_supported: false,
+      critical_false_claim: false, review_required: true });
+    expect(result.failed_claims).toEqual(expect.arrayContaining([
+      expect.objectContaining({ reason: 'unsupported' }),
+    ]));
   });
 
-  describe('checkRelations() - Relation verification', () => {
-    it('should match relations by entity names', async () => {
-      const providedRelations: Relation[] = [
-        {
-          id: 'rel-1',
-          from: 'exec_simple_query',
-          to: 'pg_parse_query',
-          type: 'calls',
-          citations: ['cit-1'],
-        },
-      ];
-
-      const expectedRelations: ExpectedRelation[] = [
-        {
-          from: 'exec_simple_query',
-          to: 'pg_parse_query',
-          type: 'calls',
-          critical: true,
-        },
-      ];
-
-      const result = await grader.checkRelations(providedRelations, expectedRelations);
-
-      expect(result.length).toBe(1);
-      expect(result[0].found).toBe(true);
-    });
-
-    it('should match bidirectional relations', async () => {
-      const providedRelations: Relation[] = [
-        {
-          id: 'rel-1',
-          from: 'pg_parse_query',
-          to: 'exec_simple_query',
-          type: 'calls',
-          citations: ['cit-1'],
-        },
-      ];
-
-      const expectedRelations: ExpectedRelation[] = [
-        {
-          from: 'exec_simple_query',
-          to: 'pg_parse_query',
-          type: 'calls',
-          critical: true,
-        },
-      ];
-
-      const result = await grader.checkRelations(providedRelations, expectedRelations);
-
-      expect(result.length).toBe(1);
-      expect(result[0].found).toBe(true);
-    });
-
-    it('should detect missing relations', async () => {
-      const providedRelations: Relation[] = [];
-
-      const expectedRelations: ExpectedRelation[] = [
-        {
-          from: 'exec_simple_query',
-          to: 'pg_parse_query',
-          type: 'calls',
-          critical: true,
-        },
-      ];
-
-      const result = await grader.checkRelations(providedRelations, expectedRelations);
-
-      expect(result.length).toBe(1);
-      expect(result[0].found).toBe(false);
-      expect(result[0].verified).toBe(false);
-    });
+  it('rejects fabricated extra citations even when the reviewed claims reference valid evidence', async () => {
+    f.response.citations.push({ id: 'extra', file: 'missing.c', line: 500, content: 'invented' });
+    const grader = new TourGrader({ postgres_path: f.root, postgres_sha: f.sha, semantic_reviewer: reviewed() });
+    const result = await grader.evaluate(f.response, f.question);
+    expect(result).toMatchObject({ correct: false, evidence_supported: false });
+    expect(result.verified_lines).toEqual(['query.c:2']);
   });
 
-  describe('Relation matching edge cases', () => {
-    it('should NOT match relations that point to correct line but claim wrong relation', async () => {
-      // This is a critical G4 requirement:
-      // "Reject proofs that point to correct line but claim wrong relation"
-      const providedRelations: Relation[] = [
-        {
-          id: 'rel-1',
-          from: 'exec_simple_query',
-          to: 'pg_analyze_and_rewrite', // Wrong target!
-          type: 'calls',
-          citations: ['cit-1'],
-        },
-      ];
-
-      const expectedRelations: ExpectedRelation[] = [
-        {
-          from: 'exec_simple_query',
-          to: 'pg_parse_query', // Correct target
-          type: 'calls',
-          critical: true,
-        },
-      ];
-
-      const result = await grader.checkRelations(providedRelations, expectedRelations);
-
-      // Should NOT match - wrong relation claimed
-      expect(result.length).toBe(1);
-      expect(result[0].found).toBe(false);
-    });
-
-    it('should handle type mismatches', async () => {
-      const providedRelations: Relation[] = [
-        {
-          id: 'rel-1',
-          from: 'exec_simple_query',
-          to: 'pg_parse_query',
-          type: 'uses', // Wrong type!
-          citations: ['cit-1'],
-        },
-      ];
-
-      const expectedRelations: ExpectedRelation[] = [
-        {
-          from: 'exec_simple_query',
-          to: 'pg_parse_query',
-          type: 'calls', // Expected type
-          critical: true,
-        },
-      ];
-
-      const result = await grader.checkRelations(providedRelations, expectedRelations);
-
-      // Direct match fails due to type mismatch
-      expect(result[0].found).toBe(false);
-    });
+  it('does not silently verify an invalid source range attached to a location-only citation', async () => {
+    delete f.response.citations[0].content;
+    f.response.citations[0].startLine = 50;
+    f.response.citations[0].endLine = 1;
+    const grader = new TourGrader({ postgres_path: f.root, postgres_sha: f.sha, semantic_reviewer: reviewed() });
+    const result = await grader.evaluate(f.response, f.question);
+    expect(result).toMatchObject({ correct: false, coverage: 0, verified_lines: [] });
   });
 
-  describe('generateJustification()', () => {
-    it('should generate justification for correct tour', async () => {
-      const response = createCorrectResponse('q1');
-      const question: Question = {
-        id: 'q1',
-        objective: 'Test objective',
-        series: 'R',
-        postgres_sha: POSTGRES_SHA,
-        expected_areas: [],
-        relations_to_verify: [],
-        criteria: [],
-      };
-
-      const result = await grader.evaluate(response, question);
-
-      expect(result.justification).toContain('correct');
-    });
-
-    it('should generate justification for incorrect tour', async () => {
-      const response: AgentResponse = {
-        run_id: 'run-1',
-        agent: 'CodeTour',
-        timestamp: new Date().toISOString(),
-        question_id: 'q1',
-        objective: 'Test objective',
-        series: 'R',
-        tour: {
-          title: 'Test Tour',
-          description: 'A test tour',
-          steps: [],
-        },
-        citations: [],
-        claims: [],
-        relations: [],
-      };
-
-      const question: Question = {
-        id: 'q1',
-        objective: 'Test objective',
-        series: 'R',
-        postgres_sha: POSTGRES_SHA,
-        expected_areas: [],
-        relations_to_verify: [
-          {
-            from: 'exec_simple_query',
-            to: 'pg_parse_query',
-            type: 'calls',
-            critical: true,
-          },
-        ],
-        criteria: [],
-      };
-
-      const result = await grader.evaluate(response, question);
-
-      expect(result.justification).toContain('INCORRECT');
-      expect(result.justification).toContain('Missing');
-    });
+  it('requires committed regular source files rather than symlink target text', async () => {
+    symlinkSync('query.c', join(f.root, 'link.c'));
+    f.git('add', 'link.c');
+    f.git('-c', 'user.name=T06', '-c', 'user.email=t06@example.test', 'commit', '-qm', 'symlink');
+    f.sha = f.git('rev-parse', 'HEAD');
+    f.question.postgres_sha = f.response.postgres_sha = f.sha;
+    f.response.citations[0] = { id: 'c1', file: 'link.c', line: 1, content: 'query.c' };
+    f.question.expected_areas = [{ file: 'link.c', lines: [1], critical: true, description: 'link' }];
+    const grader = new TourGrader({ postgres_path: f.root, postgres_sha: f.sha, semantic_reviewer: reviewed() });
+    expect(await grader.evaluate(f.response, f.question)).toMatchObject({ correct: false, coverage: 0 });
   });
 
-  describe('Quality thresholds', () => {
-    it('should apply minimum coverage threshold', async () => {
-      const grader = new TourGrader({
-        thresholds: {
-          min_coverage: 0.8,
-          max_missing_critical_relations: 0,
-          max_false_claims: 0,
-          critical_false_claim_weight: 1.0,
-        },
-      });
-
-      const expectedAreas: ExpectedArea[] = [
-        {
-          file: 'src/backend/tcop/postgres.c',
-          lines: [100, 101, 102],
-          description: 'Area 1',
-          critical: true,
-        },
-        {
-          file: 'src/backend/parser/parser.c',
-          lines: [50, 51],
-          description: 'Area 2',
-          critical: true,
-        },
-        {
-          file: 'src/backend/parser/gramparse.y',
-          lines: [1],
-          description: 'Area 3',
-          critical: true,
-        },
-      ];
-
-      const question: Question = {
-        id: 'q1',
-        objective: 'Test objective',
-        series: 'R',
-        postgres_sha: POSTGRES_SHA,
-        expected_areas,
-        relations_to_verify: [],
-        criteria: [],
-      };
-
-      // Response covers 2 out of 3 areas = 66.6% < 80% threshold
-      const response: AgentResponse = {
-        run_id: 'run-1',
-        agent: 'CodeTour',
-        timestamp: new Date().toISOString(),
-        question_id: 'q1',
-        objective: 'Test objective',
-        series: 'R',
-        tour: {
-          title: 'Test Tour',
-          description: 'A test tour',
-          steps: [],
-        },
-        citations: [
-          {
-            id: 'cit-1',
-            file: 'src/backend/tcop/postgres.c',
-            line: 100,
-            content: 'exec_simple_query',
-            context: '',
-          },
-          {
-            id: 'cit-2',
-            file: 'src/backend/parser/parser.c',
-            line: 50,
-            content: 'pg_parse_query',
-            context: '',
-          },
-        ],
-        claims: [],
-        relations: [],
-      };
-
-      const result = await grader.evaluate(response, question);
-
-      expect(result.coverage).toBeCloseTo(2 / 3);
-      expect(result.correct).toBe(false); // Below threshold
-    });
+  it('refuses a supposedly blinded payload containing nested run metadata before sending it for review', async () => {
+    const response = anonymizeResponse(f.response);
+    Object.assign(response.tour.steps[0], { payload: { run_id: 'private-run-17' } });
+    const grader = new TourGrader({ postgres_path: f.root, postgres_sha: f.sha, semantic_reviewer: reviewed() });
+    await expect(grader.evaluate(response, f.question)).rejects.toThrow(/blind/i);
   });
 
-  describe('Cache management', () => {
-    it('should clear caches', () => {
-      grader.clearCaches();
-      // Should not throw
-    });
+  it('sends only the blind question context and actual committed source to an independent reviewer', async () => {
+    f.question.phase = 'private-order-17';
+    Object.assign(f.question, { run_id: 'private-run-17', token_usage: 3333 });
+    const reviewer = reviewed();
+    const grader = new TourGrader({ postgres_path: f.root, postgres_sha: f.sha, semantic_reviewer: {
+      id: reviewer.id,
+      review: async context => {
+        expect(JSON.stringify(context)).not.toMatch(/private-order|private-run|token_usage|3333/);
+        expect(context.verified_citations[0].context).toContain('void execute(void) { parse(); }');
+        return reviewer.review(context);
+      },
+    } });
+    expect((await grader.evaluate(f.response, f.question)).correct).toBe(true);
   });
 });
-
-// Helper functions for tests
-function createCorrectResponse(questionId: string): AgentResponse {
-  return {
-    run_id: 'run-1',
-    agent: 'CodeTour',
-    timestamp: new Date().toISOString(),
-    question_id: questionId,
-    objective: 'Test objective',
-    series: 'R',
-    tour: {
-      title: 'Test Tour',
-      description: 'A correct test tour',
-      steps: [
-        {
-          id: 'step-1',
-          description: 'First step',
-          file: 'src/backend/tcop/postgres.c',
-          line: 100,
-          code: 'exec_simple_query(...)',
-          type: 'entry',
-        },
-      ],
-    },
-    citations: [
-      {
-        id: 'cit-1',
-        file: 'src/backend/tcop/postgres.c',
-        line: 100,
-        content: 'exec_simple_query(const char *query)',
-        context: '...\nline 99\nexec_simple_query(const char *query)\nline 101\n...',
-      },
-    ],
-    claims: [
-      {
-        id: 'claim-1',
-        statement: 'exec_simple_query is defined in postgres.c',
-        confidence: 0.95,
-        citations: ['cit-1'],
-      },
-    ],
-    relations: [],
-  };
-}

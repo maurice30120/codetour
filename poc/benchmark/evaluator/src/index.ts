@@ -22,6 +22,7 @@ export * from './blinder';
 
 // Re-export arbitrator
 export * from './arbitrator';
+export * from './normalizer';
 
 // Named exports for convenience
 export { POSTGRES_SHA } from './types';

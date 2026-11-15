@@ -39,8 +39,8 @@ export interface Citation {
   id: string;
   file: string;           // File path in PostgreSQL repo
   line: number;           // Line number (1-indexed)
-  content: string;        // Exact content at that line
-  context: string;        // Surrounding lines for verification
+  content?: string;       // Omitted for runner location references; grader reads committed source
+  context?: string;
   startLine?: number;     // Start of context range
   endLine?: number;       // End of context range
 }
@@ -86,6 +86,9 @@ export interface Tour {
  * MUST be produced by both CodeTour and Vibe agents
  */
 export interface AgentResponse {
+  postgres_sha?: string;
+  status?: 'complete' | 'partial' | 'error';
+  truncated?: boolean;
   // Metadata (will be removed for blind evaluation)
   run_id: string;
   agent: 'CodeTour' | 'Vibe' | string;
@@ -214,6 +217,11 @@ export interface FailedClaim {
  * - critical_false_claim === false
  */
 export interface EvaluationResult {
+  reviewer_id?: string;
+  semantic_review?: SemanticReview;
+  review_required?: boolean;
+  review_id?: string;
+  criteria_version?: string;
   // Global judgment
   correct: boolean;
   
@@ -265,14 +273,13 @@ export interface EvaluationResult {
  * Response after removing agent metadata (blinded)
  */
 export interface BlindedResponse {
+  status?: 'complete' | 'partial' | 'error';
+  truncated?: boolean;
   evaluation_id: string;
   
   // Question metadata (preserved for evaluation context)
   question_id: string;
   objective: string;
-  series: string;
-  phase?: string;
-  repeat_index?: number;
   postgres_sha: string;
   
   // The actual content to evaluate
@@ -288,13 +295,7 @@ export interface BlindedResponse {
 export interface BlindedEvaluationItem {
   evaluation_id: string;
   response: BlindedResponse;
-  question: Omit<Question, 'expected_areas' | 'relations_to_verify' | 'criteria'> & {
-    // Only non-answer-revealing metadata
-    id: string;
-    objective: string;
-    series: string;
-    postgres_sha: string;
-  };
+  question: Pick<Question, 'id' | 'objective' | 'postgres_sha'>;
 }
 
 /**
@@ -319,6 +320,7 @@ export interface EvaluationSet {
  * Arbitration record for disagreements
  */
 export interface Arbitration {
+  status?: 'agreed' | 'arbitrated' | 'pending';
   evaluation_id: string;
   question_id: string;
   
@@ -326,7 +328,7 @@ export interface Arbitration {
   initial_judgments: EvaluationResult[];  // All initial evaluations
   
   // Arbitrator's judgment
-  arbitrator_judgment: EvaluationResult;
+  arbitrator_judgment?: EvaluationResult;
   
   // Final judgment (always equals arbitrator_judgment)
   final_judgment: EvaluationResult;
@@ -364,6 +366,7 @@ export interface FinalEvaluation {
  * Configuration for the TourGrader
  */
 export interface GraderConfig {
+  semantic_reviewer?: SemanticReviewer;
   postgres_path: string;       // Path to PostgreSQL fixture
   postgres_sha: string;        // Expected SHA (must match POSTGRES_SHA)
   
@@ -407,6 +410,35 @@ export interface VerificationOptions {
   check_line_number: boolean;  // Verify line number is correct
   fuzzy_match: boolean;        // Allow fuzzy matching
   fuzzy_threshold: number;    // Similarity threshold for fuzzy matching (0-1)
+}
+
+export type SemanticVerdict = 'supported' | 'refuted' | 'unsupported';
+
+export interface SemanticFinding {
+  verdict: SemanticVerdict;
+  reason: string;
+  citations: string[];
+}
+
+export interface SemanticReview {
+  review_id: string;
+  response: SemanticFinding;
+  claims: Array<SemanticFinding & { claim_id: string }>;
+  relations: Array<SemanticFinding & { relation_id: string }>;
+  expected_relations?: Array<SemanticFinding & Pick<ExpectedRelation, 'from' | 'to' | 'type'>>;
+  criteria: Array<{ criterion_id: string; met: boolean; reason: string; citations: string[] }>;
+}
+
+export interface SemanticReviewContext {
+  response: BlindedResponse;
+  question: Question;
+  verified_citations: Citation[];
+  criteria_version: string;
+}
+
+export interface SemanticReviewer {
+  id: string;
+  review(context: SemanticReviewContext): Promise<SemanticReview>;
 }
 
 /**
