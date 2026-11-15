@@ -1,8 +1,8 @@
 {
-  "run_id": "68c2a530-9824-43c3-8675-5ffc75f60957",
-  "timestamp": "2026-11-15T22:31:36.474Z",
+  "run_id": "bfcd8e37-ad63-46d5-a0da-d39385dbc264",
+  "timestamp": "2026-11-15T22:49:34.659Z",
   "agent": "codetour",
-  "agent_version": "ec2eaf20a0976b2e0da23c9f9a4f765a9401b712",
+  "agent_version": "7852aadfc65666558d20eb3a4316706fc58bd576",
   "model": "mistral-small-latest",
   "model_params": {
     "temperature": 0,
@@ -15,17 +15,17 @@
   "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
   "calls": [
     {
-      "call_id": "call-052e3b6b-86f4-4f91-b872-6cb84634f2b2-0",
+      "call_id": "call-28bcbb41-34fb-4300-8e21-6e24ce711f34-0",
       "call_type": "prompt",
       "input_tokens": 1763,
-      "output_tokens": 100,
+      "output_tokens": 110,
       "cache_included_in_input": true,
-      "duration_ms": 1094,
+      "duration_ms": 1461,
       "tool_name": "model",
       "parameters": {
         "seq": 0,
-        "started_at": "2026-11-15T22:31:39.470Z",
-        "ended_at": "2026-11-15T22:31:40.564Z"
+        "started_at": "2026-11-15T22:49:37.435Z",
+        "ended_at": "2026-11-15T22:49:38.896Z"
       },
       "result": null,
       "error": null,
@@ -36,8 +36,8 @@
   "functions_reused": [],
   "total_tokens": {
     "input": 1763,
-    "output": 100,
-    "total": 1863,
+    "output": 110,
+    "total": 1873,
     "verified": true,
     "cached_input": 0,
     "cache_creation_input": 0
@@ -45,7 +45,7 @@
   "result": {
     "tour_title": "Tour: Explain what pg_parse_query does and why raw parsing is separated from analysis and rewriting. Trace its parsing delegation and cite the source.",
     "steps": [],
-    "raw_response": "{\"objective\":\"Explain what pg_parse_query does and why raw parsing is separated from analysis and rewriting. Trace its parsing delegation and cite the source.\",\"entryPoints\":[],\"components\":[],\"relations\":[],\"uncertainties\":[\"No repository files have been inspected yet; initial evidence is missing.\",\"The exact location and implementation of pg_parse_query are unknown without searching the codebase.\"],\"status\":\"complete\",\"stopReason\":null,\"promptSha256\":\"96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c\",\"modelConfig\":{\"model\":\"mistral-small-latest\",\"temperature\":0,\"maxOutputTokens\":4096},\"metrics\":{\"inputTokens\":1763,\"outputTokens\":100,\"usageAvailable\":true,\"modelCalls\":1,\"toolCalls\":0,\"durationMs\":1145,\"outputBytes\":0,\"cost\":null,\"memoryReuses\":0,\"memoryPurges\":0,\"memoryQueryRejects\":0,\"memoryResultsCompacted\":0,\"memoryResultsRepeated\":0},\"callTrace\":[{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":1763,\"outputTokens\":100,\"usageMissing\":false,\"seq\":0,\"startedAt\":\"2026-11-15T22:31:39.470Z\",\"endedAt\":\"2026-11-15T22:31:40.564Z\",\"durationMs\":1094}],\"consolidationReport\":{\"accepted\":[],\"rejected\":[],\"duplicates\":[],\"indeterminate\":[]}}",
+    "raw_response": "{\"objective\":\"Explain what pg_parse_query does and why raw parsing is separated from analysis and rewriting. Trace its parsing delegation and cite the source.\",\"entryPoints\":[],\"components\":[],\"relations\":[],\"uncertainties\":[\"No repository context provided; cannot locate PostgreSQL source files or pg_parse_query implementation.\",\"Cannot trace parsing delegation without access to the codebase.\",\"Cannot cite source without file paths and line numbers.\"],\"status\":\"complete\",\"stopReason\":null,\"promptSha256\":\"96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c\",\"modelConfig\":{\"model\":\"mistral-small-latest\",\"temperature\":0,\"maxOutputTokens\":4096},\"metrics\":{\"inputTokens\":1763,\"outputTokens\":110,\"usageAvailable\":true,\"modelCalls\":1,\"toolCalls\":0,\"durationMs\":1512,\"outputBytes\":0,\"cost\":null,\"memoryReuses\":0,\"memoryPurges\":0,\"memoryQueryRejects\":0,\"memoryResultsCompacted\":0,\"memoryResultsRepeated\":0},\"callTrace\":[{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":1763,\"outputTokens\":110,\"usageMissing\":false,\"seq\":0,\"startedAt\":\"2026-11-15T22:49:37.435Z\",\"endedAt\":\"2026-11-15T22:49:38.896Z\",\"durationMs\":1461}],\"consolidationReport\":{\"accepted\":[],\"rejected\":[],\"duplicates\":[],\"indeterminate\":[]}}",
     "citations": []
   },
   "error": null,
@@ -53,7 +53,7 @@
   "fixture_verification": {
     "head_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
     "clean_tree": true,
-    "verified_at": "2026-11-15T22:31:36.474Z"
+    "verified_at": "2026-11-15T22:49:34.659Z"
   },
   "manifest_hash": "f82864b9d7f2ad2061dad85f163989114c19bdf7d57c0516bfd2e67b81c85c1d",
   "config_hash": "26de704cc4ae99db6df1a7c2f90f000f1d29911211bb870f0b31f1ef2aa93095",
