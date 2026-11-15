@@ -104,7 +104,7 @@ function buildFixtureRun(options: FixtureOptions = {}): FixtureRun {
     started_at: startedAt,
     ended_at: endedAt,
     cost_usd: 0.0042,
-    steps: 3,
+    steps: options.perCallUsage?.length ?? 2,
     limits: { turns: options.perCallUsage?.length ?? 2 },
   };
   if (sessionId !== undefined) exportData.session_id = sessionId;
@@ -217,15 +217,16 @@ describe('extractPerCallUsageAndTools', () => {
       assert.equal(perCallUsage.length, 2);
       assert.equal(perCallUsage[1].usageMissing, true);
       assert.equal(perCallUsage[1].inputTokens, null);
-      assert.equal(completionsMissingUsage, 1);
+      assert.equal(completionsMissingUsage, 2);
     } finally { fixture.cleanup(); }
   });
 
-  it('ignores partially flushed journal lines without throwing (the usage gap stays visible)', () => {
+  it('retains a partially flushed journal as an explicit instrumentation gap', () => {
     const fixture = buildFixtureRun({ partialTrailingLine: true });
     try {
       const records = readJournalRecords(fixture.outputDir);
-      assert.equal(records.length, 2); // 2 complete action_result records; partial line skipped
+      assert.equal(records.length, 3);
+      assert.equal(validateG2(buildExecutionFromFixture(fixture)), false);
       const { perCallUsage, completionsMissingUsage } = extractPerCallUsageAndTools(records);
       assert.equal(perCallUsage.length, 2);
       assert.equal(completionsMissingUsage, 0);
@@ -257,16 +258,16 @@ describe('buildExecution', () => {
     } finally { fixture.cleanup(); }
   });
 
-  it('names the agent from the OBSERVED subagent in the journal task call — never renamed', () => {
+  it('does not promote a legacy task request without child execution into a native identity', () => {
     const fixture = buildFixtureRun({
       toolCalls: [{ name: 'task', argumentsJson: '{"subagent":"research-agent","question":"Explore"}' }],
       defaultAgent: 'claude-code',
     });
     try {
       const execution = buildExecutionFromFixture(fixture);
-      assert.equal(execution.agent.name, 'research-agent');
-      assert.equal(execution.agent.agentType, 'subagent');
-      assert.equal(execution.subagent, 'research-agent');
+      assert.equal(execution.agent.name, 'claude-code');
+      assert.equal(execution.agent.agentType, 'direct');
+      assert.equal(execution.subagent, undefined);
       assert.notEqual(execution.agent.name, 'vibe-cli'); // the old rig renamed agents to 'vibe-cli'
     } finally { fixture.cleanup(); }
   });
@@ -302,10 +303,10 @@ describe('buildExecution', () => {
 // ---------------------------------------------------------------------------
 
 describe('validateG1 (Authentic Vibe)', () => {
-  it('passes on a real-shaped execution', () => {
+  it('rejects a direct root session even when it names itself explore', () => {
     const fixture = buildFixtureRun();
     try {
-      assert.equal(validateG1(buildExecutionFromFixture(fixture)), true);
+      assert.equal(validateG1(buildExecutionFromFixture(fixture)), false);
     } finally { fixture.cleanup(); }
   });
 
