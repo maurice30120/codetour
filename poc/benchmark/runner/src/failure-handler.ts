@@ -170,10 +170,9 @@ export const REPLAY_RULE = {
  * Determine if a run should be retried based on error
  */
 export function shouldRetry(error: Error): boolean {
-  const errorMessage = error.message.toLowerCase();
-  const errorName = error.name.toLowerCase();
-
-  return checkInfrastructureError(errorMessage, errorName);
+  if (/NO-GO/i.test(error.message)) return false;
+  const code = (error as Error & { code?: string }).code;
+  return ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'NETWORK_ERROR', 'SERVICE_UNAVAILABLE', 'HTTP_502', 'HTTP_503', 'HTTP_504'].includes(code ?? '');
 }
 
 /**

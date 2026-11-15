@@ -27,12 +27,14 @@
  */
 
 import fs from 'fs';
+import { hashFile, sha256, sourceFiles, validateTestEvidence } from './storage/provenance';
+import { findRepoRoot } from './agents/codetour';
 import path from 'path';
 import { ImmutableLogger, RunTrace, freezeManifest, validateManifestFrozen, POSTGRES_SHA } from './storage/logger';
 import { verifyFixture } from './storage/fixture-verification';
 import { ExecutionManager, Question } from './execution/manager';
 import { CodeTourExecutor, CodeTourConfig } from './agents/codetour';
-import { VibeExecutor, VibeConfig } from './agents/vibe';
+import { VibeExecutor, VibeConfig, loadVibeConnector } from './agents/vibe';
 
 /**
  * Configuration for the benchmark runner
@@ -42,6 +44,7 @@ export interface RunnerConfig {
   questionsFile: string;
   /** Path to the manifest JSON file */
   manifestFile: string;
+  manifestLockFile?: string;
   /** Path to the PostgreSQL fixture clone (verified BEFORE EVERY RUN) */
   postgresPath: string;
   /** Output directory for run traces */
@@ -130,7 +133,7 @@ export class BenchmarkRunner {
     // Initialize logger
     this.logger = new ImmutableLogger({
       outputDir: config.outputDir,
-      resultsDir: path.join(config.outputDir, 'results/runs'),
+      resultsDir: path.join(config.outputDir, 'runs'),
       validateSchema: true,
       immutable: true,
     });
@@ -142,6 +145,21 @@ export class BenchmarkRunner {
       timeoutMs: config.timeoutMs ?? 300000, // 5 minutes
       retryPolicy: config.retryPolicy ?? { maxRetries: 0, retryDelay: 0 },
       fixturePath: config.postgresPath,
+      beforeRun: (question) => {
+        if (fs.existsSync(this.manifestLockFile())) {
+          if (!validateManifestFrozen(this.config.manifestFile, this.manifestLockFile())) throw new Error('NO-GO: sealed manifest artifacts changed');
+          const lock = JSON.parse(fs.readFileSync(this.manifestLockFile(), 'utf8'));
+          if (lock.execution_config_sha256 !== sha256(JSON.stringify(this.executionConfig()))) throw new Error('NO-GO: execution configuration changed after freeze');
+        }
+        return {
+          manifest_hash: hashFile(this.config.manifestFile).sha256,
+          config_hash: sha256(JSON.stringify(this.executionConfig())),
+          execution_config: this.executionConfig(),
+          prompt_hash: sha256(question.objective),
+          question_hash: sha256(JSON.stringify({ id: question.id, objective: question.objective, series: question.series, phase: question.phase, repeat_index: question.repeat_index, postgres_sha: question.postgres_sha })),
+          fixture_hash: sha256(question.postgres_sha),
+        };
+      },
     });
 
     // Initialize REAL agent executors: both arms explore THE fixture
@@ -149,6 +167,7 @@ export class BenchmarkRunner {
     this.codeTourExecutor = new CodeTourExecutor({
       ...config.codetour,
       fixtureRoot: config.postgresPath,
+      memoryDir: config.codetour?.memoryDir ?? path.join(config.outputDir, 'memory'),
       timeoutMs: config.timeoutMs ?? 300000,
     });
     this.vibeExecutor = new VibeExecutor({
@@ -258,70 +277,40 @@ export class BenchmarkRunner {
    * Forcing any gate to true without its evidence file is a protocol
    * violation (spec §0/§7: a NO-GO must never be dressed up as a pass).
    */
-  async validateGates(): Promise<boolean> {
-    const readGateEvidence = (file: string): Record<string, unknown> | null => {
-      try {
-        const filePath = path.join(this.gateEvidenceDir(), file);
-        return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, unknown>;
-      } catch {
-        return null;
-      }
+  async validateGates(options: { requireFrozenManifest?: boolean } = {}): Promise<boolean> {
+    if (!this.questions.length) await this.loadQuestions();
+    const evidenceDir = this.gateEvidenceDir();
+    const root = findRepoRoot(__dirname);
+    const read = (file: string): Record<string, unknown> | null => {
+      try { return JSON.parse(fs.readFileSync(path.join(evidenceDir, file), 'utf8')); } catch { return null; }
     };
-
-    const checks: Record<string, boolean> = {};
-
-    const g0 = readGateEvidence('g0-conformance.json');
-    checks.G0 = g0 !== null
-      && g0['passed'] === true
-      && g0['failed_count'] === 0
-      && typeof g0['total_tests'] === 'number'
-      && (g0['total_tests'] as number) > 0
-      && typeof g0['command'] === 'string'
-      && (g0['command'] as string).length > 0;
-
-    const g1 = readGateEvidence('g1-sentinel.json');
-    checks.G1 = g1 !== null
-      && g1['g1_passed'] === true
-      && typeof g1['session_id'] === 'string' && (g1['session_id'] as string).length > 0
-      && typeof g1['vibe_version'] === 'string' && (g1['vibe_version'] as string).length > 0
-      && typeof g1['model'] === 'string' && (g1['model'] as string).length > 0
-      && g1['subagent_detected'] === true
-      && typeof g1['tools_count'] === 'number' && (g1['tools_count'] as number) > 0;
-
-    const g2 = readGateEvidence('g2-instrumentation.json');
-    checks.G2 = g2 !== null
-      && g2['g2_passed'] === true
-      && typeof g2['calls_total'] === 'number' && (g2['calls_total'] as number) > 0
-      && g2['calls_without_usage'] === 0;
-
-    // G3: REAL on-disk verification NOW (git HEAD + clean tree), plus the
-    // question-carried SHAs (both checks must hold).
-    checks.G3 = this.validatePostgresSha() && await this.verifyFixtureOnDisk();
-
-    const g4 = readGateEvidence('g4-evaluator.json');
-    checks.G4 = g4 !== null
-      && g4['criteria_registered'] === true
-      && g4['adversarial_case_rejected'] === true;
-
-    // G5: pre-registration — REAL check: lock exists and the current manifest
-    // content hashes to the recorded digest.
+    const checks: Record<string, boolean> = {
+      G0: !!root && validateTestEvidence(read('g0-conformance.json'), root, evidenceDir),
+      G1: false, G2: false,
+      G3: this.validatePostgresSha() && await this.verifyFixtureOnDisk(),
+      G4: !!root && validateTestEvidence(read('g4-evaluator.json'), root, evidenceDir),
+    };
     try {
-      await this.loadManifest();
-      checks.G5 = validateManifestFrozen(this.config.manifestFile);
-    } catch {
-      checks.G5 = false;
+      const sentinel = read('sentinel.json');
+      const execution = sentinel?.execution ?? sentinel;
+      const connector = loadVibeConnector(__dirname, this.config.vibe?.connectorModulePath);
+      checks.G1 = !!execution && connector.validateG1(execution);
+      checks.G2 = !!execution && connector.validateG2(execution);
+    } catch { /* unavailable proof is a closed gate */ }
+    if (options.requireFrozenManifest !== false) {
+      checks.G5 = this.validateFrozenConfiguration();
     }
+    const failed = Object.entries(checks).filter(([, passed]) => !passed).map(([gate]) => gate);
+    if (failed.length) console.error(`NO-GO: Failed gates (no valid evidence): ${failed.join(', ')}`);
+    return failed.length === 0;
+  }
 
-    const allPassed = Object.values(checks).every(v => v);
-
-    if (!allPassed) {
-      const failed = Object.entries(checks)
-        .filter(([, v]) => !v)
-        .map(([k]) => k);
-      console.error(`NO-GO: Failed gates (no valid evidence): ${failed.join(', ')}`);
-    }
-
-    return allPassed;
+  private validateFrozenConfiguration(): boolean {
+    try {
+      if (!validateManifestFrozen(this.config.manifestFile, this.manifestLockFile())) return false;
+      const lock = JSON.parse(fs.readFileSync(this.manifestLockFile(), 'utf8'));
+      return lock.execution_config_sha256 === sha256(JSON.stringify(this.executionConfig()));
+    } catch { return false; }
   }
 
   /** Directory holding gate evidence files (produced by validate-gates.mjs). */
@@ -354,27 +343,7 @@ export class BenchmarkRunner {
       return;
     }
 
-    const pilotCount = this.config.pilotCount ?? 2;
-    const pilotQuestions = this.questions.slice(0, Math.min(pilotCount, this.questions.length));
-
-    if (pilotQuestions.length === 0) {
-      throw new Error('No questions available for pilot');
-    }
-
-    console.log(`Running pilot with ${pilotQuestions.length} question(s)... (NOT counted in the main benchmark)`);
-
-    for (const question of pilotQuestions) {
-      console.log(`Pilot: Running question ${question.id}...`);
-
-      try {
-        await this.executionManager.executeSingle(question, 'codetour');
-        await this.executionManager.executeSingle(question, 'vibe-native');
-      } catch (error) {
-        console.error(`  - Pilot error for ${question.id}:`, error);
-      }
-    }
-
-    console.log('Pilot completed');
+    throw new Error('NO-GO: use the separate pilot.ts with pilot questions and separate outputDir; measured questions cannot be pilots');
   }
 
   /**
@@ -384,8 +353,31 @@ export class BenchmarkRunner {
    */
   async freezeManifest(): Promise<void> {
     await this.loadManifest();
-    freezeManifest(this.config.manifestFile, path.join(this.config.outputDir, 'manifest-lock.json'));
+    const root = findRepoRoot(__dirname);
+    const sourcePaths = root ? [
+      ...sourceFiles(path.join(root, 'packages/exploration-poc/src')),
+      ...sourceFiles(path.join(root, 'packages/vibe-connector/src')),
+      ...sourceFiles(path.join(root, 'poc/benchmark/runner/src')),
+    ] : sourceFiles(path.join(__dirname));
+    freezeManifest(this.config.manifestFile, this.manifestLockFile(), {
+      executionConfig: this.executionConfig(),
+      artifacts: [this.config.questionsFile, ...sourcePaths].map(hashFile),
+    });
     console.log('Manifest frozen (real content hash verified by readback)');
+  }
+
+  private manifestLockFile(): string {
+    return this.config.manifestLockFile ?? path.join(path.dirname(this.config.manifestFile), 'manifest-lock.json');
+  }
+
+  private executionConfig(): Record<string, unknown> {
+    return {
+      fixture_sha: POSTGRES_SHA,
+      codetour: { model: this.codeTourExecutor.model, params: this.codeTourExecutor.modelParams, ...this.config.codetour },
+      vibe: { model: this.vibeExecutor.model, params: this.vibeExecutor.modelParams, ...this.config.vibe },
+      timeout_ms: this.config.timeoutMs ?? 300000,
+      retry_policy: this.config.retryPolicy ?? { maxRetries: 0, retryDelay: 0 },
+    };
   }
 
   /**
@@ -393,29 +385,11 @@ export class BenchmarkRunner {
    * orchestration used by runAll/post-pilot flows (no duplicated loops).
    */
   private async executeAllQuestions(): Promise<RunSummary[]> {
-    const results: RunSummary[] = [];
+    return (await this.executionManager.executeAll(this.questions)).map(summarizeTrace);
+  }
 
-    for (let i = 0; i < this.questions.length; i++) {
-      const question = this.questions[i];
-      console.log(`Running question ${i + 1}/${this.questions.length}: ${question.id}...`);
-
-      try {
-        const { codetour, vibe } = await this.executionManager.executePaired(question);
-        results.push(summarizeTrace(codetour), summarizeTrace(vibe));
-        console.log(`  Completed: CodeTour (${codetour.total_tokens.total} tokens) and Vibe (${vibe.total_tokens.total} tokens)`);
-      } catch (error) {
-        // Agent/infrastructure failures are recorded and count in the
-        // denominator (never erased, never replaced with fabricated runs).
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`  Error executing question ${question.id}:`, message);
-        results.push(
-          { runId: '', questionId: question.id, agent: 'codetour', series: question.series, totalTokens: { input: 0, output: 0, total: 0 }, status: 'error', error: message },
-          { runId: '', questionId: question.id, agent: 'vibe-native', series: question.series, totalTokens: { input: 0, output: 0, total: 0 }, status: 'error', error: message }
-        );
-      }
-    }
-
-    return results;
+  async beginSeries(series: 'R' | 'T'): Promise<void> {
+    await this.executionManager.beginSeries(series);
   }
 
   /**
@@ -438,17 +412,11 @@ export class BenchmarkRunner {
       await this.loadQuestions();
     }
 
-    if (!(await this.validateGates())) {
-      throw new Error('NO-GO: Gates G0-G5 not all satisfied');
+    if (this.config.runPilot) {
+      if (!(await this.validateGates({ requireFrozenManifest: false }))) throw new Error('NO-GO: pilot prerequisites failed');
+      await this.runPilot();
     }
-
-    console.log('All gates G0-G5 validated.');
-
-    await this.runPilot();
-    await this.freezeManifest();
-
-    console.log('Starting main benchmark execution...');
-    return this.executeAllQuestions();
+    return this.runMain();
   }
 
   /**
@@ -467,8 +435,6 @@ export class BenchmarkRunner {
     }
 
     console.log('Starting main benchmark execution (pilot skipped in runMain)...');
-
-    await this.freezeManifest();
 
     return this.executeAllQuestions();
   }

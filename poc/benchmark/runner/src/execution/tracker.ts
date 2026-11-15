@@ -13,6 +13,7 @@
  *   real per-call durations are preferred, never invented.
  */
 
+import { randomUUID } from 'crypto';
 import { CallRecord, sumCallTokens, TotalTokens } from '../storage/logger';
 
 /**
@@ -22,6 +23,9 @@ export interface TokenUsage {
   input_tokens: number;
   output_tokens: number;
   total_tokens?: number;
+  cached_input_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+  cache_included_in_input?: boolean;
 }
 
 /**
@@ -58,7 +62,7 @@ export class TokenTracker {
     tool_name?: string,
     parameters?: Record<string, unknown>
   ): string {
-    const call_id = `call-${Date.now()}-${this.callCounter++}`;
+    const call_id = `call-${randomUUID()}-${this.callCounter++}`;
     const pendingCall: PendingCall = {
       call_id,
       call_type,
@@ -99,6 +103,7 @@ export class TokenTracker {
     const callRecord: CallRecord = {
       call_id: pendingCall.call_id,
       call_type: pendingCall.call_type,
+      ...usage,
       input_tokens: usage.input_tokens,
       output_tokens: usage.output_tokens,
       duration_ms,
@@ -188,14 +193,17 @@ export class TokenTracker {
    * Get all completed calls
    */
   getCalls(): CallRecord[] {
-    return [...this.calls];
+    return [...this.calls, ...[...this.pendingCalls.values()].map(pending => ({
+      call_id: pending.call_id, call_type: pending.call_type, input_tokens: 0, output_tokens: 0,
+      usage_missing: true, tool_name: pending.tool_name, parameters: pending.parameters, error: 'Call unfinished; provider usage unavailable',
+    }))];
   }
 
   /**
    * Get the number of calls with missing usage
    */
   getMissingUsageCount(): number {
-    return this.calls.filter(call => call.usage_missing).length;
+    return this.getCalls().filter(call => call.usage_missing).length;
   }
 
   /**
@@ -210,7 +218,7 @@ export class TokenTracker {
    * (delegates to the single implementation in storage/logger.ts)
    */
   calculateTotalTokens(): TotalTokens {
-    return sumCallTokens(this.calls);
+    return sumCallTokens(this.getCalls());
   }
 
   /**
