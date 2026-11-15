@@ -261,6 +261,11 @@ export class ExecutionManager {
 
       // Execute with retry policy
       execution = await this.executeWithRetry(question, executor, tracker);
+      // Agent-side envelope truncation (spec section 6): an authentic native
+      // session interrupted by the pre-registered envelope is a FAILED RUN
+      // that counts in the denominator — recorded, never retried or replaced.
+      // It is not a protocol NO-GO: the campaign continues.
+      const agentSideFailure = typeof execution.error === 'string' && /AGENT_FAILED/.test(execution.error);
       if (execution.no_go) throw new Error(`NO-GO: ${execution.no_go}`);
       if (execution.session_id) {
         const seen = this.sessions.has(execution.session_id) || this.logger.listRuns().some(run => run.session_id === execution!.session_id);
@@ -269,8 +274,11 @@ export class ExecutionManager {
       }
 
       // Check for missing usage — the tracker records reality; this run is
-      // refused unless every call carried provider-side usage.
-      if (tracker.hasMissingUsage()) {
+      // refused unless every call carried provider-side usage. The sole
+      // exception is the AGENT_FAILED truncation above: the interrupted tail
+      // call cannot have counters (spec section 5 forbids inferring them), so
+      // its usage_missing record is the honest state and the run fails.
+      if (tracker.hasMissingUsage() && !agentSideFailure) {
         throw new Error('NO-GO: Token usage missing for some calls');
       }
 
@@ -300,7 +308,14 @@ export class ExecutionManager {
 
       // Validate NO-GO controls
       const noGoResult = this.logger.validateNoGoControls(trace);
-      if (!noGoResult.passed) {
+      if (!noGoResult.passed || execution.no_go) {
+        if (agentSideFailure) {
+          // Fatal failure evidence stays auditable (no_go record, never a
+          // comparable result) and the run COUNTS in the denominator — the
+          // campaign continues (spec section 6).
+          this.logger.saveFailure({ ...trace, error: execution.error ?? null } as RunTrace);
+          return trace;
+        }
         throw new Error(`NO-GO controls failed: ${noGoResult.errors.join('; ')}`);
       }
 

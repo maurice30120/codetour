@@ -18,11 +18,21 @@ export async function runMainCampaign(config: RunnerConfig = CAMPAIGN_CONFIG) {
     throw new Error('NO-GO: expected 40 unique paired questions, 20 per series.');
   }
   const runs = await runner.runMain();
-  const traces = runner.getAllRuns();
+  // Pair controls with THIS campaign's runs by runId (listRuns reads every
+  // trace file, so stale archived traces must neither satisfy nor invalidate).
+  // Agent-side failures (AGENT_FAILED envelope truncation) are recorded data
+  // (spec section 6), not protocol violations: only the latter block the
+  // campaign; per-run outcomes are handed to the blind evaluation and the
+  // section-7 verdict.
   const ids = new Set(runs.map(run => run.runId));
-  const noGoChecks = traces.filter(trace => ids.has(trace.run_id)).map(trace => runner.getLogger().validateNoGoControls(trace));
+  const tracesById = new Map(runner.getAllRuns().filter(trace => ids.has(trace.run_id)).map(trace => [trace.run_id, trace]));
+  const noGoChecks = runs.map(run => {
+    const trace = tracesById.get(run.runId);
+    return trace ? runner.getLogger().validateNoGoControls(trace) : { passed: false, errors: ['missing trace'] };
+  });
+  const protocolViolations = runs.filter((run, index) => !noGoChecks[index].passed && !/^AGENT_FAILED/.test(run.error ?? ''));
   const manifestValid = validateManifestFrozen(config.manifestFile, config.manifestLockFile);
-  const success = manifestValid && runs.length === 80 && ids.size === 80 && !ids.has('') && noGoChecks.length === 80 && noGoChecks.every(check => check.passed);
+  const success = manifestValid && runs.length === 80 && ids.size === 80 && !ids.has('') && protocolViolations.length === 0;
   const series = (label: string) => ({ runs: runs.filter(run => run.series === label), errors: runs.filter(run => run.series === label && run.error).map(run => run.error!), noGoChecks });
   return { success, totalRuns: runs.length, seriesR: series('R'), seriesT: series('T'), allErrors: runs.filter(run => run.error).map(run => run.error!), allNoGoChecks: noGoChecks, manifestValid, allGatesValid: true };
 }

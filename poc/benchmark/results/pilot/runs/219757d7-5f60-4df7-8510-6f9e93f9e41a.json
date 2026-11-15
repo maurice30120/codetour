@@ -1,0 +1,91 @@
+{
+  "run_id": "219757d7-5f60-4df7-8510-6f9e93f9e41a",
+  "timestamp": "2026-11-15T22:30:05.525Z",
+  "agent": "codetour",
+  "agent_version": "ec2eaf20a0976b2e0da23c9f9a4f765a9401b712",
+  "model": "mistral-small-latest",
+  "model_params": {
+    "temperature": 0,
+    "max_tokens": 600000
+  },
+  "question_id": "PILOT-control-data",
+  "series": "R",
+  "phase": "repetition",
+  "repeat_index": 1,
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "calls": [
+    {
+      "call_id": "call-5dff7752-6ed6-4d70-81ed-60d8140fccdd-0",
+      "call_type": "prompt",
+      "input_tokens": 1756,
+      "output_tokens": 103,
+      "cache_included_in_input": true,
+      "duration_ms": 1516,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 0,
+        "started_at": "2026-11-15T22:30:08.798Z",
+        "ended_at": "2026-11-15T22:30:10.314Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    }
+  ],
+  "functions_created": [],
+  "functions_reused": [],
+  "total_tokens": {
+    "input": 1756,
+    "output": 103,
+    "total": 1859,
+    "verified": true,
+    "cached_input": 0,
+    "cache_creation_input": 0
+  },
+  "result": {
+    "tour_title": "Tour: Explain how pg_controldata selects the data directory to inspect and report a missing directory argument.",
+    "steps": [],
+    "raw_response": "{\"objective\":\"Explain how pg_controldata selects the data directory to inspect and report a missing directory argument.\",\"entryPoints\":[],\"components\":[],\"relations\":[],\"uncertainties\":[\"The exact argument parsing and fallback logic for the data directory in pg_controldata is not yet evidenced from the repository.\",\"The specific error message format for a missing directory argument is not yet evidenced.\"],\"status\":\"complete\",\"stopReason\":null,\"promptSha256\":\"96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c\",\"modelConfig\":{\"model\":\"mistral-small-latest\",\"temperature\":0,\"maxOutputTokens\":4096},\"metrics\":{\"inputTokens\":1756,\"outputTokens\":103,\"usageAvailable\":true,\"modelCalls\":1,\"toolCalls\":0,\"durationMs\":1571,\"outputBytes\":0,\"cost\":null,\"memoryReuses\":0,\"memoryPurges\":0,\"memoryQueryRejects\":0,\"memoryResultsCompacted\":0,\"memoryResultsRepeated\":0},\"callTrace\":[{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":1756,\"outputTokens\":103,\"usageMissing\":false,\"seq\":0,\"startedAt\":\"2026-11-15T22:30:08.798Z\",\"endedAt\":\"2026-11-15T22:30:10.314Z\",\"durationMs\":1516}],\"consolidationReport\":{\"accepted\":[],\"rejected\":[],\"duplicates\":[],\"indeterminate\":[]}}",
+    "citations": []
+  },
+  "error": null,
+  "status": "success",
+  "fixture_verification": {
+    "head_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "clean_tree": true,
+    "verified_at": "2026-11-15T22:30:05.525Z"
+  },
+  "manifest_hash": "f82864b9d7f2ad2061dad85f163989114c19bdf7d57c0516bfd2e67b81c85c1d",
+  "config_hash": "26de704cc4ae99db6df1a7c2f90f000f1d29911211bb870f0b31f1ef2aa93095",
+  "execution_config": {
+    "fixture_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "codetour": {
+      "model": "mistral-small-latest",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "vibe": {
+      "model": "mistral-medium-3.5",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "timeout_ms": 600000,
+    "retry_policy": {
+      "maxRetries": 0,
+      "retryDelay": 0
+    }
+  },
+  "prompt_hash": "14343b0186fc82e5167ecc926f905c18867e5197e1469005b812225b75fdd795",
+  "question_hash": "1bbcc69f91c5982c81b55ffb543118688914aae18b951cae8bca8dc1ac81b530",
+  "fixture_hash": "1ae64b1c130a9bc03de0835845d5e8cf42f3e0726eb646d8ac62eb72870f0dfa",
+  "system_prompt_hash": "96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c",
+  "tools": []
+}

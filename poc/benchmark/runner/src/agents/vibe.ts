@@ -151,6 +151,17 @@ export class VibeExecutor implements AgentExecutor {
     if (!g1) gateFailures.push('G1 (Authentic Vibe) failed');
     if (!g2) gateFailures.push('G2 (Total instrumentation) failed');
 
+    // Agent-side envelope truncation is a NATIVE-AGENT outcome, not a
+    // protocol violation: the session genuinely ran and was interrupted by
+    // the pre-registered token envelope (outcome token_limit / stop
+    // 'interrupted'). Spec section 6: such runs are recorded and counted in
+    // the denominator — never retried, never replaced, never erased. Only
+    // synchronisation/telemetry failures NOT explained by the truncation
+    // remain protocol NO-GOs. The interrupted tail call carries no provider
+    // counters (nothing exists to measure; spec section 5 forbids inferring
+    // them), so its usage_missing record is the honest measurement state.
+    const envelopeTruncated = execution.outcome === 'token_limit';
+
     // Per-call telemetry from the REAL session journal. Each recorded LLM call
     // gets a call record with REAL provider usage, or an explicit
     // usage_missing record (which NO-GO refuses).
@@ -189,11 +200,13 @@ export class VibeExecutor implements AgentExecutor {
       session_id: execution.id,
       observed_model_config: execution.agent.modelConfig,
       tools: execution.toolsUsed,
-      no_go: gateFailures.length ? gateFailures.join('; ') : undefined,
+      no_go: gateFailures.length && !envelopeTruncated ? gateFailures.join('; ') : undefined,
       status: succeeded ? 'success' : 'error',
       error: succeeded
         ? null
-        : `Vibe arm did not complete with gates satisfied: ${[...gateFailures, execution.outcome ? `outcome=${execution.outcome}` : 'outcome unknown', execution.stopReason ? `stop_reason=${execution.stopReason}` : '']
+        : envelopeTruncated
+          ? `AGENT_FAILED: native session interrupted at the pre-registered token envelope (outcome=${execution.outcome}; gates G1=${g1 ? 'ok' : 'fail'}, G2=${g2 ? 'ok' : 'fail'} — the interrupted tail call carries no provider counters; run recorded and counted in the denominator)`
+          : `Vibe arm did not complete with gates satisfied: ${[...gateFailures, execution.outcome ? `outcome=${execution.outcome}` : 'outcome unknown', execution.stopReason ? `stop_reason=${execution.stopReason}` : '']
           .filter(Boolean)
           .join('; ')}`,
     };
