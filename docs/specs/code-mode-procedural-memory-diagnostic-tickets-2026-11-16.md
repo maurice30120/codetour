@@ -7,6 +7,8 @@
 
 The issue tracker is the **live authority for ticket status**. This file is a committed roadmap and dependency snapshot, not a duplicate ticket tracker. Every linked issue includes the skill's `Parent`, `What to build`, `Acceptance criteria` and `Blocked by` sections and the `ready-for-agent` label.
 
+**Implementation starting branch (required):** [`spec-174-integration`](https://github.com/maurice30120/codetour/tree/spec-174-integration). Before implementing #184–#188, fetch the latest `origin/spec-174-integration`, check out that existing branch and verify `git branch --show-current` and `git rev-parse HEAD`. Do not base the work on `main` or old `spec-174-ticket-*` branches. Snapshot when agreed: `051dad2100fbf2f360d0ee70113e865c01dea251` (historical reference, **not** a frozen implementation SHA). Preserve uncommitted changes; avoid destructive resets and report divergence. Commit implementation on this same branch unless explicitly instructed otherwise.
+
 ## First milestone: observable CodeTour function learning (diagnostic only)
 
 | GitHub issue | Deliverable (vertical slice) | Blocked by |
