@@ -114,6 +114,10 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     return currentRevision;
   };
   const attempts: Attempt[] = [];
+  // Issue #187 (D04) + #188 (D05): per-candidate reconciliation log. Filled
+  // during the run for proposals that never reach the deterministic validator,
+  // and during consolidation for the ones that do.
+  const unreconciled: ReconciliationOutcome[] = [];
   // In-session traces only: the catalogue is mutated once, at the end of the run (correction 3).
   const runtimeFailures: string[] = [];
   const runtimeObservations: Array<{ id: string; params: Record<string, unknown>; ok: boolean }> = [];
@@ -339,6 +343,12 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           } catch (error) {
             recordCall({ type: scriptCall?.type ?? 'function_try', name: call.name === 'memory_run' ? String(call.arguments.id ?? call.name) : 'function_try', callId: call.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, runStarted, new Date());
             if (stored) runtimeFailures.push(stored.id);
+            // Issue #188 (D05): a proposal (remember=true) whose trial never
+            // executed is an explicit reconciliation outcome — proposed but not
+            // tried — never a silent gap between the plan and the catalogue.
+            if (!stored && call.arguments.remember === true) {
+              unreconciled.push({ name: typeof call.arguments.name === 'string' ? call.arguments.name.trim().slice(0, 100) : '', proposed: true, replayed: false, accepted: false, reason: `Trial failed before execution: ${String((error as Error)?.message ?? error).slice(0, 200)}` });
+            }
             throw error;
           }
           finally { clearTimeout(timer); }
@@ -426,9 +436,6 @@ Explore the repository using the tools. Assess whether the evidence answers the 
     };
     const successful = attempts.filter(a => (!a.id || !unusableIds.has(a.id)) && (!a.candidate?.name || !unusableIds.has(a.candidate.name)) && matches(a.output));
     const candidates: ConsolidationCandidate[] = [];
-    // Issue #187 (D04): reconciliation log for candidates that never reach the
-    // deterministic validator — not proposed, abandoned, or replay impossible.
-    const unreconciled: ReconciliationOutcome[] = [];
     for (const attempt of attempts) {
       if (!attempt.candidate || attempt.output == null) continue;
       const candidateName = attempt.candidate.name ?? '';
@@ -517,7 +524,11 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   } else if (library) {
     // Persist observed failures even when the exploration is partial; never
     // consolidate new candidates from a result without evidence.
-    consolidationReport = await library.finish([], []);
+    const partialReport = await library.finish([], []);
+    // Issue #188 (D05): proposals that never executed stay visible in the
+    // reconciliation log even when the Tour itself is not validated.
+    partialReport.reconciliation.push(...unreconciled);
+    consolidationReport = partialReport;
   }
   if (library) {
     // Purge counters are read once, after the single end-of-run mutation.
