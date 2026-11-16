@@ -1,6 +1,7 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
+/** @param {{workspace: string, code: string, params?: object, timeoutMs?: number, signal?: AbortSignal, scripts?: Record<string, string>, strict?: boolean, includeTrace?: boolean}} options */
 function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scripts, strict = false, includeTrace = false }) {
   if (typeof workspace !== 'string' || typeof code !== 'string' || code.length > 32768 || !Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 30000) {
     return Promise.reject(new Error('Invalid sandbox input'));

@@ -52,7 +52,13 @@ function validateStrict(code, params) {
   const output = ts.isExpressionStatement(last) ? checker.getTypeAtLocation(last.expression) : undefined;
   const signature = output?.getCallSignatures()[0];
   const input = signature?.parameters[0] ? checker.getTypeOfSymbolAtLocation(signature.parameters[0], last) : actualParams;
-  if (signature?.parameters[0] && !checker.isTypeAssignableTo(actualParams, input)) throw new Error('TS2345:1:Trial params do not match the function parameter type');
+  if (signature?.parameters[0] && !checker.isTypeAssignableTo(actualParams, input)) {
+    const firstName = signature.parameters[0].getName();
+    const guidance = primitiveNames.includes(firstName)
+      ? ` ${firstName} is available directly in the sandbox, not as a function argument. Accept only params, for example: function(params: {query: string}) { return searchText(params.query); }`
+      : '';
+    throw new Error(`TS2345:1:Trial params do not match the function parameter type.${guidance} Expected ${checker.typeToString(input).slice(0, 120)}; received ${checker.typeToString(actualParams).slice(0, 120)}.`);
+  }
   const paramsSchema = checker.getPropertiesOfType(input).map(symbol => ({ name: symbol.name, type: checker.typeToString(checker.getTypeOfSymbolAtLocation(symbol, last)).slice(0, 200) }));
   const returns = output ? checker.typeToString(signature ? checker.getReturnTypeOfSignature(signature) : output).slice(0, 300) : 'unknown';
   return { javascript: ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None, strict: true } }).outputText, paramsSchema, returns };

@@ -43,6 +43,19 @@ test('configured reasoning effort reaches the provider request', async () => {
   } finally { globalThis.fetch = original; }
 });
 
+test('reasoning effort defaults to high', async () => {
+  const original = globalThis.fetch;
+  try {
+    let effort: unknown;
+    globalThis.fetch = async (_url, options) => {
+      effort = JSON.parse(String(options?.body)).reasoning_effort;
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{}' } }] }));
+    };
+    await mistral('fixture').complete([], { signal: new AbortController().signal, maxOutputTokens: 100, codeMode: true, memory: true });
+    assert.equal(effort, 'high');
+  } finally { globalThis.fetch = original; }
+});
+
 test('rate-limited requests retry and respect cancellation while waiting', async () => {
   const original = globalThis.fetch;
   let calls = 0;

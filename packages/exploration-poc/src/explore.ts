@@ -56,6 +56,10 @@ export interface CallTraceItem {
   usageMissing: boolean;
   outcome?: string;
   error?: string;
+  finishReason?: string | null;
+  contentShape?: string | string[];
+  reasoningTokens?: number;
+  maxOutputTokens?: number;
   execution?: unknown;
   parameters?: Record<string, unknown>;
   result?: unknown;
@@ -120,6 +124,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   let callSeq = 0;
   let requestedEvidenceRecovery = false;
   let requestedJsonRecovery = false;
+  let nextOutputLimit = 16384;
   let requestedSchemaRecovery = false;
   // Ticket #190: on the 2026-11-16 run the model called memory_list six times
   // with returned=0 and revised its plan seven times without ever reaching
@@ -129,7 +134,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   // durably reusable questions (once per run, traced, no extra LLM call).
   let emptyMemoryListCount = 0;
   let emptyMemoryListNoteEmitted = false;
-  const recordCall = (base: Omit<CallTraceItem, 'seq' | 'startedAt' | 'endedAt' | 'durationMs' | 'startedAt'>, startedAt: Date, endedAt: Date): void => {
+  const recordCall = (base: Omit<CallTraceItem, 'seq' | 'runId' | 'startedAt' | 'endedAt' | 'durationMs'>, startedAt: Date, endedAt: Date): void => {
     callTrace.push({ ...base, runId, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() });
   };
   // A published plan becomes an immutable version: valid plans update the known
@@ -219,6 +224,9 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     }
   };
   const previousSearchOutputs = new Map<string, { content: string; toolCallId: string }>();
+  let previousFailedCall: string | undefined;
+  let consecutiveFailures = 0;
+  const stableValue = (value: unknown): unknown => Array.isArray(value) ? value.map(stableValue) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stableValue(item)])) : value;
   const reason = () => Date.now() - startedMs >= limits.durationMs ? 'duration' : metrics.inputTokens + metrics.outputTokens >= limits.tokens ? 'tokens' : metrics.modelCalls + metrics.toolCalls >= limits.calls ? 'calls' : metrics.modelCalls >= limits.iterations ? 'iterations' : undefined;
   const graph = new StateGraph(State).addNode('model', async state => {
     const stopped = reason();
@@ -227,16 +235,19 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     const remainingMs = Math.max(1, limits.durationMs - (Date.now() - startedMs));
     let timer: ReturnType<typeof setTimeout> | undefined;
     let response: Awaited<ReturnType<Model['complete']>>;
+    const outputLimit = Math.max(1, Math.min(nextOutputLimit, limits.tokens - metrics.inputTokens - metrics.outputTokens));
+    nextOutputLimit = 16384;
     const modelCallStarted = new Date();
     try {
       metrics.modelCalls++;
       response = await Promise.race([
-        model.complete(state.messages, { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(16384, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode, memory: !!library, queryContract: memory?.queryContract }),
+        model.complete(state.messages, { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library, queryContract: memory?.queryContract }),
         new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('budget-duration')); }, remainingMs); })
       ]);
     } catch (error) {
       const usage: { inputTokens: number; outputTokens: number } | undefined = (error as { usage?: { inputTokens: number; outputTokens: number } })?.usage;
-      recordCall({ type: 'model', name: 'model', inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, usageMissing: !usage, error: controller.signal.aborted ? 'budget-duration' : String(error) }, modelCallStarted, new Date());
+      const diagnostic = error as { finishReason?: unknown; contentShape?: unknown; reasoningTokens?: unknown };
+      recordCall({ type: 'model', name: 'model', maxOutputTokens: outputLimit, inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, usageMissing: !usage, error: controller.signal.aborted ? 'budget-duration' : String(error), ...(typeof diagnostic.finishReason === 'string' || diagnostic.finishReason === null ? { finishReason: diagnostic.finishReason } : {}), ...(typeof diagnostic.contentShape === 'string' || (Array.isArray(diagnostic.contentShape) && diagnostic.contentShape.every(item => typeof item === 'string')) ? { contentShape: diagnostic.contentShape } : {}), ...(typeof diagnostic.reasoningTokens === 'number' ? { reasoningTokens: diagnostic.reasoningTokens } : {}) }, modelCallStarted, new Date());
       metrics.inputTokens += usage?.inputTokens ?? 0;
       metrics.outputTokens += usage?.outputTokens ?? 0;
       if (!usage) metrics.usageAvailable = false;
@@ -246,6 +257,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       // citation repair path. A repeated failure stays fatal: no hidden retry.
       if ((error as { name?: string })?.name === 'FinalAnswerNotJson' && !requestedJsonRecovery && !reason()) {
         requestedJsonRecovery = true;
+        if (diagnostic.finishReason === 'length' && (error as { rawContent?: unknown }).rawContent === '' && typeof diagnostic.reasoningTokens === 'number' && usage && usage.outputTokens > 1 && diagnostic.reasoningTokens >= usage.outputTokens - 1) nextOutputLimit = 32768;
         // The model must see what it actually wrote, not the error text: the
         // observed failure mode (2026-11-16 run, #166/#167) is a reply made of
         // a plan block with no JSON after it — shown its own output, the model
@@ -256,7 +268,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
         if (failedPlan !== undefined) recordPlan(failedPlan);
         return { messages: [
           { role: 'assistant', content: rawOutput || String((error as Error).message ?? '') },
-          { role: 'user', content: 'Your final answer was not valid JSON. Your plan block, if any, was already extracted and recorded. Reply again with the final result as a single JSON object matching the required schema, outside any fenced code block, with no prose outside the JSON.' },
+          { role: 'user', content: (error as { rawContent?: unknown }).rawContent === '' && metrics.toolCalls === 0 ? 'Your previous response was empty. Use the available tools to explore the repository and gather evidence before returning the required JSON; report any unresolved gaps.' : 'Your final answer was not valid JSON. Your plan block, if any, was already extracted and recorded. Reply again with the final result as a single JSON object matching the required schema, outside any fenced code block, with no prose outside the JSON.' },
         ] };
       }
       throw error;
@@ -264,7 +276,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     const modelCallEnded = new Date();
     const inputTokens = response.usage?.inputTokens ?? null;
     const outputTokens = response.usage?.outputTokens ?? null;
-    recordCall({ type: 'model', name: 'model', inputTokens, outputTokens, usageMissing: !response.usage }, modelCallStarted, modelCallEnded);
+    recordCall({ type: 'model', name: 'model', maxOutputTokens: outputLimit, inputTokens, outputTokens, usageMissing: !response.usage }, modelCallStarted, modelCallEnded);
     // The plan travels in the normal generation (no dedicated LLM call) and is
     // recorded before this response's tool calls can be observed.
     if (response.plan !== undefined) recordPlan(response.plan);
@@ -365,6 +377,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       metrics.toolCalls++;
       const toolStarted = new Date();
       let output: unknown;
+      let failed = false;
       let attempt: Attempt | undefined;
       let scriptCall: { type: 'memory_run' | 'function_try'; name: string } | undefined;
       try {
@@ -537,7 +550,19 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           finally { clearTimeout(timer); }
         }
         else throw new Error('Unknown tool or invalid arguments');
-      } catch (error) { output = { error: String((error as Error).message ?? error).slice(0, 500) }; }
+      } catch (error) { failed = true; output = { error: String((error as Error).message ?? error).slice(0, 500) }; }
+      const identity = call.name === 'function_try' ? { source: call.arguments.source, params: call.arguments.params }
+        : call.name === 'code' ? { code: call.arguments.code, params: call.arguments.params }
+        : call.name === 'memory_run' ? { id: call.arguments.id, params: call.arguments.params }
+        : call.arguments;
+      const failureKey = JSON.stringify(stableValue([call.name, identity, failed ? (output as { error: string }).error : null]));
+      consecutiveFailures = failed ? (failureKey === previousFailedCall ? consecutiveFailures + 1 : 1) : 0;
+      previousFailedCall = failed ? failureKey : undefined;
+      if (consecutiveFailures === 2) {
+        output = { ...(output as object), note: 'The same tool call has failed twice. Change the source or parameters, use a different approach, or return a partial result with uncertainties. Do not repeat the same failed call.' };
+        const guardAt = new Date();
+        recordCall({ type: 'tool', name: 'repeated_failure_guard', callId: call.id, inputTokens: null, outputTokens: null, usageMissing: false, outcome: 'warning: same tool call failed twice' }, guardAt, guardAt);
+      }
       if (!scriptCall) {
         // Plain primitives and memory catalogue calls: real timestamps and durations.
         const toolEnded = new Date();
@@ -557,6 +582,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       else if (attempt) attempts.push(attempt);
       metrics.outputBytes += Buffer.byteLength(content);
       outputs.push({ role: 'tool', tool_call_id: call.id, content });
+      if (consecutiveFailures >= 3) return { messages: outputs, stopReason: 'repeated_tool_failure' };
     }
     return { messages: outputs, stopReason: reason() };
   }).addEdge(START, 'model').addConditionalEdges('model', state => state.result !== undefined || state.stopReason ? END : 'model').compile();
@@ -564,7 +590,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const state = await graph.invoke({ messages: [{ role: 'system', content: `${DECOMPOSITION_PROMPT}
 
 Explore the repository using the tools. Assess whether the evidence answers the objective; if essential evidence is missing, use further tools before returning. Record unresolved gaps in uncertainties. Return only JSON matching this exact shape: {"objective":"...","entryPoints":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"components":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"relations":[{"from":"...","to":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"uncertainties":["..."]}. Use empty arrays when needed. Each evidence must be an array of objects with real file paths and integer line numbers, not a string. Do not write a tour.${memoryInstructions}` }, { role: 'user', content: objective }] }, { recursionLimit: Math.ceil(limits.iterations) + 2 });
-  const result = state.result === undefined ? { objective, entryPoints: [], components: [], relations: [], uncertainties: ['Exploration stopped before a structured result was produced.'] } : resultSchema.parse(state.result);
+  const result = state.result === undefined ? { objective, entryPoints: [], components: [], relations: [], uncertainties: [state.stopReason === 'repeated_tool_failure' ? 'Exploration stopped after the same tool call repeatedly failed; no structured result was produced.' : 'Exploration stopped before a structured result was produced.'] } : resultSchema.parse(state.result);
   for (const e of [...result.entryPoints, ...result.components, ...result.relations].flatMap(x => x.evidence)) {
     const lines = await tools.read(e.file, e.startLine, e.endLine, true);
     if (lines.length !== e.endLine - e.startLine + 1) throw new Error('Evidence points outside a file');

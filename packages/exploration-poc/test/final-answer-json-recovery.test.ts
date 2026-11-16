@@ -94,3 +94,43 @@ test('a second non-JSON final answer is fatal: only one recovery per run', async
   await assert.rejects(() => explore({ root, objective: 'Find start', codeMode: true, model }), /Final answer is not valid JSON/);
   assert.equal(calls, 2);
 });
+
+test('a length-limited empty answer records diagnostics and retries exploration when no tools ran', async t => {
+  const base = await mkdtemp(join(tmpdir(), 'length-recovery-'));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  await writeFile(join(base, 'main.ts'), 'export function start() {}\n');
+  let calls = 0;
+  let retry = '';
+  const result = await explore({ root: base, objective: 'Find start', model: { async complete(messages) {
+    calls++;
+    if (calls === 1) throw Object.assign(new Error('empty'), { name: 'FinalAnswerNotJson', rawContent: '', finishReason: 'length', contentShape: ['type=thinking'], reasoningTokens: 90, usage: { inputTokens: 10, outputTokens: 100 } });
+    retry = JSON.stringify(messages);
+    return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+  } } });
+  assert.match(retry, /use.*tools|explor/i);
+  const failed = result.callTrace.find(call => call.error === 'FinalAnswerNotJson: empty');
+  assert.equal(failed?.finishReason, 'length');
+  assert.equal(failed?.reasoningTokens, 90);
+  assert.deepEqual(failed?.contentShape, ['type=thinking']);
+});
+
+test('provider exposes reported reasoning tokens on a failed response', async () => {
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: null } }], usage: { prompt_tokens: 1, completion_tokens: 100, completion_tokens_details: { reasoning_tokens: 97 } } }));
+    await assert.rejects(() => mistral('fixture').complete([], { signal: new AbortController().signal, maxOutputTokens: 100, codeMode: true, memory: true }), (error: any) => error.finishReason === 'length' && error.reasoningTokens === 97);
+  } finally { globalThis.fetch = original; }
+});
+
+test('reasoning exhausting a length-limited response raises only the recovery output cap within the run budget', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'reasoning-limit-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'main.ts'), 'export function start() {}\n');
+  const caps: number[] = [];
+  await explore({ root, objective: 'Find start', budget: { tokens: 50000 }, model: { async complete(_messages, options) {
+    caps.push(options!.maxOutputTokens);
+    if (caps.length === 1) throw Object.assign(new Error('empty'), { name: 'FinalAnswerNotJson', rawContent: '', finishReason: 'length', reasoningTokens: 16384, usage: { inputTokens: 100, outputTokens: 16384 } });
+    return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+  } } });
+  assert.deepEqual(caps, [16384, 32768]);
+});

@@ -12,7 +12,7 @@ export type NamedMemoryTool = { name: string; id: string; parameters: string[]; 
 
 const INTEGER_PARAMS = new Set(['offset', 'start', 'end', 'startLine', 'endLine']);
 
-export function mistral(apiKey: string, model = 'mistral-small-latest', config: { temperature?: number; reasoningEffort?: 'low' | 'high' | 'max'; memorySearchId?: string; memorySearchExclusive?: boolean; memorySearchScoped?: boolean; memoryTools?: NamedMemoryTool[]; removeSearch?: boolean; removeCode?: boolean } = {}): Model {
+export function mistral(apiKey: string, model = 'mistral-small-latest', config: { temperature?: number; reasoningEffort?: 'low' | 'medium' | 'high' | 'max'; memorySearchId?: string; memorySearchExclusive?: boolean; memorySearchScoped?: boolean; memoryTools?: NamedMemoryTool[]; removeSearch?: boolean; removeCode?: boolean } = {}): Model {
   if (!apiKey) throw new Error('MISTRAL_API_KEY is required');
   const lastRequest = { model: model as string | undefined, temperature: undefined as number | undefined, maxOutputTokens: undefined as number | undefined };
   return {
@@ -39,7 +39,7 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
     const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)).filter(tool => !(options?.memory && options?.codeMode) || !primitiveNames.has(tool.function.name)), ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];
     const requestMaxTokens = options?.maxOutputTokens;
     lastRequest.model = model; lastRequest.temperature = config.temperature ?? 0; lastRequest.maxOutputTokens = requestMaxTokens;
-    const request = { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, ...(options?.toolsEnabled === false ? { response_format: { type: 'json_object' } } : { tools: availableTools }), ...(config.reasoningEffort ? { reasoning_effort: config.reasoningEffort } : {}), temperature: config.temperature ?? 0, max_tokens: requestMaxTokens }) };
+    const request = { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, ...(options?.toolsEnabled === false ? { response_format: { type: 'json_object' } } : { tools: availableTools }), reasoning_effort: config.reasoningEffort ?? 'high', temperature: config.temperature ?? 0, max_tokens: requestMaxTokens }) };
     let response = await fetch('https://api.mistral.ai/v1/chat/completions', request);
     for (let retry = 0; response.status === 429 && retry < 3; retry++) {
       const retryAfter = Number(response.headers.get('retry-after'));
@@ -56,6 +56,7 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
     const data: any = await response.json();
     const message = data.choices?.[0]?.message;
     const usage = typeof data.usage?.prompt_tokens === 'number' && typeof data.usage?.completion_tokens === 'number' ? { inputTokens: data.usage.prompt_tokens, outputTokens: data.usage.completion_tokens } : undefined;
+    const reasoningTokens = typeof data.usage?.completion_tokens_details?.reasoning_tokens === 'number' ? data.usage.completion_tokens_details.reasoning_tokens : undefined;
     try {
       // Issue #184: the plan is published as a fenced block labeled `plan` inside
       // the normal reply. Extract it so the harness can record it without a
@@ -100,7 +101,7 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
         // The raw reply and the parsed plan travel on the error: the harness
         // recovery must show the model what it actually wrote (its plan block
         // with no JSON after it) and must not lose the plan it published.
-        throw Object.assign(new Error(`Final answer is not valid JSON (content after plan extraction: ${content ? JSON.stringify(content.slice(0, 200)) : 'empty'})`), { name: 'FinalAnswerNotJson', rawContent, contentShape, finishReason, ...(plan !== undefined ? { plan } : {}) });
+        throw Object.assign(new Error(`Final answer is not valid JSON (content after plan extraction: ${content ? JSON.stringify(content.slice(0, 200)) : 'empty'})`), { name: 'FinalAnswerNotJson', rawContent, contentShape, finishReason, reasoningTokens, ...(plan !== undefined ? { plan } : {}) });
       }
       return { ...(plan !== undefined ? { plan } : {}), result: parsedResult, usage };
     } catch (error) {

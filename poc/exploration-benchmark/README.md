@@ -8,6 +8,8 @@ Pour chaque question, exécuter séparément sans puis avec Code Mode, sur la m�
 
 Avec Node 24 et les dépendances de `packages/exploration-poc` installées, définir `MISTRAL_API_KEY` et éventuellement `MISTRAL_MODEL`, puis lancer :
 
+Le harnais utilise `reasoning_effort=high` par défaut. Pour `tour-memory-experiment.mjs`, `EXPERIMENT_REASONING_EFFORT` permet de choisir `low`, `medium`, `high` ou `max` ; le modèle doit accepter le niveau choisi. Par exemple, `zai-glm-5-3-flash` refuse `medium`.
+
 ```sh
 node poc/exploration-benchmark/run.mjs --adapter "$(command -v node)" --arg poc/exploration-benchmark/mistral-adapter.mjs --output /tmp/comparaison-codetour --repetitions 3
 ```

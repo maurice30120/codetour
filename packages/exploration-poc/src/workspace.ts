@@ -80,7 +80,7 @@ export async function workspace(root: string) {
   // listFiles - List files in the workspace
   // ==========================================================================
 
-  async function listFiles(options = {}) {
+  async function listFiles(options: { maxFiles?: number; prefix?: string; includeDirectories?: boolean; internal?: boolean } = {}) {
     const { maxFiles = MAX_FILES, prefix = '', includeDirectories = false, internal = false } = options;
     
     const maxLimit = internal ? 50000 : 10000;
@@ -126,7 +126,7 @@ export async function workspace(root: string) {
   // readLines - Read specific lines from a file
   // ==========================================================================
 
-  async function readLines(file: string, options = {}) {
+  async function readLines(file: string, options: { startLine?: number; endLine?: number; fresh?: boolean } = {}) {
     const { startLine = 1, endLine = startLine + MAX_READ_LINES - 1, fresh = false } = options;
     
     validateLineRange(startLine, endLine);
@@ -160,7 +160,7 @@ export async function workspace(root: string) {
   // searchText - Search for text in files
   // ==========================================================================
 
-  async function searchText(query: string, options = {}) {
+  async function searchText(query: string, options: { limit?: number; offset?: number; pathPrefix?: string; caseSensitive?: boolean } = {}) {
     validateQuery(query);
     
     const { limit = MAX_SEARCH_RESULTS, offset = 0, pathPrefix = '', caseSensitive = true } = options;
@@ -232,7 +232,7 @@ export async function workspace(root: string) {
   // searchIdentifiers - Search for exact identifier matches
   // ==========================================================================
 
-  async function searchIdentifiers(identifier: string, options = {}) {
+  async function searchIdentifiers(identifier: string, options: { limit?: number; offset?: number; pathPrefix?: string } = {}) {
     validateQuery(identifier);
     
     const { limit = MAX_SEARCH_RESULTS, offset = 0, pathPrefix = '' } = options;
@@ -340,7 +340,7 @@ export async function workspace(root: string) {
   // listSymbols - List symbols in the workspace
   // ==========================================================================
 
-  async function listSymbols(options = {}) {
+  async function listSymbols(options: { limit?: number; offset?: number; pathPrefix?: string; kind?: string } = {}) {
     const { limit = MAX_SYMBOLS, offset = 0, pathPrefix = '', kind: filterKind } = options;
     
     if (limit < 1 || limit > MAX_SYMBOLS * 2) {
@@ -425,7 +425,7 @@ export async function workspace(root: string) {
   // findDefinitions - Find definitions of a symbol
   // ==========================================================================
 
-  async function findDefinitions(symbol: string, options = {}) {
+  async function findDefinitions(symbol: string, options: { limit?: number; offset?: number; pathPrefix?: string } = {}) {
     validateQuery(symbol);
     
     const { limit = MAX_DEFINITIONS, offset = 0, pathPrefix = '' } = options;
@@ -511,7 +511,7 @@ export async function workspace(root: string) {
   // findReferences - Find references to a symbol
   // ==========================================================================
 
-  async function findReferences(symbol: string, options = {}) {
+  async function findReferences(symbol: string, options: { limit?: number; offset?: number; pathPrefix?: string; includeDeclaration?: boolean } = {}) {
     validateQuery(symbol);
     
     const { limit = MAX_REFERENCES, offset = 0, pathPrefix = '', includeDeclaration = false } = options;

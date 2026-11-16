@@ -18,8 +18,8 @@ const tasks = JSON.parse(await readFile(process.env.EXPERIMENT_TASKS || path.joi
 if (process.env.TRANSFER) tasks.push({ id: 'project-transfer', objective: 'Pour une étape du Project Tour, retrouve la définition de totalPrice, explique le calcul et donne le fichier et les lignes qui le prouvent.' });
 const key = process.env.MISTRAL_API_KEY || execFileSync('security', ['find-generic-password', '-s', 'ai.mistral.vibe', '-a', 'MISTRAL_API_KEY', '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 const modelName = process.env.MISTRAL_MODEL || 'mistral-small-latest';
-const reasoningEffort = process.env.EXPERIMENT_REASONING_EFFORT;
-if (reasoningEffort && !['low', 'high', 'max'].includes(reasoningEffort)) throw Error('Invalid reasoning effort');
+const reasoningEffort = process.env.EXPERIMENT_REASONING_EFFORT || 'high';
+if (!['low', 'medium', 'high', 'max'].includes(reasoningEffort)) throw Error('Invalid reasoning effort');
 const budget = { iterations: Number(process.env.EXPERIMENT_ITERATIONS || 12), calls: Number(process.env.EXPERIMENT_CALLS || 40), tokens: Number(process.env.EXPERIMENT_TOKENS || 48000), durationMs: Number(process.env.EXPERIMENT_MS || 90000) };
 if (Object.values(budget).some(value => !Number.isInteger(value) || value <= 0)) throw Error('Invalid budget');
 const concludeRatio = process.env.CONCLUDE_RATIO ? Number(process.env.CONCLUDE_RATIO) : null;

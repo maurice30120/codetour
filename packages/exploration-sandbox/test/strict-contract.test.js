@@ -36,6 +36,18 @@ test('strict trials validate actual params and expose the executed source contra
   assert.equal(result.value[0].file, 'main.ts');
 });
 
+test('parameter mismatch explains the expected type and gives targeted primitive guidance', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'strict-params-guidance-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, 'main.ts'), 'start\n');
+  const bad = 'function explore(searchText: (query: string) => unknown[], params: { query: string }) { return searchText(params.query); }';
+  await assert.rejects(runScript({ workspace: root, code: bad, params: { query: 'start' }, strict: true }), error => /TS2345/.test(error.message) && /Expected/.test(error.message) && /available.*directly/i.test(error.message) && /function\(params/.test(error.message));
+  const mismatch = 'function explore(params: { query: string }) { return searchText(params.query); }';
+  await assert.rejects(runScript({ workspace: root, code: mismatch, params: { query: 17 }, strict: true }), error => /TS2345/.test(error.message) && /Expected/.test(error.message) && !/available.*directly/i.test(error.message));
+  const result = await runScript({ workspace: root, code: mismatch, params: { query: 'start' }, strict: true });
+  assert.equal(result[0].file, 'main.ts');
+});
+
 test('strict named function declarations execute with validated parameters', async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'strict-declaration-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
