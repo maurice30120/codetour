@@ -1,0 +1,145 @@
+[
+  {
+    "runId": "5877eee7-42c2-4c20-a6b8-b0acd5d004bb",
+    "questionId": "R-Q1-R1",
+    "agent": "codetour",
+    "series": "R",
+    "totalTokens": {
+      "input": 1763,
+      "output": 86,
+      "total": 1849
+    },
+    "status": "success",
+    "duration_ms": 5484,
+    "order": "codetour-first"
+  },
+  {
+    "runId": "cc649902-f887-443e-8e64-38460a601990",
+    "questionId": "R-Q1-R1",
+    "agent": "vibe-native",
+    "series": "R",
+    "totalTokens": {
+      "input": 41962,
+      "output": 1579,
+      "total": 43541
+    },
+    "status": "success",
+    "duration_ms": 59943,
+    "order": "codetour-first"
+  },
+  {
+    "runId": "c11bc40f-de68-4faf-8b2d-b866c175e46c",
+    "questionId": "R-Q2-R1",
+    "agent": "vibe-native",
+    "series": "R",
+    "totalTokens": {
+      "input": 54725,
+      "output": 2532,
+      "total": 57257
+    },
+    "status": "success",
+    "duration_ms": 357924,
+    "order": "vibe-first"
+  },
+  {
+    "runId": "8c6a041a-61c1-4a2f-b7ab-85b3679a8e0f",
+    "questionId": "R-Q2-R1",
+    "agent": "codetour",
+    "series": "R",
+    "totalTokens": {
+      "input": 1761,
+      "output": 106,
+      "total": 1867
+    },
+    "status": "success",
+    "duration_ms": 6540,
+    "order": "vibe-first"
+  },
+  {
+    "runId": "8441e27d-85fa-491f-9d82-6e813b1a72f9",
+    "questionId": "R-Q3-R1",
+    "agent": "codetour",
+    "series": "R",
+    "totalTokens": {
+      "input": 28870,
+      "output": 209,
+      "total": 29079
+    },
+    "status": "error",
+    "error": "Partial exploration (stopReason: iterations)",
+    "duration_ms": 16432,
+    "order": "codetour-first"
+  },
+  {
+    "runId": "7167c4c6-e24f-4e31-86eb-a42f37c0516d",
+    "questionId": "R-Q3-R1",
+    "agent": "vibe-native",
+    "series": "R",
+    "totalTokens": {
+      "input": 438451,
+      "output": 6562,
+      "total": 445013
+    },
+    "status": "success",
+    "duration_ms": 78206,
+    "order": "codetour-first"
+  },
+  {
+    "runId": "5938a005-1662-4112-b795-0770bea2c0f9",
+    "questionId": "R-Q4-R1",
+    "agent": "vibe-native",
+    "series": "R",
+    "totalTokens": {
+      "input": 595609,
+      "output": 1197,
+      "total": 596806
+    },
+    "status": "error",
+    "error": "AGENT_FAILED: native session interrupted at the pre-registered token envelope (outcome=token_limit; gates G1=fail, G2=fail — the interrupted tail call carries no provider counters; run recorded and counted in the denominator)",
+    "duration_ms": 62054,
+    "order": "vibe-first"
+  },
+  {
+    "runId": "92ce324e-0c44-4122-9153-77c1e5fedbb5",
+    "questionId": "R-Q4-R1",
+    "agent": "codetour",
+    "series": "R",
+    "totalTokens": {
+      "input": 30120,
+      "output": 206,
+      "total": 30326
+    },
+    "status": "error",
+    "error": "Partial exploration (stopReason: iterations)",
+    "duration_ms": 17070,
+    "order": "vibe-first"
+  },
+  {
+    "runId": "c19fa9e8-8151-4ba8-a428-321e94a3be7c",
+    "questionId": "R-Q5-R1",
+    "agent": "codetour",
+    "series": "R",
+    "totalTokens": {
+      "input": 1760,
+      "output": 104,
+      "total": 1864
+    },
+    "status": "success",
+    "duration_ms": 3179,
+    "order": "codetour-first"
+  },
+  {
+    "runId": "8ffc9c50-1049-40fe-8c34-94a208297e17",
+    "questionId": "R-Q5-R1",
+    "agent": "vibe-native",
+    "series": "R",
+    "totalTokens": {
+      "input": 68074,
+      "output": 1497,
+      "total": 69571
+    },
+    "status": "success",
+    "duration_ms": 123698,
+    "order": "codetour-first"
+  }
+]

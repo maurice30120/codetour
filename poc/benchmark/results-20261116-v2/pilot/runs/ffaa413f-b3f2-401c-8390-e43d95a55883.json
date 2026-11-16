@@ -1,0 +1,295 @@
+{
+  "run_id": "ffaa413f-b3f2-401c-8390-e43d95a55883",
+  "timestamp": "2026-11-16T06:34:52.910Z",
+  "agent": "codetour",
+  "agent_version": "f4433993fc7b406d66a7c631c2112c6ea92b4a6d",
+  "model": "mistral-small-latest",
+  "model_params": {
+    "temperature": 0,
+    "max_tokens": 600000
+  },
+  "question_id": "PILOT-pg-config",
+  "series": "R",
+  "phase": "repetition",
+  "repeat_index": 1,
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "calls": [
+    {
+      "call_id": "call-5beeb91e-3199-46d3-b648-87ed05333db1-0",
+      "call_type": "prompt",
+      "input_tokens": 1752,
+      "output_tokens": 121,
+      "cache_included_in_input": true,
+      "duration_ms": 1495,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 0,
+        "started_at": "2026-11-16T06:34:55.045Z",
+        "ended_at": "2026-11-16T06:34:56.540Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-2c15982d-64b3-4426-9e56-d1039d87cb88-1",
+      "call_type": "prompt",
+      "input_tokens": 1906,
+      "output_tokens": 6,
+      "cache_included_in_input": true,
+      "duration_ms": 451,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 1,
+        "started_at": "2026-11-16T06:34:56.547Z",
+        "ended_at": "2026-11-16T06:34:56.998Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-2b3b3789-c71b-4fae-9134-0e9b607ba9a1-2",
+      "call_type": "prompt",
+      "input_tokens": 2478,
+      "output_tokens": 12,
+      "cache_included_in_input": true,
+      "duration_ms": 544,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 3,
+        "started_at": "2026-11-16T06:34:57.805Z",
+        "ended_at": "2026-11-16T06:34:58.349Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-8ded8f94-df38-417b-b5b3-4615d06ac3a4-3",
+      "call_type": "prompt",
+      "input_tokens": 4148,
+      "output_tokens": 11,
+      "cache_included_in_input": true,
+      "duration_ms": 525,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 5,
+        "started_at": "2026-11-16T06:34:59.175Z",
+        "ended_at": "2026-11-16T06:34:59.700Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-4d7f84fc-829c-4952-b30b-d47949dfd261-4",
+      "call_type": "prompt",
+      "input_tokens": 6200,
+      "output_tokens": 15,
+      "cache_included_in_input": true,
+      "duration_ms": 493,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 7,
+        "started_at": "2026-11-16T06:35:00.611Z",
+        "ended_at": "2026-11-16T06:35:01.104Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-0b512759-6e79-4a03-921c-20305616e630-5",
+      "call_type": "prompt",
+      "input_tokens": 6478,
+      "output_tokens": 35,
+      "cache_included_in_input": true,
+      "duration_ms": 585,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 9,
+        "started_at": "2026-11-16T06:35:02.799Z",
+        "ended_at": "2026-11-16T06:35:03.384Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-c3e1f934-b507-4ef1-8b83-50403c565009-6",
+      "call_type": "prompt",
+      "input_tokens": 6525,
+      "output_tokens": 35,
+      "cache_included_in_input": true,
+      "duration_ms": 620,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 11,
+        "started_at": "2026-11-16T06:35:04.116Z",
+        "ended_at": "2026-11-16T06:35:04.736Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-9ed46959-1e80-4209-8b17-56a6c40e3ffc-7",
+      "call_type": "prompt",
+      "input_tokens": 8027,
+      "output_tokens": 37,
+      "cache_included_in_input": true,
+      "duration_ms": 1613,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 13,
+        "started_at": "2026-11-16T06:35:05.457Z",
+        "ended_at": "2026-11-16T06:35:07.070Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    }
+  ],
+  "functions_created": [],
+  "functions_reused": [],
+  "total_tokens": {
+    "input": 37514,
+    "output": 272,
+    "total": 37786,
+    "verified": true,
+    "cached_input": 0,
+    "cache_creation_input": 0
+  },
+  "result": {
+    "tour_title": "Tour: Explain how the pg_config command line utility handles a request to print its version. --iterations 384 --calls 4096",
+    "steps": [],
+    "raw_response": "{\"objective\":\"Explain how the pg_config command line utility handles a request to print its version. --iterations 384 --calls 4096\",\"entryPoints\":[],\"components\":[],\"relations\":[],\"uncertainties\":[\"Exploration stopped before a structured result was produced.\"],\"status\":\"partial\",\"stopReason\":\"iterations\",\"promptSha256\":\"96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c\",\"modelConfig\":{\"model\":\"mistral-small-latest\",\"temperature\":0,\"maxOutputTokens\":4096},\"metrics\":{\"inputTokens\":37514,\"outputTokens\":272,\"usageAvailable\":true,\"modelCalls\":8,\"toolCalls\":7,\"durationMs\":12784,\"outputBytes\":18347,\"cost\":null,\"memoryReuses\":0,\"memoryPurges\":0,\"memoryQueryRejects\":0,\"memoryResultsCompacted\":0,\"memoryResultsRepeated\":0},\"callTrace\":[{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":1752,\"outputTokens\":121,\"usageMissing\":false,\"seq\":0,\"startedAt\":\"2026-11-16T06:34:55.045Z\",\"endedAt\":\"2026-11-16T06:34:56.540Z\",\"durationMs\":1495},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":1906,\"outputTokens\":6,\"usageMissing\":false,\"seq\":1,\"startedAt\":\"2026-11-16T06:34:56.547Z\",\"endedAt\":\"2026-11-16T06:34:56.998Z\",\"durationMs\":451},{\"type\":\"tool\",\"name\":\"listFiles\",\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"truncated\",\"seq\":2,\"startedAt\":\"2026-11-16T06:34:56.998Z\",\"endedAt\":\"2026-11-16T06:34:57.803Z\",\"durationMs\":805},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":2478,\"outputTokens\":12,\"usageMissing\":false,\"seq\":3,\"startedAt\":\"2026-11-16T06:34:57.805Z\",\"endedAt\":\"2026-11-16T06:34:58.349Z\",\"durationMs\":544},{\"type\":\"tool\",\"name\":\"searchText\",\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"truncated\",\"seq\":4,\"startedAt\":\"2026-11-16T06:34:58.349Z\",\"endedAt\":\"2026-11-16T06:34:59.174Z\",\"durationMs\":825},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":4148,\"outputTokens\":11,\"usageMissing\":false,\"seq\":5,\"startedAt\":\"2026-11-16T06:34:59.175Z\",\"endedAt\":\"2026-11-16T06:34:59.700Z\",\"durationMs\":525},{\"type\":\"tool\",\"name\":\"searchText\",\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"truncated\",\"seq\":6,\"startedAt\":\"2026-11-16T06:34:59.700Z\",\"endedAt\":\"2026-11-16T06:35:00.609Z\",\"durationMs\":909},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":6200,\"outputTokens\":15,\"usageMissing\":false,\"seq\":7,\"startedAt\":\"2026-11-16T06:35:00.611Z\",\"endedAt\":\"2026-11-16T06:35:01.104Z\",\"durationMs\":493},{\"type\":\"tool\",\"name\":\"searchText\",\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":8,\"startedAt\":\"2026-11-16T06:35:01.104Z\",\"endedAt\":\"2026-11-16T06:35:02.797Z\",\"durationMs\":1693},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":6478,\"outputTokens\":35,\"usageMissing\":false,\"seq\":9,\"startedAt\":\"2026-11-16T06:35:02.799Z\",\"endedAt\":\"2026-11-16T06:35:03.384Z\",\"durationMs\":585},{\"type\":\"tool\",\"name\":\"readLines\",\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"error\",\"seq\":10,\"startedAt\":\"2026-11-16T06:35:03.384Z\",\"endedAt\":\"2026-11-16T06:35:04.114Z\",\"durationMs\":730},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":6525,\"outputTokens\":35,\"usageMissing\":false,\"seq\":11,\"startedAt\":\"2026-11-16T06:35:04.116Z\",\"endedAt\":\"2026-11-16T06:35:04.736Z\",\"durationMs\":620},{\"type\":\"tool\",\"name\":\"readLines\",\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":12,\"startedAt\":\"2026-11-16T06:35:04.736Z\",\"endedAt\":\"2026-11-16T06:35:05.455Z\",\"durationMs\":719},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":8027,\"outputTokens\":37,\"usageMissing\":false,\"seq\":13,\"startedAt\":\"2026-11-16T06:35:05.457Z\",\"endedAt\":\"2026-11-16T06:35:07.070Z\",\"durationMs\":1613},{\"type\":\"tool\",\"name\":\"readLines\",\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"error\",\"seq\":14,\"startedAt\":\"2026-11-16T06:35:07.070Z\",\"endedAt\":\"2026-11-16T06:35:07.798Z\",\"durationMs\":728}],\"consolidationReport\":{\"accepted\":[],\"rejected\":[],\"duplicates\":[],\"indeterminate\":[]}}",
+    "citations": []
+  },
+  "error": "Partial exploration (stopReason: iterations)",
+  "status": "error",
+  "fixture_verification": {
+    "head_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "clean_tree": true,
+    "verified_at": "2026-11-16T06:34:52.910Z"
+  },
+  "manifest_hash": "f82864b9d7f2ad2061dad85f163989114c19bdf7d57c0516bfd2e67b81c85c1d",
+  "config_hash": "26de704cc4ae99db6df1a7c2f90f000f1d29911211bb870f0b31f1ef2aa93095",
+  "execution_config": {
+    "fixture_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "codetour": {
+      "model": "mistral-small-latest",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "vibe": {
+      "model": "mistral-medium-3.5",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "timeout_ms": 600000,
+    "retry_policy": {
+      "maxRetries": 0,
+      "retryDelay": 0
+    }
+  },
+  "prompt_hash": "2addf1bc6b973717749458ad99f7cf607e9c73e44abfc3c7bf0144426d0906e9",
+  "question_hash": "85f0915bbb43d99f6a71d7894ca84cf621efffdcfcce5db68790c2e6ffc4b653",
+  "fixture_hash": "1ae64b1c130a9bc03de0835845d5e8cf42f3e0726eb646d8ac62eb72870f0dfa",
+  "system_prompt_hash": "96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c",
+  "tools": [
+    {
+      "type": "tool",
+      "name": "listFiles",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "truncated",
+      "seq": 2,
+      "startedAt": "2026-11-16T06:34:56.998Z",
+      "endedAt": "2026-11-16T06:34:57.803Z",
+      "durationMs": 805
+    },
+    {
+      "type": "tool",
+      "name": "searchText",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "truncated",
+      "seq": 4,
+      "startedAt": "2026-11-16T06:34:58.349Z",
+      "endedAt": "2026-11-16T06:34:59.174Z",
+      "durationMs": 825
+    },
+    {
+      "type": "tool",
+      "name": "searchText",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "truncated",
+      "seq": 6,
+      "startedAt": "2026-11-16T06:34:59.700Z",
+      "endedAt": "2026-11-16T06:35:00.609Z",
+      "durationMs": 909
+    },
+    {
+      "type": "tool",
+      "name": "searchText",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 8,
+      "startedAt": "2026-11-16T06:35:01.104Z",
+      "endedAt": "2026-11-16T06:35:02.797Z",
+      "durationMs": 1693
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "error",
+      "seq": 10,
+      "startedAt": "2026-11-16T06:35:03.384Z",
+      "endedAt": "2026-11-16T06:35:04.114Z",
+      "durationMs": 730
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 12,
+      "startedAt": "2026-11-16T06:35:04.736Z",
+      "endedAt": "2026-11-16T06:35:05.455Z",
+      "durationMs": 719
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "error",
+      "seq": 14,
+      "startedAt": "2026-11-16T06:35:07.070Z",
+      "endedAt": "2026-11-16T06:35:07.798Z",
+      "durationMs": 728
+    }
+  ]
+}

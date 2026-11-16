@@ -6,7 +6,7 @@
 
 **Integration Branch**: `spec-174-integration`
 
-**Status**: In progress — G0–G5 passed with real evidence (see [REPRISE-2026-11-15.md](./REPRISE-2026-11-15.md)); campaign 80 runs at 2/80 (attempt 5 paused), blind evaluation and T08 report remaining.
+**Status**: Paused at the user's request — current **NO-GO G2**, diagnostic ten-run Medium batch incomplete, new 80-run campaign not started. Use [REPRISE-2026-11-16.md](./REPRISE-2026-11-16.md) and the [session retrospective](../../retros/retro-spec-174-medium-2026-11-16.md). Two historical measured runs remain preserved separately; old seals and old green gates cannot authorize the changed configuration.
 
 ## Summary
 
@@ -29,10 +29,10 @@ All gates must be satisfied before main benchmark:
 |------|-------------|--------|
 | G0 | POC conformance to #172: 10 primitives, TypeScript strict, QuickJS, memory_list, memory_run, consolidation | ✅ |
 | G1 | Authentic Vibe: proof of real native sub-agent invocation | ✅ |
-| G2 | Total instrumentation: reliable counters for every model call | ✅ |
+| G2 | Total instrumentation: reliable counters for every model call | ❌ Native journal coverage incomplete; strict reconciliation required |
 | G3 | Real fixture: PostgreSQL at fixed SHA, read-only clone | ✅ |
 | G4 | Independent evaluator: blind verification protocol | ✅ |
-| G5 | Pre-registration: manifesto hashed, not modified during benchmark | ✅ |
+| G5 | Pre-registration: manifesto hashed, not modified during benchmark | ❌ Historical seal differs from corrected sources and Medium configuration |
 
 **NO-GO if any gate fails**
 

@@ -14,3 +14,6 @@ docs/agents/
 .scratch/
 rapport-difficultes-mcp-codetour.md
 .playwright-mcp/
+
+# Local provider credentials
+.env.local

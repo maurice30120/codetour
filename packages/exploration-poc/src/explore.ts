@@ -37,6 +37,8 @@ export interface CallTraceItem {
   outcome?: string;
   error?: string;
   execution?: unknown;
+  parameters?: Record<string, unknown>;
+  result?: unknown;
 }
 
 interface Attempt {
@@ -57,6 +59,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0 };
   const callTrace: CallTraceItem[] = [];
   let callSeq = 0;
+  let requestedEvidenceRecovery = false;
   const recordCall = (base: Omit<CallTraceItem, 'seq' | 'startedAt' | 'endedAt' | 'durationMs' | 'startedAt'>, startedAt: Date, endedAt: Date): void => {
     callTrace.push({ ...base, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() });
   };
@@ -108,7 +111,34 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     metrics.inputTokens += inputTokens ?? 0;
     metrics.outputTokens += outputTokens ?? 0;
     if (!response.usage) metrics.usageAvailable = false;
-    if (response.result !== undefined) return { result: response.result, stopReason: Date.now() - startedMs >= limits.durationMs ? 'duration' : metrics.inputTokens + metrics.outputTokens > limits.tokens ? 'tokens' : undefined };
+    if (response.result !== undefined) {
+      const result = resultSchema.parse(response.result);
+      const hasEvidence = [...result.entryPoints, ...result.components, ...result.relations].some(item => item.evidence.length > 0);
+      if (!hasEvidence) {
+        // One recovery inside the original budget; no extra run or hidden retry.
+        if (metrics.toolCalls === 0 && !requestedEvidenceRecovery && !reason()) {
+          requestedEvidenceRecovery = true;
+          return { messages: [
+            { role: 'assistant', content: JSON.stringify(result) },
+            { role: 'user', content: 'No source evidence was returned. Use the repository tools to inspect the workspace and gather evidence before answering. If evidence remains unavailable, report the unresolved gaps explicitly.' }
+          ] };
+        }
+        return { result, stopReason: reason() ?? 'evidence_missing' };
+      }
+      try {
+        for (const ref of [...result.entryPoints, ...result.components, ...result.relations].flatMap(item => item.evidence)) {
+          const lines = await tools.read(ref.file, ref.startLine, ref.endLine, true);
+          if (lines.length !== ref.endLine - ref.startLine + 1) throw new Error(`Evidence points outside a file: ${ref.file}:${ref.startLine}-${ref.endLine}. This range contains ${lines.length} existing lines${lines.length ? ` (${lines[0].line}-${lines[lines.length - 1].line})` : ''}.`);
+        }
+      } catch (error) {
+        if (reason()) throw error;
+        return { messages: [
+          { role: 'assistant', content: JSON.stringify(result) },
+          { role: 'user', content: `Source citation validation failed: ${String(error)}. Inspect the source with repository tools and correct the references. Do not invent line numbers. The original run budget still applies.` },
+        ] };
+      }
+      return { result, stopReason: Date.now() - startedMs >= limits.durationMs ? 'duration' : metrics.inputTokens + metrics.outputTokens > limits.tokens ? 'tokens' : undefined };
+    }
     if (!response.toolCalls?.length) throw new Error('Model returned neither tools nor result');
     const calls = response.toolCalls.slice(0, Math.max(0, Math.min(8, limits.calls - metrics.modelCalls - metrics.toolCalls)));
     const outputs: any[] = [{ role: 'assistant', tool_calls: calls.map(call => ({ id: call.id, type: 'function', function: { name: call.name, arguments: JSON.stringify(call.arguments) } })) }];
@@ -132,7 +162,14 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           const defaults = { listFiles: { maxFiles: 500 }, readAround: { contextLines: 5 }, getGitDiff: { revision2: 'HEAD' } };
           const params = { ...(defaults[call.name as keyof typeof defaults] ?? {}), ...args };
           const execution = await runScript({ workspace: root, code: expressions[call.name], params, strict: true, includeTrace: true, timeoutMs: Math.min(5000, Math.max(1, limits.durationMs - (Date.now() - startedMs))) });
-          output = boundedOutput(execution.value, { revision: await resolveRevision(), sourceTruncated: execution.trace.truncated, primitiveDerived: true });
+          let value = execution.value;
+          // Direct model-facing reads show absolute line numbers. The sandbox
+          // primitive contract used by procedures keeps its original string[].
+          if ((call.name === 'readLines' || call.name === 'readAround') && value && typeof value === 'object') {
+            const read = value as { file: string; start: number; lines: string[] };
+            value = { ...read, lines: read.lines.map((text, index) => ({ line: read.start + index, text })) };
+          }
+          output = boundedOutput(value, { revision: await resolveRevision(), sourceTruncated: execution.trace.truncated, primitiveDerived: true });
         }
         else if (call.name === 'list') output = await tools.list();
         else if (call.name === 'search' && typeof call.arguments.query === 'string') output = await tools.search(call.arguments.query);
@@ -249,7 +286,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       if (!scriptCall) {
         // Plain primitives and memory catalogue calls: real timestamps and durations.
         const toolEnded = new Date();
-        recordCall({ type: call.name === 'memory_list' ? 'memory_list' : 'tool', name: call.name, inputTokens: null, outputTokens: null, usageMissing: false, outcome: summarizeOutcome(output) }, toolStarted, toolEnded);
+        recordCall({ type: call.name === 'memory_list' ? 'memory_list' : 'tool', name: call.name, parameters: call.arguments, result: output, inputTokens: null, outputTokens: null, usageMissing: false, outcome: summarizeOutcome(output) }, toolStarted, toolEnded);
       }
       const serialized = JSON.stringify(output);
       let content = serialized;
@@ -270,7 +307,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (périmètre), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. If a permanent primitive suffices, use it directly without creating a procedure. The ten primitives are listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports and getGitDiff. Only a missing reusable functional question warrants function_try(source, params). Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Name useful procedures camelCase verbe+domaine+objet and parameterize variations. Supply question as a stable canonical question independent of this Tour, description as its scope, and remember=true only to propose an executed trial for post-Tour selection. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
   const state = await graph.invoke({ messages: [{ role: 'system', content: `${DECOMPOSITION_PROMPT}
 
-Explore the repository using the tools. Assess whether the evidence answers the objective; if essential evidence is missing, use further tools before returning. Record unresolved gaps in uncertainties. Return only JSON matching this exact shape: {"objective":"...","entryPoints":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"components":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"relations":[{"from":"...","to":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"uncertainties":["..."]}. Use empty arrays when needed. Each evidence must be an array of objects with real file paths and integer line numbers, not a string. Do not write a tour.${memoryInstructions}` }, { role: 'user', content: objective }] });
+Explore the repository using the tools. Assess whether the evidence answers the objective; if essential evidence is missing, use further tools before returning. Record unresolved gaps in uncertainties. Return only JSON matching this exact shape: {"objective":"...","entryPoints":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"components":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"relations":[{"from":"...","to":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"uncertainties":["..."]}. Use empty arrays when needed. Each evidence must be an array of objects with real file paths and integer line numbers, not a string. Do not write a tour.${memoryInstructions}` }, { role: 'user', content: objective }] }, { recursionLimit: Math.ceil(limits.iterations) + 2 });
   const result = state.result === undefined ? { objective, entryPoints: [], components: [], relations: [], uncertainties: ['Exploration stopped before a structured result was produced.'] } : resultSchema.parse(state.result);
   for (const e of [...result.entryPoints, ...result.components, ...result.relations].flatMap(x => x.evidence)) {
     const lines = await tools.read(e.file, e.startLine, e.endLine, true);
@@ -388,6 +425,10 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       });
     }
     consolidationReport = await library.finish(successful.flatMap(a => a.id ? [a.id] : []), candidates);
+  } else if (library) {
+    // Persist observed failures even when the exploration is partial; never
+    // consolidate new candidates from a result without evidence.
+    consolidationReport = await library.finish([], []);
   }
   if (library) {
     // Purge counters are read once, after the single end-of-run mutation.
@@ -398,7 +439,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   } catch (error) {
     metrics.durationMs = Date.now() - startedMs;
     throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
-      exploration: { objective, status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, metrics, callTrace }
+      exploration: { objective, status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace }
     });
   }
 }

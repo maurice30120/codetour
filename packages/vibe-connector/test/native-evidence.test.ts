@@ -58,6 +58,14 @@ describe('native research evidence through buildExecution and gates', () => {
     assert.equal(validateG2(buildExecution(evidence)), false);
   });
 
+  it('rejects journal rotation gaps even when positive session totals exist', () => {
+    const evidence = nativeEvidence();
+    evidence.exportData.subagents[0].steps = 2;
+    evidence.exportData.subagents[0].usage.input_tokens = 201;
+    evidence.exportData.subagents[0].usage.total_tokens = 251;
+    assert.equal(validateG2(buildExecution(evidence)), false);
+  });
+
   it('keeps an absent cache counter missing even when the export reports zero', () => {
     const evidence = nativeEvidence();
     evidence.exportData.subagents[0].usage.cached_input_tokens = 0;

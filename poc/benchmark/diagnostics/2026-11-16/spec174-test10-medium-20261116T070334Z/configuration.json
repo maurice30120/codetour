@@ -1,0 +1,24 @@
+{
+  "questionsFile": "/Users/damien/Documents/codetour/poc/benchmark/postgres-questions.json",
+  "manifestFile": "/private/tmp/spec174-test10-medium-20261116T070334Z/protocol.json",
+  "manifestLockFile": "/private/tmp/spec174-test10-medium-20261116T070334Z/protocol-lock.json",
+  "postgresPath": "/Users/damien/Documents/codetour/poc/benchmark/postgres",
+  "outputDir": "/private/tmp/spec174-test10-medium-20261116T070334Z",
+  "gateEvidenceDir": "/private/tmp/spec174-test10-medium-20261116T070334Z/gate-evidence",
+  "timeoutMs": 600000,
+  "codetour": {
+    "model": "mistral-medium-3.5",
+    "maxTokens": 600000,
+    "temperature": 0
+  },
+  "vibe": {
+    "model": "mistral-medium-3.5",
+    "maxTokens": 600000,
+    "temperature": 0
+  },
+  "retryPolicy": {
+    "maxRetries": 0,
+    "retryDelay": 0
+  },
+  "runPilot": false
+}

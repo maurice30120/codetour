@@ -1,0 +1,3296 @@
+{
+  "run_id": "182d2440-96ed-4986-b0e8-809e4899c4a2",
+  "timestamp": "2026-11-16T07:04:39.659Z",
+  "agent": "codetour",
+  "agent_version": "f4433993fc7b406d66a7c631c2112c6ea92b4a6d",
+  "model": "mistral-medium-3.5",
+  "model_params": {
+    "temperature": 0,
+    "max_tokens": 600000
+  },
+  "question_id": "R-Q1-R1",
+  "series": "R",
+  "phase": "repetition",
+  "repeat_index": 1,
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "calls": [
+    {
+      "call_id": "call-2f8464db-3421-4ed5-be78-b1413cb74f41-0",
+      "call_type": "prompt",
+      "input_tokens": 1748,
+      "output_tokens": 13,
+      "cache_included_in_input": true,
+      "duration_ms": 648,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 0,
+        "started_at": "2026-11-16T07:04:41.832Z",
+        "ended_at": "2026-11-16T07:04:42.480Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-b6a2caba-beee-4cf0-a99f-e9c4a8d3087d-1",
+      "call_type": "prompt",
+      "input_tokens": 2337,
+      "output_tokens": 68,
+      "cache_included_in_input": true,
+      "duration_ms": 872,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 2,
+        "started_at": "2026-11-16T07:04:44.176Z",
+        "ended_at": "2026-11-16T07:04:45.048Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-a25ce7ca-11da-4dd3-ba74-280604aa6e49-2",
+      "call_type": "prompt",
+      "input_tokens": 3417,
+      "output_tokens": 46,
+      "cache_included_in_input": true,
+      "duration_ms": 852,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 5,
+        "started_at": "2026-11-16T07:04:46.486Z",
+        "ended_at": "2026-11-16T07:04:47.338Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-5bda5c21-486f-41a4-940c-53bafab88e3d-3",
+      "call_type": "prompt",
+      "input_tokens": 4809,
+      "output_tokens": 34,
+      "cache_included_in_input": true,
+      "duration_ms": 784,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 8,
+        "started_at": "2026-11-16T07:04:49.671Z",
+        "ended_at": "2026-11-16T07:04:50.455Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-73beff2f-2c75-4390-af3d-1579abde1c28-4",
+      "call_type": "prompt",
+      "input_tokens": 6654,
+      "output_tokens": 37,
+      "cache_included_in_input": true,
+      "duration_ms": 1480,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 10,
+        "started_at": "2026-11-16T07:04:51.185Z",
+        "ended_at": "2026-11-16T07:04:52.665Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-937637eb-6cdf-4043-9538-c7204bafef2e-5",
+      "call_type": "prompt",
+      "input_tokens": 7346,
+      "output_tokens": 37,
+      "cache_included_in_input": true,
+      "duration_ms": 988,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 12,
+        "started_at": "2026-11-16T07:04:53.399Z",
+        "ended_at": "2026-11-16T07:04:54.387Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-2b18cb75-ab26-4f6d-aa92-a084eda0601f-6",
+      "call_type": "prompt",
+      "input_tokens": 8072,
+      "output_tokens": 15,
+      "cache_included_in_input": true,
+      "duration_ms": 967,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 14,
+        "started_at": "2026-11-16T07:04:55.115Z",
+        "ended_at": "2026-11-16T07:04:56.082Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-bc5ef5e7-cafd-461e-9b40-9aca4653a6eb-7",
+      "call_type": "prompt",
+      "input_tokens": 8871,
+      "output_tokens": 33,
+      "cache_included_in_input": true,
+      "duration_ms": 864,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 16,
+        "started_at": "2026-11-16T07:04:57.735Z",
+        "ended_at": "2026-11-16T07:04:58.599Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-54166fc7-e47e-4212-9bcf-13f8dd6823f8-8",
+      "call_type": "prompt",
+      "input_tokens": 9837,
+      "output_tokens": 35,
+      "cache_included_in_input": true,
+      "duration_ms": 1429,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 18,
+        "started_at": "2026-11-16T07:04:59.347Z",
+        "ended_at": "2026-11-16T07:05:00.776Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-00b9b0cb-81b3-49f1-9566-777063c54e70-9",
+      "call_type": "prompt",
+      "input_tokens": 10965,
+      "output_tokens": 35,
+      "cache_included_in_input": true,
+      "duration_ms": 995,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 20,
+        "started_at": "2026-11-16T07:05:01.500Z",
+        "ended_at": "2026-11-16T07:05:02.495Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-d9dff1c7-3cf2-4f6a-af8d-281bf342adbe-10",
+      "call_type": "prompt",
+      "input_tokens": 11333,
+      "output_tokens": 35,
+      "cache_included_in_input": true,
+      "duration_ms": 852,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 22,
+        "started_at": "2026-11-16T07:05:03.221Z",
+        "ended_at": "2026-11-16T07:05:04.073Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-338d592c-d433-4c2f-9a65-0be7dbd27d19-11",
+      "call_type": "prompt",
+      "input_tokens": 12037,
+      "output_tokens": 32,
+      "cache_included_in_input": true,
+      "duration_ms": 801,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 24,
+        "started_at": "2026-11-16T07:05:04.798Z",
+        "ended_at": "2026-11-16T07:05:05.599Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-a64b3b3a-4d71-4dee-919e-d06b1a2a7546-12",
+      "call_type": "prompt",
+      "input_tokens": 13109,
+      "output_tokens": 17,
+      "cache_included_in_input": true,
+      "duration_ms": 1615,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 26,
+        "started_at": "2026-11-16T07:05:06.327Z",
+        "ended_at": "2026-11-16T07:05:07.942Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-a6c1e5c9-67d8-4ff9-a532-f1af62c83927-13",
+      "call_type": "prompt",
+      "input_tokens": 13446,
+      "output_tokens": 36,
+      "cache_included_in_input": true,
+      "duration_ms": 1000,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 28,
+        "started_at": "2026-11-16T07:05:09.515Z",
+        "ended_at": "2026-11-16T07:05:10.515Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-b7cedc8b-c109-4a0d-8d2b-d0554fd5876d-14",
+      "call_type": "prompt",
+      "input_tokens": 14273,
+      "output_tokens": 32,
+      "cache_included_in_input": true,
+      "duration_ms": 946,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 30,
+        "started_at": "2026-11-16T07:05:11.247Z",
+        "ended_at": "2026-11-16T07:05:12.193Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-454ced95-cccb-4824-9e7a-a8e4ea04a392-15",
+      "call_type": "prompt",
+      "input_tokens": 15253,
+      "output_tokens": 35,
+      "cache_included_in_input": true,
+      "duration_ms": 3359,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 32,
+        "started_at": "2026-11-16T07:05:13.020Z",
+        "ended_at": "2026-11-16T07:05:16.379Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-c6976358-2106-4e25-983b-f85a4b5fcf92-16",
+      "call_type": "prompt",
+      "input_tokens": 15801,
+      "output_tokens": 579,
+      "cache_included_in_input": true,
+      "duration_ms": 3247,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 34,
+        "started_at": "2026-11-16T07:05:17.111Z",
+        "ended_at": "2026-11-16T07:05:20.358Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    }
+  ],
+  "functions_created": [],
+  "functions_reused": [],
+  "total_tokens": {
+    "input": 159308,
+    "output": 1119,
+    "total": 160427,
+    "verified": true,
+    "cached_input": 0,
+    "cache_creation_input": 0
+  },
+  "result": {
+    "tour_title": "Tour: Explain what pg_parse_query does and why raw parsing is separated from analysis and rewriting. Trace its parsing delegation and cite the source.",
+    "steps": [
+      {
+        "step_id": "step-1",
+        "description": "pg_parse_query",
+        "file": "src/backend/tcop/postgres.c",
+        "line": 603,
+        "citations": [
+          "src/backend/tcop/postgres.c:603",
+          "src/include/tcop/tcopprot.h:49"
+        ]
+      },
+      {
+        "step_id": "step-2",
+        "description": "raw_parser",
+        "file": "src/backend/parser/parser.c",
+        "line": 35,
+        "citations": [
+          "src/backend/parser/parser.c:35",
+          "src/include/parser/parser.h:59"
+        ]
+      },
+      {
+        "step_id": "step-3",
+        "description": "RAW_PARSE_DEFAULT",
+        "file": "src/include/parser/parser.h",
+        "line": 24,
+        "citations": [
+          "src/include/parser/parser.h:24"
+        ]
+      },
+      {
+        "step_id": "step-4",
+        "description": "parse_analyze_fixedparams",
+        "file": "src/backend/parser/analyze.c",
+        "line": 109,
+        "citations": [
+          "src/backend/parser/analyze.c:109"
+        ]
+      }
+    ],
+    "raw_response": "{\"objective\":\"Explain what pg_parse_query does and why raw parsing is separated from analysis and rewriting. Trace its parsing delegation and cite the source.\",\"entryPoints\":[{\"name\":\"pg_parse_query\",\"evidence\":[{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":603,\"endLine\":671},{\"file\":\"src/include/tcop/tcopprot.h\",\"startLine\":49,\"endLine\":49}]}],\"components\":[{\"name\":\"raw_parser\",\"evidence\":[{\"file\":\"src/backend/parser/parser.c\",\"startLine\":35,\"endLine\":86},{\"file\":\"src/include/parser/parser.h\",\"startLine\":59,\"endLine\":60}]},{\"name\":\"RAW_PARSE_DEFAULT\",\"evidence\":[{\"file\":\"src/include/parser/parser.h\",\"startLine\":24,\"endLine\":45}]},{\"name\":\"parse_analyze_fixedparams\",\"evidence\":[{\"file\":\"src/backend/parser/analyze.c\",\"startLine\":109,\"endLine\":123}]}],\"relations\":[{\"from\":\"pg_parse_query\",\"to\":\"raw_parser\",\"evidence\":[{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":626,\"endLine\":626}]},{\"from\":\"raw_parser\",\"to\":\"gram.y (Bison parser) and scan.l (Flex scanner)\",\"evidence\":[{\"file\":\"src/backend/parser/parser.c\",\"startLine\":48,\"endLine\":77}]},{\"from\":\"pg_parse_query\",\"to\":\"parse_analyze_fixedparams (separate phase)\",\"evidence\":[{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":673,\"endLine\":700}]}],\"uncertainties\":[],\"status\":\"complete\",\"stopReason\":null,\"promptSha256\":\"96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c\",\"modelConfig\":{\"model\":\"mistral-medium-3.5\",\"temperature\":0,\"maxOutputTokens\":4096},\"metrics\":{\"inputTokens\":159308,\"outputTokens\":1119,\"usageAvailable\":true,\"modelCalls\":17,\"toolCalls\":18,\"durationMs\":38585,\"outputBytes\":38146,\"cost\":null,\"memoryReuses\":0,\"memoryPurges\":0,\"memoryQueryRejects\":0,\"memoryResultsCompacted\":0,\"memoryResultsRepeated\":0},\"callTrace\":[{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":1748,\"outputTokens\":13,\"usageMissing\":false,\"seq\":0,\"startedAt\":\"2026-11-16T07:04:41.832Z\",\"endedAt\":\"2026-11-16T07:04:42.480Z\",\"durationMs\":648},{\"type\":\"tool\",\"name\":\"searchText\",\"parameters\":{\"query\":\"pg_parse_query\"},\"result\":{\"result\":[{\"file\":\"doc/src/sgml/xfunc.sgml\",\"line\":4247,\"text\":\"    through <function>pg_parse_query</function>\"},{\"file\":\"src/backend/catalog/pg_proc.c\",\"line\":1000,\"text\":\"\\t\\t\\traw_parsetree_list = pg_parse_query(prosrc);\"},{\"file\":\"src/backend/commands/extension.c\",\"line\":1124,\"text\":\"\\traw_parsetree_list = pg_parse_query(sql);\"},{\"file\":\"src/backend/commands/foreigncmds.c\",\"line\":1648,\"text\":\"\\t\\traw_parsetree_list = pg_parse_query(cmd);\"},{\"file\":\"src/backend/executor/functions.c\",\"line\":1061,\"text\":\"\\t * mainly useful for reporting parse errors from pg_parse_query.)\"},{\"file\":\"src/backend/executor/functions.c\",\"line\":1167,\"text\":\"\\t\\tsource_list = pg_parse_query(func->src);\"},{\"file\":\"src/backend/optimizer/util/clauses.c\",\"line\":5652,\"text\":\"\\t\\traw_parsetree_list = pg_parse_query(src);\"},{\"file\":\"src/backend/optimizer/util/clauses.c\",\"line\":6325,\"text\":\"\\t\\traw_parsetree_list = pg_parse_query(src);\"},{\"file\":\"src/backend/tcop/postgres.c\",\"line\":617,\"text\":\"pg_parse_query(const char *query_string)\"},{\"file\":\"src/backend/tcop/postgres.c\",\"line\":1083,\"text\":\"\\tparsetree_list = pg_parse_query(query_string);\"},{\"file\":\"src/backend/tcop/postgres.c\",\"line\":1496,\"text\":\"\\tparsetree_list = pg_parse_query(query_string);\"},{\"file\":\"src/include/tcop/tcopprot.h\",\"line\":49,\"text\":\"extern List *pg_parse_query(const char *query_string);\"},{\"file\":\"src/test/regress/regress.c\",\"line\":1026,\"text\":\"\\t\\traw_parsetree_list = pg_parse_query(sql.data);\"}],\"returned\":13,\"observed\":13,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":1454,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":1,\"startedAt\":\"2026-11-16T07:04:42.480Z\",\"endedAt\":\"2026-11-16T07:04:44.171Z\",\"durationMs\":1691},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":2337,\"outputTokens\":68,\"usageMissing\":false,\"seq\":2,\"startedAt\":\"2026-11-16T07:04:44.176Z\",\"endedAt\":\"2026-11-16T07:04:45.048Z\",\"durationMs\":872},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":615,\"endLine\":640},\"result\":{\"result\":{\"file\":\"src/backend/tcop/postgres.c\",\"start\":615,\"lines\":[{\"line\":615,\"text\":\" */\"},{\"line\":616,\"text\":\"List *\"},{\"line\":617,\"text\":\"pg_parse_query(const char *query_string)\"},{\"line\":618,\"text\":\"{\"},{\"line\":619,\"text\":\"\\tList\\t   *raw_parsetree_list;\"},{\"line\":620,\"text\":\"\"},{\"line\":621,\"text\":\"\\tTRACE_POSTGRESQL_QUERY_PARSE_START(query_string);\"},{\"line\":622,\"text\":\"\"},{\"line\":623,\"text\":\"\\tif (log_parser_stats)\"},{\"line\":624,\"text\":\"\\t\\tResetUsage();\"},{\"line\":625,\"text\":\"\"},{\"line\":626,\"text\":\"\\traw_parsetree_list = raw_parser(query_string, RAW_PARSE_DEFAULT);\"},{\"line\":627,\"text\":\"\"},{\"line\":628,\"text\":\"\\tif (log_parser_stats)\"},{\"line\":629,\"text\":\"\\t\\tShowUsage(\\\"PARSER STATISTICS\\\");\"},{\"line\":630,\"text\":\"\"},{\"line\":631,\"text\":\"#ifdef DEBUG_NODE_TESTS_ENABLED\"},{\"line\":632,\"text\":\"\"},{\"line\":633,\"text\":\"\\t/* Optional debugging check: pass raw parsetrees through copyObject() */\"},{\"line\":634,\"text\":\"\\tif (Debug_copy_parse_plan_trees)\"},{\"line\":635,\"text\":\"\\t{\"},{\"line\":636,\"text\":\"\\t\\tList\\t   *new_list = copyObject(raw_parsetree_list);\"},{\"line\":637,\"text\":\"\"},{\"line\":638,\"text\":\"\\t\\t/* This checks both copyObject() and the equal() routines... */\"},{\"line\":639,\"text\":\"\\t\\tif (!equal(new_list, raw_parsetree_list))\"},{\"line\":640,\"text\":\"\\t\\t\\telog(WARNING, \\\"copyObject() failed to produce an equal raw parse tree\\\");\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":1347,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":3,\"startedAt\":\"2026-11-16T07:04:45.048Z\",\"endedAt\":\"2026-11-16T07:04:45.777Z\",\"durationMs\":729},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/include/tcop/tcopprot.h\",\"startLine\":45,\"endLine\":55},\"result\":{\"result\":{\"file\":\"src/include/tcop/tcopprot.h\",\"start\":45,\"lines\":[{\"line\":45,\"text\":\"#define RESTRICT_RELKIND_FOREIGN_TABLE\\t0x02\"},{\"line\":46,\"text\":\"\"},{\"line\":47,\"text\":\"extern PGDLLIMPORT int restrict_nonsystem_relation_kind;\"},{\"line\":48,\"text\":\"\"},{\"line\":49,\"text\":\"extern List *pg_parse_query(const char *query_string);\"},{\"line\":50,\"text\":\"extern List *pg_rewrite_query(Query *query);\"},{\"line\":51,\"text\":\"extern List *pg_analyze_and_rewrite_fixedparams(RawStmt *parsetree,\"},{\"line\":52,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\tconst char *query_string,\"},{\"line\":53,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\tconst Oid *paramTypes, int numParams,\"},{\"line\":54,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\tQueryEnvironment *queryEnv);\"},{\"line\":55,\"text\":\"extern List *pg_analyze_and_rewrite_varparams(RawStmt *parsetree,\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":793,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":4,\"startedAt\":\"2026-11-16T07:04:45.777Z\",\"endedAt\":\"2026-11-16T07:04:46.484Z\",\"durationMs\":707},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":3417,\"outputTokens\":46,\"usageMissing\":false,\"seq\":5,\"startedAt\":\"2026-11-16T07:04:46.486Z\",\"endedAt\":\"2026-11-16T07:04:47.338Z\",\"durationMs\":852},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":640,\"endLine\":660},\"result\":{\"result\":{\"file\":\"src/backend/tcop/postgres.c\",\"start\":640,\"lines\":[{\"line\":640,\"text\":\"\\t\\t\\telog(WARNING, \\\"copyObject() failed to produce an equal raw parse tree\\\");\"},{\"line\":641,\"text\":\"\\t\\telse\"},{\"line\":642,\"text\":\"\\t\\t\\traw_parsetree_list = new_list;\"},{\"line\":643,\"text\":\"\\t}\"},{\"line\":644,\"text\":\"\"},{\"line\":645,\"text\":\"\\t/*\"},{\"line\":646,\"text\":\"\\t * Optional debugging check: pass raw parsetrees through\"},{\"line\":647,\"text\":\"\\t * outfuncs/readfuncs\"},{\"line\":648,\"text\":\"\\t */\"},{\"line\":649,\"text\":\"\\tif (Debug_write_read_parse_plan_trees)\"},{\"line\":650,\"text\":\"\\t{\"},{\"line\":651,\"text\":\"\\t\\tchar\\t   *str = nodeToStringWithLocations(raw_parsetree_list);\"},{\"line\":652,\"text\":\"\\t\\tList\\t   *new_list = stringToNodeWithLocations(str);\"},{\"line\":653,\"text\":\"\"},{\"line\":654,\"text\":\"\\t\\tpfree(str);\"},{\"line\":655,\"text\":\"\\t\\t/* This checks both outfuncs/readfuncs and the equal() routines... */\"},{\"line\":656,\"text\":\"\\t\\tif (!equal(new_list, raw_parsetree_list))\"},{\"line\":657,\"text\":\"\\t\\t\\telog(WARNING, \\\"outfuncs/readfuncs failed to produce an equal raw parse tree\\\");\"},{\"line\":658,\"text\":\"\\t\\telse\"},{\"line\":659,\"text\":\"\\t\\t\\traw_parsetree_list = new_list;\"},{\"line\":660,\"text\":\"\\t}\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":1191,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":6,\"startedAt\":\"2026-11-16T07:04:47.338Z\",\"endedAt\":\"2026-11-16T07:04:48.065Z\",\"durationMs\":727},{\"type\":\"tool\",\"name\":\"searchText\",\"parameters\":{\"query\":\"raw_parser\"},\"result\":{\"result\":[{\"file\":\"src/backend/commands/tablecmds.c\",\"line\":16996,\"text\":\"\\traw_parsetree_list = raw_parser(cmdstring, RAW_PARSE_DEFAULT);\"},{\"file\":\"src/backend/executor/spi.c\",\"line\":2259,\"text\":\"\\traw_parsetree_list = raw_parser(src, plan->parse_mode);\"},{\"file\":\"src/backend/executor/spi.c\",\"line\":2367,\"text\":\"\\traw_parsetree_list = raw_parser(src, plan->parse_mode);\"},{\"file\":\"src/backend/nodes/queryjumblefuncs.c\",\"line\":844,\"text\":\"\\t/* initialize the flex scanner --- should match raw_parser() */\"},{\"file\":\"src/backend/parser/parse_type.c\",\"line\":756,\"text\":\"\\traw_parsetree_list = raw_parser(str, RAW_PARSE_TYPE_NAME);\"},{\"file\":\"src/backend/parser/parser.c\",\"line\":35,\"text\":\" * raw_parser\"},{\"file\":\"src/backend/parser/parser.c\",\"line\":42,\"text\":\"raw_parser(const char *str, RawParseMode mode)\"},{\"file\":\"src/backend/tcop/postgres.c\",\"line\":626,\"text\":\"\\traw_parsetree_list = raw_parser(query_string, RAW_PARSE_DEFAULT);\"},{\"file\":\"src/backend/utils/cache/plancache.c\",\"line\":174,\"text\":\" * query through raw_parser, but before doing parse analysis and rewrite;\"},{\"file\":\"src/backend/utils/cache/plancache.c\",\"line\":189,\"text\":\" * raw_parse_tree: output of raw_parser(), or NULL if empty query\"},{\"file\":\"src/backend/utils/cache/plancache.c\",\"line\":304,\"text\":\" * raw_parse_tree: output of raw_parser(), or NULL if empty query\"},{\"file\":\"src/include/executor/spi_priv.h\",\"line\":97,\"text\":\"\\tRawParseMode parse_mode;\\t/* raw_parser() mode */\"},{\"file\":\"src/include/parser/parser.h\",\"line\":22,\"text\":\" * RawParseMode determines the form of the string that raw_parser() accepts:\"},{\"file\":\"src/include/parser/parser.h\",\"line\":60,\"text\":\"extern List *raw_parser(const char *str, RawParseMode mode);\"},{\"file\":\"src/include/utils/plancache.h\",\"line\":108,\"text\":\"\\tRawStmt    *raw_parse_tree; /* output of raw_parser(), or NULL */\"},{\"file\":\"src/pl/plpgsql/src/pl_gram.y\",\"line\":2754,\"text\":\" * parsemode:\\traw_parser() mode to use\"},{\"file\":\"src/pl/plpgsql/src/pl_gram.y\",\"line\":3804,\"text\":\"\\t(void) raw_parser(stmt, parseMode);\"},{\"file\":\"src/pl/plpgsql/src/plpgsql.h\",\"line\":233,\"text\":\"\\tRawParseMode parseMode;\\t\\t/* raw_parser() mode to use */\"}],\"returned\":18,\"observed\":18,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":2152,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":7,\"startedAt\":\"2026-11-16T07:04:48.065Z\",\"endedAt\":\"2026-11-16T07:04:49.669Z\",\"durationMs\":1604},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":4809,\"outputTokens\":34,\"usageMissing\":false,\"seq\":8,\"startedAt\":\"2026-11-16T07:04:49.671Z\",\"endedAt\":\"2026-11-16T07:04:50.455Z\",\"durationMs\":784},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/parser/parser.c\",\"startLine\":35,\"endLine\":120},\"result\":{\"result\":{\"file\":\"src/backend/parser/parser.c\",\"start\":35,\"lines\":[{\"line\":35,\"text\":\" * raw_parser\"},{\"line\":36,\"text\":\" *\\t\\tGiven a query in string form, do lexical and grammatical analysis.\"},{\"line\":37,\"text\":\" *\"},{\"line\":38,\"text\":\" * Returns a list of raw (un-analyzed) parse trees.  The contents of the\"},{\"line\":39,\"text\":\" * list have the form required by the specified RawParseMode.\"},{\"line\":40,\"text\":\" */\"},{\"line\":41,\"text\":\"List *\"},{\"line\":42,\"text\":\"raw_parser(const char *str, RawParseMode mode)\"},{\"line\":43,\"text\":\"{\"},{\"line\":44,\"text\":\"\\tcore_yyscan_t yyscanner;\"},{\"line\":45,\"text\":\"\\tbase_yy_extra_type yyextra;\"},{\"line\":46,\"text\":\"\\tint\\t\\t\\tyyresult;\"},{\"line\":47,\"text\":\"\"},{\"line\":48,\"text\":\"\\t/* initialize the flex scanner */\"},{\"line\":49,\"text\":\"\\tyyscanner = scanner_init(str, &yyextra.core_yy_extra,\"},{\"line\":50,\"text\":\"\\t\\t\\t\\t\\t\\t\\t &ScanKeywords, ScanKeywordTokens);\"},{\"line\":51,\"text\":\"\"},{\"line\":52,\"text\":\"\\t/* base_yylex() only needs us to initialize the lookahead token, if any */\"},{\"line\":53,\"text\":\"\\tif (mode == RAW_PARSE_DEFAULT)\"},{\"line\":54,\"text\":\"\\t\\tyyextra.have_lookahead = false;\"},{\"line\":55,\"text\":\"\\telse\"},{\"line\":56,\"text\":\"\\t{\"},{\"line\":57,\"text\":\"\\t\\t/* this array is indexed by RawParseMode enum */\"},{\"line\":58,\"text\":\"\\t\\tstatic const int mode_token[] = {\"},{\"line\":59,\"text\":\"\\t\\t\\t[RAW_PARSE_DEFAULT] = 0,\"},{\"line\":60,\"text\":\"\\t\\t\\t[RAW_PARSE_TYPE_NAME] = MODE_TYPE_NAME,\"},{\"line\":61,\"text\":\"\\t\\t\\t[RAW_PARSE_PLPGSQL_EXPR] = MODE_PLPGSQL_EXPR,\"},{\"line\":62,\"text\":\"\\t\\t\\t[RAW_PARSE_PLPGSQL_ASSIGN1] = MODE_PLPGSQL_ASSIGN1,\"},{\"line\":63,\"text\":\"\\t\\t\\t[RAW_PARSE_PLPGSQL_ASSIGN2] = MODE_PLPGSQL_ASSIGN2,\"},{\"line\":64,\"text\":\"\\t\\t\\t[RAW_PARSE_PLPGSQL_ASSIGN3] = MODE_PLPGSQL_ASSIGN3,\"},{\"line\":65,\"text\":\"\\t\\t};\"},{\"line\":66,\"text\":\"\"},{\"line\":67,\"text\":\"\\t\\tyyextra.have_lookahead = true;\"},{\"line\":68,\"text\":\"\\t\\tyyextra.lookahead_token = mode_token[mode];\"},{\"line\":69,\"text\":\"\\t\\tyyextra.lookahead_yylloc = 0;\"},{\"line\":70,\"text\":\"\\t\\tyyextra.lookahead_end = NULL;\"},{\"line\":71,\"text\":\"\\t}\"},{\"line\":72,\"text\":\"\"},{\"line\":73,\"text\":\"\\t/* initialize the bison parser */\"},{\"line\":74,\"text\":\"\\tparser_init(&yyextra);\"},{\"line\":75,\"text\":\"\"},{\"line\":76,\"text\":\"\\t/* Parse! */\"},{\"line\":77,\"text\":\"\\tyyresult = base_yyparse(yyscanner);\"},{\"line\":78,\"text\":\"\"},{\"line\":79,\"text\":\"\\t/* Clean up (release memory) */\"},{\"line\":80,\"text\":\"\\tscanner_finish(yyscanner);\"},{\"line\":81,\"text\":\"\"},{\"line\":82,\"text\":\"\\tif (yyresult)\\t\\t\\t\\t/* error */\"},{\"line\":83,\"text\":\"\\t\\treturn NIL;\"},{\"line\":84,\"text\":\"\"},{\"line\":85,\"text\":\"\\treturn yyextra.parsetree;\"},{\"line\":86,\"text\":\"}\"},{\"line\":87,\"text\":\"\"},{\"line\":88,\"text\":\"\"},{\"line\":89,\"text\":\"/*\"},{\"line\":90,\"text\":\" * Intermediate filter between parser and core lexer (core_yylex in scan.l).\"},{\"line\":91,\"text\":\" *\"},{\"line\":92,\"text\":\" * This filter is needed because in some cases the standard SQL grammar\"},{\"line\":93,\"text\":\" * requires more than one token lookahead.  We reduce these cases to one-token\"},{\"line\":94,\"text\":\" * lookahead by replacing tokens here, in order to keep the grammar LALR(1).\"},{\"line\":95,\"text\":\" *\"},{\"line\":96,\"text\":\" * Using a filter is simpler than trying to recognize multiword tokens\"},{\"line\":97,\"text\":\" * directly in scan.l, because we'd have to allow for comments between the\"},{\"line\":98,\"text\":\" * words.  Furthermore it's not clear how to do that without re-introducing\"},{\"line\":99,\"text\":\" * scanner backtrack, which would cost more performance than this filter\"},{\"line\":100,\"text\":\" * layer does.\"},{\"line\":101,\"text\":\" *\"},{\"line\":102,\"text\":\" * We also use this filter to convert UIDENT and USCONST sequences into\"},{\"line\":103,\"text\":\" * plain IDENT and SCONST tokens.  While that could be handled by additional\"},{\"line\":104,\"text\":\" * productions in the main grammar, it's more efficient to do it like this.\"},{\"line\":105,\"text\":\" *\"},{\"line\":106,\"text\":\" * The filter also provides a convenient place to translate between\"},{\"line\":107,\"text\":\" * the core_YYSTYPE and YYSTYPE representations (which are really the\"},{\"line\":108,\"text\":\" * same thing anyway, but notationally they're different).\"},{\"line\":109,\"text\":\" */\"},{\"line\":110,\"text\":\"int\"},{\"line\":111,\"text\":\"base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)\"},{\"line\":112,\"text\":\"{\"},{\"line\":113,\"text\":\"\\tbase_yy_extra_type *yyextra = pg_yyget_extra(yyscanner);\"},{\"line\":114,\"text\":\"\\tint\\t\\t\\tcur_token;\"},{\"line\":115,\"text\":\"\\tint\\t\\t\\tnext_token;\"},{\"line\":116,\"text\":\"\\tint\\t\\t\\tcur_token_length;\"},{\"line\":117,\"text\":\"\\tYYLTYPE\\t\\tcur_yylloc;\"},{\"line\":118,\"text\":\"\"},{\"line\":119,\"text\":\"\\t/* Get next token --- we might already have it */\"},{\"line\":120,\"text\":\"\\tif (yyextra->have_lookahead)\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":4744,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":9,\"startedAt\":\"2026-11-16T07:04:50.455Z\",\"endedAt\":\"2026-11-16T07:04:51.183Z\",\"durationMs\":728},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":6654,\"outputTokens\":37,\"usageMissing\":false,\"seq\":10,\"startedAt\":\"2026-11-16T07:04:51.185Z\",\"endedAt\":\"2026-11-16T07:04:52.665Z\",\"durationMs\":1480},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":1075,\"endLine\":1100},\"result\":{\"result\":{\"file\":\"src/backend/tcop/postgres.c\",\"start\":1075,\"lines\":[{\"line\":1075,\"text\":\"\\t * Switch to appropriate context for constructing parsetrees.\"},{\"line\":1076,\"text\":\"\\t */\"},{\"line\":1077,\"text\":\"\\toldcontext = MemoryContextSwitchTo(MessageContext);\"},{\"line\":1078,\"text\":\"\"},{\"line\":1079,\"text\":\"\\t/*\"},{\"line\":1080,\"text\":\"\\t * Do basic parsing of the query or queries (this should be safe even if\"},{\"line\":1081,\"text\":\"\\t * we are in aborted transaction state!)\"},{\"line\":1082,\"text\":\"\\t */\"},{\"line\":1083,\"text\":\"\\tparsetree_list = pg_parse_query(query_string);\"},{\"line\":1084,\"text\":\"\"},{\"line\":1085,\"text\":\"\\t/* Log immediately if dictated by log_statement */\"},{\"line\":1086,\"text\":\"\\tif (check_log_statement(parsetree_list))\"},{\"line\":1087,\"text\":\"\\t{\"},{\"line\":1088,\"text\":\"\\t\\tchar\\t   *truncated_stmt = truncate_query_log(query_string);\"},{\"line\":1089,\"text\":\"\"},{\"line\":1090,\"text\":\"\\t\\tereport(LOG,\"},{\"line\":1091,\"text\":\"\\t\\t\\t\\t(errmsg(\\\"statement: %s\\\",\"},{\"line\":1092,\"text\":\"\\t\\t\\t\\t\\t\\t(truncated_stmt != NULL) ? truncated_stmt : query_string),\"},{\"line\":1093,\"text\":\"\\t\\t\\t\\t errhidestmt(true),\"},{\"line\":1094,\"text\":\"\\t\\t\\t\\t errdetail_execute(parsetree_list)));\"},{\"line\":1095,\"text\":\"\\t\\twas_logged = true;\"},{\"line\":1096,\"text\":\"\"},{\"line\":1097,\"text\":\"\\t\\tif (truncated_stmt != NULL)\"},{\"line\":1098,\"text\":\"\\t\\t\\tpfree(truncated_stmt);\"},{\"line\":1099,\"text\":\"\\t}\"},{\"line\":1100,\"text\":\"\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":1416,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":11,\"startedAt\":\"2026-11-16T07:04:52.665Z\",\"endedAt\":\"2026-11-16T07:04:53.397Z\",\"durationMs\":732},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":7346,\"outputTokens\":37,\"usageMissing\":false,\"seq\":12,\"startedAt\":\"2026-11-16T07:04:53.399Z\",\"endedAt\":\"2026-11-16T07:04:54.387Z\",\"durationMs\":988},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":1485,\"endLine\":1510},\"result\":{\"result\":{\"file\":\"src/backend/tcop/postgres.c\",\"start\":1485,\"lines\":[{\"line\":1485,\"text\":\"\\t\\tunnamed_stmt_context =\"},{\"line\":1486,\"text\":\"\\t\\t\\tAllocSetContextCreate(MessageContext,\"},{\"line\":1487,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t  \\\"unnamed prepared statement\\\",\"},{\"line\":1488,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t  ALLOCSET_DEFAULT_SIZES);\"},{\"line\":1489,\"text\":\"\\t\\toldcontext = MemoryContextSwitchTo(unnamed_stmt_context);\"},{\"line\":1490,\"text\":\"\\t}\"},{\"line\":1491,\"text\":\"\"},{\"line\":1492,\"text\":\"\\t/*\"},{\"line\":1493,\"text\":\"\\t * Do basic parsing of the query or queries (this should be safe even if\"},{\"line\":1494,\"text\":\"\\t * we are in aborted transaction state!)\"},{\"line\":1495,\"text\":\"\\t */\"},{\"line\":1496,\"text\":\"\\tparsetree_list = pg_parse_query(query_string);\"},{\"line\":1497,\"text\":\"\"},{\"line\":1498,\"text\":\"\\t/*\"},{\"line\":1499,\"text\":\"\\t * We only allow a single user statement in a prepared statement. This is\"},{\"line\":1500,\"text\":\"\\t * mainly to keep the protocol simple --- otherwise we'd need to worry\"},{\"line\":1501,\"text\":\"\\t * about multiple result tupdescs and things like that.\"},{\"line\":1502,\"text\":\"\\t */\"},{\"line\":1503,\"text\":\"\\tif (list_length(parsetree_list) > 1)\"},{\"line\":1504,\"text\":\"\\t\\tereport(ERROR,\"},{\"line\":1505,\"text\":\"\\t\\t\\t\\t(errcode(ERRCODE_SYNTAX_ERROR),\"},{\"line\":1506,\"text\":\"\\t\\t\\t\\t errmsg(\\\"cannot insert multiple commands into a prepared statement\\\")));\"},{\"line\":1507,\"text\":\"\"},{\"line\":1508,\"text\":\"\\tif (parsetree_list != NIL)\"},{\"line\":1509,\"text\":\"\\t{\"},{\"line\":1510,\"text\":\"\\t\\tbool\\t\\tsnapshot_set = false;\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":1535,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":13,\"startedAt\":\"2026-11-16T07:04:54.387Z\",\"endedAt\":\"2026-11-16T07:04:55.114Z\",\"durationMs\":727},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":8072,\"outputTokens\":15,\"usageMissing\":false,\"seq\":14,\"startedAt\":\"2026-11-16T07:04:55.115Z\",\"endedAt\":\"2026-11-16T07:04:56.082Z\",\"durationMs\":967},{\"type\":\"tool\",\"name\":\"searchText\",\"parameters\":{\"query\":\"RAW_PARSE_DEFAULT\"},\"result\":{\"result\":[{\"file\":\"doc/src/sgml/spi.sgml\",\"line\":1341,\"text\":\"      mode for raw parsing; <literal>RAW_PARSE_DEFAULT</literal> (zero)\"},{\"file\":\"src/backend/commands/tablecmds.c\",\"line\":16996,\"text\":\"\\traw_parsetree_list = raw_parser(cmdstring, RAW_PARSE_DEFAULT);\"},{\"file\":\"src/backend/executor/spi.c\",\"line\":614,\"text\":\"\\tplan.parse_mode = RAW_PARSE_DEFAULT;\"},{\"file\":\"src/backend/executor/spi.c\",\"line\":655,\"text\":\"\\tplan.parse_mode = RAW_PARSE_DEFAULT;\"},{\"file\":\"src/backend/executor/spi.c\",\"line\":837,\"text\":\"\\tplan.parse_mode = RAW_PARSE_DEFAULT;\"},{\"file\":\"src/backend/executor/spi.c\",\"line\":887,\"text\":\"\\tplan.parse_mode = RAW_PARSE_DEFAULT;\"},{\"file\":\"src/backend/executor/spi.c\",\"line\":961,\"text\":\"\\tplan.parse_mode = RAW_PARSE_DEFAULT;\"},{\"file\":\"src/backend/executor/spi.c\",\"line\":1512,\"text\":\"\\tplan.parse_mode = RAW_PARSE_DEFAULT;\"},{\"file\":\"src/backend/executor/spi.c\",\"line\":1567,\"text\":\"\\tplan.parse_mode = RAW_PARSE_DEFAULT;\"},{\"file\":\"src/backend/parser/parser.c\",\"line\":53,\"text\":\"\\tif (mode == RAW_PARSE_DEFAULT)\"},{\"file\":\"src/backend/parser/parser.c\",\"line\":59,\"text\":\"\\t\\t\\t[RAW_PARSE_DEFAULT] = 0,\"},{\"file\":\"src/backend/tcop/postgres.c\",\"line\":626,\"text\":\"\\traw_parsetree_list = raw_parser(query_string, RAW_PARSE_DEFAULT);\"},{\"file\":\"src/include/parser/parser.h\",\"line\":24,\"text\":\" * RAW_PARSE_DEFAULT: parse a semicolon-separated list of SQL commands,\"},{\"file\":\"src/include/parser/parser.h\",\"line\":39,\"text\":\"\\tRAW_PARSE_DEFAULT = 0,\"},{\"file\":\"src/pl/plpgsql/src/pl_gram.y\",\"line\":918,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t   RAW_PARSE_DEFAULT,\"},{\"file\":\"src/pl/plpgsql/src/pl_gram.y\",\"line\":1498,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t\\t   RAW_PARSE_DEFAULT,\"},{\"file\":\"src/pl/plpgsql/src/pl_gram.y\",\"line\":2742,\"text\":\"\\t\\t\\t\\t\\t\\t\\t  RAW_PARSE_DEFAULT,\"},{\"file\":\"src/pl/plpgsql/src/pl_gram.y\",\"line\":3182,\"text\":\"\\texpr = make_plpgsql_expr(ds.data, RAW_PARSE_DEFAULT);\"}],\"returned\":18,\"observed\":18,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":1889,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":15,\"startedAt\":\"2026-11-16T07:04:56.082Z\",\"endedAt\":\"2026-11-16T07:04:57.733Z\",\"durationMs\":1651},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":8871,\"outputTokens\":33,\"usageMissing\":false,\"seq\":16,\"startedAt\":\"2026-11-16T07:04:57.735Z\",\"endedAt\":\"2026-11-16T07:04:58.599Z\",\"durationMs\":864},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/include/parser/parser.h\",\"startLine\":20,\"endLine\":65},\"result\":{\"result\":{\"file\":\"src/include/parser/parser.h\",\"start\":20,\"lines\":[{\"line\":20,\"text\":\"\"},{\"line\":21,\"text\":\"/*\"},{\"line\":22,\"text\":\" * RawParseMode determines the form of the string that raw_parser() accepts:\"},{\"line\":23,\"text\":\" *\"},{\"line\":24,\"text\":\" * RAW_PARSE_DEFAULT: parse a semicolon-separated list of SQL commands,\"},{\"line\":25,\"text\":\" * and return a List of RawStmt nodes.\"},{\"line\":26,\"text\":\" *\"},{\"line\":27,\"text\":\" * RAW_PARSE_TYPE_NAME: parse a type name, and return a one-element List\"},{\"line\":28,\"text\":\" * containing a TypeName node.\"},{\"line\":29,\"text\":\" *\"},{\"line\":30,\"text\":\" * RAW_PARSE_PLPGSQL_EXPR: parse a PL/pgSQL expression, and return\"},{\"line\":31,\"text\":\" * a one-element List containing a RawStmt node.\"},{\"line\":32,\"text\":\" *\"},{\"line\":33,\"text\":\" * RAW_PARSE_PLPGSQL_ASSIGNn: parse a PL/pgSQL assignment statement,\"},{\"line\":34,\"text\":\" * and return a one-element List containing a RawStmt node.  \\\"n\\\"\"},{\"line\":35,\"text\":\" * gives the number of dotted names comprising the target ColumnRef.\"},{\"line\":36,\"text\":\" */\"},{\"line\":37,\"text\":\"typedef enum\"},{\"line\":38,\"text\":\"{\"},{\"line\":39,\"text\":\"\\tRAW_PARSE_DEFAULT = 0,\"},{\"line\":40,\"text\":\"\\tRAW_PARSE_TYPE_NAME,\"},{\"line\":41,\"text\":\"\\tRAW_PARSE_PLPGSQL_EXPR,\"},{\"line\":42,\"text\":\"\\tRAW_PARSE_PLPGSQL_ASSIGN1,\"},{\"line\":43,\"text\":\"\\tRAW_PARSE_PLPGSQL_ASSIGN2,\"},{\"line\":44,\"text\":\"\\tRAW_PARSE_PLPGSQL_ASSIGN3,\"},{\"line\":45,\"text\":\"} RawParseMode;\"},{\"line\":46,\"text\":\"\"},{\"line\":47,\"text\":\"/* Values for the backslash_quote GUC */\"},{\"line\":48,\"text\":\"typedef enum\"},{\"line\":49,\"text\":\"{\"},{\"line\":50,\"text\":\"\\tBACKSLASH_QUOTE_OFF,\"},{\"line\":51,\"text\":\"\\tBACKSLASH_QUOTE_ON,\"},{\"line\":52,\"text\":\"\\tBACKSLASH_QUOTE_SAFE_ENCODING,\"},{\"line\":53,\"text\":\"}\\t\\t\\tBackslashQuoteType;\"},{\"line\":54,\"text\":\"\"},{\"line\":55,\"text\":\"/* GUC variable in scan.l */\"},{\"line\":56,\"text\":\"extern PGDLLIMPORT int backslash_quote;\"},{\"line\":57,\"text\":\"\"},{\"line\":58,\"text\":\"\"},{\"line\":59,\"text\":\"/* Primary entry point for the raw parsing functions */\"},{\"line\":60,\"text\":\"extern List *raw_parser(const char *str, RawParseMode mode);\"},{\"line\":61,\"text\":\"\"},{\"line\":62,\"text\":\"/* Utility functions exported by gram.y (perhaps these should be elsewhere) */\"},{\"line\":63,\"text\":\"extern List *SystemFuncName(char *name);\"},{\"line\":64,\"text\":\"extern TypeName *SystemTypeName(char *name);\"},{\"line\":65,\"text\":\"\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":2368,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":17,\"startedAt\":\"2026-11-16T07:04:58.599Z\",\"endedAt\":\"2026-11-16T07:04:59.345Z\",\"durationMs\":746},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":9837,\"outputTokens\":35,\"usageMissing\":false,\"seq\":18,\"startedAt\":\"2026-11-16T07:04:59.347Z\",\"endedAt\":\"2026-11-16T07:05:00.776Z\",\"durationMs\":1429},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":615,\"endLine\":665},\"result\":{\"result\":{\"file\":\"src/backend/tcop/postgres.c\",\"start\":615,\"lines\":[{\"line\":615,\"text\":\" */\"},{\"line\":616,\"text\":\"List *\"},{\"line\":617,\"text\":\"pg_parse_query(const char *query_string)\"},{\"line\":618,\"text\":\"{\"},{\"line\":619,\"text\":\"\\tList\\t   *raw_parsetree_list;\"},{\"line\":620,\"text\":\"\"},{\"line\":621,\"text\":\"\\tTRACE_POSTGRESQL_QUERY_PARSE_START(query_string);\"},{\"line\":622,\"text\":\"\"},{\"line\":623,\"text\":\"\\tif (log_parser_stats)\"},{\"line\":624,\"text\":\"\\t\\tResetUsage();\"},{\"line\":625,\"text\":\"\"},{\"line\":626,\"text\":\"\\traw_parsetree_list = raw_parser(query_string, RAW_PARSE_DEFAULT);\"},{\"line\":627,\"text\":\"\"},{\"line\":628,\"text\":\"\\tif (log_parser_stats)\"},{\"line\":629,\"text\":\"\\t\\tShowUsage(\\\"PARSER STATISTICS\\\");\"},{\"line\":630,\"text\":\"\"},{\"line\":631,\"text\":\"#ifdef DEBUG_NODE_TESTS_ENABLED\"},{\"line\":632,\"text\":\"\"},{\"line\":633,\"text\":\"\\t/* Optional debugging check: pass raw parsetrees through copyObject() */\"},{\"line\":634,\"text\":\"\\tif (Debug_copy_parse_plan_trees)\"},{\"line\":635,\"text\":\"\\t{\"},{\"line\":636,\"text\":\"\\t\\tList\\t   *new_list = copyObject(raw_parsetree_list);\"},{\"line\":637,\"text\":\"\"},{\"line\":638,\"text\":\"\\t\\t/* This checks both copyObject() and the equal() routines... */\"},{\"line\":639,\"text\":\"\\t\\tif (!equal(new_list, raw_parsetree_list))\"},{\"line\":640,\"text\":\"\\t\\t\\telog(WARNING, \\\"copyObject() failed to produce an equal raw parse tree\\\");\"},{\"line\":641,\"text\":\"\\t\\telse\"},{\"line\":642,\"text\":\"\\t\\t\\traw_parsetree_list = new_list;\"},{\"line\":643,\"text\":\"\\t}\"},{\"line\":644,\"text\":\"\"},{\"line\":645,\"text\":\"\\t/*\"},{\"line\":646,\"text\":\"\\t * Optional debugging check: pass raw parsetrees through\"},{\"line\":647,\"text\":\"\\t * outfuncs/readfuncs\"},{\"line\":648,\"text\":\"\\t */\"},{\"line\":649,\"text\":\"\\tif (Debug_write_read_parse_plan_trees)\"},{\"line\":650,\"text\":\"\\t{\"},{\"line\":651,\"text\":\"\\t\\tchar\\t   *str = nodeToStringWithLocations(raw_parsetree_list);\"},{\"line\":652,\"text\":\"\\t\\tList\\t   *new_list = stringToNodeWithLocations(str);\"},{\"line\":653,\"text\":\"\"},{\"line\":654,\"text\":\"\\t\\tpfree(str);\"},{\"line\":655,\"text\":\"\\t\\t/* This checks both outfuncs/readfuncs and the equal() routines... */\"},{\"line\":656,\"text\":\"\\t\\tif (!equal(new_list, raw_parsetree_list))\"},{\"line\":657,\"text\":\"\\t\\t\\telog(WARNING, \\\"outfuncs/readfuncs failed to produce an equal raw parse tree\\\");\"},{\"line\":658,\"text\":\"\\t\\telse\"},{\"line\":659,\"text\":\"\\t\\t\\traw_parsetree_list = new_list;\"},{\"line\":660,\"text\":\"\\t}\"},{\"line\":661,\"text\":\"\"},{\"line\":662,\"text\":\"#endif\\t\\t\\t\\t\\t\\t\\t/* DEBUG_NODE_TESTS_ENABLED */\"},{\"line\":663,\"text\":\"\"},{\"line\":664,\"text\":\"\\tTRACE_POSTGRESQL_QUERY_PARSE_DONE(query_string);\"},{\"line\":665,\"text\":\"\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":2590,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":19,\"startedAt\":\"2026-11-16T07:05:00.776Z\",\"endedAt\":\"2026-11-16T07:05:01.499Z\",\"durationMs\":723},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":10965,\"outputTokens\":35,\"usageMissing\":false,\"seq\":20,\"startedAt\":\"2026-11-16T07:05:01.500Z\",\"endedAt\":\"2026-11-16T07:05:02.495Z\",\"durationMs\":995},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":665,\"endLine\":675},\"result\":{\"result\":{\"file\":\"src/backend/tcop/postgres.c\",\"start\":665,\"lines\":[{\"line\":665,\"text\":\"\"},{\"line\":666,\"text\":\"\\tif (Debug_print_raw_parse)\"},{\"line\":667,\"text\":\"\\t\\telog_node_display(LOG, \\\"raw parse tree\\\", raw_parsetree_list,\"},{\"line\":668,\"text\":\"\\t\\t\\t\\t\\t\\t  Debug_pretty_print);\"},{\"line\":669,\"text\":\"\"},{\"line\":670,\"text\":\"\\treturn raw_parsetree_list;\"},{\"line\":671,\"text\":\"}\"},{\"line\":672,\"text\":\"\"},{\"line\":673,\"text\":\"/*\"},{\"line\":674,\"text\":\" * Given a raw parsetree (gram.y output), and optionally information about\"},{\"line\":675,\"text\":\" * types of parameter symbols ($n), perform parse analysis and rule rewriting.\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":624,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":21,\"startedAt\":\"2026-11-16T07:05:02.495Z\",\"endedAt\":\"2026-11-16T07:05:03.220Z\",\"durationMs\":725},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":11333,\"outputTokens\":35,\"usageMissing\":false,\"seq\":22,\"startedAt\":\"2026-11-16T07:05:03.221Z\",\"endedAt\":\"2026-11-16T07:05:04.073Z\",\"durationMs\":852},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":673,\"endLine\":700},\"result\":{\"result\":{\"file\":\"src/backend/tcop/postgres.c\",\"start\":673,\"lines\":[{\"line\":673,\"text\":\"/*\"},{\"line\":674,\"text\":\" * Given a raw parsetree (gram.y output), and optionally information about\"},{\"line\":675,\"text\":\" * types of parameter symbols ($n), perform parse analysis and rule rewriting.\"},{\"line\":676,\"text\":\" *\"},{\"line\":677,\"text\":\" * A list of Query nodes is returned, since either the analyzer or the\"},{\"line\":678,\"text\":\" * rewriter might expand one query to several.\"},{\"line\":679,\"text\":\" *\"},{\"line\":680,\"text\":\" * NOTE: for reasons mentioned above, this must be separate from raw parsing.\"},{\"line\":681,\"text\":\" */\"},{\"line\":682,\"text\":\"List *\"},{\"line\":683,\"text\":\"pg_analyze_and_rewrite_fixedparams(RawStmt *parsetree,\"},{\"line\":684,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t   const char *query_string,\"},{\"line\":685,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t   const Oid *paramTypes,\"},{\"line\":686,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t   int numParams,\"},{\"line\":687,\"text\":\"\\t\\t\\t\\t\\t\\t\\t\\t   QueryEnvironment *queryEnv)\"},{\"line\":688,\"text\":\"{\"},{\"line\":689,\"text\":\"\\tQuery\\t   *query;\"},{\"line\":690,\"text\":\"\\tList\\t   *querytree_list;\"},{\"line\":691,\"text\":\"\"},{\"line\":692,\"text\":\"\\tTRACE_POSTGRESQL_QUERY_REWRITE_START(query_string);\"},{\"line\":693,\"text\":\"\"},{\"line\":694,\"text\":\"\\t/*\"},{\"line\":695,\"text\":\"\\t * (1) Perform parse analysis.\"},{\"line\":696,\"text\":\"\\t */\"},{\"line\":697,\"text\":\"\\tif (log_parser_stats)\"},{\"line\":698,\"text\":\"\\t\\tResetUsage();\"},{\"line\":699,\"text\":\"\"},{\"line\":700,\"text\":\"\\tquery = parse_analyze_fixedparams(parsetree, query_string, paramTypes, numParams,\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":1546,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":23,\"startedAt\":\"2026-11-16T07:05:04.073Z\",\"endedAt\":\"2026-11-16T07:05:04.797Z\",\"durationMs\":724},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":12037,\"outputTokens\":32,\"usageMissing\":false,\"seq\":24,\"startedAt\":\"2026-11-16T07:05:04.798Z\",\"endedAt\":\"2026-11-16T07:05:05.599Z\",\"durationMs\":801},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/parser/gram.y\",\"startLine\":1,\"endLine\":50},\"result\":{\"result\":{\"file\":\"src/backend/parser/gram.y\",\"start\":1,\"lines\":[{\"line\":1,\"text\":\"%{\"},{\"line\":2,\"text\":\"\"},{\"line\":3,\"text\":\"/*#define YYDEBUG 1*/\"},{\"line\":4,\"text\":\"/*-------------------------------------------------------------------------\"},{\"line\":5,\"text\":\" *\"},{\"line\":6,\"text\":\" * gram.y\"},{\"line\":7,\"text\":\" *\\t  POSTGRESQL BISON rules/actions\"},{\"line\":8,\"text\":\" *\"},{\"line\":9,\"text\":\" * Portions Copyright (c) 1996-2026, PostgreSQL Global Development Group\"},{\"line\":10,\"text\":\" * Portions Copyright (c) 1994, Regents of the University of California\"},{\"line\":11,\"text\":\" *\"},{\"line\":12,\"text\":\" *\"},{\"line\":13,\"text\":\" * IDENTIFICATION\"},{\"line\":14,\"text\":\" *\\t  src/backend/parser/gram.y\"},{\"line\":15,\"text\":\" *\"},{\"line\":16,\"text\":\" * HISTORY\"},{\"line\":17,\"text\":\" *\\t  AUTHOR\\t\\t\\tDATE\\t\\t\\tMAJOR EVENT\"},{\"line\":18,\"text\":\" *\\t  Andrew Yu\\t\\t\\tSept, 1994\\t\\tPOSTQUEL to SQL conversion\"},{\"line\":19,\"text\":\" *\\t  Andrew Yu\\t\\t\\tOct, 1994\\t\\tlispy code conversion\"},{\"line\":20,\"text\":\" *\"},{\"line\":21,\"text\":\" * NOTES\"},{\"line\":22,\"text\":\" *\\t  CAPITALS are used to represent terminal symbols.\"},{\"line\":23,\"text\":\" *\\t  non-capitals are used to represent non-terminals.\"},{\"line\":24,\"text\":\" *\"},{\"line\":25,\"text\":\" *\\t  In general, nothing in this file should initiate database accesses\"},{\"line\":26,\"text\":\" *\\t  nor depend on changeable state (such as SET variables).  If you do\"},{\"line\":27,\"text\":\" *\\t  database accesses, your code will fail when we have aborted the\"},{\"line\":28,\"text\":\" *\\t  current transaction and are just parsing commands to find the next\"},{\"line\":29,\"text\":\" *\\t  ROLLBACK or COMMIT.  If you make use of SET variables, then you\"},{\"line\":30,\"text\":\" *\\t  will do the wrong thing in multi-query strings like this:\"},{\"line\":31,\"text\":\" *\\t\\t\\tSET constraint_exclusion TO off; SELECT * FROM foo;\"},{\"line\":32,\"text\":\" *\\t  because the entire string is parsed by gram.y before the SET gets\"},{\"line\":33,\"text\":\" *\\t  executed.  Anything that depends on the database or changeable state\"},{\"line\":34,\"text\":\" *\\t  should be handled during parse analysis so that it happens at the\"},{\"line\":35,\"text\":\" *\\t  right time not the wrong time.\"},{\"line\":36,\"text\":\" *\"},{\"line\":37,\"text\":\" * WARNINGS\"},{\"line\":38,\"text\":\" *\\t  If you use a list, make sure the datum is a node so that the printing\"},{\"line\":39,\"text\":\" *\\t  routines work.\"},{\"line\":40,\"text\":\" *\"},{\"line\":41,\"text\":\" *\\t  Sometimes we assign constants to makeStrings. Make sure we don't free\"},{\"line\":42,\"text\":\" *\\t  those.\"},{\"line\":43,\"text\":\" *\"},{\"line\":44,\"text\":\" *-------------------------------------------------------------------------\"},{\"line\":45,\"text\":\" */\"},{\"line\":46,\"text\":\"#include \\\"postgres.h\\\"\"},{\"line\":47,\"text\":\"\"},{\"line\":48,\"text\":\"#include <ctype.h>\"},{\"line\":49,\"text\":\"#include <limits.h>\"},{\"line\":50,\"text\":\"\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":2842,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":25,\"startedAt\":\"2026-11-16T07:05:05.599Z\",\"endedAt\":\"2026-11-16T07:05:06.326Z\",\"durationMs\":727},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":13109,\"outputTokens\":17,\"usageMissing\":false,\"seq\":26,\"startedAt\":\"2026-11-16T07:05:06.327Z\",\"endedAt\":\"2026-11-16T07:05:07.942Z\",\"durationMs\":1615},{\"type\":\"tool\",\"name\":\"searchText\",\"parameters\":{\"query\":\"parse_analyze_fixedparams\"},\"result\":{\"result\":[{\"file\":\"src/backend/commands/view.c\",\"line\":375,\"text\":\"\\tviewParse = parse_analyze_fixedparams(rawstmt, queryString, NULL, 0, NULL);\"},{\"file\":\"src/backend/parser/analyze.c\",\"line\":109,\"text\":\" * parse_analyze_fixedparams\"},{\"file\":\"src/backend/parser/analyze.c\",\"line\":120,\"text\":\"parse_analyze_fixedparams(RawStmt *parseTree, const char *sourceText,\"},{\"file\":\"src/backend/tcop/postgres.c\",\"line\":700,\"text\":\"\\tquery = parse_analyze_fixedparams(parsetree, query_string, paramTypes, numParams,\"},{\"file\":\"src/include/parser/analyze.h\",\"line\":28,\"text\":\"extern Query *parse_analyze_fixedparams(RawStmt *parseTree, const char *sourceText,\"}],\"returned\":5,\"observed\":5,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":643,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":27,\"startedAt\":\"2026-11-16T07:05:07.942Z\",\"endedAt\":\"2026-11-16T07:05:09.514Z\",\"durationMs\":1572},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":13446,\"outputTokens\":36,\"usageMissing\":false,\"seq\":28,\"startedAt\":\"2026-11-16T07:05:09.515Z\",\"endedAt\":\"2026-11-16T07:05:10.515Z\",\"durationMs\":1000},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/parser/analyze.c\",\"startLine\":105,\"endLine\":140},\"result\":{\"result\":{\"file\":\"src/backend/parser/analyze.c\",\"start\":105,\"lines\":[{\"line\":105,\"text\":\"#endif\"},{\"line\":106,\"text\":\"\"},{\"line\":107,\"text\":\"\"},{\"line\":108,\"text\":\"/*\"},{\"line\":109,\"text\":\" * parse_analyze_fixedparams\"},{\"line\":110,\"text\":\" *\\t\\tAnalyze a raw parse tree and transform it to Query form.\"},{\"line\":111,\"text\":\" *\"},{\"line\":112,\"text\":\" * Optionally, information about $n parameter types can be supplied.\"},{\"line\":113,\"text\":\" * References to $n indexes not defined by paramTypes[] are disallowed.\"},{\"line\":114,\"text\":\" *\"},{\"line\":115,\"text\":\" * The result is a Query node.  Optimizable statements require considerable\"},{\"line\":116,\"text\":\" * transformation, while utility-type statements are simply hung off\"},{\"line\":117,\"text\":\" * a dummy CMD_UTILITY Query node.\"},{\"line\":118,\"text\":\" */\"},{\"line\":119,\"text\":\"Query *\"},{\"line\":120,\"text\":\"parse_analyze_fixedparams(RawStmt *parseTree, const char *sourceText,\"},{\"line\":121,\"text\":\"\\t\\t\\t\\t\\t\\t  const Oid *paramTypes, int numParams,\"},{\"line\":122,\"text\":\"\\t\\t\\t\\t\\t\\t  QueryEnvironment *queryEnv)\"},{\"line\":123,\"text\":\"{\"},{\"line\":124,\"text\":\"\\tParseState *pstate = make_parsestate(NULL);\"},{\"line\":125,\"text\":\"\\tQuery\\t   *query;\"},{\"line\":126,\"text\":\"\\tJumbleState *jstate = NULL;\"},{\"line\":127,\"text\":\"\"},{\"line\":128,\"text\":\"\\tAssert(sourceText != NULL); /* required as of 8.4 */\"},{\"line\":129,\"text\":\"\"},{\"line\":130,\"text\":\"\\tpstate->p_sourcetext = sourceText;\"},{\"line\":131,\"text\":\"\"},{\"line\":132,\"text\":\"\\tif (numParams > 0)\"},{\"line\":133,\"text\":\"\\t\\tsetup_parse_fixed_parameters(pstate, paramTypes, numParams);\"},{\"line\":134,\"text\":\"\"},{\"line\":135,\"text\":\"\\tpstate->p_queryEnv = queryEnv;\"},{\"line\":136,\"text\":\"\"},{\"line\":137,\"text\":\"\\tquery = transformTopLevelStmt(pstate, parseTree);\"},{\"line\":138,\"text\":\"\"},{\"line\":139,\"text\":\"\\tif (IsQueryIdEnabled())\"},{\"line\":140,\"text\":\"\\t\\tjstate = JumbleQuery(query);\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":1886,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":29,\"startedAt\":\"2026-11-16T07:05:10.515Z\",\"endedAt\":\"2026-11-16T07:05:11.246Z\",\"durationMs\":731},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":14273,\"outputTokens\":32,\"usageMissing\":false,\"seq\":30,\"startedAt\":\"2026-11-16T07:05:11.247Z\",\"endedAt\":\"2026-11-16T07:05:12.193Z\",\"durationMs\":946},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":1,\"endLine\":50},\"result\":{\"result\":{\"file\":\"src/backend/tcop/postgres.c\",\"start\":1,\"lines\":[{\"line\":1,\"text\":\"/*-------------------------------------------------------------------------\"},{\"line\":2,\"text\":\" *\"},{\"line\":3,\"text\":\" * postgres.c\"},{\"line\":4,\"text\":\" *\\t  POSTGRES C Backend Interface\"},{\"line\":5,\"text\":\" *\"},{\"line\":6,\"text\":\" * Portions Copyright (c) 1996-2026, PostgreSQL Global Development Group\"},{\"line\":7,\"text\":\" * Portions Copyright (c) 1994, Regents of the University of California\"},{\"line\":8,\"text\":\" *\"},{\"line\":9,\"text\":\" *\"},{\"line\":10,\"text\":\" * IDENTIFICATION\"},{\"line\":11,\"text\":\" *\\t  src/backend/tcop/postgres.c\"},{\"line\":12,\"text\":\" *\"},{\"line\":13,\"text\":\" * NOTES\"},{\"line\":14,\"text\":\" *\\t  this is the \\\"main\\\" module of the postgres backend and\"},{\"line\":15,\"text\":\" *\\t  hence the main module of the \\\"traffic cop\\\".\"},{\"line\":16,\"text\":\" *\"},{\"line\":17,\"text\":\" *-------------------------------------------------------------------------\"},{\"line\":18,\"text\":\" */\"},{\"line\":19,\"text\":\"\"},{\"line\":20,\"text\":\"#include \\\"postgres.h\\\"\"},{\"line\":21,\"text\":\"\"},{\"line\":22,\"text\":\"#include <fcntl.h>\"},{\"line\":23,\"text\":\"#include <limits.h>\"},{\"line\":24,\"text\":\"#include <signal.h>\"},{\"line\":25,\"text\":\"#include <unistd.h>\"},{\"line\":26,\"text\":\"#include <sys/resource.h>\"},{\"line\":27,\"text\":\"#include <sys/socket.h>\"},{\"line\":28,\"text\":\"#include <sys/time.h>\"},{\"line\":29,\"text\":\"\"},{\"line\":30,\"text\":\"#ifdef USE_VALGRIND\"},{\"line\":31,\"text\":\"#include <valgrind/valgrind.h>\"},{\"line\":32,\"text\":\"#endif\"},{\"line\":33,\"text\":\"\"},{\"line\":34,\"text\":\"#include \\\"access/parallel.h\\\"\"},{\"line\":35,\"text\":\"#include \\\"access/printtup.h\\\"\"},{\"line\":36,\"text\":\"#include \\\"access/xact.h\\\"\"},{\"line\":37,\"text\":\"#include \\\"catalog/pg_type.h\\\"\"},{\"line\":38,\"text\":\"#include \\\"commands/async.h\\\"\"},{\"line\":39,\"text\":\"#include \\\"commands/event_trigger.h\\\"\"},{\"line\":40,\"text\":\"#include \\\"commands/explain_state.h\\\"\"},{\"line\":41,\"text\":\"#include \\\"commands/prepare.h\\\"\"},{\"line\":42,\"text\":\"#include \\\"commands/repack.h\\\"\"},{\"line\":43,\"text\":\"#include \\\"common/pg_prng.h\\\"\"},{\"line\":44,\"text\":\"#include \\\"jit/jit.h\\\"\"},{\"line\":45,\"text\":\"#include \\\"libpq/libpq.h\\\"\"},{\"line\":46,\"text\":\"#include \\\"libpq/pqformat.h\\\"\"},{\"line\":47,\"text\":\"#include \\\"libpq/pqsignal.h\\\"\"},{\"line\":48,\"text\":\"#include \\\"mb/pg_wchar.h\\\"\"},{\"line\":49,\"text\":\"#include \\\"mb/stringinfo_mb.h\\\"\"},{\"line\":50,\"text\":\"#include \\\"miscadmin.h\\\"\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":2392,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":31,\"startedAt\":\"2026-11-16T07:05:12.193Z\",\"endedAt\":\"2026-11-16T07:05:13.019Z\",\"durationMs\":826},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":15253,\"outputTokens\":35,\"usageMissing\":false,\"seq\":32,\"startedAt\":\"2026-11-16T07:05:13.020Z\",\"endedAt\":\"2026-11-16T07:05:16.379Z\",\"durationMs\":3359},{\"type\":\"tool\",\"name\":\"readLines\",\"parameters\":{\"file\":\"src/backend/tcop/postgres.c\",\"startLine\":600,\"endLine\":620},\"result\":{\"result\":{\"file\":\"src/backend/tcop/postgres.c\",\"start\":600,\"lines\":[{\"line\":600,\"text\":\"\\terrno = save_errno;\"},{\"line\":601,\"text\":\"}\"},{\"line\":602,\"text\":\"\"},{\"line\":603,\"text\":\"/*\"},{\"line\":604,\"text\":\" * Do raw parsing (only).\"},{\"line\":605,\"text\":\" *\"},{\"line\":606,\"text\":\" * A list of parsetrees (RawStmt nodes) is returned, since there might be\"},{\"line\":607,\"text\":\" * multiple commands in the given string.\"},{\"line\":608,\"text\":\" *\"},{\"line\":609,\"text\":\" * NOTE: for interactive queries, it is important to keep this routine\"},{\"line\":610,\"text\":\" * separate from the analysis & rewrite stages.  Analysis and rewriting\"},{\"line\":611,\"text\":\" * cannot be done in an aborted transaction, since they require access to\"},{\"line\":612,\"text\":\" * database tables.  So, we rely on the raw parser to determine whether\"},{\"line\":613,\"text\":\" * we've seen a COMMIT or ABORT command; when we are in abort state, other\"},{\"line\":614,\"text\":\" * commands are not processed any further than the raw parse stage.\"},{\"line\":615,\"text\":\" */\"},{\"line\":616,\"text\":\"List *\"},{\"line\":617,\"text\":\"pg_parse_query(const char *query_string)\"},{\"line\":618,\"text\":\"{\"},{\"line\":619,\"text\":\"\\tList\\t   *raw_parsetree_list;\"},{\"line\":620,\"text\":\"\"}]},\"returned\":1,\"observed\":null,\"truncated\":false,\"bounds\":{\"maxItems\":50,\"maxBytes\":8000},\"bytes\":1217,\"revision\":\"70c4a57b64d39c526eb4c44a925eb92a6e56f3c5\",\"provenance\":\"primitive-derived\",\"uncertainty\":[\"Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.\"]},\"inputTokens\":null,\"outputTokens\":null,\"usageMissing\":false,\"outcome\":\"keys=result,returned,observed,truncated\",\"seq\":33,\"startedAt\":\"2026-11-16T07:05:16.379Z\",\"endedAt\":\"2026-11-16T07:05:17.109Z\",\"durationMs\":730},{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":15801,\"outputTokens\":579,\"usageMissing\":false,\"seq\":34,\"startedAt\":\"2026-11-16T07:05:17.111Z\",\"endedAt\":\"2026-11-16T07:05:20.358Z\",\"durationMs\":3247}],\"consolidationReport\":{\"accepted\":[],\"rejected\":[],\"duplicates\":[],\"indeterminate\":[]}}",
+    "citations": [
+      "src/backend/tcop/postgres.c:603",
+      "src/include/tcop/tcopprot.h:49",
+      "src/backend/parser/parser.c:35",
+      "src/include/parser/parser.h:59",
+      "src/include/parser/parser.h:24",
+      "src/backend/parser/analyze.c:109"
+    ]
+  },
+  "error": null,
+  "status": "success",
+  "fixture_verification": {
+    "head_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "clean_tree": true,
+    "verified_at": "2026-11-16T07:04:39.659Z"
+  },
+  "manifest_hash": "c2c6774bdb6afda7ebb3ffedf986fade1b6997039e1532f0e5969f201c2fc9e2",
+  "config_hash": "2ba0d29ef69624ca8482ee79d730db86c8edb7b94d71fc088ce2354973bf75c1",
+  "execution_config": {
+    "fixture_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "codetour": {
+      "model": "mistral-medium-3.5",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "vibe": {
+      "model": "mistral-medium-3.5",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "timeout_ms": 600000,
+    "retry_policy": {
+      "maxRetries": 0,
+      "retryDelay": 0
+    }
+  },
+  "prompt_hash": "ba99662e3dbe707d6c0a3cc5a8aee2fb6735039d247b3f226120821476b63cc1",
+  "question_hash": "494980b7c78ade93b76ad6a761e42c21d4578658a34f3c92cf3820896f519b2d",
+  "fixture_hash": "1ae64b1c130a9bc03de0835845d5e8cf42f3e0726eb646d8ac62eb72870f0dfa",
+  "system_prompt_hash": "96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c",
+  "tools": [
+    {
+      "type": "tool",
+      "name": "searchText",
+      "parameters": {
+        "query": "pg_parse_query"
+      },
+      "result": {
+        "result": [
+          {
+            "file": "doc/src/sgml/xfunc.sgml",
+            "line": 4247,
+            "text": "    through <function>pg_parse_query</function>"
+          },
+          {
+            "file": "src/backend/catalog/pg_proc.c",
+            "line": 1000,
+            "text": "\t\t\traw_parsetree_list = pg_parse_query(prosrc);"
+          },
+          {
+            "file": "src/backend/commands/extension.c",
+            "line": 1124,
+            "text": "\traw_parsetree_list = pg_parse_query(sql);"
+          },
+          {
+            "file": "src/backend/commands/foreigncmds.c",
+            "line": 1648,
+            "text": "\t\traw_parsetree_list = pg_parse_query(cmd);"
+          },
+          {
+            "file": "src/backend/executor/functions.c",
+            "line": 1061,
+            "text": "\t * mainly useful for reporting parse errors from pg_parse_query.)"
+          },
+          {
+            "file": "src/backend/executor/functions.c",
+            "line": 1167,
+            "text": "\t\tsource_list = pg_parse_query(func->src);"
+          },
+          {
+            "file": "src/backend/optimizer/util/clauses.c",
+            "line": 5652,
+            "text": "\t\traw_parsetree_list = pg_parse_query(src);"
+          },
+          {
+            "file": "src/backend/optimizer/util/clauses.c",
+            "line": 6325,
+            "text": "\t\traw_parsetree_list = pg_parse_query(src);"
+          },
+          {
+            "file": "src/backend/tcop/postgres.c",
+            "line": 617,
+            "text": "pg_parse_query(const char *query_string)"
+          },
+          {
+            "file": "src/backend/tcop/postgres.c",
+            "line": 1083,
+            "text": "\tparsetree_list = pg_parse_query(query_string);"
+          },
+          {
+            "file": "src/backend/tcop/postgres.c",
+            "line": 1496,
+            "text": "\tparsetree_list = pg_parse_query(query_string);"
+          },
+          {
+            "file": "src/include/tcop/tcopprot.h",
+            "line": 49,
+            "text": "extern List *pg_parse_query(const char *query_string);"
+          },
+          {
+            "file": "src/test/regress/regress.c",
+            "line": 1026,
+            "text": "\t\traw_parsetree_list = pg_parse_query(sql.data);"
+          }
+        ],
+        "returned": 13,
+        "observed": 13,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 1454,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 1,
+      "startedAt": "2026-11-16T07:04:42.480Z",
+      "endedAt": "2026-11-16T07:04:44.171Z",
+      "durationMs": 1691
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/tcop/postgres.c",
+        "startLine": 615,
+        "endLine": 640
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/tcop/postgres.c",
+          "start": 615,
+          "lines": [
+            {
+              "line": 615,
+              "text": " */"
+            },
+            {
+              "line": 616,
+              "text": "List *"
+            },
+            {
+              "line": 617,
+              "text": "pg_parse_query(const char *query_string)"
+            },
+            {
+              "line": 618,
+              "text": "{"
+            },
+            {
+              "line": 619,
+              "text": "\tList\t   *raw_parsetree_list;"
+            },
+            {
+              "line": 620,
+              "text": ""
+            },
+            {
+              "line": 621,
+              "text": "\tTRACE_POSTGRESQL_QUERY_PARSE_START(query_string);"
+            },
+            {
+              "line": 622,
+              "text": ""
+            },
+            {
+              "line": 623,
+              "text": "\tif (log_parser_stats)"
+            },
+            {
+              "line": 624,
+              "text": "\t\tResetUsage();"
+            },
+            {
+              "line": 625,
+              "text": ""
+            },
+            {
+              "line": 626,
+              "text": "\traw_parsetree_list = raw_parser(query_string, RAW_PARSE_DEFAULT);"
+            },
+            {
+              "line": 627,
+              "text": ""
+            },
+            {
+              "line": 628,
+              "text": "\tif (log_parser_stats)"
+            },
+            {
+              "line": 629,
+              "text": "\t\tShowUsage(\"PARSER STATISTICS\");"
+            },
+            {
+              "line": 630,
+              "text": ""
+            },
+            {
+              "line": 631,
+              "text": "#ifdef DEBUG_NODE_TESTS_ENABLED"
+            },
+            {
+              "line": 632,
+              "text": ""
+            },
+            {
+              "line": 633,
+              "text": "\t/* Optional debugging check: pass raw parsetrees through copyObject() */"
+            },
+            {
+              "line": 634,
+              "text": "\tif (Debug_copy_parse_plan_trees)"
+            },
+            {
+              "line": 635,
+              "text": "\t{"
+            },
+            {
+              "line": 636,
+              "text": "\t\tList\t   *new_list = copyObject(raw_parsetree_list);"
+            },
+            {
+              "line": 637,
+              "text": ""
+            },
+            {
+              "line": 638,
+              "text": "\t\t/* This checks both copyObject() and the equal() routines... */"
+            },
+            {
+              "line": 639,
+              "text": "\t\tif (!equal(new_list, raw_parsetree_list))"
+            },
+            {
+              "line": 640,
+              "text": "\t\t\telog(WARNING, \"copyObject() failed to produce an equal raw parse tree\");"
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 1347,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 3,
+      "startedAt": "2026-11-16T07:04:45.048Z",
+      "endedAt": "2026-11-16T07:04:45.777Z",
+      "durationMs": 729
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/include/tcop/tcopprot.h",
+        "startLine": 45,
+        "endLine": 55
+      },
+      "result": {
+        "result": {
+          "file": "src/include/tcop/tcopprot.h",
+          "start": 45,
+          "lines": [
+            {
+              "line": 45,
+              "text": "#define RESTRICT_RELKIND_FOREIGN_TABLE\t0x02"
+            },
+            {
+              "line": 46,
+              "text": ""
+            },
+            {
+              "line": 47,
+              "text": "extern PGDLLIMPORT int restrict_nonsystem_relation_kind;"
+            },
+            {
+              "line": 48,
+              "text": ""
+            },
+            {
+              "line": 49,
+              "text": "extern List *pg_parse_query(const char *query_string);"
+            },
+            {
+              "line": 50,
+              "text": "extern List *pg_rewrite_query(Query *query);"
+            },
+            {
+              "line": 51,
+              "text": "extern List *pg_analyze_and_rewrite_fixedparams(RawStmt *parsetree,"
+            },
+            {
+              "line": 52,
+              "text": "\t\t\t\t\t\t\t\t\t\t\t\tconst char *query_string,"
+            },
+            {
+              "line": 53,
+              "text": "\t\t\t\t\t\t\t\t\t\t\t\tconst Oid *paramTypes, int numParams,"
+            },
+            {
+              "line": 54,
+              "text": "\t\t\t\t\t\t\t\t\t\t\t\tQueryEnvironment *queryEnv);"
+            },
+            {
+              "line": 55,
+              "text": "extern List *pg_analyze_and_rewrite_varparams(RawStmt *parsetree,"
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 793,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 4,
+      "startedAt": "2026-11-16T07:04:45.777Z",
+      "endedAt": "2026-11-16T07:04:46.484Z",
+      "durationMs": 707
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/tcop/postgres.c",
+        "startLine": 640,
+        "endLine": 660
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/tcop/postgres.c",
+          "start": 640,
+          "lines": [
+            {
+              "line": 640,
+              "text": "\t\t\telog(WARNING, \"copyObject() failed to produce an equal raw parse tree\");"
+            },
+            {
+              "line": 641,
+              "text": "\t\telse"
+            },
+            {
+              "line": 642,
+              "text": "\t\t\traw_parsetree_list = new_list;"
+            },
+            {
+              "line": 643,
+              "text": "\t}"
+            },
+            {
+              "line": 644,
+              "text": ""
+            },
+            {
+              "line": 645,
+              "text": "\t/*"
+            },
+            {
+              "line": 646,
+              "text": "\t * Optional debugging check: pass raw parsetrees through"
+            },
+            {
+              "line": 647,
+              "text": "\t * outfuncs/readfuncs"
+            },
+            {
+              "line": 648,
+              "text": "\t */"
+            },
+            {
+              "line": 649,
+              "text": "\tif (Debug_write_read_parse_plan_trees)"
+            },
+            {
+              "line": 650,
+              "text": "\t{"
+            },
+            {
+              "line": 651,
+              "text": "\t\tchar\t   *str = nodeToStringWithLocations(raw_parsetree_list);"
+            },
+            {
+              "line": 652,
+              "text": "\t\tList\t   *new_list = stringToNodeWithLocations(str);"
+            },
+            {
+              "line": 653,
+              "text": ""
+            },
+            {
+              "line": 654,
+              "text": "\t\tpfree(str);"
+            },
+            {
+              "line": 655,
+              "text": "\t\t/* This checks both outfuncs/readfuncs and the equal() routines... */"
+            },
+            {
+              "line": 656,
+              "text": "\t\tif (!equal(new_list, raw_parsetree_list))"
+            },
+            {
+              "line": 657,
+              "text": "\t\t\telog(WARNING, \"outfuncs/readfuncs failed to produce an equal raw parse tree\");"
+            },
+            {
+              "line": 658,
+              "text": "\t\telse"
+            },
+            {
+              "line": 659,
+              "text": "\t\t\traw_parsetree_list = new_list;"
+            },
+            {
+              "line": 660,
+              "text": "\t}"
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 1191,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 6,
+      "startedAt": "2026-11-16T07:04:47.338Z",
+      "endedAt": "2026-11-16T07:04:48.065Z",
+      "durationMs": 727
+    },
+    {
+      "type": "tool",
+      "name": "searchText",
+      "parameters": {
+        "query": "raw_parser"
+      },
+      "result": {
+        "result": [
+          {
+            "file": "src/backend/commands/tablecmds.c",
+            "line": 16996,
+            "text": "\traw_parsetree_list = raw_parser(cmdstring, RAW_PARSE_DEFAULT);"
+          },
+          {
+            "file": "src/backend/executor/spi.c",
+            "line": 2259,
+            "text": "\traw_parsetree_list = raw_parser(src, plan->parse_mode);"
+          },
+          {
+            "file": "src/backend/executor/spi.c",
+            "line": 2367,
+            "text": "\traw_parsetree_list = raw_parser(src, plan->parse_mode);"
+          },
+          {
+            "file": "src/backend/nodes/queryjumblefuncs.c",
+            "line": 844,
+            "text": "\t/* initialize the flex scanner --- should match raw_parser() */"
+          },
+          {
+            "file": "src/backend/parser/parse_type.c",
+            "line": 756,
+            "text": "\traw_parsetree_list = raw_parser(str, RAW_PARSE_TYPE_NAME);"
+          },
+          {
+            "file": "src/backend/parser/parser.c",
+            "line": 35,
+            "text": " * raw_parser"
+          },
+          {
+            "file": "src/backend/parser/parser.c",
+            "line": 42,
+            "text": "raw_parser(const char *str, RawParseMode mode)"
+          },
+          {
+            "file": "src/backend/tcop/postgres.c",
+            "line": 626,
+            "text": "\traw_parsetree_list = raw_parser(query_string, RAW_PARSE_DEFAULT);"
+          },
+          {
+            "file": "src/backend/utils/cache/plancache.c",
+            "line": 174,
+            "text": " * query through raw_parser, but before doing parse analysis and rewrite;"
+          },
+          {
+            "file": "src/backend/utils/cache/plancache.c",
+            "line": 189,
+            "text": " * raw_parse_tree: output of raw_parser(), or NULL if empty query"
+          },
+          {
+            "file": "src/backend/utils/cache/plancache.c",
+            "line": 304,
+            "text": " * raw_parse_tree: output of raw_parser(), or NULL if empty query"
+          },
+          {
+            "file": "src/include/executor/spi_priv.h",
+            "line": 97,
+            "text": "\tRawParseMode parse_mode;\t/* raw_parser() mode */"
+          },
+          {
+            "file": "src/include/parser/parser.h",
+            "line": 22,
+            "text": " * RawParseMode determines the form of the string that raw_parser() accepts:"
+          },
+          {
+            "file": "src/include/parser/parser.h",
+            "line": 60,
+            "text": "extern List *raw_parser(const char *str, RawParseMode mode);"
+          },
+          {
+            "file": "src/include/utils/plancache.h",
+            "line": 108,
+            "text": "\tRawStmt    *raw_parse_tree; /* output of raw_parser(), or NULL */"
+          },
+          {
+            "file": "src/pl/plpgsql/src/pl_gram.y",
+            "line": 2754,
+            "text": " * parsemode:\traw_parser() mode to use"
+          },
+          {
+            "file": "src/pl/plpgsql/src/pl_gram.y",
+            "line": 3804,
+            "text": "\t(void) raw_parser(stmt, parseMode);"
+          },
+          {
+            "file": "src/pl/plpgsql/src/plpgsql.h",
+            "line": 233,
+            "text": "\tRawParseMode parseMode;\t\t/* raw_parser() mode to use */"
+          }
+        ],
+        "returned": 18,
+        "observed": 18,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 2152,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 7,
+      "startedAt": "2026-11-16T07:04:48.065Z",
+      "endedAt": "2026-11-16T07:04:49.669Z",
+      "durationMs": 1604
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/parser/parser.c",
+        "startLine": 35,
+        "endLine": 120
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/parser/parser.c",
+          "start": 35,
+          "lines": [
+            {
+              "line": 35,
+              "text": " * raw_parser"
+            },
+            {
+              "line": 36,
+              "text": " *\t\tGiven a query in string form, do lexical and grammatical analysis."
+            },
+            {
+              "line": 37,
+              "text": " *"
+            },
+            {
+              "line": 38,
+              "text": " * Returns a list of raw (un-analyzed) parse trees.  The contents of the"
+            },
+            {
+              "line": 39,
+              "text": " * list have the form required by the specified RawParseMode."
+            },
+            {
+              "line": 40,
+              "text": " */"
+            },
+            {
+              "line": 41,
+              "text": "List *"
+            },
+            {
+              "line": 42,
+              "text": "raw_parser(const char *str, RawParseMode mode)"
+            },
+            {
+              "line": 43,
+              "text": "{"
+            },
+            {
+              "line": 44,
+              "text": "\tcore_yyscan_t yyscanner;"
+            },
+            {
+              "line": 45,
+              "text": "\tbase_yy_extra_type yyextra;"
+            },
+            {
+              "line": 46,
+              "text": "\tint\t\t\tyyresult;"
+            },
+            {
+              "line": 47,
+              "text": ""
+            },
+            {
+              "line": 48,
+              "text": "\t/* initialize the flex scanner */"
+            },
+            {
+              "line": 49,
+              "text": "\tyyscanner = scanner_init(str, &yyextra.core_yy_extra,"
+            },
+            {
+              "line": 50,
+              "text": "\t\t\t\t\t\t\t &ScanKeywords, ScanKeywordTokens);"
+            },
+            {
+              "line": 51,
+              "text": ""
+            },
+            {
+              "line": 52,
+              "text": "\t/* base_yylex() only needs us to initialize the lookahead token, if any */"
+            },
+            {
+              "line": 53,
+              "text": "\tif (mode == RAW_PARSE_DEFAULT)"
+            },
+            {
+              "line": 54,
+              "text": "\t\tyyextra.have_lookahead = false;"
+            },
+            {
+              "line": 55,
+              "text": "\telse"
+            },
+            {
+              "line": 56,
+              "text": "\t{"
+            },
+            {
+              "line": 57,
+              "text": "\t\t/* this array is indexed by RawParseMode enum */"
+            },
+            {
+              "line": 58,
+              "text": "\t\tstatic const int mode_token[] = {"
+            },
+            {
+              "line": 59,
+              "text": "\t\t\t[RAW_PARSE_DEFAULT] = 0,"
+            },
+            {
+              "line": 60,
+              "text": "\t\t\t[RAW_PARSE_TYPE_NAME] = MODE_TYPE_NAME,"
+            },
+            {
+              "line": 61,
+              "text": "\t\t\t[RAW_PARSE_PLPGSQL_EXPR] = MODE_PLPGSQL_EXPR,"
+            },
+            {
+              "line": 62,
+              "text": "\t\t\t[RAW_PARSE_PLPGSQL_ASSIGN1] = MODE_PLPGSQL_ASSIGN1,"
+            },
+            {
+              "line": 63,
+              "text": "\t\t\t[RAW_PARSE_PLPGSQL_ASSIGN2] = MODE_PLPGSQL_ASSIGN2,"
+            },
+            {
+              "line": 64,
+              "text": "\t\t\t[RAW_PARSE_PLPGSQL_ASSIGN3] = MODE_PLPGSQL_ASSIGN3,"
+            },
+            {
+              "line": 65,
+              "text": "\t\t};"
+            },
+            {
+              "line": 66,
+              "text": ""
+            },
+            {
+              "line": 67,
+              "text": "\t\tyyextra.have_lookahead = true;"
+            },
+            {
+              "line": 68,
+              "text": "\t\tyyextra.lookahead_token = mode_token[mode];"
+            },
+            {
+              "line": 69,
+              "text": "\t\tyyextra.lookahead_yylloc = 0;"
+            },
+            {
+              "line": 70,
+              "text": "\t\tyyextra.lookahead_end = NULL;"
+            },
+            {
+              "line": 71,
+              "text": "\t}"
+            },
+            {
+              "line": 72,
+              "text": ""
+            },
+            {
+              "line": 73,
+              "text": "\t/* initialize the bison parser */"
+            },
+            {
+              "line": 74,
+              "text": "\tparser_init(&yyextra);"
+            },
+            {
+              "line": 75,
+              "text": ""
+            },
+            {
+              "line": 76,
+              "text": "\t/* Parse! */"
+            },
+            {
+              "line": 77,
+              "text": "\tyyresult = base_yyparse(yyscanner);"
+            },
+            {
+              "line": 78,
+              "text": ""
+            },
+            {
+              "line": 79,
+              "text": "\t/* Clean up (release memory) */"
+            },
+            {
+              "line": 80,
+              "text": "\tscanner_finish(yyscanner);"
+            },
+            {
+              "line": 81,
+              "text": ""
+            },
+            {
+              "line": 82,
+              "text": "\tif (yyresult)\t\t\t\t/* error */"
+            },
+            {
+              "line": 83,
+              "text": "\t\treturn NIL;"
+            },
+            {
+              "line": 84,
+              "text": ""
+            },
+            {
+              "line": 85,
+              "text": "\treturn yyextra.parsetree;"
+            },
+            {
+              "line": 86,
+              "text": "}"
+            },
+            {
+              "line": 87,
+              "text": ""
+            },
+            {
+              "line": 88,
+              "text": ""
+            },
+            {
+              "line": 89,
+              "text": "/*"
+            },
+            {
+              "line": 90,
+              "text": " * Intermediate filter between parser and core lexer (core_yylex in scan.l)."
+            },
+            {
+              "line": 91,
+              "text": " *"
+            },
+            {
+              "line": 92,
+              "text": " * This filter is needed because in some cases the standard SQL grammar"
+            },
+            {
+              "line": 93,
+              "text": " * requires more than one token lookahead.  We reduce these cases to one-token"
+            },
+            {
+              "line": 94,
+              "text": " * lookahead by replacing tokens here, in order to keep the grammar LALR(1)."
+            },
+            {
+              "line": 95,
+              "text": " *"
+            },
+            {
+              "line": 96,
+              "text": " * Using a filter is simpler than trying to recognize multiword tokens"
+            },
+            {
+              "line": 97,
+              "text": " * directly in scan.l, because we'd have to allow for comments between the"
+            },
+            {
+              "line": 98,
+              "text": " * words.  Furthermore it's not clear how to do that without re-introducing"
+            },
+            {
+              "line": 99,
+              "text": " * scanner backtrack, which would cost more performance than this filter"
+            },
+            {
+              "line": 100,
+              "text": " * layer does."
+            },
+            {
+              "line": 101,
+              "text": " *"
+            },
+            {
+              "line": 102,
+              "text": " * We also use this filter to convert UIDENT and USCONST sequences into"
+            },
+            {
+              "line": 103,
+              "text": " * plain IDENT and SCONST tokens.  While that could be handled by additional"
+            },
+            {
+              "line": 104,
+              "text": " * productions in the main grammar, it's more efficient to do it like this."
+            },
+            {
+              "line": 105,
+              "text": " *"
+            },
+            {
+              "line": 106,
+              "text": " * The filter also provides a convenient place to translate between"
+            },
+            {
+              "line": 107,
+              "text": " * the core_YYSTYPE and YYSTYPE representations (which are really the"
+            },
+            {
+              "line": 108,
+              "text": " * same thing anyway, but notationally they're different)."
+            },
+            {
+              "line": 109,
+              "text": " */"
+            },
+            {
+              "line": 110,
+              "text": "int"
+            },
+            {
+              "line": 111,
+              "text": "base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)"
+            },
+            {
+              "line": 112,
+              "text": "{"
+            },
+            {
+              "line": 113,
+              "text": "\tbase_yy_extra_type *yyextra = pg_yyget_extra(yyscanner);"
+            },
+            {
+              "line": 114,
+              "text": "\tint\t\t\tcur_token;"
+            },
+            {
+              "line": 115,
+              "text": "\tint\t\t\tnext_token;"
+            },
+            {
+              "line": 116,
+              "text": "\tint\t\t\tcur_token_length;"
+            },
+            {
+              "line": 117,
+              "text": "\tYYLTYPE\t\tcur_yylloc;"
+            },
+            {
+              "line": 118,
+              "text": ""
+            },
+            {
+              "line": 119,
+              "text": "\t/* Get next token --- we might already have it */"
+            },
+            {
+              "line": 120,
+              "text": "\tif (yyextra->have_lookahead)"
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 4744,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 9,
+      "startedAt": "2026-11-16T07:04:50.455Z",
+      "endedAt": "2026-11-16T07:04:51.183Z",
+      "durationMs": 728
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/tcop/postgres.c",
+        "startLine": 1075,
+        "endLine": 1100
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/tcop/postgres.c",
+          "start": 1075,
+          "lines": [
+            {
+              "line": 1075,
+              "text": "\t * Switch to appropriate context for constructing parsetrees."
+            },
+            {
+              "line": 1076,
+              "text": "\t */"
+            },
+            {
+              "line": 1077,
+              "text": "\toldcontext = MemoryContextSwitchTo(MessageContext);"
+            },
+            {
+              "line": 1078,
+              "text": ""
+            },
+            {
+              "line": 1079,
+              "text": "\t/*"
+            },
+            {
+              "line": 1080,
+              "text": "\t * Do basic parsing of the query or queries (this should be safe even if"
+            },
+            {
+              "line": 1081,
+              "text": "\t * we are in aborted transaction state!)"
+            },
+            {
+              "line": 1082,
+              "text": "\t */"
+            },
+            {
+              "line": 1083,
+              "text": "\tparsetree_list = pg_parse_query(query_string);"
+            },
+            {
+              "line": 1084,
+              "text": ""
+            },
+            {
+              "line": 1085,
+              "text": "\t/* Log immediately if dictated by log_statement */"
+            },
+            {
+              "line": 1086,
+              "text": "\tif (check_log_statement(parsetree_list))"
+            },
+            {
+              "line": 1087,
+              "text": "\t{"
+            },
+            {
+              "line": 1088,
+              "text": "\t\tchar\t   *truncated_stmt = truncate_query_log(query_string);"
+            },
+            {
+              "line": 1089,
+              "text": ""
+            },
+            {
+              "line": 1090,
+              "text": "\t\tereport(LOG,"
+            },
+            {
+              "line": 1091,
+              "text": "\t\t\t\t(errmsg(\"statement: %s\","
+            },
+            {
+              "line": 1092,
+              "text": "\t\t\t\t\t\t(truncated_stmt != NULL) ? truncated_stmt : query_string),"
+            },
+            {
+              "line": 1093,
+              "text": "\t\t\t\t errhidestmt(true),"
+            },
+            {
+              "line": 1094,
+              "text": "\t\t\t\t errdetail_execute(parsetree_list)));"
+            },
+            {
+              "line": 1095,
+              "text": "\t\twas_logged = true;"
+            },
+            {
+              "line": 1096,
+              "text": ""
+            },
+            {
+              "line": 1097,
+              "text": "\t\tif (truncated_stmt != NULL)"
+            },
+            {
+              "line": 1098,
+              "text": "\t\t\tpfree(truncated_stmt);"
+            },
+            {
+              "line": 1099,
+              "text": "\t}"
+            },
+            {
+              "line": 1100,
+              "text": ""
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 1416,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 11,
+      "startedAt": "2026-11-16T07:04:52.665Z",
+      "endedAt": "2026-11-16T07:04:53.397Z",
+      "durationMs": 732
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/tcop/postgres.c",
+        "startLine": 1485,
+        "endLine": 1510
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/tcop/postgres.c",
+          "start": 1485,
+          "lines": [
+            {
+              "line": 1485,
+              "text": "\t\tunnamed_stmt_context ="
+            },
+            {
+              "line": 1486,
+              "text": "\t\t\tAllocSetContextCreate(MessageContext,"
+            },
+            {
+              "line": 1487,
+              "text": "\t\t\t\t\t\t\t\t  \"unnamed prepared statement\","
+            },
+            {
+              "line": 1488,
+              "text": "\t\t\t\t\t\t\t\t  ALLOCSET_DEFAULT_SIZES);"
+            },
+            {
+              "line": 1489,
+              "text": "\t\toldcontext = MemoryContextSwitchTo(unnamed_stmt_context);"
+            },
+            {
+              "line": 1490,
+              "text": "\t}"
+            },
+            {
+              "line": 1491,
+              "text": ""
+            },
+            {
+              "line": 1492,
+              "text": "\t/*"
+            },
+            {
+              "line": 1493,
+              "text": "\t * Do basic parsing of the query or queries (this should be safe even if"
+            },
+            {
+              "line": 1494,
+              "text": "\t * we are in aborted transaction state!)"
+            },
+            {
+              "line": 1495,
+              "text": "\t */"
+            },
+            {
+              "line": 1496,
+              "text": "\tparsetree_list = pg_parse_query(query_string);"
+            },
+            {
+              "line": 1497,
+              "text": ""
+            },
+            {
+              "line": 1498,
+              "text": "\t/*"
+            },
+            {
+              "line": 1499,
+              "text": "\t * We only allow a single user statement in a prepared statement. This is"
+            },
+            {
+              "line": 1500,
+              "text": "\t * mainly to keep the protocol simple --- otherwise we'd need to worry"
+            },
+            {
+              "line": 1501,
+              "text": "\t * about multiple result tupdescs and things like that."
+            },
+            {
+              "line": 1502,
+              "text": "\t */"
+            },
+            {
+              "line": 1503,
+              "text": "\tif (list_length(parsetree_list) > 1)"
+            },
+            {
+              "line": 1504,
+              "text": "\t\tereport(ERROR,"
+            },
+            {
+              "line": 1505,
+              "text": "\t\t\t\t(errcode(ERRCODE_SYNTAX_ERROR),"
+            },
+            {
+              "line": 1506,
+              "text": "\t\t\t\t errmsg(\"cannot insert multiple commands into a prepared statement\")));"
+            },
+            {
+              "line": 1507,
+              "text": ""
+            },
+            {
+              "line": 1508,
+              "text": "\tif (parsetree_list != NIL)"
+            },
+            {
+              "line": 1509,
+              "text": "\t{"
+            },
+            {
+              "line": 1510,
+              "text": "\t\tbool\t\tsnapshot_set = false;"
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 1535,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 13,
+      "startedAt": "2026-11-16T07:04:54.387Z",
+      "endedAt": "2026-11-16T07:04:55.114Z",
+      "durationMs": 727
+    },
+    {
+      "type": "tool",
+      "name": "searchText",
+      "parameters": {
+        "query": "RAW_PARSE_DEFAULT"
+      },
+      "result": {
+        "result": [
+          {
+            "file": "doc/src/sgml/spi.sgml",
+            "line": 1341,
+            "text": "      mode for raw parsing; <literal>RAW_PARSE_DEFAULT</literal> (zero)"
+          },
+          {
+            "file": "src/backend/commands/tablecmds.c",
+            "line": 16996,
+            "text": "\traw_parsetree_list = raw_parser(cmdstring, RAW_PARSE_DEFAULT);"
+          },
+          {
+            "file": "src/backend/executor/spi.c",
+            "line": 614,
+            "text": "\tplan.parse_mode = RAW_PARSE_DEFAULT;"
+          },
+          {
+            "file": "src/backend/executor/spi.c",
+            "line": 655,
+            "text": "\tplan.parse_mode = RAW_PARSE_DEFAULT;"
+          },
+          {
+            "file": "src/backend/executor/spi.c",
+            "line": 837,
+            "text": "\tplan.parse_mode = RAW_PARSE_DEFAULT;"
+          },
+          {
+            "file": "src/backend/executor/spi.c",
+            "line": 887,
+            "text": "\tplan.parse_mode = RAW_PARSE_DEFAULT;"
+          },
+          {
+            "file": "src/backend/executor/spi.c",
+            "line": 961,
+            "text": "\tplan.parse_mode = RAW_PARSE_DEFAULT;"
+          },
+          {
+            "file": "src/backend/executor/spi.c",
+            "line": 1512,
+            "text": "\tplan.parse_mode = RAW_PARSE_DEFAULT;"
+          },
+          {
+            "file": "src/backend/executor/spi.c",
+            "line": 1567,
+            "text": "\tplan.parse_mode = RAW_PARSE_DEFAULT;"
+          },
+          {
+            "file": "src/backend/parser/parser.c",
+            "line": 53,
+            "text": "\tif (mode == RAW_PARSE_DEFAULT)"
+          },
+          {
+            "file": "src/backend/parser/parser.c",
+            "line": 59,
+            "text": "\t\t\t[RAW_PARSE_DEFAULT] = 0,"
+          },
+          {
+            "file": "src/backend/tcop/postgres.c",
+            "line": 626,
+            "text": "\traw_parsetree_list = raw_parser(query_string, RAW_PARSE_DEFAULT);"
+          },
+          {
+            "file": "src/include/parser/parser.h",
+            "line": 24,
+            "text": " * RAW_PARSE_DEFAULT: parse a semicolon-separated list of SQL commands,"
+          },
+          {
+            "file": "src/include/parser/parser.h",
+            "line": 39,
+            "text": "\tRAW_PARSE_DEFAULT = 0,"
+          },
+          {
+            "file": "src/pl/plpgsql/src/pl_gram.y",
+            "line": 918,
+            "text": "\t\t\t\t\t\t\t\t\t\t\t\t\t   RAW_PARSE_DEFAULT,"
+          },
+          {
+            "file": "src/pl/plpgsql/src/pl_gram.y",
+            "line": 1498,
+            "text": "\t\t\t\t\t\t\t\t\t\t\t\t\t   RAW_PARSE_DEFAULT,"
+          },
+          {
+            "file": "src/pl/plpgsql/src/pl_gram.y",
+            "line": 2742,
+            "text": "\t\t\t\t\t\t\t  RAW_PARSE_DEFAULT,"
+          },
+          {
+            "file": "src/pl/plpgsql/src/pl_gram.y",
+            "line": 3182,
+            "text": "\texpr = make_plpgsql_expr(ds.data, RAW_PARSE_DEFAULT);"
+          }
+        ],
+        "returned": 18,
+        "observed": 18,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 1889,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 15,
+      "startedAt": "2026-11-16T07:04:56.082Z",
+      "endedAt": "2026-11-16T07:04:57.733Z",
+      "durationMs": 1651
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/include/parser/parser.h",
+        "startLine": 20,
+        "endLine": 65
+      },
+      "result": {
+        "result": {
+          "file": "src/include/parser/parser.h",
+          "start": 20,
+          "lines": [
+            {
+              "line": 20,
+              "text": ""
+            },
+            {
+              "line": 21,
+              "text": "/*"
+            },
+            {
+              "line": 22,
+              "text": " * RawParseMode determines the form of the string that raw_parser() accepts:"
+            },
+            {
+              "line": 23,
+              "text": " *"
+            },
+            {
+              "line": 24,
+              "text": " * RAW_PARSE_DEFAULT: parse a semicolon-separated list of SQL commands,"
+            },
+            {
+              "line": 25,
+              "text": " * and return a List of RawStmt nodes."
+            },
+            {
+              "line": 26,
+              "text": " *"
+            },
+            {
+              "line": 27,
+              "text": " * RAW_PARSE_TYPE_NAME: parse a type name, and return a one-element List"
+            },
+            {
+              "line": 28,
+              "text": " * containing a TypeName node."
+            },
+            {
+              "line": 29,
+              "text": " *"
+            },
+            {
+              "line": 30,
+              "text": " * RAW_PARSE_PLPGSQL_EXPR: parse a PL/pgSQL expression, and return"
+            },
+            {
+              "line": 31,
+              "text": " * a one-element List containing a RawStmt node."
+            },
+            {
+              "line": 32,
+              "text": " *"
+            },
+            {
+              "line": 33,
+              "text": " * RAW_PARSE_PLPGSQL_ASSIGNn: parse a PL/pgSQL assignment statement,"
+            },
+            {
+              "line": 34,
+              "text": " * and return a one-element List containing a RawStmt node.  \"n\""
+            },
+            {
+              "line": 35,
+              "text": " * gives the number of dotted names comprising the target ColumnRef."
+            },
+            {
+              "line": 36,
+              "text": " */"
+            },
+            {
+              "line": 37,
+              "text": "typedef enum"
+            },
+            {
+              "line": 38,
+              "text": "{"
+            },
+            {
+              "line": 39,
+              "text": "\tRAW_PARSE_DEFAULT = 0,"
+            },
+            {
+              "line": 40,
+              "text": "\tRAW_PARSE_TYPE_NAME,"
+            },
+            {
+              "line": 41,
+              "text": "\tRAW_PARSE_PLPGSQL_EXPR,"
+            },
+            {
+              "line": 42,
+              "text": "\tRAW_PARSE_PLPGSQL_ASSIGN1,"
+            },
+            {
+              "line": 43,
+              "text": "\tRAW_PARSE_PLPGSQL_ASSIGN2,"
+            },
+            {
+              "line": 44,
+              "text": "\tRAW_PARSE_PLPGSQL_ASSIGN3,"
+            },
+            {
+              "line": 45,
+              "text": "} RawParseMode;"
+            },
+            {
+              "line": 46,
+              "text": ""
+            },
+            {
+              "line": 47,
+              "text": "/* Values for the backslash_quote GUC */"
+            },
+            {
+              "line": 48,
+              "text": "typedef enum"
+            },
+            {
+              "line": 49,
+              "text": "{"
+            },
+            {
+              "line": 50,
+              "text": "\tBACKSLASH_QUOTE_OFF,"
+            },
+            {
+              "line": 51,
+              "text": "\tBACKSLASH_QUOTE_ON,"
+            },
+            {
+              "line": 52,
+              "text": "\tBACKSLASH_QUOTE_SAFE_ENCODING,"
+            },
+            {
+              "line": 53,
+              "text": "}\t\t\tBackslashQuoteType;"
+            },
+            {
+              "line": 54,
+              "text": ""
+            },
+            {
+              "line": 55,
+              "text": "/* GUC variable in scan.l */"
+            },
+            {
+              "line": 56,
+              "text": "extern PGDLLIMPORT int backslash_quote;"
+            },
+            {
+              "line": 57,
+              "text": ""
+            },
+            {
+              "line": 58,
+              "text": ""
+            },
+            {
+              "line": 59,
+              "text": "/* Primary entry point for the raw parsing functions */"
+            },
+            {
+              "line": 60,
+              "text": "extern List *raw_parser(const char *str, RawParseMode mode);"
+            },
+            {
+              "line": 61,
+              "text": ""
+            },
+            {
+              "line": 62,
+              "text": "/* Utility functions exported by gram.y (perhaps these should be elsewhere) */"
+            },
+            {
+              "line": 63,
+              "text": "extern List *SystemFuncName(char *name);"
+            },
+            {
+              "line": 64,
+              "text": "extern TypeName *SystemTypeName(char *name);"
+            },
+            {
+              "line": 65,
+              "text": ""
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 2368,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 17,
+      "startedAt": "2026-11-16T07:04:58.599Z",
+      "endedAt": "2026-11-16T07:04:59.345Z",
+      "durationMs": 746
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/tcop/postgres.c",
+        "startLine": 615,
+        "endLine": 665
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/tcop/postgres.c",
+          "start": 615,
+          "lines": [
+            {
+              "line": 615,
+              "text": " */"
+            },
+            {
+              "line": 616,
+              "text": "List *"
+            },
+            {
+              "line": 617,
+              "text": "pg_parse_query(const char *query_string)"
+            },
+            {
+              "line": 618,
+              "text": "{"
+            },
+            {
+              "line": 619,
+              "text": "\tList\t   *raw_parsetree_list;"
+            },
+            {
+              "line": 620,
+              "text": ""
+            },
+            {
+              "line": 621,
+              "text": "\tTRACE_POSTGRESQL_QUERY_PARSE_START(query_string);"
+            },
+            {
+              "line": 622,
+              "text": ""
+            },
+            {
+              "line": 623,
+              "text": "\tif (log_parser_stats)"
+            },
+            {
+              "line": 624,
+              "text": "\t\tResetUsage();"
+            },
+            {
+              "line": 625,
+              "text": ""
+            },
+            {
+              "line": 626,
+              "text": "\traw_parsetree_list = raw_parser(query_string, RAW_PARSE_DEFAULT);"
+            },
+            {
+              "line": 627,
+              "text": ""
+            },
+            {
+              "line": 628,
+              "text": "\tif (log_parser_stats)"
+            },
+            {
+              "line": 629,
+              "text": "\t\tShowUsage(\"PARSER STATISTICS\");"
+            },
+            {
+              "line": 630,
+              "text": ""
+            },
+            {
+              "line": 631,
+              "text": "#ifdef DEBUG_NODE_TESTS_ENABLED"
+            },
+            {
+              "line": 632,
+              "text": ""
+            },
+            {
+              "line": 633,
+              "text": "\t/* Optional debugging check: pass raw parsetrees through copyObject() */"
+            },
+            {
+              "line": 634,
+              "text": "\tif (Debug_copy_parse_plan_trees)"
+            },
+            {
+              "line": 635,
+              "text": "\t{"
+            },
+            {
+              "line": 636,
+              "text": "\t\tList\t   *new_list = copyObject(raw_parsetree_list);"
+            },
+            {
+              "line": 637,
+              "text": ""
+            },
+            {
+              "line": 638,
+              "text": "\t\t/* This checks both copyObject() and the equal() routines... */"
+            },
+            {
+              "line": 639,
+              "text": "\t\tif (!equal(new_list, raw_parsetree_list))"
+            },
+            {
+              "line": 640,
+              "text": "\t\t\telog(WARNING, \"copyObject() failed to produce an equal raw parse tree\");"
+            },
+            {
+              "line": 641,
+              "text": "\t\telse"
+            },
+            {
+              "line": 642,
+              "text": "\t\t\traw_parsetree_list = new_list;"
+            },
+            {
+              "line": 643,
+              "text": "\t}"
+            },
+            {
+              "line": 644,
+              "text": ""
+            },
+            {
+              "line": 645,
+              "text": "\t/*"
+            },
+            {
+              "line": 646,
+              "text": "\t * Optional debugging check: pass raw parsetrees through"
+            },
+            {
+              "line": 647,
+              "text": "\t * outfuncs/readfuncs"
+            },
+            {
+              "line": 648,
+              "text": "\t */"
+            },
+            {
+              "line": 649,
+              "text": "\tif (Debug_write_read_parse_plan_trees)"
+            },
+            {
+              "line": 650,
+              "text": "\t{"
+            },
+            {
+              "line": 651,
+              "text": "\t\tchar\t   *str = nodeToStringWithLocations(raw_parsetree_list);"
+            },
+            {
+              "line": 652,
+              "text": "\t\tList\t   *new_list = stringToNodeWithLocations(str);"
+            },
+            {
+              "line": 653,
+              "text": ""
+            },
+            {
+              "line": 654,
+              "text": "\t\tpfree(str);"
+            },
+            {
+              "line": 655,
+              "text": "\t\t/* This checks both outfuncs/readfuncs and the equal() routines... */"
+            },
+            {
+              "line": 656,
+              "text": "\t\tif (!equal(new_list, raw_parsetree_list))"
+            },
+            {
+              "line": 657,
+              "text": "\t\t\telog(WARNING, \"outfuncs/readfuncs failed to produce an equal raw parse tree\");"
+            },
+            {
+              "line": 658,
+              "text": "\t\telse"
+            },
+            {
+              "line": 659,
+              "text": "\t\t\traw_parsetree_list = new_list;"
+            },
+            {
+              "line": 660,
+              "text": "\t}"
+            },
+            {
+              "line": 661,
+              "text": ""
+            },
+            {
+              "line": 662,
+              "text": "#endif\t\t\t\t\t\t\t/* DEBUG_NODE_TESTS_ENABLED */"
+            },
+            {
+              "line": 663,
+              "text": ""
+            },
+            {
+              "line": 664,
+              "text": "\tTRACE_POSTGRESQL_QUERY_PARSE_DONE(query_string);"
+            },
+            {
+              "line": 665,
+              "text": ""
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 2590,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 19,
+      "startedAt": "2026-11-16T07:05:00.776Z",
+      "endedAt": "2026-11-16T07:05:01.499Z",
+      "durationMs": 723
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/tcop/postgres.c",
+        "startLine": 665,
+        "endLine": 675
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/tcop/postgres.c",
+          "start": 665,
+          "lines": [
+            {
+              "line": 665,
+              "text": ""
+            },
+            {
+              "line": 666,
+              "text": "\tif (Debug_print_raw_parse)"
+            },
+            {
+              "line": 667,
+              "text": "\t\telog_node_display(LOG, \"raw parse tree\", raw_parsetree_list,"
+            },
+            {
+              "line": 668,
+              "text": "\t\t\t\t\t\t  Debug_pretty_print);"
+            },
+            {
+              "line": 669,
+              "text": ""
+            },
+            {
+              "line": 670,
+              "text": "\treturn raw_parsetree_list;"
+            },
+            {
+              "line": 671,
+              "text": "}"
+            },
+            {
+              "line": 672,
+              "text": ""
+            },
+            {
+              "line": 673,
+              "text": "/*"
+            },
+            {
+              "line": 674,
+              "text": " * Given a raw parsetree (gram.y output), and optionally information about"
+            },
+            {
+              "line": 675,
+              "text": " * types of parameter symbols ($n), perform parse analysis and rule rewriting."
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 624,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 21,
+      "startedAt": "2026-11-16T07:05:02.495Z",
+      "endedAt": "2026-11-16T07:05:03.220Z",
+      "durationMs": 725
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/tcop/postgres.c",
+        "startLine": 673,
+        "endLine": 700
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/tcop/postgres.c",
+          "start": 673,
+          "lines": [
+            {
+              "line": 673,
+              "text": "/*"
+            },
+            {
+              "line": 674,
+              "text": " * Given a raw parsetree (gram.y output), and optionally information about"
+            },
+            {
+              "line": 675,
+              "text": " * types of parameter symbols ($n), perform parse analysis and rule rewriting."
+            },
+            {
+              "line": 676,
+              "text": " *"
+            },
+            {
+              "line": 677,
+              "text": " * A list of Query nodes is returned, since either the analyzer or the"
+            },
+            {
+              "line": 678,
+              "text": " * rewriter might expand one query to several."
+            },
+            {
+              "line": 679,
+              "text": " *"
+            },
+            {
+              "line": 680,
+              "text": " * NOTE: for reasons mentioned above, this must be separate from raw parsing."
+            },
+            {
+              "line": 681,
+              "text": " */"
+            },
+            {
+              "line": 682,
+              "text": "List *"
+            },
+            {
+              "line": 683,
+              "text": "pg_analyze_and_rewrite_fixedparams(RawStmt *parsetree,"
+            },
+            {
+              "line": 684,
+              "text": "\t\t\t\t\t\t\t\t   const char *query_string,"
+            },
+            {
+              "line": 685,
+              "text": "\t\t\t\t\t\t\t\t   const Oid *paramTypes,"
+            },
+            {
+              "line": 686,
+              "text": "\t\t\t\t\t\t\t\t   int numParams,"
+            },
+            {
+              "line": 687,
+              "text": "\t\t\t\t\t\t\t\t   QueryEnvironment *queryEnv)"
+            },
+            {
+              "line": 688,
+              "text": "{"
+            },
+            {
+              "line": 689,
+              "text": "\tQuery\t   *query;"
+            },
+            {
+              "line": 690,
+              "text": "\tList\t   *querytree_list;"
+            },
+            {
+              "line": 691,
+              "text": ""
+            },
+            {
+              "line": 692,
+              "text": "\tTRACE_POSTGRESQL_QUERY_REWRITE_START(query_string);"
+            },
+            {
+              "line": 693,
+              "text": ""
+            },
+            {
+              "line": 694,
+              "text": "\t/*"
+            },
+            {
+              "line": 695,
+              "text": "\t * (1) Perform parse analysis."
+            },
+            {
+              "line": 696,
+              "text": "\t */"
+            },
+            {
+              "line": 697,
+              "text": "\tif (log_parser_stats)"
+            },
+            {
+              "line": 698,
+              "text": "\t\tResetUsage();"
+            },
+            {
+              "line": 699,
+              "text": ""
+            },
+            {
+              "line": 700,
+              "text": "\tquery = parse_analyze_fixedparams(parsetree, query_string, paramTypes, numParams,"
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 1546,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 23,
+      "startedAt": "2026-11-16T07:05:04.073Z",
+      "endedAt": "2026-11-16T07:05:04.797Z",
+      "durationMs": 724
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/parser/gram.y",
+        "startLine": 1,
+        "endLine": 50
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/parser/gram.y",
+          "start": 1,
+          "lines": [
+            {
+              "line": 1,
+              "text": "%{"
+            },
+            {
+              "line": 2,
+              "text": ""
+            },
+            {
+              "line": 3,
+              "text": "/*#define YYDEBUG 1*/"
+            },
+            {
+              "line": 4,
+              "text": "/*-------------------------------------------------------------------------"
+            },
+            {
+              "line": 5,
+              "text": " *"
+            },
+            {
+              "line": 6,
+              "text": " * gram.y"
+            },
+            {
+              "line": 7,
+              "text": " *\t  POSTGRESQL BISON rules/actions"
+            },
+            {
+              "line": 8,
+              "text": " *"
+            },
+            {
+              "line": 9,
+              "text": " * Portions Copyright (c) 1996-2026, PostgreSQL Global Development Group"
+            },
+            {
+              "line": 10,
+              "text": " * Portions Copyright (c) 1994, Regents of the University of California"
+            },
+            {
+              "line": 11,
+              "text": " *"
+            },
+            {
+              "line": 12,
+              "text": " *"
+            },
+            {
+              "line": 13,
+              "text": " * IDENTIFICATION"
+            },
+            {
+              "line": 14,
+              "text": " *\t  src/backend/parser/gram.y"
+            },
+            {
+              "line": 15,
+              "text": " *"
+            },
+            {
+              "line": 16,
+              "text": " * HISTORY"
+            },
+            {
+              "line": 17,
+              "text": " *\t  AUTHOR\t\t\tDATE\t\t\tMAJOR EVENT"
+            },
+            {
+              "line": 18,
+              "text": " *\t  Andrew Yu\t\t\tSept, 1994\t\tPOSTQUEL to SQL conversion"
+            },
+            {
+              "line": 19,
+              "text": " *\t  Andrew Yu\t\t\tOct, 1994\t\tlispy code conversion"
+            },
+            {
+              "line": 20,
+              "text": " *"
+            },
+            {
+              "line": 21,
+              "text": " * NOTES"
+            },
+            {
+              "line": 22,
+              "text": " *\t  CAPITALS are used to represent terminal symbols."
+            },
+            {
+              "line": 23,
+              "text": " *\t  non-capitals are used to represent non-terminals."
+            },
+            {
+              "line": 24,
+              "text": " *"
+            },
+            {
+              "line": 25,
+              "text": " *\t  In general, nothing in this file should initiate database accesses"
+            },
+            {
+              "line": 26,
+              "text": " *\t  nor depend on changeable state (such as SET variables).  If you do"
+            },
+            {
+              "line": 27,
+              "text": " *\t  database accesses, your code will fail when we have aborted the"
+            },
+            {
+              "line": 28,
+              "text": " *\t  current transaction and are just parsing commands to find the next"
+            },
+            {
+              "line": 29,
+              "text": " *\t  ROLLBACK or COMMIT.  If you make use of SET variables, then you"
+            },
+            {
+              "line": 30,
+              "text": " *\t  will do the wrong thing in multi-query strings like this:"
+            },
+            {
+              "line": 31,
+              "text": " *\t\t\tSET constraint_exclusion TO off; SELECT * FROM foo;"
+            },
+            {
+              "line": 32,
+              "text": " *\t  because the entire string is parsed by gram.y before the SET gets"
+            },
+            {
+              "line": 33,
+              "text": " *\t  executed.  Anything that depends on the database or changeable state"
+            },
+            {
+              "line": 34,
+              "text": " *\t  should be handled during parse analysis so that it happens at the"
+            },
+            {
+              "line": 35,
+              "text": " *\t  right time not the wrong time."
+            },
+            {
+              "line": 36,
+              "text": " *"
+            },
+            {
+              "line": 37,
+              "text": " * WARNINGS"
+            },
+            {
+              "line": 38,
+              "text": " *\t  If you use a list, make sure the datum is a node so that the printing"
+            },
+            {
+              "line": 39,
+              "text": " *\t  routines work."
+            },
+            {
+              "line": 40,
+              "text": " *"
+            },
+            {
+              "line": 41,
+              "text": " *\t  Sometimes we assign constants to makeStrings. Make sure we don't free"
+            },
+            {
+              "line": 42,
+              "text": " *\t  those."
+            },
+            {
+              "line": 43,
+              "text": " *"
+            },
+            {
+              "line": 44,
+              "text": " *-------------------------------------------------------------------------"
+            },
+            {
+              "line": 45,
+              "text": " */"
+            },
+            {
+              "line": 46,
+              "text": "#include \"postgres.h\""
+            },
+            {
+              "line": 47,
+              "text": ""
+            },
+            {
+              "line": 48,
+              "text": "#include <ctype.h>"
+            },
+            {
+              "line": 49,
+              "text": "#include <limits.h>"
+            },
+            {
+              "line": 50,
+              "text": ""
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 2842,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 25,
+      "startedAt": "2026-11-16T07:05:05.599Z",
+      "endedAt": "2026-11-16T07:05:06.326Z",
+      "durationMs": 727
+    },
+    {
+      "type": "tool",
+      "name": "searchText",
+      "parameters": {
+        "query": "parse_analyze_fixedparams"
+      },
+      "result": {
+        "result": [
+          {
+            "file": "src/backend/commands/view.c",
+            "line": 375,
+            "text": "\tviewParse = parse_analyze_fixedparams(rawstmt, queryString, NULL, 0, NULL);"
+          },
+          {
+            "file": "src/backend/parser/analyze.c",
+            "line": 109,
+            "text": " * parse_analyze_fixedparams"
+          },
+          {
+            "file": "src/backend/parser/analyze.c",
+            "line": 120,
+            "text": "parse_analyze_fixedparams(RawStmt *parseTree, const char *sourceText,"
+          },
+          {
+            "file": "src/backend/tcop/postgres.c",
+            "line": 700,
+            "text": "\tquery = parse_analyze_fixedparams(parsetree, query_string, paramTypes, numParams,"
+          },
+          {
+            "file": "src/include/parser/analyze.h",
+            "line": 28,
+            "text": "extern Query *parse_analyze_fixedparams(RawStmt *parseTree, const char *sourceText,"
+          }
+        ],
+        "returned": 5,
+        "observed": 5,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 643,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 27,
+      "startedAt": "2026-11-16T07:05:07.942Z",
+      "endedAt": "2026-11-16T07:05:09.514Z",
+      "durationMs": 1572
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/parser/analyze.c",
+        "startLine": 105,
+        "endLine": 140
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/parser/analyze.c",
+          "start": 105,
+          "lines": [
+            {
+              "line": 105,
+              "text": "#endif"
+            },
+            {
+              "line": 106,
+              "text": ""
+            },
+            {
+              "line": 107,
+              "text": ""
+            },
+            {
+              "line": 108,
+              "text": "/*"
+            },
+            {
+              "line": 109,
+              "text": " * parse_analyze_fixedparams"
+            },
+            {
+              "line": 110,
+              "text": " *\t\tAnalyze a raw parse tree and transform it to Query form."
+            },
+            {
+              "line": 111,
+              "text": " *"
+            },
+            {
+              "line": 112,
+              "text": " * Optionally, information about $n parameter types can be supplied."
+            },
+            {
+              "line": 113,
+              "text": " * References to $n indexes not defined by paramTypes[] are disallowed."
+            },
+            {
+              "line": 114,
+              "text": " *"
+            },
+            {
+              "line": 115,
+              "text": " * The result is a Query node.  Optimizable statements require considerable"
+            },
+            {
+              "line": 116,
+              "text": " * transformation, while utility-type statements are simply hung off"
+            },
+            {
+              "line": 117,
+              "text": " * a dummy CMD_UTILITY Query node."
+            },
+            {
+              "line": 118,
+              "text": " */"
+            },
+            {
+              "line": 119,
+              "text": "Query *"
+            },
+            {
+              "line": 120,
+              "text": "parse_analyze_fixedparams(RawStmt *parseTree, const char *sourceText,"
+            },
+            {
+              "line": 121,
+              "text": "\t\t\t\t\t\t  const Oid *paramTypes, int numParams,"
+            },
+            {
+              "line": 122,
+              "text": "\t\t\t\t\t\t  QueryEnvironment *queryEnv)"
+            },
+            {
+              "line": 123,
+              "text": "{"
+            },
+            {
+              "line": 124,
+              "text": "\tParseState *pstate = make_parsestate(NULL);"
+            },
+            {
+              "line": 125,
+              "text": "\tQuery\t   *query;"
+            },
+            {
+              "line": 126,
+              "text": "\tJumbleState *jstate = NULL;"
+            },
+            {
+              "line": 127,
+              "text": ""
+            },
+            {
+              "line": 128,
+              "text": "\tAssert(sourceText != NULL); /* required as of 8.4 */"
+            },
+            {
+              "line": 129,
+              "text": ""
+            },
+            {
+              "line": 130,
+              "text": "\tpstate->p_sourcetext = sourceText;"
+            },
+            {
+              "line": 131,
+              "text": ""
+            },
+            {
+              "line": 132,
+              "text": "\tif (numParams > 0)"
+            },
+            {
+              "line": 133,
+              "text": "\t\tsetup_parse_fixed_parameters(pstate, paramTypes, numParams);"
+            },
+            {
+              "line": 134,
+              "text": ""
+            },
+            {
+              "line": 135,
+              "text": "\tpstate->p_queryEnv = queryEnv;"
+            },
+            {
+              "line": 136,
+              "text": ""
+            },
+            {
+              "line": 137,
+              "text": "\tquery = transformTopLevelStmt(pstate, parseTree);"
+            },
+            {
+              "line": 138,
+              "text": ""
+            },
+            {
+              "line": 139,
+              "text": "\tif (IsQueryIdEnabled())"
+            },
+            {
+              "line": 140,
+              "text": "\t\tjstate = JumbleQuery(query);"
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 1886,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 29,
+      "startedAt": "2026-11-16T07:05:10.515Z",
+      "endedAt": "2026-11-16T07:05:11.246Z",
+      "durationMs": 731
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/tcop/postgres.c",
+        "startLine": 1,
+        "endLine": 50
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/tcop/postgres.c",
+          "start": 1,
+          "lines": [
+            {
+              "line": 1,
+              "text": "/*-------------------------------------------------------------------------"
+            },
+            {
+              "line": 2,
+              "text": " *"
+            },
+            {
+              "line": 3,
+              "text": " * postgres.c"
+            },
+            {
+              "line": 4,
+              "text": " *\t  POSTGRES C Backend Interface"
+            },
+            {
+              "line": 5,
+              "text": " *"
+            },
+            {
+              "line": 6,
+              "text": " * Portions Copyright (c) 1996-2026, PostgreSQL Global Development Group"
+            },
+            {
+              "line": 7,
+              "text": " * Portions Copyright (c) 1994, Regents of the University of California"
+            },
+            {
+              "line": 8,
+              "text": " *"
+            },
+            {
+              "line": 9,
+              "text": " *"
+            },
+            {
+              "line": 10,
+              "text": " * IDENTIFICATION"
+            },
+            {
+              "line": 11,
+              "text": " *\t  src/backend/tcop/postgres.c"
+            },
+            {
+              "line": 12,
+              "text": " *"
+            },
+            {
+              "line": 13,
+              "text": " * NOTES"
+            },
+            {
+              "line": 14,
+              "text": " *\t  this is the \"main\" module of the postgres backend and"
+            },
+            {
+              "line": 15,
+              "text": " *\t  hence the main module of the \"traffic cop\"."
+            },
+            {
+              "line": 16,
+              "text": " *"
+            },
+            {
+              "line": 17,
+              "text": " *-------------------------------------------------------------------------"
+            },
+            {
+              "line": 18,
+              "text": " */"
+            },
+            {
+              "line": 19,
+              "text": ""
+            },
+            {
+              "line": 20,
+              "text": "#include \"postgres.h\""
+            },
+            {
+              "line": 21,
+              "text": ""
+            },
+            {
+              "line": 22,
+              "text": "#include <fcntl.h>"
+            },
+            {
+              "line": 23,
+              "text": "#include <limits.h>"
+            },
+            {
+              "line": 24,
+              "text": "#include <signal.h>"
+            },
+            {
+              "line": 25,
+              "text": "#include <unistd.h>"
+            },
+            {
+              "line": 26,
+              "text": "#include <sys/resource.h>"
+            },
+            {
+              "line": 27,
+              "text": "#include <sys/socket.h>"
+            },
+            {
+              "line": 28,
+              "text": "#include <sys/time.h>"
+            },
+            {
+              "line": 29,
+              "text": ""
+            },
+            {
+              "line": 30,
+              "text": "#ifdef USE_VALGRIND"
+            },
+            {
+              "line": 31,
+              "text": "#include <valgrind/valgrind.h>"
+            },
+            {
+              "line": 32,
+              "text": "#endif"
+            },
+            {
+              "line": 33,
+              "text": ""
+            },
+            {
+              "line": 34,
+              "text": "#include \"access/parallel.h\""
+            },
+            {
+              "line": 35,
+              "text": "#include \"access/printtup.h\""
+            },
+            {
+              "line": 36,
+              "text": "#include \"access/xact.h\""
+            },
+            {
+              "line": 37,
+              "text": "#include \"catalog/pg_type.h\""
+            },
+            {
+              "line": 38,
+              "text": "#include \"commands/async.h\""
+            },
+            {
+              "line": 39,
+              "text": "#include \"commands/event_trigger.h\""
+            },
+            {
+              "line": 40,
+              "text": "#include \"commands/explain_state.h\""
+            },
+            {
+              "line": 41,
+              "text": "#include \"commands/prepare.h\""
+            },
+            {
+              "line": 42,
+              "text": "#include \"commands/repack.h\""
+            },
+            {
+              "line": 43,
+              "text": "#include \"common/pg_prng.h\""
+            },
+            {
+              "line": 44,
+              "text": "#include \"jit/jit.h\""
+            },
+            {
+              "line": 45,
+              "text": "#include \"libpq/libpq.h\""
+            },
+            {
+              "line": 46,
+              "text": "#include \"libpq/pqformat.h\""
+            },
+            {
+              "line": 47,
+              "text": "#include \"libpq/pqsignal.h\""
+            },
+            {
+              "line": 48,
+              "text": "#include \"mb/pg_wchar.h\""
+            },
+            {
+              "line": 49,
+              "text": "#include \"mb/stringinfo_mb.h\""
+            },
+            {
+              "line": 50,
+              "text": "#include \"miscadmin.h\""
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 2392,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 31,
+      "startedAt": "2026-11-16T07:05:12.193Z",
+      "endedAt": "2026-11-16T07:05:13.019Z",
+      "durationMs": 826
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "parameters": {
+        "file": "src/backend/tcop/postgres.c",
+        "startLine": 600,
+        "endLine": 620
+      },
+      "result": {
+        "result": {
+          "file": "src/backend/tcop/postgres.c",
+          "start": 600,
+          "lines": [
+            {
+              "line": 600,
+              "text": "\terrno = save_errno;"
+            },
+            {
+              "line": 601,
+              "text": "}"
+            },
+            {
+              "line": 602,
+              "text": ""
+            },
+            {
+              "line": 603,
+              "text": "/*"
+            },
+            {
+              "line": 604,
+              "text": " * Do raw parsing (only)."
+            },
+            {
+              "line": 605,
+              "text": " *"
+            },
+            {
+              "line": 606,
+              "text": " * A list of parsetrees (RawStmt nodes) is returned, since there might be"
+            },
+            {
+              "line": 607,
+              "text": " * multiple commands in the given string."
+            },
+            {
+              "line": 608,
+              "text": " *"
+            },
+            {
+              "line": 609,
+              "text": " * NOTE: for interactive queries, it is important to keep this routine"
+            },
+            {
+              "line": 610,
+              "text": " * separate from the analysis & rewrite stages.  Analysis and rewriting"
+            },
+            {
+              "line": 611,
+              "text": " * cannot be done in an aborted transaction, since they require access to"
+            },
+            {
+              "line": 612,
+              "text": " * database tables.  So, we rely on the raw parser to determine whether"
+            },
+            {
+              "line": 613,
+              "text": " * we've seen a COMMIT or ABORT command; when we are in abort state, other"
+            },
+            {
+              "line": 614,
+              "text": " * commands are not processed any further than the raw parse stage."
+            },
+            {
+              "line": 615,
+              "text": " */"
+            },
+            {
+              "line": 616,
+              "text": "List *"
+            },
+            {
+              "line": 617,
+              "text": "pg_parse_query(const char *query_string)"
+            },
+            {
+              "line": 618,
+              "text": "{"
+            },
+            {
+              "line": 619,
+              "text": "\tList\t   *raw_parsetree_list;"
+            },
+            {
+              "line": 620,
+              "text": ""
+            }
+          ]
+        },
+        "returned": 1,
+        "observed": null,
+        "truncated": false,
+        "bounds": {
+          "maxItems": 50,
+          "maxBytes": 8000
+        },
+        "bytes": 1217,
+        "revision": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+        "provenance": "primitive-derived",
+        "uncertainty": [
+          "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+        ]
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 33,
+      "startedAt": "2026-11-16T07:05:16.379Z",
+      "endedAt": "2026-11-16T07:05:17.109Z",
+      "durationMs": 730
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "at": "2026-11-16T07:11:18.612359+00:00",
+  "reason": "Vibe Q1 per-call journal accounts for 111462 tokens, provider session exports report 447650. Incomplete per-call coverage was incorrectly accepted. Batch stopped before completing ten runs; in-flight Q2 usage may be incomplete. Original traces preserved. No comparison verdict permitted."
+}

@@ -64,12 +64,13 @@ test('explore executes function_try source with typed params and canonical primi
 test('explore preserves measured calls when final evidence validation fails', async t => {
   const root = await mkdtemp(join(tmpdir(), 't02-failure-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  await assert.rejects(explore({ root, objective: emptyResult.objective, model: { async complete() {
+  await assert.rejects(explore({ root, objective: emptyResult.objective, budget: { iterations: 2 }, model: { async complete() {
     return { result: { ...emptyResult, entryPoints: [{ name: 'missing', evidence: [{ file: 'missing.ts', startLine: 1, endLine: 1 }] }] }, usage: { inputTokens: 31, outputTokens: 7 } };
   } } }), (error: any) => {
     assert.equal(error.exploration.status, 'failed');
-    assert.equal(error.exploration.metrics.inputTokens, 31);
-    assert.equal(error.exploration.metrics.outputTokens, 7);
+    assert.equal(error.exploration.metrics.inputTokens, 62);
+    assert.equal(error.exploration.metrics.outputTokens, 14);
+    assert.equal(error.exploration.callTrace.length, 2);
     assert.equal(error.exploration.callTrace[0].inputTokens, 31);
     return true;
   });

@@ -1,0 +1,25 @@
+{
+  "outcome": "infrastructure_failure",
+  "stop_reason": null,
+  "error": {
+    "message": "spawn app-server: failed to spawn `/private/tmp/spec174-vibe-retain-journals-20261116/vibe-app-server`: No such file or directory (os error 2)",
+    "code": null
+  },
+  "session_id": null,
+  "usage": null,
+  "cost_usd": null,
+  "steps": null,
+  "config": null,
+  "schema_version": 1,
+  "vibe_version": "3.1.2",
+  "journal_dir": null,
+  "started_at": "2026-11-16T07:12:42.442083Z",
+  "ended_at": "2026-11-16T07:12:42.442986Z",
+  "limits": {
+    "max_turns": 40,
+    "max_price": null,
+    "max_tokens": 600000,
+    "time_limit_s": 600
+  },
+  "exit_code": 2
+}

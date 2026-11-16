@@ -214,7 +214,7 @@ test('C3: need covered by primitive - uses primitive directly without creating f
     
     const result = await explore({ 
       root, 
-      objective: 'List files', 
+      objective: 'Find main',
       codeMode: false, // Not in code mode, so primitives are used directly
       model: {
         async complete(messages) {
@@ -223,18 +223,18 @@ test('C3: need covered by primitive - uses primitive directly without creating f
           assert.match(messages[0].content, /utilise d'abord les primitives permanentes/);
           
           if (step === 0) {
-            // Use list primitive directly
+            // Use search primitive directly
             primitiveUsed = true;
             step++;
-            return { toolCalls: [{ id: 'list', name: 'list', arguments: {} }] };
+            return { toolCalls: [{ id: 'search', name: 'search', arguments: { query: 'main' } }] };
           }
-          // Parse the list result
+          // Parse the search result
           const files = JSON.parse(messages.at(-1).content);
-          assert.ok(Array.isArray(files));
+          assert.ok(Array.isArray(files) && files.length > 0);
           return { 
             result: { 
-              objective: 'List files', 
-              entryPoints: [], 
+              objective: 'Find main',
+              entryPoints: [{ name: 'main', evidence: [{ file: 'app.ts', startLine: 1, endLine: 1 }] }],
               components: [], 
               relations: [], 
               uncertainties: [] 
@@ -445,7 +445,8 @@ test('C5: error or missing proof - explicit correction or uncertainty, no false 
       } 
     });
     
-    assert.equal(result.status, 'complete');
+    assert.equal(result.status, 'partial');
+    assert.equal(result.stopReason, 'evidence_missing');
     assert.ok(result.uncertainties.length > 0, 'Should have explicit uncertainties');
     assert.match(result.uncertainties[0], /non-existent|missing|not found/i, 'Uncertainty should explain missing proof');
     assert.equal(result.entryPoints.length, 0, 'Should not claim false entry points');

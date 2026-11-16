@@ -1,0 +1,91 @@
+{
+  "run_id": "5877eee7-42c2-4c20-a6b8-b0acd5d004bb",
+  "timestamp": "2026-11-16T06:02:45.729Z",
+  "agent": "codetour",
+  "agent_version": "f4433993fc7b406d66a7c631c2112c6ea92b4a6d",
+  "model": "mistral-small-latest",
+  "model_params": {
+    "temperature": 0,
+    "max_tokens": 600000
+  },
+  "question_id": "R-Q1-R1",
+  "series": "R",
+  "phase": "repetition",
+  "repeat_index": 1,
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "calls": [
+    {
+      "call_id": "call-8bf3a909-9640-4173-a419-894eef440f12-0",
+      "call_type": "prompt",
+      "input_tokens": 1763,
+      "output_tokens": 86,
+      "cache_included_in_input": true,
+      "duration_ms": 1015,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 0,
+        "started_at": "2026-11-16T06:02:50.110Z",
+        "ended_at": "2026-11-16T06:02:51.125Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    }
+  ],
+  "functions_created": [],
+  "functions_reused": [],
+  "total_tokens": {
+    "input": 1763,
+    "output": 86,
+    "total": 1849,
+    "verified": true,
+    "cached_input": 0,
+    "cache_creation_input": 0
+  },
+  "result": {
+    "tour_title": "Tour: Explain what pg_parse_query does and why raw parsing is separated from analysis and rewriting. Trace its parsing delegation and cite the source.",
+    "steps": [],
+    "raw_response": "{\"objective\":\"Explain what pg_parse_query does and why raw parsing is separated from analysis and rewriting. Trace its parsing delegation and cite the source.\",\"entryPoints\":[],\"components\":[],\"relations\":[],\"uncertainties\":[\"No repository files or symbols have been inspected yet; the explanation cannot be grounded without evidence.\"],\"status\":\"complete\",\"stopReason\":null,\"promptSha256\":\"96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c\",\"modelConfig\":{\"model\":\"mistral-small-latest\",\"temperature\":0,\"maxOutputTokens\":4096},\"metrics\":{\"inputTokens\":1763,\"outputTokens\":86,\"usageAvailable\":true,\"modelCalls\":1,\"toolCalls\":0,\"durationMs\":1054,\"outputBytes\":0,\"cost\":null,\"memoryReuses\":0,\"memoryPurges\":0,\"memoryQueryRejects\":0,\"memoryResultsCompacted\":0,\"memoryResultsRepeated\":0},\"callTrace\":[{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":1763,\"outputTokens\":86,\"usageMissing\":false,\"seq\":0,\"startedAt\":\"2026-11-16T06:02:50.110Z\",\"endedAt\":\"2026-11-16T06:02:51.125Z\",\"durationMs\":1015}],\"consolidationReport\":{\"accepted\":[],\"rejected\":[],\"duplicates\":[],\"indeterminate\":[]}}",
+    "citations": []
+  },
+  "error": null,
+  "status": "success",
+  "fixture_verification": {
+    "head_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "clean_tree": true,
+    "verified_at": "2026-11-16T06:02:45.729Z"
+  },
+  "manifest_hash": "f82864b9d7f2ad2061dad85f163989114c19bdf7d57c0516bfd2e67b81c85c1d",
+  "config_hash": "26de704cc4ae99db6df1a7c2f90f000f1d29911211bb870f0b31f1ef2aa93095",
+  "execution_config": {
+    "fixture_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "codetour": {
+      "model": "mistral-small-latest",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "vibe": {
+      "model": "mistral-medium-3.5",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "timeout_ms": 600000,
+    "retry_policy": {
+      "maxRetries": 0,
+      "retryDelay": 0
+    }
+  },
+  "prompt_hash": "ba99662e3dbe707d6c0a3cc5a8aee2fb6735039d247b3f226120821476b63cc1",
+  "question_hash": "494980b7c78ade93b76ad6a761e42c21d4578658a34f3c92cf3820896f519b2d",
+  "fixture_hash": "1ae64b1c130a9bc03de0835845d5e8cf42f3e0726eb646d8ac62eb72870f0dfa",
+  "system_prompt_hash": "96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c",
+  "tools": []
+}

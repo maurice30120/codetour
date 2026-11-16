@@ -1,4 +1,7 @@
 import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { loadEnvFile } from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { explore } from './explore.ts';
 import { mistral } from './mistral.ts';
 import { PROMPT_SHA256 } from './decomposition-prompt.ts';
@@ -6,6 +9,8 @@ import type { Budget, Model } from './explore.ts';
 
 let model: Model | undefined;
 try {
+const localEnv = fileURLToPath(new URL('../../../.env.local', import.meta.url));
+if (existsSync(localEnv)) loadEnvFile(localEnv);
 const args = process.argv.slice(2);
 let codeMode = false;
 let memory: { directory: string } | undefined;

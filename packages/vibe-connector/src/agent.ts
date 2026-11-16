@@ -658,20 +658,13 @@ export function validateG2(execution: VibeExecution): boolean {
     }, { inputTokens: 0, outputTokens: 0, totalTokens: 0, cachedInputTokens: 0 });
     if (expected.totalTokens !== expected.inputTokens + expected.outputTokens ||
       expected.cachedInputTokens > expected.inputTokens) return false;
-    // Full coverage (recorded completions == provider-reported steps, or the
-    // root with its every observed call) requires an exact reconcile — positive
-    // export totals above the journal sums are the fabrication signature and
-    // are rejected. A genuine shortfall (journal rotation dropped the flush of
-    // later completions; observed as empty rotated files beside a populated
-    // export) is tolerated ONLY as covered subset; the uncovered remainder is
-    // reported per session and is never redistributed onto calls.
+    // Provider session totals do not replace missing per-call telemetry.
+    // Preserve any journal-rotation shortfall as evidence, but fail G2 rather
+    // than treating the recorded subset as the complete measured usage.
     const role = isRoot ? 'root' as const : 'child' as const;
     const covered = sums.input <= expected.inputTokens && sums.output <= expected.outputTokens && sums.total <= expected.totalTokens;
     if (!covered) return false;
-    const reportedSteps = typeof session.steps === 'number' ? session.steps : null;
-    const atFullCoverage = calls.length === reportedSteps || (reportedSteps === null && isRoot && sums.input === expected.inputTokens && sums.output === expected.outputTokens);
     const shortfall = sums.input !== expected.inputTokens || sums.output !== expected.outputTokens || sums.total !== expected.totalTokens;
-    if (shortfall && atFullCoverage) return false;
     if (shortfall) {
       uncovered.push({ session_id: session.session_id, role, input: expected.inputTokens - sums.input, output: expected.outputTokens - sums.output, total: expected.totalTokens - sums.total });
     }
@@ -680,5 +673,5 @@ export function validateG2(execution: VibeExecution): boolean {
     totals.total += expected.totalTokens;
   }
   if (uncovered.length) execution.sessionsUnreconciled = uncovered;
-  return execution.tokens.input === totals.input && execution.tokens.output === totals.output && execution.tokens.total === totals.total;
+  return uncovered.length === 0 && execution.tokens.input === totals.input && execution.tokens.output === totals.output && execution.tokens.total === totals.total;
 }

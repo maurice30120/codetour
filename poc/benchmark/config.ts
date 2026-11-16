@@ -1,8 +1,12 @@
 import path from 'node:path';
+import { existsSync } from 'node:fs';
+import { loadEnvFile } from 'node:process';
 import { findRepoRoot } from './runner/src/agents/codetour';
 import type { RunnerConfig } from './runner/src/index';
 
 export const BENCHMARK_ROOT = path.join(findRepoRoot(__dirname) ?? path.resolve(__dirname, '../..'), 'poc', 'benchmark');
+const localEnv = path.resolve(BENCHMARK_ROOT, '../../.env.local');
+if (existsSync(localEnv)) loadEnvFile(localEnv);
 export const MANIFEST_LOCK_PATH = path.join(BENCHMARK_ROOT, 'manifest-lock.json');
 export const CAMPAIGN_CONFIG: RunnerConfig = {
   questionsFile: path.join(BENCHMARK_ROOT, 'postgres-questions.json'),
@@ -16,7 +20,7 @@ export const CAMPAIGN_CONFIG: RunnerConfig = {
   // target. The native root session context alone needs tens of thousands of
   // input tokens per call; the 16384 draft value interrupted every run at
   // token_limit before the delegation could complete (observed 2026-11-15).
-  codetour: { model: process.env.MISTRAL_MODEL ?? 'mistral-small-latest', maxTokens: 600000, temperature: 0 },
+  codetour: { model: process.env.MISTRAL_MODEL ?? 'mistral-medium-3.5', maxTokens: 600000, temperature: 0 },
   vibe: { model: process.env.VIBE_MODEL ?? 'mistral-medium-3.5', maxTokens: 600000, temperature: 0 },
   retryPolicy: { maxRetries: 0, retryDelay: 0 },
   runPilot: false,

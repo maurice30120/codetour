@@ -1,0 +1,24 @@
+{
+  "command": "/tmp/spec174-vibe-retain-journals-20261116/vibe",
+  "args": [
+    "-p",
+    "Use the native agents.spawn tool with these exact arguments: {\"name\":\"native-research\",\"config_name\":\"research\",\"message\":\"Explain how the pg_config utility handles a request for command-line help; cite the source.\"}. Wait for the child's result and return it verbatim as your answer. Delegate the research to that configured child; do not answer the question yourself.",
+    "--output",
+    "json",
+    "--max-turns",
+    "40",
+    "--max-tokens",
+    "600000",
+    "--time-limit",
+    "600",
+    "--output-dir",
+    "/tmp/spec174-vibe-retain-journals-20261116/sentinel-evidence",
+    "--auto-approve",
+    "--trust",
+    "--model",
+    "mistral-medium-3.5"
+  ],
+  "workDir": "/Users/damien/Documents/codetour/poc/benchmark/postgres",
+  "question": "Explain how the pg_config utility handles a request for command-line help; cite the source.",
+  "executionId": "05ecb766-ceb4-4630-a064-81983da1a1c5"
+}

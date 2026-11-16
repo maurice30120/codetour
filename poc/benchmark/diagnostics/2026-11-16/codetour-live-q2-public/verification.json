@@ -1,0 +1,77 @@
+{
+  "kind": "diagnostic outside measured campaign; manual source review, not blind evaluation",
+  "fixture_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "source_tree_clean": true,
+  "model": {
+    "model": "mistral-small-latest",
+    "temperature": 0,
+    "maxOutputTokens": 4096
+  },
+  "status": "complete",
+  "metrics": {
+    "inputTokens": 71181,
+    "outputTokens": 850,
+    "usageAvailable": true,
+    "modelCalls": 14,
+    "toolCalls": 13,
+    "durationMs": 26061,
+    "outputBytes": 21005,
+    "cost": null,
+    "memoryReuses": 0,
+    "memoryPurges": 0,
+    "memoryQueryRejects": 0,
+    "memoryResultsCompacted": 0,
+    "memoryResultsRepeated": 0
+  },
+  "total_tokens": 72031,
+  "provider_usage_sums_verified": true,
+  "citations_checked": [
+    {
+      "file": "src/backend/tcop/postgres.c",
+      "startLine": 816,
+      "endLine": 816
+    },
+    {
+      "file": "src/include/tcop/tcopprot.h",
+      "startLine": 50,
+      "endLine": 50
+    },
+    {
+      "file": "src/include/nodes/nodes.h",
+      "startLine": 264,
+      "endLine": 280
+    },
+    {
+      "file": "src/backend/tcop/postgres.c",
+      "startLine": 827,
+      "endLine": 832
+    },
+    {
+      "file": "src/backend/rewrite/rewriteHandler.c",
+      "startLine": 4674,
+      "endLine": 4690
+    },
+    {
+      "file": "src/include/rewrite/rewriteHandler.h",
+      "startLine": 20,
+      "endLine": 20
+    },
+    {
+      "file": "src/backend/tcop/postgres.c",
+      "startLine": 827,
+      "endLine": 832
+    },
+    {
+      "file": "src/backend/tcop/postgres.c",
+      "startLine": 835,
+      "endLine": 835
+    }
+  ],
+  "central_relations_verified": [
+    "postgres.c:827-830 CMD_UTILITY -> list_make1(query), no rewriting",
+    "postgres.c:832-835 ordinary query -> QueryRewrite(query)",
+    "rewriteHandler.c:4674-4683 QueryRewrite is the query rewriter entry point"
+  ],
+  "result_sha256": "761dcf2a2851251fbb85a4fdda2fce6bd6584bd9380c2118e537e35992046d6a",
+  "memory_benefit_demonstrated": false
+}

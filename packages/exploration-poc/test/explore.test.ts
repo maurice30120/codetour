@@ -115,3 +115,93 @@ test('final evidence is checked against current file contents rather than the re
     } } }), /outside a file/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+
+test('an empty ungrounded answer cannot complete exploration', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'exploration-'));
+  try {
+    const result = await explore({ root, objective: 'Explain start', model: { async complete() {
+      return { result: { objective: 'Explain start', entryPoints: [], components: [], relations: [], uncertainties: ['No evidence yet.'] }, usage: { inputTokens: 10, outputTokens: 5 } };
+    } } });
+    assert.equal(result.status, 'partial');
+    assert.equal(result.stopReason, 'evidence_missing');
+    assert.equal(result.metrics.modelCalls, 2);
+    assert.equal(result.metrics.inputTokens, 20);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('an initial empty answer gets one chance to explore within the same budget', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'exploration-'));
+  try {
+    await writeFile(join(root, 'main.ts'), 'const start = 1;');
+    let calls = 0;
+    const result = await explore({ root, objective: 'Find start', model: { async complete(messages) {
+      calls++;
+      if (calls === 1) return { result: { objective: 'Find start', entryPoints: [], components: [], relations: [], uncertainties: ['No evidence yet.'] } };
+      if (calls === 2) {
+        assert.match(messages.at(-1).content, /tools/);
+        return { toolCalls: [{ id: 'read', name: 'read', arguments: { file: 'main.ts' } }] };
+      }
+      return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+    } } });
+    assert.equal(result.status, 'complete');
+    assert.equal(result.metrics.toolCalls, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('the graph respects iteration budgets above its default recursion limit', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'exploration-'));
+  try {
+    const result = await explore({ root, objective: 'Find start', budget: { iterations: 30, calls: 100 }, model: { async complete() {
+      return { toolCalls: [{ id: 'list', name: 'list', arguments: {} }] };
+    } } });
+    assert.equal(result.stopReason, 'iterations');
+    assert.equal(result.metrics.modelCalls, 30);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('failed exploration preserves effective model identity and provider usage', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'exploration-failure-provenance-'));
+  const modelConfig = { model: 'offline-model', temperature: 0, maxOutputTokens: 100 };
+  try {
+    await assert.rejects(explore({ root, objective: 'Malformed provider result', model: {
+      snapshot: () => modelConfig,
+      async complete() { return { result: { malformed: true }, usage: { inputTokens: 10, outputTokens: 2 } }; },
+    } }), error => {
+      const failure = (error as Error & { exploration: any }).exploration;
+      assert.deepEqual(failure.modelConfig, modelConfig);
+      assert.equal(failure.metrics.inputTokens, 10);
+      assert.equal(failure.status, 'failed');
+      return true;
+    });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('citation corrections continue inside the original budget with all tokens counted', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'exploration-citation-recovery-'));
+  try {
+    await writeFile(join(root, 'main.ts'), 'const start = 1;\n');
+    let calls = 0;
+    const result = await explore({ root, objective: 'Find start', budget: { iterations: 3 }, model: { async complete(messages) {
+      calls++;
+      if (calls > 1) assert.match(messages.at(-1).content, /main\.ts/);
+      return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: calls < 3 ? 5 : 1, endLine: calls < 3 ? 5 : 1 }] }], components: [], relations: [], uncertainties: [] }, usage: { inputTokens: 10, outputTokens: 2 } };
+    } } });
+    assert.equal(result.status, 'complete');
+    assert.equal(result.metrics.modelCalls, 3);
+    assert.equal(result.metrics.inputTokens + result.metrics.outputTokens, 36);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('direct read tools show an explicit source line number beside every line', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'exploration-numbered-read-'));
+  try {
+    await writeFile(join(root, 'main.ts'), 'first\nsecond\nthird\n');
+    await explore({ root, objective: 'Find second', codeMode: true, model: { async complete(messages) {
+      if (messages.length === 2) return { toolCalls: [{ id: 'read', name: 'readLines', arguments: { file: 'main.ts', startLine: 2, endLine: 3 } }] };
+      const output = JSON.parse(messages.at(-1).content);
+      assert.deepEqual(output.result.lines, [{ line: 2, text: 'second' }, { line: 3, text: 'third' }]);
+      return { result: { objective: 'Find second', entryPoints: [{ name: 'second', evidence: [{ file: 'main.ts', startLine: 2, endLine: 2 }] }], components: [], relations: [], uncertainties: [] } };
+    } } });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

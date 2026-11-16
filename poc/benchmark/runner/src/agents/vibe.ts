@@ -146,20 +146,9 @@ export class VibeExecutor implements AgentExecutor {
 
     // Real gates, evaluated on real telemetry (the connector's own checks).
     const g1 = connector.validateG1(execution);
-    const g2 = connector.validateG2(execution);
-    const gateFailures: string[] = [];
-    if (!g1) gateFailures.push('G1 (Authentic Vibe) failed');
-    if (!g2) gateFailures.push('G2 (Total instrumentation) failed');
 
-    // Agent-side envelope truncation is a NATIVE-AGENT outcome, not a
-    // protocol violation: the session genuinely ran and was interrupted by
-    // the pre-registered token envelope (outcome token_limit / stop
-    // 'interrupted'). Spec section 6: such runs are recorded and counted in
-    // the denominator — never retried, never replaced, never erased. Only
-    // synchronisation/telemetry failures NOT explained by the truncation
-    // remain protocol NO-GOs. The interrupted tail call carries no provider
-    // counters (nothing exists to measure; spec section 5 forbids inferring
-    // them), so its usage_missing record is the honest measurement state.
+    // A token limit is an agent failure that remains recorded. It does not
+    // waive G2: unavailable provider counters still forbid aggregate gains.
     const envelopeTruncated = execution.outcome === 'token_limit';
 
     // Per-call telemetry from the REAL session journal. Each recorded LLM call
@@ -176,6 +165,21 @@ export class VibeExecutor implements AgentExecutor {
       } else {
         tracker.completeCall(callId, { input_tokens: call.inputTokens, output_tokens: call.outputTokens, cached_input_tokens: call.cachedInputTokens, cache_included_in_input: true }, { session_id: execution.id });
       }
+    }
+
+    const measured = tracker.calculateTotalTokens();
+    const g2 = connector.validateG2(execution) && measured.verified &&
+      measured.input === execution.tokens.input && measured.output === execution.tokens.output && measured.total === execution.tokens.total;
+    const gateFailures: string[] = [];
+    if (!g1) gateFailures.push('G1 (Authentic Vibe) failed');
+    if (!g2) gateFailures.push('G2 (Total instrumentation and session reconciliation) failed');
+
+    // The connector may omit the interrupted tail from perCallUsage. Preserve
+    // its explicit G2 failure so a sum of the available calls cannot appear complete.
+    // This is an unknown-usage marker, never an estimated token count.
+    if (!g2 && !tracker.hasMissingUsage()) {
+      const gapId = tracker.startCall('prompt', 'vibe_native_usage_gap', { session_id: execution.id, outcome: execution.outcome });
+      tracker.completeCallWithMissingUsage(gapId, { note: 'Connector G2 failed: provider usage is incomplete, including any interrupted tail.' });
     }
 
     // Observed tool names from the real execution are recorded in the result
@@ -200,7 +204,7 @@ export class VibeExecutor implements AgentExecutor {
       session_id: execution.id,
       observed_model_config: execution.agent.modelConfig,
       tools: execution.toolsUsed,
-      no_go: gateFailures.length && !envelopeTruncated ? gateFailures.join('; ') : undefined,
+      no_go: !g2 || (gateFailures.length > 0 && !envelopeTruncated) ? gateFailures.join('; ') : undefined,
       status: succeeded ? 'success' : 'error',
       error: succeeded
         ? null

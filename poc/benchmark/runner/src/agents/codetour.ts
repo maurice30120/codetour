@@ -27,7 +27,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { TokenTracker } from '../execution/tracker';
 import { AgentExecutor, AgentExecution, Question } from '../execution/manager';
-import { SeriesType } from '../storage/logger';
+import { SeriesType, FunctionCreated } from '../storage/logger';
 import { randomUUID } from 'crypto';
 import { sha256 } from '../storage/provenance';
 
@@ -59,7 +59,8 @@ export interface HarnessExploreResult {
   components?: Array<{ name: string; evidence: Array<{ file: string; startLine: number; endLine: number }> }>;
   relations?: Array<{ from: string; to: string; evidence: Array<{ file: string; startLine: number; endLine: number }> }>;
   uncertainties?: string[];
-  status?: 'complete' | 'partial';
+  status?: 'complete' | 'partial' | 'failed';
+  error?: string;
   stopReason?: string | null;
   promptSha256?: string;
   metrics?: Record<string, unknown>;
@@ -195,6 +196,8 @@ export class CodeTourExecutor implements AgentExecutor {
     }
     const modelEnv = this.config.model ? this.config.model : undefined;
 
+    const catalogueFile = path.join(this.memoryPath!, `${sha256(fs.realpathSync(this.fixtureRootOf()))}.json`);
+    const catalogueBefore: MemoryEntry[] = fs.existsSync(catalogueFile) ? JSON.parse(fs.readFileSync(catalogueFile, 'utf8')) : [];
     const output = await this.runHarness(cliPath, question, modelEnv);
     const harness = parseHarnessOutput(output.stdout);
 
@@ -247,8 +250,7 @@ export class CodeTourExecutor implements AgentExecutor {
         raw_response: JSON.stringify(harness),
         citations,
       },
-      functions_created: [],
-      functions_reused: extractReusedFunctionIds(harness),
+      ...extractMemoryActivity(harness, catalogueBefore, fs.existsSync(catalogueFile) ? JSON.parse(fs.readFileSync(catalogueFile, 'utf8')) : []),
       agent_version: harnessRevision(),
       model_used: harness.modelUsed ?? modelEnv,
       system_prompt_hash: harness.promptSha256,
@@ -257,7 +259,7 @@ export class CodeTourExecutor implements AgentExecutor {
       // error with its stop reason (counted in the denominator, never erased),
       // while its trace data remains available for analysis.
       status: harness.status === 'complete' ? 'success' : 'error',
-      error: harness.status === 'complete' ? null : `Partial exploration (stopReason: ${harness.stopReason ?? 'unknown'})`,
+      error: harness.status === 'complete' ? null : harness.error ? `Exploration failed: ${harness.error}` : `Partial exploration (stopReason: ${harness.stopReason ?? 'unknown'})`,
     };
   }
 
@@ -275,8 +277,9 @@ export class CodeTourExecutor implements AgentExecutor {
       // executed protocol diverge from the manifest (observed partial
       // 'iterations' stop).
       const args = [
-        '--code', '--memory', this.memoryPath!, fixtureRoot, question.objective,
+        '--code', '--memory', this.memoryPath!,
         '--iterations', String(384), '--calls', String(4096),
+        fixtureRoot, question.objective,
       ];
       const child = spawn(process.execPath, [cliPath, ...args], {
         cwd: path.dirname(cliPath), timeout: this.config.timeoutMs,
@@ -336,12 +339,21 @@ export function parseHarnessOutput(stdout: string): HarnessExploreResult {
   }
 }
 
-/** Extract memory function ids the harness reports as reused, when present in its metrics/report. */
-function extractReusedFunctionIds(harness: HarnessExploreResult): string[] {
-  const report = harness.consolidationReport as { reused?: string[]; reuses?: string[] } | null | undefined;
-  if (report && Array.isArray(report.reused)) return report.reused.map(String);
-  if (report && Array.isArray(report.reuses)) return report.reuses.map(String);
-  return [];
+interface MemoryEntry { id: string; code: string; paramsSchema?: Array<{ name: string; type: string }> }
+
+/** Observed persistence and successful replay, independent of semantic Tour correctness. */
+export function extractMemoryActivity(harness: HarnessExploreResult, before: MemoryEntry[], after: MemoryEntry[]): { functions_created: FunctionCreated[]; functions_reused: string[] } {
+  const previousIds = new Set(before.map(entry => entry.id));
+  const report = harness.consolidationReport as { accepted?: string[] } | undefined;
+  const accepted = new Set(report?.accepted ?? []);
+  return {
+    functions_created: after.filter(entry => !previousIds.has(entry.id) && accepted.has(entry.id)).map(entry => ({
+      function_id: entry.id, source: entry.code,
+      parameters_schema: { parameters: entry.paramsSchema ?? [] },
+      created_at: harness.callTrace?.at(-1)?.endedAt ?? new Date().toISOString(), reuse_count: 0,
+    })),
+    functions_reused: [...new Set((harness.callTrace ?? []).filter(call => call.type === 'memory_run' && !call.error && previousIds.has(call.name)).map(call => call.name))],
+  };
 }
 
 /** Real repository revision of the harness (git HEAD of the main repo). */
