@@ -218,6 +218,28 @@ test('a full Tour: the proposal is replayed with the same code and params, all c
   assert.equal(second.metrics.memoryReuses, 1, 'memory_run replayed the procedure added by the earlier Tour');
 });
 
+test('a selected candidate whose trial output is not cited in the final Tour still persists when the replay re-validates it', async t => {
+  // Run-1 regression (#194): the model answered the final Tour from evidence
+  // other than the trial output; the retained-evidence overlap must not gate
+  // persistence — the deterministic replay already re-checks every citation.
+  const base = await mkdtemp(join(tmpdir(), 'd194-uncited-'));
+  const root = await fixtureRepo(base);
+  await writeFile(join(root, 'notes.md'), 'unrelated notes\n');
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const memory = { directory: join(base, 'memory') };
+  let step = 0;
+  const first = await explore({ root, objective: 'Explain start', codeMode: true, memory, model: { async complete(messages) {
+    if (step++ === 0) return { toolCalls: [{ id: 'trial', name: 'function_try', arguments: { source: SEARCH_SOURCE, params: { query: 'start' }, name: 'traceRepoEntryPoints', question: 'Where is an entry point declared?', description: DESCRIPTION } }] };
+    // The final Tour cites only a different file: the trial output (main.ts)
+    // contributes nothing to the retained evidence.
+    if (step === 2) return { result: { ...emptyResult, components: [{ name: 'other', evidence: [{ file: 'notes.md', startLine: 1, endLine: 1 }] }] } };
+    return { result: { selected: ['traceRepoEntryPoints'] } };
+  } } });
+  const report = first.consolidationReport as ConsolidationReport;
+  assert.deepEqual(report.accepted, ['traceRepoEntryPoints'], 'replay + citation re-validation decide persistence, not final-Tour overlap');
+  assert.equal((await scriptMemory(root, memory.directory)).catalog().length, 1);
+});
+
 test('a candidate the model does not select is logged as such and never persists', async t => {
   const base = await mkdtemp(join(tmpdir(), 'd04-not-proposed-'));
   const root = await fixtureRepo(base);

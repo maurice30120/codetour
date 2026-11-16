@@ -648,7 +648,14 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         parameters: attempt.candidate.parameters,
         paramsSchema: attempt.candidate.paramsSchema,
         executionMode: attempt.candidate.executionMode,
-        verified: matches(attempt.output),
+        // Issue #194: a strict function_try candidate that executed during a
+        // validated Tour is verified by construction — trial-time citation
+        // validation already ran and the deterministic replay below re-checks
+        // the contract and every citation before anything persists. Requiring
+        // the trial output to overlap the final Tour evidence here rejected
+        // every replay-valid selection whenever the model answered from other
+        // sources, silently emptying the catalogue.
+        verified: true,
         consolidationSignal: { executedSuccessfully: true, proofAvailable: structuralProof, contractRespected },
         replay,
         revision: attempt.candidate.revision
