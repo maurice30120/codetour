@@ -31,7 +31,7 @@ const State = Annotation.Root({ messages: Annotation<any[]>({ reducer: (a, b) =>
 export interface CallTraceItem {
   seq: number;
   runId: string;
-  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'plan_revised' | 'decomposition_decision' | 'run_end';
+  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'plan_revised' | 'decomposition_decision' | 'reuse_reminder' | 'run_end';
   name: string;
   /** Provider tool-call id (observed calls), absent on model/plan entries. */
   callId?: string;
@@ -99,11 +99,23 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   // Spec #183 trace vocabulary: declared plan questions already linked to an
   // observed call — one decomposition_decision entry per question.
   const correlatedDecisions = new Set<string>();
+  // Ticket #191: reuse=true questions served by memory_run or function_try —
+  // the end-of-run reminder targets the complement of this set.
+  const servedByCreation = new Set<string>();
+  let reuseReminderEmitted = false;
   const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0 };
   const callTrace: CallTraceItem[] = [];
   let callSeq = 0;
   let requestedEvidenceRecovery = false;
   let requestedJsonRecovery = false;
+  // Ticket #190: on the 2026-11-16 run the model called memory_list six times
+  // with returned=0 and revised its plan seven times without ever reaching
+  // function_try — it treats an empty catalogue as a dead end instead of a
+  // creation trigger. After two empty memory_list results in the same run, the
+  // tool result itself carries a visible note inviting function_try for
+  // durably reusable questions (once per run, traced, no extra LLM call).
+  let emptyMemoryListCount = 0;
+  let emptyMemoryListNoteEmitted = false;
   const recordCall = (base: Omit<CallTraceItem, 'seq' | 'startedAt' | 'endedAt' | 'durationMs' | 'startedAt'>, startedAt: Date, endedAt: Date): void => {
     callTrace.push({ ...base, runId, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() });
   };
@@ -229,6 +241,31 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           { role: 'user', content: `Source citation validation failed: ${String(error)}. Inspect the source with repository tools and correct the references. Do not invent line numbers. The original run budget still applies.` },
         ] };
       }
+      // Ticket #191: before accepting the final answer, every reuse=true
+      // question of the current plan that neither memory_run nor function_try
+      // served (and that the result does not explicitly justify by id in its
+      // uncertainties) earns ONE visible reminder — same philosophy as the
+      // citation and JSON recoveries: once per run, inside the original
+      // budget, never a hidden retry loop. A second shortfall is recorded as
+      // an anomaly, never re-reminded.
+      const unservedReuse = [...(planVersions.at(-1)?.questions ?? [])].filter(question =>
+        question.reuse === true
+        && !servedByCreation.has(question.id)
+        && !result.uncertainties.some(uncertainty => uncertainty.includes(question.id))
+      );
+      if (unservedReuse.length > 0) {
+        const ids = unservedReuse.map(question => question.id).join(', ');
+        if (!reuseReminderEmitted && !reason()) {
+          reuseReminderEmitted = true;
+          const now = new Date();
+          recordCall({ type: 'reuse_reminder', name: 'reuse_reminder', inputTokens: null, outputTokens: null, usageMissing: false, result: { unservedQuestionIds: unservedReuse.map(question => question.id) } }, now, now);
+          return { messages: [
+            { role: 'assistant', content: JSON.stringify(result) },
+            { role: 'user', content: `Reminder: plan question(s) marked reuse=true were never served by memory_run or function_try: ${ids}. Either propose the missing durable capability now with function_try(source, params), or justify in the uncertainties of your final result why no creation applies (mention the question id). The original run budget still applies; this reminder is sent once.` },
+          ] };
+        }
+        if (reuseReminderEmitted) planAnomalies.add(`reuse=true questions still unserved after the end-of-run reminder: ${ids}`);
+      }
       return { result, stopReason: Date.now() - startedMs >= limits.durationMs ? 'duration' : metrics.inputTokens + metrics.outputTokens > limits.tokens ? 'tokens' : undefined };
     }
     if (!response.toolCalls?.length) throw new Error('Model returned neither tools nor result');
@@ -290,7 +327,16 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           output = await tools.read(call.arguments.file, start, Number(call.arguments.endLine ?? start + 99));
         }
         else if (call.name === 'git') output = await tools.git(limits.durationMs - (Date.now() - startedMs));
-        else if (library && call.name === 'memory_list') output = library.memory_list(typeof call.arguments.query === 'string' ? call.arguments.query : undefined);
+        else if (library && call.name === 'memory_list') {
+          const listed = library.memory_list(typeof call.arguments.query === 'string' ? call.arguments.query : undefined);
+          if (Array.isArray(listed) && listed.length === 0) emptyMemoryListCount++;
+          if (Array.isArray(listed) && listed.length === 0 && emptyMemoryListCount >= 2 && !emptyMemoryListNoteEmitted) {
+            emptyMemoryListNoteEmitted = true;
+            output = { results: [], note: 'The catalogue is empty again. Revising the plan in a loop will not fill it: if the question you are serving is durably reusable and no permanent primitive covers it, build the missing capability once with function_try(source, params) instead of revising the plan again; otherwise state why not in the final result.' };
+          } else {
+            output = listed;
+          }
+        }
         else if (library && call.name === 'memory_unusable' && typeof call.arguments.id === 'string') {
           const id = call.arguments.id;
           // Issue #187: a proposed candidate may also be abandoned by name —
@@ -311,6 +357,10 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), remaining);
           scriptCall = { type: stored ? 'memory_run' : 'function_try', name: stored ? stored.id : 'function_try' };
+          // Ticket #191: any memory_run/function_try call — accepted or failed —
+          // counts as having served its declared question; the trace carries the
+          // outcome, the reminder only targets questions never attempted.
+          if (questionId !== undefined) servedByCreation.add(questionId);
           const runStarted = new Date();
           try {
             let raw: unknown;

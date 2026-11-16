@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { explore } from '../src/explore.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from '../src/decomposition-prompt.ts';
 import { PROMPT_VERSION as REEXPORTED_PROMPT_VERSION } from '../src/explore.ts';
+import { mistral } from '../src/mistral.ts';
 
 // §2.4 Criterion 1: Test with memory useful
 // The trace shows the catalogue consulted and memory_run called with valid
@@ -148,7 +149,13 @@ test('C2: with empty memory - creates targeted parameterized function via code/f
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
           assert.match(messages[0].content, /Before exploring the repository/);
-          assert.match(messages[0].content, /strongly prefer trying a missing reusable capability with function_try\(source, params\)/);
+          // Issue #189: the explicit if/then decision rule replaced the vague
+          // "strongly prefer" incentive the model ignored on the 2026-11-16 run.
+          assert.match(messages[0].content, /follow this decision rule exactly for every question marked reuse=true/);
+          assert.match(messages[0].content, /if memory_list\(query\) returns a matching capability/);
+          assert.match(messages[0].content, /try that missing reusable capability once with function_try\(source, params\)/);
+          assert.match(messages[0].content, /otherwise state why not in the final result/);
+          assert.match(messages[0].content, /There is no quota and no forced creation per question/);
           assert.match(messages[0].content, /never create a function when a permanent primitive suffices/);
           
           if (step === 0) {
@@ -224,7 +231,7 @@ test('C3: need covered by primitive - uses primitive directly without creating f
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
           assert.match(messages[0].content, /Before exploring the repository/);
-          assert.match(messages[0].content, /use the permanent primitives first/);
+          assert.match(messages[0].content, /no permanent primitive covers the question/);
           
           if (step === 0) {
             // Use search primitive directly
@@ -582,7 +589,9 @@ test('an instrumented Tour records the initial English plan before exploration, 
             return { plan, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }], usage: { inputTokens: 100, outputTokens: 40 } };
           }
           assert.match(messages.at(-1).content, /main\.ts/);
-          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] }, usage: { inputTokens: 80, outputTokens: 20 } };
+          // Ticket #191: q2 is reuse=true and never served — the stub justifies
+          // it by id in the uncertainties so the run closes without a reminder.
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: ['q2: no creation applies, a permanent primitive covers the question.'] }, usage: { inputTokens: 80, outputTokens: 20 } };
         }
       }
     });
@@ -733,8 +742,12 @@ test('declared question ids correlate observed tool calls and unknown ids are an
     const searchEntry = result.callTrace.find(call => call.name === 'search');
     assert.equal(searchEntry?.questionId, 'qX');
     // The unknown question id is an explicit anomaly, not a silent success.
-    assert.equal(result.plan.anomalies.length, 1);
+    // Ticket #191: q1 is reuse=true and only served by memory_list/searchText —
+    // the end-of-run reminder fired once, the stub answered again still unserved,
+    // so the second shortfall is consigned as a second visible anomaly.
+    assert.equal(result.plan.anomalies.length, 2);
     assert.match(result.plan.anomalies[0], /unknown question id 'qX'/);
+    assert.match(result.plan.anomalies[1], /reuse=true questions still unserved after the end-of-run reminder: q1/);
     assert.equal(result.status, 'complete');
   } finally {
     await rm(base, { recursive: true, force: true });
@@ -1008,5 +1021,44 @@ test('a tool call without question_id is a visible anomaly', async () => {
     assert.equal(result.status, 'complete');
   } finally {
     await rm(base, { recursive: true, force: true });
+  }
+});
+
+// Issue #189: the canonical prompt moves to version 3 — the vague "strongly
+// prefer" incentive is replaced by an explicit if/then decision rule with an
+// explicit escape hatch, and the function_try tool description carries the
+// same default-path rule. No quota and no forced creation per question.
+test('prompt v3: version, hash consistency, decision rule, escape hatch and no quota', async () => {
+  const { createHash } = await import('node:crypto');
+  assert.equal(PROMPT_VERSION, '3', 'the decision-rule prompt is protocol version 3');
+  assert.equal(PROMPT_SHA256, createHash('sha256').update(DECOMPOSITION_PROMPT, 'utf8').digest('hex'), 'PROMPT_SHA256 must hash the exact prompt string');
+  // Complete if/else rule with the explicit escape hatch, in English.
+  assert.match(DECOMPOSITION_PROMPT, /follow this decision rule exactly for every question marked reuse=true/);
+  assert.match(DECOMPOSITION_PROMPT, /if memory_list\(query\) returns a matching capability, run memory_run\(id, params\), verify its proofs and complete only what is missing/);
+  assert.match(DECOMPOSITION_PROMPT, /if the catalogue returns nothing and no permanent primitive covers the question, try that missing reusable capability once with function_try\(source, params\) after a short useful exploration/);
+  assert.match(DECOMPOSITION_PROMPT, /otherwise state why not in the final result/);
+  // Explicit no-quota / no-forced-creation clause.
+  assert.match(DECOMPOSITION_PROMPT, /There is no quota and no forced creation per question/);
+  assert.doesNotMatch(DECOMPOSITION_PROMPT, /strongly prefer/, 'the ignored incentive must be gone');
+});
+
+test('prompt v3: the function_try tool description carries the default-path decision rule', async () => {
+  const original = globalThis.fetch;
+  try {
+    let sentTools: unknown;
+    globalThis.fetch = async (_url, init) => {
+      sentTools = JSON.parse(String(init?.body)).tools;
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: '\n```json\n{"objective":"ok"}\n```' } }],
+        usage: { prompt_tokens: 10, completion_tokens: 5 }
+      }));
+    };
+    await mistral('fixture').complete([], { signal: new AbortController().signal, maxOutputTokens: 100, codeMode: true, memory: true });
+    const functionTry = sentTools.find(tool => tool?.function?.name === 'function_try');
+    assert.ok(functionTry, 'function_try must be exposed to the model');
+    assert.match(functionTry.function.description, /Default path when memory_list returns nothing and the question is durably reusable/);
+    assert.match(functionTry.function.description, /never a quota, never a forced creation/);
+  } finally {
+    globalThis.fetch = original;
   }
 });

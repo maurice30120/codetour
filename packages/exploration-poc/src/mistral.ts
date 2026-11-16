@@ -30,7 +30,7 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
     const namedByName = new Map(namedTools.map(tool => [tool.name, tool]));
     const namedMemory = options?.memory ? namedTools.map(tool => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: { type: 'object', properties: Object.fromEntries(tool.parameters.map(parameter => [parameter, { type: INTEGER_PARAMS.has(parameter) ? 'integer' : 'string' }])), required: tool.required ?? tool.parameters } } })) : [];
     const exclusive = !!(config.memorySearchExclusive && config.memorySearchId);
-    const functionTry = { type: 'function', function: { name: 'function_try', description: 'Strictly check TypeScript and execute in QuickJS using only the ten permanent primitives. A typed function expression receives params. Trials never mutate memory.', parameters: { type: 'object', properties: { source: { type: 'string' }, params: { type: 'object' }, remember: { type: 'boolean' }, name: { type: 'string' }, question: { type: 'string', description: 'Stable canonical repository question, independent of this Tour wording' }, description: { type: 'string' }, returns: { type: 'string' } }, required: ['source', 'params'] } } };
+    const functionTry = { type: 'function', function: { name: 'function_try', description: 'Strictly check TypeScript and execute in QuickJS using only the ten permanent primitives. A typed function expression receives params. Trials never mutate memory. Default path when memory_list returns nothing and the question is durably reusable; otherwise state why not in the final result — never a quota, never a forced creation.', parameters: { type: 'object', properties: { source: { type: 'string' }, params: { type: 'object' }, remember: { type: 'boolean' }, name: { type: 'string' }, question: { type: 'string', description: 'Stable canonical repository question, independent of this Tour wording' }, description: { type: 'string' }, returns: { type: 'string' } }, required: ['source', 'params'] } } };
     const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)), ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];
     const requestMaxTokens = options?.maxOutputTokens;
     lastRequest.model = model; lastRequest.temperature = config.temperature ?? 0; lastRequest.maxOutputTokens = requestMaxTokens;
@@ -59,7 +59,11 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
           ? { id: call.id, name: 'memory_run', arguments: { id: named.id, params: Object.fromEntries(named.parameters.filter(parameter => args[parameter] !== undefined).map(parameter => [parameter, args[parameter]])) } }
           : { id: call.id, name: call.function.name, arguments: args };
       }), usage };
-      const content = rawContent.replace(/```plan\s*[\s\S]*?```/g, '').replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
+      // Ticket #192: the closing-fence strip must tolerate benign whitespace
+      // before the fence (a residual newline left by plan-block removal, case
+      // #167) without weakening the typed FinalAnswerNotJson error: only a
+      // genuinely non-JSON payload may fail.
+      const content = rawContent.replace(/```plan\s*[\s\S]*?```/g, '').replace(/^\s*```(?:json)?\s*/, '').replace(/\s*```\s*$/, '').trim();
       let parsedResult: unknown;
       try { parsedResult = JSON.parse(content); } catch {
         // Ten-ticket diagnostic: a bare SyntaxError hides whether the model sent
