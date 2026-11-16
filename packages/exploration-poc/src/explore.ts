@@ -5,18 +5,21 @@ import { scriptMemory } from './memory.ts';
 import type { ConsolidationCandidate, ReplacementVerification } from './memory.ts';
 import { boundedOutput, looksLikeEvidence, sampleEvidenceRefs } from './memory-output.ts';
 import { citationAccess, citationRepairFeedback, validateCitations } from './citation-validator.ts';
-import { DECOMPOSITION_PROMPT, PROMPT_SHA256 } from './decomposition-prompt.ts';
+import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposition-prompt.ts';
 import { primitiveNames } from './tool-contract.ts';
 
 const evidence = z.object({ file: z.string().min(1), startLine: z.number().int().positive(), endLine: z.number().int().positive() });
 const item = z.object({ name: z.string(), evidence: z.array(evidence).min(1) });
 const resultSchema = z.object({ objective: z.string(), entryPoints: z.array(item), components: z.array(item), relations: z.array(z.object({ from: z.string(), to: z.string(), evidence: z.array(evidence).min(1) })), uncertainties: z.array(z.string()) });
 
-export { DECOMPOSITION_PROMPT, PROMPT_SHA256 };
+export { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION };
 
 export type ToolCall = { id: string; name: string; arguments: Record<string, unknown> };
+export type PlanQuestion = { id: string; question: string; reuse?: boolean };
+export type PlanVersion = { questions: PlanQuestion[]; reason?: string; error?: string };
+export type PlanRecord = { status: 'recorded' | 'invalid' | 'missing'; runId: string; versions: PlanVersion[]; anomalies: string[] };
 export type Model = {
-  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean }): Promise<{ toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
+  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
   /** Actual provider parameters of the last request (real provenance, no defaults). */
   snapshot?(): { model?: string; temperature?: number; maxOutputTokens?: number };
 };
@@ -26,8 +29,13 @@ const State = Annotation.Root({ messages: Annotation<any[]>({ reducer: (a, b) =>
 /** Per-call usage/telemetry trace: real timestamps, real durations, provider usage. */
 export interface CallTraceItem {
   seq: number;
-  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try';
+  runId: string;
+  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'plan_revised';
   name: string;
+  /** Provider tool-call id (observed calls), absent on model/plan entries. */
+  callId?: string;
+  /** Declared question id carried by the call (question_id argument). */
+  questionId?: string;
   startedAt: string;
   endedAt: string;
   durationMs: number;
@@ -57,12 +65,42 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const limits = { iterations: budget.iterations ?? 8, calls: budget.calls ?? 32, tokens: budget.tokens ?? 32000, durationMs: budget.durationMs ?? 60000 };
   if (Object.values(limits).some(n => !Number.isFinite(n) || n <= 0)) throw new Error('Budgets must be positive');
   const startedMs = Date.now();
+  // Correlation backbone (issue #184): one run id links plan versions, declared
+  // decisions and observed tool calls; question ids come from the plan, call ids
+  // from the provider. Observed calls are recorded by the harness, never deduced
+  // from model text.
+  const runId = crypto.randomUUID();
+  const planVersions: PlanVersion[] = [];
+  const planAnomalies = new Set<string>();
+  let planStatus: 'recorded' | 'invalid' | 'missing' = 'missing';
+  let planPublished = false;
+  const knownQuestionIds = new Set<string>();
   const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0 };
   const callTrace: CallTraceItem[] = [];
   let callSeq = 0;
   let requestedEvidenceRecovery = false;
   const recordCall = (base: Omit<CallTraceItem, 'seq' | 'startedAt' | 'endedAt' | 'durationMs' | 'startedAt'>, startedAt: Date, endedAt: Date): void => {
-    callTrace.push({ ...base, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() });
+    callTrace.push({ ...base, runId, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() });
+  };
+  // A published plan becomes an immutable version: valid plans update the known
+  // question ids, invalid or missing plans stay visible anomalies — never a
+  // presumed success. History is appended, never rewritten.
+  const recordPlan = (raw: unknown): void => {
+    const validation = validatePlan(raw);
+    const now = new Date();
+    const type = planPublished ? 'plan_revised' : 'decomposition_plan';
+    if (validation.ok) {
+      const version: PlanVersion = validation.reason === undefined ? { questions: validation.questions } : { questions: validation.questions, reason: validation.reason };
+      planVersions.push(version);
+      planStatus = 'recorded';
+      for (const question of validation.questions) knownQuestionIds.add(question.id);
+      recordCall({ type, name: type, inputTokens: null, outputTokens: null, usageMissing: false, result: version }, now, now);
+    } else {
+      planVersions.push({ questions: [], error: validation.error });
+      planStatus = 'invalid';
+      recordCall({ type, name: type, inputTokens: null, outputTokens: null, usageMissing: false, error: validation.error }, now, now);
+    }
+    planPublished = true;
   };
   try {
   const tools = await workspace(root);
@@ -109,6 +147,9 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     const inputTokens = response.usage?.inputTokens ?? null;
     const outputTokens = response.usage?.outputTokens ?? null;
     recordCall({ type: 'model', name: 'model', inputTokens, outputTokens, usageMissing: !response.usage }, modelCallStarted, modelCallEnded);
+    // The plan travels in the normal generation (no dedicated LLM call) and is
+    // recorded before this response's tool calls can be observed.
+    if (response.plan !== undefined) recordPlan(response.plan);
     metrics.inputTokens += inputTokens ?? 0;
     metrics.outputTokens += outputTokens ?? 0;
     if (!response.usage) metrics.usageAvailable = false;
@@ -143,7 +184,14 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     if (!response.toolCalls?.length) throw new Error('Model returned neither tools nor result');
     const calls = response.toolCalls.slice(0, Math.max(0, Math.min(8, limits.calls - metrics.modelCalls - metrics.toolCalls)));
     const outputs: any[] = [{ role: 'assistant', tool_calls: calls.map(call => ({ id: call.id, type: 'function', function: { name: call.name, arguments: JSON.stringify(call.arguments) } })) }];
-    for (const call of calls) {
+    for (const originalCall of calls) {
+      // question_id is harness correlation metadata, not a tool argument: it is
+      // traced on the call and stripped before dispatch. An id no plan ever
+      // declared is an explicit anomaly, not a silent success.
+      const questionId = typeof originalCall.arguments.question_id === 'string' ? originalCall.arguments.question_id : undefined;
+      if (questionId !== undefined && !knownQuestionIds.has(questionId)) planAnomalies.add(`unknown question id '${questionId}'`);
+      const call = { ...originalCall, arguments: { ...originalCall.arguments } };
+      delete call.arguments.question_id;
       if (Date.now() - startedMs >= limits.durationMs || metrics.inputTokens + metrics.outputTokens >= limits.tokens) break;
       metrics.toolCalls++;
       const toolStarted = new Date();
@@ -225,7 +273,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             const citations = call.name === 'function_try' ? await validateCitations(raw, { access: citationAccess(tools), revision: await resolveRevision() }) : undefined;
             const citationFailure = citations?.status === 'validation_failed' ? citationRepairFeedback(citations) : undefined;
             const citationOutcome = citations ? `; citations=${citations.status === 'valid' ? `${citations.validCount} valid` : citations.status === 'validation_failed' ? `validation_failed (${citations.validCount}/${citations.references} valid)` : 'none'}` : '';
-            recordCall({ type: scriptCall.type, name: scriptCall.name, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome}` }, runStarted, runEnded);
+            recordCall({ type: scriptCall.type, name: scriptCall.name, callId: call.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome}` }, runStarted, runEnded);
             output = citationFailure ?? (output && typeof output === 'object' && 'staleness' in (output as Record<string, unknown>) ? { ...(output as Record<string, unknown>), result: bounded } : bounded);
             if (stored && memory?.compactSearch && stored.code === 'search(params.query)' && Array.isArray(raw)) {
               const matches = raw.slice(0, 8).map((match: any) => ({ ...match, text: typeof match.text === 'string' ? match.text.slice(0, 240) : match.text, textTruncated: typeof match.text === 'string' && match.text.length > 240 }));
@@ -284,7 +332,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
               runtimeObservations.push({ id: String(stored?.id ?? candidate?.name ?? ''), params: params as Record<string, unknown>, ok: proofOk });
             }
           } catch (error) {
-            recordCall({ type: scriptCall?.type ?? 'function_try', name: call.name === 'memory_run' ? String(call.arguments.id ?? call.name) : 'function_try', inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, runStarted, new Date());
+            recordCall({ type: scriptCall?.type ?? 'function_try', name: call.name === 'memory_run' ? String(call.arguments.id ?? call.name) : 'function_try', callId: call.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, runStarted, new Date());
             if (stored) runtimeFailures.push(stored.id);
             throw error;
           }
@@ -295,7 +343,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       if (!scriptCall) {
         // Plain primitives and memory catalogue calls: real timestamps and durations.
         const toolEnded = new Date();
-        recordCall({ type: call.name === 'memory_list' ? 'memory_list' : 'tool', name: call.name, parameters: call.arguments, result: output, inputTokens: null, outputTokens: null, usageMissing: false, outcome: summarizeOutcome(output) }, toolStarted, toolEnded);
+        recordCall({ type: call.name === 'memory_list' ? 'memory_list' : 'tool', name: call.name, callId: call.id, questionId, parameters: call.arguments, result: output, inputTokens: null, outputTokens: null, usageMissing: false, outcome: summarizeOutcome(output) }, toolStarted, toolEnded);
       }
       const serialized = JSON.stringify(output);
       let content = serialized;
@@ -444,13 +492,38 @@ Explore the repository using the tools. Assess whether the evidence answers the 
     metrics.memoryPurges = library.purges();
   }
   metrics.durationMs = Date.now() - startedMs;
-  return { ...result, status: state.result === undefined || state.stopReason ? 'partial' : 'complete', stopReason: state.stopReason ?? null, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
+  if (!planPublished) planAnomalies.add('no plan was published before the structured result');
+  const plan: PlanRecord = { status: planStatus, runId, versions: planVersions, anomalies: [...planAnomalies] };
+  return { ...result, runId, plan, status: state.result === undefined || state.stopReason ? 'partial' : 'complete', stopReason: state.stopReason ?? null, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
   } catch (error) {
     metrics.durationMs = Date.now() - startedMs;
+    const plan: PlanRecord = { status: planStatus, runId, versions: planVersions, anomalies: [...planAnomalies] };
     throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
-      exploration: { objective, status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace }
+      exploration: { objective, runId, plan, status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace }
     });
   }
+}
+
+/**
+ * Plan validation (issue #184): a published plan must be an object with a
+ * non-empty questions array of independent functional questions, each carrying
+ * a non-empty string id and canonical question (reuse marker optional boolean,
+ * reason optional string, meaningful on revisions). Anything else is an
+ * explicit, visible anomaly — the harness never presumes a success.
+ */
+function validatePlan(raw: unknown): { ok: true; questions: PlanQuestion[]; reason?: string } | { ok: false; error: string } {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, error: 'invalid plan: expected an object with a questions array' };
+  const { questions, reason } = raw as Record<string, unknown>;
+  if (!Array.isArray(questions) || questions.length === 0) return { ok: false, error: 'invalid plan: questions must be a non-empty array' };
+  for (const [index, question] of questions.entries()) {
+    if (!question || typeof question !== 'object' || Array.isArray(question)) return { ok: false, error: `invalid plan: question ${index} must be an object` };
+    const candidate = question as Record<string, unknown>;
+    if (typeof candidate.id !== 'string' || candidate.id.length === 0) return { ok: false, error: `invalid plan: question ${index} needs a non-empty string id` };
+    if (typeof candidate.question !== 'string' || candidate.question.length === 0) return { ok: false, error: `invalid plan: question ${index} needs a non-empty string question` };
+    if (candidate.reuse !== undefined && typeof candidate.reuse !== 'boolean') return { ok: false, error: `invalid plan: question ${index} reuse must be a boolean` };
+  }
+  if (reason !== undefined && typeof reason !== 'string') return { ok: false, error: 'invalid plan: reason must be a string' };
+  return { ok: true, questions: questions as PlanQuestion[], reason: reason as string | undefined };
 }
 
 /**

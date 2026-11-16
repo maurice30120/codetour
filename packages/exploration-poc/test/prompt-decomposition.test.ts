@@ -4,6 +4,8 @@ import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { explore } from '../src/explore.ts';
+import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from '../src/decomposition-prompt.ts';
+import { PROMPT_VERSION as REEXPORTED_PROMPT_VERSION } from '../src/explore.ts';
 
 // §2.4 Criterion 1: Test with memory useful
 // La trace montre catalogue consulté et memory_run avec des paramètres valides, sans nouvelle fonction redondante
@@ -69,9 +71,9 @@ test('C1: with useful memory - uses memory_list and memory_run with valid params
       memory, 
       model: {
         async complete(messages) {
-          // Verify the system prompt contains the decomposition text
-          assert.match(messages[0].content, /Avant d'explorer/);
-          assert.match(messages[0].content, /décompose mentalement l'objectif du Tour/);
+          // Verify the system prompt contains the English decomposition plan protocol
+          assert.match(messages[0].content, /Before exploring the repository/);
+          assert.match(messages[0].content, /publish a compact structured plan in English/);
           assert.match(messages[0].content, /memory_list\(query\)/);
           assert.match(messages[0].content, /memory_run\(id, params\)/);
           
@@ -143,9 +145,9 @@ test('C2: with empty memory - creates targeted parameterized function via code/f
       model: {
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
-          assert.match(messages[0].content, /Avant d'explorer/);
-          assert.match(messages[0].content, /essaie une procédure TypeScript paramétrée/);
-          assert.match(messages[0].content, /function_try\(source, params\)/);
+          assert.match(messages[0].content, /Before exploring the repository/);
+          assert.match(messages[0].content, /strongly prefer trying a missing reusable capability with function_try\(source, params\)/);
+          assert.match(messages[0].content, /never create a function when a permanent primitive suffices/);
           
           if (step === 0) {
             // Should check memory_list first (even though empty)
@@ -219,8 +221,8 @@ test('C3: need covered by primitive - uses primitive directly without creating f
       model: {
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
-          assert.match(messages[0].content, /Avant d'explorer/);
-          assert.match(messages[0].content, /utilise d'abord les primitives permanentes/);
+          assert.match(messages[0].content, /Before exploring the repository/);
+          assert.match(messages[0].content, /use the permanent primitives first/);
           
           if (step === 0) {
             // Use search primitive directly
@@ -352,7 +354,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
       model: {
         async complete(messages) {
           // Verify the system prompt encourages composition
-          assert.match(messages[0].content, /n'imbrique aucune procédure mémorisée dans une autre/);
+          assert.match(messages[0].content, /never nest one memorized procedure inside another/);
           
           if (step === 0) {
             memoryListCalled = true;
@@ -420,7 +422,7 @@ test('C5: error or missing proof - explicit correction or uncertainty, no false 
       model: {
         async complete(messages) {
           // Verify the system prompt handles missing proofs
-          assert.match(messages[0].content, /avec limites et incertitudes/);
+          assert.match(messages[0].content, /structured, compact, sourced results with limits and uncertainties/);
           
           if (step === 0) {
             // Try to search for something that doesn't exist
@@ -480,7 +482,7 @@ test('C6: token comparison - compare prompt and call tokens, decomposition not a
       model: {
         async complete(messages) {
           // Verify decomposition prompt is present
-          assert.match(messages[0].content, /Avant d'explorer/);
+          assert.match(messages[0].content, /Before exploring the repository/);
           
           if (step === 0) {
             callsWithDecomposition.push(1);
@@ -533,5 +535,265 @@ test('C6: token comparison - compare prompt and call tokens, decomposition not a
     
   } finally { 
     await rm(base, { recursive: true, force: true }); 
+  }
+});
+
+// §D01 (#184): the canonical prompt is English, carries the structured plan
+// protocol and exposes a versioned fingerprint from a single source.
+test('the canonical decomposition prompt is English with a versioned fingerprint from a single source', () => {
+  assert.ok(PROMPT_VERSION, 'prompt version must be defined');
+  assert.equal(REEXPORTED_PROMPT_VERSION, PROMPT_VERSION, 'explore must re-export the single canonical prompt version');
+  assert.match(DECOMPOSITION_PROMPT, /Before exploring the repository/);
+  assert.match(DECOMPOSITION_PROMPT, /publish a compact structured plan in English/);
+  assert.match(DECOMPOSITION_PROMPT, /stable id/);
+  assert.match(DECOMPOSITION_PROMPT, /reuse/);
+  assert.match(DECOMPOSITION_PROMPT, /question_id/);
+  assert.match(DECOMPOSITION_PROMPT, /the user-facing answer follows the language of the request/);
+  // Internal instructions are English: no French accented characters remain.
+  assert.doesNotMatch(DECOMPOSITION_PROMPT, /[éèêëàâçùûôîï]/);
+  assert.equal(PROMPT_SHA256.length, 64);
+});
+
+// §D01 (#184) T1: the initial English plan is recorded before exploration,
+// stays separate from the final result, and costs no dedicated LLM call.
+test('an instrumented Tour records the initial English plan before exploration, separate from the final result', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-initial-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    const plan = { questions: [
+      { id: 'q1', question: 'Where is the entry point declared?', reuse: false },
+      { id: 'q2', question: 'Which reusable search capability exists for symbols?', reuse: true }
+    ] };
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete(messages) {
+          modelCalls++;
+          if (modelCalls === 1) {
+            return { plan, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }], usage: { inputTokens: 100, outputTokens: 40 } };
+          }
+          assert.match(messages.at(-1).content, /main\.ts/);
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] }, usage: { inputTokens: 80, outputTokens: 20 } };
+        }
+      }
+    });
+    // The plan is recorded with its questions, before the exploration tool call.
+    assert.equal(result.plan.status, 'recorded');
+    assert.equal(result.plan.versions.length, 1);
+    assert.deepEqual(result.plan.versions[0].questions, plan.questions);
+    const planEntry = result.callTrace.find(call => call.type === 'decomposition_plan');
+    assert.ok(planEntry, 'a decomposition_plan trace entry must exist');
+    const searchEntry = result.callTrace.find(call => call.name === 'search');
+    assert.ok(searchEntry);
+    assert.ok(planEntry.seq < searchEntry.seq, 'the plan is recorded before the exploration tool call');
+    // The final structured result stays separate from the plan.
+    assert.equal('questions' in result, false);
+    assert.deepEqual(result.entryPoints[0].evidence, [{ file: 'main.ts', startLine: 1, endLine: 1 }]);
+    // No dedicated LLM call: the plan travelled in the normal generation.
+    assert.equal(result.metrics.modelCalls, modelCalls);
+    // Every trace item is correlatable through the run id.
+    assert.ok(result.runId);
+    assert.ok(result.callTrace.every(call => call.runId === result.runId));
+    assert.equal(result.plan.runId, result.runId);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// §D01 (#184) T1: revisions are traced with a reason and never rewrite history.
+test('a plan revision is traced with its reason and history is preserved', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-revision-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    const firstPlan = { questions: [
+      { id: 'q1', question: 'Where is the entry point declared?', reuse: false },
+      { id: 'q2', question: 'Which module imports the entry point?', reuse: false }
+    ] };
+    const revisedPlan = { questions: [
+      { id: 'q1', question: 'Where is the entry point declared?', reuse: false },
+      { id: 'q2', question: 'Which module imports the entry point?', reuse: false },
+      { id: 'q3', question: 'Which reusable capability lists imported symbols?', reuse: true }
+    ], reason: 'reading the code revealed a third independent functional question' };
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) return { plan: firstPlan, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }] };
+          if (modelCalls === 2) return { plan: revisedPlan, toolCalls: [{ id: 'read-1', name: 'read', arguments: { file: 'main.ts' } }] };
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+        }
+      }
+    });
+    assert.equal(result.plan.status, 'recorded');
+    assert.equal(result.plan.versions.length, 2);
+    // History is preserved: the first version is untouched.
+    assert.deepEqual(result.plan.versions[0].questions, firstPlan.questions);
+    assert.equal(result.plan.versions[0].reason, undefined);
+    assert.deepEqual(result.plan.versions[1].questions, revisedPlan.questions);
+    assert.equal(result.plan.versions[1].reason, revisedPlan.reason);
+    // The revision is traced as its own event, distinct from the initial plan.
+    assert.ok(result.callTrace.some(call => call.type === 'decomposition_plan'));
+    const revisionEntry = result.callTrace.find(call => call.type === 'plan_revised');
+    assert.ok(revisionEntry, 'a plan_revised trace entry must exist');
+    assert.equal((revisionEntry.result as any).reason, revisedPlan.reason);
+    assert.deepEqual(result.plan.versions[1].questions, (revisionEntry.result as any).questions);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// §D01 (#184) T1: an invalid plan is a visible anomaly, not a presumed success.
+test('an invalid plan is recorded as a visible anomaly without failing the Tour', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-invalid-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) return { plan: { questions: [] }, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }] };
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+        }
+      }
+    });
+    assert.equal(result.plan.status, 'invalid');
+    assert.equal(result.plan.versions.length, 1);
+    assert.match(result.plan.versions[0].error ?? '', /invalid plan/);
+    assert.deepEqual(result.plan.versions[0].questions, []);
+    const planEntry = result.callTrace.find(call => call.type === 'decomposition_plan');
+    assert.ok(planEntry);
+    assert.match(planEntry.error ?? '', /invalid plan/);
+    // The Tour itself still completes; the anomaly stays visible, never hidden.
+    assert.equal(result.status, 'complete');
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// §D01 (#184) T1: declared decisions correlate with observed tool calls;
+// an unknown question id is an explicit anomaly.
+test('declared question ids correlate observed tool calls and unknown ids are anomalies', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-correlation-'));
+  const root = join(base, 'repo');
+  const memoryDir = join(base, 'memory');
+  await mkdir(root);
+  await mkdir(memoryDir);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    const plan = { questions: [{ id: 'q1', question: 'Which reusable capability finds symbols in the workspace?', reuse: true }] };
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      memory: { directory: memoryDir },
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) {
+            return { plan, toolCalls: [
+              { id: 'list-1', name: 'memory_list', arguments: { query: 'symbol', question_id: 'q1' } },
+              { id: 'text-1', name: 'searchText', arguments: { query: 'start', question_id: 'q1' } },
+              { id: 'search-1', name: 'search', arguments: { query: 'start', question_id: 'qX' } }
+            ] };
+          }
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+        }
+      }
+    });
+    assert.equal(result.plan.status, 'recorded');
+    // Observed calls carry the provider call id and the declared question id.
+    const listEntry = result.callTrace.find(call => call.name === 'memory_list');
+    assert.equal(listEntry?.callId, 'list-1');
+    assert.equal(listEntry?.questionId, 'q1');
+    const textEntry = result.callTrace.find(call => call.name === 'searchText');
+    assert.equal(textEntry?.callId, 'text-1');
+    assert.equal(textEntry?.questionId, 'q1');
+    const searchEntry = result.callTrace.find(call => call.name === 'search');
+    assert.equal(searchEntry?.questionId, 'qX');
+    // The unknown question id is an explicit anomaly, not a silent success.
+    assert.equal(result.plan.anomalies.length, 1);
+    assert.match(result.plan.anomalies[0], /unknown question id 'qX'/);
+    assert.equal(result.status, 'complete');
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// §D01 (#184): the token overhead of the plan stays inside the run usage accounting.
+test('plan token overhead is counted in the run usage accounting', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-tokens-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    const plan = { questions: [{ id: 'q1', question: 'Where is the entry point declared?', reuse: false }] };
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) return { plan, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }], usage: { inputTokens: 120, outputTokens: 60 } };
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] }, usage: { inputTokens: 80, outputTokens: 30 } };
+        }
+      }
+    });
+    // The plan-bearing generation's tokens are fully counted, nothing hidden.
+    assert.equal(result.metrics.inputTokens, 200);
+    assert.equal(result.metrics.outputTokens, 90);
+    assert.equal(result.metrics.usageAvailable, true);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// §D01 (#184): a missing plan is a visible anomaly, never a presumed success.
+test('a missing plan is recorded as a visible anomaly without failing the Tour', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-missing-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) return { toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }] };
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+        }
+      }
+    });
+    // No plan was published: the run says so instead of presuming success.
+    assert.equal(result.plan.status, 'missing');
+    assert.equal(result.plan.versions.length, 0);
+    assert.ok(result.plan.anomalies.some(anomaly => /no plan/i.test(anomaly)), 'the missing plan is an explicit anomaly');
+    // The Tour itself still completes; the anomaly stays visible, never hidden.
+    assert.equal(result.status, 'complete');
+  } finally {
+    await rm(base, { recursive: true, force: true });
   }
 });

@@ -40,15 +40,27 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
     const message = data.choices?.[0]?.message;
     const usage = typeof data.usage?.prompt_tokens === 'number' && typeof data.usage?.completion_tokens === 'number' ? { inputTokens: data.usage.prompt_tokens, outputTokens: data.usage.completion_tokens } : undefined;
     try {
-      if (message?.tool_calls?.length) return { toolCalls: message.tool_calls.map((call: any): ToolCall => {
+      // Issue #184: the plan is published as a fenced block labeled `plan` inside
+      // the normal reply. Extract it so the harness can record it without a
+      // dedicated LLM call, and keep the block out of the final result parse.
+      // A malformed block stays a string: the harness records an invalid plan
+      // anomaly instead of crashing the provider call.
+      const rawContent = String(message?.content ?? '');
+      const planBlock = /```plan\s*([\s\S]*?)```/.exec(rawContent);
+      let plan: unknown;
+      if (planBlock) {
+        const block = planBlock[1].trim();
+        try { plan = JSON.parse(block); } catch { plan = block; }
+      }
+      if (message?.tool_calls?.length) return { ...(plan !== undefined ? { plan } : {}), toolCalls: message.tool_calls.map((call: any): ToolCall => {
         const args = JSON.parse(call.function.arguments);
         const named = namedByName.get(call.function.name);
         return named && options?.memory
           ? { id: call.id, name: 'memory_run', arguments: { id: named.id, params: Object.fromEntries(named.parameters.filter(parameter => args[parameter] !== undefined).map(parameter => [parameter, args[parameter]])) } }
           : { id: call.id, name: call.function.name, arguments: args };
       }), usage };
-      const content = String(message?.content ?? '').replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
-      return { result: JSON.parse(content), usage };
+      const content = rawContent.replace(/```plan\s*[\s\S]*?```/g, '').replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
+      return { ...(plan !== undefined ? { plan } : {}), result: JSON.parse(content), usage };
     } catch (error) {
       throw Object.assign(error instanceof Error ? error : new Error(String(error)), { usage });
     }
