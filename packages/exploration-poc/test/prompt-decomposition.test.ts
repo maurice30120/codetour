@@ -4,6 +4,8 @@ import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { explore } from '../src/explore.ts';
+import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from '../src/decomposition-prompt.ts';
+import { PROMPT_VERSION as REEXPORTED_PROMPT_VERSION } from '../src/explore.ts';
 
 // §2.4 Criterion 1: Test with memory useful
 // La trace montre catalogue consulté et memory_run avec des paramètres valides, sans nouvelle fonction redondante
@@ -69,9 +71,9 @@ test('C1: with useful memory - uses memory_list and memory_run with valid params
       memory, 
       model: {
         async complete(messages) {
-          // Verify the system prompt contains the decomposition text
-          assert.match(messages[0].content, /Avant d'explorer/);
-          assert.match(messages[0].content, /décompose mentalement l'objectif du Tour/);
+          // Verify the system prompt contains the English decomposition plan protocol
+          assert.match(messages[0].content, /Before exploring the repository/);
+          assert.match(messages[0].content, /publish a compact structured plan in English/);
           assert.match(messages[0].content, /memory_list\(query\)/);
           assert.match(messages[0].content, /memory_run\(id, params\)/);
           
@@ -143,9 +145,9 @@ test('C2: with empty memory - creates targeted parameterized function via code/f
       model: {
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
-          assert.match(messages[0].content, /Avant d'explorer/);
-          assert.match(messages[0].content, /essaie une procédure TypeScript paramétrée/);
-          assert.match(messages[0].content, /function_try\(source, params\)/);
+          assert.match(messages[0].content, /Before exploring the repository/);
+          assert.match(messages[0].content, /strongly prefer trying a missing reusable capability with function_try\(source, params\)/);
+          assert.match(messages[0].content, /never create a function when a permanent primitive suffices/);
           
           if (step === 0) {
             // Should check memory_list first (even though empty)
@@ -219,8 +221,8 @@ test('C3: need covered by primitive - uses primitive directly without creating f
       model: {
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
-          assert.match(messages[0].content, /Avant d'explorer/);
-          assert.match(messages[0].content, /utilise d'abord les primitives permanentes/);
+          assert.match(messages[0].content, /Before exploring the repository/);
+          assert.match(messages[0].content, /use the permanent primitives first/);
           
           if (step === 0) {
             // Use search primitive directly
@@ -352,7 +354,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
       model: {
         async complete(messages) {
           // Verify the system prompt encourages composition
-          assert.match(messages[0].content, /n'imbrique aucune procédure mémorisée dans une autre/);
+          assert.match(messages[0].content, /never nest one memorized procedure inside another/);
           
           if (step === 0) {
             memoryListCalled = true;
@@ -420,7 +422,7 @@ test('C5: error or missing proof - explicit correction or uncertainty, no false 
       model: {
         async complete(messages) {
           // Verify the system prompt handles missing proofs
-          assert.match(messages[0].content, /avec limites et incertitudes/);
+          assert.match(messages[0].content, /structured, compact, sourced results with limits and uncertainties/);
           
           if (step === 0) {
             // Try to search for something that doesn't exist
@@ -480,7 +482,7 @@ test('C6: token comparison - compare prompt and call tokens, decomposition not a
       model: {
         async complete(messages) {
           // Verify decomposition prompt is present
-          assert.match(messages[0].content, /Avant d'explorer/);
+          assert.match(messages[0].content, /Before exploring the repository/);
           
           if (step === 0) {
             callsWithDecomposition.push(1);
@@ -534,4 +536,20 @@ test('C6: token comparison - compare prompt and call tokens, decomposition not a
   } finally { 
     await rm(base, { recursive: true, force: true }); 
   }
+});
+
+// §D01 (#184): the canonical prompt is English, carries the structured plan
+// protocol and exposes a versioned fingerprint from a single source.
+test('the canonical decomposition prompt is English with a versioned fingerprint from a single source', () => {
+  assert.ok(PROMPT_VERSION, 'prompt version must be defined');
+  assert.equal(REEXPORTED_PROMPT_VERSION, PROMPT_VERSION, 'explore must re-export the single canonical prompt version');
+  assert.match(DECOMPOSITION_PROMPT, /Before exploring the repository/);
+  assert.match(DECOMPOSITION_PROMPT, /publish a compact structured plan in English/);
+  assert.match(DECOMPOSITION_PROMPT, /stable id/);
+  assert.match(DECOMPOSITION_PROMPT, /reuse/);
+  assert.match(DECOMPOSITION_PROMPT, /question_id/);
+  assert.match(DECOMPOSITION_PROMPT, /the user-facing answer follows the language of the request/);
+  // Internal instructions are English: no French accented characters remain.
+  assert.doesNotMatch(DECOMPOSITION_PROMPT, /[éèêëàâçùûôîï]/);
+  assert.equal(PROMPT_SHA256.length, 64);
 });

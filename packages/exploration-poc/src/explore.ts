@@ -4,14 +4,14 @@ import { workspace } from './workspace.ts';
 import { scriptMemory } from './memory.ts';
 import type { ConsolidationCandidate, ReplacementVerification } from './memory.ts';
 import { boundedOutput, looksLikeEvidence, sampleEvidenceRefs } from './memory-output.ts';
-import { DECOMPOSITION_PROMPT, PROMPT_SHA256 } from './decomposition-prompt.ts';
+import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposition-prompt.ts';
 import { primitiveNames } from './tool-contract.ts';
 
 const evidence = z.object({ file: z.string().min(1), startLine: z.number().int().positive(), endLine: z.number().int().positive() });
 const item = z.object({ name: z.string(), evidence: z.array(evidence).min(1) });
 const resultSchema = z.object({ objective: z.string(), entryPoints: z.array(item), components: z.array(item), relations: z.array(z.object({ from: z.string(), to: z.string(), evidence: z.array(evidence).min(1) })), uncertainties: z.array(z.string()) });
 
-export { DECOMPOSITION_PROMPT, PROMPT_SHA256 };
+export { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION };
 
 export type ToolCall = { id: string; name: string; arguments: Record<string, unknown> };
 export type Model = {
