@@ -1,0 +1,677 @@
+{
+  "number": 165,
+  "title": "Mémoriser et réexécuter un script utile",
+  "objective": "Explique comment une fonction utile est essayée, consolidée et réexécutée depuis la mémoire.",
+  "started": "2026-11-16T12:06:18.466Z",
+  "ended": "2026-11-16T12:06:29.695Z",
+  "result": {
+    "objective": "Expliquer comment une fonction utile est essayée, consolidée et réexécutée depuis la mémoire",
+    "entryPoints": [],
+    "components": [],
+    "relations": [],
+    "uncertainties": [
+      "Aucune preuve directe dans le dépôt pour décrire ce processus, car il s'agit d'une règle interne du système et non d'un artefact du code."
+    ],
+    "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+    "plan": {
+      "status": "recorded",
+      "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+      "versions": [
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How is a reusable function tried, consolidated, and re-executed from memory in this repository?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to explore the workflow for trying, consolidating, and re-executing reusable functions from memory."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "Comment une fonction utile est-elle essayée, consolidée et réexécutée depuis la mémoire ?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to address the user's question about the lifecycle of reusable functions in memory."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How is a useful function tried, consolidated, and re-executed from memory?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to address the user's request about the lifecycle of reusable functions in memory."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How is a reusable function tried, consolidated, and re-executed from memory in this system?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to understand the workflow of function_try, consolidation, and re-execution."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "Comment une fonction utile est-elle essayée, consolidée et réexécutée depuis la mémoire ?",
+              "reuse": false
+            }
+          ],
+          "reason": "Question spécifique à ce Tour, non réutilisable sous forme de capacité durable."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How is a reusable function tried, consolidated, and re-executed from memory?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to address the user's request about the lifecycle of reusable functions in memory."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "Comment une fonction utile est-elle essayée, consolidée et réexécutée depuis la mémoire ?",
+              "reuse": false
+            }
+          ],
+          "reason": "Question spécifique à ce Tour, non réutilisable sous forme de capacité durable."
+        }
+      ],
+      "anomalies": [
+        "missing question id on 'listFiles' call",
+        "missing question id on 'memory_list' call",
+        "plan not in English: question 'q1' looks French"
+      ]
+    },
+    "status": "partial",
+    "stopReason": "evidence_missing",
+    "promptSha256": "34a11f8f6b9bd36dac91cdfb7f6ded5d90a345354b468d3fe00ddefb9e555e59",
+    "modelConfig": {
+      "model": "mistral-medium-3.5",
+      "temperature": 0,
+      "maxOutputTokens": 4096
+    },
+    "metrics": {
+      "inputTokens": 31053,
+      "outputTokens": 772,
+      "usageAvailable": true,
+      "modelCalls": 9,
+      "toolCalls": 7,
+      "durationMs": 11228,
+      "outputBytes": 6688,
+      "cost": null,
+      "memoryReuses": 0,
+      "memoryPurges": 0,
+      "memoryQueryRejects": 0,
+      "memoryResultsCompacted": 0,
+      "memoryResultsRepeated": 0
+    },
+    "callTrace": [
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2026,
+        "outputTokens": 12,
+        "usageMissing": false,
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 0,
+        "startedAt": "2026-11-16T12:06:18.468Z",
+        "endedAt": "2026-11-16T12:06:18.965Z",
+        "durationMs": 497
+      },
+      {
+        "type": "tool",
+        "name": "listFiles",
+        "callId": "oADdX7dZb",
+        "parameters": {
+          "maxFiles": 1
+        },
+        "result": {
+          "result": [
+            ".agents/skills/caveman/README.md",
+            ".agents/skills/caveman/SKILL.md",
+            ".DS_Store",
+            ".env.local.example",
+            ".gitattributes",
+            ".githooks/pre-commit",
+            ".github/extensions/codetour/adapter.mjs",
+            ".github/extensions/codetour/extension.mjs",
+            ".github/workflows/release.yml",
+            ".github/workflows/test.yml",
+            ".gitignore",
+            ".node-version",
+            ".nvmrc",
+            ".playwright-mcp/console-2026-11-02T10-17-13-702Z.log",
+            ".playwright-mcp/page-2026-11-02T10-17-14-414Z.yml",
+            ".scratch/autonomous-cli-termdom-copilot/issues/01-open-existing-project-tours-from-standalone-cli.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/02-inspect-anchors-code-and-changes-tour-diffs-in-html.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/03-play-a-tour-in-an-independent-termdom-window.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/04-render-rich-explanations-and-mermaid-with-termdom.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/05-review-changes-tour-diffs-with-termdom.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/06-reuse-acp-tour-step-conversations-in-both-readers.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/07-launch-independent-reader-from-copilot-cli.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/08-distribute-no-admin-windows-and-macos-readers.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/09-validate-full-poc-e2e-parity-and-nonregression.md",
+            ".scratch/bg-test.js",
+            ".scratch/diagnostic-jira/drafts/01-premiere-question-baseline.md",
+            ".scratch/diagnostic-jira/drafts/02-conversation-rag-multitour.md",
+            ".scratch/diagnostic-jira/drafts/03-comparaison-reranker.md",
+            ".scratch/diagnostic-jira/drafts/04-goldens-synthetique-rejeu.md",
+            ".scratch/diagnostic-jira/drafts/05-selection-abstention.md",
+            ".scratch/diagnostic-jira/drafts/06-navigateurs-hebergement-performances.md",
+            ".scratch/diagnostic-jira/drafts/07-rapport-decision.md",
+            ".scratch/diagnostic-jira/drafts/08-integration-conditionnelle.md",
+            ".scratch/diagnostic-jira/README.md",
+            ".scratch/panel-test.js",
+            ".scratch/pty_debug.py",
+            ".scratch/spec-decouverte-progressive-brouillon.md",
+            ".scratch/specs-77-79-80/issues/01-socle-commun.md",
+            ".scratch/specs-77-79-80/issues/02-commande-mcp.md",
+            ".scratch/specs-77-79-80/issues/03-artifact-mcp.md",
+            ".scratch/specs-77-79-80/issues/04-narration-macos.md",
+            ".scratch/specs-77-79-80/issues/05-narration-windows.md",
+            ".scratch/specs-77-79-80/issues/06-faisabilite-copilot.md",
+            ".scratch/specs-77-79-80/issues/07-parcours-neutre.md",
+            ".scratch/specs-77-79-80/issues/08-critique-sans-spec.md",
+            ".scratch/specs-77-79-80/issues/09-critique-avec-spec.md",
+            ".scratch/specs-77-79-80/issues/10-critique-copilot-distribution.md",
+            ".scratch/specs-77-79-80/issues/11-integration-finale.md",
+            ".scratch/specs-77-79-80/notes/contract-80.md",
+            ".scratch/specs-77-79-80/notes/journal.md"
+          ],
+          "returned": 50,
+          "observed": 500,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 2748,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 1,
+        "startedAt": "2026-11-16T12:06:18.965Z",
+        "endedAt": "2026-11-16T12:06:19.217Z",
+        "durationMs": 252
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3198,
+        "outputTokens": 68,
+        "usageMissing": false,
+        "error": "FinalAnswerNotJson: Final answer is not valid JSON (content after plan extraction: empty)",
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 2,
+        "startedAt": "2026-11-16T12:06:19.218Z",
+        "endedAt": "2026-11-16T12:06:20.532Z",
+        "durationMs": 1314
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3245,
+        "outputTokens": 102,
+        "usageMissing": false,
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 3,
+        "startedAt": "2026-11-16T12:06:20.533Z",
+        "endedAt": "2026-11-16T12:06:21.752Z",
+        "durationMs": 1219
+      },
+      {
+        "type": "decomposition_plan",
+        "name": "decomposition_plan",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How is a reusable function tried, consolidated, and re-executed from memory in this repository?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to explore the workflow for trying, consolidating, and re-executing reusable functions from memory."
+        },
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 4,
+        "startedAt": "2026-11-16T12:06:21.752Z",
+        "endedAt": "2026-11-16T12:06:21.752Z",
+        "durationMs": 0
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "yIkwwLFff",
+        "parameters": {
+          "query": "reusable function trial consolidation re-execution memory"
+        },
+        "result": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "returned=0",
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 5,
+        "startedAt": "2026-11-16T12:06:21.752Z",
+        "endedAt": "2026-11-16T12:06:21.752Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3267,
+        "outputTokens": 80,
+        "usageMissing": false,
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 6,
+        "startedAt": "2026-11-16T12:06:21.754Z",
+        "endedAt": "2026-11-16T12:06:23.223Z",
+        "durationMs": 1469
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "Comment une fonction utile est-elle essayée, consolidée et réexécutée depuis la mémoire ?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to address the user's question about the lifecycle of reusable functions in memory."
+        },
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 7,
+        "startedAt": "2026-11-16T12:06:23.223Z",
+        "endedAt": "2026-11-16T12:06:23.223Z",
+        "durationMs": 0
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "M0rdSPW5L",
+        "parameters": {
+          "query": "function_try memory_run memory_unusable"
+        },
+        "result": {
+          "results": [],
+          "note": "The catalogue is empty again. Revising the plan in a loop will not fill it: if the question you are serving is durably reusable and no permanent primitive covers it, build the missing capability once with function_try(source, params) instead of revising the plan again; otherwise state why not in the final result."
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=results,note",
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 8,
+        "startedAt": "2026-11-16T12:06:23.223Z",
+        "endedAt": "2026-11-16T12:06:23.224Z",
+        "durationMs": 1
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3361,
+        "outputTokens": 77,
+        "usageMissing": false,
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 9,
+        "startedAt": "2026-11-16T12:06:23.226Z",
+        "endedAt": "2026-11-16T12:06:24.527Z",
+        "durationMs": 1301
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How is a useful function tried, consolidated, and re-executed from memory?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to address the user's request about the lifecycle of reusable functions in memory."
+        },
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 10,
+        "startedAt": "2026-11-16T12:06:24.527Z",
+        "endedAt": "2026-11-16T12:06:24.527Z",
+        "durationMs": 0
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "EvnWQ4cYM",
+        "parameters": {
+          "query": "function_try memory_run memory_unusable"
+        },
+        "result": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "returned=0",
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 11,
+        "startedAt": "2026-11-16T12:06:24.527Z",
+        "endedAt": "2026-11-16T12:06:24.527Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3382,
+        "outputTokens": 101,
+        "usageMissing": false,
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 12,
+        "startedAt": "2026-11-16T12:06:24.529Z",
+        "endedAt": "2026-11-16T12:06:25.588Z",
+        "durationMs": 1059
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How is a reusable function tried, consolidated, and re-executed from memory in this system?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to understand the workflow of function_try, consolidation, and re-execution."
+        },
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 13,
+        "startedAt": "2026-11-16T12:06:25.588Z",
+        "endedAt": "2026-11-16T12:06:25.588Z",
+        "durationMs": 0
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "yML8dLUy4",
+        "parameters": {
+          "query": "function_try consolidation re-execution memory_run memory_unusable"
+        },
+        "result": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "returned=0",
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 14,
+        "startedAt": "2026-11-16T12:06:25.588Z",
+        "endedAt": "2026-11-16T12:06:25.588Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3407,
+        "outputTokens": 84,
+        "usageMissing": false,
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 15,
+        "startedAt": "2026-11-16T12:06:25.591Z",
+        "endedAt": "2026-11-16T12:06:26.695Z",
+        "durationMs": 1104
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "Comment une fonction utile est-elle essayée, consolidée et réexécutée depuis la mémoire ?",
+              "reuse": false
+            }
+          ],
+          "reason": "Question spécifique à ce Tour, non réutilisable sous forme de capacité durable."
+        },
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 16,
+        "startedAt": "2026-11-16T12:06:26.695Z",
+        "endedAt": "2026-11-16T12:06:26.695Z",
+        "durationMs": 0
+      },
+      {
+        "type": "tool",
+        "name": "listFiles",
+        "callId": "7D4ewdVYz",
+        "parameters": {},
+        "result": {
+          "result": [
+            ".agents/skills/caveman/README.md",
+            ".agents/skills/caveman/SKILL.md",
+            ".DS_Store",
+            ".env.local.example",
+            ".gitattributes",
+            ".githooks/pre-commit",
+            ".github/extensions/codetour/adapter.mjs",
+            ".github/extensions/codetour/extension.mjs",
+            ".github/workflows/release.yml",
+            ".github/workflows/test.yml",
+            ".gitignore",
+            ".node-version",
+            ".nvmrc",
+            ".playwright-mcp/console-2026-11-02T10-17-13-702Z.log",
+            ".playwright-mcp/page-2026-11-02T10-17-14-414Z.yml",
+            ".scratch/autonomous-cli-termdom-copilot/issues/01-open-existing-project-tours-from-standalone-cli.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/02-inspect-anchors-code-and-changes-tour-diffs-in-html.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/03-play-a-tour-in-an-independent-termdom-window.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/04-render-rich-explanations-and-mermaid-with-termdom.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/05-review-changes-tour-diffs-with-termdom.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/06-reuse-acp-tour-step-conversations-in-both-readers.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/07-launch-independent-reader-from-copilot-cli.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/08-distribute-no-admin-windows-and-macos-readers.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/09-validate-full-poc-e2e-parity-and-nonregression.md",
+            ".scratch/bg-test.js",
+            ".scratch/diagnostic-jira/drafts/01-premiere-question-baseline.md",
+            ".scratch/diagnostic-jira/drafts/02-conversation-rag-multitour.md",
+            ".scratch/diagnostic-jira/drafts/03-comparaison-reranker.md",
+            ".scratch/diagnostic-jira/drafts/04-goldens-synthetique-rejeu.md",
+            ".scratch/diagnostic-jira/drafts/05-selection-abstention.md",
+            ".scratch/diagnostic-jira/drafts/06-navigateurs-hebergement-performances.md",
+            ".scratch/diagnostic-jira/drafts/07-rapport-decision.md",
+            ".scratch/diagnostic-jira/drafts/08-integration-conditionnelle.md",
+            ".scratch/diagnostic-jira/README.md",
+            ".scratch/panel-test.js",
+            ".scratch/pty_debug.py",
+            ".scratch/spec-decouverte-progressive-brouillon.md",
+            ".scratch/specs-77-79-80/issues/01-socle-commun.md",
+            ".scratch/specs-77-79-80/issues/02-commande-mcp.md",
+            ".scratch/specs-77-79-80/issues/03-artifact-mcp.md",
+            ".scratch/specs-77-79-80/issues/04-narration-macos.md",
+            ".scratch/specs-77-79-80/issues/05-narration-windows.md",
+            ".scratch/specs-77-79-80/issues/06-faisabilite-copilot.md",
+            ".scratch/specs-77-79-80/issues/07-parcours-neutre.md",
+            ".scratch/specs-77-79-80/issues/08-critique-sans-spec.md",
+            ".scratch/specs-77-79-80/issues/09-critique-avec-spec.md",
+            ".scratch/specs-77-79-80/issues/10-critique-copilot-distribution.md",
+            ".scratch/specs-77-79-80/issues/11-integration-finale.md",
+            ".scratch/specs-77-79-80/notes/contract-80.md",
+            ".scratch/specs-77-79-80/notes/journal.md"
+          ],
+          "returned": 50,
+          "observed": 500,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 2748,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 17,
+        "startedAt": "2026-11-16T12:06:26.695Z",
+        "endedAt": "2026-11-16T12:06:26.940Z",
+        "durationMs": 245
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 4573,
+        "outputTokens": 77,
+        "usageMissing": false,
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 18,
+        "startedAt": "2026-11-16T12:06:26.941Z",
+        "endedAt": "2026-11-16T12:06:28.091Z",
+        "durationMs": 1150
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How is a reusable function tried, consolidated, and re-executed from memory?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to address the user's request about the lifecycle of reusable functions in memory."
+        },
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 19,
+        "startedAt": "2026-11-16T12:06:28.091Z",
+        "endedAt": "2026-11-16T12:06:28.091Z",
+        "durationMs": 0
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "n5tMU3ycn",
+        "parameters": {
+          "query": "function_try memory_run memory_unusable"
+        },
+        "result": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "returned=0",
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 20,
+        "startedAt": "2026-11-16T12:06:28.091Z",
+        "endedAt": "2026-11-16T12:06:28.091Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 4594,
+        "outputTokens": 171,
+        "usageMissing": false,
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 21,
+        "startedAt": "2026-11-16T12:06:28.094Z",
+        "endedAt": "2026-11-16T12:06:29.690Z",
+        "durationMs": 1596
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "Comment une fonction utile est-elle essayée, consolidée et réexécutée depuis la mémoire ?",
+              "reuse": false
+            }
+          ],
+          "reason": "Question spécifique à ce Tour, non réutilisable sous forme de capacité durable."
+        },
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 22,
+        "startedAt": "2026-11-16T12:06:29.690Z",
+        "endedAt": "2026-11-16T12:06:29.690Z",
+        "durationMs": 0
+      },
+      {
+        "type": "run_end",
+        "name": "run_end",
+        "inputTokens": 31053,
+        "outputTokens": 772,
+        "usageMissing": false,
+        "outcome": "status=partial; stopReason=evidence_missing",
+        "result": {
+          "status": "partial",
+          "stopReason": "evidence_missing",
+          "inputTokens": 31053,
+          "outputTokens": 772,
+          "modelCalls": 9,
+          "toolCalls": 7,
+          "durationMs": 11228
+        },
+        "runId": "c042a400-c8e3-479f-859a-54fc640a5460",
+        "seq": 23,
+        "startedAt": "2026-11-16T12:06:29.694Z",
+        "endedAt": "2026-11-16T12:06:29.694Z",
+        "durationMs": 0
+      }
+    ],
+    "consolidationReport": {
+      "accepted": [],
+      "rejected": [],
+      "duplicates": [],
+      "indeterminate": [],
+      "reconciliation": []
+    }
+  },
+  "catalogue": []
+}

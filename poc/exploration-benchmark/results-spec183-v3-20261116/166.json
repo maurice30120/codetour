@@ -1,0 +1,576 @@
+{
+  "number": 166,
+  "title": "Appliquer les règles de rétention de la mémoire",
+  "objective": "Explique les règles de persistance, de refus et de collision du catalogue mémoire actuel.",
+  "started": "2026-11-16T12:06:29.697Z",
+  "ended": "2026-11-16T12:06:41.356Z",
+  "result": {
+    "objective": "Explique les règles de persistance, de refus et de collision du catalogue mémoire actuel.",
+    "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+    "plan": {
+      "status": "missing",
+      "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+      "versions": [],
+      "anomalies": [
+        "missing question id on 'listFiles' call",
+        "missing question id on 'memory_list' call",
+        "missing question id on 'searchText' call",
+        "missing question id on 'readLines' call"
+      ]
+    },
+    "status": "failed",
+    "error": "Final answer is not valid JSON (content after plan extraction: empty)",
+    "promptSha256": "34a11f8f6b9bd36dac91cdfb7f6ded5d90a345354b468d3fe00ddefb9e555e59",
+    "modelConfig": {
+      "model": "mistral-medium-3.5",
+      "temperature": 0,
+      "maxOutputTokens": 4096
+    },
+    "metrics": {
+      "inputTokens": 50518,
+      "outputTokens": 370,
+      "usageAvailable": true,
+      "modelCalls": 10,
+      "toolCalls": 8,
+      "durationMs": 11658,
+      "outputBytes": 29179,
+      "cost": null,
+      "memoryReuses": 0,
+      "memoryPurges": 0,
+      "memoryQueryRejects": 0,
+      "memoryResultsCompacted": 0,
+      "memoryResultsRepeated": 0
+    },
+    "callTrace": [
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2023,
+        "outputTokens": 106,
+        "usageMissing": false,
+        "error": "FinalAnswerNotJson: Final answer is not valid JSON (content after plan extraction: empty)",
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 0,
+        "startedAt": "2026-11-16T12:06:29.699Z",
+        "endedAt": "2026-11-16T12:06:30.661Z",
+        "durationMs": 962
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2070,
+        "outputTokens": 6,
+        "usageMissing": false,
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 1,
+        "startedAt": "2026-11-16T12:06:30.664Z",
+        "endedAt": "2026-11-16T12:06:31.217Z",
+        "durationMs": 553
+      },
+      {
+        "type": "tool",
+        "name": "listFiles",
+        "callId": "dtv7tKuZm",
+        "parameters": {},
+        "result": {
+          "result": [
+            ".agents/skills/caveman/README.md",
+            ".agents/skills/caveman/SKILL.md",
+            ".DS_Store",
+            ".env.local.example",
+            ".gitattributes",
+            ".githooks/pre-commit",
+            ".github/extensions/codetour/adapter.mjs",
+            ".github/extensions/codetour/extension.mjs",
+            ".github/workflows/release.yml",
+            ".github/workflows/test.yml",
+            ".gitignore",
+            ".node-version",
+            ".nvmrc",
+            ".playwright-mcp/console-2026-11-02T10-17-13-702Z.log",
+            ".playwright-mcp/page-2026-11-02T10-17-14-414Z.yml",
+            ".scratch/autonomous-cli-termdom-copilot/issues/01-open-existing-project-tours-from-standalone-cli.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/02-inspect-anchors-code-and-changes-tour-diffs-in-html.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/03-play-a-tour-in-an-independent-termdom-window.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/04-render-rich-explanations-and-mermaid-with-termdom.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/05-review-changes-tour-diffs-with-termdom.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/06-reuse-acp-tour-step-conversations-in-both-readers.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/07-launch-independent-reader-from-copilot-cli.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/08-distribute-no-admin-windows-and-macos-readers.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/09-validate-full-poc-e2e-parity-and-nonregression.md",
+            ".scratch/bg-test.js",
+            ".scratch/diagnostic-jira/drafts/01-premiere-question-baseline.md",
+            ".scratch/diagnostic-jira/drafts/02-conversation-rag-multitour.md",
+            ".scratch/diagnostic-jira/drafts/03-comparaison-reranker.md",
+            ".scratch/diagnostic-jira/drafts/04-goldens-synthetique-rejeu.md",
+            ".scratch/diagnostic-jira/drafts/05-selection-abstention.md",
+            ".scratch/diagnostic-jira/drafts/06-navigateurs-hebergement-performances.md",
+            ".scratch/diagnostic-jira/drafts/07-rapport-decision.md",
+            ".scratch/diagnostic-jira/drafts/08-integration-conditionnelle.md",
+            ".scratch/diagnostic-jira/README.md",
+            ".scratch/panel-test.js",
+            ".scratch/pty_debug.py",
+            ".scratch/spec-decouverte-progressive-brouillon.md",
+            ".scratch/specs-77-79-80/issues/01-socle-commun.md",
+            ".scratch/specs-77-79-80/issues/02-commande-mcp.md",
+            ".scratch/specs-77-79-80/issues/03-artifact-mcp.md",
+            ".scratch/specs-77-79-80/issues/04-narration-macos.md",
+            ".scratch/specs-77-79-80/issues/05-narration-windows.md",
+            ".scratch/specs-77-79-80/issues/06-faisabilite-copilot.md",
+            ".scratch/specs-77-79-80/issues/07-parcours-neutre.md",
+            ".scratch/specs-77-79-80/issues/08-critique-sans-spec.md",
+            ".scratch/specs-77-79-80/issues/09-critique-avec-spec.md",
+            ".scratch/specs-77-79-80/issues/10-critique-copilot-distribution.md",
+            ".scratch/specs-77-79-80/issues/11-integration-finale.md",
+            ".scratch/specs-77-79-80/notes/contract-80.md",
+            ".scratch/specs-77-79-80/notes/journal.md"
+          ],
+          "returned": 50,
+          "observed": 500,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 2748,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 2,
+        "startedAt": "2026-11-16T12:06:31.217Z",
+        "endedAt": "2026-11-16T12:06:31.471Z",
+        "durationMs": 254
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3236,
+        "outputTokens": 18,
+        "usageMissing": false,
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 3,
+        "startedAt": "2026-11-16T12:06:31.472Z",
+        "endedAt": "2026-11-16T12:06:32.387Z",
+        "durationMs": 915
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "RyxmxNSFa",
+        "parameters": {
+          "query": "catalogue mémoire règles persistance refus collision"
+        },
+        "result": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "returned=0",
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 4,
+        "startedAt": "2026-11-16T12:06:32.387Z",
+        "endedAt": "2026-11-16T12:06:32.387Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3257,
+        "outputTokens": 13,
+        "usageMissing": false,
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 5,
+        "startedAt": "2026-11-16T12:06:32.388Z",
+        "endedAt": "2026-11-16T12:06:33.240Z",
+        "durationMs": 852
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "yFnxfahQ1",
+        "parameters": {
+          "query": "memory persistence rules"
+        },
+        "result": {
+          "results": [],
+          "note": "The catalogue is empty again. Revising the plan in a loop will not fill it: if the question you are serving is durably reusable and no permanent primitive covers it, build the missing capability once with function_try(source, params) instead of revising the plan again; otherwise state why not in the final result."
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=results,note",
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 6,
+        "startedAt": "2026-11-16T12:06:33.240Z",
+        "endedAt": "2026-11-16T12:06:33.240Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3346,
+        "outputTokens": 12,
+        "usageMissing": false,
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 7,
+        "startedAt": "2026-11-16T12:06:33.242Z",
+        "endedAt": "2026-11-16T12:06:33.909Z",
+        "durationMs": 667
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "Y8WDjgYF4",
+        "parameters": {
+          "query": "persist"
+        },
+        "result": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "returned=0",
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 8,
+        "startedAt": "2026-11-16T12:06:33.909Z",
+        "endedAt": "2026-11-16T12:06:33.909Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3361,
+        "outputTokens": 12,
+        "usageMissing": false,
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 9,
+        "startedAt": "2026-11-16T12:06:33.911Z",
+        "endedAt": "2026-11-16T12:06:34.516Z",
+        "durationMs": 605
+      },
+      {
+        "type": "tool",
+        "name": "searchText",
+        "callId": "v19Ij9RK3",
+        "parameters": {
+          "query": "memory_list"
+        },
+        "result": {
+          "result": [
+            {
+              "file": "docs/specs/code-mode-procedural-memory-diagnostic-2026-11-16.md",
+              "line": 18,
+              "text": "Dans le dernier diagnostic réel sur PostgreSQL, CodeTour a répondu en explorant le dépôt, mais **aucune fonction mémoire n'a été créée, essayée ni réutilisée**. Le prompt exige une décomposition « mentale », non observable. Nous ne savons pas si l'agent a identifié des sous-questions fonctionnelles réutilisables ni pourquoi il n'a pas appelé `memory_list` ou `function_try`. Les diagnostics précédents ne démontrent **aucun apprentissage ni aucune économie de tokens**. Les journaux du comparateur Vibe présentaient en outre une consommation incomplète ; ceci reste une contrainte du benchmark futur, distincte du diagnostic présent."
+            },
+            {
+              "file": "docs/specs/code-mode-procedural-memory-diagnostic-2026-11-16.md",
+              "line": 23,
+              "text": "Réaliser **une seule phase diagnostique exploratoire** du POC CodeTour (aucune phase « ancien prompt », aucun benchmark A/B obligatoire pour commencer). Au début de chaque Tour, le modèle produit un **petit plan structuré** en questions fonctionnelles indépendantes, **en anglais**, qui peut être révisé en cours d'exploration avec une raison enregistrée. L'agent explore brièvement, consulte `memory_list`, réutilise `memory_run` quand c'est pertinent, et est **fortement incité** à construire avec `function_try` une procédure TypeScript manquante quand elle représente une capacité durable, paramétrée et réutilisable. **Pas d'obligation artificielle de créer une fonction pour chaque question** ni de quota obligatoire de `function_try`."
+            },
+            {
+              "file": "docs/specs/code-mode-procedural-memory-diagnostic-2026-11-16.md",
+              "line": 70,
+              "text": "- Pour chaque sous-question, rechercher la capacité existante (`memory_list`) ; la réutiliser avec `memory_run` et vérifier ses résultats quand elle convient. Après une **courte exploration initiale**, encourager fortement `function_try` lorsqu'une capacité manquante demande une combinaison d'opérations réutilisable. Une primitive seule peut suffire : **aucune fonction forcée**."
+            },
+            {
+              "file": "docs/specs/code-mode-procedural-memory-diagnostic-2026-11-16.md",
+              "line": 86,
+              "text": "- Catalogue consultable sans exposer le code source : identifiant stable unique, nom canonique, question, description, paramètres typés, forme de sortie, limites, revision si applicable. Réutilisation dans un Tour ultérieur via `memory_list` + `memory_run`."
+            },
+            {
+              "file": "docs/specs/code-mode-procedural-memory-diagnostic-2026-11-16.md",
+              "line": 103,
+              "text": "- [ ] **S5 — Test de bout en bout (POC)** : Tour A mémoire vide, fonction créée et persistée ; Tour B même catalogue, `memory_list` puis `memory_run` prouvés ; traces et références vérifiables ; rapport d'échec explicite si cela ne fonctionne pas."
+            },
+            {
+              "file": "docs/specs/code-mode-procedural-memory-diagnostic-2026-11-16.md",
+              "line": 115,
+              "text": "- **T8 — Réutilisation** : deux Tours successifs sur même dépôt avec catalogue partagé ; trace vérifiable de `memory_list` puis `memory_run` au Tour B, **sans recréer** le même code lors de ce scénario."
+            },
+            {
+              "file": "docs/specs/code-mode-procedural-memory-diagnostic-tickets-2026-11-16.md",
+              "line": 20,
+              "text": "| [#188 — D05](https://github.com/maurice30120/codetour/issues/188) | Two independently traced Tours prove create/repair/accept in Tour A, then `memory_list` → `memory_run` reuse in Tour B | #184, #185, #186, #187 |"
+            },
+            {
+              "file": "docs/specs/postgres-real-benchmark-2026-11-15.md",
+              "line": 16,
+              "text": "- [ ] **G0 — conformité POC à #172** : dix primitives testées et bornées ; `function_try(source,params)` valide du TypeScript en mode strict, restreint aux dix primitives, transpile et exécute en QuickJS avec traces ; `memory_list(query)` et `memory_run(id,params)` fonctionnent ; aucune fonction mémorisée n'appelle une autre fonction mémorisée ; consolidation uniquement après Tour validé, sur version réellement essayée ; pas de cache de réponses ni de purge par inactivité. Des interfaces `code` JavaScript / `list,read,search` seules ne suffisent pas. Chaque exigence possède un test automatique concret. **Complément #174 (15/11/2026)** : la définition de G0 inclut en outre les **sept tests d'acceptation** suivants : (1) deux formulations de la même question ne créent pas deux capacités ; (2) même fonction réutilisée sans relecture du code ; (3) une primitive suffisante ⇒ aucune création ; (4) question composite ⇒ procédures indépendantes et exploration du manque ; (5) sortie avec preuves et limites, signal de bornage/troncature ; (6) candidate non exécutée refusée ; (7) résultat syntaxiquement plausible mais preuve de relation absente ⇒ incertitude/échec explicite."
+            },
+            {
+              "file": "docs/specs/postgres-real-benchmark-2026-11-15.md",
+              "line": 35,
+              "text": "> Avant d'explorer le dépôt, décompose mentalement l'objectif du Tour en quelques questions concrètes et indépendantes. Pour chacune, cherche les questions équivalentes via memory_list(query). Si une procédure répond déjà, exécute-la avec memory_run(id, params), vérifie ses preuves et complète seulement ce qui manque. Sinon, utilise d'abord les primitives permanentes ; si une question fonctionnelle autonome paraît réutilisable, essaie une procédure TypeScript paramétrée avec function_try(source, params). Suis le nommage canonique et les contrats du catalogue. Ne recrée ni primitives, ni questions équivalentes ; n'imbrique aucune procédure mémorisée dans une autre. Retourne des résultats structurés, compacts, sourcés, avec limites et incertitudes. Ne mémorise pas de réponse figée : seules les procédures exécutées peuvent être proposées après validation du Tour. Arrête l'exploration lorsque les preuves sont suffisantes ; n'explicite pas systématiquement la décomposition."
+            },
+            {
+              "file": "docs/specs/postgres-real-benchmark-2026-11-15.md",
+              "line": 67,
+              "text": "2. **Contrat `memory_list(query)` (T02).** Expose, **sans lecture du code source** des fonctions : identifiant, question canonique, description/périmètre, paramètres typés, contrat de sortie, limites et cas d'incertitude."
+            },
+            {
+              "file": "docs/specs/postgres-real-benchmark-2026-11-15.md",
+              "line": 70,
+              "text": "5. **Déduplication.** Sur **question + périmètre + contrat**, jamais sur le nom seul. « Pas deux capacités pour une même question » est un objectif testé sur des cas de référence, pas une garantie absolue (`memory_list` est une recherche textuelle simple) ; répondre « non déterminé » plutôt que d'inventer une équivalence ; pas d'embeddings ni de classifieur."
+            },
+            {
+              "file": "docs/specs/postgres-real-benchmark-2026-11-15.md",
+              "line": 107,
+              "text": "**Mesure primaire :** somme réelle des tokens LLM d'entrée et de sortie de **tous les appels** nécessaires à la demande, à la consolidation et aux corrections. Les tokens d'entrée servis depuis un cache sont déjà inclus dans l'entrée totale du fournisseur : les déclarer séparément, **sans double comptage**. Fournir aussi les éventuels compteurs billed/cache-read/cache-write à titre descriptif. Sur Vibe, inclure orchestrateur + recherche native + post-traitement LLM nécessaires au résultat ; sur CodeTour, inclure recherche, `memory_list`, essais `function_try`, diagnostics, retries, sélection et consolidation. Aucun coût de l'évaluateur indépendant n'est attribué à l'un ou l'autre : il est rapporté séparément et symétriquement."
+            },
+            {
+              "file": "docs/specs/postgres-real-benchmark-2026-11-15.md",
+              "line": 148,
+              "text": "**Périmètre :** dix primitives, interface `function_try` TypeScript strict + whitelist + QuickJS, `memory_list(query)` / `memory_run`, traces, mémoire/consolidation. Réutiliser #172 plutôt que créer un second moteur."
+            }
+          ],
+          "returned": 13,
+          "observed": 50,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 7752,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 10,
+        "startedAt": "2026-11-16T12:06:34.516Z",
+        "endedAt": "2026-11-16T12:06:35.002Z",
+        "durationMs": 486
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 5528,
+        "outputTokens": 49,
+        "usageMissing": false,
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 11,
+        "startedAt": "2026-11-16T12:06:35.002Z",
+        "endedAt": "2026-11-16T12:06:36.527Z",
+        "durationMs": 1525
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "Cjk7yU7p1",
+        "parameters": {
+          "file": "docs/specs/postgres-real-benchmark-2026-11-15.md",
+          "startLine": 1,
+          "endLine": 100
+        },
+        "result": {
+          "result": {
+            "preview": "{\"file\":\"docs/specs/postgres-real-benchmark-2026-11-15.md\",\"start\":1,\"lines\":[{\"line\":1,\"text\":\"# Spécification — Benchmark réel CodeTour vs sous-agent de recherche natif Vibe sur PostgreSQL\"},{\"line\":2,\"text\":\"\"},{\"line\":3,\"text\":\"**Statut :** proposition de protocole, à implémenter puis pré-enregistrer avant toute mesure. *(Réconciliation du 15/11/2026 : complément au protocole et corrections bloquantes de la revue croisée intégrés — cf. §2.5 et §4 ; la campagne T07 du 15/11/2026 est INVALIDÉE, traces fabriquées, NO-GO — aucun de ses chiffres n'est exploitable.)*\"},{\"line\":4,\"text\":\"**Date :** 2026-11-15\"},{\"line\":5,\"text\":\"**Liens :** [spec fonctionnelle #172](https://github.com/maurice30120/codetour/issues/172) ; [PR POC #173](https://github.com/maurice30120/codetour/pull/173).\"},{\"line\":6,\"text\":\"**But unique d'optimisation :** réduire la consommation **réelle et totale de tokens LLM** par Tour correct, sans dégrader la qualité. Ni la latence ni le coût monétaire ne servent à décider.\"},{\"line\":7,\"text\":\"\"},{\"line\":8,\"text\":\"## 0. Constat et règle d'honnêteté\"},{\"line\":9,\"text\":\"\"},{\"line\":10,\"text\":\"La PR #173 annonce 77–82 % d'économies, mais les rapports de comparaison Vibe qu'elle embarque utilisent des jeux `*-mock.json`. Ces chiffres NE SONT PAS une mesure du sous-agent natif Vibe. Les essais historiques sur PostgreSQL sont exploratoires, souvent partiels, et ne valident pas l'hypothèse. Tout rapport doit porter explicitement l'un des trois états : `mesure réelle vérifiée`, `diagnostic/pilote sans portée comparative`, `simulation — interdite dans le résultat principal`.\"},{\"line\":11,\"text\":\"\"},{\"line\":12,\"text\":\"**Interdit :** créer des compteurs de tokens, des réponses, des résultats Vibe, des jugements de qualité ou des exécutions fictifs ; remplacer sans l'indiquer le sous-agent de recherche natif par Vibe headless, le harnais sans mémoire, une façade de ses outils, ou une approximation ; annoncer un pourcentage non calculé depuis les traces réelles. Si le sous-agent natif ou la télémétrie ne sont pas accessibles, **ARRÊT : benchmark principal non réalisable**. Ne pas contourner.\"},{\"line\":13,\"text\":\"\"},{\"line\":14,\"text\":\"## 1. Conditions de démarrage (portes bloquantes)\"},{\"line\":15,\"text\":\"\"},{\"line\":16,\"text\":\"- [ ] **G0 — conformité POC à #172** : dix primitives testées et bornées ; `function_try(source,params)` valide du TypeScript en mode strict, restreint aux dix primitives, transpile et exécute en QuickJS avec traces ; `memory_list(query)` et `memory_run(id,params)` fonctionnent ; aucune fonction mémorisée n'appelle une autre fonction mémorisée ; consolidation uniquement après Tour validé, sur version réellement essayée ; pas de cache de réponses ni de purge par inactivité. Des interfaces `code` JavaScript / `list,read,search` seules ne suffisent pas. Chaque exigence possède un test automatique concret. **Complément #174 (15/11/2026)** : la définition de G0 inclut en outre les **sept tests d'acceptation** suivants : (1) deux formulations de la même question ne créent pas deux capacités ; (2) même fonction réutilisée sans relecture du code ; (3) une primitive suffisante ⇒ aucune création ; (4) question composite ⇒ procédures indépendantes et exploration du manque ; (5) sortie avec preuves et limites, signal de bornage/troncature ; (6) candidate non exécutée refusée ; (7) résultat syntaxiquement plausible mais preuve de relation absente ⇒ incertitude/échec explicite.\"},{\"line\":17,\"text\":\"- [ ] **G1 — Vibe authentique** : une exécution sentinelle prouve l'invocation du **sous-agent de recherche natif de Vibe**, avec nom/API/version, identifiant d'exécution, outils réellement utilisés, configuration modèle, résultat et vraie consommation de tokens. Une simple session Vibe headless ou un adaptateur qui simule ses actions ne satisfait pas la porte.\"},{\"line\":18,\"text\":\"- [ ] **G2 — instrumentation totale** : compteurs fiables côté fournisseur / infrastructure pour chaque appel de modèle, y compris orchestrateur et sous-agent Vibe, prompts, recherches, retries, corrections et consolidation POC. Si un appel LLM n'a pas de mesure fiable, marquer `usage_missing=true` et ne PAS calculer de gain global.\"},{\"line\":19,\"text\":\"- [ ] **G3 — fixture réelle** : clone en lecture seule de `postgres/postgres` au SHA **`70c4a57b64d39c526eb4c44a925eb92a6e56f3c5`**, sous-modules/checkout/étendue documentés, état propre, empreinte vérifiée avant chaque série. Même arbre pour les deux agents. Les citations doivent viser le code de ce SHA.\"},{\"line\":20,\"text\":\"- [ ] **G4 — évaluateur indépendant** : format commun des réponses, vérification à l'aveugle contre le code, protocole de désaccord, et seuils de qualité définis **avant** d'observer les résultats.\"},{\"line\":21,\"text\":\"- [ ] **G5 — pré-enregistrement** : tâche, ordre, version des prompts, modèles, paramètres, plafonds, politique cache, grille de notation et seuils écrits dans un manifeste hashé, non modifié pendant le benchmark.\"},{\"line\":22,\"text\":\"\"},{\"line\":23,\"text\":\"Tout G0–G5 non satisfait = **NO-GO** ; aucun benchmark principal n'est lancé, aucune économie n'est publiée.\"},{\"line\":24,\"text\":\"\"},{\"line\":25,\"text\":\"## 2. Incitation à la décomposition : changement produit à effectuer AVANT le benchmark\"},{\"line\":26,\"text\":\"\"},{\"line\":27,\"text\":\"### 2.1 Comportement voulu\"},{\"line\":28,\"text\":\"\"},{\"line\":29,\"text\":\"L'agent qui prépare un Tour doit chercher à **décomposer le besoin en quelques questions de recherche réutilisables** plutôt que générer d'emblée une grosse fonction ad hoc. Pour chaque besoin, il explore d'abord les fonctions déjà mémorisées ; si une fonction convient, il l'exécute avec des paramètres pertinents ; sinon il utilise une primitive existante ou essaie la **plus petite** fonction TypeScript générique réellement nécessaire. Les étapes peuvent rester internes ; **ne pas imposer de long plan narratif au LLM**. La décomposition est une heuristique, pas un objectif en soi : elle ne doit pas multiplier artificiellement les appels.\"},{\"line\":30,\"text\":\"\"},{\"line\":31,\"text\":\"### 2.2 Texte canonique unique à injecter au prompt d'exploration du POC (pas dans Vibe)\"},{\"line\":32,\"text\":\"\"},{\"line\":33,\"text\":\"**Version canonique unique** (correction n°1 de la revue croisée #174, 15/11/2026) : une seule version canonique du prompt existe, reprise à l'identique de l'[issue #172](https://github.com/maurice30120/codetou"
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 6792,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 12,
+        "startedAt": "2026-11-16T12:06:36.528Z",
+        "endedAt": "2026-11-16T12:06:36.760Z",
+        "durationMs": 232
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 7591,
+        "outputTokens": 50,
+        "usageMissing": false,
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 13,
+        "startedAt": "2026-11-16T12:06:36.760Z",
+        "endedAt": "2026-11-16T12:06:37.873Z",
+        "durationMs": 1113
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "rr9H1B0Xt",
+        "parameters": {
+          "file": "docs/specs/postgres-real-benchmark-2026-11-15.md",
+          "startLine": 60,
+          "endLine": 120
+        },
+        "result": {
+          "result": {
+            "preview": "{\"file\":\"docs/specs/postgres-real-benchmark-2026-11-15.md\",\"start\":60,\"lines\":[{\"line\":60,\"text\":\"**Source :** [issue #174, « Complément au protocole » du 15 novembre 2026](https://github.com/maurice30120/codetour/issues/174) et [issue #172, « Complément validé — questions canoniques et qualité des fonctions »](https://github.com/maurice30120/codetour/issues/172). Ce complément complète T01, T02, T06 et T08 **sans modifier** les 80 runs prévus, les portes G0–G5 ni le comparateur principal (vrai sous-agent natif Vibe). Il s'applique au POC **avant** le gel du manifeste G5 ; aucun retouchement des prompts ou des critères à partir des résultats mesurés.\"},{\"line\":61,\"text\":\"\"},{\"line\":62,\"text\":\"**Règle de priorité documentaire :** pour les points couverts par ce complément, le complément des issues #172/#174 **précise et prime sur** le présent document de benchmark ; toute implémentation doit suivre conjointement les deux.\"},{\"line\":63,\"text\":\"\"},{\"line\":64,\"text\":\"**Décisions intégrées :**\"},{\"line\":65,\"text\":\"\"},{\"line\":66,\"text\":\"1. **Questions fonctionnelles autonomes et durables (T01).** L'agent découpe le Tour en questions fonctionnelles indépendantes et durables, jamais en wrappers techniques. Pour chaque question, rechercher d'abord une question canonique équivalente dans la mémoire ; réutiliser par `memory_run` et ne compléter que le manque ; n'utiliser `function_try` que pour une question réellement manquante et plausible à réutiliser. Pas de plan explicatif imposé.\"},{\"line\":67,\"text\":\"2. **Contrat `memory_list(query)` (T02).** Expose, **sans lecture du code source** des fonctions : identifiant, question canonique, description/périmètre, paramètres typés, contrat de sortie, limites et cas d'incertitude.\"},{\"line\":68,\"text\":\"3. **Sortie `memory_run` / `function_try` (T02).** Objet **compact, structuré, borné et sourcé** (fichier/lignes/révision), avec relation démontrée vs incertitude, signalement de la troncature (une sortie tronquée n'est jamais interprétée comme exhaustive), état vide et erreurs explicites. Aucune narration ni réponse figée mise en mémoire.\"},{\"line\":69,\"text\":\"4. **Normalisation et nommage.** Question canonique stable ; nom TypeScript en `camelCase` (`verbe + domaine + objet`) dans le vocabulaire du catalogue ; les variantes sont des paramètres, pas de nouveaux noms. Le nom seul n'est jamais une preuve d'équivalence.\"},{\"line\":70,\"text\":\"5. **Déduplication.** Sur **question + périmètre + contrat**, jamais sur le nom seul. « Pas deux capacités pour une même question » est un objectif testé sur des cas de référence, pas une garantie absolue (`memory_list` est une recherche textuelle simple) ; répondre « non déterminé » plutôt que d'inventer une équivalence ; pas d'embeddings ni de classifieur.\"},{\"line\":71,\"text\":\"6. **Composition hors du code mémorisé.** Une procédure mémorisée n'appelle **que les dix primitives permanentes** ; les réponses de plusieurs procédures se composent **par l'agent pendant le Tour**, jamais dans le code mémorisé.\"},{\"line\":72,\"text\":\"7. **Consolidation.** Uniquement **ajouter / remplacer / ignorer** face aux questions proches, sur candidate effectivement exécutée, Tour validé et réexécution de la version exacte ; recouvrements partiels tolérés entre questions réellement distinctes ; **pas de** moteur de score, d'index sémantique, de graphe de dépendances, de purge par inactivité, ni de notation subjective systématique des fonctions.\"},{\"line\":73,\"text\":\"8. **`function_try` valide la technique, pas la vérité métier (T06).** La qualité sémantique est mesurée **uniquement** par l'évaluateur indépendant et aveugle du benchmark, aux **critères préenregistrés** ; **aucun second LLM juge systématique en production**.\"},{\"line\":74,\"text\":\"9. **Tokens et attribution (T08).** Mesurer les tokens totaux **cumulés par Tour correct**, y compris création, essais, diagnostics et consolidation ; journaliser les réutilisations et le coût observé des créations, mais **jamais transformer un nombre d'appels en économie attribuée** à une fonction sans contrefactuel valide. Distinguer « **validée techniquement** » (condition d'entrée) de « **bénéfice démontré expérimentalement** » (preuve a posteriori).\"},{\"line\":75,\"text\":\"10. **Ablation optionnelle.** Un diagnostic d'attribution — **CodeTour, même harness, avec et sans mémoire** — peut éclairer l'effet causal de la mémoire : il est **distinct des 80 runs**, ne **remplace pas Vibe** et ne modifie pas la pré-régistration.\"},{\"line\":76,\"text\":\"\"},{\"line\":77,\"text\":\"Les **sept tests d'acceptation** associés font partie de la définition de G0 (cf. §1).\"},{\"line\":78,\"text\":\"\"},{\"line\":79,\"text\":\"## 3. Benchmark PostgreSQL : données et tâches pré-enregistrées\"},{\"line\":80,\"text\":\"\"},{\"line\":81,\"text\":\"Source : `https://github.com/postgres/postgres` au SHA G3, déjà utilisé dans `poc/exploration-benchmark/`. Réutiliser et **réviser** `postgres-tour-tasks.json` et `screen-postgres.mjs` : les seules lignes attendues ne prouvent pas la justesse sémantique.\"},{\"line\":82,\"text\":\"\"},{\"line\":83,\"text\":\"Deux séries isolées :\"},{\"line\":84,\"text\":\"\"},{\"line\":85,\"text\":\"**R — répétition** : cinq questions réelles de compréhension du code PostgreSQL, chacune répétée quatre fois selon un ordre fixé à l'avance : **20 demandes par agent**. L'agent CodeTour part d'une mémoire vide et la conserve entre ses 20 demandes ; Vibe démarre chaque demande dans une session indépendante (hors mémoire native explicitement documentée). **Attention (complément #174, 15/11/2026) : ces 20 exécutions = 5 questions distinctes × 4 répétitions et ne forment PAS 20 observations indépendantes ; l'unité d'inférence est la famille de questions (cf. §5 et §7).**\"},{\"line\":86,\"text\":\"\"},{\"line\":87,\"text\":\"**T — transfert** : dix demandes de construction d'expérience sur des parcours du code, puis dix demandes nouvelles mais voisines, pré-définies, non identiques et non visibles comme réponses aux agents : **20 demandes par agent**. Nouvelle mémoire CodeTour vierge au début de T ; pas de mémoire issue de R. Les dix demandes d'amorçage T sont **comptées** dans le coût et la qualité, jamais exclues du résultat.\"},{\"line\":88,\"text\":\"\"},{\"line\":89,\"text\":\"**Total principal minimal : 80 exécutions réelles (2 séries × 2 agents × 20 demandes).** Une extension éventuelle à 50 demandes par série et agent est décidée selon les règles pré-enregistrées, jamais"
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 6807,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 14,
+        "startedAt": "2026-11-16T12:06:37.873Z",
+        "endedAt": "2026-11-16T12:06:38.103Z",
+        "durationMs": 230
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 9601,
+        "outputTokens": 49,
+        "usageMissing": false,
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 15,
+        "startedAt": "2026-11-16T12:06:38.104Z",
+        "endedAt": "2026-11-16T12:06:39.892Z",
+        "durationMs": 1788
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "tbhpHGVxO",
+        "parameters": {
+          "file": "docs/specs/postgres-real-benchmark-2026-11-15.md",
+          "startLine": 14,
+          "endLine": 20
+        },
+        "result": {
+          "result": {
+            "file": "docs/specs/postgres-real-benchmark-2026-11-15.md",
+            "start": 14,
+            "lines": [
+              {
+                "line": 14,
+                "text": "## 1. Conditions de démarrage (portes bloquantes)"
+              },
+              {
+                "line": 15,
+                "text": ""
+              },
+              {
+                "line": 16,
+                "text": "- [ ] **G0 — conformité POC à #172** : dix primitives testées et bornées ; `function_try(source,params)` valide du TypeScript en mode strict, restreint aux dix primitives, transpile et exécute en QuickJS avec traces ; `memory_list(query)` et `memory_run(id,params)` fonctionnent ; aucune fonction mémorisée n'appelle une autre fonction mémorisée ; consolidation uniquement après Tour validé, sur version réellement essayée ; pas de cache de réponses ni de purge par inactivité. Des interfaces `code` JavaScript / `list,read,search` seules ne suffisent pas. Chaque exigence possède un test automatique concret. **Complément #174 (15/11/2026)** : la définition de G0 inclut en outre les **sept tests d'acceptation** suivants : (1) deux formulations de la même question ne créent pas deux capacités ; (2) même fonction réutilisée sans relecture du code ; (3) une primitive suffisante ⇒ aucune création ; (4) question composite ⇒ procédures indépendantes et exploration du manque ; (5) sortie avec preuves et limites, signal de bornage/troncature ; (6) candidate non exécutée refusée ; (7) résultat syntaxiquement plausible mais preuve de relation absente ⇒ incertitude/échec explicite."
+              },
+              {
+                "line": 17,
+                "text": "- [ ] **G1 — Vibe authentique** : une exécution sentinelle prouve l'invocation du **sous-agent de recherche natif de Vibe**, avec nom/API/version, identifiant d'exécution, outils réellement utilisés, configuration modèle, résultat et vraie consommation de tokens. Une simple session Vibe headless ou un adaptateur qui simule ses actions ne satisfait pas la porte."
+              },
+              {
+                "line": 18,
+                "text": "- [ ] **G2 — instrumentation totale** : compteurs fiables côté fournisseur / infrastructure pour chaque appel de modèle, y compris orchestrateur et sous-agent Vibe, prompts, recherches, retries, corrections et consolidation POC. Si un appel LLM n'a pas de mesure fiable, marquer `usage_missing=true` et ne PAS calculer de gain global."
+              },
+              {
+                "line": 19,
+                "text": "- [ ] **G3 — fixture réelle** : clone en lecture seule de `postgres/postgres` au SHA **`70c4a57b64d39c526eb4c44a925eb92a6e56f3c5`**, sous-modules/checkout/étendue documentés, état propre, empreinte vérifiée avant chaque série. Même arbre pour les deux agents. Les citations doivent viser le code de ce SHA."
+              },
+              {
+                "line": 20,
+                "text": "- [ ] **G4 — évaluateur indépendant** : format commun des réponses, vérification à l'aveugle contre le code, protocole de désaccord, et seuils de qualité définis **avant** d'observer les résultats."
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 2740,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 16,
+        "startedAt": "2026-11-16T12:06:39.892Z",
+        "endedAt": "2026-11-16T12:06:40.118Z",
+        "durationMs": 226
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 10505,
+        "outputTokens": 55,
+        "usageMissing": false,
+        "error": "FinalAnswerNotJson: Final answer is not valid JSON (content after plan extraction: empty)",
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 17,
+        "startedAt": "2026-11-16T12:06:40.118Z",
+        "endedAt": "2026-11-16T12:06:41.353Z",
+        "durationMs": 1235
+      },
+      {
+        "type": "run_end",
+        "name": "run_end",
+        "inputTokens": 50518,
+        "outputTokens": 370,
+        "usageMissing": false,
+        "outcome": "status=failed; stopReason=none",
+        "result": {
+          "status": "failed",
+          "stopReason": null,
+          "inputTokens": 50518,
+          "outputTokens": 370,
+          "modelCalls": 10,
+          "toolCalls": 8,
+          "durationMs": 11658
+        },
+        "runId": "77d8b109-5722-4205-8385-fc4992c281b7",
+        "seq": 18,
+        "startedAt": "2026-11-16T12:06:41.355Z",
+        "endedAt": "2026-11-16T12:06:41.355Z",
+        "durationMs": 0
+      }
+    ]
+  },
+  "catalogue": []
+}

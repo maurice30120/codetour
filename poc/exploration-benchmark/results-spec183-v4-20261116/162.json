@@ -1,0 +1,1332 @@
+{
+  "number": 162,
+  "title": "Explorer avec des scripts Code Mode confinés",
+  "objective": "Explique comment les scripts Code Mode sont compilés, confinés et exécutés, avec les limites et références au code.",
+  "started": "2026-11-16T12:19:23.656Z",
+  "ended": "2026-11-16T12:19:55.484Z",
+  "result": {
+    "objective": "Expliquer comment les scripts Code Mode sont compilés, confinés et exécutés, avec les limites et références au code.",
+    "entryPoints": [],
+    "components": [],
+    "relations": [],
+    "uncertainties": [
+      "Impossible de récupérer la liste des fichiers ou le contenu du dépôt pour identifier les composants liés à Code Mode, la compilation, le confinement et l'exécution."
+    ],
+    "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+    "plan": {
+      "status": "recorded",
+      "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+      "versions": [
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How are Code Mode scripts compiled, confined, and executed?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to understand Code Mode script workflow."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What files and components are responsible for Code Mode script compilation, confinement, and execution?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to identify the workflow and components for Code Mode scripts."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What files and components are responsible for Code Mode script compilation, confinement, and execution?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to identify relevant files and components."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What files and components are responsible for Code Mode script compilation, confinement, and execution?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to identify relevant files and components."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What files and components are responsible for Code Mode script compilation, confinement, and execution?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to identify relevant files and components."
+        }
+      ],
+      "anomalies": [
+        "missing question id on 'memory_list' call",
+        "missing question id on 'function_try' call"
+      ]
+    },
+    "status": "partial",
+    "stopReason": "evidence_missing",
+    "promptSha256": "b535bd538fa6ac7bd784e784ccc45724e83fef322f9a0a7e219a0b41acbb341f",
+    "modelConfig": {
+      "model": "mistral-medium-3.5",
+      "temperature": 0,
+      "maxOutputTokens": 4096
+    },
+    "metrics": {
+      "inputTokens": 59633,
+      "outputTokens": 2473,
+      "usageAvailable": true,
+      "modelCalls": 18,
+      "toolCalls": 16,
+      "durationMs": 31827,
+      "outputBytes": 4622,
+      "cost": null,
+      "memoryReuses": 0,
+      "memoryPurges": 0,
+      "memoryQueryRejects": 0,
+      "memoryResultsCompacted": 0,
+      "memoryResultsRepeated": 0
+    },
+    "callTrace": [
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 1452,
+        "outputTokens": 16,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 0,
+        "startedAt": "2026-11-16T12:19:23.659Z",
+        "endedAt": "2026-11-16T12:19:24.614Z",
+        "durationMs": 955
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "CkUQynj4m",
+        "parameters": {
+          "query": "Code Mode scripts compilation confinement execution"
+        },
+        "result": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "returned=0",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 1,
+        "startedAt": "2026-11-16T12:19:24.614Z",
+        "endedAt": "2026-11-16T12:19:24.614Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 1471,
+        "outputTokens": 312,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 2,
+        "startedAt": "2026-11-16T12:19:24.615Z",
+        "endedAt": "2026-11-16T12:19:27.871Z",
+        "durationMs": 3256
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "vkVngyTyZ",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "310a61898e0814dcf6a3a13d7c4480a95f3abfb7d99bf47167ea5256cdf804fa",
+          "fingerprint": "310a61898e0814dcf6a3a13d7c4480a95f3abfb7d99bf47167ea5256cdf804fa",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 107,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:28.091Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function exploreCodeModeExecution(params: {}) {\n  const files = listFiles();\n  const codeModeFiles = files.filter(f => f.includes(\"code\") || f.includes(\"Code\") || f.includes(\"mode\") || f.includes(\"Mode\"));\n  const scriptFiles = files.filter(f => f.includes(\"script\") || f.includes(\"Script\"));\n  const execFiles = files.filter(f => f.includes(\"exec\") || f.includes(\"Exec\") || f.includes(\"run\") || f.includes(\"Run\"));\n  const sandboxFiles = files.filter(f => f.includes(\"sandbox\") || f.includes(\"Sandbox\") || f.includes(\"confin\") || f.includes(\"Confin\"));\n  \n  return {\n    allFiles: files,\n    codeModeCandidates: codeModeFiles,\n    scriptCandidates: scriptFiles,\n    execCandidates: execFiles,\n    sandboxCandidates: sandboxFiles\n  };\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 3,
+        "startedAt": "2026-11-16T12:19:27.871Z",
+        "endedAt": "2026-11-16T12:19:28.118Z",
+        "durationMs": 247
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 1900,
+        "outputTokens": 93,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 4,
+        "startedAt": "2026-11-16T12:19:28.130Z",
+        "endedAt": "2026-11-16T12:19:29.249Z",
+        "durationMs": 1119
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "6pr9IInqG",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "009ab54721c1a07516ed649298a1897d2a13ab036cf90290ee0224f153b8e649",
+          "fingerprint": "009ab54721c1a07516ed649298a1897d2a13ab036cf90290ee0224f153b8e649",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 94,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:29.455Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function exploreCodeModeExecution(params: {}) {\n  const files = listFiles();\n  return files;\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 5,
+        "startedAt": "2026-11-16T12:19:29.249Z",
+        "endedAt": "2026-11-16T12:19:29.481Z",
+        "durationMs": 232
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2110,
+        "outputTokens": 81,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 6,
+        "startedAt": "2026-11-16T12:19:29.481Z",
+        "endedAt": "2026-11-16T12:19:30.792Z",
+        "durationMs": 1311
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "kU9Cwt7UF",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "665d8f4509c933775479bae90e776968de3271d31616d3dd600452e745f966cd",
+          "fingerprint": "665d8f4509c933775479bae90e776968de3271d31616d3dd600452e745f966cd",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 93,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:30.996Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function listAllFiles(params: {}) {\n  return listFiles();\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 7,
+        "startedAt": "2026-11-16T12:19:30.793Z",
+        "endedAt": "2026-11-16T12:19:31.022Z",
+        "durationMs": 229
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2308,
+        "outputTokens": 95,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 8,
+        "startedAt": "2026-11-16T12:19:31.022Z",
+        "endedAt": "2026-11-16T12:19:32.126Z",
+        "durationMs": 1104
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "ePhgL3Gz1",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "15153c6de5bb3a686d1ce3bc2ffaa94470aef7fbd59f609eb98d9eed8ec47550",
+          "fingerprint": "15153c6de5bb3a686d1ce3bc2ffaa94470aef7fbd59f609eb98d9eed8ec47550",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 97,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:32.333Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function listFilesWrapper(params: {}) {\n  const files = listFiles();\n  return { files: files };\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 9,
+        "startedAt": "2026-11-16T12:19:32.126Z",
+        "endedAt": "2026-11-16T12:19:32.359Z",
+        "durationMs": 233
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2520,
+        "outputTokens": 77,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 10,
+        "startedAt": "2026-11-16T12:19:32.359Z",
+        "endedAt": "2026-11-16T12:19:33.205Z",
+        "durationMs": 846
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "xKs8lKWLD",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "9ceceaf11f1ba15f770a10f087ae01d63df5b8fe0285f428748e50591c5f4d98",
+          "fingerprint": "9ceceaf11f1ba15f770a10f087ae01d63df5b8fe0285f428748e50591c5f4d98",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 96,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:33.413Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function getFileList() {\n  const files = listFiles();\n  return files;\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 11,
+        "startedAt": "2026-11-16T12:19:33.205Z",
+        "endedAt": "2026-11-16T12:19:33.439Z",
+        "durationMs": 234
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2714,
+        "outputTokens": 83,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 12,
+        "startedAt": "2026-11-16T12:19:33.439Z",
+        "endedAt": "2026-11-16T12:19:34.491Z",
+        "durationMs": 1052
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "Nx5YLHzw7",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "aea0a19996db72daf12d5711f97dda10bd0e8450c808ce65d57008269e319cf8",
+          "fingerprint": "aea0a19996db72daf12d5711f97dda10bd0e8450c808ce65d57008269e319cf8",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 97,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:34.700Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function fetchFiles() {\n  const files = listFiles();\n  return files;\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 13,
+        "startedAt": "2026-11-16T12:19:34.491Z",
+        "endedAt": "2026-11-16T12:19:34.725Z",
+        "durationMs": 234
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2914,
+        "outputTokens": 72,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 14,
+        "startedAt": "2026-11-16T12:19:34.726Z",
+        "endedAt": "2026-11-16T12:19:36.476Z",
+        "durationMs": 1750
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "B2uJbUPAb",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "174f267f26ee0bbeec239745d64f71041be073d6f2ac98d5c3ac5c0ea5cfa1e3",
+          "fingerprint": "174f267f26ee0bbeec239745d64f71041be073d6f2ac98d5c3ac5c0ea5cfa1e3",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 102,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:36.691Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function getAllFiles() {\n  return listFiles();\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 15,
+        "startedAt": "2026-11-16T12:19:36.476Z",
+        "endedAt": "2026-11-16T12:19:36.717Z",
+        "durationMs": 241
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3103,
+        "outputTokens": 223,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 16,
+        "startedAt": "2026-11-16T12:19:36.718Z",
+        "endedAt": "2026-11-16T12:19:38.428Z",
+        "durationMs": 1710
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "Zzjo1X22T",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "aa389e337c0632b52fdeaa446a7e4b7df4285d86372e1e0d5c4823a18cbc30ed",
+          "fingerprint": "aa389e337c0632b52fdeaa446a7e4b7df4285d86372e1e0d5c4823a18cbc30ed",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 94,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:38.635Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function searchCodeModeComponents() {\n  const codeModeSearch = searchText(\"Code Mode\");\n  const compilationSearch = searchText(\"compile\");\n  const confinementSearch = searchText(\"sandbox\");\n  const executionSearch = searchText(\"execute\");\n  \n  return {\n    codeMode: codeModeSearch,\n    compilation: compilationSearch,\n    confinement: confinementSearch,\n    execution: executionSearch\n  };\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 17,
+        "startedAt": "2026-11-16T12:19:38.428Z",
+        "endedAt": "2026-11-16T12:19:38.661Z",
+        "durationMs": 233
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3399,
+        "outputTokens": 200,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 18,
+        "startedAt": "2026-11-16T12:19:38.662Z",
+        "endedAt": "2026-11-16T12:19:41.240Z",
+        "durationMs": 2578
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "jb91iHwNq",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "144bd372dfc1c6f4582e97d0577767fd20dd28f29beef624874fb40a430582d5",
+          "fingerprint": "144bd372dfc1c6f4582e97d0577767fd20dd28f29beef624874fb40a430582d5",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 97,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:41.451Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function exploreRepositoryForCodeMode() {\n  const files = listFiles();\n  const codeModeResults = searchText(\"CodeMode\");\n  const sandboxResults = searchText(\"sandbox\");\n  const compileResults = searchText(\"compile\");\n  const executeResults = searchText(\"execute\");\n  \n  return {\n    files: files,\n    codeMode: codeModeResults,\n    sandbox: sandboxResults,\n    compile: compileResults,\n    execute: executeResults\n  };\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 19,
+        "startedAt": "2026-11-16T12:19:41.240Z",
+        "endedAt": "2026-11-16T12:19:41.477Z",
+        "durationMs": 237
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3716,
+        "outputTokens": 85,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 20,
+        "startedAt": "2026-11-16T12:19:41.478Z",
+        "endedAt": "2026-11-16T12:19:42.516Z",
+        "durationMs": 1038
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "6NjLHAwRi",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "4e304ccf858fc760c742139651952f5d43b1dac10c2b5acd9062e289e6af065a",
+          "fingerprint": "4e304ccf858fc760c742139651952f5d43b1dac10c2b5acd9062e289e6af065a",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 93,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:42.717Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function searchCodeMode() {\n  return searchText(\"CodeMode\");\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 21,
+        "startedAt": "2026-11-16T12:19:42.516Z",
+        "endedAt": "2026-11-16T12:19:42.742Z",
+        "durationMs": 226
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3918,
+        "outputTokens": 79,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 22,
+        "startedAt": "2026-11-16T12:19:42.743Z",
+        "endedAt": "2026-11-16T12:19:44.254Z",
+        "durationMs": 1511
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "thyLdAk0x",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "278ec012b7c09693f4e738aa59a138309df4e0ad30ddf3db81cca0cd58acf08c",
+          "fingerprint": "278ec012b7c09693f4e738aa59a138309df4e0ad30ddf3db81cca0cd58acf08c",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 96,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:44.461Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function initialExploration() {\n  const files = listFiles();\n  return files;\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 23,
+        "startedAt": "2026-11-16T12:19:44.254Z",
+        "endedAt": "2026-11-16T12:19:44.487Z",
+        "durationMs": 233
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 4114,
+        "outputTokens": 125,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 24,
+        "startedAt": "2026-11-16T12:19:44.488Z",
+        "endedAt": "2026-11-16T12:19:45.729Z",
+        "durationMs": 1241
+      },
+      {
+        "type": "decomposition_plan",
+        "name": "decomposition_plan",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How are Code Mode scripts compiled, confined, and executed?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to understand Code Mode script workflow."
+        },
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 25,
+        "startedAt": "2026-11-16T12:19:45.730Z",
+        "endedAt": "2026-11-16T12:19:45.730Z",
+        "durationMs": 0
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "rxU8RSpU8",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "69e978cfc8e914bf52c01c257a5171f4cfa8e15e3a8bed09bb56187e4b69e630",
+          "fingerprint": "69e978cfc8e914bf52c01c257a5171f4cfa8e15e3a8bed09bb56187e4b69e630",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 96,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:45.940Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function initialExploration() {\n  return listFiles();\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 26,
+        "startedAt": "2026-11-16T12:19:45.730Z",
+        "endedAt": "2026-11-16T12:19:45.966Z",
+        "durationMs": 236
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 4307,
+        "outputTokens": 368,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 27,
+        "startedAt": "2026-11-16T12:19:45.966Z",
+        "endedAt": "2026-11-16T12:19:48.778Z",
+        "durationMs": 2812
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What files and components are responsible for Code Mode script compilation, confinement, and execution?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to identify the workflow and components for Code Mode scripts."
+        },
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 28,
+        "startedAt": "2026-11-16T12:19:48.779Z",
+        "endedAt": "2026-11-16T12:19:48.779Z",
+        "durationMs": 0
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "rJEwl0LIy",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "3137811589cd1a215dfaee15a0a31d6c17c7c491071e187a32cb7fef07c112a4",
+          "fingerprint": "3137811589cd1a215dfaee15a0a31d6c17c7c491071e187a32cb7fef07c112a4",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 95,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:48.987Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function exploreCodeMode() {\n  const files = listFiles();\n  const codeModeMatches = searchText(\"CodeMode\");\n  const sandboxMatches = searchText(\"sandbox\");\n  const compileMatches = searchText(\"compile\");\n  const executeMatches = searchText(\"execute\");\n  \n  return {\n    files: files,\n    codeMode: codeModeMatches,\n    sandbox: sandboxMatches,\n    compile: compileMatches,\n    execute: executeMatches,\n  };\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 29,
+        "startedAt": "2026-11-16T12:19:48.779Z",
+        "endedAt": "2026-11-16T12:19:49.013Z",
+        "durationMs": 234
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 4632,
+        "outputTokens": 206,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 30,
+        "startedAt": "2026-11-16T12:19:49.014Z",
+        "endedAt": "2026-11-16T12:19:50.880Z",
+        "durationMs": 1866
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What files and components are responsible for Code Mode script compilation, confinement, and execution?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to identify relevant files and components."
+        },
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 31,
+        "startedAt": "2026-11-16T12:19:50.880Z",
+        "endedAt": "2026-11-16T12:19:50.880Z",
+        "durationMs": 0
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "37mUCmJEz",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "0e107995b9f8eb025dbddab03b81f31015b010d984b0d3a24d9f5aefcc4030ff",
+          "fingerprint": "0e107995b9f8eb025dbddab03b81f31015b010d984b0d3a24d9f5aefcc4030ff",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 96,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:51.084Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function exploreCodeModeComponents() {\n  const files = listFiles();\n  return files;\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 32,
+        "startedAt": "2026-11-16T12:19:50.880Z",
+        "endedAt": "2026-11-16T12:19:51.110Z",
+        "durationMs": 230
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 4840,
+        "outputTokens": 204,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 33,
+        "startedAt": "2026-11-16T12:19:51.111Z",
+        "endedAt": "2026-11-16T12:19:53.360Z",
+        "durationMs": 2249
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What files and components are responsible for Code Mode script compilation, confinement, and execution?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to identify relevant files and components."
+        },
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 34,
+        "startedAt": "2026-11-16T12:19:53.360Z",
+        "endedAt": "2026-11-16T12:19:53.360Z",
+        "durationMs": 0
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "hhQwaRFfL",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "a67767263a2e03aab2225a59dce83853264b1fc0881311f5cc1fe0a2e884e390",
+          "fingerprint": "a67767263a2e03aab2225a59dce83853264b1fc0881311f5cc1fe0a2e884e390",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 96,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:19:53.568Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function exploreCodeMode() {\n  const files = listFiles();\n  return files;\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 35,
+        "startedAt": "2026-11-16T12:19:53.360Z",
+        "endedAt": "2026-11-16T12:19:53.593Z",
+        "durationMs": 233
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 5047,
+        "outputTokens": 68,
+        "usageMissing": false,
+        "error": "FinalAnswerNotJson: Final answer is not valid JSON (content after plan extraction: empty)",
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 36,
+        "startedAt": "2026-11-16T12:19:53.594Z",
+        "endedAt": "2026-11-16T12:19:54.391Z",
+        "durationMs": 797
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What files and components are responsible for Code Mode script compilation, confinement, and execution?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to identify relevant files and components."
+        },
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 37,
+        "startedAt": "2026-11-16T12:19:54.391Z",
+        "endedAt": "2026-11-16T12:19:54.391Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 5168,
+        "outputTokens": 86,
+        "usageMissing": false,
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 38,
+        "startedAt": "2026-11-16T12:19:54.393Z",
+        "endedAt": "2026-11-16T12:19:55.480Z",
+        "durationMs": 1087
+      },
+      {
+        "type": "run_end",
+        "name": "run_end",
+        "inputTokens": 59633,
+        "outputTokens": 2473,
+        "usageMissing": false,
+        "outcome": "status=partial; stopReason=evidence_missing",
+        "result": {
+          "status": "partial",
+          "stopReason": "evidence_missing",
+          "inputTokens": 59633,
+          "outputTokens": 2473,
+          "modelCalls": 18,
+          "toolCalls": 16,
+          "durationMs": 31827
+        },
+        "runId": "a42c7e70-7512-42b2-90ad-c202b5a48693",
+        "seq": 39,
+        "startedAt": "2026-11-16T12:19:55.483Z",
+        "endedAt": "2026-11-16T12:19:55.483Z",
+        "durationMs": 0
+      }
+    ],
+    "consolidationReport": {
+      "accepted": [],
+      "rejected": [],
+      "duplicates": [],
+      "indeterminate": [],
+      "reconciliation": []
+    }
+  },
+  "catalogue": []
+}

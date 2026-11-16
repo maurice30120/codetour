@@ -1,0 +1,171 @@
+{
+  "number": 165,
+  "title": "Mémoriser et réexécuter un script utile",
+  "objective": "Explique comment une fonction utile est essayée, consolidée et réexécutée depuis la mémoire.",
+  "started": "2026-11-16T12:23:14.149Z",
+  "ended": "2026-11-16T12:23:16.198Z",
+  "result": {
+    "objective": "Expliquer le processus d'essai, de consolidation et de réexécution d'une fonction utile depuis la mémoire.",
+    "entryPoints": [],
+    "components": [],
+    "relations": [],
+    "uncertainties": [],
+    "runId": "b8e1f7bc-4a3c-471c-8d5b-dff415210fc9",
+    "plan": {
+      "status": "invalid",
+      "runId": "b8e1f7bc-4a3c-471c-8d5b-dff415210fc9",
+      "versions": [
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "Comment une fonction utile est-elle essayée, consolidée et réexécutée depuis la mémoire ?",
+              "reuse": false
+            }
+          ],
+          "reason": "Premier plan pour comprendre le processus demandé."
+        },
+        {
+          "questions": [],
+          "error": "invalid plan: questions must be a non-empty array"
+        }
+      ],
+      "anomalies": [
+        "plan not in English: question 'q1' looks French",
+        "missing question id on 'memory_list' call"
+      ]
+    },
+    "status": "partial",
+    "stopReason": "evidence_missing",
+    "promptSha256": "b535bd538fa6ac7bd784e784ccc45724e83fef322f9a0a7e219a0b41acbb341f",
+    "modelConfig": {
+      "model": "mistral-medium-3.5",
+      "temperature": 0,
+      "maxOutputTokens": 4096
+    },
+    "metrics": {
+      "inputTokens": 2914,
+      "outputTokens": 164,
+      "usageAvailable": true,
+      "modelCalls": 2,
+      "toolCalls": 1,
+      "durationMs": 2049,
+      "outputBytes": 2,
+      "cost": null,
+      "memoryReuses": 0,
+      "memoryPurges": 0,
+      "memoryQueryRejects": 0,
+      "memoryResultsCompacted": 0,
+      "memoryResultsRepeated": 0
+    },
+    "callTrace": [
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 1446,
+        "outputTokens": 73,
+        "usageMissing": false,
+        "runId": "b8e1f7bc-4a3c-471c-8d5b-dff415210fc9",
+        "seq": 0,
+        "startedAt": "2026-11-16T12:23:14.151Z",
+        "endedAt": "2026-11-16T12:23:15.211Z",
+        "durationMs": 1060
+      },
+      {
+        "type": "decomposition_plan",
+        "name": "decomposition_plan",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "Comment une fonction utile est-elle essayée, consolidée et réexécutée depuis la mémoire ?",
+              "reuse": false
+            }
+          ],
+          "reason": "Premier plan pour comprendre le processus demandé."
+        },
+        "runId": "b8e1f7bc-4a3c-471c-8d5b-dff415210fc9",
+        "seq": 1,
+        "startedAt": "2026-11-16T12:23:15.211Z",
+        "endedAt": "2026-11-16T12:23:15.211Z",
+        "durationMs": 0
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "Qwo6xVkaj",
+        "parameters": {
+          "query": "essayer fonction utile mémoire consolidation réexécution"
+        },
+        "result": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "returned=0",
+        "runId": "b8e1f7bc-4a3c-471c-8d5b-dff415210fc9",
+        "seq": 2,
+        "startedAt": "2026-11-16T12:23:15.211Z",
+        "endedAt": "2026-11-16T12:23:15.211Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 1468,
+        "outputTokens": 91,
+        "usageMissing": false,
+        "runId": "b8e1f7bc-4a3c-471c-8d5b-dff415210fc9",
+        "seq": 3,
+        "startedAt": "2026-11-16T12:23:15.213Z",
+        "endedAt": "2026-11-16T12:23:16.194Z",
+        "durationMs": 981
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "error": "invalid plan: questions must be a non-empty array",
+        "runId": "b8e1f7bc-4a3c-471c-8d5b-dff415210fc9",
+        "seq": 4,
+        "startedAt": "2026-11-16T12:23:16.194Z",
+        "endedAt": "2026-11-16T12:23:16.194Z",
+        "durationMs": 0
+      },
+      {
+        "type": "run_end",
+        "name": "run_end",
+        "inputTokens": 2914,
+        "outputTokens": 164,
+        "usageMissing": false,
+        "outcome": "status=partial; stopReason=evidence_missing",
+        "result": {
+          "status": "partial",
+          "stopReason": "evidence_missing",
+          "inputTokens": 2914,
+          "outputTokens": 164,
+          "modelCalls": 2,
+          "toolCalls": 1,
+          "durationMs": 2049
+        },
+        "runId": "b8e1f7bc-4a3c-471c-8d5b-dff415210fc9",
+        "seq": 5,
+        "startedAt": "2026-11-16T12:23:16.198Z",
+        "endedAt": "2026-11-16T12:23:16.198Z",
+        "durationMs": 0
+      }
+    ],
+    "consolidationReport": {
+      "accepted": [],
+      "rejected": [],
+      "duplicates": [],
+      "indeterminate": [],
+      "reconciliation": []
+    }
+  },
+  "catalogue": []
+}

@@ -1,0 +1,10 @@
+{"number":161,"status":"complete","stopReason":null,"accepted":[],"catalogue":0}
+{"number":162,"status":"complete","stopReason":null,"accepted":[],"catalogue":0}
+{"number":163,"status":"complete","stopReason":null,"accepted":[],"catalogue":0}
+{"number":164,"status":"complete","stopReason":null,"accepted":[],"catalogue":0}
+{"number":165,"status":"partial","stopReason":"evidence_missing","accepted":[],"catalogue":0}
+{"number":166,"status":"failed","error":"Final answer is not valid JSON (content after plan extraction: empty)","catalogue":0}
+{"number":167,"status":"failed","error":"Final answer is not valid JSON (content after plan extraction: empty)","catalogue":0}
+{"number":175,"status":"complete","stopReason":null,"accepted":[],"catalogue":0}
+{"number":176,"status":"failed","error":"Final answer is not valid JSON (content after plan extraction: empty)","catalogue":0}
+{"number":179,"status":"complete","stopReason":null,"accepted":[],"catalogue":0}

@@ -1,0 +1,4019 @@
+{
+  "number": 161,
+  "title": "Explorer un dépôt avec LangGraph.js et Mistral",
+  "objective": "Explique comment le harnais orchestre les appels au modèle Mistral et les outils d’exploration, avec des références au code.",
+  "started": "2026-11-16T12:01:27.953Z",
+  "ended": "2026-11-16T12:02:35.814Z",
+  "result": {
+    "objective": "Expliquer comment le harnais orchestrer les appels au modèle Mistral et les outils d’exploration",
+    "entryPoints": [
+      {
+        "name": "mistral function",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "startLine": 15,
+            "endLine": 80
+          }
+        ]
+      },
+      {
+        "name": "explore function",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 84,
+            "endLine": 150
+          }
+        ]
+      },
+      {
+        "name": "CLI entry point",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/cli.ts",
+            "startLine": 40,
+            "endLine": 41
+          }
+        ]
+      }
+    ],
+    "components": [
+      {
+        "name": "Mistral model integration",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "startLine": 37,
+            "endLine": 41
+          },
+          {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "startLine": 15,
+            "endLine": 35
+          }
+        ]
+      },
+      {
+        "name": "Tool definitions for Mistral",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "startLine": 4,
+            "endLine": 9
+          },
+          {
+            "file": "packages/exploration-poc/src/tool-contract.ts",
+            "startLine": 1,
+            "endLine": 17
+          }
+        ]
+      },
+      {
+        "name": "Orchestration of model and tool calls",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 175,
+            "endLine": 207
+          },
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 271,
+            "endLine": 300
+          }
+        ]
+      },
+      {
+        "name": "Plan extraction and validation",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "startLine": 42,
+            "endLine": 78
+          },
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 125,
+            "endLine": 142
+          }
+        ]
+      },
+      {
+        "name": "Tool execution and memory integration",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 301,
+            "endLine": 350
+          },
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 350,
+            "endLine": 400
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "CLI entry point",
+        "to": "explore function",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/cli.ts",
+            "startLine": 40,
+            "endLine": 41
+          }
+        ]
+      },
+      {
+        "from": "explore function",
+        "to": "Mistral model integration",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 186,
+            "endLine": 186
+          }
+        ]
+      },
+      {
+        "from": "Mistral model integration",
+        "to": "Tool definitions for Mistral",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "startLine": 34,
+            "endLine": 34
+          }
+        ]
+      },
+      {
+        "from": "explore function",
+        "to": "Tool execution and memory integration",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 271,
+            "endLine": 300
+          }
+        ]
+      },
+      {
+        "from": "Mistral model integration",
+        "to": "Plan extraction and validation",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "startLine": 42,
+            "endLine": 78
+          }
+        ]
+      }
+    ],
+    "uncertainties": [
+      "La question q1 n'a pas été servie par memory_run ou function_try, car elle est déjà couverte par l'analyse directe du code source et des appels au modèle Mistral."
+    ],
+    "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+    "plan": {
+      "status": "recorded",
+      "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+      "versions": [
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How does the harness orchestrate calls to the Mistral model and exploration tools?",
+              "reuse": true
+            }
+          ]
+        }
+      ],
+      "anomalies": [
+        "missing question id on 'listFiles' call",
+        "missing question id on 'searchText' call",
+        "missing question id on 'readLines' call",
+        "missing question id on 'plan' call",
+        "missing question id on 'memory_list' call"
+      ]
+    },
+    "status": "complete",
+    "stopReason": null,
+    "promptSha256": "34a11f8f6b9bd36dac91cdfb7f6ded5d90a345354b468d3fe00ddefb9e555e59",
+    "modelConfig": {
+      "model": "mistral-medium-3.5",
+      "temperature": 0,
+      "maxOutputTokens": 4096
+    },
+    "metrics": {
+      "inputTokens": 613004,
+      "outputTokens": 5166,
+      "usageAvailable": true,
+      "modelCalls": 34,
+      "toolCalls": 30,
+      "durationMs": 67859,
+      "outputBytes": 89736,
+      "cost": null,
+      "memoryReuses": 0,
+      "memoryPurges": 0,
+      "memoryQueryRejects": 0,
+      "memoryResultsCompacted": 0,
+      "memoryResultsRepeated": 0
+    },
+    "callTrace": [
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2033,
+        "outputTokens": 6,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 0,
+        "startedAt": "2026-11-16T12:01:27.962Z",
+        "endedAt": "2026-11-16T12:01:28.572Z",
+        "durationMs": 610
+      },
+      {
+        "type": "tool",
+        "name": "listFiles",
+        "callId": "JDZUGsDRF",
+        "parameters": {},
+        "result": {
+          "result": [
+            ".agents/skills/caveman/README.md",
+            ".agents/skills/caveman/SKILL.md",
+            ".DS_Store",
+            ".env.local.example",
+            ".gitattributes",
+            ".githooks/pre-commit",
+            ".github/extensions/codetour/adapter.mjs",
+            ".github/extensions/codetour/extension.mjs",
+            ".github/workflows/release.yml",
+            ".github/workflows/test.yml",
+            ".gitignore",
+            ".node-version",
+            ".nvmrc",
+            ".playwright-mcp/console-2026-11-02T10-17-13-702Z.log",
+            ".playwright-mcp/page-2026-11-02T10-17-14-414Z.yml",
+            ".scratch/autonomous-cli-termdom-copilot/issues/01-open-existing-project-tours-from-standalone-cli.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/02-inspect-anchors-code-and-changes-tour-diffs-in-html.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/03-play-a-tour-in-an-independent-termdom-window.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/04-render-rich-explanations-and-mermaid-with-termdom.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/05-review-changes-tour-diffs-with-termdom.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/06-reuse-acp-tour-step-conversations-in-both-readers.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/07-launch-independent-reader-from-copilot-cli.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/08-distribute-no-admin-windows-and-macos-readers.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/09-validate-full-poc-e2e-parity-and-nonregression.md",
+            ".scratch/bg-test.js",
+            ".scratch/diagnostic-jira/drafts/01-premiere-question-baseline.md",
+            ".scratch/diagnostic-jira/drafts/02-conversation-rag-multitour.md",
+            ".scratch/diagnostic-jira/drafts/03-comparaison-reranker.md",
+            ".scratch/diagnostic-jira/drafts/04-goldens-synthetique-rejeu.md",
+            ".scratch/diagnostic-jira/drafts/05-selection-abstention.md",
+            ".scratch/diagnostic-jira/drafts/06-navigateurs-hebergement-performances.md",
+            ".scratch/diagnostic-jira/drafts/07-rapport-decision.md",
+            ".scratch/diagnostic-jira/drafts/08-integration-conditionnelle.md",
+            ".scratch/diagnostic-jira/README.md",
+            ".scratch/panel-test.js",
+            ".scratch/pty_debug.py",
+            ".scratch/spec-decouverte-progressive-brouillon.md",
+            ".scratch/specs-77-79-80/issues/01-socle-commun.md",
+            ".scratch/specs-77-79-80/issues/02-commande-mcp.md",
+            ".scratch/specs-77-79-80/issues/03-artifact-mcp.md",
+            ".scratch/specs-77-79-80/issues/04-narration-macos.md",
+            ".scratch/specs-77-79-80/issues/05-narration-windows.md",
+            ".scratch/specs-77-79-80/issues/06-faisabilite-copilot.md",
+            ".scratch/specs-77-79-80/issues/07-parcours-neutre.md",
+            ".scratch/specs-77-79-80/issues/08-critique-sans-spec.md",
+            ".scratch/specs-77-79-80/issues/09-critique-avec-spec.md",
+            ".scratch/specs-77-79-80/issues/10-critique-copilot-distribution.md",
+            ".scratch/specs-77-79-80/issues/11-integration-finale.md",
+            ".scratch/specs-77-79-80/notes/contract-80.md",
+            ".scratch/specs-77-79-80/notes/journal.md"
+          ],
+          "returned": 50,
+          "observed": 500,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 2748,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 1,
+        "startedAt": "2026-11-16T12:01:28.572Z",
+        "endedAt": "2026-11-16T12:01:28.849Z",
+        "durationMs": 277
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3199,
+        "outputTokens": 14,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 2,
+        "startedAt": "2026-11-16T12:01:28.851Z",
+        "endedAt": "2026-11-16T12:01:30.180Z",
+        "durationMs": 1329
+      },
+      {
+        "type": "tool",
+        "name": "listFiles",
+        "callId": "zc0N6MjTy",
+        "parameters": {
+          "maxFiles": 200
+        },
+        "result": {
+          "result": [
+            ".agents/skills/caveman/README.md",
+            ".agents/skills/caveman/SKILL.md",
+            ".DS_Store",
+            ".env.local.example",
+            ".gitattributes",
+            ".githooks/pre-commit",
+            ".github/extensions/codetour/adapter.mjs",
+            ".github/extensions/codetour/extension.mjs",
+            ".github/workflows/release.yml",
+            ".github/workflows/test.yml",
+            ".gitignore",
+            ".node-version",
+            ".nvmrc",
+            ".playwright-mcp/console-2026-11-02T10-17-13-702Z.log",
+            ".playwright-mcp/page-2026-11-02T10-17-14-414Z.yml",
+            ".scratch/autonomous-cli-termdom-copilot/issues/01-open-existing-project-tours-from-standalone-cli.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/02-inspect-anchors-code-and-changes-tour-diffs-in-html.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/03-play-a-tour-in-an-independent-termdom-window.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/04-render-rich-explanations-and-mermaid-with-termdom.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/05-review-changes-tour-diffs-with-termdom.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/06-reuse-acp-tour-step-conversations-in-both-readers.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/07-launch-independent-reader-from-copilot-cli.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/08-distribute-no-admin-windows-and-macos-readers.md",
+            ".scratch/autonomous-cli-termdom-copilot/issues/09-validate-full-poc-e2e-parity-and-nonregression.md",
+            ".scratch/bg-test.js",
+            ".scratch/diagnostic-jira/drafts/01-premiere-question-baseline.md",
+            ".scratch/diagnostic-jira/drafts/02-conversation-rag-multitour.md",
+            ".scratch/diagnostic-jira/drafts/03-comparaison-reranker.md",
+            ".scratch/diagnostic-jira/drafts/04-goldens-synthetique-rejeu.md",
+            ".scratch/diagnostic-jira/drafts/05-selection-abstention.md",
+            ".scratch/diagnostic-jira/drafts/06-navigateurs-hebergement-performances.md",
+            ".scratch/diagnostic-jira/drafts/07-rapport-decision.md",
+            ".scratch/diagnostic-jira/drafts/08-integration-conditionnelle.md",
+            ".scratch/diagnostic-jira/README.md",
+            ".scratch/panel-test.js",
+            ".scratch/pty_debug.py",
+            ".scratch/spec-decouverte-progressive-brouillon.md",
+            ".scratch/specs-77-79-80/issues/01-socle-commun.md",
+            ".scratch/specs-77-79-80/issues/02-commande-mcp.md",
+            ".scratch/specs-77-79-80/issues/03-artifact-mcp.md",
+            ".scratch/specs-77-79-80/issues/04-narration-macos.md",
+            ".scratch/specs-77-79-80/issues/05-narration-windows.md",
+            ".scratch/specs-77-79-80/issues/06-faisabilite-copilot.md",
+            ".scratch/specs-77-79-80/issues/07-parcours-neutre.md",
+            ".scratch/specs-77-79-80/issues/08-critique-sans-spec.md",
+            ".scratch/specs-77-79-80/issues/09-critique-avec-spec.md",
+            ".scratch/specs-77-79-80/issues/10-critique-copilot-distribution.md",
+            ".scratch/specs-77-79-80/issues/11-integration-finale.md",
+            ".scratch/specs-77-79-80/notes/contract-80.md",
+            ".scratch/specs-77-79-80/notes/journal.md"
+          ],
+          "returned": 50,
+          "observed": 500,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 2748,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 3,
+        "startedAt": "2026-11-16T12:01:30.180Z",
+        "endedAt": "2026-11-16T12:01:30.430Z",
+        "durationMs": 250
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 4373,
+        "outputTokens": 13,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 4,
+        "startedAt": "2026-11-16T12:01:30.431Z",
+        "endedAt": "2026-11-16T12:01:31.200Z",
+        "durationMs": 769
+      },
+      {
+        "type": "tool",
+        "name": "searchText",
+        "callId": "Sod0rtlgJ",
+        "parameters": {
+          "query": "Mistral"
+        },
+        "result": {
+          "error": "Result must be JSON within output limit"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 5,
+        "startedAt": "2026-11-16T12:01:31.200Z",
+        "endedAt": "2026-11-16T12:01:31.733Z",
+        "durationMs": 533
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 4399,
+        "outputTokens": 13,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 6,
+        "startedAt": "2026-11-16T12:01:31.734Z",
+        "endedAt": "2026-11-16T12:01:32.854Z",
+        "durationMs": 1120
+      },
+      {
+        "type": "tool",
+        "name": "searchText",
+        "callId": "7iM70pXgs",
+        "parameters": {
+          "query": "Mistral"
+        },
+        "result": {
+          "error": "Result must be JSON within output limit"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 7,
+        "startedAt": "2026-11-16T12:01:32.854Z",
+        "endedAt": "2026-11-16T12:01:33.200Z",
+        "durationMs": 346
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 4425,
+        "outputTokens": 12,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 8,
+        "startedAt": "2026-11-16T12:01:33.200Z",
+        "endedAt": "2026-11-16T12:01:33.779Z",
+        "durationMs": 579
+      },
+      {
+        "type": "tool",
+        "name": "searchText",
+        "callId": "SlEpUtKdu",
+        "parameters": {
+          "query": "mistral"
+        },
+        "result": {
+          "result": [
+            {
+              "file": ".env.local.example",
+              "line": 3,
+              "text": "MISTRAL_MODEL=mistral-medium-3.5"
+            },
+            {
+              "file": "docs/specs/procedural-memory-two-tours-diagnostic-2026-11-16.md",
+              "line": 13,
+              "text": "| Real-provider run | **Not executed.** No `MISTRAL_API_KEY` was available in the environment or `.env.local`, and no GLM provider adapter exists in the harness (only `mistral.ts`); GLM 5.3 Flash availability is unverified | No real-provider result is reported, per the honesty rule: an unexecuted run is never claimed |"
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 7,
+              "text": "      \"model\": \"mistral-medium-3.5\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 42,
+              "text": "      \"model\": \"mistral-medium-3.5\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 44,
+              "text": "        \"name\": \"mistral-large-4-0\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 45,
+              "text": "        \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 46,
+              "text": "        \"alias\": \"mistral-large-4-0-3\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 78,
+              "text": "          \"active_model\": \"mistral-medium-3.5\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 79,
+              "text": "          \"routed_default_model\": \"mistral-large-4-0-3\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 81,
+              "text": "            \"name\": \"mistral-large-4-0\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 82,
+              "text": "            \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 83,
+              "text": "            \"alias\": \"mistral-large-4-0-3\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 106,
+              "text": "              \"name\": \"mistral-large-4-0\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 107,
+              "text": "              \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 108,
+              "text": "              \"alias\": \"mistral-large-4-0-3\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 128,
+              "text": "              \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 149,
+              "text": "              \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 171,
+              "text": "              \"name\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 172,
+              "text": "              \"api_base\": \"https://api.mistral.ai/v1\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 174,
+              "text": "              \"browser_auth_base_url\": \"https://console.mistral.ai\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 175,
+              "text": "              \"browser_auth_api_base_url\": \"https://console.mistral.ai/api\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 179,
+              "text": "              \"backend\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 204,
+              "text": "            \"mistral-medium-3.5\": {"
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 205,
+              "text": "              \"name\": \"mistral-vibe-cli-latest\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 206,
+              "text": "              \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 207,
+              "text": "              \"alias\": \"mistral-medium-3.5\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 224,
+              "text": "            \"mistral-large-4-0-3\": {"
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 225,
+              "text": "              \"name\": \"mistral-large-4-0\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 226,
+              "text": "              \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 227,
+              "text": "              \"alias\": \"mistral-large-4-0-3\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 247,
+              "text": "              \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 268,
+              "text": "              \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 289,
+              "text": "              \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 345,
+              "text": "              \"name\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 346,
+              "text": "              \"api_base\": \"wss://api.mistral.ai\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 348,
+              "text": "              \"client\": \"mistral\""
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 354,
+              "text": "              \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 365,
+              "text": "              \"name\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 366,
+              "text": "              \"api_base\": \"https://api.mistral.ai\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 368,
+              "text": "              \"client\": \"mistral\""
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 374,
+              "text": "              \"provider\": \"mistral\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 524,
+              "text": "              \"model\": \"mistral-vibe-cli-with-tools\""
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 635,
+              "text": "          \"experimental_enable_mistral_mcp_connector\": false,"
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 657,
+              "text": "          \"console_base_url\": \"https://console.mistral.ai\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 711,
+              "text": "          \"vibe_base_url\": \"https://chat.mistral.ai\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 712,
+              "text": "          \"vibe_code_sessions_base_url\": \"https://chat.mistral.ai\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 726,
+              "text": "            \"api_host\": \"https://experiments.mistral.services/\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 766,
+              "text": "          \"active_model\": \"mistral-medium-3.5\","
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/03-connecteur-vibe-natif-manifeste.json",
+              "line": 767,
+              "text": "          \"model_name\": \"mistral-vibe-cli-latest\""
+            },
+            {
+              "file": "docs/specs/spec-174-tickets/REPRISE-2026-11-15.md",
+              "line": 52,
+              "text": "3. **MISTRAL_API_KEY** — PAS dans git. Sur ce Mac : `security find-generic-password -s ai.mistral.vibe -a MISTRAL_API_KEY -w`."
+            }
+          ],
+          "returned": 50,
+          "observed": 50,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 7618,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 9,
+        "startedAt": "2026-11-16T12:01:33.779Z",
+        "endedAt": "2026-11-16T12:01:34.086Z",
+        "durationMs": 307
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 7246,
+        "outputTokens": 13,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 10,
+        "startedAt": "2026-11-16T12:01:34.087Z",
+        "endedAt": "2026-11-16T12:01:35.252Z",
+        "durationMs": 1165
+      },
+      {
+        "type": "tool",
+        "name": "searchText",
+        "callId": "xUzJjUyEA",
+        "parameters": {
+          "query": "mistral.ts"
+        },
+        "result": {
+          "result": [
+            {
+              "file": "docs/specs/procedural-memory-two-tours-diagnostic-2026-11-16.md",
+              "line": 13,
+              "text": "| Real-provider run | **Not executed.** No `MISTRAL_API_KEY` was available in the environment or `.env.local`, and no GLM provider adapter exists in the harness (only `mistral.ts`); GLM 5.3 Flash availability is unverified | No real-provider result is reported, per the honesty rule: an unexecuted run is never claimed |"
+            },
+            {
+              "file": "packages/exploration-poc/src/cli.ts",
+              "line": 6,
+              "text": "import { mistral } from './mistral.ts';"
+            },
+            {
+              "file": "packages/exploration-poc/test/final-answer-fence-whitespace.test.ts",
+              "line": 3,
+              "text": "import { mistral } from '../src/mistral.ts';"
+            },
+            {
+              "file": "packages/exploration-poc/test/final-answer-json-recovery.test.ts",
+              "line": 3,
+              "text": "import { mistral } from '../src/mistral.ts';"
+            },
+            {
+              "file": "packages/exploration-poc/test/internal-instructions-english.test.ts",
+              "line": 8,
+              "text": "import { mistral } from '../src/mistral.ts';"
+            },
+            {
+              "file": "packages/exploration-poc/test/mistral-memory.test.ts",
+              "line": 3,
+              "text": "import { mistral } from '../src/mistral.ts';"
+            },
+            {
+              "file": "packages/exploration-poc/test/mistral-plan.test.ts",
+              "line": 3,
+              "text": "import { mistral } from '../src/mistral.ts';"
+            },
+            {
+              "file": "packages/exploration-poc/test/prompt-decomposition.test.ts",
+              "line": 9,
+              "text": "import { mistral } from '../src/mistral.ts';"
+            },
+            {
+              "file": "poc/benchmark/diagnostics/2026-11-16/spec174-test10-medium-20261116T070334Z/protocol-lock.json",
+              "line": 55,
+              "text": "      \"path\": \"/Users/damien/Documents/codetour/packages/exploration-poc/src/mistral.ts\","
+            },
+            {
+              "file": "poc/benchmark/manifest-lock.json",
+              "line": 55,
+              "text": "      \"path\": \"/Users/damien/Documents/codetour/packages/exploration-poc/src/mistral.ts\","
+            },
+            {
+              "file": "poc/benchmark/results-20261116-v2/previous-lock.json",
+              "line": 55,
+              "text": "      \"path\": \"/Users/damien/Documents/codetour/packages/exploration-poc/src/mistral.ts\","
+            },
+            {
+              "file": "poc/benchmark/results-20261116-v3/previous-lock.json",
+              "line": 55,
+              "text": "      \"path\": \"/Users/damien/Documents/codetour/packages/exploration-poc/src/mistral.ts\","
+            },
+            {
+              "file": "poc/benchmark/results-20261116-v4/previous-lock.json",
+              "line": 55,
+              "text": "      \"path\": \"/Users/damien/Documents/codetour/packages/exploration-poc/src/mistral.ts\","
+            },
+            {
+              "file": "poc/benchmark/runner/dist/src/agents/codetour.d.ts",
+              "line": 9,
+              "text": " * (packages/exploration-poc/src/mistral.ts) and returns REAL per-call"
+            },
+            {
+              "file": "poc/benchmark/runner/dist/src/agents/codetour.js",
+              "line": 10,
+              "text": " * (packages/exploration-poc/src/mistral.ts) and returns REAL per-call"
+            },
+            {
+              "file": "poc/benchmark/runner/src/agents/codetour.ts",
+              "line": 9,
+              "text": " * (packages/exploration-poc/src/mistral.ts) and returns REAL per-call"
+            },
+            {
+              "file": "poc/exploration-benchmark/diagnostic-scripts.mjs",
+              "line": 7,
+              "text": "import { mistral } from '../../packages/exploration-poc/src/mistral.ts';"
+            },
+            {
+              "file": "poc/exploration-benchmark/experiment-memory.mjs",
+              "line": 7,
+              "text": "import { mistral } from '../../packages/exploration-poc/src/mistral.ts';"
+            },
+            {
+              "file": "poc/exploration-benchmark/mistral-adapter.mjs",
+              "line": 2,
+              "text": "import { mistral } from '../../packages/exploration-poc/src/mistral.ts';"
+            },
+            {
+              "file": "poc/exploration-benchmark/postgres.mjs",
+              "line": 6,
+              "text": "import { mistral } from '../../packages/exploration-poc/src/mistral.ts';"
+            },
+            {
+              "file": "poc/exploration-benchmark/RAPPORT-PRIMITIVES-ET-TOKENS.md",
+              "line": 100,
+              "text": "Trois variantes appariées, trois répétitions, ordre alterné, trois tâches (`project-route`, `project-collaboration`, `project-transfer`), mémoire isolée par séquence préremplie des trois primitives, budget 12 itérations / 40 appels / 48 000 tokens / 90 s, `mistral-small-latest` température 0, contrat `literal_query` et rappel final dans toutes les variantes. Le témoin `primitives_named_exclusive_contract_final` expose `memory_search` en retirant `search` et `code`. La variante `primitives_named_exclusive_autoselect_contract_final` ajoute une autosélection locale (`autoselect.mjs`, aucun token modèle) : extraction des identifiants de l'objectif, sondes `probeLiteralQuery` sur les scripts stockés, exécution locale du script gagnant sur chaque terme candidat, puis injection dès le premier message d'une recommandation concrète, par exemple `memory_search` avec `query=\"postOrder\"`. La variante `primitives_named_multi_autoselect_contract_final` conserve `search` et `code` et expose en plus chaque fonction stockée paramétrée sous un outil nommé `memory_fn_<id8>` (`mistral.ts` accepte désormais une liste `memoryTools` traduits en `memory_run`)."
+            },
+            {
+              "file": "poc/exploration-benchmark/spec183-ten-tickets.mjs",
+              "line": 5,
+              "text": "import { mistral } from '../../packages/exploration-poc/src/mistral.ts';"
+            },
+            {
+              "file": "poc/exploration-benchmark/test/named-memory-tools.test.mjs",
+              "line": 6,
+              "text": "import { mistral } from '../../../packages/exploration-poc/src/mistral.ts';"
+            },
+            {
+              "file": "poc/exploration-benchmark/toolbox-experiment.mjs",
+              "line": 8,
+              "text": "import { mistral } from '../../packages/exploration-poc/src/mistral.ts';"
+            },
+            {
+              "file": "poc/exploration-benchmark/tour-memory-experiment.mjs",
+              "line": 8,
+              "text": "import { mistral } from '../../packages/exploration-poc/src/mistral.ts';"
+            }
+          ],
+          "returned": 25,
+          "observed": 25,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 5162,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 11,
+        "startedAt": "2026-11-16T12:01:35.253Z",
+        "endedAt": "2026-11-16T12:01:35.693Z",
+        "durationMs": 440
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 8890,
+        "outputTokens": 37,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 12,
+        "startedAt": "2026-11-16T12:01:35.694Z",
+        "endedAt": "2026-11-16T12:01:36.649Z",
+        "durationMs": 955
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "WdJPuGcOn",
+        "parameters": {
+          "file": "packages/exploration-poc/src/mistral.ts",
+          "startLine": 1,
+          "endLine": 100
+        },
+        "result": {
+          "result": {
+            "preview": "{\"file\":\"packages/exploration-poc/src/mistral.ts\",\"start\":1,\"lines\":[{\"line\":1,\"text\":\"import type { Model, ToolCall } from './explore.ts';\"},{\"line\":2,\"text\":\"import { primitiveTools } from './tool-contract.ts';\"},{\"line\":3,\"text\":\"\"},{\"line\":4,\"text\":\"const tools = [\"},{\"line\":5,\"text\":\"  { name: 'list', description: 'List workspace files', properties: {} },\"},{\"line\":6,\"text\":\"  { name: 'search', description: 'Find literal text in workspace files', properties: { query: { type: 'string' } }, required: ['query'] },\"},{\"line\":7,\"text\":\"  { name: 'read', description: 'Read at most 100 numbered lines of a workspace file', properties: { file: { type: 'string' }, startLine: { type: 'integer' }, endLine: { type: 'integer' } }, required: ['file'] },\"},{\"line\":8,\"text\":\"  { name: 'git', description: 'Read the latest Git commit', properties: {} }\"},{\"line\":9,\"text\":\"].map(t => ({ type: 'function', function: { name: t.name, description: t.description, parameters: { type: 'object', properties: t.properties, required: t.required ?? [] } } }));\"},{\"line\":10,\"text\":\"\"},{\"line\":11,\"text\":\"export type NamedMemoryTool = { name: string; id: string; parameters: string[]; required?: string[]; description: string };\"},{\"line\":12,\"text\":\"\"},{\"line\":13,\"text\":\"const INTEGER_PARAMS = new Set(['offset', 'start', 'end', 'startLine', 'endLine']);\"},{\"line\":14,\"text\":\"\"},{\"line\":15,\"text\":\"export function mistral(apiKey: string, model = 'mistral-small-latest', config: { temperature?: number; memorySearchId?: string; memorySearchExclusive?: boolean; memorySearchScoped?: boolean; memoryTools?: NamedMemoryTool[]; removeSearch?: boolean; removeCode?: boolean } = {}): Model {\"},{\"line\":16,\"text\":\"  if (!apiKey) throw new Error('MISTRAL_API_KEY is required');\"},{\"line\":17,\"text\":\"  const lastRequest = { model: model as string | undefined, temperature: undefined as number | undefined, maxOutputTokens: undefined as number | undefined };\"},{\"line\":18,\"text\":\"  return {\"},{\"line\":19,\"text\":\"    snapshot() {\"},{\"line\":20,\"text\":\"      return { model: lastRequest.model, temperature: lastRequest.temperature, maxOutputTokens: lastRequest.maxOutputTokens };\"},{\"line\":21,\"text\":\"    },\"},{\"line\":22,\"text\":\"    async complete(messages, options) {\"},{\"line\":23,\"text\":\"    const codeTool = { type: 'function', function: { name: 'code', description: 'Evaluate a JavaScript expression using list(), read(file,start,end), search(text) and params. Return compact evidence; set remember, name and description for a reusable method.', parameters: { type: 'object', properties: { code: { type: 'string' }, params: { type: 'object' }, remember: { type: 'boolean' }, name: { type: 'string', description: 'Canonical name, camelCase verb+domain+object (e.g. searchPostgresSymbols). Required when remember=true.' }, description: { type: 'string' }, returns: { type: 'string', description: 'Output contract: returned shape with item fields, e.g. \\\"SearchMatch[] {file,line,text}\\\".' }, ...(options?.queryContract ? { contract: { type: 'string', enum: ['literal_query'], description: 'Declare only for a generic literal search taking params.query and returning file and line references.' } } : {}) }, required: ['code'] } } };\"},{\"line\":24,\"text\":\"    const memoryTools = [\"},{\"line\":25,\"text\":\"      { type: 'function', function: { name: 'memory_list', description: 'Search canonical questions, scopes, typed parameters, output contracts and limits without reading source.', parameters: { type: 'object', properties: { query: { type: 'string' } } } } },\"},{\"line\":26,\"text\":\"      { type: 'function', function: { name: 'memory_run', description: 'Run a stored script with new parameters against the current workspace.', parameters: { type: 'object', properties: { id: { type: 'string' }, params: { type: 'object' } }, required: ['id', 'params'] } } },\"},{\"line\":27,\"text\":\"      { type: 'function', function: { name: 'memory_unusable', description: 'Mark a script executed in this run as unusable for its declared subject. Do not mark an unrelated topic as a failure.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } } }\"},{\"line\":28,\"text\":\"    ];\"},{\"line\":29,\"text\":\"    const namedTools: NamedMemoryTool[] = config.memoryTools ?? (config.memorySearchId ? [{ name: 'memory_search', id: config.memorySearchId, parameters: config.memorySearchScoped ? ['query', 'pathPrefix', 'offset'] : ['query'], required: ['query'], description: config.memorySearchScoped ? 'Search literal text with optional workspace-relative pathPrefix and offset. Results are paginated; hasMore indicates another page. No prefix searches the workspace.' : 'Run a reusable literal search tested on small synthetic probes. Use it to find a symbol or text in the workspace.' }] : []);\"},{\"line\":30,\"text\":\"    const namedByName = new Map(namedTools.map(tool => [tool.name, tool]));\"},{\"line\":31,\"text\":\"    const namedMemory = options?.memory ? namedTools.map(tool => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: { type: 'object', properties: Object.fromEntries(tool.parameters.map(parameter => [parameter, { type: INTEGER_PARAMS.has(parameter) ? 'integer' : 'string' }])), required: tool.required ?? tool.parameters } } })) : [];\"},{\"line\":32,\"text\":\"    const exclusive = !!(config.memorySearchExclusive && config.memorySearchId);\"},{\"line\":33,\"text\":\"    const functionTry = { type: 'function', function: { name: 'function_try', description: 'Strictly check TypeScript and execute in QuickJS using only the ten permanent primitives. A typed function expression receives params. Trials never mutate memory. Default path when memory_list returns nothing and the question is durably reusable; otherwise state why not in the final result — never a quota, never a forced creation.', parameters: { type: 'object', properties: { source: { type: 'string' }, params: { type: 'object' }, remember: { type: 'boolean' }, name: { type: 'string' }, question: { type: 'string', description: 'Stable canonical repository question, independent of this Tour wording' }, description: { type: 'string' }, returns: { type: 'string' } }, required: ['source', 'params'] } } };\"},{\"line\":34,\"text\":\"    const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.na"
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 6631,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 13,
+        "startedAt": "2026-11-16T12:01:36.650Z",
+        "endedAt": "2026-11-16T12:01:36.888Z",
+        "durationMs": 238
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 10826,
+        "outputTokens": 37,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 14,
+        "startedAt": "2026-11-16T12:01:36.888Z",
+        "endedAt": "2026-11-16T12:01:39.182Z",
+        "durationMs": 2294
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "Ugzxo3O20",
+        "parameters": {
+          "file": "packages/exploration-poc/src/mistral.ts",
+          "startLine": 1,
+          "endLine": 200
+        },
+        "result": {
+          "error": "Script error: Invalid line range"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 15,
+        "startedAt": "2026-11-16T12:01:39.182Z",
+        "endedAt": "2026-11-16T12:01:39.420Z",
+        "durationMs": 238
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 10875,
+        "outputTokens": 37,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 16,
+        "startedAt": "2026-11-16T12:01:39.420Z",
+        "endedAt": "2026-11-16T12:01:40.132Z",
+        "durationMs": 712
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "LoqzCuh8f",
+        "parameters": {
+          "file": "packages/exploration-poc/src/mistral.ts",
+          "startLine": 1,
+          "endLine": 150
+        },
+        "result": {
+          "error": "Script error: Invalid line range"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 17,
+        "startedAt": "2026-11-16T12:01:40.132Z",
+        "endedAt": "2026-11-16T12:01:40.365Z",
+        "durationMs": 233
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 10924,
+        "outputTokens": 38,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 18,
+        "startedAt": "2026-11-16T12:01:40.365Z",
+        "endedAt": "2026-11-16T12:01:41.490Z",
+        "durationMs": 1125
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "PLkdO3vWb",
+        "parameters": {
+          "file": "packages/exploration-poc/src/mistral.ts",
+          "startLine": 35,
+          "endLine": 100
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "start": 35,
+            "lines": [
+              {
+                "line": 35,
+                "text": "    const requestMaxTokens = options?.maxOutputTokens;"
+              },
+              {
+                "line": 36,
+                "text": "    lastRequest.model = model; lastRequest.temperature = config.temperature ?? 0; lastRequest.maxOutputTokens = requestMaxTokens;"
+              },
+              {
+                "line": 37,
+                "text": "    const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, tools: availableTools, temperature: config.temperature ?? 0, max_tokens: requestMaxTokens }) });"
+              },
+              {
+                "line": 38,
+                "text": "    if (!response.ok) throw new Error(`Mistral request failed (${response.status})`);"
+              },
+              {
+                "line": 39,
+                "text": "    const data: any = await response.json();"
+              },
+              {
+                "line": 40,
+                "text": "    const message = data.choices?.[0]?.message;"
+              },
+              {
+                "line": 41,
+                "text": "    const usage = typeof data.usage?.prompt_tokens === 'number' && typeof data.usage?.completion_tokens === 'number' ? { inputTokens: data.usage.prompt_tokens, outputTokens: data.usage.completion_tokens } : undefined;"
+              },
+              {
+                "line": 42,
+                "text": "    try {"
+              },
+              {
+                "line": 43,
+                "text": "      // Issue #184: the plan is published as a fenced block labeled `plan` inside"
+              },
+              {
+                "line": 44,
+                "text": "      // the normal reply. Extract it so the harness can record it without a"
+              },
+              {
+                "line": 45,
+                "text": "      // dedicated LLM call, and keep the block out of the final result parse."
+              },
+              {
+                "line": 46,
+                "text": "      // A malformed block stays a string: the harness records an invalid plan"
+              },
+              {
+                "line": 47,
+                "text": "      // anomaly instead of crashing the provider call."
+              },
+              {
+                "line": 48,
+                "text": "      const rawContent = String(message?.content ?? '');"
+              },
+              {
+                "line": 49,
+                "text": "      const planBlock = /```plan\\s*([\\s\\S]*?)```/.exec(rawContent);"
+              },
+              {
+                "line": 50,
+                "text": "      let plan: unknown;"
+              },
+              {
+                "line": 51,
+                "text": "      if (planBlock) {"
+              },
+              {
+                "line": 52,
+                "text": "        const block = planBlock[1].trim();"
+              },
+              {
+                "line": 53,
+                "text": "        try { plan = JSON.parse(block); } catch { plan = block; }"
+              },
+              {
+                "line": 54,
+                "text": "      }"
+              },
+              {
+                "line": 55,
+                "text": "      if (message?.tool_calls?.length) return { ...(plan !== undefined ? { plan } : {}), toolCalls: message.tool_calls.map((call: any): ToolCall => {"
+              },
+              {
+                "line": 56,
+                "text": "        const args = JSON.parse(call.function.arguments);"
+              },
+              {
+                "line": 57,
+                "text": "        const named = namedByName.get(call.function.name);"
+              },
+              {
+                "line": 58,
+                "text": "        return named && options?.memory"
+              },
+              {
+                "line": 59,
+                "text": "          ? { id: call.id, name: 'memory_run', arguments: { id: named.id, params: Object.fromEntries(named.parameters.filter(parameter => args[parameter] !== undefined).map(parameter => [parameter, args[parameter]])) } }"
+              },
+              {
+                "line": 60,
+                "text": "          : { id: call.id, name: call.function.name, arguments: args };"
+              },
+              {
+                "line": 61,
+                "text": "      }), usage };"
+              },
+              {
+                "line": 62,
+                "text": "      // Ticket #192: the closing-fence strip must tolerate benign whitespace"
+              },
+              {
+                "line": 63,
+                "text": "      // before the fence (a residual newline left by plan-block removal, case"
+              },
+              {
+                "line": 64,
+                "text": "      // #167) without weakening the typed FinalAnswerNotJson error: only a"
+              },
+              {
+                "line": 65,
+                "text": "      // genuinely non-JSON payload may fail."
+              },
+              {
+                "line": 66,
+                "text": "      const content = rawContent.replace(/```plan\\s*[\\s\\S]*?```/g, '').replace(/^\\s*```(?:json)?\\s*/, '').replace(/\\s*```\\s*$/, '').trim();"
+              },
+              {
+                "line": 67,
+                "text": "      let parsedResult: unknown;"
+              },
+              {
+                "line": 68,
+                "text": "      try { parsedResult = JSON.parse(content); } catch {"
+              },
+              {
+                "line": 69,
+                "text": "        // Ten-ticket diagnostic: a bare SyntaxError hides whether the model sent"
+              },
+              {
+                "line": 70,
+                "text": "        // prose or the plan block swallowed everything. A typed error with a"
+              },
+              {
+                "line": 71,
+                "text": "        // content snippet keeps the failure diagnosable and lets the harness"
+              },
+              {
+                "line": 72,
+                "text": "        // attempt one visible recovery instead of dying opaque."
+              },
+              {
+                "line": 73,
+                "text": "        throw Object.assign(new Error(`Final answer is not valid JSON (content after plan extraction: ${content ? JSON.stringify(content.slice(0, 200)) : 'empty'})`), { name: 'FinalAnswerNotJson' });"
+              },
+              {
+                "line": 74,
+                "text": "      }"
+              },
+              {
+                "line": 75,
+                "text": "      return { ...(plan !== undefined ? { plan } : {}), result: parsedResult, usage };"
+              },
+              {
+                "line": 76,
+                "text": "    } catch (error) {"
+              },
+              {
+                "line": 77,
+                "text": "      throw Object.assign(error instanceof Error ? error : new Error(String(error)), { usage });"
+              },
+              {
+                "line": 78,
+                "text": "    }"
+              },
+              {
+                "line": 79,
+                "text": "  } };"
+              },
+              {
+                "line": 80,
+                "text": "}"
+              },
+              {
+                "line": 81,
+                "text": ""
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 4529,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 19,
+        "startedAt": "2026-11-16T12:01:41.490Z",
+        "endedAt": "2026-11-16T12:01:41.728Z",
+        "durationMs": 238
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 12366,
+        "outputTokens": 37,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 20,
+        "startedAt": "2026-11-16T12:01:41.728Z",
+        "endedAt": "2026-11-16T12:01:43.162Z",
+        "durationMs": 1434
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "Oc8rVAoyI",
+        "parameters": {
+          "file": "packages/exploration-poc/src/mistral.ts",
+          "startLine": 34,
+          "endLine": 34
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "start": 34,
+            "lines": [
+              {
+                "line": 34,
+                "text": "    const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)), ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];"
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 444,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 21,
+        "startedAt": "2026-11-16T12:01:43.162Z",
+        "endedAt": "2026-11-16T12:01:43.405Z",
+        "durationMs": 243
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 12637,
+        "outputTokens": 37,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 22,
+        "startedAt": "2026-11-16T12:01:43.405Z",
+        "endedAt": "2026-11-16T12:01:45.554Z",
+        "durationMs": 2149
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "jBGalVTH7",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 1,
+          "endLine": 100
+        },
+        "result": {
+          "result": {
+            "preview": "{\"file\":\"packages/exploration-poc/src/explore.ts\",\"start\":1,\"lines\":[{\"line\":1,\"text\":\"import { Annotation, END, START, StateGraph } from '@langchain/langgraph';\"},{\"line\":2,\"text\":\"import { z } from 'zod';\"},{\"line\":3,\"text\":\"import { workspace } from './workspace.ts';\"},{\"line\":4,\"text\":\"import { scriptMemory } from './memory.ts';\"},{\"line\":5,\"text\":\"import type { ConsolidationCandidate, ReconciliationOutcome } from './memory.ts';\"},{\"line\":6,\"text\":\"import { boundedOutput, looksLikeEvidence, sampleEvidenceRefs } from './memory-output.ts';\"},{\"line\":7,\"text\":\"import { citationAccess, citationRepairFeedback, validateCitations } from './citation-validator.ts';\"},{\"line\":8,\"text\":\"import type { CitationValidation } from './citation-validator.ts';\"},{\"line\":9,\"text\":\"import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposition-prompt.ts';\"},{\"line\":10,\"text\":\"import { primitiveNames } from './tool-contract.ts';\"},{\"line\":11,\"text\":\"\"},{\"line\":12,\"text\":\"const evidence = z.object({ file: z.string().min(1), startLine: z.number().int().positive(), endLine: z.number().int().positive() });\"},{\"line\":13,\"text\":\"const item = z.object({ name: z.string(), evidence: z.array(evidence).min(1) });\"},{\"line\":14,\"text\":\"const resultSchema = z.object({ objective: z.string(), entryPoints: z.array(item), components: z.array(item), relations: z.array(z.object({ from: z.string(), to: z.string(), evidence: z.array(evidence).min(1) })), uncertainties: z.array(z.string()) });\"},{\"line\":15,\"text\":\"\"},{\"line\":16,\"text\":\"export { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION };\"},{\"line\":17,\"text\":\"\"},{\"line\":18,\"text\":\"export type ToolCall = { id: string; name: string; arguments: Record<string, unknown> };\"},{\"line\":19,\"text\":\"export type PlanQuestion = { id: string; question: string; reuse?: boolean };\"},{\"line\":20,\"text\":\"export type PlanVersion = { questions: PlanQuestion[]; reason?: string; error?: string };\"},{\"line\":21,\"text\":\"export type PlanRecord = { status: 'recorded' | 'invalid' | 'missing'; runId: string; versions: PlanVersion[]; anomalies: string[] };\"},{\"line\":22,\"text\":\"export type Model = {\"},{\"line\":23,\"text\":\"  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;\"},{\"line\":24,\"text\":\"  /** Actual provider parameters of the last request (real provenance, no defaults). */\"},{\"line\":25,\"text\":\"  snapshot?(): { model?: string; temperature?: number; maxOutputTokens?: number };\"},{\"line\":26,\"text\":\"};\"},{\"line\":27,\"text\":\"export type Budget = { iterations?: number; calls?: number; tokens?: number; durationMs?: number };\"},{\"line\":28,\"text\":\"const State = Annotation.Root({ messages: Annotation<any[]>({ reducer: (a, b) => a.concat(b), default: () => [] }), result: Annotation<any>, stopReason: Annotation<string> });\"},{\"line\":29,\"text\":\"\"},{\"line\":30,\"text\":\"/** Per-call usage/telemetry trace: real timestamps, real durations, provider usage. */\"},{\"line\":31,\"text\":\"export interface CallTraceItem {\"},{\"line\":32,\"text\":\"  seq: number;\"},{\"line\":33,\"text\":\"  runId: string;\"},{\"line\":34,\"text\":\"  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'plan_revised' | 'decomposition_decision' | 'reuse_reminder' | 'run_end';\"},{\"line\":35,\"text\":\"  name: string;\"},{\"line\":36,\"text\":\"  /** Provider tool-call id (observed calls), absent on model/plan entries. */\"},{\"line\":37,\"text\":\"  callId?: string;\"},{\"line\":38,\"text\":\"  /** Declared question id carried by the call (question_id argument). */\"},{\"line\":39,\"text\":\"  questionId?: string;\"},{\"line\":40,\"text\":\"  startedAt: string;\"},{\"line\":41,\"text\":\"  endedAt: string;\"},{\"line\":42,\"text\":\"  durationMs: number;\"},{\"line\":43,\"text\":\"  inputTokens: number | null;\"},{\"line\":44,\"text\":\"  outputTokens: number | null;\"},{\"line\":45,\"text\":\"  /** True when the provider response carried no usage fields — never fabricated after the fact. */\"},{\"line\":46,\"text\":\"  usageMissing: boolean;\"},{\"line\":47,\"text\":\"  outcome?: string;\"},{\"line\":48,\"text\":\"  error?: string;\"},{\"line\":49,\"text\":\"  execution?: unknown;\"},{\"line\":50,\"text\":\"  parameters?: Record<string, unknown>;\"},{\"line\":51,\"text\":\"  result?: unknown;\"},{\"line\":52,\"text\":\"}\"},{\"line\":53,\"text\":\"\"},{\"line\":54,\"text\":\"interface Attempt {\"},{\"line\":55,\"text\":\"  id?: string;\"},{\"line\":56,\"text\":\"  candidate?: { objective: string; description: string; name?: string; returns?: string; code: string; parameters: string[]; paramsSchema?: Array<{ name: string; type: string }>; executionMode?: 'strict' | 'legacy'; revision?: string };\"},{\"line\":57,\"text\":\"  params?: Record<string, unknown>;\"},{\"line\":58,\"text\":\"  output: unknown;\"},{\"line\":59,\"text\":\"  proofValid?: boolean;\"},{\"line\":60,\"text\":\"  proofSignature?: string[];\"},{\"line\":61,\"text\":\"}\"},{\"line\":62,\"text\":\"\"},{\"line\":63,\"text\":\"/**\"},{\"line\":64,\"text\":\" * Citation outcome summary shared by the trial-time trace and the\"},{\"line\":65,\"text\":\" * consolidation replay trace (single source for the duplicated mapping).\"},{\"line\":66,\"text\":\" */\"},{\"line\":67,\"text\":\"function citationOutcome(citations?: CitationValidation): string {\"},{\"line\":68,\"text\":\"  if (!citations) return '';\"},{\"line\":69,\"text\":\"  const summary = citations.status === 'valid' ? `${citations.validCount} valid` : citations.status === 'validation_failed' ? `validation_failed (${citations.validCount}/${citations.references} valid)` : 'none';\"},{\"line\":70,\"text\":\"  return `; citations=${summary}`;\"},{\"line\":71,\"text\":\"}\"},{\"line\":72,\"text\":\"\"},{\"line\":73,\"text\":\"/**\"},{\"line\":74,\"text\":\" * An exploration returns validated references, never Tour prose.\"},{\"line\":75,\"text\":\" *\"},{\"line\":76,\"text\":\" * Deliberate single-function seam (review note — divergent change): explore()\"},{\"line\":77,\"text\":\" * absorbs the plan protocol, citation gating, reconciliation and budgets\"},{\"line\":78,\"text\":\" * because they all share the same closure state (metrics, the trace recorder,\"},{\"line\":79,\"text\":\" * budget clocks, workspace tools and the memory catalogue handle). Extracting\"},{\"line\":80,\"text\":\" * a mid-run module would mean threading that state through new seams for no\"},{\"line\":81,\"text\":\" * behavioural gain in this diagnostic p"
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": true,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 6911,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.",
+            "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 23,
+        "startedAt": "2026-11-16T12:01:45.555Z",
+        "endedAt": "2026-11-16T12:01:45.797Z",
+        "durationMs": 242
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 14846,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 24,
+        "startedAt": "2026-11-16T12:01:45.798Z",
+        "endedAt": "2026-11-16T12:01:47.215Z",
+        "durationMs": 1417
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "dGfJgam1Z",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 100,
+          "endLine": 200
+        },
+        "result": {
+          "error": "Script error: Invalid line range"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 25,
+        "startedAt": "2026-11-16T12:01:47.215Z",
+        "endedAt": "2026-11-16T12:01:47.452Z",
+        "durationMs": 237
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 14897,
+        "outputTokens": 38,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 26,
+        "startedAt": "2026-11-16T12:01:47.452Z",
+        "endedAt": "2026-11-16T12:01:48.241Z",
+        "durationMs": 789
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "brXao1lKj",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 80,
+          "endLine": 150
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "start": 80,
+            "lines": [
+              {
+                "line": 80,
+                "text": " * a mid-run module would mean threading that state through new seams for no"
+              },
+              {
+                "line": 81,
+                "text": " * behavioural gain in this diagnostic phase, and the seam under test is the"
+              },
+              {
+                "line": 82,
+                "text": " * explore() entry point itself (spec #183: use the existing harness seam)."
+              },
+              {
+                "line": 83,
+                "text": " */"
+              },
+              {
+                "line": 84,
+                "text": "export async function explore({ root, objective, model, budget = {}, codeMode = false, memory }: { root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string; validateQuery?: boolean; queryContract?: boolean; compactSearch?: boolean } }) {"
+              },
+              {
+                "line": 85,
+                "text": "  if (memory && !codeMode) throw new Error('Script memory requires Code Mode');"
+              },
+              {
+                "line": 86,
+                "text": "  const limits = { iterations: budget.iterations ?? 8, calls: budget.calls ?? 32, tokens: budget.tokens ?? 32000, durationMs: budget.durationMs ?? 60000 };"
+              },
+              {
+                "line": 87,
+                "text": "  if (Object.values(limits).some(n => !Number.isFinite(n) || n <= 0)) throw new Error('Budgets must be positive');"
+              },
+              {
+                "line": 88,
+                "text": "  const startedMs = Date.now();"
+              },
+              {
+                "line": 89,
+                "text": "  // Correlation backbone (issue #184): one run id links plan versions, declared"
+              },
+              {
+                "line": 90,
+                "text": "  // decisions and observed tool calls; question ids come from the plan, call ids"
+              },
+              {
+                "line": 91,
+                "text": "  // from the provider. Observed calls are recorded by the harness, never deduced"
+              },
+              {
+                "line": 92,
+                "text": "  // from model text."
+              },
+              {
+                "line": 93,
+                "text": "  const runId = crypto.randomUUID();"
+              },
+              {
+                "line": 94,
+                "text": "  const planVersions: PlanVersion[] = [];"
+              },
+              {
+                "line": 95,
+                "text": "  const planAnomalies = new Set<string>();"
+              },
+              {
+                "line": 96,
+                "text": "  let planStatus: 'recorded' | 'invalid' | 'missing' = 'missing';"
+              },
+              {
+                "line": 97,
+                "text": "  let planPublished = false;"
+              },
+              {
+                "line": 98,
+                "text": "  const knownQuestionIds = new Set<string>();"
+              },
+              {
+                "line": 99,
+                "text": "  // Spec #183 trace vocabulary: declared plan questions already linked to an"
+              },
+              {
+                "line": 100,
+                "text": "  // observed call — one decomposition_decision entry per question."
+              },
+              {
+                "line": 101,
+                "text": "  const correlatedDecisions = new Set<string>();"
+              },
+              {
+                "line": 102,
+                "text": "  // Ticket #191: reuse=true questions served by memory_run or function_try —"
+              },
+              {
+                "line": 103,
+                "text": "  // the end-of-run reminder targets the complement of this set."
+              },
+              {
+                "line": 104,
+                "text": "  const servedByCreation = new Set<string>();"
+              },
+              {
+                "line": 105,
+                "text": "  let reuseReminderEmitted = false;"
+              },
+              {
+                "line": 106,
+                "text": "  const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0 };"
+              },
+              {
+                "line": 107,
+                "text": "  const callTrace: CallTraceItem[] = [];"
+              },
+              {
+                "line": 108,
+                "text": "  let callSeq = 0;"
+              },
+              {
+                "line": 109,
+                "text": "  let requestedEvidenceRecovery = false;"
+              },
+              {
+                "line": 110,
+                "text": "  let requestedJsonRecovery = false;"
+              },
+              {
+                "line": 111,
+                "text": "  // Ticket #190: on the 2026-11-16 run the model called memory_list six times"
+              },
+              {
+                "line": 112,
+                "text": "  // with returned=0 and revised its plan seven times without ever reaching"
+              },
+              {
+                "line": 113,
+                "text": "  // function_try — it treats an empty catalogue as a dead end instead of a"
+              },
+              {
+                "line": 114,
+                "text": "  // creation trigger. After two empty memory_list results in the same run, the"
+              },
+              {
+                "line": 115,
+                "text": "  // tool result itself carries a visible note inviting function_try for"
+              },
+              {
+                "line": 116,
+                "text": "  // durably reusable questions (once per run, traced, no extra LLM call)."
+              },
+              {
+                "line": 117,
+                "text": "  let emptyMemoryListCount = 0;"
+              },
+              {
+                "line": 118,
+                "text": "  let emptyMemoryListNoteEmitted = false;"
+              },
+              {
+                "line": 119,
+                "text": "  const recordCall = (base: Omit<CallTraceItem, 'seq' | 'startedAt' | 'endedAt' | 'durationMs' | 'startedAt'>, startedAt: Date, endedAt: Date): void => {"
+              },
+              {
+                "line": 120,
+                "text": "    callTrace.push({ ...base, runId, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() });"
+              },
+              {
+                "line": 121,
+                "text": "  };"
+              },
+              {
+                "line": 122,
+                "text": "  // A published plan becomes an immutable version: valid plans update the known"
+              },
+              {
+                "line": 123,
+                "text": "  // question ids, invalid or missing plans stay visible anomalies — never a"
+              },
+              {
+                "line": 124,
+                "text": "  // presumed success. History is appended, never rewritten."
+              },
+              {
+                "line": 125,
+                "text": "  const recordPlan = (raw: unknown): void => {"
+              },
+              {
+                "line": 126,
+                "text": "    const validation = validatePlan(raw);"
+              },
+              {
+                "line": 127,
+                "text": "    const now = new Date();"
+              },
+              {
+                "line": 128,
+                "text": "    const type = planPublished ? 'plan_revised' : 'decomposition_plan';"
+              },
+              {
+                "line": 129,
+                "text": "    if (validation.ok) {"
+              },
+              {
+                "line": 130,
+                "text": "      const version: PlanVersion = validation.reason === undefined ? { questions: validation.questions } : { questions: validation.questions, reason: validation.reason };"
+              },
+              {
+                "line": 131,
+                "text": "      planVersions.push(version);"
+              },
+              {
+                "line": 132,
+                "text": "      planStatus = 'recorded';"
+              },
+              {
+                "line": 133,
+                "text": "      for (const question of validation.questions) knownQuestionIds.add(question.id);"
+              },
+              {
+                "line": 134,
+                "text": "      for (const anomaly of validation.anomalies) planAnomalies.add(anomaly);"
+              },
+              {
+                "line": 135,
+                "text": "      recordCall({ type, name: type, inputTokens: null, outputTokens: null, usageMissing: false, result: version }, now, now);"
+              },
+              {
+                "line": 136,
+                "text": "    } else {"
+              },
+              {
+                "line": 137,
+                "text": "      planVersions.push({ questions: [], error: validation.error });"
+              },
+              {
+                "line": 138,
+                "text": "      planStatus = 'invalid';"
+              },
+              {
+                "line": 139,
+                "text": "      recordCall({ type, name: type, inputTokens: null, outputTokens: null, usageMissing: false, error: validation.error }, now, now);"
+              },
+              {
+                "line": 140,
+                "text": "    }"
+              },
+              {
+                "line": 141,
+                "text": "    planPublished = true;"
+              },
+              {
+                "line": 142,
+                "text": "  };"
+              },
+              {
+                "line": 143,
+                "text": "  // Spec #183 trace vocabulary: every run — complete, partial or failed — ends"
+              },
+              {
+                "line": 144,
+                "text": "  // with a run_end entry carrying the stop reason and the final usage."
+              },
+              {
+                "line": 145,
+                "text": "  const recordRunEnd = (status: 'complete' | 'partial' | 'failed', stopReason: string | null): void => {"
+              },
+              {
+                "line": 146,
+                "text": "    const now = new Date();"
+              },
+              {
+                "line": 147,
+                "text": "    recordCall({"
+              },
+              {
+                "line": 148,
+                "text": "      type: 'run_end', name: 'run_end', inputTokens: metrics.inputTokens, outputTokens: metrics.outputTokens, usageMissing: !metrics.usageAvailable,"
+              },
+              {
+                "line": 149,
+                "text": "      outcome: `status=${status}; stopReason=${stopReason ?? 'none'}`,"
+              },
+              {
+                "line": 150,
+                "text": "      result: { status, stopReason, inputTokens: metrics.inputTokens, outputTokens: metrics.outputTokens, modelCalls: metrics.modelCalls, toolCalls: metrics.toolCalls, durationMs: metrics.durationMs }"
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 6736,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 27,
+        "startedAt": "2026-11-16T12:01:48.241Z",
+        "endedAt": "2026-11-16T12:01:48.461Z",
+        "durationMs": 220
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 17057,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 28,
+        "startedAt": "2026-11-16T12:01:48.462Z",
+        "endedAt": "2026-11-16T12:01:49.625Z",
+        "durationMs": 1163
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "CQyRnPYfF",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 150,
+          "endLine": 250
+        },
+        "result": {
+          "error": "Script error: Invalid line range"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 29,
+        "startedAt": "2026-11-16T12:01:49.625Z",
+        "endedAt": "2026-11-16T12:01:49.867Z",
+        "durationMs": 242
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 17108,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 30,
+        "startedAt": "2026-11-16T12:01:49.868Z",
+        "endedAt": "2026-11-16T12:01:50.930Z",
+        "durationMs": 1062
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "7M3SDyqIT",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 150,
+          "endLine": 200
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "start": 150,
+            "lines": [
+              {
+                "line": 150,
+                "text": "      result: { status, stopReason, inputTokens: metrics.inputTokens, outputTokens: metrics.outputTokens, modelCalls: metrics.modelCalls, toolCalls: metrics.toolCalls, durationMs: metrics.durationMs }"
+              },
+              {
+                "line": 151,
+                "text": "    }, now, now);"
+              },
+              {
+                "line": 152,
+                "text": "  };"
+              },
+              {
+                "line": 153,
+                "text": "  try {"
+              },
+              {
+                "line": 154,
+                "text": "  const tools = await workspace(root);"
+              },
+              {
+                "line": 155,
+                "text": "  const library = memory ? await scriptMemory(root, memory.directory) : undefined;"
+              },
+              {
+                "line": 156,
+                "text": "  // Background revision lookup (lazily filled): used for staleness + sourcing."
+              },
+              {
+                "line": 157,
+                "text": "  let currentRevision: string | undefined;"
+              },
+              {
+                "line": 158,
+                "text": "  const resolveRevision = async (): Promise<string> => {"
+              },
+              {
+                "line": 159,
+                "text": "    if (currentRevision !== undefined) return currentRevision;"
+              },
+              {
+                "line": 160,
+                "text": "    try { currentRevision = String(await tools.git(limits.durationMs)).split('\\n')[0].trim() || 'unknown-revision'; }"
+              },
+              {
+                "line": 161,
+                "text": "    catch { currentRevision = 'unknown-revision'; }"
+              },
+              {
+                "line": 162,
+                "text": "    return currentRevision;"
+              },
+              {
+                "line": 163,
+                "text": "  };"
+              },
+              {
+                "line": 164,
+                "text": "  const attempts: Attempt[] = [];"
+              },
+              {
+                "line": 165,
+                "text": "  // Issue #187 (D04) + #188 (D05): per-candidate reconciliation log. Filled"
+              },
+              {
+                "line": 166,
+                "text": "  // during the run for proposals that never reach the deterministic validator,"
+              },
+              {
+                "line": 167,
+                "text": "  // and during consolidation for the ones that do."
+              },
+              {
+                "line": 168,
+                "text": "  const unreconciled: ReconciliationOutcome[] = [];"
+              },
+              {
+                "line": 169,
+                "text": "  // In-session traces only: the catalogue is mutated once, at the end of the run (correction 3)."
+              },
+              {
+                "line": 170,
+                "text": "  const runtimeFailures: string[] = [];"
+              },
+              {
+                "line": 171,
+                "text": "  const runtimeObservations: Array<{ id: string; params: Record<string, unknown>; ok: boolean }> = [];"
+              },
+              {
+                "line": 172,
+                "text": "  const unusableIds = new Set<string>();"
+              },
+              {
+                "line": 173,
+                "text": "  const previousSearchOutputs = new Map<string, { content: string; toolCallId: string }>();"
+              },
+              {
+                "line": 174,
+                "text": "  const reason = () => Date.now() - startedMs >= limits.durationMs ? 'duration' : metrics.inputTokens + metrics.outputTokens >= limits.tokens ? 'tokens' : metrics.modelCalls + metrics.toolCalls >= limits.calls ? 'calls' : metrics.modelCalls >= limits.iterations ? 'iterations' : undefined;"
+              },
+              {
+                "line": 175,
+                "text": "  const graph = new StateGraph(State).addNode('model', async state => {"
+              },
+              {
+                "line": 176,
+                "text": "    const stopped = reason();"
+              },
+              {
+                "line": 177,
+                "text": "    if (stopped) return { stopReason: stopped };"
+              },
+              {
+                "line": 178,
+                "text": "    const controller = new AbortController();"
+              },
+              {
+                "line": 179,
+                "text": "    const remainingMs = Math.max(1, limits.durationMs - (Date.now() - startedMs));"
+              },
+              {
+                "line": 180,
+                "text": "    let timer: ReturnType<typeof setTimeout> | undefined;"
+              },
+              {
+                "line": 181,
+                "text": "    let response: Awaited<ReturnType<Model['complete']>>;"
+              },
+              {
+                "line": 182,
+                "text": "    const modelCallStarted = new Date();"
+              },
+              {
+                "line": 183,
+                "text": "    try {"
+              },
+              {
+                "line": 184,
+                "text": "      metrics.modelCalls++;"
+              },
+              {
+                "line": 185,
+                "text": "      response = await Promise.race(["
+              },
+              {
+                "line": 186,
+                "text": "        model.complete(state.messages, { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(4096, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode, memory: !!library, queryContract: memory?.queryContract }),"
+              },
+              {
+                "line": 187,
+                "text": "        new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('budget-duration')); }, remainingMs); })"
+              },
+              {
+                "line": 188,
+                "text": "      ]);"
+              },
+              {
+                "line": 189,
+                "text": "    } catch (error) {"
+              },
+              {
+                "line": 190,
+                "text": "      const usage: { inputTokens: number; outputTokens: number } | undefined = (error as { usage?: { inputTokens: number; outputTokens: number } })?.usage;"
+              },
+              {
+                "line": 191,
+                "text": "      recordCall({ type: 'model', name: 'model', inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, usageMissing: !usage, error: controller.signal.aborted ? 'budget-duration' : String(error) }, modelCallStarted, new Date());"
+              },
+              {
+                "line": 192,
+                "text": "      metrics.inputTokens += usage?.inputTokens ?? 0;"
+              },
+              {
+                "line": 193,
+                "text": "      metrics.outputTokens += usage?.outputTokens ?? 0;"
+              },
+              {
+                "line": 194,
+                "text": "      if (!usage) metrics.usageAvailable = false;"
+              },
+              {
+                "line": 195,
+                "text": "      if (controller.signal.aborted) return { stopReason: 'duration' };"
+              },
+              {
+                "line": 196,
+                "text": "      // A non-JSON final answer (often an empty reply after plan extraction)"
+              },
+              {
+                "line": 197,
+                "text": "      // gets one visible recovery inside the original budget, mirroring the"
+              },
+              {
+                "line": 198,
+                "text": "      // citation repair path. A repeated failure stays fatal: no hidden retry."
+              },
+              {
+                "line": 199,
+                "text": "      if ((error as { name?: string })?.name === 'FinalAnswerNotJson' && !requestedJsonRecovery && !reason()) {"
+              },
+              {
+                "line": 200,
+                "text": "        requestedJsonRecovery = true;"
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 4923,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 31,
+        "startedAt": "2026-11-16T12:01:50.930Z",
+        "endedAt": "2026-11-16T12:01:51.165Z",
+        "durationMs": 235
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 18712,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 32,
+        "startedAt": "2026-11-16T12:01:51.166Z",
+        "endedAt": "2026-11-16T12:01:52.539Z",
+        "durationMs": 1373
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "Js7GOVHeo",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 200,
+          "endLine": 300
+        },
+        "result": {
+          "error": "Script error: Invalid line range"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 33,
+        "startedAt": "2026-11-16T12:01:52.539Z",
+        "endedAt": "2026-11-16T12:01:52.774Z",
+        "durationMs": 235
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 18763,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 34,
+        "startedAt": "2026-11-16T12:01:52.775Z",
+        "endedAt": "2026-11-16T12:01:53.575Z",
+        "durationMs": 800
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "SltpSuvH1",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 200,
+          "endLine": 250
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "start": 200,
+            "lines": [
+              {
+                "line": 200,
+                "text": "        requestedJsonRecovery = true;"
+              },
+              {
+                "line": 201,
+                "text": "        return { messages: ["
+              },
+              {
+                "line": 202,
+                "text": "          { role: 'assistant', content: String((error as Error).message ?? '') },"
+              },
+              {
+                "line": 203,
+                "text": "          { role: 'user', content: 'Your final answer was not valid JSON. Reply again with the result as a single JSON object matching the required schema, with no prose outside the JSON.' },"
+              },
+              {
+                "line": 204,
+                "text": "        ] };"
+              },
+              {
+                "line": 205,
+                "text": "      }"
+              },
+              {
+                "line": 206,
+                "text": "      throw error;"
+              },
+              {
+                "line": 207,
+                "text": "    } finally { if (timer) clearTimeout(timer); }"
+              },
+              {
+                "line": 208,
+                "text": "    const modelCallEnded = new Date();"
+              },
+              {
+                "line": 209,
+                "text": "    const inputTokens = response.usage?.inputTokens ?? null;"
+              },
+              {
+                "line": 210,
+                "text": "    const outputTokens = response.usage?.outputTokens ?? null;"
+              },
+              {
+                "line": 211,
+                "text": "    recordCall({ type: 'model', name: 'model', inputTokens, outputTokens, usageMissing: !response.usage }, modelCallStarted, modelCallEnded);"
+              },
+              {
+                "line": 212,
+                "text": "    // The plan travels in the normal generation (no dedicated LLM call) and is"
+              },
+              {
+                "line": 213,
+                "text": "    // recorded before this response's tool calls can be observed."
+              },
+              {
+                "line": 214,
+                "text": "    if (response.plan !== undefined) recordPlan(response.plan);"
+              },
+              {
+                "line": 215,
+                "text": "    metrics.inputTokens += inputTokens ?? 0;"
+              },
+              {
+                "line": 216,
+                "text": "    metrics.outputTokens += outputTokens ?? 0;"
+              },
+              {
+                "line": 217,
+                "text": "    if (!response.usage) metrics.usageAvailable = false;"
+              },
+              {
+                "line": 218,
+                "text": "    if (response.result !== undefined) {"
+              },
+              {
+                "line": 219,
+                "text": "      const result = resultSchema.parse(response.result);"
+              },
+              {
+                "line": 220,
+                "text": "      const hasEvidence = [...result.entryPoints, ...result.components, ...result.relations].some(item => item.evidence.length > 0);"
+              },
+              {
+                "line": 221,
+                "text": "      if (!hasEvidence) {"
+              },
+              {
+                "line": 222,
+                "text": "        // One recovery inside the original budget; no extra run or hidden retry."
+              },
+              {
+                "line": 223,
+                "text": "        if (metrics.toolCalls === 0 && !requestedEvidenceRecovery && !reason()) {"
+              },
+              {
+                "line": 224,
+                "text": "          requestedEvidenceRecovery = true;"
+              },
+              {
+                "line": 225,
+                "text": "          return { messages: ["
+              },
+              {
+                "line": 226,
+                "text": "            { role: 'assistant', content: JSON.stringify(result) },"
+              },
+              {
+                "line": 227,
+                "text": "            { role: 'user', content: 'No source evidence was returned. Use the repository tools to inspect the workspace and gather evidence before answering. If evidence remains unavailable, report the unresolved gaps explicitly.' }"
+              },
+              {
+                "line": 228,
+                "text": "          ] };"
+              },
+              {
+                "line": 229,
+                "text": "        }"
+              },
+              {
+                "line": 230,
+                "text": "        return { result, stopReason: reason() ?? 'evidence_missing' };"
+              },
+              {
+                "line": 231,
+                "text": "      }"
+              },
+              {
+                "line": 232,
+                "text": "      try {"
+              },
+              {
+                "line": 233,
+                "text": "        for (const ref of [...result.entryPoints, ...result.components, ...result.relations].flatMap(item => item.evidence)) {"
+              },
+              {
+                "line": 234,
+                "text": "          const lines = await tools.read(ref.file, ref.startLine, ref.endLine, true);"
+              },
+              {
+                "line": 235,
+                "text": "          if (lines.length !== ref.endLine - ref.startLine + 1) throw new Error(`Evidence points outside a file: ${ref.file}:${ref.startLine}-${ref.endLine}. This range contains ${lines.length} existing lines${lines.length ? ` (${lines[0].line}-${lines[lines.length - 1].line})` : ''}.`);"
+              },
+              {
+                "line": 236,
+                "text": "        }"
+              },
+              {
+                "line": 237,
+                "text": "      } catch (error) {"
+              },
+              {
+                "line": 238,
+                "text": "        if (reason()) throw error;"
+              },
+              {
+                "line": 239,
+                "text": "        return { messages: ["
+              },
+              {
+                "line": 240,
+                "text": "          { role: 'assistant', content: JSON.stringify(result) },"
+              },
+              {
+                "line": 241,
+                "text": "          { role: 'user', content: `Source citation validation failed: ${String(error)}. Inspect the source with repository tools and correct the references. Do not invent line numbers. The original run budget still applies.` },"
+              },
+              {
+                "line": 242,
+                "text": "        ] };"
+              },
+              {
+                "line": 243,
+                "text": "      }"
+              },
+              {
+                "line": 244,
+                "text": "      // Ticket #191: before accepting the final answer, every reuse=true"
+              },
+              {
+                "line": 245,
+                "text": "      // question of the current plan that neither memory_run nor function_try"
+              },
+              {
+                "line": 246,
+                "text": "      // served (and that the result does not explicitly justify by id in its"
+              },
+              {
+                "line": 247,
+                "text": "      // uncertainties) earns ONE visible reminder — same philosophy as the"
+              },
+              {
+                "line": 248,
+                "text": "      // citation and JSON recoveries: once per run, inside the original"
+              },
+              {
+                "line": 249,
+                "text": "      // budget, never a hidden retry loop. A second shortfall is recorded as"
+              },
+              {
+                "line": 250,
+                "text": "      // an anomaly, never re-reminded."
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 4621,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 35,
+        "startedAt": "2026-11-16T12:01:53.575Z",
+        "endedAt": "2026-11-16T12:01:53.813Z",
+        "durationMs": 238
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 20236,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 36,
+        "startedAt": "2026-11-16T12:01:53.813Z",
+        "endedAt": "2026-11-16T12:01:54.811Z",
+        "durationMs": 998
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "MncAVKkGZ",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 250,
+          "endLine": 350
+        },
+        "result": {
+          "error": "Script error: Invalid line range"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 37,
+        "startedAt": "2026-11-16T12:01:54.811Z",
+        "endedAt": "2026-11-16T12:01:55.059Z",
+        "durationMs": 248
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 20287,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 38,
+        "startedAt": "2026-11-16T12:01:55.060Z",
+        "endedAt": "2026-11-16T12:01:58.619Z",
+        "durationMs": 3559
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "UpiYi94Dc",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 250,
+          "endLine": 300
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "start": 250,
+            "lines": [
+              {
+                "line": 250,
+                "text": "      // an anomaly, never re-reminded."
+              },
+              {
+                "line": 251,
+                "text": "      const unservedReuse = [...(planVersions.at(-1)?.questions ?? [])].filter(question =>"
+              },
+              {
+                "line": 252,
+                "text": "        question.reuse === true"
+              },
+              {
+                "line": 253,
+                "text": "        && !servedByCreation.has(question.id)"
+              },
+              {
+                "line": 254,
+                "text": "        && !result.uncertainties.some(uncertainty => uncertainty.includes(question.id))"
+              },
+              {
+                "line": 255,
+                "text": "      );"
+              },
+              {
+                "line": 256,
+                "text": "      if (unservedReuse.length > 0) {"
+              },
+              {
+                "line": 257,
+                "text": "        const ids = unservedReuse.map(question => question.id).join(', ');"
+              },
+              {
+                "line": 258,
+                "text": "        if (!reuseReminderEmitted && !reason()) {"
+              },
+              {
+                "line": 259,
+                "text": "          reuseReminderEmitted = true;"
+              },
+              {
+                "line": 260,
+                "text": "          const now = new Date();"
+              },
+              {
+                "line": 261,
+                "text": "          recordCall({ type: 'reuse_reminder', name: 'reuse_reminder', inputTokens: null, outputTokens: null, usageMissing: false, result: { unservedQuestionIds: unservedReuse.map(question => question.id) } }, now, now);"
+              },
+              {
+                "line": 262,
+                "text": "          return { messages: ["
+              },
+              {
+                "line": 263,
+                "text": "            { role: 'assistant', content: JSON.stringify(result) },"
+              },
+              {
+                "line": 264,
+                "text": "            { role: 'user', content: `Reminder: plan question(s) marked reuse=true were never served by memory_run or function_try: ${ids}. Either propose the missing durable capability now with function_try(source, params), or justify in the uncertainties of your final result why no creation applies (mention the question id). The original run budget still applies; this reminder is sent once.` },"
+              },
+              {
+                "line": 265,
+                "text": "          ] };"
+              },
+              {
+                "line": 266,
+                "text": "        }"
+              },
+              {
+                "line": 267,
+                "text": "        if (reuseReminderEmitted) planAnomalies.add(`reuse=true questions still unserved after the end-of-run reminder: ${ids}`);"
+              },
+              {
+                "line": 268,
+                "text": "      }"
+              },
+              {
+                "line": 269,
+                "text": "      return { result, stopReason: Date.now() - startedMs >= limits.durationMs ? 'duration' : metrics.inputTokens + metrics.outputTokens > limits.tokens ? 'tokens' : undefined };"
+              },
+              {
+                "line": 270,
+                "text": "    }"
+              },
+              {
+                "line": 271,
+                "text": "    if (!response.toolCalls?.length) throw new Error('Model returned neither tools nor result');"
+              },
+              {
+                "line": 272,
+                "text": "    const calls = response.toolCalls.slice(0, Math.max(0, Math.min(8, limits.calls - metrics.modelCalls - metrics.toolCalls)));"
+              },
+              {
+                "line": 273,
+                "text": "    const outputs: any[] = [{ role: 'assistant', tool_calls: calls.map(call => ({ id: call.id, type: 'function', function: { name: call.name, arguments: JSON.stringify(call.arguments) } })) }];"
+              },
+              {
+                "line": 274,
+                "text": "    for (const originalCall of calls) {"
+              },
+              {
+                "line": 275,
+                "text": "      // question_id is harness correlation metadata, not a tool argument: it is"
+              },
+              {
+                "line": 276,
+                "text": "      // traced on the call and stripped before dispatch. An id no plan ever"
+              },
+              {
+                "line": 277,
+                "text": "      // declared is an explicit anomaly, not a silent success."
+              },
+              {
+                "line": 278,
+                "text": "      const questionId = typeof originalCall.arguments.question_id === 'string' ? originalCall.arguments.question_id : undefined;"
+              },
+              {
+                "line": 279,
+                "text": "      // Issue #184: the prompt requires a question_id on every call — a call"
+              },
+              {
+                "line": 280,
+                "text": "      // carrying none is a visible anomaly, never a silent acceptance."
+              },
+              {
+                "line": 281,
+                "text": "      if (questionId === undefined) planAnomalies.add(`missing question id on '${originalCall.name}' call`);"
+              },
+              {
+                "line": 282,
+                "text": "      else if (!knownQuestionIds.has(questionId)) planAnomalies.add(`unknown question id '${questionId}'`);"
+              },
+              {
+                "line": 283,
+                "text": "      // Spec #183 trace vocabulary: a declared decision (plan question) is"
+              },
+              {
+                "line": 284,
+                "text": "      // linked to the first observed call that serves it — declared"
+              },
+              {
+                "line": 285,
+                "text": "      // intentions stay traceable to real observed calls, never inferred from"
+              },
+              {
+                "line": 286,
+                "text": "      // model prose."
+              },
+              {
+                "line": 287,
+                "text": "      if (questionId !== undefined && knownQuestionIds.has(questionId) && !correlatedDecisions.has(questionId)) {"
+              },
+              {
+                "line": 288,
+                "text": "        correlatedDecisions.add(questionId);"
+              },
+              {
+                "line": 289,
+                "text": "        const declared = [...planVersions].reverse().flatMap(version => version.questions).find(question => question.id === questionId);"
+              },
+              {
+                "line": 290,
+                "text": "        const decisionAt = new Date();"
+              },
+              {
+                "line": 291,
+                "text": "        recordCall({ type: 'decomposition_decision', name: 'decomposition_decision', callId: originalCall.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, result: { question: declared?.question, reuse: declared?.reuse ?? false, servedBy: originalCall.name } }, decisionAt, decisionAt);"
+              },
+              {
+                "line": 292,
+                "text": "      }"
+              },
+              {
+                "line": 293,
+                "text": "      const call = { ...originalCall, arguments: { ...originalCall.arguments } };"
+              },
+              {
+                "line": 294,
+                "text": "      delete call.arguments.question_id;"
+              },
+              {
+                "line": 295,
+                "text": "      if (Date.now() - startedMs >= limits.durationMs || metrics.inputTokens + metrics.outputTokens >= limits.tokens) break;"
+              },
+              {
+                "line": 296,
+                "text": "      metrics.toolCalls++;"
+              },
+              {
+                "line": 297,
+                "text": "      const toolStarted = new Date();"
+              },
+              {
+                "line": 298,
+                "text": "      let output: unknown;"
+              },
+              {
+                "line": 299,
+                "text": "      let attempt: Attempt | undefined;"
+              },
+              {
+                "line": 300,
+                "text": "      let scriptCall: { type: 'memory_run' | 'function_try'; name: string } | undefined;"
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 5357,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 39,
+        "startedAt": "2026-11-16T12:01:58.620Z",
+        "endedAt": "2026-11-16T12:01:58.861Z",
+        "durationMs": 241
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 21956,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 40,
+        "startedAt": "2026-11-16T12:01:58.862Z",
+        "endedAt": "2026-11-16T12:02:00.299Z",
+        "durationMs": 1437
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "8Q2PPrFQ6",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 300,
+          "endLine": 400
+        },
+        "result": {
+          "error": "Script error: Invalid line range"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 41,
+        "startedAt": "2026-11-16T12:02:00.299Z",
+        "endedAt": "2026-11-16T12:02:00.538Z",
+        "durationMs": 239
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 22007,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 42,
+        "startedAt": "2026-11-16T12:02:00.539Z",
+        "endedAt": "2026-11-16T12:02:01.452Z",
+        "durationMs": 913
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "eO4diqEml",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 300,
+          "endLine": 350
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "start": 300,
+            "lines": [
+              {
+                "line": 300,
+                "text": "      let scriptCall: { type: 'memory_run' | 'function_try'; name: string } | undefined;"
+              },
+              {
+                "line": 301,
+                "text": "      try {"
+              },
+              {
+                "line": 302,
+                "text": "        if (primitiveNames.has(call.name)) {"
+              },
+              {
+                "line": 303,
+                "text": "          const { runScript } = await import('../../exploration-sandbox/index.js');"
+              },
+              {
+                "line": 304,
+                "text": "          const args = call.arguments;"
+              },
+              {
+                "line": 305,
+                "text": "          const expressions: Record<string, string> = {"
+              },
+              {
+                "line": 306,
+                "text": "            listFiles: 'listFiles(params.maxFiles)', searchText: 'searchText(params.query)', searchIdentifiers: 'searchIdentifiers(params.identifier)',"
+              },
+              {
+                "line": 307,
+                "text": "            readLines: 'readLines(params.file, params.startLine, params.endLine)', readAround: 'readAround(params.file, params.line, params.contextLines)',"
+              },
+              {
+                "line": 308,
+                "text": "            listSymbols: 'listSymbols()', findDefinitions: 'findDefinitions(params.symbol)', findReferences: 'findReferences(params.symbol)',"
+              },
+              {
+                "line": 309,
+                "text": "            getImports: 'getImports(params.file)', getGitDiff: 'getGitDiff(params.revision1, params.revision2)'"
+              },
+              {
+                "line": 310,
+                "text": "          };"
+              },
+              {
+                "line": 311,
+                "text": "          const defaults = { listFiles: { maxFiles: 500 }, readAround: { contextLines: 5 }, getGitDiff: { revision2: 'HEAD' } };"
+              },
+              {
+                "line": 312,
+                "text": "          const params = { ...(defaults[call.name as keyof typeof defaults] ?? {}), ...args };"
+              },
+              {
+                "line": 313,
+                "text": "          const execution = await runScript({ workspace: root, code: expressions[call.name], params, strict: true, includeTrace: true, timeoutMs: Math.min(5000, Math.max(1, limits.durationMs - (Date.now() - startedMs))) });"
+              },
+              {
+                "line": 314,
+                "text": "          let value = execution.value;"
+              },
+              {
+                "line": 315,
+                "text": "          // Direct model-facing reads show absolute line numbers. The sandbox"
+              },
+              {
+                "line": 316,
+                "text": "          // primitive contract used by procedures keeps its original string[]."
+              },
+              {
+                "line": 317,
+                "text": "          if ((call.name === 'readLines' || call.name === 'readAround') && value && typeof value === 'object') {"
+              },
+              {
+                "line": 318,
+                "text": "            const read = value as { file: string; start: number; lines: string[] };"
+              },
+              {
+                "line": 319,
+                "text": "            value = { ...read, lines: read.lines.map((text, index) => ({ line: read.start + index, text })) };"
+              },
+              {
+                "line": 320,
+                "text": "          }"
+              },
+              {
+                "line": 321,
+                "text": "          output = boundedOutput(value, { revision: await resolveRevision(), sourceTruncated: execution.trace.truncated, primitiveDerived: true });"
+              },
+              {
+                "line": 322,
+                "text": "        }"
+              },
+              {
+                "line": 323,
+                "text": "        else if (call.name === 'list') output = await tools.list();"
+              },
+              {
+                "line": 324,
+                "text": "        else if (call.name === 'search' && typeof call.arguments.query === 'string') output = await tools.search(call.arguments.query);"
+              },
+              {
+                "line": 325,
+                "text": "        else if (call.name === 'read' && typeof call.arguments.file === 'string') {"
+              },
+              {
+                "line": 326,
+                "text": "          const start = Number(call.arguments.startLine ?? 1);"
+              },
+              {
+                "line": 327,
+                "text": "          output = await tools.read(call.arguments.file, start, Number(call.arguments.endLine ?? start + 99));"
+              },
+              {
+                "line": 328,
+                "text": "        }"
+              },
+              {
+                "line": 329,
+                "text": "        else if (call.name === 'git') output = await tools.git(limits.durationMs - (Date.now() - startedMs));"
+              },
+              {
+                "line": 330,
+                "text": "        else if (library && call.name === 'memory_list') {"
+              },
+              {
+                "line": 331,
+                "text": "          const listed = library.memory_list(typeof call.arguments.query === 'string' ? call.arguments.query : undefined);"
+              },
+              {
+                "line": 332,
+                "text": "          if (Array.isArray(listed) && listed.length === 0) emptyMemoryListCount++;"
+              },
+              {
+                "line": 333,
+                "text": "          if (Array.isArray(listed) && listed.length === 0 && emptyMemoryListCount >= 2 && !emptyMemoryListNoteEmitted) {"
+              },
+              {
+                "line": 334,
+                "text": "            emptyMemoryListNoteEmitted = true;"
+              },
+              {
+                "line": 335,
+                "text": "            output = { results: [], note: 'The catalogue is empty again. Revising the plan in a loop will not fill it: if the question you are serving is durably reusable and no permanent primitive covers it, build the missing capability once with function_try(source, params) instead of revising the plan again; otherwise state why not in the final result.' };"
+              },
+              {
+                "line": 336,
+                "text": "          } else {"
+              },
+              {
+                "line": 337,
+                "text": "            output = listed;"
+              },
+              {
+                "line": 338,
+                "text": "          }"
+              },
+              {
+                "line": 339,
+                "text": "        }"
+              },
+              {
+                "line": 340,
+                "text": "        else if (library && call.name === 'memory_unusable' && typeof call.arguments.id === 'string') {"
+              },
+              {
+                "line": 341,
+                "text": "          const id = call.arguments.id;"
+              },
+              {
+                "line": 342,
+                "text": "          // Issue #187: a proposed candidate may also be abandoned by name —"
+              },
+              {
+                "line": 343,
+                "text": "          // a candidate marked unusable never reaches the catalogue."
+              },
+              {
+                "line": 344,
+                "text": "          if (!attempts.some(a => a.id === id || a.candidate?.name === id)) throw new Error('Script must have been executed in this run');"
+              },
+              {
+                "line": 345,
+                "text": "          unusableIds.add(id);"
+              },
+              {
+                "line": 346,
+                "text": "          output = { recordedAfterValidation: true };"
+              },
+              {
+                "line": 347,
+                "text": "        }"
+              },
+              {
+                "line": 348,
+                "text": "        else if (codeMode && ((call.name === 'code' && typeof call.arguments.code === 'string') || (call.name === 'function_try' && typeof call.arguments.source === 'string') || (library && call.name === 'memory_run' && typeof call.arguments.id === 'string'))) {"
+              },
+              {
+                "line": 349,
+                "text": "          const stored = call.name === 'memory_run' ? library?.get(String(call.arguments.id)) : undefined;"
+              },
+              {
+                "line": 350,
+                "text": "          if (call.name === 'memory_run' && !stored) throw new Error('Unknown script');"
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 5653,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 43,
+        "startedAt": "2026-11-16T12:02:01.453Z",
+        "endedAt": "2026-11-16T12:02:01.688Z",
+        "durationMs": 235
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 23734,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 44,
+        "startedAt": "2026-11-16T12:02:01.689Z",
+        "endedAt": "2026-11-16T12:02:02.907Z",
+        "durationMs": 1218
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "dI7F6Mxst",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 350,
+          "endLine": 450
+        },
+        "result": {
+          "error": "Script error: Invalid line range"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 45,
+        "startedAt": "2026-11-16T12:02:02.907Z",
+        "endedAt": "2026-11-16T12:02:03.149Z",
+        "durationMs": 242
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 23785,
+        "outputTokens": 39,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 46,
+        "startedAt": "2026-11-16T12:02:03.150Z",
+        "endedAt": "2026-11-16T12:02:04.205Z",
+        "durationMs": 1055
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "ln73YD0Ib",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "startLine": 350,
+          "endLine": 400
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "start": 350,
+            "lines": [
+              {
+                "line": 350,
+                "text": "          if (call.name === 'memory_run' && !stored) throw new Error('Unknown script');"
+              },
+              {
+                "line": 351,
+                "text": "          const code = stored?.code ?? String(call.arguments.source ?? call.arguments.code);"
+              },
+              {
+                "line": 352,
+                "text": "          const params = call.arguments.params ?? {};"
+              },
+              {
+                "line": 353,
+                "text": "          if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('Invalid parameters');"
+              },
+              {
+                "line": 354,
+                "text": "          const remaining = limits.durationMs - (Date.now() - startedMs);"
+              },
+              {
+                "line": 355,
+                "text": "          if (remaining <= 0) return { messages: outputs, stopReason: 'duration' };"
+              },
+              {
+                "line": 356,
+                "text": "          const { runScript } = await import('../../exploration-sandbox/index.js');"
+              },
+              {
+                "line": 357,
+                "text": "          const controller = new AbortController();"
+              },
+              {
+                "line": 358,
+                "text": "          const timer = setTimeout(() => controller.abort(), remaining);"
+              },
+              {
+                "line": 359,
+                "text": "          scriptCall = { type: stored ? 'memory_run' : 'function_try', name: stored ? stored.id : 'function_try' };"
+              },
+              {
+                "line": 360,
+                "text": "          // Ticket #191: any memory_run/function_try call — accepted or failed —"
+              },
+              {
+                "line": 361,
+                "text": "          // counts as having served its declared question; the trace carries the"
+              },
+              {
+                "line": 362,
+                "text": "          // outcome, the reminder only targets questions never attempted."
+              },
+              {
+                "line": 363,
+                "text": "          if (questionId !== undefined) servedByCreation.add(questionId);"
+              },
+              {
+                "line": 364,
+                "text": "          const runStarted = new Date();"
+              },
+              {
+                "line": 365,
+                "text": "          try {"
+              },
+              {
+                "line": 366,
+                "text": "            let raw: unknown;"
+              },
+              {
+                "line": 367,
+                "text": "            if (stored) {"
+              },
+              {
+                "line": 368,
+                "text": "              metrics.memoryReuses++;"
+              },
+              {
+                "line": 369,
+                "text": "              // Issue #174 complement (B-verification): stored revision + proof validity"
+              },
+              {
+                "line": 370,
+                "text": "              // checked against the fixture — uncertain/obsolete proofs are signalled"
+              },
+              {
+                "line": 371,
+                "text": "              // explicitly, never returned silently as fresh."
+              },
+              {
+                "line": 372,
+                "text": "              const revision = await resolveRevision();"
+              },
+              {
+                "line": 373,
+                "text": "              if (stored.revision && revision !== 'unknown-revision' && !revision.startsWith(stored.revision.slice(0, 12))) {"
+              },
+              {
+                "line": 374,
+                "text": "                output = { staleness: { signal: 'stored-revision-differs', storedRevision: stored.revision, currentRevision: revision, note: `Proofs were consolidated at revision ${stored.revision}. Re-verify before relying on them; prefer re-exploring with the permanent primitives if the references below look obsolete.` } };"
+              },
+              {
+                "line": 375,
+                "text": "              }"
+              },
+              {
+                "line": 376,
+                "text": "            }"
+              },
+              {
+                "line": 377,
+                "text": "            const strict = call.name === 'function_try' || stored?.executionMode === 'strict';"
+              },
+              {
+                "line": 378,
+                "text": "            const execution = await runScript({ workspace: root, code, params, scripts: strict ? undefined : library?.sources(), strict, includeTrace: true, timeoutMs: Math.min(5000, remaining), signal: controller.signal });"
+              },
+              {
+                "line": 379,
+                "text": "            raw = execution.value;"
+              },
+              {
+                "line": 380,
+                "text": "            const runEnded = new Date();"
+              },
+              {
+                "line": 381,
+                "text": "            // Compact, structured, bounded, sourced output for memory_run AND function_try."
+              },
+              {
+                "line": 382,
+                "text": "            const bounded = boundedOutput(raw, { revision: await resolveRevision(), maxItems: stored?.limits?.maxItems, maxBytes: stored?.limits?.maxBytes, sourceTruncated: execution.trace.truncated, primitiveDerived: execution.trace.executedCalls.length > 0 });"
+              },
+              {
+                "line": 383,
+                "text": "            // Issue #185 (D02): every mandatory reference a strict trial emits is"
+              },
+              {
+                "line": 384,
+                "text": "            // exhaustively validated without any LLM — no sample, no judge. A"
+              },
+              {
+                "line": 385,
+                "text": "            // citation-invalid trial returns short structured repair feedback"
+              },
+              {
+                "line": 386,
+                "text": "            // instead of its result, is never proposed for consolidation, and"
+              },
+              {
+                "line": 387,
+                "text": "            // leaves its code and diagnostics in the trace only."
+              },
+              {
+                "line": 388,
+                "text": "            const citations = call.name === 'function_try' ? await validateCitations(raw, { access: citationAccess(tools), revision: await resolveRevision() }) : undefined;"
+              },
+              {
+                "line": 389,
+                "text": "            const citationFailure = citations?.status === 'validation_failed' ? citationRepairFeedback(citations) : undefined;"
+              },
+              {
+                "line": 390,
+                "text": "            recordCall({ type: scriptCall.type, name: scriptCall.name, callId: call.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome(citations)}` }, runStarted, runEnded);"
+              },
+              {
+                "line": 391,
+                "text": "            output = citationFailure ?? (output && typeof output === 'object' && 'staleness' in (output as Record<string, unknown>) ? { ...(output as Record<string, unknown>), result: bounded } : bounded);"
+              },
+              {
+                "line": 392,
+                "text": "            if (stored && memory?.compactSearch && stored.code === 'search(params.query)' && Array.isArray(raw)) {"
+              },
+              {
+                "line": 393,
+                "text": "              const matches = raw.slice(0, 8).map((match: any) => ({ ...match, text: typeof match.text === 'string' ? match.text.slice(0, 240) : match.text, textTruncated: typeof match.text === 'string' && match.text.length > 240 }));"
+              },
+              {
+                "line": 394,
+                "text": "              const compact = { matches, returned: matches.length, observed: raw.length, truncated: raw.length > matches.length, searchIsBounded: true };"
+              },
+              {
+                "line": 395,
+                "text": "              const key = JSON.stringify([stored.id, params]);"
+              },
+              {
+                "line": 396,
+                "text": "              const serialized = JSON.stringify(compact);"
+              },
+              {
+                "line": 397,
+                "text": "              const previous = previousSearchOutputs.get(key);"
+              },
+              {
+                "line": 398,
+                "text": "              if (previous?.content === serialized) {"
+              },
+              {
+                "line": 399,
+                "text": "                output = { repeated: true, query: (params as Record<string, unknown>).query, previousToolCallId: previous.toolCallId, message: 'The visible results are identical to the previous call; refer to that output.' };"
+              },
+              {
+                "line": 400,
+                "text": "                metrics.memoryResultsRepeated++;"
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 6319,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 47,
+        "startedAt": "2026-11-16T12:02:04.205Z",
+        "endedAt": "2026-11-16T12:02:04.446Z",
+        "durationMs": 241
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 25596,
+        "outputTokens": 37,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 48,
+        "startedAt": "2026-11-16T12:02:04.447Z",
+        "endedAt": "2026-11-16T12:02:05.762Z",
+        "durationMs": 1315
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "Ki8Q7qHUE",
+        "parameters": {
+          "file": "packages/exploration-poc/src/tool-contract.ts",
+          "startLine": 1,
+          "endLine": 50
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/tool-contract.ts",
+            "start": 1,
+            "lines": [
+              {
+                "line": 1,
+                "text": "const string = { type: 'string' };"
+              },
+              {
+                "line": 2,
+                "text": "const integer = { type: 'integer' };"
+              },
+              {
+                "line": 3,
+                "text": ""
+              },
+              {
+                "line": 4,
+                "text": "export const primitiveTools = ["
+              },
+              {
+                "line": 5,
+                "text": "  { name: 'listFiles', description: 'List repository paths', properties: { maxFiles: integer } },"
+              },
+              {
+                "line": 6,
+                "text": "  { name: 'searchText', description: 'Find literal text; syntax does not prove a semantic relationship', properties: { query: string }, required: ['query'] },"
+              },
+              {
+                "line": 7,
+                "text": "  { name: 'searchIdentifiers', description: 'Find exact identifier occurrences', properties: { identifier: string }, required: ['identifier'] },"
+              },
+              {
+                "line": 8,
+                "text": "  { name: 'readLines', description: 'Read at most 100 numbered source lines', properties: { file: string, startLine: integer, endLine: integer }, required: ['file', 'startLine', 'endLine'] },"
+              },
+              {
+                "line": 9,
+                "text": "  { name: 'readAround', description: 'Read context around a source line', properties: { file: string, line: integer, contextLines: integer }, required: ['file', 'line'] },"
+              },
+              {
+                "line": 10,
+                "text": "  { name: 'listSymbols', description: 'List syntactic symbol candidates', properties: {} },"
+              },
+              {
+                "line": 11,
+                "text": "  { name: 'findDefinitions', description: 'Find candidate definitions; no semantic resolution guarantee', properties: { symbol: string }, required: ['symbol'] },"
+              },
+              {
+                "line": 12,
+                "text": "  { name: 'findReferences', description: 'Find candidate references; no semantic resolution guarantee', properties: { symbol: string }, required: ['symbol'] },"
+              },
+              {
+                "line": 13,
+                "text": "  { name: 'getImports', description: 'Find declared import candidates', properties: { file: string }, required: ['file'] },"
+              },
+              {
+                "line": 14,
+                "text": "  { name: 'getGitDiff', description: 'Read a bounded diff between validated revisions', properties: { revision1: string, revision2: string }, required: ['revision1'] }"
+              },
+              {
+                "line": 15,
+                "text": "].map(tool => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: { type: 'object', properties: tool.properties, required: tool.required ?? [] } } }));"
+              },
+              {
+                "line": 16,
+                "text": ""
+              },
+              {
+                "line": 17,
+                "text": "export const primitiveNames = new Set(primitiveTools.map(tool => tool.function.name));"
+              },
+              {
+                "line": 18,
+                "text": ""
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 2304,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 49,
+        "startedAt": "2026-11-16T12:02:05.762Z",
+        "endedAt": "2026-11-16T12:02:06.016Z",
+        "durationMs": 254
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 26370,
+        "outputTokens": 36,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 50,
+        "startedAt": "2026-11-16T12:02:06.016Z",
+        "endedAt": "2026-11-16T12:02:07.110Z",
+        "durationMs": 1094
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "1LQqvsln8",
+        "parameters": {
+          "file": "packages/exploration-poc/src/mistral.ts",
+          "startLine": 1,
+          "endLine": 35
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "start": 1,
+            "lines": [
+              {
+                "line": 1,
+                "text": "import type { Model, ToolCall } from './explore.ts';"
+              },
+              {
+                "line": 2,
+                "text": "import { primitiveTools } from './tool-contract.ts';"
+              },
+              {
+                "line": 3,
+                "text": ""
+              },
+              {
+                "line": 4,
+                "text": "const tools = ["
+              },
+              {
+                "line": 5,
+                "text": "  { name: 'list', description: 'List workspace files', properties: {} },"
+              },
+              {
+                "line": 6,
+                "text": "  { name: 'search', description: 'Find literal text in workspace files', properties: { query: { type: 'string' } }, required: ['query'] },"
+              },
+              {
+                "line": 7,
+                "text": "  { name: 'read', description: 'Read at most 100 numbered lines of a workspace file', properties: { file: { type: 'string' }, startLine: { type: 'integer' }, endLine: { type: 'integer' } }, required: ['file'] },"
+              },
+              {
+                "line": 8,
+                "text": "  { name: 'git', description: 'Read the latest Git commit', properties: {} }"
+              },
+              {
+                "line": 9,
+                "text": "].map(t => ({ type: 'function', function: { name: t.name, description: t.description, parameters: { type: 'object', properties: t.properties, required: t.required ?? [] } } }));"
+              },
+              {
+                "line": 10,
+                "text": ""
+              },
+              {
+                "line": 11,
+                "text": "export type NamedMemoryTool = { name: string; id: string; parameters: string[]; required?: string[]; description: string };"
+              },
+              {
+                "line": 12,
+                "text": ""
+              },
+              {
+                "line": 13,
+                "text": "const INTEGER_PARAMS = new Set(['offset', 'start', 'end', 'startLine', 'endLine']);"
+              },
+              {
+                "line": 14,
+                "text": ""
+              },
+              {
+                "line": 15,
+                "text": "export function mistral(apiKey: string, model = 'mistral-small-latest', config: { temperature?: number; memorySearchId?: string; memorySearchExclusive?: boolean; memorySearchScoped?: boolean; memoryTools?: NamedMemoryTool[]; removeSearch?: boolean; removeCode?: boolean } = {}): Model {"
+              },
+              {
+                "line": 16,
+                "text": "  if (!apiKey) throw new Error('MISTRAL_API_KEY is required');"
+              },
+              {
+                "line": 17,
+                "text": "  const lastRequest = { model: model as string | undefined, temperature: undefined as number | undefined, maxOutputTokens: undefined as number | undefined };"
+              },
+              {
+                "line": 18,
+                "text": "  return {"
+              },
+              {
+                "line": 19,
+                "text": "    snapshot() {"
+              },
+              {
+                "line": 20,
+                "text": "      return { model: lastRequest.model, temperature: lastRequest.temperature, maxOutputTokens: lastRequest.maxOutputTokens };"
+              },
+              {
+                "line": 21,
+                "text": "    },"
+              },
+              {
+                "line": 22,
+                "text": "    async complete(messages, options) {"
+              },
+              {
+                "line": 23,
+                "text": "    const codeTool = { type: 'function', function: { name: 'code', description: 'Evaluate a JavaScript expression using list(), read(file,start,end), search(text) and params. Return compact evidence; set remember, name and description for a reusable method.', parameters: { type: 'object', properties: { code: { type: 'string' }, params: { type: 'object' }, remember: { type: 'boolean' }, name: { type: 'string', description: 'Canonical name, camelCase verb+domain+object (e.g. searchPostgresSymbols). Required when remember=true.' }, description: { type: 'string' }, returns: { type: 'string', description: 'Output contract: returned shape with item fields, e.g. \"SearchMatch[] {file,line,text}\".' }, ...(options?.queryContract ? { contract: { type: 'string', enum: ['literal_query'], description: 'Declare only for a generic literal search taking params.query and returning file and line references.' } } : {}) }, required: ['code'] } } };"
+              },
+              {
+                "line": 24,
+                "text": "    const memoryTools = ["
+              },
+              {
+                "line": 25,
+                "text": "      { type: 'function', function: { name: 'memory_list', description: 'Search canonical questions, scopes, typed parameters, output contracts and limits without reading source.', parameters: { type: 'object', properties: { query: { type: 'string' } } } } },"
+              },
+              {
+                "line": 26,
+                "text": "      { type: 'function', function: { name: 'memory_run', description: 'Run a stored script with new parameters against the current workspace.', parameters: { type: 'object', properties: { id: { type: 'string' }, params: { type: 'object' } }, required: ['id', 'params'] } } },"
+              },
+              {
+                "line": 27,
+                "text": "      { type: 'function', function: { name: 'memory_unusable', description: 'Mark a script executed in this run as unusable for its declared subject. Do not mark an unrelated topic as a failure.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } } }"
+              },
+              {
+                "line": 28,
+                "text": "    ];"
+              },
+              {
+                "line": 29,
+                "text": "    const namedTools: NamedMemoryTool[] = config.memoryTools ?? (config.memorySearchId ? [{ name: 'memory_search', id: config.memorySearchId, parameters: config.memorySearchScoped ? ['query', 'pathPrefix', 'offset'] : ['query'], required: ['query'], description: config.memorySearchScoped ? 'Search literal text with optional workspace-relative pathPrefix and offset. Results are paginated; hasMore indicates another page. No prefix searches the workspace.' : 'Run a reusable literal search tested on small synthetic probes. Use it to find a symbol or text in the workspace.' }] : []);"
+              },
+              {
+                "line": 30,
+                "text": "    const namedByName = new Map(namedTools.map(tool => [tool.name, tool]));"
+              },
+              {
+                "line": 31,
+                "text": "    const namedMemory = options?.memory ? namedTools.map(tool => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: { type: 'object', properties: Object.fromEntries(tool.parameters.map(parameter => [parameter, { type: INTEGER_PARAMS.has(parameter) ? 'integer' : 'string' }])), required: tool.required ?? tool.parameters } } })) : [];"
+              },
+              {
+                "line": 32,
+                "text": "    const exclusive = !!(config.memorySearchExclusive && config.memorySearchId);"
+              },
+              {
+                "line": 33,
+                "text": "    const functionTry = { type: 'function', function: { name: 'function_try', description: 'Strictly check TypeScript and execute in QuickJS using only the ten permanent primitives. A typed function expression receives params. Trials never mutate memory. Default path when memory_list returns nothing and the question is durably reusable; otherwise state why not in the final result — never a quota, never a forced creation.', parameters: { type: 'object', properties: { source: { type: 'string' }, params: { type: 'object' }, remember: { type: 'boolean' }, name: { type: 'string' }, question: { type: 'string', description: 'Stable canonical repository question, independent of this Tour wording' }, description: { type: 'string' }, returns: { type: 'string' } }, required: ['source', 'params'] } } };"
+              },
+              {
+                "line": 34,
+                "text": "    const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)), ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];"
+              },
+              {
+                "line": 35,
+                "text": "    const requestMaxTokens = options?.maxOutputTokens;"
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 6654,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 51,
+        "startedAt": "2026-11-16T12:02:07.110Z",
+        "endedAt": "2026-11-16T12:02:07.339Z",
+        "durationMs": 229
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 28282,
+        "outputTokens": 60,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 52,
+        "startedAt": "2026-11-16T12:02:07.340Z",
+        "endedAt": "2026-11-16T12:02:08.864Z",
+        "durationMs": 1524
+      },
+      {
+        "type": "tool",
+        "name": "plan",
+        "callId": "LDjfiIFUS",
+        "parameters": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How does the harness orchestrate calls to the Mistral model and exploration tools?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to explore the orchestration of Mistral model calls and tool usage in the harness."
+        },
+        "result": {
+          "error": "Unknown tool or invalid arguments"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 53,
+        "startedAt": "2026-11-16T12:02:08.864Z",
+        "endedAt": "2026-11-16T12:02:08.864Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 28358,
+        "outputTokens": 41,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 54,
+        "startedAt": "2026-11-16T12:02:08.867Z",
+        "endedAt": "2026-11-16T12:02:09.783Z",
+        "durationMs": 916
+      },
+      {
+        "type": "tool",
+        "name": "plan",
+        "callId": "ofawRDQyI",
+        "parameters": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How does the harness orchestrate calls to the Mistral model and exploration tools?",
+              "reuse": true
+            }
+          ]
+        },
+        "result": {
+          "error": "Unknown tool or invalid arguments"
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 55,
+        "startedAt": "2026-11-16T12:02:09.783Z",
+        "endedAt": "2026-11-16T12:02:09.783Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 28410,
+        "outputTokens": 67,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 56,
+        "startedAt": "2026-11-16T12:02:09.785Z",
+        "endedAt": "2026-11-16T12:02:10.786Z",
+        "durationMs": 1001
+      },
+      {
+        "type": "decomposition_plan",
+        "name": "decomposition_plan",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "How does the harness orchestrate calls to the Mistral model and exploration tools?",
+              "reuse": true
+            }
+          ]
+        },
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 57,
+        "startedAt": "2026-11-16T12:02:10.787Z",
+        "endedAt": "2026-11-16T12:02:10.787Z",
+        "durationMs": 0
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "7GfwflS6i",
+        "parameters": {
+          "query": "How does the harness orchestrate calls to the Mistral model and exploration tools?"
+        },
+        "result": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "returned=0",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 58,
+        "startedAt": "2026-11-16T12:02:10.788Z",
+        "endedAt": "2026-11-16T12:02:10.788Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 28439,
+        "outputTokens": 34,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 59,
+        "startedAt": "2026-11-16T12:02:10.790Z",
+        "endedAt": "2026-11-16T12:02:11.739Z",
+        "durationMs": 949
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "cioVbZPBe",
+        "parameters": {
+          "file": "packages/exploration-poc/src/cli.ts",
+          "startLine": 1,
+          "endLine": 50
+        },
+        "result": {
+          "result": {
+            "file": "packages/exploration-poc/src/cli.ts",
+            "start": 1,
+            "lines": [
+              {
+                "line": 1,
+                "text": "import { resolve } from 'node:path';"
+              },
+              {
+                "line": 2,
+                "text": "import { existsSync } from 'node:fs';"
+              },
+              {
+                "line": 3,
+                "text": "import { loadEnvFile } from 'node:process';"
+              },
+              {
+                "line": 4,
+                "text": "import { fileURLToPath } from 'node:url';"
+              },
+              {
+                "line": 5,
+                "text": "import { explore } from './explore.ts';"
+              },
+              {
+                "line": 6,
+                "text": "import { mistral } from './mistral.ts';"
+              },
+              {
+                "line": 7,
+                "text": "import { PROMPT_SHA256 } from './decomposition-prompt.ts';"
+              },
+              {
+                "line": 8,
+                "text": "import type { Budget, Model } from './explore.ts';"
+              },
+              {
+                "line": 9,
+                "text": ""
+              },
+              {
+                "line": 10,
+                "text": "let model: Model | undefined;"
+              },
+              {
+                "line": 11,
+                "text": "try {"
+              },
+              {
+                "line": 12,
+                "text": "const localEnv = fileURLToPath(new URL('../../../.env.local', import.meta.url));"
+              },
+              {
+                "line": 13,
+                "text": "if (existsSync(localEnv)) loadEnvFile(localEnv);"
+              },
+              {
+                "line": 14,
+                "text": "const args = process.argv.slice(2);"
+              },
+              {
+                "line": 15,
+                "text": "let codeMode = false;"
+              },
+              {
+                "line": 16,
+                "text": "let memory: { directory: string } | undefined;"
+              },
+              {
+                "line": 17,
+                "text": "const budget: Budget = {};"
+              },
+              {
+                "line": 18,
+                "text": "const positive = (value: string | undefined): number => {"
+              },
+              {
+                "line": 19,
+                "text": "  const number = Number(value);"
+              },
+              {
+                "line": 20,
+                "text": "  if (!Number.isFinite(number) || number <= 0) throw new Error('Budgets must be positive numbers');"
+              },
+              {
+                "line": 21,
+                "text": "  return number;"
+              },
+              {
+                "line": 22,
+                "text": "};"
+              },
+              {
+                "line": 23,
+                "text": "if (process.env.CODETOUR_TOKEN_BUDGET) budget.tokens = positive(process.env.CODETOUR_TOKEN_BUDGET);"
+              },
+              {
+                "line": 24,
+                "text": "if (process.env.CODETOUR_TIME_BUDGET_MS) budget.durationMs = positive(process.env.CODETOUR_TIME_BUDGET_MS);"
+              },
+              {
+                "line": 25,
+                "text": "let temperature = process.env.MISTRAL_TEMPERATURE === undefined ? 0 : Number(process.env.MISTRAL_TEMPERATURE);"
+              },
+              {
+                "line": 26,
+                "text": "while (args[0]?.startsWith('--')) {"
+              },
+              {
+                "line": 27,
+                "text": "  const option = args.shift();"
+              },
+              {
+                "line": 28,
+                "text": "  if (option === '--code') codeMode = true;"
+              },
+              {
+                "line": 29,
+                "text": "  else if (option === '--memory' && args[0]) memory = { directory: resolve(args.shift()!) };"
+              },
+              {
+                "line": 30,
+                "text": "  else if (option === '--tokens' || option === '--token-budget') budget.tokens = positive(args.shift());"
+              },
+              {
+                "line": 31,
+                "text": "  else if (option === '--duration-ms' || option === '--time-budget-ms') budget.durationMs = positive(args.shift());"
+              },
+              {
+                "line": 32,
+                "text": "  else if (option === '--iterations') budget.iterations = positive(args.shift());"
+              },
+              {
+                "line": 33,
+                "text": "  else if (option === '--calls') budget.calls = positive(args.shift());"
+              },
+              {
+                "line": 34,
+                "text": "  else if (option === '--temperature' && args[0] !== undefined) temperature = Number(args.shift());"
+              },
+              {
+                "line": 35,
+                "text": "  else throw new Error('Unknown or incomplete option');"
+              },
+              {
+                "line": 36,
+                "text": "}"
+              },
+              {
+                "line": 37,
+                "text": "const [root, ...objective] = args;"
+              },
+              {
+                "line": 38,
+                "text": "if (!root || !objective.length) throw new Error('Usage: npm run explore -- [--code] [--memory <directory>] [--tokens <n>] [--duration-ms <n>] [--temperature <n>] <workspace> <objective>');"
+              },
+              {
+                "line": 39,
+                "text": "if (!Number.isFinite(temperature) || temperature < 0 || temperature > 1) throw new Error('Temperature must be between 0 and 1');"
+              },
+              {
+                "line": 40,
+                "text": "model = mistral(process.env.MISTRAL_API_KEY ?? '', process.env.MISTRAL_MODEL, { temperature });"
+              },
+              {
+                "line": 41,
+                "text": "const result = await explore({ root: resolve(root), objective: objective.join(' '), codeMode, memory, budget, model });"
+              },
+              {
+                "line": 42,
+                "text": "process.stdout.write(`${JSON.stringify(result, null, 2)}\\n`);"
+              },
+              {
+                "line": 43,
+                "text": "} catch (error) {"
+              },
+              {
+                "line": 44,
+                "text": "  const failure = ((error as any).exploration) ?? { status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model?.snapshot?.(), metrics: { modelCalls: 0, toolCalls: 0, inputTokens: 0, outputTokens: 0, usageAvailable: false }, callTrace: [] };"
+              },
+              {
+                "line": 45,
+                "text": "  process.stdout.write(`${JSON.stringify(failure, null, 2)}\\n`);"
+              },
+              {
+                "line": 46,
+                "text": "  process.exitCode = 1;"
+              },
+              {
+                "line": 47,
+                "text": "}"
+              },
+              {
+                "line": 48,
+                "text": ""
+              }
+            ]
+          },
+          "returned": 1,
+          "observed": null,
+          "truncated": false,
+          "bounds": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "bytes": 4036,
+          "revision": "7a66bc3fa2d86b9a6a99b4941544eb40a30656ca",
+          "provenance": "primitive-derived",
+          "uncertainty": [
+            "Primitive matches provide syntactic evidence, not semantic certainty or proof of absence."
+          ]
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "keys=result,returned,observed,truncated",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 60,
+        "startedAt": "2026-11-16T12:02:11.739Z",
+        "endedAt": "2026-11-16T12:02:11.970Z",
+        "durationMs": 231
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 29838,
+        "outputTokens": 1532,
+        "usageMissing": false,
+        "error": "FinalAnswerNotJson: Final answer is not valid JSON (content after plan extraction: \"Now I have enough evidence to explain how the harness orchestrates calls to the Mistral model and the exploration tools. Here is the structured answer:\\n\\n```json\\n{\\n  \\\"objective\\\": \\\"Expliquer comment le \")",
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 61,
+        "startedAt": "2026-11-16T12:02:11.970Z",
+        "endedAt": "2026-11-16T12:02:20.896Z",
+        "durationMs": 8926
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 29932,
+        "outputTokens": 1078,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 62,
+        "startedAt": "2026-11-16T12:02:20.899Z",
+        "endedAt": "2026-11-16T12:02:26.892Z",
+        "durationMs": 5993
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 30692,
+        "outputTokens": 740,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 63,
+        "startedAt": "2026-11-16T12:02:26.902Z",
+        "endedAt": "2026-11-16T12:02:31.447Z",
+        "durationMs": 4545
+      },
+      {
+        "type": "reuse_reminder",
+        "name": "reuse_reminder",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "unservedQuestionIds": [
+            "q1"
+          ]
+        },
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 64,
+        "startedAt": "2026-11-16T12:02:31.457Z",
+        "endedAt": "2026-11-16T12:02:31.457Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 31506,
+        "outputTokens": 780,
+        "usageMissing": false,
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 65,
+        "startedAt": "2026-11-16T12:02:31.458Z",
+        "endedAt": "2026-11-16T12:02:35.799Z",
+        "durationMs": 4341
+      },
+      {
+        "type": "run_end",
+        "name": "run_end",
+        "inputTokens": 613004,
+        "outputTokens": 5166,
+        "usageMissing": false,
+        "outcome": "status=complete; stopReason=none",
+        "result": {
+          "status": "complete",
+          "stopReason": null,
+          "inputTokens": 613004,
+          "outputTokens": 5166,
+          "modelCalls": 34,
+          "toolCalls": 30,
+          "durationMs": 67859
+        },
+        "runId": "82203913-dc56-4580-850b-7eec5aefc26c",
+        "seq": 66,
+        "startedAt": "2026-11-16T12:02:35.813Z",
+        "endedAt": "2026-11-16T12:02:35.813Z",
+        "durationMs": 0
+      }
+    ],
+    "consolidationReport": {
+      "accepted": [],
+      "rejected": [],
+      "duplicates": [],
+      "indeterminate": [],
+      "reconciliation": []
+    }
+  },
+  "catalogue": []
+}

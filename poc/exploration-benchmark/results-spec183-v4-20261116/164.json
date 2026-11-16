@@ -1,0 +1,3659 @@
+{
+  "number": 164,
+  "title": "Comparer le harnais avec et sans Code Mode",
+  "objective": "Identifie les chemins d’exécution avec et sans Code Mode et les différences observables dans le harnais.",
+  "started": "2026-11-16T12:21:39.628Z",
+  "ended": "2026-11-16T12:23:14.147Z",
+  "result": {
+    "objective": "Identifier les chemins d’exécution avec et sans Code Mode et les différences observables dans le harnais.",
+    "entryPoints": [
+      {
+        "name": "CLI Activation (Code Mode)",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/cli.ts",
+            "startLine": 15,
+            "endLine": 41
+          }
+        ]
+      },
+      {
+        "name": "Memory Dependency Check",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 85,
+            "endLine": 85
+          }
+        ]
+      },
+      {
+        "name": "Tool Selection Logic",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "startLine": 39,
+            "endLine": 39
+          }
+        ]
+      },
+      {
+        "name": "Script Execution Logic",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 356,
+            "endLine": 360
+          }
+        ]
+      }
+    ],
+    "components": [
+      {
+        "name": "Code Mode Flag",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/cli.ts",
+            "startLine": 15,
+            "endLine": 28
+          }
+        ]
+      },
+      {
+        "name": "Memory Requirement",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 85,
+            "endLine": 85
+          }
+        ]
+      },
+      {
+        "name": "Available Tools",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "startLine": 39,
+            "endLine": 39
+          }
+        ]
+      },
+      {
+        "name": "Script Execution",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 356,
+            "endLine": 360
+          }
+        ]
+      },
+      {
+        "name": "Harness Composition",
+        "evidence": [
+          {
+            "file": "dist/test/cli/reader/reader.test.js",
+            "startLine": 102,
+            "endLine": 110
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "from": "CLI Activation (Code Mode)",
+        "to": "Memory Dependency Check",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/cli.ts",
+            "startLine": 41,
+            "endLine": 41
+          },
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 85,
+            "endLine": 85
+          }
+        ]
+      },
+      {
+        "from": "Memory Dependency Check",
+        "to": "Tool Selection Logic",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "startLine": 39,
+            "endLine": 39
+          }
+        ]
+      },
+      {
+        "from": "Tool Selection Logic",
+        "to": "Script Execution Logic",
+        "evidence": [
+          {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "startLine": 356,
+            "endLine": 360
+          }
+        ]
+      },
+      {
+        "from": "Harness Composition",
+        "to": "Script Execution Logic",
+        "evidence": [
+          {
+            "file": "dist/test/cli/reader/reader.test.js",
+            "startLine": 102,
+            "endLine": 110
+          }
+        ]
+      }
+    ],
+    "uncertainties": [
+      "The exact structure of the `packages/` directory is not directly accessible, but its logic is inferred from `dist/` and test files.",
+      "The full scope of the harness's behavior in Code Mode vs. non-Code Mode may require additional exploration of the `packages/exploration-poc` source files.",
+      "Question q1 (execution paths with and without Code Mode) was not served by a durable capability because the evidence was directly extracted from the repository files, and no reusable function was required to answer the question."
+    ],
+    "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+    "plan": {
+      "status": "recorded",
+      "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+      "versions": [
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What are the execution paths for Code Mode and non-Code Mode in the harness?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to identify execution paths and differences in the harness for Code Mode vs non-Code Mode."
+        },
+        {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What are the execution paths with and without Code Mode in the harness?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to identify execution paths and differences in the harness for Code Mode and non-Code Mode."
+        }
+      ],
+      "anomalies": [
+        "missing question id on 'memory_list' call",
+        "missing question id on 'function_try' call",
+        "missing question id on 'readLines' call"
+      ]
+    },
+    "status": "complete",
+    "stopReason": null,
+    "promptSha256": "b535bd538fa6ac7bd784e784ccc45724e83fef322f9a0a7e219a0b41acbb341f",
+    "modelConfig": {
+      "model": "mistral-medium-3.5",
+      "temperature": 0,
+      "maxOutputTokens": 1024
+    },
+    "metrics": {
+      "inputTokens": 586162,
+      "outputTokens": 7497,
+      "usageAvailable": true,
+      "modelCalls": 42,
+      "toolCalls": 38,
+      "durationMs": 94518,
+      "outputBytes": 64045,
+      "cost": null,
+      "memoryReuses": 0,
+      "memoryPurges": 0,
+      "memoryQueryRejects": 0,
+      "memoryResultsCompacted": 0,
+      "memoryResultsRepeated": 0
+    },
+    "callTrace": [
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 1447,
+        "outputTokens": 81,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 0,
+        "startedAt": "2026-11-16T12:21:39.630Z",
+        "endedAt": "2026-11-16T12:21:40.436Z",
+        "durationMs": 806
+      },
+      {
+        "type": "decomposition_plan",
+        "name": "decomposition_plan",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What are the execution paths for Code Mode and non-Code Mode in the harness?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial exploration to identify execution paths and differences in the harness for Code Mode vs non-Code Mode."
+        },
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 1,
+        "startedAt": "2026-11-16T12:21:40.437Z",
+        "endedAt": "2026-11-16T12:21:40.437Z",
+        "durationMs": 0
+      },
+      {
+        "type": "memory_list",
+        "name": "memory_list",
+        "callId": "PW35OSmXd",
+        "parameters": {
+          "query": "execution paths Code Mode non-Code Mode harness"
+        },
+        "result": [],
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "returned=0",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 2,
+        "startedAt": "2026-11-16T12:21:40.437Z",
+        "endedAt": "2026-11-16T12:21:40.437Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 1469,
+        "outputTokens": 372,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 3,
+        "startedAt": "2026-11-16T12:21:40.438Z",
+        "endedAt": "2026-11-16T12:21:43.048Z",
+        "durationMs": 2610
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "UIFtSbumb",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "b795ae33e7e222eb0190bd62ea7b61eab3ca5c073a240d3f9b1f9cb98ad318a2",
+          "fingerprint": "b795ae33e7e222eb0190bd62ea7b61eab3ca5c073a240d3f9b1f9cb98ad318a2",
+          "parameters": {
+            "question": "Identify execution paths with and without Code Mode and observable differences in the harness"
+          },
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 102,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:21:43.267Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [
+              {
+                "name": "question",
+                "type": "string"
+              }
+            ],
+            "returns": "unknown"
+          },
+          "source": "function exploreCodeModePaths(params: { question: string }) {\n  const files = listFiles();\n  const relevantFiles = files.filter(f => \n    f.includes('code') || f.includes('mode') || f.includes('harness') || f.includes('test') || f.includes('exec') || f.includes('run')\n  );\n  \n  // Search for Code Mode references\n  const codeModeRefs = searchText('Code Mode');\n  const codeModeLowerRefs = searchText('code mode');\n  const codeModeCamelRefs = searchText('codeMode');\n  \n  // Search for harness-related files\n  const harnessRefs = searchText('harness');\n  \n  // Search for execution paths\n  const execPathRefs = searchText('execution path');\n  const execRefs = searchText('execute');\n  \n  return {\n    relevantFiles,\n    codeModeRefs,\n    codeModeLowerRefs,\n    codeModeCamelRefs,\n    harnessRefs,\n    execPathRefs,\n    execRefs\n  };\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 4,
+        "startedAt": "2026-11-16T12:21:43.048Z",
+        "endedAt": "2026-11-16T12:21:43.294Z",
+        "durationMs": 246
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 1958,
+        "outputTokens": 127,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 5,
+        "startedAt": "2026-11-16T12:21:43.305Z",
+        "endedAt": "2026-11-16T12:21:44.333Z",
+        "durationMs": 1028
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "wOBNPvl1L",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "4088b1d1c9364f3aa087eb6e3b40bcb5003850a01259e881d5baf5a6b0b686cc",
+          "fingerprint": "4088b1d1c9364f3aa087eb6e3b40bcb5003850a01259e881d5baf5a6b0b686cc",
+          "parameters": {
+            "question": "Identify execution paths with and without Code Mode and observable differences in the harness"
+          },
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 96,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:21:44.541Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [
+              {
+                "name": "question",
+                "type": "string"
+              }
+            ],
+            "returns": "unknown"
+          },
+          "source": "function exploreCodeModePaths(params: { question: string }) {\n  const files = listFiles();\n  return { files };\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 6,
+        "startedAt": "2026-11-16T12:21:44.333Z",
+        "endedAt": "2026-11-16T12:21:44.568Z",
+        "durationMs": 235
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2202,
+        "outputTokens": 86,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 7,
+        "startedAt": "2026-11-16T12:21:44.568Z",
+        "endedAt": "2026-11-16T12:21:45.804Z",
+        "durationMs": 1236
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "l3PjoFQDY",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "a3c45d7b7e44df90a231d93335f57ab117139a5466c7220f2f0234550039fa29",
+          "fingerprint": "a3c45d7b7e44df90a231d93335f57ab117139a5466c7220f2f0234550039fa29",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 97,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:21:46.012Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function listFilesWrapper(params: {}) {\n  return listFiles();\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 8,
+        "startedAt": "2026-11-16T12:21:45.804Z",
+        "endedAt": "2026-11-16T12:21:46.038Z",
+        "durationMs": 234
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2405,
+        "outputTokens": 71,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 9,
+        "startedAt": "2026-11-16T12:21:46.038Z",
+        "endedAt": "2026-11-16T12:21:47.609Z",
+        "durationMs": 1571
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "2PdvsOudf",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "a2c5e90bcc883a1c91e22ebbd22220b5abd464355d1402dee341c35ebdba7648",
+          "fingerprint": "a2c5e90bcc883a1c91e22ebbd22220b5abd464355d1402dee341c35ebdba7648",
+          "parameters": {},
+          "executedCalls": [],
+          "results": "use strict",
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 94,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:21:47.813Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown"
+          },
+          "source": "function listFilesDirect() {\n  return listFiles();\n}"
+        },
+        "outcome": "returned=1; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 10,
+        "startedAt": "2026-11-16T12:21:47.609Z",
+        "endedAt": "2026-11-16T12:21:47.839Z",
+        "durationMs": 230
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 2593,
+        "outputTokens": 62,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 11,
+        "startedAt": "2026-11-16T12:21:47.840Z",
+        "endedAt": "2026-11-16T12:21:48.785Z",
+        "durationMs": 945
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "enexL1CeP",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "5113d0ad055ebdaec28c09b444f5f0cf16abac14107d47630fd579a8c9205c45",
+          "fingerprint": "5113d0ad055ebdaec28c09b444f5f0cf16abac14107d47630fd579a8c9205c45",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": {
+            "truncated": true,
+            "bytes": 26755
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 107,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:21:48.986Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => listFiles()",
+          "truncated": true
+        },
+        "outcome": "returned=50; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 12,
+        "startedAt": "2026-11-16T12:21:48.785Z",
+        "endedAt": "2026-11-16T12:21:49.014Z",
+        "durationMs": 229
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 3816,
+        "outputTokens": 107,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 13,
+        "startedAt": "2026-11-16T12:21:49.015Z",
+        "endedAt": "2026-11-16T12:21:50.440Z",
+        "durationMs": 1425
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "qre8HV5Lh",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "27e2eea4a52abd368d80d2d498327ad63645bbc2f2533e7ed663439be002f959",
+          "fingerprint": "27e2eea4a52abd368d80d2d498327ad63645bbc2f2533e7ed663439be002f959",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [
+            "dist/102.mcp-server.js",
+            "dist/106.mcp-server.js",
+            "dist/118.mcp-server.js",
+            "dist/118.mcp-server.js.map",
+            "dist/123.mcp-server.js",
+            "dist/123.mcp-server.js.map",
+            "dist/138.mcp-server.js",
+            "dist/138.mcp-server.js.map",
+            "dist/154.mcp-server.js",
+            "dist/154.mcp-server.js.map",
+            "dist/166.mcp-server.js",
+            "dist/166.mcp-server.js.map",
+            "dist/188.mcp-server.js",
+            "dist/188.mcp-server.js.map",
+            "dist/193.mcp-server.js",
+            "dist/193.mcp-server.js.LICENSE.txt",
+            "dist/193.mcp-server.js.map",
+            "dist/199.mcp-server.js",
+            "dist/199.mcp-server.js.map",
+            "dist/20.mcp-server.js",
+            "dist/213.mcp-server.js",
+            "dist/213.mcp-server.js.map",
+            "dist/225.mcp-server.js",
+            "dist/225.mcp-server.js.map",
+            "dist/240.mcp-server.js",
+            "dist/240.mcp-server.js.map",
+            "dist/244.mcp-server.js",
+            "dist/246.mcp-server.js",
+            "dist/246.mcp-server.js.map",
+            "dist/247.mcp-server.js",
+            "dist/247.mcp-server.js.map",
+            "dist/278.mcp-server.js",
+            "dist/278.mcp-server.js.map",
+            "dist/279.mcp-server.js",
+            "dist/279.mcp-server.js.map",
+            "dist/285.mcp-server.js",
+            "dist/285.mcp-server.js.map",
+            "dist/291.mcp-server.js",
+            "dist/291.mcp-server.js.map",
+            "dist/295.mcp-server.js",
+            "dist/298.mcp-server.js",
+            "dist/298.mcp-server.js.map",
+            "dist/314.mcp-server.js",
+            "dist/314.mcp-server.js.map",
+            "dist/323.mcp-server.js",
+            "dist/323.mcp-server.js.LICENSE.txt",
+            "dist/323.mcp-server.js.map",
+            "dist/33.mcp-server.js",
+            "dist/332.mcp-server.js",
+            "dist/332.mcp-server.js.LICENSE.txt",
+            "dist/332.mcp-server.js.map",
+            "dist/333.mcp-server.js",
+            "dist/333.mcp-server.js.map",
+            "dist/345.mcp-server.js",
+            "dist/345.mcp-server.js.map",
+            "dist/363.mcp-server.js",
+            "dist/365.mcp-server.js",
+            "dist/373.mcp-server.js",
+            "dist/380.mcp-server.js",
+            "dist/380.mcp-server.js.map",
+            "dist/401.mcp-server.js",
+            "dist/401.mcp-server.js.map",
+            "dist/405.mcp-server.js",
+            "dist/405.mcp-server.js.map",
+            "dist/418.mcp-server.js",
+            "dist/418.mcp-server.js.map",
+            "dist/421.mcp-server.js",
+            "dist/421.mcp-server.js.map",
+            "dist/452.mcp-server.js",
+            "dist/452.mcp-server.js.map",
+            "dist/456.mcp-server.js",
+            "dist/456.mcp-server.js.map",
+            "dist/46.mcp-server.js",
+            "dist/46.mcp-server.js.map",
+            "dist/465.mcp-server.js",
+            "dist/465.mcp-server.js.map",
+            "dist/470.mcp-server.js",
+            "dist/484.mcp-server.js",
+            "dist/484.mcp-server.js.map",
+            "dist/493.mcp-server.js",
+            "dist/493.mcp-server.js.map",
+            "dist/494.mcp-server.js",
+            "dist/494.mcp-server.js.map",
+            "dist/507.mcp-server.js",
+            "dist/507.mcp-server.js.map",
+            "dist/543.mcp-server.js",
+            "dist/543.mcp-server.js.map",
+            "dist/553.mcp-server.js",
+            "dist/553.mcp-server.js.map",
+            "dist/555.mcp-server.js",
+            "dist/555.mcp-server.js.map",
+            "dist/557.mcp-server.js",
+            "dist/557.mcp-server.js.map",
+            "dist/564.mcp-server.js",
+            "dist/564.mcp-server.js.map",
+            "dist/572.mcp-server.js",
+            "dist/572.mcp-server.js.map",
+            "dist/59.mcp-server.js",
+            "dist/59.mcp-server.js.map",
+            "dist/592.mcp-server.js",
+            "dist/593.mcp-server.js",
+            "dist/593.mcp-server.js.map",
+            "dist/598.mcp-server.js",
+            "dist/598.mcp-server.js.map",
+            "dist/600.mcp-server.js",
+            "dist/600.mcp-server.js.map",
+            "dist/605.mcp-server.js",
+            "dist/605.mcp-server.js.map",
+            "dist/611.mcp-server.js",
+            "dist/611.mcp-server.js.map"
+          ],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 114,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:21:50.650Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => listFiles().filter(f => !f.startsWith('.') && !f.includes('/.') && !f.includes('.md') && !f.includes('.log') && !f.includes('.yml') && !f.includes('.yaml'))",
+          "truncated": true
+        },
+        "outcome": "returned=50; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 14,
+        "startedAt": "2026-11-16T12:21:50.440Z",
+        "endedAt": "2026-11-16T12:21:50.679Z",
+        "durationMs": 239
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 4605,
+        "outputTokens": 102,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 15,
+        "startedAt": "2026-11-16T12:21:50.680Z",
+        "endedAt": "2026-11-16T12:21:51.751Z",
+        "durationMs": 1071
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "PqWEapPdp",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "724a36f2de42b20f5b394bc36a07f09913b4cdc0c6da45d57b12e5750931c99c",
+          "fingerprint": "724a36f2de42b20f5b394bc36a07f09913b4cdc0c6da45d57b12e5750931c99c",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": {
+            "truncated": true,
+            "bytes": 16966
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 113,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:21:51.963Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => listFiles().filter(f => f.includes('src') || f.includes('test') || f.includes('harness') || f.includes('code') || f.includes('mode'))",
+          "truncated": true
+        },
+        "outcome": "returned=50; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 16,
+        "startedAt": "2026-11-16T12:21:51.752Z",
+        "endedAt": "2026-11-16T12:21:51.992Z",
+        "durationMs": 240
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 5862,
+        "outputTokens": 115,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 17,
+        "startedAt": "2026-11-16T12:21:51.992Z",
+        "endedAt": "2026-11-16T12:21:53.177Z",
+        "durationMs": 1185
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "ZhT3rTFqP",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "ad31af1e1610fb89d201cdb0316ca5021e423e0b455441e0db177ace13b54d25",
+          "fingerprint": "ad31af1e1610fb89d201cdb0316ca5021e423e0b455441e0db177ace13b54d25",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 113,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:21:53.434Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  const srcFiles = files.filter(f => f.startsWith('src/') || f.startsWith('tests/') || f.startsWith('harness/'));\n  return srcFiles;\n}",
+          "truncated": true
+        },
+        "outcome": "returned=0; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 18,
+        "startedAt": "2026-11-16T12:21:53.178Z",
+        "endedAt": "2026-11-16T12:21:53.462Z",
+        "durationMs": 284
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 6131,
+        "outputTokens": 129,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 19,
+        "startedAt": "2026-11-16T12:21:53.462Z",
+        "endedAt": "2026-11-16T12:21:54.720Z",
+        "durationMs": 1258
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "duuT8ACpt",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "020dd2ffed768070c1d3e000d3cef7c00a7ff590cc29cb83077a0b6adc75089e",
+          "fingerprint": "020dd2ffed768070c1d3e000d3cef7c00a7ff590cc29cb83077a0b6adc75089e",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [
+            ".github/extensions/codetour/adapter.mjs",
+            ".github/extensions/codetour/extension.mjs",
+            ".github/workflows/test.yml",
+            ".scratch/autonomous-cli-termdom-copilot/issues/02-inspect-anchors-code-and-changes-tour-diffs-in-html.md",
+            ".scratch/bg-test.js",
+            ".scratch/panel-test.js",
+            ".scratch/tours/unicode.tour",
+            ".tours/feature-01-serveur-mcp-codetour.tour",
+            ".tours/feature-06-mode-webview-parallele.tour",
+            ".vibe/skills/code-review/agents/openai.yaml",
+            ".vibe/skills/code-review/SKILL.md",
+            ".vibe/skills/codebase-design/agents/openai.yaml",
+            ".vibe/skills/codebase-design/DEEPENING.md",
+            ".vibe/skills/codebase-design/DESIGN-IT-TWICE.md",
+            ".vibe/skills/codebase-design/SKILL.md",
+            ".vibe/skills/domain-modeling/ADR-FORMAT.md",
+            ".vibe/skills/domain-modeling/agents/openai.yaml",
+            ".vibe/skills/domain-modeling/GLOSSARY-FORMAT.md",
+            ".vibe/skills/domain-modeling/SKILL.md",
+            ".vibe/skills/git-guardrails-claude-code/agents/openai.yaml",
+            ".vibe/skills/git-guardrails-claude-code/scripts/block-dangerous-git.sh",
+            ".vibe/skills/git-guardrails-claude-code/SKILL.md",
+            ".vibe/skills/improve-codebase-architecture/agents/openai.yaml",
+            ".vibe/skills/improve-codebase-architecture/HTML-REPORT.md",
+            ".vibe/skills/improve-codebase-architecture/SKILL.md",
+            ".vibe/skills/tdd/tests.md",
+            ".vscode/launch.json",
+            ".vscode/settings.json",
+            ".vscode/tasks.json",
+            ".vscode-test/extensions/extensions.json",
+            ".vscode-test/user-data/Cache/Cache_Data/014ee23fe2ffeba9_0",
+            ".vscode-test/user-data/Cache/Cache_Data/09a03cae1b689142_0",
+            ".vscode-test/user-data/Cache/Cache_Data/09b4d092d61e0071_0",
+            ".vscode-test/user-data/Cache/Cache_Data/0e02e1e733b07dd6_0",
+            ".vscode-test/user-data/Cache/Cache_Data/1278c84797c747ae_0",
+            ".vscode-test/user-data/Cache/Cache_Data/134904144908d1b2_0",
+            ".vscode-test/user-data/Cache/Cache_Data/15c60c8c658f662e_0",
+            ".vscode-test/user-data/Cache/Cache_Data/2119fe18ea934b60_0",
+            ".vscode-test/user-data/Cache/Cache_Data/21be56b5fed4ef81_0",
+            ".vscode-test/user-data/Cache/Cache_Data/258d3fa019e430cc_0",
+            ".vscode-test/user-data/Cache/Cache_Data/4dd6f1f0e0f7a260_0",
+            ".vscode-test/user-data/Cache/Cache_Data/83fc4cc6c3af85a8_0",
+            ".vscode-test/user-data/Cache/Cache_Data/9f50bddbd978eddd_0",
+            ".vscode-test/user-data/Cache/Cache_Data/a836fb4a104165ed_0",
+            ".vscode-test/user-data/Cache/Cache_Data/b3549538a32185d6_0",
+            ".vscode-test/user-data/Cache/Cache_Data/bdf11b551d57a14f_0",
+            ".vscode-test/user-data/Cache/Cache_Data/bf0668181a4c38de_0",
+            ".vscode-test/user-data/Cache/Cache_Data/d121e2a6335b7510_0",
+            ".vscode-test/user-data/Cache/Cache_Data/d231377ad9c92f9a_0",
+            ".vscode-test/user-data/Cache/Cache_Data/fcbc6b77dabccd14_0",
+            ".vscode-test/user-data/Cache/Cache_Data/index",
+            ".vscode-test/user-data/Cache/Cache_Data/index-dir/the-real-index",
+            ".vscode-test/user-data/Cache/No_Vary_Search/journal.baj",
+            ".vscode-test/user-data/Cache/No_Vary_Search/snapshot.baf",
+            ".vscode-test/user-data/CachedConfigurations/defaults/__default__profile__-configurationDefaultsOverrides/configuration.json",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/11ff52959f7f9da4_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/28f8db2d64598030_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/39dabcf9796d9a56_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/433a20317a7d3000_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/587f8e8b2a62d69d_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/61c2822b221892ec_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/6479e53548a652cf_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/8c591142f5d23a08_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/9d47a7fa73243110_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/a3ddbff335e27f80_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/d4ed18b3187ebfb3_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/dea51de939228c0d_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/e1a5786ba47d30ce_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/e989f8e7d6370fef_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/ecf7b31f2c9ab31c_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/f67b773100f2e809_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/fc4a02a87800bb78_0",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/index",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/js/index-dir/the-real-index",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/wasm/index",
+            ".vscode-test/user-data/CachedData/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/chrome/wasm/index-dir/the-real-index",
+            ".vscode-test/user-data/CachedProfilesData/__default__profile__/extensions.builtin.cache",
+            ".vscode-test/user-data/CachedProfilesData/__default__profile__/extensions.builtin.en.cache",
+            ".vscode-test/user-data/CachedProfilesData/__default__profile__/extensions.user.en.cache",
+            ".vscode-test/user-data/Code Cache/electron-preload/49CC6905BBE234414C691A6B06883AFAEEC0A979B212BA654A8ED1A85906319B-67A64C46445250C0C0E1103FCA3290FE88811449B7F10FD5FBBE5AA8F3AC1EB2.cache",
+            ".vscode-test/user-data/Code Cache/js/index",
+            ".vscode-test/user-data/Code Cache/js/index-dir/the-real-index",
+            ".vscode-test/user-data/Code Cache/wasm/index",
+            ".vscode-test/user-data/Code Cache/wasm/index-dir/the-real-index",
+            ".vscode-test/user-data/Cookies",
+            ".vscode-test/user-data/Cookies-journal",
+            ".vscode-test/user-data/Crashpad/settings.dat",
+            ".vscode-test/user-data/DawnGraphiteCache/data_0",
+            ".vscode-test/user-data/DawnGraphiteCache/data_1",
+            ".vscode-test/user-data/DawnGraphiteCache/data_2",
+            ".vscode-test/user-data/DawnGraphiteCache/data_3",
+            ".vscode-test/user-data/DawnGraphiteCache/index",
+            ".vscode-test/user-data/DawnWebGPUCache/data_0",
+            ".vscode-test/user-data/DawnWebGPUCache/data_1",
+            ".vscode-test/user-data/DawnWebGPUCache/data_2",
+            ".vscode-test/user-data/DawnWebGPUCache/data_3",
+            ".vscode-test/user-data/DawnWebGPUCache/index",
+            ".vscode-test/user-data/DIPS",
+            ".vscode-test/user-data/GPUCache/data_0",
+            ".vscode-test/user-data/GPUCache/data_1"
+          ],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 112,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:21:54.934Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  const relevantDirs = files.filter(f => f.includes('src') || f.includes('test') || f.includes('harness') || f.includes('code') || f.includes('mode'));\n  return relevantDirs.slice(0, 100);\n}",
+          "truncated": true
+        },
+        "outcome": "returned=50; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 20,
+        "startedAt": "2026-11-16T12:21:54.720Z",
+        "endedAt": "2026-11-16T12:21:54.960Z",
+        "durationMs": 240
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 7415,
+        "outputTokens": 116,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 21,
+        "startedAt": "2026-11-16T12:21:54.961Z",
+        "endedAt": "2026-11-16T12:21:58.434Z",
+        "durationMs": 3473
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "Dy84NYk9Q",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "07b924de2e32011fe3b8f09e8dad264de1a0fa80229342e6ea6b54b2ffba4ebc",
+          "fingerprint": "07b924de2e32011fe3b8f09e8dad264de1a0fa80229342e6ea6b54b2ffba4ebc",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": {
+            "truncated": true,
+            "bytes": 15752
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 112,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:21:58.649Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  return files.filter(f => !f.startsWith('.') && f.includes('src') || f.includes('test') || f.includes('harness'));\n}",
+          "truncated": true
+        },
+        "outcome": "returned=50; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 22,
+        "startedAt": "2026-11-16T12:21:58.434Z",
+        "endedAt": "2026-11-16T12:21:58.678Z",
+        "durationMs": 244
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 9685,
+        "outputTokens": 122,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 23,
+        "startedAt": "2026-11-16T12:21:58.678Z",
+        "endedAt": "2026-11-16T12:22:00.279Z",
+        "durationMs": 1601
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "1CRF9snZH",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "d22d65901e3bfb7413b0bf78e7caaff6514742c8de9795d75d5506a3230da491",
+          "fingerprint": "d22d65901e3bfb7413b0bf78e7caaff6514742c8de9795d75d5506a3230da491",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 113,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:00.493Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  return files.filter(f => f.startsWith('src/') || f.startsWith('tests/') || f.startsWith('harness/') || f.startsWith('lib/') || f.startsWith('packages/'));\n}",
+          "truncated": true
+        },
+        "outcome": "returned=0; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 24,
+        "startedAt": "2026-11-16T12:22:00.280Z",
+        "endedAt": "2026-11-16T12:22:00.520Z",
+        "durationMs": 240
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 9961,
+        "outputTokens": 153,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 25,
+        "startedAt": "2026-11-16T12:22:00.521Z",
+        "endedAt": "2026-11-16T12:22:01.962Z",
+        "durationMs": 1441
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "9kp2f6igU",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "6b7f5977024c1eb568f54ba14d58fc8f02bb7b3470b7cf2cbdbd8b67d4e5e264",
+          "fingerprint": "6b7f5977024c1eb568f54ba14d58fc8f02bb7b3470b7cf2cbdbd8b67d4e5e264",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [
+            "dist/102.mcp-server.js",
+            "dist/106.mcp-server.js",
+            "dist/118.mcp-server.js",
+            "dist/118.mcp-server.js.map",
+            "dist/123.mcp-server.js",
+            "dist/123.mcp-server.js.map",
+            "dist/138.mcp-server.js",
+            "dist/138.mcp-server.js.map",
+            "dist/154.mcp-server.js",
+            "dist/154.mcp-server.js.map",
+            "dist/166.mcp-server.js",
+            "dist/166.mcp-server.js.map",
+            "dist/188.mcp-server.js",
+            "dist/188.mcp-server.js.map",
+            "dist/193.mcp-server.js",
+            "dist/193.mcp-server.js.LICENSE.txt",
+            "dist/193.mcp-server.js.map",
+            "dist/199.mcp-server.js",
+            "dist/199.mcp-server.js.map",
+            "dist/20.mcp-server.js",
+            "dist/213.mcp-server.js",
+            "dist/213.mcp-server.js.map",
+            "dist/225.mcp-server.js",
+            "dist/225.mcp-server.js.map",
+            "dist/240.mcp-server.js",
+            "dist/240.mcp-server.js.map",
+            "dist/244.mcp-server.js",
+            "dist/246.mcp-server.js",
+            "dist/246.mcp-server.js.map",
+            "dist/247.mcp-server.js",
+            "dist/247.mcp-server.js.map",
+            "dist/278.mcp-server.js",
+            "dist/278.mcp-server.js.map",
+            "dist/279.mcp-server.js",
+            "dist/279.mcp-server.js.map",
+            "dist/285.mcp-server.js",
+            "dist/285.mcp-server.js.map",
+            "dist/291.mcp-server.js",
+            "dist/291.mcp-server.js.map",
+            "dist/295.mcp-server.js",
+            "dist/298.mcp-server.js",
+            "dist/298.mcp-server.js.map",
+            "dist/314.mcp-server.js",
+            "dist/314.mcp-server.js.map",
+            "dist/323.mcp-server.js",
+            "dist/323.mcp-server.js.LICENSE.txt",
+            "dist/323.mcp-server.js.map",
+            "dist/33.mcp-server.js",
+            "dist/332.mcp-server.js",
+            "dist/332.mcp-server.js.LICENSE.txt"
+          ],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 119,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:02.174Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  const topLevelDirs = files.filter(f => f.includes('/') && !f.startsWith('.') && !f.includes('.git') && !f.includes('.vscode') && !f.includes('.scratch') && !f.includes('.agents') && !f.includes('.vibe'));\n  return topLevelDirs.slice(0, 50);\n}",
+          "truncated": true
+        },
+        "outcome": "returned=50; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 26,
+        "startedAt": "2026-11-16T12:22:01.963Z",
+        "endedAt": "2026-11-16T12:22:02.208Z",
+        "durationMs": 245
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 10795,
+        "outputTokens": 170,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 27,
+        "startedAt": "2026-11-16T12:22:02.208Z",
+        "endedAt": "2026-11-16T12:22:03.717Z",
+        "durationMs": 1509
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "IkIk9tmfR",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "96099d1129a80b444909149a25c2ca5a25d600040bdd048f3b9e8f2930603249",
+          "fingerprint": "96099d1129a80b444909149a25c2ca5a25d600040bdd048f3b9e8f2930603249",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [
+            "dist"
+          ],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 114,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:03.933Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  const uniqueDirs = new Set();\n  files.forEach(f => {\n    const parts = f.split('/');\n    if (parts.length > 1 && !f.startsWith('.') && !f.includes('.git') && !f.includes('.vscode') && !f.includes('.scratch')) {\n      uniqueDirs.add(parts[0]);\n    }\n  });\n  return Array.from(uniqueDirs);\n}",
+          "truncated": true
+        },
+        "outcome": "returned=1; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 28,
+        "startedAt": "2026-11-16T12:22:03.717Z",
+        "endedAt": "2026-11-16T12:22:03.965Z",
+        "durationMs": 248
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 11113,
+        "outputTokens": 195,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 29,
+        "startedAt": "2026-11-16T12:22:03.966Z",
+        "endedAt": "2026-11-16T12:22:05.385Z",
+        "durationMs": 1419
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "cOtv1PIZ5",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "6642755e987a50e270b7beea0257257278715195946cf3093ed12901a6a2edb6",
+          "fingerprint": "6642755e987a50e270b7beea0257257278715195946cf3093ed12901a6a2edb6",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [
+            "AGENTS.md",
+            "CHANGELOG.md",
+            "CONTEXT.md"
+          ],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 120,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:05.605Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  const uniqueDirs = new Set();\n  files.forEach(f => {\n    const parts = f.split('/');\n    if (parts.length > 0 && !f.startsWith('.') && !f.includes('.git') && !f.includes('.vscode') && !f.includes('.scratch') && !f.includes('.agents') && !f.includes('.vibe') && !f.includes('dist')) {\n      uniqueDirs.add(parts[0]);\n    }\n  });\n  return Array.from(uniqueDirs);\n}",
+          "truncated": true
+        },
+        "outcome": "returned=3; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 30,
+        "startedAt": "2026-11-16T12:22:05.385Z",
+        "endedAt": "2026-11-16T12:22:05.634Z",
+        "durationMs": 249
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 11468,
+        "outputTokens": 204,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 31,
+        "startedAt": "2026-11-16T12:22:05.634Z",
+        "endedAt": "2026-11-16T12:22:07.942Z",
+        "durationMs": 2308
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "bFf25NCfW",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "8a0ed683a6a39d55c853d1117624cc8acd783ff0e33ab36736814c3513b9ee8b",
+          "fingerprint": "8a0ed683a6a39d55c853d1117624cc8acd783ff0e33ab36736814c3513b9ee8b",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 120,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:08.165Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "unknown[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  const uniqueDirs = new Set();\n  files.forEach(f => {\n    const parts = f.split('/');\n    if (parts.length > 0 && !f.startsWith('.') && !f.includes('.git') && !f.includes('.vscode') && !f.includes('.scratch') && !f.includes('.agents') && !f.includes('.vibe') && !f.includes('dist') && !f.includes('.md')) {\n      uniqueDirs.add(parts[0]);\n    }\n  });\n  return Array.from(uniqueDirs);\n}",
+          "truncated": true
+        },
+        "outcome": "returned=0; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 32,
+        "startedAt": "2026-11-16T12:22:07.943Z",
+        "endedAt": "2026-11-16T12:22:08.193Z",
+        "durationMs": 250
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 11826,
+        "outputTokens": 96,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 33,
+        "startedAt": "2026-11-16T12:22:08.193Z",
+        "endedAt": "2026-11-16T12:22:09.744Z",
+        "durationMs": 1551
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "ucfLtXYSb",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "795a46571de0a6fac88aadf6337943b656bb91850bcac8883ac281a552ffe17a",
+          "fingerprint": "795a46571de0a6fac88aadf6337943b656bb91850bcac8883ac281a552ffe17a",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [
+            "AGENTS.md",
+            "CHANGELOG.md",
+            "CONTEXT.md"
+          ],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 113,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:09.961Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  return files.filter(f => !f.startsWith('.') && !f.includes('/') && f.includes('.'));\n}",
+          "truncated": true
+        },
+        "outcome": "returned=3; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 34,
+        "startedAt": "2026-11-16T12:22:09.744Z",
+        "endedAt": "2026-11-16T12:22:09.988Z",
+        "durationMs": 244
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 12082,
+        "outputTokens": 95,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 35,
+        "startedAt": "2026-11-16T12:22:09.989Z",
+        "endedAt": "2026-11-16T12:22:11.422Z",
+        "durationMs": 1433
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "URYKM7ngk",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "9f378938bc574f03034b4ea78fb8105f2325af5a5ad1bacf0e85b0edc4a12622",
+          "fingerprint": "9f378938bc574f03034b4ea78fb8105f2325af5a5ad1bacf0e85b0edc4a12622",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [
+            "AGENTS.md",
+            "CHANGELOG.md",
+            "CONTEXT.md"
+          ],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 113,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:11.637Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  const rootFiles = files.filter(f => !f.includes('/') && !f.startsWith('.'));\n  return rootFiles;\n}",
+          "truncated": true
+        },
+        "outcome": "returned=3; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 36,
+        "startedAt": "2026-11-16T12:22:11.422Z",
+        "endedAt": "2026-11-16T12:22:11.664Z",
+        "durationMs": 242
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 12337,
+        "outputTokens": 140,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 37,
+        "startedAt": "2026-11-16T12:22:11.665Z",
+        "endedAt": "2026-11-16T12:22:15.954Z",
+        "durationMs": 4289
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "vWDoMX3M1",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "f0a564c2943c6930915a8c07435ec173508bbef1c2cd611ed4a93f729ab55bc2",
+          "fingerprint": "f0a564c2943c6930915a8c07435ec173508bbef1c2cd611ed4a93f729ab55bc2",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": {
+            "rootFiles": [
+              ".DS_Store",
+              ".env.local.example",
+              ".gitattributes",
+              ".gitignore",
+              ".node-version",
+              ".nvmrc",
+              ".vscodeignore",
+              "AGENTS.md",
+              "CHANGELOG.md",
+              "CONTEXT.md"
+            ],
+            "uniqueDirs": [
+              ".agents",
+              ".githooks",
+              ".github",
+              ".playwright-mcp",
+              ".scratch",
+              ".tours",
+              ".vibe",
+              ".vscode",
+              ".vscode-test",
+              "dist"
+            ]
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 119,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:16.176Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "{ rootFiles: string[]; uniqueDirs: string[]; }"
+          },
+          "source": "() => {\n  const allFiles = listFiles();\n  const rootFiles = allFiles.filter(f => !f.includes('/'));\n  const dirs = allFiles.filter(f => f.includes('/')).map(f => f.split('/')[0]);\n  const uniqueDirs = [...new Set(dirs)];\n  return { rootFiles, uniqueDirs };\n}",
+          "truncated": true
+        },
+        "outcome": "returned=1; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 38,
+        "startedAt": "2026-11-16T12:22:15.954Z",
+        "endedAt": "2026-11-16T12:22:16.205Z",
+        "durationMs": 251
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 12719,
+        "outputTokens": 111,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 39,
+        "startedAt": "2026-11-16T12:22:16.206Z",
+        "endedAt": "2026-11-16T12:22:17.799Z",
+        "durationMs": 1593
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "pgzBLuyMF",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "86661310b4057a57d1a041014481f02675876d7f51bb22209750361a27804fc3",
+          "fingerprint": "86661310b4057a57d1a041014481f02675876d7f51bb22209750361a27804fc3",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [
+            "dist/102.mcp-server.js",
+            "dist/106.mcp-server.js",
+            "dist/118.mcp-server.js",
+            "dist/123.mcp-server.js",
+            "dist/138.mcp-server.js",
+            "dist/154.mcp-server.js",
+            "dist/166.mcp-server.js",
+            "dist/188.mcp-server.js",
+            "dist/193.mcp-server.js",
+            "dist/199.mcp-server.js"
+          ],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 111,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:18.027Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  const files = listFiles().filter(f => f.startsWith('dist/') && !f.includes('.map') && !f.includes('.LICENSE'));\n  return files.slice(0, 10);\n}",
+          "truncated": true
+        },
+        "outcome": "returned=10; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 40,
+        "startedAt": "2026-11-16T12:22:17.799Z",
+        "endedAt": "2026-11-16T12:22:18.054Z",
+        "durationMs": 255
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 13080,
+        "outputTokens": 32,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 41,
+        "startedAt": "2026-11-16T12:22:18.054Z",
+        "endedAt": "2026-11-16T12:22:19.157Z",
+        "durationMs": 1103
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "3nx6esjjx",
+        "parameters": {
+          "file": "dist/102.mcp-server.js",
+          "start": 1,
+          "end": 50
+        },
+        "result": {
+          "error": "TS2339:1:Property 'startLine' does not exist on type '{ file: string; start: number; end: number; }'."
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 42,
+        "startedAt": "2026-11-16T12:22:19.157Z",
+        "endedAt": "2026-11-16T12:22:19.360Z",
+        "durationMs": 203
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 13152,
+        "outputTokens": 101,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 43,
+        "startedAt": "2026-11-16T12:22:19.361Z",
+        "endedAt": "2026-11-16T12:22:20.477Z",
+        "durationMs": 1116
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "l6n3FmQ3c",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "5f2d2b1776443e8c95ccbcc3985e639a5bdeb9d1fc06d50fa9f9788b299ed4c5",
+          "fingerprint": "5f2d2b1776443e8c95ccbcc3985e639a5bdeb9d1fc06d50fa9f9788b299ed4c5",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "readLines",
+              "params": [
+                "dist/102.mcp-server.js",
+                1,
+                50
+              ]
+            }
+          ],
+          "results": {
+            "file": "dist/102.mcp-server.js",
+            "start": 1,
+            "lines": [
+              "\"use strict\";exports.ids=[102],exports.modules={80102(e,s,r){r.d(s,{createPieServices:()=>t.f});var t=r(14425);r(46432)}};"
+            ]
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 97,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:20.686Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "ReadResult"
+          },
+          "source": "() => {\n  return readLines('dist/102.mcp-server.js', 1, 50);\n}"
+        },
+        "outcome": "returned=1; citations=1 valid",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 44,
+        "startedAt": "2026-11-16T12:22:20.478Z",
+        "endedAt": "2026-11-16T12:22:20.712Z",
+        "durationMs": 234
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 13447,
+        "outputTokens": 80,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 45,
+        "startedAt": "2026-11-16T12:22:20.713Z",
+        "endedAt": "2026-11-16T12:22:21.763Z",
+        "durationMs": 1050
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "M42FStl5F",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "33a697c44182abf559a354b74e263546a338549de0567420ac6daefd91a37601",
+          "fingerprint": "33a697c44182abf559a354b74e263546a338549de0567420ac6daefd91a37601",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "searchText",
+              "params": [
+                "Code Mode"
+              ]
+            }
+          ],
+          "results": {
+            "truncated": true,
+            "bytes": 16055
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 207,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:21.972Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "SourceMatch[]"
+          },
+          "source": "() => {\n  return searchText('Code Mode');\n}",
+          "truncated": true
+        },
+        "outcome": "returned=24; TRUNCATED, not exhaustive; citations=50 valid",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 46,
+        "startedAt": "2026-11-16T12:22:21.763Z",
+        "endedAt": "2026-11-16T12:22:22.101Z",
+        "durationMs": 338
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 15659,
+        "outputTokens": 87,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 47,
+        "startedAt": "2026-11-16T12:22:22.107Z",
+        "endedAt": "2026-11-16T12:22:23.659Z",
+        "durationMs": 1552
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "cliSixvMe",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "5ccb015dbe7946ea82d1d545102ba4649ad951d39fc76f47dbef894afacdc24c",
+          "fingerprint": "5ccb015dbe7946ea82d1d545102ba4649ad951d39fc76f47dbef894afacdc24c",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "searchText",
+              "params": [
+                "codeMode|Code Mode|code mode"
+              ]
+            }
+          ],
+          "results": [],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 223,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:23.863Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "SourceMatch[]"
+          },
+          "source": "() => {\n  return searchText('codeMode|Code Mode|code mode');\n}"
+        },
+        "outcome": "returned=0; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 48,
+        "startedAt": "2026-11-16T12:22:23.659Z",
+        "endedAt": "2026-11-16T12:22:24.004Z",
+        "durationMs": 345
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 15869,
+        "outputTokens": 80,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 49,
+        "startedAt": "2026-11-16T12:22:24.004Z",
+        "endedAt": "2026-11-16T12:22:25.638Z",
+        "durationMs": 1634
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "VGfYSMeEV",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "2d1700bb7f15213aa0e6cf5759b8d61872a4b3dce7dc47fac96ce211ba18281c",
+          "fingerprint": "2d1700bb7f15213aa0e6cf5759b8d61872a4b3dce7dc47fac96ce211ba18281c",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "searchText",
+              "params": [
+                "codeMode"
+              ]
+            }
+          ],
+          "results": {
+            "truncated": true,
+            "bytes": 10939
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 162,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:25.840Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "SourceMatch[]"
+          },
+          "source": "() => {\n  return searchText('codeMode');\n}",
+          "truncated": true
+        },
+        "outcome": "returned=36; TRUNCATED, not exhaustive; citations=50 valid",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 50,
+        "startedAt": "2026-11-16T12:22:25.639Z",
+        "endedAt": "2026-11-16T12:22:25.925Z",
+        "durationMs": 286
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 18306,
+        "outputTokens": 35,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 51,
+        "startedAt": "2026-11-16T12:22:25.929Z",
+        "endedAt": "2026-11-16T12:22:27.230Z",
+        "durationMs": 1301
+      },
+      {
+        "type": "tool",
+        "name": "readLines",
+        "callId": "38lTHo6ne",
+        "parameters": {
+          "file": "packages/exploration-poc/src/explore.ts",
+          "start": 80,
+          "end": 90
+        },
+        "result": {
+          "error": "TS2339:1:Property 'startLine' does not exist on type '{ file: string; start: number; end: number; }'."
+        },
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "outcome": "error",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 52,
+        "startedAt": "2026-11-16T12:22:27.230Z",
+        "endedAt": "2026-11-16T12:22:27.440Z",
+        "durationMs": 210
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 18381,
+        "outputTokens": 103,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 53,
+        "startedAt": "2026-11-16T12:22:27.441Z",
+        "endedAt": "2026-11-16T12:22:28.966Z",
+        "durationMs": 1525
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "GmuauP05f",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "6b25afb44b6d3e4cba0a807557034e3247b655f050fa5533d05cbd9e5685d8a4",
+          "fingerprint": "6b25afb44b6d3e4cba0a807557034e3247b655f050fa5533d05cbd9e5685d8a4",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "readLines",
+              "params": [
+                "packages/exploration-poc/src/explore.ts",
+                80,
+                90
+              ]
+            }
+          ],
+          "results": {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "start": 80,
+            "lines": [
+              " * a mid-run module would mean threading that state through new seams for no",
+              " * behavioural gain in this diagnostic phase, and the seam under test is the",
+              " * explore() entry point itself (spec #183: use the existing harness seam).",
+              " */",
+              "export async function explore({ root, objective, model, budget = {}, codeMode = false, memory }: { root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string; validateQuery?: boolean; queryContract?: boolean; compactSearch?: boolean } }) {",
+              "  if (memory && !codeMode) throw new Error('Script memory requires Code Mode');",
+              "  const limits = { iterations: budget.iterations ?? 8, calls: budget.calls ?? 32, tokens: budget.tokens ?? 32000, durationMs: budget.durationMs ?? 60000 };",
+              "  if (Object.values(limits).some(n => !Number.isFinite(n) || n <= 0)) throw new Error('Budgets must be positive');",
+              "  const startedMs = Date.now();",
+              "  // Correlation backbone (issue #184): one run id links plan versions, declared",
+              "  // decisions and observed tool calls; question ids come from the plan, call ids"
+            ]
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 100,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:29.178Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "ReadResult"
+          },
+          "source": "() => {\n  return readLines('packages/exploration-poc/src/explore.ts', 80, 90);\n}"
+        },
+        "outcome": "returned=1; citations=1 valid",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 54,
+        "startedAt": "2026-11-16T12:22:28.967Z",
+        "endedAt": "2026-11-16T12:22:29.204Z",
+        "durationMs": 237
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 18901,
+        "outputTokens": 107,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 55,
+        "startedAt": "2026-11-16T12:22:29.204Z",
+        "endedAt": "2026-11-16T12:22:30.428Z",
+        "durationMs": 1224
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "p8arRFAJ4",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "d9f3fa7a0c200224ebec60c387e36743ff82f9bc93b14a9a8a76c552ef79f7ef",
+          "fingerprint": "d9f3fa7a0c200224ebec60c387e36743ff82f9bc93b14a9a8a76c552ef79f7ef",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "readLines",
+              "params": [
+                "packages/exploration-poc/src/explore.ts",
+                180,
+                200
+              ]
+            }
+          ],
+          "results": {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "start": 180,
+            "lines": [
+              "    let timer: ReturnType<typeof setTimeout> | undefined;",
+              "    let response: Awaited<ReturnType<Model['complete']>>;",
+              "    const modelCallStarted = new Date();",
+              "    try {",
+              "      metrics.modelCalls++;",
+              "      response = await Promise.race([",
+              "        model.complete(state.messages, { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(4096, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode, memory: !!library, queryContract: memory?.queryContract }),",
+              "        new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('budget-duration')); }, remainingMs); })",
+              "      ]);",
+              "    } catch (error) {",
+              "      const usage: { inputTokens: number; outputTokens: number } | undefined = (error as { usage?: { inputTokens: number; outputTokens: number } })?.usage;",
+              "      recordCall({ type: 'model', name: 'model', inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, usageMissing: !usage, error: controller.signal.aborted ? 'budget-duration' : String(error) }, modelCallStarted, new Date());",
+              "      metrics.inputTokens += usage?.inputTokens ?? 0;",
+              "      metrics.outputTokens += usage?.outputTokens ?? 0;",
+              "      if (!usage) metrics.usageAvailable = false;",
+              "      if (controller.signal.aborted) return { stopReason: 'duration' };",
+              "      // A non-JSON final answer (often an empty reply after plan extraction)",
+              "      // gets one visible recovery inside the original budget, mirroring the",
+              "      // citation repair path. A repeated failure stays fatal: no hidden retry.",
+              "      if ((error as { name?: string })?.name === 'FinalAnswerNotJson' && !requestedJsonRecovery && !reason()) {",
+              "        requestedJsonRecovery = true;"
+            ]
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 95,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:30.602Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "ReadResult"
+          },
+          "source": "() => {\n  return readLines('packages/exploration-poc/src/explore.ts', 180, 200);\n}"
+        },
+        "outcome": "returned=1; citations=1 valid",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 56,
+        "startedAt": "2026-11-16T12:22:30.428Z",
+        "endedAt": "2026-11-16T12:22:30.629Z",
+        "durationMs": 201
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 19579,
+        "outputTokens": 107,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 57,
+        "startedAt": "2026-11-16T12:22:30.629Z",
+        "endedAt": "2026-11-16T12:22:31.855Z",
+        "durationMs": 1226
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "2vNGVqtBz",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "1aba7f70c3472d694dee8657c5ce0bd9a355c87e0d9f102bed7744f625ec8b57",
+          "fingerprint": "1aba7f70c3472d694dee8657c5ce0bd9a355c87e0d9f102bed7744f625ec8b57",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "readLines",
+              "params": [
+                "packages/exploration-poc/src/explore.ts",
+                350,
+                370
+              ]
+            }
+          ],
+          "results": {
+            "file": "packages/exploration-poc/src/explore.ts",
+            "start": 350,
+            "lines": [
+              "          // Issue #187: a proposed candidate may also be abandoned by name —",
+              "          // a candidate marked unusable never reaches the catalogue.",
+              "          if (!attempts.some(a => a.id === id || a.candidate?.name === id)) throw new Error('Script must have been executed in this run');",
+              "          unusableIds.add(id);",
+              "          output = { recordedAfterValidation: true };",
+              "        }",
+              "        else if (codeMode && ((call.name === 'code' && typeof call.arguments.code === 'string') || (call.name === 'function_try' && typeof call.arguments.source === 'string') || (library && call.name === 'memory_run' && typeof call.arguments.id === 'string'))) {",
+              "          const stored = call.name === 'memory_run' ? library?.get(String(call.arguments.id)) : undefined;",
+              "          if (call.name === 'memory_run' && !stored) throw new Error('Unknown script');",
+              "          const code = stored?.code ?? String(call.arguments.source ?? call.arguments.code);",
+              "          const params = call.arguments.params ?? {};",
+              "          if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('Invalid parameters');",
+              "          const remaining = limits.durationMs - (Date.now() - startedMs);",
+              "          if (remaining <= 0) return { messages: outputs, stopReason: 'duration' };",
+              "          const { runScript } = await import('../../exploration-sandbox/index.js');",
+              "          const controller = new AbortController();",
+              "          const timer = setTimeout(() => controller.abort(), remaining);",
+              "          scriptCall = { type: stored ? 'memory_run' : 'function_try', name: stored ? stored.id : 'function_try' };",
+              "          // Ticket #191: any memory_run/function_try call — accepted or failed —",
+              "          // counts as having served its declared question; the trace carries the",
+              "          // outcome, the reminder only targets questions never attempted."
+            ]
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 97,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:32.063Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "ReadResult"
+          },
+          "source": "() => {\n  return readLines('packages/exploration-poc/src/explore.ts', 350, 370);\n}"
+        },
+        "outcome": "returned=1; citations=1 valid",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 58,
+        "startedAt": "2026-11-16T12:22:31.856Z",
+        "endedAt": "2026-11-16T12:22:32.088Z",
+        "durationMs": 232
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 20253,
+        "outputTokens": 104,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 59,
+        "startedAt": "2026-11-16T12:22:32.089Z",
+        "endedAt": "2026-11-16T12:22:33.810Z",
+        "durationMs": 1721
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "lt02BsQOe",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "a87b1d10a49220fc04f5586822878ad6be7c7ff40510973529b89095bd26e08d",
+          "fingerprint": "a87b1d10a49220fc04f5586822878ad6be7c7ff40510973529b89095bd26e08d",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "readLines",
+              "params": [
+                "packages/exploration-poc/src/mistral.ts",
+                30,
+                50
+              ]
+            }
+          ],
+          "results": {
+            "file": "packages/exploration-poc/src/mistral.ts",
+            "start": 30,
+            "lines": [
+              "    const namedByName = new Map(namedTools.map(tool => [tool.name, tool]));",
+              "    const namedMemory = options?.memory ? namedTools.map(tool => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: { type: 'object', properties: Object.fromEntries(tool.parameters.map(parameter => [parameter, { type: INTEGER_PARAMS.has(parameter) ? 'integer' : 'string' }])), required: tool.required ?? tool.parameters } } })) : [];",
+              "    const exclusive = !!(config.memorySearchExclusive && config.memorySearchId);",
+              "    const functionTry = { type: 'function', function: { name: 'function_try', description: 'Strictly check TypeScript and execute in QuickJS using only the ten permanent primitives. A typed function expression receives params. Trials never mutate memory. Default path when memory_list returns nothing and the question is durably reusable; otherwise state why not in the final result — never a quota, never a forced creation.', parameters: { type: 'object', properties: { source: { type: 'string' }, params: { type: 'object' }, remember: { type: 'boolean' }, name: { type: 'string' }, question: { type: 'string', description: 'Stable canonical repository question, independent of this Tour wording' }, description: { type: 'string' }, returns: { type: 'string' } }, required: ['source', 'params'] } } };",
+              "    // Wrapping obligation (spec #183 amendment): in a memory + Code Mode run",
+              "    // the ten permanent primitives are NOT exposed as direct tools — the model",
+              "    // can only reach them inside a function_try source. The primitives stay",
+              "    // available to the sandbox, so exploration still works; the model simply",
+              "    // cannot bypass composition any more.",
+              "    const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)).filter(tool => !(options?.memory && options?.codeMode) || !primitiveNames.has(tool.function.name)), ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];",
+              "    const requestMaxTokens = options?.maxOutputTokens;",
+              "    lastRequest.model = model; lastRequest.temperature = config.temperature ?? 0; lastRequest.maxOutputTokens = requestMaxTokens;",
+              "    const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, tools: availableTools, temperature: config.temperature ?? 0, max_tokens: requestMaxTokens }) });",
+              "    if (!response.ok) throw new Error(`Mistral request failed (${response.status})`);",
+              "    const data: any = await response.json();",
+              "    const message = data.choices?.[0]?.message;",
+              "    const usage = typeof data.usage?.prompt_tokens === 'number' && typeof data.usage?.completion_tokens === 'number' ? { inputTokens: data.usage.prompt_tokens, outputTokens: data.usage.completion_tokens } : undefined;",
+              "    try {",
+              "      // Issue #184: the plan is published as a fenced block labeled `plan` inside",
+              "      // the normal reply. Extract it so the harness can record it without a",
+              "      // dedicated LLM call, and keep the block out of the final result parse."
+            ]
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 111,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:34.025Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "ReadResult"
+          },
+          "source": "() => {\n  return readLines('packages/exploration-poc/src/mistral.ts', 30, 50);\n}"
+        },
+        "outcome": "returned=1; citations=1 valid",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 60,
+        "startedAt": "2026-11-16T12:22:33.810Z",
+        "endedAt": "2026-11-16T12:22:34.052Z",
+        "durationMs": 242
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 21304,
+        "outputTokens": 98,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 61,
+        "startedAt": "2026-11-16T12:22:34.053Z",
+        "endedAt": "2026-11-16T12:22:36.715Z",
+        "durationMs": 2662
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "5eAEQwSph",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "014ab0204e6ea5c72d6d4204f702e0d45b5c57c07fc39e092482bde87f60b015",
+          "fingerprint": "014ab0204e6ea5c72d6d4204f702e0d45b5c57c07fc39e092482bde87f60b015",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "readLines",
+              "params": [
+                "packages/exploration-poc/src/cli.ts",
+                10,
+                50
+              ]
+            }
+          ],
+          "results": {
+            "file": "packages/exploration-poc/src/cli.ts",
+            "start": 10,
+            "lines": [
+              "let model: Model | undefined;",
+              "try {",
+              "const localEnv = fileURLToPath(new URL('../../../.env.local', import.meta.url));",
+              "if (existsSync(localEnv)) loadEnvFile(localEnv);",
+              "const args = process.argv.slice(2);",
+              "let codeMode = false;",
+              "let memory: { directory: string } | undefined;",
+              "const budget: Budget = {};",
+              "const positive = (value: string | undefined): number => {",
+              "  const number = Number(value);",
+              "  if (!Number.isFinite(number) || number <= 0) throw new Error('Budgets must be positive numbers');",
+              "  return number;",
+              "};",
+              "if (process.env.CODETOUR_TOKEN_BUDGET) budget.tokens = positive(process.env.CODETOUR_TOKEN_BUDGET);",
+              "if (process.env.CODETOUR_TIME_BUDGET_MS) budget.durationMs = positive(process.env.CODETOUR_TIME_BUDGET_MS);",
+              "let temperature = process.env.MISTRAL_TEMPERATURE === undefined ? 0 : Number(process.env.MISTRAL_TEMPERATURE);",
+              "while (args[0]?.startsWith('--')) {",
+              "  const option = args.shift();",
+              "  if (option === '--code') codeMode = true;",
+              "  else if (option === '--memory' && args[0]) memory = { directory: resolve(args.shift()!) };",
+              "  else if (option === '--tokens' || option === '--token-budget') budget.tokens = positive(args.shift());",
+              "  else if (option === '--duration-ms' || option === '--time-budget-ms') budget.durationMs = positive(args.shift());",
+              "  else if (option === '--iterations') budget.iterations = positive(args.shift());",
+              "  else if (option === '--calls') budget.calls = positive(args.shift());",
+              "  else if (option === '--temperature' && args[0] !== undefined) temperature = Number(args.shift());",
+              "  else throw new Error('Unknown or incomplete option');",
+              "}",
+              "const [root, ...objective] = args;",
+              "if (!root || !objective.length) throw new Error('Usage: npm run explore -- [--code] [--memory <directory>] [--tokens <n>] [--duration-ms <n>] [--temperature <n>] <workspace> <objective>');",
+              "if (!Number.isFinite(temperature) || temperature < 0 || temperature > 1) throw new Error('Temperature must be between 0 and 1');",
+              "model = mistral(process.env.MISTRAL_API_KEY ?? '', process.env.MISTRAL_MODEL, { temperature });",
+              "const result = await explore({ root: resolve(root), objective: objective.join(' '), codeMode, memory, budget, model });",
+              "process.stdout.write(`${JSON.stringify(result, null, 2)}\\n`);",
+              "} catch (error) {",
+              "  const failure = ((error as any).exploration) ?? { status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model?.snapshot?.(), metrics: { modelCalls: 0, toolCalls: 0, inputTokens: 0, outputTokens: 0, usageAvailable: false }, callTrace: [] };",
+              "  process.stdout.write(`${JSON.stringify(failure, null, 2)}\\n`);",
+              "  process.exitCode = 1;",
+              "}",
+              ""
+            ]
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 97,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:36.923Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "ReadResult"
+          },
+          "source": "() => {\n  return readLines('packages/exploration-poc/src/cli.ts', 10, 50);\n}"
+        },
+        "result": {
+          "status": "validation_failed",
+          "message": "The trial is NOT validated: 0 of 1 references are valid (first 0 listed). Fix only the faulty reference(s) below, then call function_try again with corrected code.",
+          "validCount": 0,
+          "validReferences": [],
+          "invalidReferences": [
+            {
+              "file": "packages/exploration-poc/src/cli.ts",
+              "errors": [
+                "endLine 48 is beyond the end of the file (47 lines)"
+              ],
+              "startLine": 10,
+              "endLine": 48
+            }
+          ]
+        },
+        "outcome": "returned=1; citations=validation_failed (0/1 valid)",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 62,
+        "startedAt": "2026-11-16T12:22:36.715Z",
+        "endedAt": "2026-11-16T12:22:36.950Z",
+        "durationMs": 235
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 21530,
+        "outputTokens": 98,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 63,
+        "startedAt": "2026-11-16T12:22:36.950Z",
+        "endedAt": "2026-11-16T12:22:38.046Z",
+        "durationMs": 1096
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "1GEwjQg6k",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "8dfc3c3054120308b80534a5ff51c7adcc51029262d037a9943e4de7e77d680f",
+          "fingerprint": "8dfc3c3054120308b80534a5ff51c7adcc51029262d037a9943e4de7e77d680f",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "readLines",
+              "params": [
+                "packages/exploration-poc/src/cli.ts",
+                10,
+                47
+              ]
+            }
+          ],
+          "results": {
+            "file": "packages/exploration-poc/src/cli.ts",
+            "start": 10,
+            "lines": [
+              "let model: Model | undefined;",
+              "try {",
+              "const localEnv = fileURLToPath(new URL('../../../.env.local', import.meta.url));",
+              "if (existsSync(localEnv)) loadEnvFile(localEnv);",
+              "const args = process.argv.slice(2);",
+              "let codeMode = false;",
+              "let memory: { directory: string } | undefined;",
+              "const budget: Budget = {};",
+              "const positive = (value: string | undefined): number => {",
+              "  const number = Number(value);",
+              "  if (!Number.isFinite(number) || number <= 0) throw new Error('Budgets must be positive numbers');",
+              "  return number;",
+              "};",
+              "if (process.env.CODETOUR_TOKEN_BUDGET) budget.tokens = positive(process.env.CODETOUR_TOKEN_BUDGET);",
+              "if (process.env.CODETOUR_TIME_BUDGET_MS) budget.durationMs = positive(process.env.CODETOUR_TIME_BUDGET_MS);",
+              "let temperature = process.env.MISTRAL_TEMPERATURE === undefined ? 0 : Number(process.env.MISTRAL_TEMPERATURE);",
+              "while (args[0]?.startsWith('--')) {",
+              "  const option = args.shift();",
+              "  if (option === '--code') codeMode = true;",
+              "  else if (option === '--memory' && args[0]) memory = { directory: resolve(args.shift()!) };",
+              "  else if (option === '--tokens' || option === '--token-budget') budget.tokens = positive(args.shift());",
+              "  else if (option === '--duration-ms' || option === '--time-budget-ms') budget.durationMs = positive(args.shift());",
+              "  else if (option === '--iterations') budget.iterations = positive(args.shift());",
+              "  else if (option === '--calls') budget.calls = positive(args.shift());",
+              "  else if (option === '--temperature' && args[0] !== undefined) temperature = Number(args.shift());",
+              "  else throw new Error('Unknown or incomplete option');",
+              "}",
+              "const [root, ...objective] = args;",
+              "if (!root || !objective.length) throw new Error('Usage: npm run explore -- [--code] [--memory <directory>] [--tokens <n>] [--duration-ms <n>] [--temperature <n>] <workspace> <objective>');",
+              "if (!Number.isFinite(temperature) || temperature < 0 || temperature > 1) throw new Error('Temperature must be between 0 and 1');",
+              "model = mistral(process.env.MISTRAL_API_KEY ?? '', process.env.MISTRAL_MODEL, { temperature });",
+              "const result = await explore({ root: resolve(root), objective: objective.join(' '), codeMode, memory, budget, model });",
+              "process.stdout.write(`${JSON.stringify(result, null, 2)}\\n`);",
+              "} catch (error) {",
+              "  const failure = ((error as any).exploration) ?? { status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model?.snapshot?.(), metrics: { modelCalls: 0, toolCalls: 0, inputTokens: 0, outputTokens: 0, usageAvailable: false }, callTrace: [] };",
+              "  process.stdout.write(`${JSON.stringify(failure, null, 2)}\\n`);",
+              "  process.exitCode = 1;",
+              "}"
+            ]
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 96,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:38.256Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "ReadResult"
+          },
+          "source": "() => {\n  return readLines('packages/exploration-poc/src/cli.ts', 10, 47);\n}"
+        },
+        "outcome": "returned=1; citations=1 valid",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 64,
+        "startedAt": "2026-11-16T12:22:38.046Z",
+        "endedAt": "2026-11-16T12:22:38.281Z",
+        "durationMs": 235
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 22510,
+        "outputTokens": 80,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 65,
+        "startedAt": "2026-11-16T12:22:38.282Z",
+        "endedAt": "2026-11-16T12:22:40.915Z",
+        "durationMs": 2633
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "OZtGqyYYS",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "124c56c668b11492dc70ded05cadb4777f241e0b0ffe835a61408b72425f386f",
+          "fingerprint": "124c56c668b11492dc70ded05cadb4777f241e0b0ffe835a61408b72425f386f",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "searchText",
+              "params": [
+                "harness"
+              ]
+            }
+          ],
+          "results": {
+            "truncated": true,
+            "bytes": 9028
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 155,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:41.124Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "SourceMatch[]"
+          },
+          "source": "() => {\n  return searchText('harness');\n}",
+          "truncated": true
+        },
+        "outcome": "returned=44; TRUNCATED, not exhaustive; citations=50 valid",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 66,
+        "startedAt": "2026-11-16T12:22:40.915Z",
+        "endedAt": "2026-11-16T12:22:41.200Z",
+        "durationMs": 285
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 24971,
+        "outputTokens": 100,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 67,
+        "startedAt": "2026-11-16T12:22:41.204Z",
+        "endedAt": "2026-11-16T12:22:42.974Z",
+        "durationMs": 1770
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "RnFUkJhgu",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "3432765e18c8d284c7e235f95259fe4b5750c7408e16169d0829e77af65c6bde",
+          "fingerprint": "3432765e18c8d284c7e235f95259fe4b5750c7408e16169d0829e77af65c6bde",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "readLines",
+              "params": [
+                "dist/test/cli/reader/reader.test.js",
+                100,
+                110
+              ]
+            }
+          ],
+          "results": {
+            "file": "dist/test/cli/reader/reader.test.js",
+            "start": 100,
+            "lines": [
+              " * file read ever runs in this suite.",
+              " */",
+              "function harness(steps, options = {}) {",
+              "    var _a;",
+              "    const speech = new FakeSpeechEngine();",
+              "    const descriptions = new FakeDescriptionRenderer();",
+              "    const reader = (0, reader_1.createReader)({",
+              "        tour: tourWith(steps, options.tour),",
+              "        root: \"/workspace\",",
+              "        // The engine seam, composed as the entry point composes it (spec #93).",
+              "        speech: new NarrationController_1.NarrationController({ engine: speech }),"
+            ]
+          },
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 96,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:43.183Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "ReadResult"
+          },
+          "source": "() => {\n  return readLines('dist/test/cli/reader/reader.test.js', 100, 110);\n}"
+        },
+        "outcome": "returned=1; citations=1 valid",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 68,
+        "startedAt": "2026-11-16T12:22:42.974Z",
+        "endedAt": "2026-11-16T12:22:43.208Z",
+        "durationMs": 234
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 25334,
+        "outputTokens": 86,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 69,
+        "startedAt": "2026-11-16T12:22:43.209Z",
+        "endedAt": "2026-11-16T12:22:48.726Z",
+        "durationMs": 5517
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "Hiz0YDXoL",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "8343a74f8d804adeb452a07f2ab4d85c12a0cbfc1a7a02449748e02eb7f6e15c",
+          "fingerprint": "8343a74f8d804adeb452a07f2ab4d85c12a0cbfc1a7a02449748e02eb7f6e15c",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 111,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:48.941Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  return listFiles().filter(f => f.includes('packages/exploration-poc'));\n}",
+          "truncated": true
+        },
+        "outcome": "returned=0; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 70,
+        "startedAt": "2026-11-16T12:22:48.726Z",
+        "endedAt": "2026-11-16T12:22:48.968Z",
+        "durationMs": 242
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 25574,
+        "outputTokens": 95,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 71,
+        "startedAt": "2026-11-16T12:22:48.969Z",
+        "endedAt": "2026-11-16T12:22:50.297Z",
+        "durationMs": 1328
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "g97d6akGX",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "a17aa634386f4de8ed73e03505926213a9ca353e8628ce3570424b9b0f037390",
+          "fingerprint": "a17aa634386f4de8ed73e03505926213a9ca353e8628ce3570424b9b0f037390",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 110,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:50.511Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  return files.filter(f => f.startsWith('packages/exploration-poc/'));\n}",
+          "truncated": true
+        },
+        "outcome": "returned=0; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 72,
+        "startedAt": "2026-11-16T12:22:50.298Z",
+        "endedAt": "2026-11-16T12:22:50.538Z",
+        "durationMs": 240
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 25823,
+        "outputTokens": 93,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 73,
+        "startedAt": "2026-11-16T12:22:50.539Z",
+        "endedAt": "2026-11-16T12:22:51.742Z",
+        "durationMs": 1203
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "tNgonyuZ6",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "f830e94cd6c4ce22ada84a03d50f36b23a47c24d8f88b3d9afb79b3175748e93",
+          "fingerprint": "f830e94cd6c4ce22ada84a03d50f36b23a47c24d8f88b3d9afb79b3175748e93",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 108,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:51.956Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  const files = listFiles();\n  return files.filter(f => f.includes('exploration-poc'));\n}",
+          "truncated": true
+        },
+        "outcome": "returned=0; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 74,
+        "startedAt": "2026-11-16T12:22:51.742Z",
+        "endedAt": "2026-11-16T12:22:51.982Z",
+        "durationMs": 240
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 26070,
+        "outputTokens": 71,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 75,
+        "startedAt": "2026-11-16T12:22:51.983Z",
+        "endedAt": "2026-11-16T12:22:53.188Z",
+        "durationMs": 1205
+      },
+      {
+        "type": "function_try",
+        "name": "function_try",
+        "callId": "hV9F8gKrV",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "execution": {
+          "version": "2.0",
+          "identifier": "ba3bcad57ab8d88098a34e85313ac047b42d15a9fff40dde055923f81f4ea84e",
+          "fingerprint": "ba3bcad57ab8d88098a34e85313ac047b42d15a9fff40dde055923f81f4ea84e",
+          "parameters": {},
+          "executedCalls": [
+            {
+              "name": "listFiles",
+              "params": []
+            }
+          ],
+          "results": [],
+          "errors": [],
+          "proofs": [],
+          "revision": "069d77afa812",
+          "durationMs": 109,
+          "validation": {
+            "typeChecking": {
+              "valid": true,
+              "errors": []
+            },
+            "primitiveWhitelist": {
+              "valid": true,
+              "violations": []
+            },
+            "reExecutionVerified": false,
+            "documentation": {
+              "status": "passed",
+              "timestamp": "2026-11-16T12:22:53.440Z",
+              "checks": {
+                "typeChecking": true,
+                "primitiveWhitelist": true,
+                "callTracing": true,
+                "reExecution": false
+              },
+              "notes": [
+                "Local technical validation only",
+                "No claims of semantic validation",
+                "No claims of exhaustiveness"
+              ]
+            }
+          },
+          "contract": {
+            "paramsSchema": [],
+            "returns": "string[]"
+          },
+          "source": "() => {\n  return listFiles().filter(f => f.includes('packages/'));\n}",
+          "truncated": true
+        },
+        "outcome": "returned=0; TRUNCATED, not exhaustive; citations=none",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 76,
+        "startedAt": "2026-11-16T12:22:53.189Z",
+        "endedAt": "2026-11-16T12:22:53.467Z",
+        "durationMs": 278
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 26295,
+        "outputTokens": 1797,
+        "usageMissing": false,
+        "error": "FinalAnswerNotJson: Final answer is not valid JSON (content after plan extraction: \"It appears that the `packages/` directory is not directly accessible in the current workspace, but the `dist/` directory and other files reference it. Based on the evidence gathered so far, I will now\")",
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 77,
+        "startedAt": "2026-11-16T12:22:53.467Z",
+        "endedAt": "2026-11-16T12:23:04.109Z",
+        "durationMs": 10642
+      },
+      {
+        "type": "plan_revised",
+        "name": "plan_revised",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "questions": [
+            {
+              "id": "q1",
+              "question": "What are the execution paths with and without Code Mode in the harness?",
+              "reuse": true
+            }
+          ],
+          "reason": "Initial plan to identify execution paths and differences in the harness for Code Mode and non-Code Mode."
+        },
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 78,
+        "startedAt": "2026-11-16T12:23:04.109Z",
+        "endedAt": "2026-11-16T12:23:04.109Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 28145,
+        "outputTokens": 778,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 79,
+        "startedAt": "2026-11-16T12:23:04.111Z",
+        "endedAt": "2026-11-16T12:23:08.532Z",
+        "durationMs": 4421
+      },
+      {
+        "type": "reuse_reminder",
+        "name": "reuse_reminder",
+        "inputTokens": null,
+        "outputTokens": null,
+        "usageMissing": false,
+        "result": {
+          "unservedQuestionIds": [
+            "q1"
+          ]
+        },
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 80,
+        "startedAt": "2026-11-16T12:23:08.541Z",
+        "endedAt": "2026-11-16T12:23:08.541Z",
+        "durationMs": 0
+      },
+      {
+        "type": "model",
+        "name": "model",
+        "inputTokens": 28878,
+        "outputTokens": 701,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 81,
+        "startedAt": "2026-11-16T12:23:08.542Z",
+        "endedAt": "2026-11-16T12:23:13.722Z",
+        "durationMs": 5180
+      },
+      {
+        "type": "model",
+        "name": "memory-selection",
+        "inputTokens": 1212,
+        "outputTokens": 10,
+        "usageMissing": false,
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 82,
+        "startedAt": "2026-11-16T12:23:13.740Z",
+        "endedAt": "2026-11-16T12:23:14.145Z",
+        "durationMs": 405
+      },
+      {
+        "type": "run_end",
+        "name": "run_end",
+        "inputTokens": 586162,
+        "outputTokens": 7497,
+        "usageMissing": false,
+        "outcome": "status=complete; stopReason=none",
+        "result": {
+          "status": "complete",
+          "stopReason": null,
+          "inputTokens": 586162,
+          "outputTokens": 7497,
+          "modelCalls": 42,
+          "toolCalls": 38,
+          "durationMs": 94518
+        },
+        "runId": "d60c1964-664b-44aa-9073-8c840035c648",
+        "seq": 83,
+        "startedAt": "2026-11-16T12:23:14.146Z",
+        "endedAt": "2026-11-16T12:23:14.146Z",
+        "durationMs": 0
+      }
+    ],
+    "consolidationReport": {
+      "accepted": [],
+      "rejected": [],
+      "duplicates": [],
+      "indeterminate": [],
+      "reconciliation": [
+        {
+          "name": "exploreCodeModePaths",
+          "proposed": false,
+          "replayed": false,
+          "accepted": false,
+          "reason": "Not proposed by the model for consolidation"
+        }
+      ]
+    }
+  },
+  "catalogue": []
+}
