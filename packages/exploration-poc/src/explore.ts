@@ -118,6 +118,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       planVersions.push(version);
       planStatus = 'recorded';
       for (const question of validation.questions) knownQuestionIds.add(question.id);
+      for (const anomaly of validation.anomalies) planAnomalies.add(anomaly);
       recordCall({ type, name: type, inputTokens: null, outputTokens: null, usageMissing: false, result: version }, now, now);
     } else {
       planVersions.push({ questions: [], error: validation.error });
@@ -227,7 +228,10 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       // traced on the call and stripped before dispatch. An id no plan ever
       // declared is an explicit anomaly, not a silent success.
       const questionId = typeof originalCall.arguments.question_id === 'string' ? originalCall.arguments.question_id : undefined;
-      if (questionId !== undefined && !knownQuestionIds.has(questionId)) planAnomalies.add(`unknown question id '${questionId}'`);
+      // Issue #184: the prompt requires a question_id on every call — a call
+      // carrying none is a visible anomaly, never a silent acceptance.
+      if (questionId === undefined) planAnomalies.add(`missing question id on '${originalCall.name}' call`);
+      else if (!knownQuestionIds.has(questionId)) planAnomalies.add(`unknown question id '${questionId}'`);
       // Spec #183 trace vocabulary: a declared decision (plan question) is
       // linked to the first observed call that serves it — declared
       // intentions stay traceable to real observed calls, never inferred from
@@ -598,20 +602,31 @@ Explore the repository using the tools. Assess whether the evidence answers the 
  * a non-empty string id and canonical question (reuse marker optional boolean,
  * reason optional string, meaningful on revisions). Anything else is an
  * explicit, visible anomaly — the harness never presumes a success.
+ *
+ * Practicable French screen for plan questions (issue #184): accented
+ * characters plus a few unambiguous French tokens flag a non-English plan as
+ * a visible anomaly — a heuristic screen, never proof of language, and never
+ * a hard failure on its own.
  */
-function validatePlan(raw: unknown): { ok: true; questions: PlanQuestion[]; reason?: string } | { ok: false; error: string } {
+const FRENCH_ACCENTS = /[éèêëàâçôûîüöÉÈÊËÀÂÇÔÛÎÜÖœŒ]/;
+const FRENCH_TOKENS = /\b(le|la|les|des|du|une|est|sont|dans|avec|pour|quel|quelle|quels|quelles|fonction|fichier)\b/i;
+function validatePlan(raw: unknown): { ok: true; questions: PlanQuestion[]; reason?: string; anomalies: string[] } | { ok: false; error: string } {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, error: 'invalid plan: expected an object with a questions array' };
   const { questions, reason } = raw as Record<string, unknown>;
   if (!Array.isArray(questions) || questions.length === 0) return { ok: false, error: 'invalid plan: questions must be a non-empty array' };
+  const anomalies: string[] = [];
   for (const [index, question] of questions.entries()) {
     if (!question || typeof question !== 'object' || Array.isArray(question)) return { ok: false, error: `invalid plan: question ${index} must be an object` };
     const candidate = question as Record<string, unknown>;
     if (typeof candidate.id !== 'string' || candidate.id.length === 0) return { ok: false, error: `invalid plan: question ${index} needs a non-empty string id` };
     if (typeof candidate.question !== 'string' || candidate.question.length === 0) return { ok: false, error: `invalid plan: question ${index} needs a non-empty string question` };
     if (candidate.reuse !== undefined && typeof candidate.reuse !== 'boolean') return { ok: false, error: `invalid plan: question ${index} reuse must be a boolean` };
+    // Issue #184: the initial plan must be in English — a practicable screen
+    // flags French questions as a visible anomaly, never a hard failure.
+    if (FRENCH_ACCENTS.test(candidate.question) || FRENCH_TOKENS.test(candidate.question)) anomalies.push(`plan not in English: question '${candidate.id}' looks French`);
   }
   if (reason !== undefined && typeof reason !== 'string') return { ok: false, error: 'invalid plan: reason must be a string' };
-  return { ok: true, questions: questions as PlanQuestion[], reason: reason as string | undefined };
+  return { ok: true, questions: questions as PlanQuestion[], reason: reason as string | undefined, anomalies };
 }
 
 function summarizeOutcome(output: unknown): string {

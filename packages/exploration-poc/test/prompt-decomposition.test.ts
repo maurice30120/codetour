@@ -900,3 +900,109 @@ test('a partial run and a failed run both end with a run_end entry', async () =>
     await rm(base, { recursive: true, force: true });
   }
 });
+
+// §D01 (#184): the initial plan must be in English. A practicable deterministic
+// screen (accented characters, obvious French tokens) flags a non-English plan
+// as a visible anomaly — a heuristic, never sold as proof, never a hard
+// failure on its own.
+test('a French plan is a visible anomaly while the Tour still completes', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-french-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    const frenchPlan = { questions: [
+      { id: 'q1', question: 'Où est déclaré le point d’entrée principal ?', reuse: false },
+      { id: 'q2', question: 'Quelle fonction trouve les index du dépôt ?', reuse: false }
+    ] };
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) return { plan: frenchPlan, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }] };
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+        }
+      }
+    });
+    // The plan is recorded and the Tour completes; the language problem stays
+    // visible as an anomaly, one per French question.
+    assert.equal(result.plan.status, 'recorded');
+    assert.equal(result.plan.versions.length, 1);
+    const languageAnomalies = result.plan.anomalies.filter(anomaly => /plan not in English/.test(anomaly));
+    assert.equal(languageAnomalies.length, 2);
+    assert.match(languageAnomalies[0], /question 'q1'/);
+    assert.match(languageAnomalies[1], /question 'q2'/);
+    assert.equal(result.status, 'complete');
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test('an English plan raises no language anomaly', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-english-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    const plan = { questions: [
+      { id: 'q1', question: 'Where is the entry point declared?', reuse: false },
+      { id: 'q2', question: 'Which function finds the repository indexes?', reuse: false }
+    ] };
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) return { plan, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start', question_id: 'q1' } }] };
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+        }
+      }
+    });
+    assert.equal(result.plan.status, 'recorded');
+    assert.ok(result.plan.anomalies.every(anomaly => !/plan not in English/.test(anomaly)), 'no false positive on English questions');
+    assert.equal(result.status, 'complete');
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// §D01 (#184): the prompt requires a question_id on every tool call. A call
+// carrying none is a visible anomaly, never a silent acceptance.
+test('a tool call without question_id is a visible anomaly', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-missing-question-id-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    const plan = { questions: [{ id: 'q1', question: 'Where is the entry point declared?', reuse: false }] };
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) return { plan, toolCalls: [
+            { id: 'search-1', name: 'search', arguments: { query: 'start' } },
+            { id: 'read-1', name: 'read', arguments: { file: 'main.ts' } }
+          ] };
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+        }
+      }
+    });
+    // Both uncorrelated calls are flagged by tool name; the Tour still completes.
+    assert.ok(result.plan.anomalies.some(anomaly => /missing question id on 'search' call/.test(anomaly)));
+    assert.ok(result.plan.anomalies.some(anomaly => /missing question id on 'read' call/.test(anomaly)));
+    assert.equal(result.status, 'complete');
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
