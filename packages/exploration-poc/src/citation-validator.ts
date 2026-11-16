@@ -19,10 +19,14 @@ export interface CitationAccess {
   readRange(file: string, startLine: number, endLine: number): Promise<{ lines: string[]; totalLines: number }>;
 }
 
-export interface InvalidCitation {
-  file?: string;
-  startLine?: number;
-  endLine?: number;
+/** A single source reference: confined file path plus an exact line range. */
+export interface Reference {
+  file: string;
+  startLine: number;
+  endLine: number;
+}
+
+export interface InvalidCitation extends Partial<Reference> {
   /** Short, structured, actionable error strings (type + path/line detail). */
   errors: string[];
 }
@@ -36,7 +40,7 @@ export interface CitationValidation {
   validated: number;
   validCount: number;
   /** Bounded list of the valid references (diagnostic visibility). */
-  validReferences: Array<{ file: string; startLine: number; endLine: number }>;
+  validReferences: Reference[];
   /** Bounded list of only the faulty references, for repair. */
   invalidReferences: InvalidCitation[];
   /** False when the ceiling stopped validation: the output is then NOT proven exhaustive. */
@@ -76,14 +80,14 @@ export async function validateCitations(value: unknown, options: { access: Citat
   }
   const ceiling = options.maxReferences ?? MAX_REFERENCES;
   const invalid: InvalidCitation[] = [];
-  const valid: Array<{ file: string; startLine: number; endLine: number }> = [];
+  const valid: Reference[] = [];
   let validated = 0;
   for (const reference of references) {
     if (validated >= ceiling) break;
     validated++;
-    const result = await validateOne(reference, options);
-    if (result.errors.length > 0) invalid.push(result);
-    else valid.push({ file: result.file!, startLine: result.startLine!, endLine: result.endLine! });
+    const check = await checkReference(reference, options);
+    if (check.invalid) invalid.push(check.invalid);
+    else valid.push(check.valid);
   }
   const exhaustive = validated === references.length;
   if (!exhaustive) {
@@ -100,7 +104,11 @@ export async function validateCitations(value: unknown, options: { access: Citat
   };
 }
 
-async function validateOne(reference: Record<string, unknown>, options: { access: CitationAccess; revision?: string }): Promise<InvalidCitation> {
+/** Result of checking one emitted reference: either the verified reference or the faulty one with its errors. */
+type ReferenceCheck = { valid: Reference; invalid?: undefined } | { valid?: undefined; invalid: InvalidCitation };
+
+/** Check one emitted reference against the actual workspace and return it verified or faulty. */
+async function checkReference(reference: Record<string, unknown>, options: { access: CitationAccess; revision?: string }): Promise<ReferenceCheck> {
   const file = reference.file as string;
   const errors: string[] = [];
   const fault: InvalidCitation = { file, errors };
@@ -108,28 +116,28 @@ async function validateOne(reference: Record<string, unknown>, options: { access
   const start = reference.line ?? reference.startLine ?? reference.start;
   if (start === undefined) {
     errors.push('no line number: expected line, startLine or start to be a positive integer');
-    return fault;
+    return { invalid: fault };
   }
   if (typeof start !== 'number' || !Number.isInteger(start) || start < 1) {
     errors.push(`line must be a positive integer, got ${String(start)}`);
     if (typeof start === 'number') fault.startLine = start;
-    return fault;
+    return { invalid: fault };
   }
   fault.startLine = start;
   const linesExcerpt = Array.isArray(reference.lines) && reference.lines.every(line => typeof line === 'string') ? (reference.lines as string[]) : undefined;
   const end = reference.endLine ?? (linesExcerpt ? start + linesExcerpt.length - 1 : start);
   if (typeof end !== 'number' || !Number.isInteger(end)) {
     errors.push(`endLine must be an integer, got ${String(end)}`);
-    return fault;
+    return { invalid: fault };
   }
   fault.endLine = end;
   if (end < start) {
     errors.push(`inverted range: startLine ${start} is greater than endLine ${end}`);
-    return fault;
+    return { invalid: fault };
   }
   if (end - start + 1 > MAX_SPAN_LINES) {
     errors.push(`range spans ${end - start + 1} lines; citations are limited to ${MAX_SPAN_LINES} lines`);
-    return fault;
+    return { invalid: fault };
   }
   const claimed = reference.revision;
   if (typeof claimed === 'string' && claimed && options.revision && options.revision !== 'unknown-revision' && !options.revision.startsWith(claimed.slice(0, 12))) {
@@ -140,11 +148,11 @@ async function validateOne(reference: Record<string, unknown>, options: { access
     read = await options.access.readRange(file, start, end);
   } catch (error) {
     errors.push(String((error as Error)?.message ?? error).slice(0, 200));
-    return fault;
+    return { invalid: fault };
   }
   if (end > read.totalLines) {
     errors.push(`endLine ${end} is beyond the end of the file (${read.totalLines} lines)`);
-    return fault;
+    return { invalid: fault };
   }
   if (linesExcerpt) {
     if (linesExcerpt.length !== end - start + 1) errors.push(`excerpt covers ${linesExcerpt.length} lines but the range spans ${end - start + 1}`);
@@ -156,7 +164,7 @@ async function validateOne(reference: Record<string, unknown>, options: { access
   if (textExcerpt !== undefined && !excerptMatches(read.lines.join('\n'), textExcerpt)) {
     errors.push(`excerpt does not match the file content at lines ${start}-${end}`);
   }
-  return fault;
+  return errors.length > 0 ? { invalid: fault } : { valid: { file, startLine: start, endLine: end } };
 }
 
 /** Exact equality, or a prefix at one of the primitives' documented per-line truncation bounds. */
@@ -168,7 +176,7 @@ function excerptMatches(actual: string, excerpt: string): boolean {
  * Short, structured, actionable repair feedback for the model: an error line
  * plus the valid references (visibility) and only the faulty ones (repair).
  */
-export function citationRepairFeedback(citations: CitationValidation): { error: string; validation: { status: 'validation_failed'; message: string; validCount: number; validReferences: Array<{ file: string; startLine: number; endLine: number }>; invalidReferences: InvalidCitation[] } } {
+export function citationRepairFeedback(citations: CitationValidation): { error: string; validation: { status: 'validation_failed'; message: string; validCount: number; validReferences: Reference[]; invalidReferences: InvalidCitation[] } } {
   return {
     error: `invalid_citation: ${citations.invalidReferences.length} of ${citations.references} references invalid`.slice(0, 240),
     validation: {

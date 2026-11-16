@@ -7,7 +7,7 @@ import { scriptMemory, compareCandidates, validateCanonicalName } from '../src/m
 import type { ConsolidationCandidate } from '../src/memory.ts';
 
 const baseCandidate = (overrides: Partial<ConsolidationCandidate> = {}): ConsolidationCandidate => ({
-  objective: 'Trouver les index d une table PostgreSQL',
+  objective: 'Find the indexes of a PostgreSQL table',
   description: 'Searches the SQL scripts of the repository for declared index declarations. Returns one match per declaration with file, line and text.',
   name: 'searchPostgresIndexes',
   code: 'search(params.query)',
@@ -29,7 +29,7 @@ test('a candidate actually executed during a validated Tour is consolidated unde
   await withStore(async store => {
     const report = await store.finish([], [baseCandidate({
       returns: 'SearchMatch[] {file,line,text}',
-      uncertaintyCases: [{ case: 'contenu minifié', signal: 'truncated=true' }]
+      uncertaintyCases: [{ case: 'minified content', signal: 'truncated=true' }]
     })]);
     assert.deepEqual(report.rejected, []);
     assert.deepEqual(report.duplicates, []);
@@ -38,11 +38,11 @@ test('a candidate actually executed during a validated Tour is consolidated unde
     assert.equal(entry.id, 'searchPostgresIndexes');
     assert.equal(entry.outputContract?.returns, 'SearchMatch[] {file,line,text}');
     assert.ok(Array.isArray(entry.parameters));
-    // memory_list projection carries id, canonical question, périmètre, typed
+    // memory_list projection carries id, canonical question, scope, typed
     // params, contract, limits and uncertainty cases — WITHOUT function source.
     const listed = store.memory_list('index')[0];
     assert.equal(listed.id, 'searchPostgresIndexes');
-    assert.equal(listed.objective, 'Trouver les index d une table PostgreSQL');
+    assert.equal(listed.objective, 'Find the indexes of a PostgreSQL table');
     assert.ok(!('code' in listed), 'memory_list must not leak function source');
     assert.equal(store.get('searchPostgresIndexes')?.code, 'search(params.query)');
   });
@@ -79,13 +79,13 @@ test('canonical naming is enforced at consolidation with a clear error', async (
     const report = await store.finish([], [
       baseCandidate({ name: 'SearchPostgresIndexes' }), // not camelCase
       baseCandidate({ name: 'search_indexes' }),        // separators
-      baseCandidate({ name: 'searchIndexes' }),         // only two segments (verbe+objet)
+      baseCandidate({ name: 'searchIndexes' }),         // only two segments (verb+object)
       baseCandidate({ name: '' })                       // missing
     ]);
     assert.equal(report.accepted.length, 0);
     assert.ok(report.rejected.every(rejection => rejection.reason.startsWith('Naming convention:')), report.rejected.map(r => r.reason).join(' | '));
     assert.deepEqual(store.catalog(), []);
-    // The convention itself: camelCase, verbe+domaine+objet (three segments).
+    // The convention itself: camelCase, verb+domain+object (three segments).
     assert.equal(validateCanonicalName('searchPostgresIndexes').ok, true);
     assert.equal(validateCanonicalName('searchIndexes').ok, false);
     assert.equal(validateCanonicalName('SearchPostgresIndexes').ok, false);
@@ -112,7 +112,7 @@ test('dedup never gates this diagnostic: decided duplicates stay visible in the 
   });
 });
 
-test('an INDÉTERMINÉ comparison keeps both entries and flags the relation instead of inventing equivalence', async () => {
+test('an indeterminate comparison keeps both entries and flags the relation instead of inventing equivalence', async () => {
   await withStore(async store => {
     await store.finish([], [baseCandidate()]); // no declared contract on the stored entry
     const report = await store.finish([], [baseCandidate({ name: 'listPostgresIndexNames', returns: 'string[]' })]);
@@ -178,11 +178,11 @@ test('purges reflect the failure rule (G0: never inactivity-based) and stay visi
   });
 });
 
-test('compareCandidates outcomes: duplicate, distinct and indéterminé', () => {
+test('compareCandidates outcomes: duplicate, distinct and indeterminate', () => {
   const candidate = { objective: 'Q', description: 'P', returns: 'A[]' };
   assert.equal(compareCandidates(candidate, { objective: 'q', description: 'p', outputContract: { returns: 'a[]' } }), 'duplicate');
   assert.equal(compareCandidates(candidate, { objective: 'q', description: 'p', outputContract: { returns: 'b[]' } }), 'distinct');
-  assert.equal(compareCandidates(candidate, { objective: 'q', description: 'other périmètre', outputContract: { returns: 'a[]' } }), 'distinct');
+  assert.equal(compareCandidates(candidate, { objective: 'q', description: 'other scope', outputContract: { returns: 'a[]' } }), 'distinct');
   assert.equal(compareCandidates({ objective: 'Q', description: 'P' }, { objective: 'q', description: 'p', outputContract: { returns: 'a[]' } }), 'indeterminate');
   assert.equal(compareCandidates(candidate, { objective: 'Q', description: 'P' }), 'indeterminate');
 });
