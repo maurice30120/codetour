@@ -31,7 +31,7 @@ const State = Annotation.Root({ messages: Annotation<any[]>({ reducer: (a, b) =>
 export interface CallTraceItem {
   seq: number;
   runId: string;
-  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'plan_revised';
+  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'plan_revised' | 'decomposition_decision' | 'run_end';
   name: string;
   /** Provider tool-call id (observed calls), absent on model/plan entries. */
   callId?: string;
@@ -96,6 +96,9 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   let planStatus: 'recorded' | 'invalid' | 'missing' = 'missing';
   let planPublished = false;
   const knownQuestionIds = new Set<string>();
+  // Spec #183 trace vocabulary: declared plan questions already linked to an
+  // observed call — one decomposition_decision entry per question.
+  const correlatedDecisions = new Set<string>();
   const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0 };
   const callTrace: CallTraceItem[] = [];
   let callSeq = 0;
@@ -122,6 +125,16 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       recordCall({ type, name: type, inputTokens: null, outputTokens: null, usageMissing: false, error: validation.error }, now, now);
     }
     planPublished = true;
+  };
+  // Spec #183 trace vocabulary: every run — complete, partial or failed — ends
+  // with a run_end entry carrying the stop reason and the final usage.
+  const recordRunEnd = (status: 'complete' | 'partial' | 'failed', stopReason: string | null): void => {
+    const now = new Date();
+    recordCall({
+      type: 'run_end', name: 'run_end', inputTokens: metrics.inputTokens, outputTokens: metrics.outputTokens, usageMissing: !metrics.usageAvailable,
+      outcome: `status=${status}; stopReason=${stopReason ?? 'none'}`,
+      result: { status, stopReason, inputTokens: metrics.inputTokens, outputTokens: metrics.outputTokens, modelCalls: metrics.modelCalls, toolCalls: metrics.toolCalls, durationMs: metrics.durationMs }
+    }, now, now);
   };
   try {
   const tools = await workspace(root);
@@ -215,6 +228,16 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       // declared is an explicit anomaly, not a silent success.
       const questionId = typeof originalCall.arguments.question_id === 'string' ? originalCall.arguments.question_id : undefined;
       if (questionId !== undefined && !knownQuestionIds.has(questionId)) planAnomalies.add(`unknown question id '${questionId}'`);
+      // Spec #183 trace vocabulary: a declared decision (plan question) is
+      // linked to the first observed call that serves it — declared
+      // intentions stay traceable to real observed calls, never inferred from
+      // model prose.
+      if (questionId !== undefined && knownQuestionIds.has(questionId) && !correlatedDecisions.has(questionId)) {
+        correlatedDecisions.add(questionId);
+        const declared = [...planVersions].reverse().flatMap(version => version.questions).find(question => question.id === questionId);
+        const decisionAt = new Date();
+        recordCall({ type: 'decomposition_decision', name: 'decomposition_decision', callId: originalCall.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, result: { question: declared?.question, reuse: declared?.reuse ?? false, servedBy: originalCall.name } }, decisionAt, decisionAt);
+      }
       const call = { ...originalCall, arguments: { ...originalCall.arguments } };
       delete call.arguments.question_id;
       if (Date.now() - startedMs >= limits.durationMs || metrics.inputTokens + metrics.outputTokens >= limits.tokens) break;
@@ -556,10 +579,13 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   metrics.durationMs = Date.now() - startedMs;
   if (!planPublished) planAnomalies.add('no plan was published before the structured result');
   const plan: PlanRecord = { status: planStatus, runId, versions: planVersions, anomalies: [...planAnomalies] };
-  return { ...result, runId, plan, status: state.result === undefined || state.stopReason ? 'partial' : 'complete', stopReason: state.stopReason ?? null, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
+  const status = state.result === undefined || state.stopReason ? 'partial' as const : 'complete' as const;
+  recordRunEnd(status, state.stopReason ?? null);
+  return { ...result, runId, plan, status, stopReason: state.stopReason ?? null, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
   } catch (error) {
     metrics.durationMs = Date.now() - startedMs;
     const plan: PlanRecord = { status: planStatus, runId, versions: planVersions, anomalies: [...planAnomalies] };
+    recordRunEnd('failed', null);
     throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
       exploration: { objective, runId, plan, status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace }
     });

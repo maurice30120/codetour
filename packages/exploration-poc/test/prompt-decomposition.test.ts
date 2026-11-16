@@ -797,3 +797,106 @@ test('a missing plan is recorded as a visible anomaly without failing the Tour',
     await rm(base, { recursive: true, force: true });
   }
 });
+
+// §Spec #183 trace vocabulary: a declared decision (plan question) is linked to
+// the first observed call that serves it — declared intentions stay traceable
+// to real observed calls, never inferred from model prose.
+test('a decomposition_decision entry links a declared plan question to its first observed call', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-decision-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    const plan = { questions: [
+      { id: 'q1', question: 'Which reusable capability finds the entry point?', reuse: true },
+      { id: 'q2', question: 'Where is the entry point declared?', reuse: false }
+    ] };
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) return { plan, toolCalls: [
+            { id: 'text-1', name: 'searchText', arguments: { query: 'start', question_id: 'q1' } },
+            { id: 'text-2', name: 'searchText', arguments: { query: 'start', question_id: 'q1' } }
+          ] };
+          return { toolCalls: [{ id: 'read-1', name: 'read', arguments: { file: 'main.ts', question_id: 'q2' } }] };
+        }
+      }
+    });
+    const decisions = result.callTrace.filter(call => call.type === 'decomposition_decision');
+    // One entry per declared question, on its FIRST correlated observed call.
+    assert.equal(decisions.length, 2);
+    assert.equal(decisions[0].questionId, 'q1');
+    assert.equal(decisions[0].callId, 'text-1');
+    assert.equal((decisions[0].result as any).reuse, true);
+    assert.equal((decisions[0].result as any).question, 'Which reusable capability finds the entry point?');
+    assert.equal((decisions[0].result as any).servedBy, 'searchText');
+    assert.equal(decisions[1].questionId, 'q2');
+    assert.equal(decisions[1].callId, 'read-1');
+    assert.ok(decisions.every(call => call.runId === result.runId));
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// §Spec #183 trace vocabulary: every run — complete, partial or failed — ends
+// with a run_end entry carrying the stop reason and the final usage.
+test('a complete run ends with a run_end entry carrying the stop reason and final usage', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-run-end-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) return { plan: { questions: [{ id: 'q1', question: 'Where is the entry point declared?', reuse: false }] }, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start', question_id: 'q1' } }], usage: { inputTokens: 100, outputTokens: 20 } };
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] }, usage: { inputTokens: 50, outputTokens: 10 } };
+        }
+      }
+    });
+    const runEnd = result.callTrace.at(-1);
+    assert.equal(runEnd?.type, 'run_end');
+    assert.equal(runEnd?.runId, result.runId);
+    assert.match(runEnd?.outcome ?? '', /status=complete; stopReason=none/);
+    assert.equal((runEnd?.result as any).inputTokens, 150);
+    assert.equal((runEnd?.result as any).outputTokens, 30);
+    assert.equal((runEnd?.result as any).stopReason, null);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test('a partial run and a failed run both end with a run_end entry', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-run-end-partial-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    // Partial: the iteration budget stops the run with an explicit reason.
+    const partial = await explore({ root, objective: 'Find start', budget: { iterations: 1 }, codeMode: true, model: { async complete() { return { toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }] }; } } });
+    const partialEnd = partial.callTrace.at(-1);
+    assert.equal(partialEnd?.type, 'run_end');
+    assert.match(partialEnd?.outcome ?? '', /status=partial; stopReason=iterations/);
+    // Failed: the evidence validation rejects the run; the failure trace still
+    // ends with run_end.
+    await assert.rejects(explore({ root, objective: 'Find start', codeMode: true, model: { async complete() { return { result: { objective: 'Find start', entryPoints: [{ name: 'missing', evidence: [{ file: 'missing.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } }; } } }), (error: any) => {
+      const runEnd = error.exploration.callTrace.at(-1);
+      assert.equal(runEnd.type, 'run_end');
+      assert.match(runEnd.outcome, /status=failed; stopReason=none/);
+      assert.equal(runEnd.runId, error.exploration.runId);
+      return true;
+    });
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
