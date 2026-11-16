@@ -223,7 +223,7 @@ export async function scriptMemory(root: string, directory: string) {
     },
     /** Record an in-run failure trace (applied to the catalogue at finish). */
     recordFailure: (id: string) => { sessionFailures.push(id); },
-    /** Record an in-run observation (parameters + proof validity) used for replacement regression gates. */
+    /** Record an in-run observation (parameters + proof validity), kept as a reference case on the entry. */
     observeRun: (id: string, params: Record<string, unknown>, ok: boolean) => { sessionObservations.push({ id, params, ok }); },
     /** Peek at stored entry (source included; for execution wiring only). */
     get: (id: string) => entries.find(entry => entry.id === id),
