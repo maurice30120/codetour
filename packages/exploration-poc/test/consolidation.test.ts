@@ -8,19 +8,20 @@ import type { ConsolidationCandidate } from '../src/memory.ts';
 
 const baseCandidate = (overrides: Partial<ConsolidationCandidate> = {}): ConsolidationCandidate => ({
   objective: 'Trouver les index d une table PostgreSQL',
-  description: 'Recherche des index déclarés dans les scripts SQL du dépôt',
+  description: 'Searches the SQL scripts of the repository for declared index declarations. Returns one match per declaration with file, line and text.',
   name: 'searchPostgresIndexes',
   code: 'search(params.query)',
   parameters: ['query'],
   verified: true,
   consolidationSignal: { executedSuccessfully: true, proofAvailable: true, contractRespected: true },
+  replay: { ok: true, citations: 'valid' },
   ...overrides
 });
 
-async function withStore(run: (store: Awaited<ReturnType<typeof scriptMemory>>) => Promise<void>, options: { deduplicate?: boolean } = {}) {
+async function withStore(run: (store: Awaited<ReturnType<typeof scriptMemory>>) => Promise<void>) {
   const root = await mkdtemp(join(tmpdir(), 'consolidation-'));
   try {
-    await run(await scriptMemory(root, join(root, 'memory'), options));
+    await run(await scriptMemory(root, join(root, 'memory')));
   } finally { await rm(root, { recursive: true, force: true }); }
 }
 
@@ -92,21 +93,22 @@ test('canonical naming is enforced at consolidation with a clear error', async (
   });
 });
 
-test('dedup decides on question + périmètre + contrat, never on the name alone', async () => {
+test('dedup never gates this diagnostic: decided duplicates stay visible in the catalogue', async () => {
   await withStore(async store => {
-    // Decided duplicate: same question, same périmètre, same contract.
+    // Decided duplicate: same question, same scope, same contract.
     const first = baseCandidate({ returns: 'SearchMatch[] {file,line,text}' });
     await store.finish([], [first]);
     const report = await store.finish([], [baseCandidate({
-      name: 'findPostgresIndexDeclarations', // a DIFFERENT name does not bypass dedup
+      name: 'findPostgresIndexDeclarations', // a DIFFERENT name does not hide the duplicate
       returns: 'SearchMatch[] {file,line,text}'
     })]);
-    assert.equal(store.catalog().length, 1, 'duplicate question+périmètre+contrat must not create a second entry');
+    assert.equal(store.catalog().length, 2, 'the duplicate is appended and stays visible (issue #187: append-only, no smart dedup)');
     assert.deepEqual(report.duplicates, ['findPostgresIndexDeclarations']);
-    // Same question + same périmètre + DIFFERENT contract => distinct entry.
+    assert.deepEqual(report.accepted, ['findPostgresIndexDeclarations']);
+    // Same question + same scope + DIFFERENT contract => distinct entry, no duplicate flag.
     const second = await store.finish([], [baseCandidate({ name: 'countPostgresIndexes', returns: '{count: number}' })]);
     assert.deepEqual(second.duplicates, []);
-    assert.equal(store.catalog().length, 2);
+    assert.equal(store.catalog().length, 3);
   });
 });
 
@@ -122,72 +124,27 @@ test('an INDÉTERMINÉ comparison keeps both entries and flags the relation inst
   });
 });
 
-test('replacing a stored function requires verification on candidate params AND a representative reference set', async () => {
+// Issue #187: replacement is deferred for this diagnostic — the catalogue is
+// append-only. A candidate landing on an existing identifier is refused (never
+// an overwrite, never a renamed shadow entry); a refined procedure under a NEW
+// canonical name is simply appended and stays visible next to the old one.
+test('a same-name candidate is refused on collision and a refined procedure appends under a new name', async () => {
   await withStore(async store => {
     await store.finish([], [baseCandidate()]);
-    // Record real executions of the old version (reference test set) during runs.
-    store.observeRun('searchPostgresIndexes', { query: 'idx_' }, true);
-    store.observeRun('searchPostgresIndexes', { query: 'CREATE UNIQUE' }, true);
-    store.observeRun('searchPostgresIndexes', { query: 'usleep' }, true); // negative probe
-    // Replacement without regression evidence => refused, old entry untouched.
-    const refused = await store.finish([], [baseCandidate({
+    // Same canonical name, different code: identifier collision => refused.
+    const refused = await store.finish([], [baseCandidate({ code: 'search(params.query).slice(0, 20)' })]);
+    assert.equal(refused.accepted.length, 0);
+    assert.match(refused.rejected[0].reason, /Identifier collision/);
+    assert.equal(store.get('searchPostgresIndexes')?.code, 'search(params.query)', 'the validated entry is untouched');
+    assert.equal(store.get('searchPostgresIndexes')?.replacedBy, undefined, 'nothing is superseded in this diagnostic');
+    // A refined procedure under a NEW canonical name appends and stays visible.
+    const appended = await store.finish([], [baseCandidate({
       name: 'extractPostgresIndexes',
-      code: 'search(params.query).slice(0, 20)',
-      replaces: 'searchPostgresIndexes',
-      regression: { candidateProofOk: true, referenceProofOk: true, executedParamSets: 1 }
+      code: 'search(params.query).slice(0, 20)'
     })]);
-    assert.match(refused.rejected[0].reason, /Replacement gate: verified only 1 param set/);
-    assert.equal(store.get('searchPostgresIndexes')?.replacedBy, undefined);
-    // Verification on the candidate's own params + every reference case => accepted.
-    const accepted = await store.finish([], [baseCandidate({
-      name: 'extractPostgresIndexes',
-      code: 'search(params.query).slice(0, 20)',
-      replaces: 'searchPostgresIndexes',
-      regression: { candidateProofOk: true, referenceProofOk: true, executedParamSets: 4 }
-    })]);
-    assert.deepEqual(accepted.rejected, []);
-    assert.deepEqual(accepted.accepted, ['extractPostgresIndexes']);
-    // Rollback preserved: the old entry stays, retained and marked superseded;
-    // the replacement exists under its own canonical name.
-    const oldEntry = store.get('searchPostgresIndexes');
-    assert.ok(oldEntry, 'old version retained for rollback');
-    assert.equal(oldEntry?.code, 'search(params.query)');
-    assert.equal(oldEntry?.replacedBy, 'extractPostgresIndexes');
+    assert.deepEqual(appended.accepted, ['extractPostgresIndexes']);
+    assert.equal(store.catalog().length, 2, 'both versions stay visible');
     assert.equal(store.get('extractPostgresIndexes')?.code, 'search(params.query).slice(0, 20)');
-  });
-});
-
-test('replacement with invalid candidate or reference proofs is refused', async () => {
-  await withStore(async store => {
-    await store.finish([], [baseCandidate()]);
-    store.observeRun('searchPostgresIndexes', { query: 'idx_' }, true);
-    for (const regression of [
-      { candidateProofOk: false, referenceProofOk: true, executedParamSets: 2 },
-      { candidateProofOk: true, referenceProofOk: false, executedParamSets: 2 }
-    ]) {
-      const report = await store.finish([], [baseCandidate({
-        name: 'searchPostgresIndexes',
-        code: 'search(params.query).slice(0, 20)',
-        replaces: 'searchPostgresIndexes',
-        regression
-      })]);
-      assert.match(report.rejected[0].reason, /Replacement gate: proofs invalid/);
-      assert.equal(store.get('searchPostgresIndexes')?.code, 'search(params.query)', 'old version kept on refusal');
-    }
-  });
-});
-
-test('replacement is refused when the old version has no recorded reference cases', async () => {
-  await withStore(async store => {
-    await store.finish([], [baseCandidate()]);
-    const report = await store.finish([], [baseCandidate({
-      name: 'searchPostgresIndexes',
-      code: 'search(params.query).slice(0, 20)',
-      replaces: 'searchPostgresIndexes',
-      regression: { candidateProofOk: true, referenceProofOk: true, executedParamSets: 1 }
-    })]);
-    assert.match(report.rejected[0].reason, /no recorded reference cases/);
-    assert.equal(store.get('searchPostgresIndexes')?.code, 'search(params.query)');
   });
 });
 
@@ -208,7 +165,7 @@ test('failure traces and observations recorded during a run never mutate the cat
 
 test('purges reflect the failure rule (G0: never inactivity-based) and stay visible in metrics', async () => {
   await withStore(async store => {
-    await store.finish([], [baseCandidate(), baseCandidate({ name: 'readPostgresTables', description: 'Liste des tables', code: 'read(params.file)' })]);
+    await store.finish([], [baseCandidate(), baseCandidate({ name: 'readPostgresTables', description: 'Reads a table declaration from the repository scripts. Returns the matching source lines.', code: 'read(params.file)' })]);
     assert.equal(store.purges(), 0);
     // 3 runs, 2 failures => clearly failed entry, pruned; the other entry stays.
     store.recordFailure('searchPostgresIndexes');

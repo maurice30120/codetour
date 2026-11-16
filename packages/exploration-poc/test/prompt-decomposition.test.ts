@@ -38,7 +38,7 @@ test('C1: with useful memory - uses memory_list and memory_run with valid params
                 params: { query: 'getUser' }, 
                 remember: true, 
                 name: 'findApiFunction',
-                description: 'Search for function' 
+                description: 'Searches the repository for the requested function name. Returns matching file, line and text.' 
               } 
             }] };
           }
@@ -286,7 +286,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
                 params: { query: 'getUser' }, 
                 remember: true, 
                 name: 'searchApiFunctions',
-                description: 'Search for API functions' 
+                description: 'Searches the repository for the requested function name. Returns matching file, line and text.' 
               } 
             }] };
           }
@@ -321,7 +321,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
                 params: { query: 'query' }, 
                 remember: true, 
                 name: 'searchDbFunctions',
-                description: 'Search for DB functions' 
+                description: 'Searches the repository for the requested function name. Returns matching file, line and text.' 
               } 
             }] };
           }

@@ -2,7 +2,7 @@ import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { z } from 'zod';
 import { workspace } from './workspace.ts';
 import { scriptMemory } from './memory.ts';
-import type { ConsolidationCandidate, ReplacementVerification } from './memory.ts';
+import type { ConsolidationCandidate, ReconciliationOutcome } from './memory.ts';
 import { boundedOutput, looksLikeEvidence, sampleEvidenceRefs } from './memory-output.ts';
 import { citationAccess, citationRepairFeedback, validateCitations } from './citation-validator.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposition-prompt.ts';
@@ -60,7 +60,7 @@ interface Attempt {
 }
 
 /** An exploration returns validated references, never Tour prose. */
-export async function explore({ root, objective, model, budget = {}, codeMode = false, memory }: { root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string; validateQuery?: boolean; queryContract?: boolean; deduplicate?: boolean; compactSearch?: boolean } }) {
+export async function explore({ root, objective, model, budget = {}, codeMode = false, memory }: { root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string; validateQuery?: boolean; queryContract?: boolean; compactSearch?: boolean } }) {
   if (memory && !codeMode) throw new Error('Script memory requires Code Mode');
   const limits = { iterations: budget.iterations ?? 8, calls: budget.calls ?? 32, tokens: budget.tokens ?? 32000, durationMs: budget.durationMs ?? 60000 };
   if (Object.values(limits).some(n => !Number.isFinite(n) || n <= 0)) throw new Error('Budgets must be positive');
@@ -104,7 +104,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   };
   try {
   const tools = await workspace(root);
-  const library = memory ? await scriptMemory(root, memory.directory, { deduplicate: memory.deduplicate }) : undefined;
+  const library = memory ? await scriptMemory(root, memory.directory) : undefined;
   // Background revision lookup (lazily filled): used for staleness + sourcing.
   let currentRevision: string | undefined;
   const resolveRevision = async (): Promise<string> => {
@@ -230,7 +230,9 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
         else if (library && call.name === 'memory_list') output = library.memory_list(typeof call.arguments.query === 'string' ? call.arguments.query : undefined);
         else if (library && call.name === 'memory_unusable' && typeof call.arguments.id === 'string') {
           const id = call.arguments.id;
-          if (!attempts.some(a => a.id === id)) throw new Error('Script must have been executed in this run');
+          // Issue #187: a proposed candidate may also be abandoned by name —
+          // a candidate marked unusable never reaches the catalogue.
+          if (!attempts.some(a => a.id === id || a.candidate?.name === id)) throw new Error('Script must have been executed in this run');
           unusableIds.add(id);
           output = { recordedAfterValidation: true };
         }
@@ -290,7 +292,10 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
                 metrics.memoryResultsCompacted++;
               }
             }
-            const description = typeof call.arguments.description === 'string' ? call.arguments.description.trim().slice(0, 300) : '';
+            // The description is kept whole: a deterministic gate at consolidation
+            // refuses off-format or oversized descriptions with a precise reason
+            // instead of silently truncating them (issue #187).
+            const description = typeof call.arguments.description === 'string' ? call.arguments.description.trim() : '';
             const name = typeof call.arguments.name === 'string' ? call.arguments.name.trim().slice(0, 100) : '';
             const returns = typeof call.arguments.returns === 'string' ? call.arguments.returns.trim().slice(0, 300) : undefined;
             // The model only sees the bounded output: when the bounding stage
@@ -361,7 +366,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     }
     return { messages: outputs, stopReason: reason() };
   }).addEdge(START, 'model').addConditionalEdges('model', state => state.result !== undefined || state.stopReason ? END : 'model').compile();
-  const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. If a permanent primitive suffices, use it directly without creating a procedure. The ten primitives are listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports and getGitDiff. Only a missing reusable functional question warrants function_try(source, params). Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Name useful procedures camelCase verb+domain+object and parameterize variations. Supply question as a stable canonical question independent of this Tour, description as its scope, and remember=true only to propose an executed trial for post-Tour selection. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
+  const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. If a permanent primitive suffices, use it directly without creating a procedure. The ten primitives are listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports and getGitDiff. Only a missing reusable functional question warrants function_try(source, params). Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Name useful procedures camelCase verb+domain+object and parameterize variations. Supply question as a stable canonical question independent of this Tour, description as one or two English sentences stating what the procedure does, its scope, the shape of its result and its key limits, and remember=true only to propose an executed trial for post-Tour selection. Consolidation re-executes the exact code and params and re-checks every citation; only deterministically validated proposals persist. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
   const state = await graph.invoke({ messages: [{ role: 'system', content: `${DECOMPOSITION_PROMPT}
 
 Explore the repository using the tools. Assess whether the evidence answers the objective; if essential evidence is missing, use further tools before returning. Record unresolved gaps in uncertainties. Return only JSON matching this exact shape: {"objective":"...","entryPoints":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"components":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"relations":[{"from":"...","to":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"uncertainties":["..."]}. Use empty arrays when needed. Each evidence must be an array of objects with real file paths and integer line numbers, not a string. Do not write a tour.${memoryInstructions}` }, { role: 'user', content: objective }] }, { recursionLimit: Math.ceil(limits.iterations) + 2 });
@@ -380,7 +385,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   }
   let consolidationReport: unknown;
   if (library && state.result !== undefined && !state.stopReason) {
-    const eligible = attempts.filter(attempt => attempt.candidate?.executionMode === 'strict');
+    const eligible = attempts.filter(attempt => attempt.candidate?.executionMode === 'strict' && !unusableIds.has(attempt.candidate?.name ?? ''));
     let selected = new Set<string>();
     if (eligible.length && !reason()) {
       const selectionStarted = new Date();
@@ -419,24 +424,54 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       }
       return Object.values(value).some(matches);
     };
-    const successful = attempts.filter(a => (!a.id || !unusableIds.has(a.id)) && matches(a.output));
+    const successful = attempts.filter(a => (!a.id || !unusableIds.has(a.id)) && (!a.candidate?.name || !unusableIds.has(a.candidate.name)) && matches(a.output));
     const candidates: ConsolidationCandidate[] = [];
+    // Issue #187 (D04): reconciliation log for candidates that never reach the
+    // deterministic validator — not proposed, abandoned, or replay impossible.
+    const unreconciled: ReconciliationOutcome[] = [];
     for (const attempt of attempts) {
       if (!attempt.candidate || attempt.output == null) continue;
-      if (attempt.candidate.executionMode === 'strict') {
-        if (!selected.has(attempt.candidate.name ?? '')) continue;
-        const remaining = limits.durationMs - (Date.now() - startedMs);
-        if (remaining <= 0) continue;
-        const verificationStarted = new Date();
-        try {
-          const { runScript } = await import('../../exploration-sandbox/index.js');
-          const rerun = await runScript({ workspace: root, code: attempt.candidate.code, params: attempt.params, strict: true, includeTrace: true, timeoutMs: Math.min(5000, remaining) });
-          recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, execution: rerun.trace, outcome: 'reexecuted' }, verificationStarted, new Date());
-          if (JSON.stringify(rerun.value) !== JSON.stringify(attempt.output)) continue;
-        } catch (error) {
-          recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, verificationStarted, new Date());
-          continue;
+      const candidateName = attempt.candidate.name ?? '';
+      if (unusableIds.has(candidateName)) {
+        unreconciled.push({ name: candidateName, proposed: false, replayed: false, accepted: false, reason: 'Marked unusable by memory_unusable during the Tour' });
+        continue;
+      }
+      if (attempt.candidate.executionMode === 'strict' && !selected.has(candidateName)) {
+        unreconciled.push({ name: candidateName, proposed: false, replayed: false, accepted: false, reason: 'Not proposed by the model for consolidation' });
+        continue;
+      }
+      // Issue #187 (D04): deterministic reconciliation replay — the exact same
+      // code and the exact same params are re-executed, and every citation is
+      // re-checked on the replayed output. No second LLM judge decides anything.
+      const remaining = limits.durationMs - (Date.now() - startedMs);
+      if (remaining <= 0) {
+        unreconciled.push({ name: candidateName, proposed: true, replayed: false, accepted: false, reason: 'Budget exhausted before the reconciliation replay' });
+        continue;
+      }
+      const verificationStarted = new Date();
+      let replay: ConsolidationCandidate['replay'];
+      try {
+        const { runScript } = await import('../../exploration-sandbox/index.js');
+        const strict = attempt.candidate.executionMode === 'strict';
+        const rerun = await runScript({ workspace: root, code: attempt.candidate.code, params: attempt.params, scripts: strict ? undefined : library.sources(), strict, includeTrace: true, timeoutMs: Math.min(5000, remaining) });
+        // Every citation is re-checked exactly as it was checked at trial time:
+        // strict function_try outputs carry mandatory references validated by
+        // the #185 validator, so the replay re-runs that same exhaustive check;
+        // legacy outputs were never subject to it (their proof stays the
+        // spot-check recorded on the attempt).
+        const citations = strict ? await validateCitations(rerun.value, { access: citationAccess(tools), revision: await resolveRevision() }) : undefined;
+        const citationOutcome = citations ? `; citations=${citations.status === 'valid' ? `${citations.validCount} valid` : citations.status === 'validation_failed' ? `validation_failed (${citations.validCount}/${citations.references} valid)` : 'none'}` : '';
+        recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, execution: rerun.trace, result: citations?.status === 'validation_failed' ? citationRepairFeedback(citations).validation : citations, outcome: `reexecuted${citationOutcome}` }, verificationStarted, new Date());
+        if (JSON.stringify(rerun.value) !== JSON.stringify(attempt.output)) {
+          replay = { ok: false, reason: 'the re-execution did not reproduce the exact original output with the same code and params', citations: citations?.status };
+        } else if (citations?.status === 'validation_failed') {
+          replay = { ok: false, reason: `citation re-validation failed on the replayed output: ${citations.invalidReferences.length} of ${citations.references} references invalid`, citations: citations.status };
+        } else {
+          replay = { ok: true, citations: citations?.status };
         }
+      } catch (error) {
+        recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, verificationStarted, new Date());
+        replay = { ok: false, reason: `the re-execution failed: ${String((error as Error)?.message ?? error).slice(0, 200)}` };
       }
       // Optional counterfactual check: only a nonempty unchanged result proves this
       // particular probe cannot distinguish queries. Empty/error probes are inconclusive.
@@ -458,13 +493,6 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       // result), and traces recorded mid-run never mutate the catalogue.
       const structuralProof = looksLikeEvidence(attempt.output) || matches(attempt.output);
       const contractRespected = attempt.proofValid !== false;
-      // Replacement proposal: same canonical name slot, different code (the model
-      // refined a procedure). The old version's behaviour must be re-proven first.
-      const ownProofOk = attempt.proofValid !== false && looksLikeEvidence(attempt.output);
-      const existing = attempt.candidate.name ? library.get(attempt.candidate.name) : undefined;
-      const replaces = existing && existing.code !== attempt.candidate.code ? existing.id : undefined;
-      let regression: ReplacementVerification | undefined;
-      if (replaces) regression = await verifyRegressionCandidate({ candidate: attempt.candidate, existing, ownProofOk, remaining: limits.durationMs - (Date.now() - startedMs), root, library });
       candidates.push({
         objective: attempt.candidate.objective,
         description: attempt.candidate.description,
@@ -476,12 +504,16 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         executionMode: attempt.candidate.executionMode,
         verified: matches(attempt.output),
         consolidationSignal: { executedSuccessfully: true, proofAvailable: structuralProof, contractRespected },
-        replaces,
-        regression,
+        replay,
         revision: attempt.candidate.revision
       });
     }
-    consolidationReport = await library.finish(successful.flatMap(a => a.id ? [a.id] : []), candidates);
+    const report = await library.finish(successful.flatMap(a => a.id ? [a.id] : []), candidates);
+    // The reconciliation log distinguishes proposed, replayed, accepted and
+    // rejected with a reason — including candidates the model never proposed
+    // or that could not be replayed (issue #187).
+    report.reconciliation.push(...unreconciled);
+    consolidationReport = report;
   } else if (library) {
     // Persist observed failures even when the exploration is partial; never
     // consolidate new candidates from a result without evidence.
@@ -524,36 +556,6 @@ function validatePlan(raw: unknown): { ok: true; questions: PlanQuestion[]; reas
   }
   if (reason !== undefined && typeof reason !== 'string') return { ok: false, error: 'invalid plan: reason must be a string' };
   return { ok: true, questions: questions as PlanQuestion[], reason: reason as string | undefined };
-}
-
-/**
- * Replacement gate (issue #174 complement): before replacing a stored function,
- * the candidate must be verified on its OWN params (already executed during
- * this run — its spot-checked proofs drive candidateProofOk) AND on a
- * representative reference test set covering the old version's behaviour.
- * Every execution must produce valid structural proofs. The old entry is
- * retained (rollback) until all of them pass.
- */
-async function verifyRegressionCandidate({ candidate, existing, ownProofOk, remaining, root, library }: { candidate: { code: string; parameters: string[] }; existing: { id: string; referenceCases: Array<{ params: Record<string, unknown>; ok: boolean }> }; ownProofOk: boolean; remaining: number; root: string; library: { sources: () => Record<string, string> } }): Promise<ReplacementVerification> {
-  const referenceCases = (existing.referenceCases ?? []).filter(referenceCase => referenceCase.ok !== false).slice(0, 3);
-  if (remaining <= 0 || referenceCases.length === 0) {
-    return { candidateProofOk: ownProofOk, referenceProofOk: false, executedParamSets: ownProofOk ? 1 : 0, noReferenceCases: referenceCases.length === 0 };
-  }
-  const { runScript } = await import('../../exploration-sandbox/index.js');
-  let referenceProofOk = true;
-  let executedParamSets = 0;
-  for (const referenceCase of referenceCases) {
-    try {
-      const probe = await runScript({ workspace: root, code: candidate.code, params: referenceCase.params, scripts: library.sources(), timeoutMs: 5000 });
-      executedParamSets++;
-      const ok = probe !== undefined && probe !== null && looksLikeEvidence(probe);
-      if (!ok) referenceProofOk = false;
-    } catch {
-      executedParamSets++;
-      referenceProofOk = false;
-    }
-  }
-  return { candidateProofOk: ownProofOk, referenceProofOk: referenceProofOk && executedParamSets === referenceCases.length, executedParamSets: executedParamSets + (ownProofOk ? 1 : 0), noReferenceCases: false };
 }
 
 function summarizeOutcome(output: unknown): string {

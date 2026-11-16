@@ -87,9 +87,9 @@ describe('Spec #172 G0 — memory catalogue contract', () => {
   it('memory_list(query) filters the projection; projection carries NO function source', async () => {
     const memory = await scriptMemory(tempDir, join(tempDir, 'memory'));
     await memory.finish([], [{
-      objective: 'Trouver les index PostgreSQL', description: 'Index déclarés dans les scripts SQL',
+      objective: 'Trouver les index PostgreSQL', description: 'Searches the SQL scripts of the repository for declared index declarations. Returns one match per declaration with file, line and text.',
       name: 'searchPostgresIndexes', code: 'search(params.query)', parameters: ['query'], verified: true,
-      consolidationSignal: { executedSuccessfully: true, proofAvailable: true, contractRespected: true }
+      consolidationSignal: { executedSuccessfully: true, proofAvailable: true, contractRespected: true }, replay: { ok: true }
     }]);
     const all = memory.memory_list();
     assert.equal(all.length, 1);
@@ -106,9 +106,9 @@ describe('Spec #172 G0 — memory catalogue contract', () => {
   it('G0: no inactivity purge — entries survive untouched runs; failure rule purges only clearly-failed entries', async () => {
     const memory = await scriptMemory(tempDir, join(tempDir, 'memory'));
     const candidate = {
-      objective: 'Trouver les index PostgreSQL', description: 'Index déclarés',
+      objective: 'Trouver les index PostgreSQL', description: 'Searches the SQL scripts of the repository for declared index declarations. Returns one match per declaration with file, line and text.',
       name: 'searchPostgresIndexes', code: 'search(params.query)', parameters: ['query'], verified: true,
-      consolidationSignal: { executedSuccessfully: true, proofAvailable: true, contractRespected: true }
+      consolidationSignal: { executedSuccessfully: true, proofAvailable: true, contractRespected: true }, replay: { ok: true }
     };
     await memory.finish([], [candidate]);
     for (let i = 0; i < 15; i++) await memory.finish(['none'], []); // dry evaluated runs, never reused

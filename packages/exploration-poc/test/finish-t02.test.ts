@@ -32,9 +32,9 @@ test('scriptMemory retains more than twenty independent procedures across reload
   const store = await scriptMemory(root, directory);
   for (let i = 0; i < 21; i++) {
     await store.finish([], [{
-      objective: `Locate domain ${i}`, description: `Domain ${i}`, name: `traceRepoDomain${i}`,
+      objective: `Locate domain ${i}`, description: `Traces domain ${i} declarations in the repository. Returns the matching source lines.`, name: `traceRepoDomain${i}`,
       code: 'search(params.query)', parameters: ['query'], returns: 'SearchMatch[]', verified: true,
-      consolidationSignal: { executedSuccessfully: true, proofAvailable: true, contractRespected: true }
+      consolidationSignal: { executedSuccessfully: true, proofAvailable: true, contractRespected: true }, replay: { ok: true }
     }]);
   }
   const reloaded = await scriptMemory(root, directory);
@@ -88,7 +88,7 @@ test('a validated Tour selects an executed strict procedure and reuses its typed
   const question = 'Where is an entry point declared and what is its source context?';
   let step = 0;
   const first = await explore({ root, objective: 'Explain start', codeMode: true, memory, model: { async complete(messages) {
-    if (step++ === 0) return { toolCalls: [{ id: 'trial', name: 'function_try', arguments: { source, params: { query: 'start' }, remember: true, name: 'traceRepoEntryPoints', question, description: 'Declarations with their source context' } }] };
+    if (step++ === 0) return { toolCalls: [{ id: 'trial', name: 'function_try', arguments: { source, params: { query: 'start' }, remember: true, name: 'traceRepoEntryPoints', question, description: 'Returns each declared entry point with its source context.' } }] };
     if (step === 2) return { result: { ...emptyResult, entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
     assert.match(messages[0].content, /select.*executed/i);
     return { result: { selected: ['traceRepoEntryPoints'] }, usage: { inputTokens: 10, outputTokens: 3 } };
