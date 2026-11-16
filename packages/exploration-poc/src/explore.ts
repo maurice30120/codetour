@@ -5,6 +5,7 @@ import { scriptMemory } from './memory.ts';
 import type { ConsolidationCandidate, ReconciliationOutcome } from './memory.ts';
 import { boundedOutput, looksLikeEvidence, sampleEvidenceRefs } from './memory-output.ts';
 import { citationAccess, citationRepairFeedback, validateCitations } from './citation-validator.ts';
+import type { CitationValidation } from './citation-validator.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposition-prompt.ts';
 import { primitiveNames } from './tool-contract.ts';
 
@@ -59,7 +60,27 @@ interface Attempt {
   proofSignature?: string[];
 }
 
-/** An exploration returns validated references, never Tour prose. */
+/**
+ * Citation outcome summary shared by the trial-time trace and the
+ * consolidation replay trace (single source for the duplicated mapping).
+ */
+function citationOutcome(citations?: CitationValidation): string {
+  if (!citations) return '';
+  const summary = citations.status === 'valid' ? `${citations.validCount} valid` : citations.status === 'validation_failed' ? `validation_failed (${citations.validCount}/${citations.references} valid)` : 'none';
+  return `; citations=${summary}`;
+}
+
+/**
+ * An exploration returns validated references, never Tour prose.
+ *
+ * Deliberate single-function seam (review note — divergent change): explore()
+ * absorbs the plan protocol, citation gating, reconciliation and budgets
+ * because they all share the same closure state (metrics, the trace recorder,
+ * budget clocks, workspace tools and the memory catalogue handle). Extracting
+ * a mid-run module would mean threading that state through new seams for no
+ * behavioural gain in this diagnostic phase, and the seam under test is the
+ * explore() entry point itself (spec #183: use the existing harness seam).
+ */
 export async function explore({ root, objective, model, budget = {}, codeMode = false, memory }: { root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string; validateQuery?: boolean; queryContract?: boolean; compactSearch?: boolean } }) {
   if (memory && !codeMode) throw new Error('Script memory requires Code Mode');
   const limits = { iterations: budget.iterations ?? 8, calls: budget.calls ?? 32, tokens: budget.tokens ?? 32000, durationMs: budget.durationMs ?? 60000 };
@@ -278,8 +299,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             // leaves its code and diagnostics in the trace only.
             const citations = call.name === 'function_try' ? await validateCitations(raw, { access: citationAccess(tools), revision: await resolveRevision() }) : undefined;
             const citationFailure = citations?.status === 'validation_failed' ? citationRepairFeedback(citations) : undefined;
-            const citationOutcome = citations ? `; citations=${citations.status === 'valid' ? `${citations.validCount} valid` : citations.status === 'validation_failed' ? `validation_failed (${citations.validCount}/${citations.references} valid)` : 'none'}` : '';
-            recordCall({ type: scriptCall.type, name: scriptCall.name, callId: call.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome}` }, runStarted, runEnded);
+            recordCall({ type: scriptCall.type, name: scriptCall.name, callId: call.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome(citations)}` }, runStarted, runEnded);
             output = citationFailure ?? (output && typeof output === 'object' && 'staleness' in (output as Record<string, unknown>) ? { ...(output as Record<string, unknown>), result: bounded } : bounded);
             if (stored && memory?.compactSearch && stored.code === 'search(params.query)' && Array.isArray(raw)) {
               const matches = raw.slice(0, 8).map((match: any) => ({ ...match, text: typeof match.text === 'string' ? match.text.slice(0, 240) : match.text, textTruncated: typeof match.text === 'string' && match.text.length > 240 }));
@@ -467,8 +487,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         // legacy outputs were never subject to it (their proof stays the
         // spot-check recorded on the attempt).
         const citations = strict ? await validateCitations(rerun.value, { access: citationAccess(tools), revision: await resolveRevision() }) : undefined;
-        const citationOutcome = citations ? `; citations=${citations.status === 'valid' ? `${citations.validCount} valid` : citations.status === 'validation_failed' ? `validation_failed (${citations.validCount}/${citations.references} valid)` : 'none'}` : '';
-        recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, execution: rerun.trace, result: citations?.status === 'validation_failed' ? citationRepairFeedback(citations).validation : citations, outcome: `reexecuted${citationOutcome}` }, verificationStarted, new Date());
+        recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, execution: rerun.trace, result: citations?.status === 'validation_failed' ? citationRepairFeedback(citations).validation : citations, outcome: `reexecuted${citationOutcome(citations)}` }, verificationStarted, new Date());
         if (JSON.stringify(rerun.value) !== JSON.stringify(attempt.output)) {
           replay = { ok: false, reason: 'the re-execution did not reproduce the exact original output with the same code and params', citations: citations?.status };
         } else if (citations?.status === 'validation_failed') {
