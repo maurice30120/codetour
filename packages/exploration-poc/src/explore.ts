@@ -103,6 +103,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const callTrace: CallTraceItem[] = [];
   let callSeq = 0;
   let requestedEvidenceRecovery = false;
+  let requestedJsonRecovery = false;
   const recordCall = (base: Omit<CallTraceItem, 'seq' | 'startedAt' | 'endedAt' | 'durationMs' | 'startedAt'>, startedAt: Date, endedAt: Date): void => {
     callTrace.push({ ...base, runId, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() });
   };
@@ -180,6 +181,16 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       metrics.outputTokens += usage?.outputTokens ?? 0;
       if (!usage) metrics.usageAvailable = false;
       if (controller.signal.aborted) return { stopReason: 'duration' };
+      // A non-JSON final answer (often an empty reply after plan extraction)
+      // gets one visible recovery inside the original budget, mirroring the
+      // citation repair path. A repeated failure stays fatal: no hidden retry.
+      if ((error as { name?: string })?.name === 'FinalAnswerNotJson' && !requestedJsonRecovery && !reason()) {
+        requestedJsonRecovery = true;
+        return { messages: [
+          { role: 'assistant', content: String((error as Error).message ?? '') },
+          { role: 'user', content: 'Your final answer was not valid JSON. Reply again with the result as a single JSON object matching the required schema, with no prose outside the JSON.' },
+        ] };
+      }
       throw error;
     } finally { if (timer) clearTimeout(timer); }
     const modelCallEnded = new Date();

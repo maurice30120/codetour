@@ -60,7 +60,15 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
           : { id: call.id, name: call.function.name, arguments: args };
       }), usage };
       const content = rawContent.replace(/```plan\s*[\s\S]*?```/g, '').replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
-      return { ...(plan !== undefined ? { plan } : {}), result: JSON.parse(content), usage };
+      let parsedResult: unknown;
+      try { parsedResult = JSON.parse(content); } catch {
+        // Ten-ticket diagnostic: a bare SyntaxError hides whether the model sent
+        // prose or the plan block swallowed everything. A typed error with a
+        // content snippet keeps the failure diagnosable and lets the harness
+        // attempt one visible recovery instead of dying opaque.
+        throw Object.assign(new Error(`Final answer is not valid JSON (content after plan extraction: ${content ? JSON.stringify(content.slice(0, 200)) : 'empty'})`), { name: 'FinalAnswerNotJson' });
+      }
+      return { ...(plan !== undefined ? { plan } : {}), result: parsedResult, usage };
     } catch (error) {
       throw Object.assign(error instanceof Error ? error : new Error(String(error)), { usage });
     }
