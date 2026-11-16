@@ -5,6 +5,15 @@
 >
 > **Parent fonctionnel :** #172 — mémoire procédurale. **Protocole benchmark séparé :** #174. **Tickets de réalisation existants :** #175 (prompt), #176 (mémoire et `function_try`), #179 (télémétrie), #181 (campagne future). Cette issue **#183 est la source de vérité prioritaire pour la phase diagnostique** en cas de contradiction avec d'anciennes consignes de ces tickets.
 
+## Branche de départ obligatoire de l'implémentation
+
+- **Dépôt :** `maurice30120/codetour`.
+- **Branche de travail à reprendre :** **`spec-174-integration`**. L'agent doit **travailler sur cette branche existante**, pas repartir de `main`, d'une branche `spec-174-ticket-*` ni d'un ancien commit.
+- **État vérifié lors de cette mise à jour (16/11/2026) :** `051dad2100fbf2f360d0ee70113e865c01dea251`. Ce SHA est un **repère historique**, **pas un SHA à figer** : récupérer le **dernier HEAD de `origin/spec-174-integration` au démarrage**, car la branche continue d'évoluer.
+- **Avant tout changement**, vérifier `git status`, `git branch --show-current` et `git rev-parse HEAD` ; récupérer la branche distante et se placer sur `spec-174-integration` (par exemple `git fetch origin spec-174-integration && git switch spec-174-integration && git pull --ff-only origin spec-174-integration` si l'arbre local le permet).
+- **Si la branche locale contient des changements non commités ou diverge**, ne pas faire de `reset --hard`, ne pas écraser les fichiers : conserver l'état et signaler le conflit avant de poursuivre. Commiter l'implémentation sur cette **même branche**, sauf instruction ultérieure explicite.
+- **Portée :** concerne les tickets du diagnostic de faisabilité **#184–#188**. Le protocole comparatif officiel **#174** reste distinct ; ce point ne présume pas du lancement des 80 runs.
+
 ## Problem Statement
 Dans le dernier diagnostic réel sur PostgreSQL, CodeTour a répondu en explorant le dépôt, mais **aucune fonction mémoire n'a été créée, essayée ni réutilisée**. Le prompt exige une décomposition « mentale », non observable. Nous ne savons pas si l'agent a identifié des sous-questions fonctionnelles réutilisables ni pourquoi il n'a pas appelé `memory_list` ou `function_try`. Les diagnostics précédents ne démontrent **aucun apprentissage ni aucune économie de tokens**. Les journaux du comparateur Vibe présentaient en outre une consommation incomplète ; ceci reste une contrainte du benchmark futur, distincte du diagnostic présent.
 
