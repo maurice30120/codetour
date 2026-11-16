@@ -395,7 +395,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             // leaves its code and diagnostics in the trace only.
             const citations = call.name === 'function_try' ? await validateCitations(raw, { access: citationAccess(tools), revision: await resolveRevision() }) : undefined;
             const citationFailure = citations?.status === 'validation_failed' ? citationRepairFeedback(citations) : undefined;
-            recordCall({ type: scriptCall.type, name: scriptCall.name, callId: call.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome(citations)}` }, runStarted, runEnded);
+            recordCall({ type: scriptCall.type, name: scriptCall.name, callId: call.id, questionId, parameters: call.name === 'function_try' ? { remember: call.arguments.remember === true, name: call.arguments.name, question: call.arguments.question, description: call.arguments.description } : undefined, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome(citations)}` }, runStarted, runEnded);
             output = citationFailure ?? (output && typeof output === 'object' && 'staleness' in (output as Record<string, unknown>) ? { ...(output as Record<string, unknown>), result: bounded } : bounded);
             if (stored && memory?.compactSearch && stored.code === 'search(params.query)' && Array.isArray(raw)) {
               const matches = raw.slice(0, 8).map((match: any) => ({ ...match, text: typeof match.text === 'string' ? match.text.slice(0, 240) : match.text, textTruncated: typeof match.text === 'string' && match.text.length > 240 }));
@@ -518,6 +518,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
     let selected = new Set<string>();
     if (eligible.length && !reason()) {
       const selectionStarted = new Date();
+      const selectionInput = { tour: result, catalog: library.catalog(), executedCandidates: eligible.map(attempt => ({ name: attempt.candidate!.name, question: attempt.candidate!.objective, description: attempt.candidate!.description, paramsSchema: attempt.candidate!.paramsSchema, returns: attempt.candidate!.returns, output: boundedOutput(attempt.output, { revision: currentRevision ?? 'unknown-revision' }) })) };
       const controller = new AbortController();
       const remaining = Math.max(1, limits.durationMs - (Date.now() - startedMs));
       const timer = setTimeout(() => controller.abort(), remaining);
@@ -526,7 +527,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         const response = await Promise.race([
           model.complete([
             { role: 'system', content: 'Select useful executed procedures for future Tours. This Tour has passed structural evidence validation only, not semantic verification. Return JSON {"selected":["canonicalName"]}; select only from the executed candidates below. You may select none. Compare canonical question, scope, inputs, output and limits with existing entries; prefer reuse over equivalent duplicates.' },
-            { role: 'user', content: JSON.stringify({ tour: result, catalog: library.catalog(), executedCandidates: eligible.map(attempt => ({ name: attempt.candidate!.name, question: attempt.candidate!.objective, description: attempt.candidate!.description, paramsSchema: attempt.candidate!.paramsSchema, returns: attempt.candidate!.returns, output: boundedOutput(attempt.output, { revision: currentRevision ?? 'unknown-revision' }) })) }) }
+            { role: 'user', content: JSON.stringify(selectionInput) }
           ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(1024, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode: false, memory: false }),
           new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('budget-duration')), { once: true }))
         ]);
@@ -534,12 +535,13 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         metrics.inputTokens += usage?.inputTokens ?? 0;
         metrics.outputTokens += usage?.outputTokens ?? 0;
         if (!usage) metrics.usageAvailable = false;
-        recordCall({ type: 'model', name: 'memory-selection', inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, usageMissing: !usage }, selectionStarted, new Date());
         const names = (response.result as { selected?: unknown })?.selected;
-        if (Array.isArray(names) && !reason()) selected = new Set(names.filter((name): name is string => typeof name === 'string'));
+        const stopped = reason();
+        if (Array.isArray(names) && !stopped) selected = new Set(names.filter((name): name is string => typeof name === 'string'));
+        recordCall({ type: 'model', name: 'memory-selection', parameters: selectionInput, result: { response: response.result, toolCalls: response.toolCalls, selected: [...selected], budgetStop: stopped ?? null }, inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, usageMissing: !usage }, selectionStarted, new Date());
       } catch (error) {
         metrics.usageAvailable = false;
-        recordCall({ type: 'model', name: 'memory-selection', inputTokens: null, outputTokens: null, usageMissing: true, error: String(error) }, selectionStarted, new Date());
+        recordCall({ type: 'model', name: 'memory-selection', parameters: selectionInput, inputTokens: null, outputTokens: null, usageMissing: true, error: String(error) }, selectionStarted, new Date());
       } finally { clearTimeout(timer); }
     }
     const retained = [...result.entryPoints, ...result.components, ...result.relations].flatMap(x => x.evidence);

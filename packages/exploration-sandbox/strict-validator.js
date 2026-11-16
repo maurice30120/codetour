@@ -13,6 +13,13 @@ function parameterType(value) {
 
 function validateStrict(code, params) {
   const file = path.join(__dirname, '__candidate.ts');
+  // A standalone function declaration evaluates to undefined, not the function.
+  // Treat the model's equivalent named-function form as an expression before
+  // type checking as well as execution, so its parameter contract is checked.
+  const candidate = ts.createSourceFile(file, code, ts.ScriptTarget.ES2022, true);
+  if (candidate.statements.length === 1 && ts.isFunctionDeclaration(candidate.statements[0])) {
+    code = `(${code}\n)`;
+  }
   const declarations = fs.readFileSync(path.join(__dirname, 'strict-primitives.d.ts'), 'utf8');
   const prefix = `${declarations}\ndeclare const params: ${parameterType(params)};\n`;
   const source = prefix + code;

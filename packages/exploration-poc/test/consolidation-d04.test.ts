@@ -186,6 +186,10 @@ test('a full Tour: the proposal is replayed with the same code and params, all c
   const trial = first.callTrace.find(call => call.type === 'function_try' && call.name === 'function_try');
   const replay = first.callTrace.find(call => call.name === 'consolidation-validation');
   assert.ok(trial && replay, 'both the trial and the reconciliation replay are traced');
+  assert.equal(trial.parameters?.remember, true);
+  const selection = first.callTrace.find(call => call.name === 'memory-selection');
+  assert.deepEqual((selection?.parameters?.executedCandidates as Array<{ name: string }>).map(candidate => candidate.name), ['traceRepoEntryPoints']);
+  assert.deepEqual(selection?.result, { response: { selected: ['traceRepoEntryPoints'] }, toolCalls: undefined, selected: ['traceRepoEntryPoints'], budgetStop: null });
   assert.deepEqual(replay.execution && (replay.execution as { parameters?: unknown }).parameters, { query: 'start' });
   assert.deepEqual(replay.execution && (replay.execution as { parameters?: unknown }).parameters, trial.execution && (trial.execution as { parameters?: unknown }).parameters, 'the replay used the exact same params');
   // ...and re-checked every citation on the replayed output.
@@ -227,6 +231,7 @@ test('a candidate the model does not propose is logged as such and never persist
     return { result: { selected: [] } };
   } } });
   const report = result.consolidationReport as ConsolidationReport;
+  assert.deepEqual((result.callTrace.find(call => call.name === 'memory-selection')?.result as { response: unknown }).response, { selected: [] });
   assert.deepEqual(report.accepted, []);
   assert.deepEqual(report.reconciliation, [{ name: 'traceRepoEntryPoints', proposed: false, replayed: false, accepted: false, reason: 'Not proposed by the model for consolidation' }]);
   assert.equal((await scriptMemory(root, memory.directory)).catalog().length, 0);

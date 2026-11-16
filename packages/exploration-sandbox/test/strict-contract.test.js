@@ -28,6 +28,18 @@ test('strict trials validate actual params and expose the executed source contra
   assert.equal(result.value[0].file, 'main.ts');
 });
 
+test('strict named function declarations execute with validated parameters', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'strict-declaration-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, 'main.ts'), 'needle\n');
+  const code = 'function explore(input: { query: string }) { return searchText(input.query); }';
+  await assert.rejects(runScript({ workspace: root, code, params: { query: 17 }, strict: true }), /TS2345/);
+  const result = await runScript({ workspace: root, code, params: { query: 'needle' }, strict: true, includeTrace: true });
+  assert.deepEqual(result.value, [{ file: 'main.ts', line: 1, text: 'needle' }]);
+  assert.deepEqual(result.trace.contract.paramsSchema, [{ name: 'query', type: 'string' }]);
+  assert.ok(result.trace.executedCalls.some(call => call.name === 'searchText'));
+});
+
 test('canonical primitives return real symbols, imports and exact references with zero context', async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 't02-primitives-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
