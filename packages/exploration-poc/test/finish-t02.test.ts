@@ -58,7 +58,8 @@ test('explore executes function_try source with typed params and canonical primi
     assert.equal(output.result[0].line, 1);
     return { result: emptyResult };
   } } });
-  assert.equal(result.callTrace.find(call => call.type === 'function_try')?.outcome, 'returned=1');
+  // Since #185 the function_try outcome also traces the citation validation result.
+  assert.equal(result.callTrace.find(call => call.type === 'function_try')?.outcome, 'returned=1; citations=1 valid');
 });
 
 test('explore preserves measured calls when final evidence validation fails', async t => {
