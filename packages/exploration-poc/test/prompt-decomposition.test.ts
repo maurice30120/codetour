@@ -766,3 +766,34 @@ test('plan token overhead is counted in the run usage accounting', async () => {
     await rm(base, { recursive: true, force: true });
   }
 });
+
+// §D01 (#184): a missing plan is a visible anomaly, never a presumed success.
+test('a missing plan is recorded as a visible anomaly without failing the Tour', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-missing-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  try {
+    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
+    let modelCalls = 0;
+    const result = await explore({
+      root,
+      objective: 'Find start',
+      codeMode: true,
+      model: {
+        async complete() {
+          modelCalls++;
+          if (modelCalls === 1) return { toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }] };
+          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+        }
+      }
+    });
+    // No plan was published: the run says so instead of presuming success.
+    assert.equal(result.plan.status, 'missing');
+    assert.equal(result.plan.versions.length, 0);
+    assert.ok(result.plan.anomalies.some(anomaly => /no plan/i.test(anomaly)), 'the missing plan is an explicit anomaly');
+    // The Tour itself still completes; the anomaly stays visible, never hidden.
+    assert.equal(result.status, 'complete');
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
