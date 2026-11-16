@@ -30,6 +30,19 @@ test('selection requests omit tools so the model can return its decision', async
   } finally { globalThis.fetch = original; }
 });
 
+test('configured reasoning effort reaches the provider request', async () => {
+  const original = globalThis.fetch;
+  let body: any;
+  try {
+    globalThis.fetch = async (_url, init) => {
+      body = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{}' } }] }));
+    };
+    await mistral('fixture', 'zai-glm-5-3-flash', { reasoningEffort: 'low' }).complete([], { signal: new AbortController().signal, maxOutputTokens: 100, codeMode: true, memory: true });
+    assert.equal(body.reasoning_effort, 'low');
+  } finally { globalThis.fetch = original; }
+});
+
 test('rate-limited requests retry and respect cancellation while waiting', async () => {
   const original = globalThis.fetch;
   let calls = 0;

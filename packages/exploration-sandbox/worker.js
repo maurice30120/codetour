@@ -272,8 +272,8 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
   const read = (name, start = 1, end = start + 99) => {
     trace.executedCalls.push({ name: 'read', params: { file: name, start, end } });
     if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start || end - start >= 100) {
-      trace.errors.push({ code: 'READ_001', line: 0, message: 'Invalid line range' });
-      throw new Error('Invalid line range');
+      trace.errors.push({ code: 'READ_001', line: 0, message: 'Invalid line range: use positive integer bounds and at most 100 lines' });
+      throw new Error('Invalid line range: use positive integer bounds and at most 100 lines');
     }
     const file = resolve(name);
     const stat = fs.statSync(file);
@@ -295,8 +295,8 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     readLines: (file, startLine, endLine) => {
       trace.executedCalls.push({ name: 'readLines', params: { file, startLine, endLine } });
       if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || startLine < 1 || endLine < startLine || endLine - startLine >= 100) {
-        trace.errors.push({ code: 'READ_001', line: 0, message: 'Invalid line range' });
-        throw new Error('Invalid line range');
+        trace.errors.push({ code: 'READ_001', line: 0, message: 'Invalid line range: use positive integer bounds and at most 100 lines' });
+        throw new Error('Invalid line range: use positive integer bounds and at most 100 lines');
       }
       return read(file, startLine, endLine);
     },
@@ -642,6 +642,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
   runtime.setInterruptHandler(() => Date.now() > deadline);
   const vm = runtime.newContext();
   const runtimeCalls = [];
+  let resultHandle;
   
   try {
     const parameterString = vm.newString(paramsJson);
@@ -678,6 +679,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
       trace.errors.push({ code: 'JS_001', line: 0, message: err.message || String(err) });
       throw new Error(`Script error: ${err.message || err}`); 
     }
+    resultHandle = result.value;
     
     // Store result.value in globalThis so we can work with it
     const resultVar = vm.newString('__sandboxResult__');
@@ -712,7 +714,6 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     
     const serialized = vm.dump(jsonResult.value); 
     jsonResult.value.dispose();
-    result.value.dispose();
     
     if (typeof serialized !== 'string' || Buffer.byteLength(serialized) > 32768) {
       trace.errors.push({ code: 'RESULT_001', line: 0, message: 'Result must be JSON within output limit' });
@@ -730,6 +731,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
       trace: trace
     };
   } finally { 
+    if (resultHandle) resultHandle.dispose();
     vm.dispose(); 
     runtime.dispose(); 
   }

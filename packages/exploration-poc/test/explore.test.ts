@@ -170,7 +170,9 @@ test('failed exploration preserves effective model identity and provider usage',
     } }), error => {
       const failure = (error as Error & { exploration: any }).exploration;
       assert.deepEqual(failure.modelConfig, modelConfig);
-      assert.equal(failure.metrics.inputTokens, 10);
+      assert.equal(failure.metrics.inputTokens, 20);
+      assert.equal(failure.metrics.outputTokens, 4);
+      assert.equal(failure.metrics.modelCalls, 2);
       assert.equal(failure.status, 'failed');
       return true;
     });

@@ -18,6 +18,8 @@ const tasks = JSON.parse(await readFile(process.env.EXPERIMENT_TASKS || path.joi
 if (process.env.TRANSFER) tasks.push({ id: 'project-transfer', objective: 'Pour une étape du Project Tour, retrouve la définition de totalPrice, explique le calcul et donne le fichier et les lignes qui le prouvent.' });
 const key = process.env.MISTRAL_API_KEY || execFileSync('security', ['find-generic-password', '-s', 'ai.mistral.vibe', '-a', 'MISTRAL_API_KEY', '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 const modelName = process.env.MISTRAL_MODEL || 'mistral-small-latest';
+const reasoningEffort = process.env.EXPERIMENT_REASONING_EFFORT;
+if (reasoningEffort && !['low', 'high', 'max'].includes(reasoningEffort)) throw Error('Invalid reasoning effort');
 const budget = { iterations: Number(process.env.EXPERIMENT_ITERATIONS || 12), calls: Number(process.env.EXPERIMENT_CALLS || 40), tokens: Number(process.env.EXPERIMENT_TOKENS || 48000), durationMs: Number(process.env.EXPERIMENT_MS || 90000) };
 if (Object.values(budget).some(value => !Number.isInteger(value) || value <= 0)) throw Error('Invalid budget');
 const concludeRatio = process.env.CONCLUDE_RATIO ? Number(process.env.CONCLUDE_RATIO) : null;
@@ -26,15 +28,16 @@ const repetitions = Number(process.env.EXPERIMENT_REPETITIONS || 2);
 if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 10) throw Error('Invalid repetitions');
 const commit = process.env.EXPERIMENT_ROOT ? execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() : null;
 const rows = [];
-await writeFile(output, JSON.stringify({ model: modelName, root, commit, budget, concludeRatio, repetitions, tasks, rows }), { flag: 'wx' });
+await writeFile(output, JSON.stringify({ model: modelName, reasoningEffort: reasoningEffort ?? null, root, commit, budget, concludeRatio, repetitions, tasks, rows }), { flag: 'wx' });
 const scratch = await mkdtemp(path.join(tmpdir(), 'tour-empty-memory-'));
 try {
   for (let repetition = 1; repetition <= repetitions; repetition++) {
     const modes = process.env.MODES ? process.env.MODES.split(',') : ['off', 'memory', 'guided'];
     if (modes.some(mode => !['off', 'classic_final', 'memory', 'guided', 'validated', 'primitives', 'primitives_final', 'memory_final', 'memory_guided_final', 'primitives_guided_final', 'memory_contract_final', 'primitives_contract_final', 'memory_selected_contract_final', 'memory_guided_dedup_final', 'memory_named_contract_final', 'primitives_named_contract_final', 'primitives_named_exclusive_contract_final', 'primitives_named_exclusive_compact_contract_final', 'primitives_scoped_named_exclusive_contract_final', 'primitives_named_exclusive_autoselect_contract_final', 'primitives_named_multi_autoselect_contract_final', 'primitives_scoped_named_exclusive_autoselect_contract_final', 'primitives_scoped_memoryonly_autoselect_contract_final'].includes(mode))) throw Error('Unknown mode');
     for (const mode of repetition % 2 ? modes : [...modes].reverse()) {
-      const directory = path.join(scratch, `${repetition}-${mode}`);
-      // The unique directory does not exist yet: no user or prior-run memory is touched.
+      // An explicit experiment directory permits separate invocations to share
+      // a catalogue; otherwise each run starts with isolated temporary memory.
+      const directory = path.join(process.env.EXPERIMENT_MEMORY_ROOT ? path.resolve(process.env.EXPERIMENT_MEMORY_ROOT) : scratch, `${repetition}-${mode}`);
       let primitiveCodes = [];
       if (mode.startsWith('primitives')) {
         const store = await scriptMemory(root, directory);
@@ -81,6 +84,7 @@ try {
         const exclusive = mode.includes('_exclusive_') && !!selectedId;
         const memoryOnly = mode.includes('_memoryonly_');
         const underlying = mistral(key, modelName, {
+          ...(reasoningEffort ? { reasoningEffort } : {}),
           ...(mode.includes('_named_') && selectedId ? { memorySearchId: selectedId, memorySearchExclusive: exclusive, memorySearchScoped: mode.includes('_scoped_'), ...(selectionTools?.length ? { memoryTools: selectionTools } : {}) } : {}),
           ...(memoryOnly ? { removeSearch: true, removeCode: true } : {})
         });
@@ -131,7 +135,7 @@ try {
           row = { repetition, mode, task: task.id, selectedId, selectedTerm, selectedHits, selectedPrefix, namedTools: selectionTools?.map(tool => tool.name) ?? null, selectionMs, result, calls, library, probes, validationFeedback };
         } catch (error) { row = { repetition, mode, task: task.id, selectedId, selectedTerm, selectedHits, selectedPrefix, namedTools: selectionTools?.map(tool => tool.name) ?? null, selectionMs, error: String(error.message).replaceAll(key, '[redacted]'), exploration: error.exploration ? JSON.parse(JSON.stringify(error.exploration).replaceAll(key, '[redacted]')) : null, observedUsage, calls, validationFeedback }; }
         rows.push(row);
-        await writeFile(output, JSON.stringify({ model: modelName, root, commit, budget, concludeRatio, repetitions, tasks, rows }, null, 2) + '\n');
+        await writeFile(output, JSON.stringify({ model: modelName, reasoningEffort: reasoningEffort ?? null, root, commit, budget, concludeRatio, repetitions, tasks, rows }, null, 2) + '\n');
         console.log(JSON.stringify({ repetition, mode, task: task.id, status: row.result?.status ?? 'error', scripts: row.library?.length, reused: row.result?.metrics.memoryReuses, selectedTerm: row.selectedTerm ?? null }));
       }
     }

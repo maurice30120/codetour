@@ -120,6 +120,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   let callSeq = 0;
   let requestedEvidenceRecovery = false;
   let requestedJsonRecovery = false;
+  let requestedSchemaRecovery = false;
   // Ticket #190: on the 2026-11-16 run the model called memory_list six times
   // with returned=0 and revised its plan seven times without ever reaching
   // function_try — it treats an empty catalogue as a dead end instead of a
@@ -271,7 +272,19 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     metrics.outputTokens += outputTokens ?? 0;
     if (!response.usage) metrics.usageAvailable = false;
     if (response.result !== undefined) {
-      const result = resultSchema.parse(response.result);
+      const parsed = resultSchema.safeParse(response.result);
+      if (!parsed.success) {
+        if (!requestedSchemaRecovery && !reason()) {
+          requestedSchemaRecovery = true;
+          const issues = parsed.error.issues.map(issue => `${issue.path.join('.') || 'result'}: ${issue.message}`).join('; ');
+          return { messages: [
+            { role: 'assistant', content: JSON.stringify(response.result) },
+            { role: 'user', content: `The final JSON does not match the required schema: ${issues}. Return the complete corrected JSON, preserving supported evidence and using empty arrays where appropriate. The original run budget still applies.` }
+          ] };
+        }
+        throw parsed.error;
+      }
+      const result = parsed.data;
       attachEvidence(result);
       const hasEvidence = [...result.entryPoints, ...result.components, ...result.relations].some(item => item.evidence.length > 0);
       if (!hasEvidence) {

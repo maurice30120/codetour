@@ -12,7 +12,7 @@ export type NamedMemoryTool = { name: string; id: string; parameters: string[]; 
 
 const INTEGER_PARAMS = new Set(['offset', 'start', 'end', 'startLine', 'endLine']);
 
-export function mistral(apiKey: string, model = 'mistral-small-latest', config: { temperature?: number; memorySearchId?: string; memorySearchExclusive?: boolean; memorySearchScoped?: boolean; memoryTools?: NamedMemoryTool[]; removeSearch?: boolean; removeCode?: boolean } = {}): Model {
+export function mistral(apiKey: string, model = 'mistral-small-latest', config: { temperature?: number; reasoningEffort?: 'low' | 'high' | 'max'; memorySearchId?: string; memorySearchExclusive?: boolean; memorySearchScoped?: boolean; memoryTools?: NamedMemoryTool[]; removeSearch?: boolean; removeCode?: boolean } = {}): Model {
   if (!apiKey) throw new Error('MISTRAL_API_KEY is required');
   const lastRequest = { model: model as string | undefined, temperature: undefined as number | undefined, maxOutputTokens: undefined as number | undefined };
   return {
@@ -39,7 +39,7 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
     const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)).filter(tool => !(options?.memory && options?.codeMode) || !primitiveNames.has(tool.function.name)), ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];
     const requestMaxTokens = options?.maxOutputTokens;
     lastRequest.model = model; lastRequest.temperature = config.temperature ?? 0; lastRequest.maxOutputTokens = requestMaxTokens;
-    const request = { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, ...(options?.toolsEnabled === false ? { response_format: { type: 'json_object' } } : { tools: availableTools }), temperature: config.temperature ?? 0, max_tokens: requestMaxTokens }) };
+    const request = { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, ...(options?.toolsEnabled === false ? { response_format: { type: 'json_object' } } : { tools: availableTools }), ...(config.reasoningEffort ? { reasoning_effort: config.reasoningEffort } : {}), temperature: config.temperature ?? 0, max_tokens: requestMaxTokens }) };
     let response = await fetch('https://api.mistral.ai/v1/chat/completions', request);
     for (let retry = 0; response.status === 429 && retry < 3; retry++) {
       const retryAfter = Number(response.headers.get('retry-after'));
