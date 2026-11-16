@@ -110,15 +110,22 @@ export interface ConsolidationReport {
 /** Maximum stored description length (matches the entry schema bound). */
 const MAX_DESCRIPTION_LENGTH = 300;
 
-/** Deterministic English detection: common function words an accepted description must contain. */
+/**
+ * Practable English screen — not proof of English: non-ASCII is refused
+ * outright, and an accepted description must contain at least one common
+ * English function word. A passing text is screened, never proven English
+ * (spec #183: a heuristic language detector is never sold as infallible).
+ */
 const ENGLISH_FUNCTION_WORDS = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'for', 'with', 'from', 'to', 'in', 'on', 'by', 'is', 'are', 'be', 'been', 'was', 'were', 'has', 'have', 'had', 'does', 'do', 'did', 'returns', 'return', 'returning', 'given', 'when', 'each', 'its', 'this', 'that', 'which', 'not', 'into', 'over', 'under', 'out', 'as', 'at', 'than', 'then', 'can', 'will', 'would', 'should', 'may', 'must', 'never', 'always', 'per', 'via', 'using', 'use', 'uses', 'used', 'searches', 'search', 'finds', 'find', 'reads', 'read', 'lists', 'list', 'counts', 'count', 'reports', 'report']);
 
 /**
  * Deterministic description validation (issue #187, D04): a candidate is kept
  * only with a non-empty, length-bounded description of one or two English
  * sentences stating what the procedure does, its scope, its result shape and
- * its key limits. No LLM judges the text: empty, off-format, oversized or
- * non-English descriptions are refused with a precise reason.
+ * its key limits. No LLM judges the text: empty, off-format and oversized
+ * descriptions are refused outright, while the English rule is a practable
+ * heuristic screen (see ENGLISH_FUNCTION_WORDS) — a description passing it
+ * is screened, not proven English.
  */
 export function validateDescription(description: string): { ok: boolean; reason?: string } {
   const trimmed = typeof description === 'string' ? description.trim() : '';

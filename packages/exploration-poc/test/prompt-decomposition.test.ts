@@ -8,7 +8,8 @@ import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from '../src/deco
 import { PROMPT_VERSION as REEXPORTED_PROMPT_VERSION } from '../src/explore.ts';
 
 // §2.4 Criterion 1: Test with memory useful
-// La trace montre catalogue consulté et memory_run avec des paramètres valides, sans nouvelle fonction redondante
+// The trace shows the catalogue consulted and memory_run called with valid
+// params, without any redundant new function
 test('C1: with useful memory - uses memory_list and memory_run with valid params, no redundant function', async () => {
   const base = await mkdtemp(join(tmpdir(), 'decomposition-c1-'));
   const root = join(base, 'repo');
@@ -28,13 +29,13 @@ test('C1: with useful memory - uses memory_list and memory_run with valid params
       codeMode: true, 
       memory, 
       model: {
-        async complete() {
+        async complete(messages) {
           if (step++ === 0) {
             return { toolCalls: [{ 
               id: 'create', 
-              name: 'code', 
+              name: 'function_try', 
               arguments: { 
-                code: 'search(params.query)', 
+                source: 'searchText(params.query)', 
                 params: { query: 'getUser' }, 
                 remember: true, 
                 name: 'findApiFunction',
@@ -42,6 +43,7 @@ test('C1: with useful memory - uses memory_list and memory_run with valid params
               } 
             }] };
           }
+          if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['findApiFunction'] } };
           return { 
             result: { 
               objective: 'Find getUser', 
@@ -121,7 +123,7 @@ test('C1: with useful memory - uses memory_list and memory_run with valid params
 });
 
 // §2.4 Criterion 2: Test with empty memory
-// La trace montre une fonction ciblée, paramétrée, exécutée avec succès via function_try
+// The trace shows a targeted, parameterized function executed successfully via function_try
 test('C2: with empty memory - creates targeted parameterized function via code/function_try', async () => {
   const base = await mkdtemp(join(tmpdir(), 'decomposition-c2-'));
   const root = join(base, 'repo');
@@ -255,7 +257,7 @@ test('C3: need covered by primitive - uses primitive directly without creating f
 
 // §2.4 Criterion 4: Test de besoin composite
 // Réutilisation de plusieurs petites opérations si utile
-// Interdiction d'appel fonction-mémorisée → fonction-mémorisée
+// Forbids calling one memorized function from another memorized function
 test('C4: composite need - reuses multiple small operations, no chained memory calls', async () => {
   const base = await mkdtemp(join(tmpdir(), 'decomposition-c4-'));
   const root = join(base, 'repo');
@@ -276,13 +278,13 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
       codeMode: true, 
       memory, 
       model: {
-        async complete() {
+        async complete(messages) {
           if (step++ === 0) {
             return { toolCalls: [{ 
               id: 'search-api', 
-              name: 'code', 
+              name: 'function_try', 
               arguments: { 
-                code: 'search(params.query)', 
+                source: 'searchText(params.query)', 
                 params: { query: 'getUser' }, 
                 remember: true, 
                 name: 'searchApiFunctions',
@@ -290,6 +292,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
               } 
             }] };
           }
+          if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['searchApiFunctions'] } };
           return { 
             result: { 
               objective: 'Find API functions', 
@@ -311,13 +314,13 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
       codeMode: true, 
       memory, 
       model: {
-        async complete() {
+        async complete(messages) {
           if (step++ === 0) {
             return { toolCalls: [{ 
               id: 'search-db', 
-              name: 'code', 
+              name: 'function_try', 
               arguments: { 
-                code: 'search(params.query)', 
+                source: 'searchText(params.query)', 
                 params: { query: 'query' }, 
                 remember: true, 
                 name: 'searchDbFunctions',
@@ -325,6 +328,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
               } 
             }] };
           }
+          if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['searchDbFunctions'] } };
           return { 
             result: { 
               objective: 'Find DB functions', 
@@ -372,7 +376,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
           }
           if (step === 2) {
             // Use second function - NOT calling memory_run on the result of memory_run
-            // This ensures no function-memoirisée → fonction-mémorisée
+            // This ensures no memorized function ever calls another memorized function
             secondMemoryRunCalled = true;
             step++;
             return { toolCalls: [{ id: 'run2', name: 'memory_run', arguments: { id: catalog[1].id, params: { query: 'query' } } }] };

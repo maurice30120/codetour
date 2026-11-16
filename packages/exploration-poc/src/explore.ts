@@ -442,6 +442,9 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   }
   let consolidationReport: unknown;
   if (library && state.result !== undefined && !state.stopReason) {
+    // The model only selects among candidates that can persist: strict
+    // function_try trials — legacy candidates are refused in the
+    // reconciliation loop below and never enter the selection pool.
     const eligible = attempts.filter(attempt => attempt.candidate?.executionMode === 'strict' && !unusableIds.has(attempt.candidate?.name ?? ''));
     let selected = new Set<string>();
     if (eligible.length && !reason()) {
@@ -490,7 +493,18 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         unreconciled.push({ name: candidateName, proposed: false, replayed: false, accepted: false, reason: 'Marked unusable by memory_unusable during the Tour' });
         continue;
       }
-      if (attempt.candidate.executionMode === 'strict' && !selected.has(candidateName)) {
+      // Issue #187: a legacy candidate — the pre-#185 `code` protocol, reachable
+      // only through a directly injected tool call since the provider offers
+      // strict function_try instead of `code` whenever memory is on — can never
+      // be consolidated silently: its citations were never validated at trial
+      // time and cannot be re-validated deterministically on replay. Only
+      // strict function_try candidates may persist; the refusal carries an
+      // explicit reason in the reconciliation log.
+      if (attempt.candidate.executionMode !== 'strict') {
+        unreconciled.push({ name: candidateName, proposed: false, replayed: false, accepted: false, reason: 'Legacy candidate refused: its citations were never validated at trial time and cannot be re-validated deterministically on replay; only strict function_try trials may be consolidated' });
+        continue;
+      }
+      if (!selected.has(candidateName)) {
         unreconciled.push({ name: candidateName, proposed: false, replayed: false, accepted: false, reason: 'Not proposed by the model for consolidation' });
         continue;
       }
@@ -506,14 +520,13 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       let replay: ConsolidationCandidate['replay'];
       try {
         const { runScript } = await import('../../exploration-sandbox/index.js');
-        const strict = attempt.candidate.executionMode === 'strict';
-        const rerun = await runScript({ workspace: root, code: attempt.candidate.code, params: attempt.params, scripts: strict ? undefined : library.sources(), strict, includeTrace: true, timeoutMs: Math.min(5000, remaining) });
+        const rerun = await runScript({ workspace: root, code: attempt.candidate.code, params: attempt.params, strict: true, includeTrace: true, timeoutMs: Math.min(5000, remaining) });
         // Every citation is re-checked exactly as it was checked at trial time:
-        // strict function_try outputs carry mandatory references validated by
-        // the #185 validator, so the replay re-runs that same exhaustive check;
-        // legacy outputs were never subject to it (their proof stays the
-        // spot-check recorded on the attempt).
-        const citations = strict ? await validateCitations(rerun.value, { access: citationAccess(tools), revision: await resolveRevision() }) : undefined;
+        // every candidate reaching this replay is a strict function_try trial
+        // whose output carries mandatory references validated by the #185
+        // validator, and the replay re-runs that same exhaustive check. Legacy
+        // candidates are refused above, before any replay.
+        const citations = await validateCitations(rerun.value, { access: citationAccess(tools), revision: await resolveRevision() });
         recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, execution: rerun.trace, result: citations?.status === 'validation_failed' ? citationRepairFeedback(citations).validation : citations, outcome: `reexecuted${citationOutcome(citations)}` }, verificationStarted, new Date());
         if (JSON.stringify(rerun.value) !== JSON.stringify(attempt.output)) {
           replay = { ok: false, reason: 'the re-execution did not reproduce the exact original output with the same code and params', citations: citations?.status };

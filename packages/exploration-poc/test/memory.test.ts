@@ -81,17 +81,18 @@ test('declared literal search contract gives feedback and stores only the repair
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
     await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
-      if (step++ === 0) return { toolCalls: [{ id: 'bad', name: 'code', arguments: { code: 'search("alpha")', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Finds a literal in the repository and returns its file, line and text.', contract: 'literal_query' } }] };
+      if (step++ === 0) return { toolCalls: [{ id: 'bad', name: 'function_try', arguments: { source: 'searchText("alpha")', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Finds a literal in the repository and returns its file, line and text.', contract: 'literal_query' } }] };
       if (step === 2) {
         assert.equal(JSON.parse(messages.at(-1).content).memoryValidation.status, 'fail');
-        return { toolCalls: [{ id: 'fixed', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Finds a literal in the repository and returns its file, line and text.', contract: 'literal_query' } }] };
+        return { toolCalls: [{ id: 'fixed', name: 'function_try', arguments: { source: 'searchText(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Finds a literal in the repository and returns its file, line and text.', contract: 'literal_query' } }] };
       }
+      if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['findRepoLiteral'] } };
       assert.equal(JSON.parse(messages.at(-1).content).memoryValidation.status, 'pass');
       return { result: { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
     } } });
     const { scriptMemory } = await import('../src/memory.ts');
     const stored = await scriptMemory(root, memory.directory);
-    assert.deepEqual(Object.values(stored.sources()), ['search(params.query)']);
+    assert.deepEqual(Object.values(stored.sources()), ['searchText(params.query)']);
   } finally { await rm(base, { recursive: true, force: true }); }
 });
 
@@ -102,11 +103,12 @@ test('optional query probe rejects a hardcoded search but preserves a parameteri
   await mkdir(root);
   try {
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
-    for (const [code, rejected] of [['search("alpha")', true], ['search(params.query)', false]] as const) {
+    for (const [source, rejected] of [['searchText("alpha")', true], ['searchText(params.query)', false]] as const) {
       const memory = { directory: join(base, rejected ? 'bad' : 'good'), validateQuery: true };
       let step = 0;
-      const result = await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-        if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code, params: { query: 'alpha' }, remember: true, name: 'probeRepoSymbol', description: 'Finds a symbol in the repository and returns its file, line and text.' } }] };
+      const result = await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
+        if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'function_try', arguments: { source, params: { query: 'alpha' }, remember: true, name: 'probeRepoSymbol', description: 'Finds a symbol in the repository and returns its file, line and text.' } }] };
+        if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['probeRepoSymbol'] } };
         return { result: { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
       } } });
       assert.equal(result.metrics.memoryQueryRejects, Number(rejected));
@@ -149,8 +151,9 @@ test('a search result can support a wider cited range and the catalog is include
   try {
     await writeFile(join(root, 'main.ts'), 'function alpha() {\n  return 1;\n}\n');
     let step = 0;
-    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'code', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoSymbols', description: 'Finds symbols in the repository and returns each match with file, line and text.' } }] };
+    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
+      if (step++ === 0) return { toolCalls: [{ id: 'code', name: 'function_try', arguments: { source: 'searchText(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoSymbols', description: 'Finds symbols in the repository and returns each match with file, line and text.' } }] };
+      if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['findRepoSymbols'] } };
       return { result: final };
     } } });
     step = 0;
@@ -175,8 +178,9 @@ test('memory saves a useful parameterized script and reruns it on current reposi
   try {
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
-    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Finds a literal in the repository and returns its file, line and text.' } }] };
+    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
+      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'function_try', arguments: { source: 'searchText(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Finds a literal in the repository and returns its file, line and text.' } }] };
+      if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['findRepoLiteral'] } };
       return { result: { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
     } } });
     await writeFile(join(root, 'main.ts'), 'first\nconst beta = 2;\n');
@@ -205,8 +209,9 @@ test('G0: interrupted runs do not age a script and inactive runs are never purge
   try {
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
-    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Finds a literal in the repository and returns its file, line and text.' } }] };
+    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
+      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'function_try', arguments: { source: 'searchText(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Finds a literal in the repository and returns its file, line and text.' } }] };
+      if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['findRepoLiteral'] } };
       return { result: { ...empty, entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
     } } });
     await explore({ root, objective: 'Interrupted', codeMode: true, memory, budget: { iterations: 1 }, model: { async complete() { return { toolCalls: [{ id: 'one', name: 'list', arguments: {} }] }; } } });
@@ -269,8 +274,9 @@ test('a first failure after a file change is retained and two errors in three at
   try {
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
-    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'read(params.file)', params: { file: 'main.ts' }, remember: true, name: 'readRepoFile', description: 'Reads a file from the repository and returns its lines with line numbers.' } }] };
+    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
+      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'function_try', arguments: { source: 'readLines(params.file, 1, 1)', params: { file: 'main.ts' }, remember: true, name: 'readRepoFile', description: 'Reads the first line of a repository file and returns it with its file name and line number.' } }] };
+      if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['readRepoFile'] } };
       return { result: { ...empty, entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
     } } });
     await rm(join(root, 'main.ts'));
@@ -305,8 +311,9 @@ test('the model can mark an output unusable for its declared subject after execu
   try {
     await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
     let step = 0;
-    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
-      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoIdentifier', description: 'Finds an identifier in the repository and returns its file, line and text.' } }] };
+    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
+      if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'function_try', arguments: { source: 'searchText(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoIdentifier', description: 'Finds an identifier in the repository and returns its file, line and text.' } }] };
+      if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['findRepoIdentifier'] } };
       return { result: { ...empty, entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
     } } });
     for (let i = 0; i < 2; i++) {
@@ -325,5 +332,38 @@ test('the model can mark an output unusable for its declared subject after execu
       assert.deepEqual(JSON.parse(messages.at(-1).content), []);
       return { result: empty };
     } } });
+  } finally { await rm(base, { recursive: true, force: true }); }
+});
+
+// Issue #187: a legacy candidate — the pre-#185 `code` protocol — can only
+// arrive through a directly injected tool call (the provider offers strict
+// function_try instead of `code` whenever memory is on). It is refused with an
+// explicit reconciliation reason and never silently persisted: its citations
+// were never validated at trial time and cannot be re-validated on replay.
+test('a directly injected legacy candidate is refused with an explicit reason and never persists', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'legacy-refusal-'));
+  const { mkdir } = await import('node:fs/promises');
+  const root = join(base, 'repo');
+  await mkdir(root);
+  const memory = { directory: join(base, 'memory') };
+  try {
+    await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
+    let step = 0;
+    const result = await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete() {
+      if (step++ === 0) return { toolCalls: [{ id: 'legacy', name: 'code', arguments: { code: 'search(params.query)', params: { query: 'alpha' }, remember: true, name: 'probeRepoLegacy', description: 'Finds a literal in the repository and returns its file, line and text.' } }] };
+      return { result: { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
+    } } });
+    const report = result.consolidationReport as { accepted: string[]; reconciliation: Array<{ name: string; proposed: boolean; replayed: boolean; accepted: boolean; reason?: string }> };
+    assert.deepEqual(report.accepted, []);
+    assert.equal(report.reconciliation.length, 1);
+    const refusal = report.reconciliation[0];
+    assert.equal(refusal.name, 'probeRepoLegacy');
+    assert.equal(refusal.proposed, false);
+    assert.equal(refusal.replayed, false);
+    assert.equal(refusal.accepted, false);
+    assert.match(refusal.reason ?? '', /legacy candidate/i);
+    assert.match(refusal.reason ?? '', /never validated at trial time/);
+    const { scriptMemory } = await import('../src/memory.ts');
+    assert.equal((await scriptMemory(root, memory.directory)).catalog().length, 0, 'a refused legacy candidate never persists');
   } finally { await rm(base, { recursive: true, force: true }); }
 });
