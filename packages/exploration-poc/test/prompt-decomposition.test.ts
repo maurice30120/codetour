@@ -149,14 +149,14 @@ test('C2: with empty memory - creates targeted parameterized function via code/f
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
           assert.match(messages[0].content, /Before exploring the repository/);
-          // Issue #189: the explicit if/then decision rule replaced the vague
-          // "strongly prefer" incentive the model ignored on the 2026-11-16 run.
-          assert.match(messages[0].content, /follow this decision rule exactly for every question marked reuse=true/);
+          // Issue #189 + spec #183 amendment: the explicit if/then decision rule
+          // replaced the vague "strongly prefer" incentive, and the wrapping
+          // obligation makes function_try the only path to the primitives.
+          assert.match(messages[0].content, /Every tool call you make is memory_list, memory_run or function_try/);
+          assert.match(messages[0].content, /[Ff]ollow this decision rule exactly for every question marked reuse=true/);
           assert.match(messages[0].content, /if memory_list\(query\) returns a matching capability/);
-          assert.match(messages[0].content, /try that missing reusable capability once with function_try\(source, params\)/);
-          assert.match(messages[0].content, /otherwise state why not in the final result/);
-          assert.match(messages[0].content, /There is no quota and no forced creation per question/);
-          assert.match(messages[0].content, /never create a function when a permanent primitive suffices/);
+          assert.match(messages[0].content, /wrap the primitives that answer the question in one TypeScript function and try it with function_try\(source, params\)/);
+          assert.match(messages[0].content, /only if building it genuinely fails after repairs, state why not in the final result/);
           
           if (step === 0) {
             // Should check memory_list first (even though empty)
@@ -231,7 +231,7 @@ test('C3: need covered by primitive - uses primitive directly without creating f
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
           assert.match(messages[0].content, /Before exploring the repository/);
-          assert.match(messages[0].content, /no permanent primitive covers the question/);
+          assert.match(messages[0].content, /not exposed as direct tools/);
           
           if (step === 0) {
             // Use search primitive directly
@@ -1028,21 +1028,22 @@ test('a tool call without question_id is a visible anomaly', async () => {
 // prefer" incentive is replaced by an explicit if/then decision rule with an
 // explicit escape hatch, and the function_try tool description carries the
 // same default-path rule. No quota and no forced creation per question.
-test('prompt v3: version, hash consistency, decision rule, escape hatch and no quota', async () => {
+test('prompt v4: version, hash consistency, wrapping obligation and escape hatch', async () => {
   const { createHash } = await import('node:crypto');
-  assert.equal(PROMPT_VERSION, '3', 'the decision-rule prompt is protocol version 3');
+  assert.equal(PROMPT_VERSION, '4', 'the wrapping-obligation prompt is protocol version 4');
   assert.equal(PROMPT_SHA256, createHash('sha256').update(DECOMPOSITION_PROMPT, 'utf8').digest('hex'), 'PROMPT_SHA256 must hash the exact prompt string');
+  // The wrapping obligation: primitives only reachable inside function_try.
+  assert.match(DECOMPOSITION_PROMPT, /Every tool call you make is memory_list, memory_run or function_try/);
+  assert.match(DECOMPOSITION_PROMPT, /the ten permanent primitives are not exposed as direct tools and are only callable inside a function_try source/);
   // Complete if/else rule with the explicit escape hatch, in English.
-  assert.match(DECOMPOSITION_PROMPT, /follow this decision rule exactly for every question marked reuse=true/);
+  assert.match(DECOMPOSITION_PROMPT, /[Ff]ollow this decision rule exactly for every question marked reuse=true/);
   assert.match(DECOMPOSITION_PROMPT, /if memory_list\(query\) returns a matching capability, run memory_run\(id, params\), verify its proofs and complete only what is missing/);
-  assert.match(DECOMPOSITION_PROMPT, /if the catalogue returns nothing and no permanent primitive covers the question, try that missing reusable capability once with function_try\(source, params\) after a short useful exploration/);
-  assert.match(DECOMPOSITION_PROMPT, /otherwise state why not in the final result/);
-  // Explicit no-quota / no-forced-creation clause.
-  assert.match(DECOMPOSITION_PROMPT, /There is no quota and no forced creation per question/);
+  assert.match(DECOMPOSITION_PROMPT, /wrap the primitives that answer the question in one TypeScript function and try it with function_try\(source, params\) after a short useful exploration/);
+  assert.match(DECOMPOSITION_PROMPT, /only if building it genuinely fails after repairs, state why not in the final result/);
   assert.doesNotMatch(DECOMPOSITION_PROMPT, /strongly prefer/, 'the ignored incentive must be gone');
 });
 
-test('prompt v3: the function_try tool description carries the default-path decision rule', async () => {
+test('prompt v4: the function_try tool description carries the default-path decision rule', async () => {
   const original = globalThis.fetch;
   try {
     let sentTools: unknown;

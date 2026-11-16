@@ -1,5 +1,5 @@
 import type { Model, ToolCall } from './explore.ts';
-import { primitiveTools } from './tool-contract.ts';
+import { primitiveTools, primitiveNames } from './tool-contract.ts';
 
 const tools = [
   { name: 'list', description: 'List workspace files', properties: {} },
@@ -31,7 +31,12 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
     const namedMemory = options?.memory ? namedTools.map(tool => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: { type: 'object', properties: Object.fromEntries(tool.parameters.map(parameter => [parameter, { type: INTEGER_PARAMS.has(parameter) ? 'integer' : 'string' }])), required: tool.required ?? tool.parameters } } })) : [];
     const exclusive = !!(config.memorySearchExclusive && config.memorySearchId);
     const functionTry = { type: 'function', function: { name: 'function_try', description: 'Strictly check TypeScript and execute in QuickJS using only the ten permanent primitives. A typed function expression receives params. Trials never mutate memory. Default path when memory_list returns nothing and the question is durably reusable; otherwise state why not in the final result — never a quota, never a forced creation.', parameters: { type: 'object', properties: { source: { type: 'string' }, params: { type: 'object' }, remember: { type: 'boolean' }, name: { type: 'string' }, question: { type: 'string', description: 'Stable canonical repository question, independent of this Tour wording' }, description: { type: 'string' }, returns: { type: 'string' } }, required: ['source', 'params'] } } };
-    const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)), ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];
+    // Wrapping obligation (spec #183 amendment): in a memory + Code Mode run
+    // the ten permanent primitives are NOT exposed as direct tools — the model
+    // can only reach them inside a function_try source. The primitives stay
+    // available to the sandbox, so exploration still works; the model simply
+    // cannot bypass composition any more.
+    const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)).filter(tool => !(options?.memory && options?.codeMode) || !primitiveNames.has(tool.function.name)), ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];
     const requestMaxTokens = options?.maxOutputTokens;
     lastRequest.model = model; lastRequest.temperature = config.temperature ?? 0; lastRequest.maxOutputTokens = requestMaxTokens;
     const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, tools: availableTools, temperature: config.temperature ?? 0, max_tokens: requestMaxTokens }) });
@@ -70,7 +75,10 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
         // prose or the plan block swallowed everything. A typed error with a
         // content snippet keeps the failure diagnosable and lets the harness
         // attempt one visible recovery instead of dying opaque.
-        throw Object.assign(new Error(`Final answer is not valid JSON (content after plan extraction: ${content ? JSON.stringify(content.slice(0, 200)) : 'empty'})`), { name: 'FinalAnswerNotJson' });
+        // The raw reply and the parsed plan travel on the error: the harness
+        // recovery must show the model what it actually wrote (its plan block
+        // with no JSON after it) and must not lose the plan it published.
+        throw Object.assign(new Error(`Final answer is not valid JSON (content after plan extraction: ${content ? JSON.stringify(content.slice(0, 200)) : 'empty'})`), { name: 'FinalAnswerNotJson', rawContent, ...(plan !== undefined ? { plan } : {}) });
       }
       return { ...(plan !== undefined ? { plan } : {}), result: parsedResult, usage };
     } catch (error) {
