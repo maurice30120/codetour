@@ -218,7 +218,7 @@ test('a full Tour: the proposal is replayed with the same code and params, all c
   assert.equal(second.metrics.memoryReuses, 1, 'memory_run replayed the procedure added by the earlier Tour');
 });
 
-test('a candidate the model does not propose is logged as such and never persists', async t => {
+test('a candidate the model does not select is logged as such and never persists', async t => {
   const base = await mkdtemp(join(tmpdir(), 'd04-not-proposed-'));
   const root = await fixtureRepo(base);
   t.after(() => rm(base, { recursive: true, force: true }));
@@ -233,7 +233,7 @@ test('a candidate the model does not propose is logged as such and never persist
   const report = result.consolidationReport as ConsolidationReport;
   assert.deepEqual((result.callTrace.find(call => call.name === 'memory-selection')?.result as { response: unknown }).response, { selected: [] });
   assert.deepEqual(report.accepted, []);
-  assert.deepEqual(report.reconciliation, [{ name: 'traceRepoEntryPoints', proposed: false, replayed: false, accepted: false, reason: 'Not proposed by the model for consolidation' }]);
+  assert.deepEqual(report.reconciliation, [{ name: 'traceRepoEntryPoints', proposed: false, replayed: false, accepted: false, reason: 'Not selected by the model for consolidation' }]);
   assert.equal((await scriptMemory(root, memory.directory)).catalog().length, 0);
 });
 
@@ -338,6 +338,77 @@ test('an identifier collision in a later Tour is refused: the validated entry is
   const store = await scriptMemory(root, memory.directory);
   assert.equal(store.catalog().length, 1);
   assert.equal(store.get('traceRepoEntryPoints')?.code, SEARCH_SOURCE);
+});
+
+// ============================================================================
+// Issue #194: every successfully-executed function_try trial is automatically
+// submitted to post-Tour selection — the model never has to flag it with
+// remember. The model judges future utility at selection; the harness decides
+// persistence through deterministic validations only.
+// ============================================================================
+
+test('a successful trial without remember is auto-proposed, selected, deterministically validated, persisted and reused in a later Tour', async t => {
+  const base = await mkdtemp(join(tmpdir(), 'd194-auto-propose-'));
+  const root = await fixtureRepo(base);
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const memory = { directory: join(base, 'memory') };
+  let step = 0;
+  const first = await explore({ root, objective: 'Explain start', codeMode: true, memory, model: { async complete(messages) {
+    // The trial carries NO remember flag: the harness must submit it anyway.
+    if (step++ === 0) return { toolCalls: [{ id: 'trial', name: 'function_try', arguments: { source: SEARCH_SOURCE, params: { query: 'start' }, name: 'traceRepoEntryPoints', question: 'Where is an entry point declared?', description: DESCRIPTION } }] };
+    if (step === 2) return { result: { ...emptyResult, entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
+    // The selection step receives the auto-submitted candidate with its code,
+    // its contract and a summary of its result.
+    assert.match(messages[0].content, /select/i);
+    const input = JSON.parse(messages.at(-1).content);
+    assert.equal(input.executedCandidates.length, 1);
+    assert.equal(input.executedCandidates[0].name, 'traceRepoEntryPoints');
+    assert.equal(input.executedCandidates[0].code, SEARCH_SOURCE);
+    assert.deepEqual(input.executedCandidates[0].paramsSchema, [{ name: 'query', type: 'string' }]);
+    assert.ok(input.executedCandidates[0].returns, 'the output contract reaches the selection step');
+    assert.equal(input.executedCandidates[0].output.result[0].file, 'main.ts');
+    return { result: { selected: ['traceRepoEntryPoints'] } };
+  } } });
+  // The trace field stays: the model did not set remember, the harness proposed anyway.
+  const trial = first.callTrace.find(call => call.type === 'function_try' && call.name === 'function_try');
+  assert.equal(trial?.parameters?.remember, false);
+  const selection = first.callTrace.find(call => call.name === 'memory-selection');
+  assert.deepEqual((selection?.parameters?.executedCandidates as Array<{ name: string }>).map(candidate => candidate.name), ['traceRepoEntryPoints']);
+  const report = first.consolidationReport as ConsolidationReport;
+  assert.deepEqual(report.accepted, ['traceRepoEntryPoints'], 'a trial without remember is selected, replayed and persisted');
+  assert.ok(report.reconciliation.some(entry => entry.name === 'traceRepoEntryPoints' && entry.proposed && entry.replayed && entry.accepted));
+  // A later Tour replays the consolidated procedure through memory_run.
+  const listed = (await scriptMemory(root, memory.directory)).memory_list('entry point')[0];
+  assert.equal(listed.id, 'traceRepoEntryPoints');
+  let reuseStep = 0;
+  const second = await explore({ root, objective: 'Show start', codeMode: true, memory, model: { async complete(messages) {
+    if (reuseStep++ === 0) return { toolCalls: [{ id: 'reuse', name: 'memory_run', arguments: { id: listed.id, params: { query: 'start' } } }] };
+    assert.equal(JSON.parse(messages.at(-1).content).result[0].file, 'main.ts');
+    return { result: emptyResult };
+  } } });
+  assert.equal(second.metrics.memoryReuses, 1, 'the function persisted without remember is reused in a later Tour');
+});
+
+test('a truncated successful trial is still submitted, flagged as truncated, and subject to the deterministic validation', async t => {
+  const base = await mkdtemp(join(tmpdir(), 'd194-truncated-'));
+  const root = join(base, 'repo');
+  await mkdir(root);
+  await writeFile(join(root, 'many.ts'), Array.from({ length: 60 }, (_, index) => `needle ${index};`).join('\n') + '\n');
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const memory = { directory: join(base, 'memory') };
+  let step = 0;
+  const result = await explore({ root, objective: 'Explain start', codeMode: true, memory, model: { async complete(messages) {
+    if (step++ === 0) return { toolCalls: [{ id: 'trial', name: 'function_try', arguments: { source: SEARCH_SOURCE, params: { query: 'needle' }, name: 'traceRepoNeedles', question: 'Where are the needles declared?', description: DESCRIPTION } }] };
+    if (step === 2) return { result: { ...emptyResult, entryPoints: [{ name: 'needle', evidence: [{ file: 'many.ts', startLine: 1, endLine: 1 }] }] } };
+    assert.match(messages[0].content, /select/i);
+    const input = JSON.parse(messages.at(-1).content);
+    assert.equal(input.executedCandidates.length, 1, 'the truncated trial is still submitted');
+    assert.equal(input.executedCandidates[0].output.truncated, true, 'the truncation is flagged, never presented as exhaustive');
+    return { result: { selected: ['traceRepoNeedles'] } };
+  } } });
+  const report = result.consolidationReport as ConsolidationReport;
+  assert.deepEqual(report.accepted, ['traceRepoNeedles'], 'the flagged truncated trial is validated by the deterministic replay and persists');
+  assert.ok(report.reconciliation.some(entry => entry.name === 'traceRepoNeedles' && entry.replayed && entry.accepted));
 });
 
 test('a candidate from an unvalidated Tour never reaches the catalogue', async t => {

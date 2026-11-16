@@ -56,6 +56,8 @@ interface Attempt {
   candidate?: { objective: string; description: string; name?: string; returns?: string; code: string; parameters: string[]; paramsSchema?: Array<{ name: string; type: string }>; executionMode?: 'strict' | 'legacy'; revision?: string };
   params?: Record<string, unknown>;
   output: unknown;
+  /** Issue #194: the trial output was truncated (sandbox cap or bounding) — flagged, never presented as exhaustive. */
+  truncated?: boolean;
   proofValid?: boolean;
   proofSignature?: string[];
 }
@@ -418,11 +420,15 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             const description = typeof call.arguments.description === 'string' ? call.arguments.description.trim() : '';
             const name = typeof call.arguments.name === 'string' ? call.arguments.name.trim().slice(0, 100) : '';
             const returns = typeof call.arguments.returns === 'string' ? call.arguments.returns.trim().slice(0, 300) : undefined;
-            // The model only sees the bounded output: when the bounding stage
-            // truncated the raw result, references may be hidden from the proposal
-            // decision — such an attempt is never offered for consolidation.
+            // Issue #194: every successfully-executed strict function_try trial
+            // is automatically submitted to post-Tour selection — the model
+            // never has to flag it with remember. Failed trials (the sandbox
+            // throw above) and citation-invalid trials (citationFailure) never
+            // become candidates; a truncated view is still submitted but
+            // flagged as such in the selection input, and the deterministic
+            // replay still validates the full raw output.
             const viewTruncated = Boolean((bounded as { truncated?: boolean } | null)?.truncated);
-            let candidate = !citationFailure && library && !stored && call.arguments.remember === true && description && !viewTruncated
+            let candidate = !citationFailure && library && !stored
               ? { objective: String(call.arguments.question ?? objective).slice(0, 500), description, name: name || undefined, returns: strict ? execution.trace.contract.returns : returns, code, parameters: Object.keys(params).slice(0, 30), paramsSchema: execution.trace.contract?.paramsSchema, executionMode: strict ? 'strict' as const : 'legacy' as const, revision: await resolveRevision() }
               : undefined;
             if (candidate && memory?.queryContract && call.arguments.contract === 'literal_query') {
@@ -453,7 +459,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
                   if (!valid) proofOk = false;
                 } catch { proofSignature.push(`${ref.file}:${ref.line}:unreadable`); proofOk = false; }
               }
-              attempt = { id: stored?.id, candidate, params: params as Record<string, unknown>, output: raw, proofValid: refs.length === 0 ? undefined : proofOk, proofSignature };
+              attempt = { id: stored?.id, candidate, params: params as Record<string, unknown>, output: raw, truncated: viewTruncated, proofValid: refs.length === 0 ? undefined : proofOk, proofSignature };
               runtimeObservations.push({ id: String(stored?.id ?? candidate?.name ?? ''), params: params as Record<string, unknown>, ok: proofOk });
             }
           } catch (error) {
@@ -492,7 +498,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     }
     return { messages: outputs, stopReason: reason() };
   }).addEdge(START, 'model').addConditionalEdges('model', state => state.result !== undefined || state.stopReason ? END : 'model').compile();
-  const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. Wrapping obligation: the ten permanent primitives (listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports, getGitDiff) are NOT exposed as direct tools — they are only callable inside a function_try source. Wrap the primitives a question needs in one TypeScript function expression with typed inputs and try it with function_try(source, params); direct primitive calls are impossible in this mode. Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Name useful procedures camelCase verb+domain+object and parameterize variations. Supply question as a stable canonical question independent of this Tour, description as one or two English sentences stating what the procedure does, its scope, the shape of its result and its key limits, and remember=true only to propose an executed trial for post-Tour selection. Consolidation re-executes the exact code and params and re-checks every citation; only deterministically validated proposals persist. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
+  const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. Wrapping obligation: the ten permanent primitives (listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports, getGitDiff) are NOT exposed as direct tools — they are only callable inside a function_try source. Wrap the primitives a question needs in one TypeScript function expression with typed inputs and try it with function_try(source, params); direct primitive calls are impossible in this mode. Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Name useful procedures camelCase verb+domain+object and parameterize variations. Supply question as a stable canonical question independent of this Tour and description as one or two English sentences stating what the procedure does, its scope, the shape of its result and its key limits. Every successfully executed function_try trial is automatically submitted to post-Tour selection — no remember flag is needed; the selection step judges future utility, and consolidation re-executes the exact code and params and re-checks every citation, so only deterministically validated selections persist. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
   const state = await graph.invoke({ messages: [{ role: 'system', content: `${DECOMPOSITION_PROMPT}
 
 Explore the repository using the tools. Assess whether the evidence answers the objective; if essential evidence is missing, use further tools before returning. Record unresolved gaps in uncertainties. Return only JSON matching this exact shape: {"objective":"...","entryPoints":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"components":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"relations":[{"from":"...","to":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"uncertainties":["..."]}. Use empty arrays when needed. Each evidence must be an array of objects with real file paths and integer line numbers, not a string. Do not write a tour.${memoryInstructions}` }, { role: 'user', content: objective }] }, { recursionLimit: Math.ceil(limits.iterations) + 2 });
@@ -511,14 +517,17 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   }
   let consolidationReport: unknown;
   if (library && state.result !== undefined && !state.stopReason) {
-    // The model only selects among candidates that can persist: strict
-    // function_try trials — legacy candidates are refused in the
+    // Issue #194: every successfully-executed strict function_try trial is
+    // auto-submitted to selection — the model judges future utility there and
+    // never has to propose with remember. Legacy candidates are refused in the
     // reconciliation loop below and never enter the selection pool.
     const eligible = attempts.filter(attempt => attempt.candidate?.executionMode === 'strict' && !unusableIds.has(attempt.candidate?.name ?? ''));
     let selected = new Set<string>();
     if (eligible.length && !reason()) {
       const selectionStarted = new Date();
-      const selectionInput = { tour: result, catalog: library.catalog(), executedCandidates: eligible.map(attempt => ({ name: attempt.candidate!.name, question: attempt.candidate!.objective, description: attempt.candidate!.description, paramsSchema: attempt.candidate!.paramsSchema, returns: attempt.candidate!.returns, output: boundedOutput(attempt.output, { revision: currentRevision ?? 'unknown-revision' }) })) };
+      // Issue #194: each auto-submitted candidate carries its code, its output
+      // contract and a summary of its result (bounded, truncation flagged).
+      const selectionInput = { tour: result, catalog: library.catalog(), executedCandidates: eligible.map(attempt => ({ name: attempt.candidate!.name, question: attempt.candidate!.objective, description: attempt.candidate!.description, paramsSchema: attempt.candidate!.paramsSchema, returns: attempt.candidate!.returns, code: attempt.candidate!.code, output: boundedOutput(attempt.output, { revision: currentRevision ?? 'unknown-revision', sourceTruncated: attempt.truncated }) })) };
       const controller = new AbortController();
       const remaining = Math.max(1, limits.durationMs - (Date.now() - startedMs));
       const timer = setTimeout(() => controller.abort(), remaining);
@@ -526,7 +535,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         metrics.modelCalls++;
         const response = await Promise.race([
           model.complete([
-            { role: 'system', content: 'Select useful executed procedures for future Tours. This Tour has passed structural evidence validation only, not semantic verification. Return JSON {"selected":["canonicalName"]}; select only from the executed candidates below. You may select none. Compare canonical question, scope, inputs, output and limits with existing entries; prefer reuse over equivalent duplicates.' },
+            { role: 'system', content: 'Select useful executed procedures for future Tours. Every successfully executed trial is submitted automatically; judge each candidate by its durable utility for future Tours, not by its effect on this Tour. This Tour has passed structural evidence validation only, not semantic verification. Return JSON {"selected":["canonicalName"]}; select only from the executed candidates below. You may select none. Compare canonical question, scope, inputs, output and limits with existing entries; prefer reuse over equivalent duplicates.' },
             { role: 'user', content: JSON.stringify(selectionInput) }
           ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(1024, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode: false, memory: false }),
           new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('budget-duration')), { once: true }))
@@ -576,7 +585,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         continue;
       }
       if (!selected.has(candidateName)) {
-        unreconciled.push({ name: candidateName, proposed: false, replayed: false, accepted: false, reason: 'Not proposed by the model for consolidation' });
+        unreconciled.push({ name: candidateName, proposed: false, replayed: false, accepted: false, reason: 'Not selected by the model for consolidation' });
         continue;
       }
       // Issue #187 (D04): deterministic reconciliation replay — the exact same
@@ -647,8 +656,8 @@ Explore the repository using the tools. Assess whether the evidence answers the 
     }
     const report = await library.finish(successful.flatMap(a => a.id ? [a.id] : []), candidates);
     // The reconciliation log distinguishes proposed, replayed, accepted and
-    // rejected with a reason — including candidates the model never proposed
-    // or that could not be replayed (issue #187).
+    // rejected with a reason — including candidates the model never selected
+    // or that could not be replayed (issues #187 and #194).
     report.reconciliation.push(...unreconciled);
     consolidationReport = report;
   } else if (library) {

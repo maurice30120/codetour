@@ -320,11 +320,11 @@ test('the diagnostic distinguishes reconciliation not reached from a final refus
   };
 
   // Reconciliation not reached: the model selects nothing, so the deterministic
-  // replay never runs for the executed candidate.
+  // replay never runs for the auto-submitted candidate (issue #194).
   const notProposed = await runTour(CANDIDATE_DESCRIPTION, []);
   assert.deepEqual(notProposed.accepted, []);
   assert.equal(notProposed.reconciliation.length, 1);
-  assert.deepEqual(notProposed.reconciliation[0], { name: CANDIDATE_NAME, proposed: false, replayed: false, accepted: false, reason: 'Not proposed by the model for consolidation' });
+  assert.deepEqual(notProposed.reconciliation[0], { name: CANDIDATE_NAME, proposed: false, replayed: false, accepted: false, reason: 'Not selected by the model for consolidation' });
 
   // Final refusal: the candidate is proposed and replayed, but the deterministic
   // description gate refuses it — a precise reason, no persistence.
