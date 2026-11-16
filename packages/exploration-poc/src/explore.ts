@@ -8,10 +8,20 @@ import { citationAccess, citationRepairFeedback, validateCitations } from './cit
 import type { CitationValidation } from './citation-validator.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposition-prompt.ts';
 import { primitiveNames } from './tool-contract.ts';
+import { createHash } from 'node:crypto';
+
+function derivedCandidateName(question: string, code: string): string {
+  const words = (question.toLowerCase().match(/[a-z]+/g) ?? [])
+    .filter(word => word.length > 2 && !new Set(['what', 'where', 'which', 'how', 'the', 'are', 'and', 'for', 'does', 'from', 'with', 'this', 'that']).has(word))
+    .slice(0, 5).map(word => word.slice(0, 12));
+  const subject = (words.length ? words : ['procedure']).map(word => word[0].toUpperCase() + word.slice(1)).join('');
+  const suffix = createHash('sha256').update(code).digest('hex').slice(0, 8);
+  return `inspectRepo${subject}Code${suffix}`;
+}
 
 const evidence = z.object({ file: z.string().min(1), startLine: z.number().int().positive(), endLine: z.number().int().positive() });
-const item = z.object({ name: z.string(), evidence: z.array(evidence).min(1) });
-const resultSchema = z.object({ objective: z.string(), entryPoints: z.array(item), components: z.array(item), relations: z.array(z.object({ from: z.string(), to: z.string(), evidence: z.array(evidence).min(1) })), uncertainties: z.array(z.string()) });
+const item = z.object({ name: z.string(), evidence: z.array(evidence) });
+const resultSchema = z.object({ objective: z.string(), entryPoints: z.array(item), components: z.array(item), relations: z.array(z.object({ from: z.string(), to: z.string(), evidence: z.array(evidence) })), uncertainties: z.array(z.string()) });
 
 export { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION };
 
@@ -20,7 +30,7 @@ export type PlanQuestion = { id: string; question: string; reuse?: boolean };
 export type PlanVersion = { questions: PlanQuestion[]; reason?: string; error?: string };
 export type PlanRecord = { status: 'recorded' | 'invalid' | 'missing'; runId: string; versions: PlanVersion[]; anomalies: string[] };
 export type Model = {
-  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
+  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean; toolsEnabled?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
   /** Actual provider parameters of the last request (real provenance, no defaults). */
   snapshot?(): { model?: string; temperature?: number; maxOutputTokens?: number };
 };
@@ -105,7 +115,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   // the end-of-run reminder targets the complement of this set.
   const servedByCreation = new Set<string>();
   let reuseReminderEmitted = false;
-  const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0 };
+  const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0, autoAttachedEvidence: 0, selectionSkip: null as string | null };
   const callTrace: CallTraceItem[] = [];
   let callSeq = 0;
   let requestedEvidenceRecovery = false;
@@ -172,6 +182,41 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const runtimeFailures: string[] = [];
   const runtimeObservations: Array<{ id: string; params: Record<string, unknown>; ok: boolean }> = [];
   const unusableIds = new Set<string>();
+  // Deterministic evidence attachment: every (file, line) range actually
+  // observed through tool outputs is recorded here; items the model names
+  // without evidence in its final answer are anchored from this buffer.
+  const observedEvidence: Array<{ file: string; line: number; text: string }> = [];
+  const noteEvidence = (node: unknown, file?: string): void => {
+    if (!node || typeof node !== 'object' || observedEvidence.length >= 4000) return;
+    if (Array.isArray(node)) { for (const child of node) noteEvidence(child, file); return; }
+    const record = node as Record<string, unknown>;
+    const currentFile = typeof record.file === 'string' && record.file ? record.file : file;
+    if (typeof record.line === 'number' && Number.isInteger(record.line) && record.line > 0 && currentFile) {
+      observedEvidence.push({ file: currentFile, line: record.line, text: typeof record.text === 'string' ? record.text : '' });
+    }
+    for (const value of Object.values(record)) if (value && typeof value === 'object') noteEvidence(value, currentFile);
+  };
+  const EVIDENCE_STOPWORDS = new Set(['and', 'the', 'for', 'with', 'from', 'this', 'that', 'into', 'onto', 'aux', 'avec', 'des', 'dans', 'dont', 'est', 'les', 'une', 'pour', 'quoi', 'sur', 'entre', 'vers']);
+  const attachEvidence = (result: z.infer<typeof resultSchema>): void => {
+    for (const target of [...result.entryPoints, ...result.components, ...result.relations]) {
+      if (target.evidence.length > 0) continue;
+      const label = 'name' in target ? target.name : `${target.from} ${target.to}`;
+      const lowered = (label.match(/[A-Za-z0-9]+/g) ?? []).map(token => token.toLowerCase()).filter(token => token.length >= 3 && !EVIDENCE_STOPWORDS.has(token));
+      if (!lowered.length) continue;
+      const picked: z.infer<typeof resultSchema>['entryPoints'][number]['evidence'] = [];
+      const seen = new Set<string>();
+      for (const observed of observedEvidence) {
+        const haystack = `${observed.file}\n${observed.text}`.toLowerCase();
+        if (!lowered.some(term => haystack.includes(term))) continue;
+        const key = `${observed.file}:${observed.line}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        picked.push({ file: observed.file, startLine: observed.line, endLine: observed.line });
+        if (picked.length >= 3) break;
+      }
+      if (picked.length) { target.evidence = picked; metrics.autoAttachedEvidence += picked.length; }
+    }
+  };
   const previousSearchOutputs = new Map<string, { content: string; toolCallId: string }>();
   const reason = () => Date.now() - startedMs >= limits.durationMs ? 'duration' : metrics.inputTokens + metrics.outputTokens >= limits.tokens ? 'tokens' : metrics.modelCalls + metrics.toolCalls >= limits.calls ? 'calls' : metrics.modelCalls >= limits.iterations ? 'iterations' : undefined;
   const graph = new StateGraph(State).addNode('model', async state => {
@@ -185,7 +230,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     try {
       metrics.modelCalls++;
       response = await Promise.race([
-        model.complete(state.messages, { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(4096, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode, memory: !!library, queryContract: memory?.queryContract }),
+        model.complete(state.messages, { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(16384, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode, memory: !!library, queryContract: memory?.queryContract }),
         new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('budget-duration')); }, remainingMs); })
       ]);
     } catch (error) {
@@ -227,6 +272,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     if (!response.usage) metrics.usageAvailable = false;
     if (response.result !== undefined) {
       const result = resultSchema.parse(response.result);
+      attachEvidence(result);
       const hasEvidence = [...result.entryPoints, ...result.components, ...result.relations].some(item => item.evidence.length > 0);
       if (!hasEvidence) {
         // One recovery inside the original budget; no extra run or hidden retry.
@@ -339,8 +385,10 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
         else if (call.name === 'git') output = await tools.git(limits.durationMs - (Date.now() - startedMs));
         else if (library && call.name === 'memory_list') {
           const listed = library.memory_list(typeof call.arguments.query === 'string' ? call.arguments.query : undefined);
-          if (Array.isArray(listed) && listed.length === 0) emptyMemoryListCount++;
-          if (Array.isArray(listed) && listed.length === 0 && emptyMemoryListCount >= 2 && !emptyMemoryListNoteEmitted) {
+          const available = listed.length === 0 ? library.catalog() : [];
+          if (listed.length === 0 && available.length > 0) {
+            output = { results: [], available, note: 'No entries match the exact query. The catalogue is not empty; inspect the available entries or retry with a shorter literal query.' };
+          } else if (listed.length === 0 && ++emptyMemoryListCount >= 2 && !emptyMemoryListNoteEmitted) {
             emptyMemoryListNoteEmitted = true;
             output = { results: [], note: 'The catalogue is empty again. Revising the plan in a loop will not fill it: if the question you are serving is durably reusable and no permanent primitive covers it, build the missing capability once with function_try(source, params) instead of revising the plan again; otherwise state why not in the final result.' };
           } else {
@@ -429,7 +477,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             // replay still validates the full raw output.
             const viewTruncated = Boolean((bounded as { truncated?: boolean } | null)?.truncated);
             let candidate = !citationFailure && library && !stored
-              ? { objective: String(call.arguments.question ?? objective).slice(0, 500), description, name: name || undefined, returns: strict ? execution.trace.contract.returns : returns, code, parameters: Object.keys(params).slice(0, 30), paramsSchema: execution.trace.contract?.paramsSchema, executionMode: strict ? 'strict' as const : 'legacy' as const, revision: await resolveRevision() }
+              ? { objective: String(call.arguments.question ?? objective).slice(0, 500), description, name: name || derivedCandidateName(String(call.arguments.question ?? objective), code), returns: strict ? execution.trace.contract.returns : returns, code, parameters: Object.keys(params).slice(0, 30), paramsSchema: execution.trace.contract?.paramsSchema, executionMode: strict ? 'strict' as const : 'legacy' as const, revision: await resolveRevision() }
               : undefined;
             if (candidate && memory?.queryContract && call.arguments.contract === 'literal_query') {
               const { probeLiteralQuery } = await import('./query-probe.mjs');
@@ -482,6 +530,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
         const toolEnded = new Date();
         recordCall({ type: call.name === 'memory_list' ? 'memory_list' : 'tool', name: call.name, callId: call.id, questionId, parameters: call.arguments, result: output, inputTokens: null, outputTokens: null, usageMissing: false, outcome: summarizeOutcome(output) }, toolStarted, toolEnded);
       }
+      noteEvidence(output);
       const serialized = JSON.stringify(output);
       let content = serialized;
       if (Buffer.byteLength(content) > 12000) {
@@ -498,7 +547,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     }
     return { messages: outputs, stopReason: reason() };
   }).addEdge(START, 'model').addConditionalEdges('model', state => state.result !== undefined || state.stopReason ? END : 'model').compile();
-  const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. Wrapping obligation: the ten permanent primitives (listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports, getGitDiff) are NOT exposed as direct tools — they are only callable inside a function_try source. Wrap the primitives a question needs in one TypeScript function expression with typed inputs and try it with function_try(source, params); direct primitive calls are impossible in this mode. Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Name useful procedures camelCase verb+domain+object and parameterize variations. Supply question as a stable canonical question independent of this Tour and description as one or two English sentences stating what the procedure does, its scope, the shape of its result and its key limits. Every successfully executed function_try trial is automatically submitted to post-Tour selection — no remember flag is needed; the selection step judges future utility, and consolidation re-executes the exact code and params and re-checks every citation, so only deterministically validated selections persist. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
+  const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. Wrapping obligation: the ten permanent primitives (listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports, getGitDiff) are NOT exposed as direct tools — they are only callable inside a function_try source. Wrap the primitives a question needs in one TypeScript function expression with typed inputs and try it with function_try(source, params); direct primitive calls are impossible in this mode. Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Name useful procedures camelCase verb+domain+object and parameterize variations. Supply question as a stable canonical question independent of this Tour and a non-empty English description stating what the procedure does, its scope, the shape of its result and its key limits. Every successfully executed function_try trial is automatically submitted to post-Tour selection — no remember flag is needed; the selection step judges future utility, and consolidation re-executes the exact code and params and re-checks every citation, so only deterministically validated selections persist. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
   const state = await graph.invoke({ messages: [{ role: 'system', content: `${DECOMPOSITION_PROMPT}
 
 Explore the repository using the tools. Assess whether the evidence answers the objective; if essential evidence is missing, use further tools before returning. Record unresolved gaps in uncertainties. Return only JSON matching this exact shape: {"objective":"...","entryPoints":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"components":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"relations":[{"from":"...","to":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"uncertainties":["..."]}. Use empty arrays when needed. Each evidence must be an array of objects with real file paths and integer line numbers, not a string. Do not write a tour.${memoryInstructions}` }, { role: 'user', content: objective }] }, { recursionLimit: Math.ceil(limits.iterations) + 2 });
@@ -515,6 +564,17 @@ Explore the repository using the tools. Assess whether the evidence answers the 
     for (const failureId of new Set([...runtimeFailures, ...unusableIds])) library.recordFailure(failureId);
     for (const observation of runtimeObservations) library.observeRun(observation.id, observation.params, observation.ok);
   }
+  // Selection is only attempted when the Tour produced a structured result
+  // with valid evidence, no stop reason, at least one admissible candidate and
+  // budget left. Record why it was not attempted instead of leaving the
+  // reader to re-derive the path through the code.
+  const selectionSkip = !library ? null
+    : state.stopReason ? `stop_${state.stopReason}`
+    : state.result === undefined ? 'no_structured_result'
+    : !attempts.some(attempt => attempt.candidate?.executionMode === 'strict' && !unusableIds.has(attempt.candidate?.name ?? '')) ? 'no_eligible_candidate'
+    : reason() ? `budget_${reason()}`
+    : null;
+  metrics.selectionSkip = selectionSkip;
   let consolidationReport: unknown;
   if (library && state.result !== undefined && !state.stopReason) {
     // Issue #194: every successfully-executed strict function_try trial is
@@ -537,7 +597,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
           model.complete([
             { role: 'system', content: 'Select useful executed procedures for future Tours. Every successfully executed trial is submitted automatically; judge each candidate by its durable utility for future Tours, not by its effect on this Tour. This Tour has passed structural evidence validation only, not semantic verification. Return JSON {"selected":["canonicalName"]}; select only from the executed candidates below. You may select none. Compare canonical question, scope, inputs, output and limits with existing entries; prefer reuse over equivalent duplicates.' },
             { role: 'user', content: JSON.stringify(selectionInput) }
-          ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(1024, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode: false, memory: false }),
+          ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(16384, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode: false, memory: false, toolsEnabled: false }),
           new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('budget-duration')), { once: true }))
         ]);
         const usage = response.usage;

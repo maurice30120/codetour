@@ -90,10 +90,11 @@ test('a validated Tour selects an executed strict procedure and reuses its typed
   const source = '((input: { query: string }) => searchText(input.query).map(hit => ({ ...hit, context: readLines(hit.file, hit.line, hit.line) })))';
   const question = 'Where is an entry point declared and what is its source context?';
   let step = 0;
-  const first = await explore({ root, objective: 'Explain start', codeMode: true, memory, model: { async complete(messages) {
+  const first = await explore({ root, objective: 'Explain start', codeMode: true, memory, model: { async complete(messages, options) {
     if (step++ === 0) return { toolCalls: [{ id: 'trial', name: 'function_try', arguments: { source, params: { query: 'start' }, remember: true, name: 'traceRepoEntryPoints', question, description: 'Returns each declared entry point with its source context.' } }] };
     if (step === 2) return { result: { ...emptyResult, entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
     assert.match(messages[0].content, /select.*executed/i);
+    assert.equal(options?.toolsEnabled, false);
     return { result: { selected: ['traceRepoEntryPoints'] }, usage: { inputTokens: 10, outputTokens: 3 } };
   } } });
   assert.equal(step, 3, 'utility selection happens after Tour validation');

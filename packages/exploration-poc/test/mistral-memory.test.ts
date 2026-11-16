@@ -6,6 +6,47 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+test('text content blocks are decoded as one JSON response', async () => {
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify({ choices: [{ message: { content: [{ type: 'text', text: '{"selected":' }, { type: 'text', text: '["traceRepoEntryPoints"]}' }] } }] }));
+    const response = await mistral('fixture').complete([], { signal: new AbortController().signal, maxOutputTokens: 100, codeMode: false, memory: false });
+    assert.deepEqual(response.result, { selected: ['traceRepoEntryPoints'] });
+  } finally { globalThis.fetch = original; }
+});
+
+test('selection requests omit tools so the model can return its decision', async () => {
+  const original = globalThis.fetch;
+  let body: any;
+  try {
+    globalThis.fetch = async (_url, init) => {
+      body = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{"selected":["traceRepoEntryPoints"]}' } }] }));
+    };
+    const response = await mistral('fixture').complete([], { signal: new AbortController().signal, maxOutputTokens: 100, codeMode: false, memory: false, toolsEnabled: false });
+    assert.equal(body.tools, undefined);
+    assert.deepEqual(body.response_format, { type: 'json_object' });
+    assert.deepEqual(response.result, { selected: ['traceRepoEntryPoints'] });
+  } finally { globalThis.fetch = original; }
+});
+
+test('rate-limited requests retry and respect cancellation while waiting', async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  try {
+    globalThis.fetch = async () => ++calls === 1
+      ? new Response('', { status: 429, headers: { 'retry-after': '0.001' } })
+      : new Response(JSON.stringify({ choices: [{ message: { content: '{}' } }] }));
+    await mistral('fixture').complete([], { signal: new AbortController().signal, maxOutputTokens: 10, codeMode: false, memory: false });
+    assert.equal(calls, 2);
+    const controller = new AbortController();
+    globalThis.fetch = async () => new Response('', { status: 429, headers: { 'retry-after': '60' } });
+    const pending = mistral('fixture').complete([], { signal: controller.signal, maxOutputTokens: 10, codeMode: false, memory: false });
+    setTimeout(() => controller.abort(), 1);
+    await assert.rejects(pending);
+  } finally { globalThis.fetch = original; }
+});
+
 test('named memory tool maps its parameters to the selected memory script', async () => {
   const original = globalThis.fetch;
   let body: any;

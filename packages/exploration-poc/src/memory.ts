@@ -120,21 +120,17 @@ const ENGLISH_FUNCTION_WORDS = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'fo
 
 /**
  * Deterministic description validation (issue #187, D04): a candidate is kept
- * only with a non-empty, length-bounded description of one or two English
- * sentences stating what the procedure does, its scope, its result shape and
- * its key limits. No LLM judges the text: empty, off-format and oversized
+ * only with a non-empty, length-bounded English description stating what the
+ * procedure does, its scope, its result shape and its key limits. No LLM judges
+ * the text: empty and oversized
  * descriptions are refused outright, while the English rule is a practable
  * heuristic screen (see ENGLISH_FUNCTION_WORDS) — a description passing it
  * is screened, not proven English.
  */
 export function validateDescription(description: string): { ok: boolean; reason?: string } {
   const trimmed = typeof description === 'string' ? description.trim() : '';
-  if (!trimmed) return { ok: false, reason: 'Description is mandatory: provide one or two English sentences stating what the procedure does, its scope, the shape of its result and its key limits.' };
+  if (!trimmed) return { ok: false, reason: 'Description is mandatory: state what the procedure does, its scope, the shape of its result and its key limits.' };
   if (trimmed.length > MAX_DESCRIPTION_LENGTH) return { ok: false, reason: `Description is too long: ${trimmed.length} characters; at most ${MAX_DESCRIPTION_LENGTH} are allowed.` };
-  const sentences = trimmed.match(/[.!?]+(?=\s|$)/g) ?? [];
-  if (!/[.!?]$/.test(trimmed) || sentences.length > 2) {
-    return { ok: false, reason: `Description must be one or two sentences (found ${/[.!?]$/.test(trimmed) ? sentences.length : 0}): state what the procedure does, its scope, the shape of its result and its key limits.` };
-  }
   if (/[^\x20-\x7E]/.test(trimmed)) return { ok: false, reason: 'Description must be written in English: non-ASCII (e.g. accented) characters are not accepted.' };
   const words = trimmed.toLowerCase().match(/[a-z']+/g) ?? [];
   if (!words.some(word => ENGLISH_FUNCTION_WORDS.has(word))) return { ok: false, reason: 'Description must be written in English: no common English word was found in the text.' };

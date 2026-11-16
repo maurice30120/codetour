@@ -34,7 +34,9 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix packages/description-renderer
       - run: npm ci --prefix packages/mcp-server
+      - run: npm ci --prefix packages/exploration-poc
       - run: npm run test
+      - run: npm test --prefix packages/exploration-poc
       - run: npm run package
       - name: Test standalone distribution
         if: runner.os == 'macOS' || runner.os == 'Windows'

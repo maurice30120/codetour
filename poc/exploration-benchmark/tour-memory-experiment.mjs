@@ -129,7 +129,7 @@ try {
             }
           }
           row = { repetition, mode, task: task.id, selectedId, selectedTerm, selectedHits, selectedPrefix, namedTools: selectionTools?.map(tool => tool.name) ?? null, selectionMs, result, calls, library, probes, validationFeedback };
-        } catch (error) { row = { repetition, mode, task: task.id, selectedId, selectedTerm, selectedHits, selectedPrefix, namedTools: selectionTools?.map(tool => tool.name) ?? null, selectionMs, error: String(error.message).replaceAll(key, '[redacted]'), observedUsage, calls, validationFeedback }; }
+        } catch (error) { row = { repetition, mode, task: task.id, selectedId, selectedTerm, selectedHits, selectedPrefix, namedTools: selectionTools?.map(tool => tool.name) ?? null, selectionMs, error: String(error.message).replaceAll(key, '[redacted]'), exploration: error.exploration ? JSON.parse(JSON.stringify(error.exploration).replaceAll(key, '[redacted]')) : null, observedUsage, calls, validationFeedback }; }
         rows.push(row);
         await writeFile(output, JSON.stringify({ model: modelName, root, commit, budget, concludeRatio, repetitions, tasks, rows }, null, 2) + '\n');
         console.log(JSON.stringify({ repetition, mode, task: task.id, status: row.result?.status ?? 'error', scripts: row.library?.length, reused: row.result?.metrics.memoryReuses, selectedTerm: row.selectedTerm ?? null }));

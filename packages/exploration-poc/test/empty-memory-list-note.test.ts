@@ -111,3 +111,21 @@ test('the anti-loop note never appears while the catalogue returns results', asy
     assert.doesNotMatch(content, /catalogue is empty again/, 'no anti-loop note when the catalogue returns entries');
   }
 });
+
+test('a filtered miss exposes the nonempty catalogue without claiming it is empty', async t => {
+  const { root, memoryDir } = await setup(t);
+  const catalogueFile = join(memoryDir, `${createHash('sha256').update(await realpath(root)).digest('hex')}.json`);
+  await writeFile(catalogueFile, JSON.stringify([{ id: 'searchRepoText', objective: 'Find all literal occurrences of a text query across repository files', description: 'Searches the repository for a literal text query.', code: 'searchText(params.query)', parameters: ['query'], successes: 1, failures: 0 }]));
+  let step = 0;
+  const responses: any[] = [];
+  await explore({ root, objective: 'Find start', codeMode: true, memory: { directory: memoryDir }, model: { async complete(messages) {
+    if (step > 0) responses.push(JSON.parse(messages.at(-1).content));
+    if (step++ < 2) return { toolCalls: [{ id: `miss${step}`, name: 'memory_list', arguments: { query: 'literal occurrences of a text query across repository files with line numbers' } }] };
+    return { result: validResult };
+  } } });
+  for (const response of responses) {
+    assert.deepEqual(response.results, []);
+    assert.equal(response.available[0].id, 'searchRepoText');
+    assert.doesNotMatch(response.note, /catalogue is empty/i);
+  }
+});

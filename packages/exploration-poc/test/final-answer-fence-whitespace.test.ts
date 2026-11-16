@@ -26,6 +26,31 @@ test('a final answer with whitespace before the ```json fence parses as valid JS
   }
 });
 
+test('a non-JSON final answer carries the block shapes and the provider stop reason', async () => {
+  const original = globalThis.fetch;
+  try {
+    // Diagnostic telemetry for the GLM failure mode: block content formats the
+    // text join cannot read (no `text` field, e.g. reasoning blocks) and a
+    // finish_reason marking a generation limit. The error must expose both so
+    // the failure is diagnosable without capturing the raw payload.
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      choices: [{ message: { content: [{ type: 'thinking', thinking: 'internal reasoning' }, { type: 'other' }] }, finish_reason: 'length' }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 }
+    }));
+    await assert.rejects(
+      () => mistral('fixture').complete([], { signal: new AbortController().signal, maxOutputTokens: 100, codeMode: true, memory: true }),
+      (error: unknown) => {
+        assert.equal((error as { name?: string }).name, 'FinalAnswerNotJson');
+        assert.deepEqual((error as { contentShape?: unknown[] }).contentShape, ['type=thinking;keys=type|thinking', 'type=other;keys=type']);
+        assert.equal((error as { finishReason?: string }).finishReason, 'length');
+        return true;
+      }
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test('a truncated or non-JSON final answer still throws the typed error with a content snippet', async () => {
   const original = globalThis.fetch;
   try {

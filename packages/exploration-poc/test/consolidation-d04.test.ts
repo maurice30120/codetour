@@ -32,9 +32,10 @@ async function withStore(run: (store: Awaited<ReturnType<typeof scriptMemory>>) 
   } finally { await rm(root, { recursive: true, force: true }); }
 }
 
-test('validateDescription accepts one or two bounded English sentences', () => {
+test('validateDescription accepts bounded English descriptions regardless of sentence count', () => {
   assert.deepEqual(validateDescription('Returns the repository index declarations with file, line and text.'), { ok: true });
   assert.deepEqual(validateDescription('Searches the SQL scripts of the repository for index declarations. Returns one match per declaration with file, line and text.'), { ok: true });
+  assert.deepEqual(validateDescription('Searches all repository files for a literal text query and returns matches as {file, line, text} entries. Scope: literal, case-sensitive text search without semantic identifier resolution. Limits: matches include comments and string literals; the result set may be capped.'), { ok: true });
 });
 
 test('validateDescription refuses an empty description with a precise reason', () => {
@@ -46,12 +47,8 @@ test('validateDescription refuses an empty description with a precise reason', (
   }
 });
 
-test('validateDescription refuses off-format descriptions (not one or two sentences)', () => {
-  for (const description of ['Find a literal', 'Index declarations', 'Returns a. Returns b. Returns c. Fourth sentence here.']) {
-    const check = validateDescription(description);
-    assert.equal(check.ok, false, description);
-    assert.match(check.reason ?? '', /one or two sentences/i);
-  }
+test('validateDescription accepts a description without a sentence terminator', () => {
+  assert.deepEqual(validateDescription('Find a literal'), { ok: true });
 });
 
 test('validateDescription refuses a disproportionately long description', () => {
@@ -76,14 +73,14 @@ test('finish refuses a candidate whose description is empty, off-format or too l
   await withStore(async store => {
     const report = await store.finish([], [
       baseCandidate({ name: 'probeRepoEmpty', description: '' }),
-      baseCandidate({ name: 'probeRepoFormat', description: 'Find a literal' }),
+      baseCandidate({ name: 'probeRepoFormat', description: '   ' }),
       baseCandidate({ name: 'probeRepoFrench', description: 'Recherche des index déclarés dans les scripts SQL du dépôt.' }),
       baseCandidate({ name: 'probeRepoLength', description: `Returns matches. ${'y'.repeat(400)}` })
     ]);
     assert.equal(store.catalog().length, 0, 'no candidate may persist without a valid English description');
     assert.equal(report.accepted.length, 0);
     assert.match(report.rejected[0].reason, /Description refused: .*mandatory/);
-    assert.match(report.rejected[1].reason, /Description refused: .*one or two sentences/);
+    assert.match(report.rejected[1].reason, /Description refused: .*mandatory/);
     assert.match(report.rejected[2].reason, /Description refused: .*English/);
     assert.match(report.rejected[3].reason, /Description refused: .*too long/);
   });
@@ -311,7 +308,7 @@ test('off-format and oversized descriptions are refused deterministically with a
   const tooLong = `Returns the repository matches for the requested symbol. ${'z'.repeat(400)}`;
   let step = 0;
   const result = await explore({ root, objective: 'Explain start', codeMode: true, memory, model: { async complete(messages) {
-    if (step === 0) { step++; return { toolCalls: [{ id: 'format', name: 'function_try', arguments: { source: SEARCH_SOURCE, params: { query: 'start' }, remember: true, name: 'traceRepoBadFormat', question: 'Where is an entry point declared?', description: 'Find a literal' } }] }; }
+    if (step === 0) { step++; return { toolCalls: [{ id: 'format', name: 'function_try', arguments: { source: SEARCH_SOURCE, params: { query: 'start' }, remember: true, name: 'traceRepoBadFormat', question: 'Where is an entry point declared?', description: '' } }] }; }
     if (step === 1) { step++; return { toolCalls: [{ id: 'long', name: 'function_try', arguments: { source: SEARCH_SOURCE, params: { query: 'start' }, remember: true, name: 'traceRepoTooLong', question: 'Where is an entry point declared?', description: tooLong } }] }; }
     if (step === 2) { step++; return { result: { ...emptyResult, entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } }; }
     assert.match(messages[0].content, /select/i);
@@ -320,7 +317,7 @@ test('off-format and oversized descriptions are refused deterministically with a
   const report = result.consolidationReport as ConsolidationReport;
   assert.deepEqual(report.accepted, []);
   assert.equal(report.rejected.length, 2);
-  assert.match(report.rejected[0].reason, /Description refused: .*one or two sentences/);
+  assert.match(report.rejected[0].reason, /Description refused: .*mandatory/);
   assert.match(report.rejected[1].reason, /Description refused: .*too long/);
   for (const name of ['traceRepoBadFormat', 'traceRepoTooLong']) {
     const entry = report.reconciliation.find(item => item.name === name);
@@ -368,6 +365,23 @@ test('an identifier collision in a later Tour is refused: the validated entry is
 // remember. The model judges future utility at selection; the harness decides
 // persistence through deterministic validations only.
 // ============================================================================
+
+test('a nameless trial can be selected and persisted under a derived name', async t => {
+  const base = await mkdtemp(join(tmpdir(), 'nameless-trial-'));
+  const root = await fixtureRepo(base);
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const memory = { directory: join(base, 'memory') };
+  let step = 0;
+  const result = await explore({ root, objective: 'Explain start', codeMode: true, memory, model: { async complete(messages) {
+    if (step++ === 0) return { toolCalls: [{ id: 'trial', name: 'function_try', arguments: { source: SEARCH_SOURCE, params: { query: 'start' }, question: 'Where is an entry point declared?', description: DESCRIPTION } }] };
+    if (step === 2) return { result: { ...emptyResult, entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
+    const candidate = JSON.parse(messages.at(-1).content).executedCandidates[0];
+    assert.match(candidate.name, /^[a-z]+(?:[A-Z][a-z0-9]*){2,}$/);
+    return { result: { selected: [candidate.name] } };
+  } } });
+  assert.equal(result.callTrace.find(call => call.type === 'function_try')?.parameters?.name, undefined);
+  assert.equal((await scriptMemory(root, memory.directory)).catalog().length, 1);
+});
 
 test('a successful trial without remember is auto-proposed, selected, deterministically validated, persisted and reused in a later Tour', async t => {
   const base = await mkdtemp(join(tmpdir(), 'd194-auto-propose-'));

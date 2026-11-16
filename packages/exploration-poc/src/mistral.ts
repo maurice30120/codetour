@@ -39,7 +39,19 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
     const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)).filter(tool => !(options?.memory && options?.codeMode) || !primitiveNames.has(tool.function.name)), ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];
     const requestMaxTokens = options?.maxOutputTokens;
     lastRequest.model = model; lastRequest.temperature = config.temperature ?? 0; lastRequest.maxOutputTokens = requestMaxTokens;
-    const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, tools: availableTools, temperature: config.temperature ?? 0, max_tokens: requestMaxTokens }) });
+    const request = { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, ...(options?.toolsEnabled === false ? { response_format: { type: 'json_object' } } : { tools: availableTools }), temperature: config.temperature ?? 0, max_tokens: requestMaxTokens }) };
+    let response = await fetch('https://api.mistral.ai/v1/chat/completions', request);
+    for (let retry = 0; response.status === 429 && retry < 3; retry++) {
+      const retryAfter = Number(response.headers.get('retry-after'));
+      const delay = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 60000) : 20000 * (retry + 1);
+      await new Promise<void>((resolve, reject) => {
+        if (options?.signal.aborted) { reject(options.signal.reason); return; }
+        const timer = setTimeout(() => { options?.signal.removeEventListener('abort', abort); resolve(); }, delay);
+        const abort = () => { clearTimeout(timer); reject(options?.signal.reason); };
+        options?.signal.addEventListener('abort', abort, { once: true });
+      });
+      response = await fetch('https://api.mistral.ai/v1/chat/completions', request);
+    }
     if (!response.ok) throw new Error(`Mistral request failed (${response.status})`);
     const data: any = await response.json();
     const message = data.choices?.[0]?.message;
@@ -50,7 +62,17 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
       // dedicated LLM call, and keep the block out of the final result parse.
       // A malformed block stays a string: the harness records an invalid plan
       // anomaly instead of crashing the provider call.
-      const rawContent = String(message?.content ?? '');
+      const rawContent = Array.isArray(message?.content)
+        ? message.content.map((part: any) => typeof part === 'string' ? part : typeof part?.text === 'string' ? part.text : '').join('')
+        : String(message?.content ?? '');
+      // Diagnostic: when the joined content fails to parse, the shape of each
+      // block and the provider stop reason say whether the model sent
+      // reasoning blocks, a generation limit, or an unexpected block type —
+      // without capturing or guessing the raw payload.
+      const contentShape = Array.isArray(message?.content)
+        ? message.content.map((part: any) => typeof part === 'string' ? 'string' : typeof part?.text === 'string' ? 'text' : `type=${String(part?.type ?? 'unknown')};keys=${Object.keys(part ?? {}).join('|')}`)
+        : typeof message?.content;
+      const finishReason = data.choices?.[0]?.finish_reason ?? null;
       const planBlock = /```plan\s*([\s\S]*?)```/.exec(rawContent);
       let plan: unknown;
       if (planBlock) {
@@ -78,7 +100,7 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
         // The raw reply and the parsed plan travel on the error: the harness
         // recovery must show the model what it actually wrote (its plan block
         // with no JSON after it) and must not lose the plan it published.
-        throw Object.assign(new Error(`Final answer is not valid JSON (content after plan extraction: ${content ? JSON.stringify(content.slice(0, 200)) : 'empty'})`), { name: 'FinalAnswerNotJson', rawContent, ...(plan !== undefined ? { plan } : {}) });
+        throw Object.assign(new Error(`Final answer is not valid JSON (content after plan extraction: ${content ? JSON.stringify(content.slice(0, 200)) : 'empty'})`), { name: 'FinalAnswerNotJson', rawContent, contentShape, finishReason, ...(plan !== undefined ? { plan } : {}) });
       }
       return { ...(plan !== undefined ? { plan } : {}), result: parsedResult, usage };
     } catch (error) {
