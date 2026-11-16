@@ -387,3 +387,84 @@ test("rejects an unknown review mode in the Changes Tour generation prompt", asy
     rmrf(root);
   }
 });
+
+// ADR 0015 (issue #186): the internal generation instructions served to the
+// host agent are English. Only the user's own words — the brief — travel
+// verbatim in the user's language. These markers detect French text; the
+// surfaces scanned below are the server-authored instructions, and the
+// composed form is scanned with the brief stripped first.
+const FRENCH_ACCENTS = /[éèêëàâçôûîüöÉÈÊËÀÂÇÔÛÎÜÖœŒ]/;
+const FRENCH_TERMS =
+  /\b(verbe|domaine|objet|contrat|périmètre|perimetre|dépôt|depot)\b/i;
+
+function assertEnglishInstructions(text: string, surface: string): void {
+  assert.ok(
+    !FRENCH_ACCENTS.test(text),
+    `${surface} must not contain French accented characters`
+  );
+  assert.ok(!FRENCH_TERMS.test(text), `${surface} must not contain French terms`);
+}
+
+test("serves every generation prompt surface with English internal instructions", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const surfaces: Array<[string, string]> = [
+        [
+          "the Project Tour prompt resource",
+          await readResourceText(client, PROJECT_TOUR_PROMPT_RESOURCE_URI),
+        ],
+        [
+          "the neutral Changes Tour prompt resource",
+          await readResourceText(client, changesTourPromptUri("neutral")),
+        ],
+        [
+          "the critical Changes Tour prompt resource",
+          await readResourceText(client, changesTourPromptUri("critical")),
+        ],
+      ];
+      const projectPrompt = await client.getPrompt({
+        name: GENERATE_PROJECT_TOUR_PROMPT_NAME,
+      });
+      surfaces.push([
+        "the Project Tour prompts/get form",
+        promptText(projectPrompt.messages),
+      ]);
+      const changesPrompt = await client.getPrompt({
+        name: GENERATE_CHANGES_TOUR_PROMPT_NAME,
+        arguments: { reviewMode: "neutral" },
+      });
+      surfaces.push([
+        "the Changes Tour prompts/get form",
+        promptText(changesPrompt.messages),
+      ]);
+      for (const [surface, text] of surfaces) {
+        assert.ok(text.length > 0, `${surface} must not be empty`);
+        assertEnglishInstructions(text, surface);
+      }
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("keeps the composed instructions English while carrying a French brief verbatim", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const brief = "Explique le parcours d'authentification de bout en bout.";
+      const prompt = await client.getPrompt({
+        name: GENERATE_PROJECT_TOUR_PROMPT_NAME,
+        arguments: { brief },
+      });
+      const text = promptText(prompt.messages);
+      assert.ok(text.includes(brief), "the user's brief travels verbatim");
+      assertEnglishInstructions(
+        text.replace(brief, ""),
+        "the composed Project Tour instructions"
+      );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
