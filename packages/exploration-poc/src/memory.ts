@@ -58,15 +58,22 @@ export type ComparisonOutcome = 'duplicate' | 'distinct' | 'indeterminate';
 
 export interface ReferenceCase { params: Record<string, unknown>; ok: boolean; at: string }
 
-export interface ReplacementVerification {
-  /** Candidate executed at least once with its own params, with valid structural proofs. */
-  candidateProofOk: boolean;
-  /** Reference test set (old version's behaviour) re-executed on the candidate, proofs valid. */
-  referenceProofOk: boolean;
-  /** How many distinct param sets (candidate + reference cases) were executed. */
-  executedParamSets: number;
-  /** True when the old entry had no reference cases recorded (gate then refuses). */
-  noReferenceCases?: boolean;
+/** Deterministic replay evidence (issue #187): the exact same code and params were re-executed and every citation re-checked. */
+export interface ReplayEvidence {
+  ok: boolean;
+  reason?: string;
+  citations?: 'valid' | 'no_references' | 'validation_failed';
+}
+
+/** Issue #187: per-candidate reconciliation log — proposed / replayed / accepted / rejected with reason. */
+export interface ReconciliationOutcome {
+  name: string;
+  /** True when the model proposed (selected) the candidate for consolidation. */
+  proposed: boolean;
+  /** True when the deterministic reconciliation re-executed the exact code and params with all citations re-checked. */
+  replayed: boolean;
+  accepted: boolean;
+  reason?: string;
 }
 
 export interface ConsolidationCandidate {
@@ -84,11 +91,10 @@ export interface ConsolidationCandidate {
   verified: boolean;
   /** Concrete operational consolidation signal (correction 3): never a blind benchmark judge. */
   consolidationSignal?: { executedSuccessfully: boolean; proofAvailable: boolean; contractRespected: boolean };
-  replaces?: string;
+  /** Deterministic replay evidence (issue #187): required — no replay, no persistence. */
+  replay?: ReplayEvidence;
   version?: number;
   variantOf?: string;
-  /** Replacement gate evidence (B): candidate params + representative reference test set. */
-  regression?: ReplacementVerification;
   revision?: string;
 }
 
@@ -97,6 +103,35 @@ export interface ConsolidationReport {
   rejected: Array<{ name: string; reason: string }>;
   duplicates: string[];
   indeterminate: string[];
+  /** Issue #187: one entry per candidate that reached the deterministic validator. */
+  reconciliation: ReconciliationOutcome[];
+}
+
+/** Maximum stored description length (matches the entry schema bound). */
+const MAX_DESCRIPTION_LENGTH = 300;
+
+/** Deterministic English detection: common function words an accepted description must contain. */
+const ENGLISH_FUNCTION_WORDS = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'for', 'with', 'from', 'to', 'in', 'on', 'by', 'is', 'are', 'be', 'been', 'was', 'were', 'has', 'have', 'had', 'does', 'do', 'did', 'returns', 'return', 'returning', 'given', 'when', 'each', 'its', 'this', 'that', 'which', 'not', 'into', 'over', 'under', 'out', 'as', 'at', 'than', 'then', 'can', 'will', 'would', 'should', 'may', 'must', 'never', 'always', 'per', 'via', 'using', 'use', 'uses', 'used', 'searches', 'search', 'finds', 'find', 'reads', 'read', 'lists', 'list', 'counts', 'count', 'reports', 'report']);
+
+/**
+ * Deterministic description validation (issue #187, D04): a candidate is kept
+ * only with a non-empty, length-bounded description of one or two English
+ * sentences stating what the procedure does, its scope, its result shape and
+ * its key limits. No LLM judges the text: empty, off-format, oversized or
+ * non-English descriptions are refused with a precise reason.
+ */
+export function validateDescription(description: string): { ok: boolean; reason?: string } {
+  const trimmed = typeof description === 'string' ? description.trim() : '';
+  if (!trimmed) return { ok: false, reason: 'Description is mandatory: provide one or two English sentences stating what the procedure does, its scope, the shape of its result and its key limits.' };
+  if (trimmed.length > MAX_DESCRIPTION_LENGTH) return { ok: false, reason: `Description is too long: ${trimmed.length} characters; at most ${MAX_DESCRIPTION_LENGTH} are allowed.` };
+  const sentences = trimmed.match(/[.!?]+(?=\s|$)/g) ?? [];
+  if (!/[.!?]$/.test(trimmed) || sentences.length > 2) {
+    return { ok: false, reason: `Description must be one or two sentences (found ${/[.!?]$/.test(trimmed) ? sentences.length : 0}): state what the procedure does, its scope, the shape of its result and its key limits.` };
+  }
+  if (/[^\x20-\x7E]/.test(trimmed)) return { ok: false, reason: 'Description must be written in English: non-ASCII (e.g. accented) characters are not accepted.' };
+  const words = trimmed.toLowerCase().match(/[a-z']+/g) ?? [];
+  if (!words.some(word => ENGLISH_FUNCTION_WORDS.has(word))) return { ok: false, reason: 'Description must be written in English: no common English word was found in the text.' };
+  return { ok: true };
 }
 
 const digest = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -130,7 +165,7 @@ export function compareCandidates(candidate: { objective: string; description: s
 }
 
 /** Local experimental store. The file name derives from the real repository path. */
-export async function scriptMemory(root: string, directory: string, options: { deduplicate?: boolean } = {}) {
+export async function scriptMemory(root: string, directory: string) {
   const repo = await realpath(root);
   await mkdir(directory, { recursive: true });
   const file = join(directory, `${digest(repo)}.json`);
@@ -188,7 +223,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
     },
     /** Record an in-run failure trace (applied to the catalogue at finish). */
     recordFailure: (id: string) => { sessionFailures.push(id); },
-    /** Record an in-run observation (parameters + proof validity) used for replacement regression gates. */
+    /** Record an in-run observation (parameters + proof validity), kept as a reference case on the entry. */
     observeRun: (id: string, params: Record<string, unknown>, ok: boolean) => { sessionObservations.push({ id, params, ok }); },
     /** Peek at stored entry (source included; for execution wiring only). */
     get: (id: string) => entries.find(entry => entry.id === id),
@@ -200,7 +235,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
       return { id, code: entry.code, params, outputContract: entry.outputContract, revision: entry.revision };
     },
     async finish(successIds: string[], candidates: ConsolidationCandidate[]): Promise<ConsolidationReport> {
-      const report: ConsolidationReport = { accepted: [], rejected: [], duplicates: [], indeterminate: [] };
+      const report: ConsolidationReport = { accepted: [], rejected: [], duplicates: [], indeterminate: [], reconciliation: [] };
       // 1. Update success/failure counts. G0 requirement: NO inactivity tracking.
       for (const entry of entries) {
         const successes = successIds.filter(id => id === entry.id).length;
@@ -208,7 +243,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
         const failures = sessionFailures.filter(id => id === entry.id).length;
         if (failures) entry.failures += failures;
       }
-      // 2. Record reference cases (for replacement regression gates), capped.
+      // 2. Record reference cases (observed runs), capped.
       for (const observation of sessionObservations) {
         const entry = entries.find(item => item.id === observation.id);
         if (entry) entry.referenceCases = [
@@ -216,124 +251,99 @@ export async function scriptMemory(root: string, directory: string, options: { d
           { params: observation.params, ok: observation.ok, at: new Date().toISOString() }
         ];
       }
-      // 3. Consolidation of candidates — every gate must pass.
+      // 3. Consolidation of candidates (issue #187, D04): the deterministic
+      // validator decides persistence — every gate must pass, and the
+      // catalogue stays append-only for this diagnostic: no replacement, no
+      // smart dedup, and an identifier collision never overwrites a validated
+      // entry. The model only proposes; nothing here is judged by an LLM.
       for (const candidate of candidates) {
-        let pendingReplacedEntryForThisCandidate: Entry | undefined;
         const canonical = `${candidate.name ?? ''}`;
-        // Gate (complement): only consolidate EXECUTED, proven, contract-respecting candidates from a validated Tour.
+        const recordOutcome = (accepted: boolean, reason?: string): void => {
+          report.reconciliation.push({ name: canonical, proposed: true, replayed: candidate.replay?.ok === true, accepted, ...(reason ? { reason } : {}) });
+        };
+        // Gate: only consolidate EXECUTED, proven, contract-respecting candidates from a validated Tour.
         const signal = candidate.consolidationSignal;
-        if (!candidate.verified) { report.rejected.push({ name: canonical, reason: 'Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated' }); continue; }
+        if (!candidate.verified) {
+          report.rejected.push({ name: canonical, reason: 'Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated' });
+          recordOutcome(false, report.rejected.at(-1)!.reason);
+          continue;
+        }
         if (!signal || !signal.executedSuccessfully || !signal.proofAvailable || !signal.contractRespected) {
           report.rejected.push({ name: canonical, reason: 'Consolidation signal missing: execution status success + structural proof availability + contract respected are all required' });
+          recordOutcome(false, report.rejected.at(-1)!.reason);
           continue;
         }
         // Gate: canonical naming (camelCase verb+domain+object).
         const naming = validateCanonicalName(candidate.name);
-        if (!naming.ok) { report.rejected.push({ name: canonical, reason: `Naming convention: ${naming.reason}` }); continue; }
-        // Gate: preserve old-version behaviour before ANY replacement (rollback kept).
-        if (candidate.replaces) {
-          const oldEntry = entries.find(entry => entry.id === candidate.replaces);
-          if (!oldEntry) { report.rejected.push({ name: canonical, reason: `Unknown replacement target "${candidate.replaces}"` }); continue; }
-          const regression = candidate.regression;
-          if (!oldEntry.referenceCases.length || !regression) {
-            report.rejected.push({ name: canonical, reason: !regression
-              ? 'Replacement gate: no verification evidence provided (candidate params AND reference test set required)'
-              : 'Replacement gate: the old version has no recorded reference cases; record runs of the old version before replacing it' });
-            continue;
-          }
-          const requiredSets = Math.min(3, oldEntry.referenceCases.length) + 1; // + candidate's own params
-          if (regression.executedParamSets < requiredSets) {
-            report.rejected.push({ name: canonical, reason: `Replacement gate: verified only ${regression.executedParamSets} param set(s); ${requiredSets} required (candidate params + ${requiredSets - 1} reference cases)` });
-            continue;
-          }
-          if (!regression.candidateProofOk || !regression.referenceProofOk) {
-            report.rejected.push({ name: canonical, reason: `Replacement gate: proofs invalid (candidateProofOk=${regression.candidateProofOk}, referenceProofOk=${regression.referenceProofOk})` });
-            continue;
-          }
-          pendingReplacedEntryForThisCandidate = oldEntry; // marked only once the new version is accepted below
+        if (!naming.ok) {
+          report.rejected.push({ name: canonical, reason: `Naming convention: ${naming.reason}` });
+          recordOutcome(false, report.rejected.at(-1)!.reason);
+          continue;
         }
-        // Gate: dedup decided ONLY on question + scope + contract (never the
-        // name alone). The entry being replaced is excluded from the scan: the
-        // candidate IS its declared successor. An indeterminate comparison against
-        // any OTHER entry is never silently merged: both entries stay, the new
-        // one flagged variantOf (no invented equivalence).
+        // Gate (issue #187): mandatory exploitable English description, one or
+        // two sentences, length-bounded — refused deterministically with a reason.
+        const descriptionCheck = validateDescription(candidate.description);
+        if (!descriptionCheck.ok) {
+          report.rejected.push({ name: canonical, reason: `Description refused: ${descriptionCheck.reason}` });
+          recordOutcome(false, report.rejected.at(-1)!.reason);
+          continue;
+        }
+        // Gate (issue #187): deterministic reconciliation replay — the exact
+        // same code and params must have been re-executed with all citations
+        // re-checked on the submitted version.
+        if (!candidate.replay) {
+          report.rejected.push({ name: canonical, reason: 'Reconciliation replay missing: the exact code and params must be re-executed with all citations re-checked before persistence' });
+          recordOutcome(false, report.rejected.at(-1)!.reason);
+          continue;
+        }
+        if (!candidate.replay.ok) {
+          report.rejected.push({ name: canonical, reason: `Reconciliation replay failed: ${candidate.replay.reason ?? 'the re-execution did not reproduce the validated attempt'}` });
+          recordOutcome(false, report.rejected.at(-1)!.reason);
+          continue;
+        }
+        // Gate (issue #187): append-only — an identifier collision never
+        // overwrites an existing validated entry (no rename, no shadow id).
+        if (entries.some(entry => entry.id === candidate.name)) {
+          report.rejected.push({ name: canonical, reason: `Identifier collision: "${candidate.name}" already exists; the catalogue is append-only and never overwrites a validated entry` });
+          recordOutcome(false, report.rejected.at(-1)!.reason);
+          continue;
+        }
+        // Dedup is deliberately NOT a gate for this diagnostic (issue #183):
+        // decided duplicates stay visible in the report and in the catalogue;
+        // an indeterminate comparison only flags the relation (variantOf), it
+        // never invents an equivalence and never blocks.
         let duplicateOf: Entry | undefined;
         let indeterminateOf: Entry | undefined;
         for (const entry of entries) {
-          if (entry === pendingReplacedEntryForThisCandidate) continue;
           const outcome = compareCandidates(candidate, entry);
           if (outcome === 'duplicate') { duplicateOf = entry; break; }
           if (outcome === 'indeterminate') indeterminateOf = entry;
         }
-        if (duplicateOf && options.deduplicate !== false) { report.duplicates.push(candidate.name); continue; }
-        // Rollback kept: the old entry is retained and marked superseded only
-        // now, i.e. when the new version is actually accepted.
-        if (pendingReplacedEntryForThisCandidate) pendingReplacedEntryForThisCandidate.replacedBy = candidate.name;
-        // New entry, keyed by canonical name (code-digest suffix only on id collision).
-        const codeSuffix = digest(candidate.code).slice(0, 8);
-        const id = entries.some(entry => entry.id === candidate.name) ? `${candidate.name}-${codeSuffix}` : candidate.name;
-        if (indeterminateOf) {
-          report.indeterminate.push(candidate.name);
-          entries.push({
-            id,
-            objective: candidate.objective,
-            description: candidate.description,
-            code: candidate.code,
-            parameters: candidate.parameters,
-            paramsSchema: candidate.paramsSchema ?? candidate.parameters.map(name => ({ name, type: 'unknown' })),
-            executionMode: candidate.executionMode,
-            outputContract: candidate.returns ? { returns: candidate.returns, itemFields: ['file', 'line'], bounds: { maxItems: 50, maxBytes: 8000 } } : undefined,
-            limits: { maxItems: 50, maxBytes: 8000 },
-            uncertaintyCases: candidate.uncertaintyCases ?? [],
-            revision: candidate.revision,
-            successes: 1,
-            failures: 0,
-            fingerprint: digest(`${candidate.code}\0${[...candidate.parameters].sort().join(',')}`).slice(0, 16),
-            version: candidate.version ?? 1,
-            variantOf: indeterminateOf.id,
-            validated: true,
-            referenceCases: []
-          });
-          report.accepted.push(id);
-          continue;
-        }
-        const existing = entries.find(entry => entry.id === id);
-        if (existing) {
-          existing.code = candidate.code;
-          existing.description = candidate.description;
-          existing.objective = candidate.objective;
-          existing.parameters = candidate.parameters;
-          existing.paramsSchema = candidate.paramsSchema ?? candidate.parameters.map(name => ({ name, type: 'unknown' }));
-          existing.executionMode = candidate.executionMode;
-          if (candidate.returns) existing.outputContract = { returns: candidate.returns, itemFields: ['file', 'line'], bounds: { maxItems: 50, maxBytes: 8000 } };
-          existing.fingerprint = digest(`${candidate.code}\0${[...candidate.parameters].sort().join(',')}`).slice(0, 16);
-          existing.version = Math.max(existing.version || 1, candidate.version ?? 1);
-          existing.validated = true;
-          existing.successes += 1;
-          existing.revision = candidate.revision ?? existing.revision;
-        } else {
-          entries.push({
-            id,
-            objective: candidate.objective,
-            description: candidate.description,
-            code: candidate.code,
-            parameters: candidate.parameters,
-            paramsSchema: candidate.paramsSchema ?? candidate.parameters.map(name => ({ name, type: 'unknown' })),
-            executionMode: candidate.executionMode,
-            outputContract: candidate.returns ? { returns: candidate.returns, itemFields: ['file', 'line'], bounds: { maxItems: 50, maxBytes: 8000 } } : undefined,
-            limits: { maxItems: 50, maxBytes: 8000 },
-            uncertaintyCases: candidate.uncertaintyCases ?? [],
-            revision: candidate.revision,
-            successes: 1,
-            failures: 0,
-            fingerprint: digest(`${candidate.code}\0${[...candidate.parameters].sort().join(',')}`).slice(0, 16),
-            version: candidate.version ?? 1,
-            variantOf: candidate.variantOf,
-            validated: true,
-            referenceCases: []
-          });
-        }
-        report.accepted.push(id);
+        if (duplicateOf) report.duplicates.push(candidate.name);
+        if (indeterminateOf) report.indeterminate.push(candidate.name);
+        // New entry, keyed by canonical name (append-only).
+        entries.push({
+          id: candidate.name,
+          objective: candidate.objective,
+          description: candidate.description,
+          code: candidate.code,
+          parameters: candidate.parameters,
+          paramsSchema: candidate.paramsSchema ?? candidate.parameters.map(name => ({ name, type: 'unknown' })),
+          executionMode: candidate.executionMode,
+          outputContract: candidate.returns ? { returns: candidate.returns, itemFields: ['file', 'line'], bounds: { maxItems: 50, maxBytes: 8000 } } : undefined,
+          limits: { maxItems: 50, maxBytes: 8000 },
+          uncertaintyCases: candidate.uncertaintyCases ?? [],
+          revision: candidate.revision,
+          successes: 1,
+          failures: 0,
+          fingerprint: digest(`${candidate.code}\0${[...candidate.parameters].sort().join(',')}`).slice(0, 16),
+          version: candidate.version ?? 1,
+          variantOf: indeterminateOf?.id,
+          validated: true,
+          referenceCases: []
+        });
+        report.accepted.push(candidate.name);
+        recordOutcome(true);
       }
       prune();
       await persist();
