@@ -76,7 +76,7 @@ export interface ConsolidationCandidate {
   parameters: string[];
   paramsSchema?: Array<{ name: string; type: string }>;
   executionMode?: 'strict' | 'legacy';
-  /** Canonical name: camelCase, verbe+domaine+objet. Mandatory for consolidation. */
+  /** Canonical name: camelCase, verb+domain+object. Mandatory for consolidation. */
   name: string;
   /** Output contract declared with the candidate. */
   returns?: string;
@@ -101,17 +101,17 @@ export interface ConsolidationReport {
 
 const digest = (s: string) => createHash('sha256').update(s).digest('hex');
 
-/** Canonical naming convention: camelCase, verbe+domaine+objet (at least three segments). */
+/** Canonical naming convention: camelCase, verb+domain+object (at least three segments). */
 export function validateCanonicalName(name: string): { ok: boolean; reason?: string } {
   if (!name || typeof name !== 'string') return { ok: false, reason: 'Missing canonical name' };
   if (!/^[a-z][a-zA-Z0-9]*$/.test(name)) return { ok: false, reason: `Name "${name}" must be camelCase (no separators, lowercase first letter)` };
   const segments = name.split(/(?=[A-Z])/);
-  if (segments.length < 3) return { ok: false, reason: `Name "${name}" must follow verbe+domaine+objet (at least three camelCase segments, e.g. searchPostgresIndexes)` };
+  if (segments.length < 3) return { ok: false, reason: `Name "${name}" must follow verb+domain+object (at least three camelCase segments, e.g. searchPostgresIndexes)` };
   return { ok: true };
 }
 
 /**
- * Dedup on question + périmètre + contrat — never on the name alone.
+ * Dedup on question + scope + contract — never on the name alone.
  * No embeddings, no classifier: only normalized exact comparisons. When the
  * comparison cannot be decided, the outcome is 'indeterminate' and BOTH
  * entries are kept (never an invented equivalence).
@@ -121,11 +121,11 @@ export function compareCandidates(candidate: { objective: string; description: s
   const sameQuestion = norm(candidate.objective) === norm(entry.objective);
   const sameScope = norm(candidate.description) === norm(entry.description);
   if (!sameQuestion || !sameScope) return 'distinct';
-  // Same question + same périmètre: the contract decides.
+  // Same question + same scope: the contract decides.
   const candidateContract = candidate.returns ? norm(candidate.returns) : undefined;
   const entryContract = entry.outputContract?.returns ? norm(entry.outputContract.returns) : undefined;
   if (candidateContract && entryContract) return candidateContract === entryContract ? 'duplicate' : 'distinct';
-  // Missing contract information on either side: comparison is INDÉTERMINÉ.
+  // Missing contract information on either side: comparison is indeterminate.
   return 'indeterminate';
 }
 
@@ -152,7 +152,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
   const generateFingerprint = (code: string, parameters: string[]): string => digest(`${code}\0${[...parameters].sort().join(',')}`).slice(0, 16);
 
   // Full catalogue projection WITHOUT the function source: id, canonical
-  // question, périmètre, typed params, output contract, limits, uncertainty
+  // question, scope, typed params, output contract, limits, uncertainty
   // cases (issue #174 complement: no source leakage through memory_list).
   const project = (entry: Entry) => ({
     id: entry.id,
@@ -227,7 +227,7 @@ export async function scriptMemory(root: string, directory: string, options: { d
           report.rejected.push({ name: canonical, reason: 'Consolidation signal missing: execution status success + structural proof availability + contract respected are all required' });
           continue;
         }
-        // Gate: canonical naming (camelCase verbe+domaine+objet).
+        // Gate: canonical naming (camelCase verb+domain+object).
         const naming = validateCanonicalName(candidate.name);
         if (!naming.ok) { report.rejected.push({ name: canonical, reason: `Naming convention: ${naming.reason}` }); continue; }
         // Gate: preserve old-version behaviour before ANY replacement (rollback kept).
@@ -252,9 +252,9 @@ export async function scriptMemory(root: string, directory: string, options: { d
           }
           pendingReplacedEntryForThisCandidate = oldEntry; // marked only once the new version is accepted below
         }
-        // Gate: dedup decided ONLY on question + périmètre + contrat (never the
+        // Gate: dedup decided ONLY on question + scope + contract (never the
         // name alone). The entry being replaced is excluded from the scan: the
-        // candidate IS its declared successor. An INDÉTERMINÉ comparison against
+        // candidate IS its declared successor. An indeterminate comparison against
         // any OTHER entry is never silently merged: both entries stay, the new
         // one flagged variantOf (no invented equivalence).
         let duplicateOf: Entry | undefined;
