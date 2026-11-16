@@ -4,6 +4,7 @@ import { workspace } from './workspace.ts';
 import { scriptMemory } from './memory.ts';
 import type { ConsolidationCandidate, ReplacementVerification } from './memory.ts';
 import { boundedOutput, looksLikeEvidence, sampleEvidenceRefs } from './memory-output.ts';
+import { citationAccess, citationRepairFeedback, validateCitations } from './citation-validator.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256 } from './decomposition-prompt.ts';
 import { primitiveNames } from './tool-contract.ts';
 
@@ -216,8 +217,16 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             const runEnded = new Date();
             // Compact, structured, bounded, sourced output for memory_run AND function_try.
             const bounded = boundedOutput(raw, { revision: await resolveRevision(), maxItems: stored?.limits?.maxItems, maxBytes: stored?.limits?.maxBytes, sourceTruncated: execution.trace.truncated, primitiveDerived: execution.trace.executedCalls.length > 0 });
-            recordCall({ type: scriptCall.type, name: scriptCall.name, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}` }, runStarted, runEnded);
-            output = output && typeof output === 'object' && 'staleness' in (output as Record<string, unknown>) ? { ...(output as Record<string, unknown>), result: bounded } : bounded;
+            // Issue #185 (D02): every mandatory reference a strict trial emits is
+            // exhaustively validated without any LLM — no sample, no judge. A
+            // citation-invalid trial returns short structured repair feedback
+            // instead of its result, is never proposed for consolidation, and
+            // leaves its code and diagnostics in the trace only.
+            const citations = call.name === 'function_try' ? await validateCitations(raw, { access: citationAccess(tools), revision: await resolveRevision() }) : undefined;
+            const citationFailure = citations?.status === 'validation_failed' ? citationRepairFeedback(citations) : undefined;
+            const citationOutcome = citations ? `; citations=${citations.status === 'valid' ? `${citations.validCount} valid` : citations.status === 'validation_failed' ? `validation_failed (${citations.validCount}/${citations.references} valid)` : 'none'}` : '';
+            recordCall({ type: scriptCall.type, name: scriptCall.name, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome}` }, runStarted, runEnded);
+            output = citationFailure ?? (output && typeof output === 'object' && 'staleness' in (output as Record<string, unknown>) ? { ...(output as Record<string, unknown>), result: bounded } : bounded);
             if (stored && memory?.compactSearch && stored.code === 'search(params.query)' && Array.isArray(raw)) {
               const matches = raw.slice(0, 8).map((match: any) => ({ ...match, text: typeof match.text === 'string' ? match.text.slice(0, 240) : match.text, textTruncated: typeof match.text === 'string' && match.text.length > 240 }));
               const compact = { matches, returned: matches.length, observed: raw.length, truncated: raw.length > matches.length, searchIsBounded: true };
@@ -240,7 +249,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             // truncated the raw result, references may be hidden from the proposal
             // decision — such an attempt is never offered for consolidation.
             const viewTruncated = Boolean((bounded as { truncated?: boolean } | null)?.truncated);
-            let candidate = library && !stored && call.arguments.remember === true && description && !viewTruncated
+            let candidate = !citationFailure && library && !stored && call.arguments.remember === true && description && !viewTruncated
               ? { objective: String(call.arguments.question ?? objective).slice(0, 500), description, name: name || undefined, returns: strict ? execution.trace.contract.returns : returns, code, parameters: Object.keys(params).slice(0, 30), paramsSchema: execution.trace.contract?.paramsSchema, executionMode: strict ? 'strict' as const : 'legacy' as const, revision: await resolveRevision() }
               : undefined;
             if (candidate && memory?.queryContract && call.arguments.contract === 'literal_query') {
