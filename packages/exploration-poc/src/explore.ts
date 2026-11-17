@@ -519,7 +519,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     }
     return { messages: outputs, stopReason: reason() };
   }).addEdge(START, 'model').addConditionalEdges('model', state => state.result !== undefined || state.stopReason ? END : 'model').compile();
-  const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. Wrapping obligation: the ten permanent primitives (listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports, getGitDiff) are NOT exposed as direct tools — they are only callable inside a function_try source. Wrap the primitives a question needs in one TypeScript function expression with typed inputs and try it with function_try(source, params); direct primitive calls are impossible in this mode. Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Name useful procedures camelCase verb+domain+object and parameterize variations. Supply question as a stable canonical question independent of this Tour and a non-empty English description stating what the procedure does, its scope, the shape of its result and its key limits. Every successfully executed function_try trial is automatically submitted to post-Tour selection — no remember flag is needed; the selection step judges future utility, and consolidation re-executes the exact code and params and re-checks every citation, so only deterministically validated selections persist. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
+  const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (TypeScript identifier), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. Wrapping obligation: the ten permanent primitives (listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports, getGitDiff) are NOT exposed as direct tools — they are only callable inside a function_try source. Wrap the primitives a question needs in one TypeScript function expression with typed inputs and try it with function_try(source, params); direct primitive calls are impossible in this mode. Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Give useful procedures a valid TypeScript identifier and parameterize variations. When a stored procedure fails or is unusable for its declared subject, you may submit a corrected function_try under its existing id only if its purpose and contract remain unchanged; otherwise use a new name. Supply question as a stable canonical question independent of this Tour and a non-empty English description stating what the procedure does, its scope, the shape of its result and its key limits. Every successfully executed function_try trial is automatically submitted to post-Tour selection — no remember flag is needed; the selection step considers actual contribution, correctness, documentation and duplication, and consolidation re-executes the exact code and params and re-checks every citation, so only deterministically validated selections persist. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
   // A separate model call creates a local guide before any workspace tool runs.
   // It shares the exploration budgets and never dictates subsequent tool calls.
   const planningStarted = new Date();
@@ -584,7 +584,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   let consolidationReport: unknown;
   if (library && state.result !== undefined && !state.stopReason) {
     // Issue #194: every successfully-executed strict function_try trial is
-    // auto-submitted to selection — the model judges future utility there and
+    // auto-submitted to selection — the model considers their contribution and
     // never has to propose with remember. Legacy candidates are refused in the
     // reconciliation loop below and never enter the selection pool.
     const eligible = attempts.filter(attempt => attempt.candidate?.executionMode === 'strict' && !unusableIds.has(attempt.candidate?.name ?? ''));
@@ -601,7 +601,8 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         metrics.modelCalls++;
         const response = await Promise.race([
           complete([
-            { role: 'system', content: 'Select useful executed procedures for future Tours. Every successfully executed trial is submitted automatically; judge each candidate by its durable utility for future Tours, not by its effect on this Tour. This Tour has passed structural evidence validation only, not semantic verification. Return JSON {"selected":["canonicalName"]}; select only from the executed candidates below. You may select none. Compare canonical question, scope, inputs, output and limits with existing entries; prefer reuse over equivalent duplicates.' },
+            { role: 'system', content: 'Select executed procedures that actually contributed to this research, worked correctly, are clearly documented (purpose, parameters, return and limits), and do not duplicate an existing procedure. Project-specific procedures are welcome; do not predict future utility. This result has structural evidence validation only, not semantic verification. Return JSON {"selected":["name"]}; select only from the executed candidates below. You may select none. Compare question, scope, inputs, output and limits with existing entries; prefer reuse over duplicates.' },
+
             { role: 'user', content: JSON.stringify(selectionInput) }
           ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(16384, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode: false, memory: false, toolsEnabled: false }),
           new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('budget-duration')), { once: true }))
@@ -714,14 +715,8 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         parameters: attempt.candidate.parameters,
         paramsSchema: attempt.candidate.paramsSchema,
         executionMode: attempt.candidate.executionMode,
-        // Issue #194: a strict function_try candidate that executed during a
-        // validated Tour is verified by construction — trial-time citation
-        // validation already ran and the deterministic replay below re-checks
-        // the contract and every citation before anything persists. Requiring
-        // the trial output to overlap the final Tour evidence here rejected
-        // every replay-valid selection whenever the model answered from other
-        // sources, silently emptying the catalogue.
-        verified: true,
+        // Only retain candidates whose output contributed to the final evidence.
+        verified: matches(attempt.output),
         consolidationSignal: { executedSuccessfully: true, proofAvailable: structuralProof, contractRespected },
         replay,
         revision: attempt.candidate.revision
