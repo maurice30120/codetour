@@ -155,10 +155,26 @@ test('the reconciliation log distinguishes proposed, replayed, accepted and reje
 import { mkdir, writeFile } from 'node:fs/promises';
 import { explore } from './fixture-explore.ts';
 import type { ConsolidationReport } from '../src/memory.ts';
+import { DEFAULT_CONFIG } from '../src/config.ts';
 
 const emptyResult = { objective: 'Inspect repository', entryPoints: [], components: [], relations: [], uncertainties: [] };
 const DESCRIPTION = 'Searches the repository for the requested symbol. Returns each match with file, line and text, capped at fifty matches.';
 const SEARCH_SOURCE = '((input: { query: string }) => searchText(input.query))';
+
+test('a successful trial remains eligible when its model-facing output exceeds the context limit', async t => {
+  const base = await mkdtemp(join(tmpdir(), 'd04-large-trial-'));
+  const root = await fixtureRepo(base);
+  t.after(() => rm(base, { recursive: true, force: true }));
+  await writeFile(join(root, 'main.ts'), Array.from({ length: 20 }, (_, i) => `export const start${i} = "${'x'.repeat(80)}";`).join('\n'));
+  let step = 0;
+  const result = await explore({ root, objective: 'Find start', codeMode: true, memory: { directory: join(base, 'memory') }, config: { ...DEFAULT_CONFIG, context: { ...DEFAULT_CONFIG.context, maxResultBytes: 500 } }, model: { async complete(messages) {
+    if (step++ === 0) return { toolCalls: [{ id: 'trial', name: 'function_try', arguments: { source: SEARCH_SOURCE, params: { query: 'start' }, name: 'traceRepoEntryPoints', question: 'Where are entry points declared?', description: DESCRIPTION } }] };
+    if (step === 2) return { result: { ...emptyResult, entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }] } };
+    assert.deepEqual(JSON.parse(messages.at(-1).content).executedCandidates.map((candidate: { name: string }) => candidate.name), ['traceRepoEntryPoints']);
+    return { result: { selected: ['traceRepoEntryPoints'] } };
+  } } });
+  assert.deepEqual((result.consolidationReport as ConsolidationReport).accepted, ['traceRepoEntryPoints']);
+});
 
 async function fixtureRepo(base: string) {
   const root = join(base, 'repo');

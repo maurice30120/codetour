@@ -296,6 +296,13 @@ export async function scriptMemory(root: string, directory: string) {
           recordOutcome(false, report.rejected.at(-1)!.reason);
           continue;
         }
+        // Gate: a bare line-range reader is a wrapped primitive, not a reusable procedure.
+        const paramNames = (candidate.parameters ?? []).map(name => name.toLowerCase());
+        if (paramNames.some(n => /^(start|from)(line)?$/.test(n)) && paramNames.some(n => /^(end|to)(line)?$/.test(n))) {
+          report.rejected.push({ name: canonical, reason: 'Primitive wrapper: a procedure parameterized by a line range only re-wraps readLines and is not memorized' });
+          recordOutcome(false, report.rejected.at(-1)!.reason);
+          continue;
+        }
         // Gate (issue #187): deterministic reconciliation replay — the exact
         // same code and params must have been re-executed with all citations
         // re-checked on the submitted version.

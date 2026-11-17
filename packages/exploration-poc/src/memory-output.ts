@@ -8,6 +8,7 @@
  * - outputs are sourced (file/lines/revision) and distinguish
  *   demonstrated relations from uncertainty.
  */
+import { DEFAULT_CONFIG } from './config.ts';
 
 export type BoundedItem = Record<string, unknown>;
 
@@ -32,8 +33,6 @@ export interface BoundedOutput<T> {
   uncertainty: string[];
 }
 
-const DEFAULT_MAX_ITEMS = 50;
-const DEFAULT_MAX_BYTES = 8000;
 
 /** Shallow structural check: does the value look like primitive-derived evidence (file + line)? */
 export function looksLikeEvidence(value: unknown): boolean {
@@ -51,8 +50,8 @@ export function boundedOutput(
   value: unknown,
   options: { revision: string; maxItems?: number; maxBytes?: number; sourceTruncated?: boolean; primitiveDerived?: boolean; unbounded?: Array<{ items?: unknown[]; raw?: unknown }> }
 ): BoundedOutput<unknown> {
-  const maxItems = options.maxItems ?? DEFAULT_MAX_ITEMS;
-  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+  const maxItems = options.maxItems ?? DEFAULT_CONFIG.memoryOutput.maxItems;
+  const maxBytes = options.maxBytes ?? DEFAULT_CONFIG.memoryOutput.maxBytes;
   const uncertainty: string[] = [options.primitiveDerived ? 'Primitive matches provide syntactic evidence, not semantic certainty or proof of absence.' : 'No primitive-derived evidence is verified for this output; relations remain unverified.'];
   let result: unknown = value;
   let observed: number | null = null;

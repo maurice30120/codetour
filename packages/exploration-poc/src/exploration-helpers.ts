@@ -47,6 +47,8 @@ export interface CallTraceItem {
   execution?: unknown;
   parameters?: Record<string, unknown>;
   result?: unknown;
+  /** Per-call reuse outcome of a stored procedure (memory_run only). */
+  memory?: { id: string; stale: boolean; proofValid: boolean | null };
 }
 
 

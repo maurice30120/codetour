@@ -13,6 +13,7 @@
  */
 
 import { FileTooLargeError, PathOutsideWorkspaceError } from './primitives.ts';
+import { DEFAULT_CONFIG } from './config.ts';
 
 /** Confined read of the actual lines [startLine..endLine] plus the real total line count. */
 export interface CitationAccess {
@@ -48,7 +49,6 @@ export interface CitationValidation {
 }
 
 /** Safety ceiling: at most this many references are verified per trial (configurable). */
-const MAX_REFERENCES = 300;
 /** Citation spans must fit a single confined read (workspace MAX_READ_LINES). */
 const MAX_SPAN_LINES = 100;
 /** Bounded diagnostic lists. */
@@ -78,7 +78,7 @@ export async function validateCitations(value: unknown, options: { access: Citat
   if (references.length === 0) {
     return { status: 'no_references', references: 0, validated: 0, validCount: 0, validReferences: [], invalidReferences: [], exhaustive: true };
   }
-  const ceiling = options.maxReferences ?? MAX_REFERENCES;
+  const ceiling = options.maxReferences ?? DEFAULT_CONFIG.citations.maxReferences;
   const invalid: InvalidCitation[] = [];
   const valid: Reference[] = [];
   let validated = 0;
@@ -169,7 +169,8 @@ async function checkReference(reference: Record<string, unknown>, options: { acc
 
 /** Exact equality, or a prefix at one of the primitives' documented per-line truncation bounds. */
 function excerptMatches(actual: string, excerpt: string): boolean {
-  return actual === excerpt || (EXCERPT_PREFIX_BOUNDS.includes(excerpt.length) && actual.startsWith(excerpt));
+  const safeBoundary = EXCERPT_PREFIX_BOUNDS.some(bound => excerpt.length === bound - 1 && /[\uD800-\uDBFF]/.test(actual[bound - 1] ?? '') && /[\uDC00-\uDFFF]/.test(actual[bound] ?? ''));
+  return actual === excerpt || ((EXCERPT_PREFIX_BOUNDS.includes(excerpt.length) || safeBoundary) && actual.startsWith(excerpt));
 }
 
 /**
@@ -194,6 +195,7 @@ export function citationAccess(tools: { readLines(file: string, options: { start
   return {
     async readRange(file, startLine, endLine) {
       try {
+        if (/(?:^|\/)\.tours\/\.scratch(?:\/|$)/.test(file.replace(/\\/g, '/').replace(/(?:^|\/)\.\//g, '/'))) throw new Error('temporary scratch results cannot be cited');
         const result = await tools.readLines(file, { startLine, endLine });
         return { lines: result.lines.map(line => line.text), totalLines: result.totalLines };
       } catch (error) {

@@ -58,3 +58,39 @@ _Avoid_: Voiceover, audio tour, TTS playback
 **Targeted Context**:
 A bounded selection of code symbols and locations relevant to a Tour, offered to the Tour Generator as a substitute for open-ended exploration. Off by default; a Tour Generator without it behaves as if it never existed.
 _Avoid_: Repository Map, optimisation, context map
+
+**Research Harness**:
+The `codetour-research` command that investigates one Research Question in a workspace and returns structured, source-referenced findings to the calling agent.
+_Avoid_: Black box, explorer, research tool
+
+**Research Question**:
+One question about a single mechanism or execution path, delegated to the Research Harness and naming the directories or files to examine when they are known.
+_Avoid_: Prompt, objective, multi-part question
+
+**Memory Function**:
+A reusable, validated search procedure persisted by the Research Harness under a stable name for later runs of similar Research Questions.
+_Avoid_: Procedure, script, learned skill
+
+**Memory Method**:
+A reusable search method expressed as short instructions for the Research Harness agent to interpret while investigating a Research Question. It is read, never executed.
+_Avoid_: Micro-skill, skill, Memory Function, executable script
+
+**Memory Entry**:
+A reusable item persisted in a workspace's `.tours/.memory/`: either a Memory Function or a Memory Method. Only a Consolidation Run creates one.
+_Avoid_: Skill, compétence
+
+**Memory Catalogue**:
+The set of Memory Entries stored in a workspace's `.tours/.memory/`, discoverable by description without loading their content.
+_Avoid_: Memory dump, function library
+
+**Research Run**:
+One execution of the Research Harness on a Research Question. It may use Memory Entries but never creates one.
+_Avoid_: Tour (reserved for the guided explanation), research Tour
+
+**Consolidation Run**:
+The step that follows a validated Research Run and decides, for each reusable finding, whether to persist a Memory Function, a Memory Method, or nothing.
+_Avoid_: Consolidation Tour, learning pass
+
+**Observation Masking**:
+Replacing older tool results in the history sent to the model with a one-line stub, so context stops growing with every call. Distinct from a summary or a truncation of a single result.
+_Avoid_: Context pruning, history compaction

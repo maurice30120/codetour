@@ -113,10 +113,8 @@ test('memory exploration exposes canonical function_try and query discovery with
     const available = new Map(body.tools.map((tool: any) => [tool.function.name, tool.function]));
     assert.deepEqual((available.get('function_try') as any).parameters.required, ['source', 'params']);
     assert.equal((available.get('memory_list') as any).parameters.properties.query.type, 'string');
-    // Wrapping obligation (spec #183 amendment): in memory + Code Mode the ten
-    // primitives are NOT exposed as direct tools — only memory_list,
-    // memory_run, memory_unusable and function_try are.
-    for (const name of ['listFiles', 'searchText', 'searchIdentifiers', 'readLines', 'readAround', 'listSymbols', 'findDefinitions', 'findReferences', 'getImports', 'getGitDiff']) assert.equal(available.has(name), false, `${name} must not be exposed directly`);
+    // Primitives are direct tools for simple reads, next to the memory tools.
+    for (const name of ['listFiles', 'searchText', 'searchIdentifiers', 'readLines', 'readAround', 'listSymbols', 'findDefinitions', 'findReferences', 'getImports', 'getGitDiff']) assert.ok(available.has(name), `${name} must be exposed directly`);
     for (const name of ['function_try', 'memory_list', 'memory_run', 'memory_unusable']) assert.ok(available.has(name), name);
   } finally { globalThis.fetch = original; }
 });

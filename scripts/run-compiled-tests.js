@@ -1,5 +1,5 @@
 const { spawnSync } = require("node:child_process");
-const { readdirSync } = require("node:fs");
+const { existsSync, readdirSync, rmSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 
 const testDirectory = resolve(process.argv[2]);
@@ -12,6 +12,24 @@ function findTestFiles(directory) {
         ? [entryPath]
         : [];
   });
+}
+
+// tsc does not remove compiled tests whose sources were deleted, and stale
+// artifacts would fail against the current sources. Drop them before running.
+// Sources mirror dist/test under src/ in the root package and live in test/
+// in the subpackages, so both layouts are checked.
+const packageRoot = resolve(testDirectory, "..", "..");
+for (const testFile of findTestFiles(testDirectory)) {
+  const relativeTest = testFile.slice(testDirectory.length + 1).replace(/\.js$/, "");
+  const sourceExists = ["src", "test"].some(sourceDirectory =>
+    [".ts", ".tsx", ".mts"].some(extension =>
+      existsSync(join(packageRoot, sourceDirectory, relativeTest + extension)))
+  );
+  if (!sourceExists) {
+    console.warn(`Skipping compiled test without source: ${relativeTest}`);
+    rmSync(testFile, { force: true });
+    rmSync(testFile + ".map", { force: true });
+  }
 }
 
 const testFiles = findTestFiles(testDirectory).sort();

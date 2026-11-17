@@ -1,0 +1,41 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "CodeTour : architecture de l’extension",
+  "description": "Parcours de l’activation, de la découverte des tours, du lecteur, de l’enregistreur et du raccordement MCP. Le serveur MCP est exploré dans un parcours séparé.",
+  "steps": [
+    {
+      "title": "Vue d’ensemble",
+      "description": "CodeTour aide les personnes qui découvrent ou expliquent un code à créer et parcourir des visites guidées dans VS Code. Ce parcours suit l’extension : son activation, la découverte des tours, les composants de lecture et d’enregistrement, puis son raccordement au serveur MCP.\n\n**Diagram — Context view**\n```mermaid\nflowchart LR\n U[\"Personne : explorer ou expliquer un projet\"] -->|\"ouvre et parcourt des tours dans VS Code\"| X[\"Extension CodeTour\"]\n X -->|\"lit des fichiers de tour et du code\"| W[\"Workspace\"]\n X -->|\"propose un serveur par MCP stdio\"| M[\"Serveur MCP CodeTour\"]\n```\n\n**Diagram — Containers**\n```mermaid\nflowchart LR\n U[\"Personne\"] -->|\"utilise VS Code\"| C\n subgraph C[\"Processus de l’extension\"]\n E[\"Activation, lecteur et enregistreur\"]\n end\n subgraph S[\"Stockage du workspace\"]\n F[\"Fichiers de tour et code\"]\n end\n E -->|\"découvre et lit les fichiers\"| F\n E -->|\"déclare un processus stdio par dossier\"| P[\"Serveur MCP CodeTour\"]\n```\n\nLe parcours relie [l’activation](extension.ts), [la découverte et le store](store/), [le lecteur](player/), [l’enregistreur](recorder/) et [le fournisseur MCP](mcp.ts)."
+    },
+    {
+      "title": "Activer les modules",
+      "description": "`activate` branche les intégrations de bureau, le lecteur et l’enregistreur, puis configure notamment la conversation sur les étapes. Quand des dossiers sont ouverts, l’extension lance la découverte des tours avant de poursuivre l’initialisation.\n\nLes fonctions appelées restent responsables de leurs propres détails ; les étapes suivantes examinent celles qui structurent ce parcours.",
+      "file": "extension.ts",
+      "pattern": "export async function activate\\("
+    },
+    {
+      "title": "Découvrir les tours ouverts",
+      "description": "`discoverTours` lance la découverte pour chaque dossier de workspace à travers `discoverToursFromRoot`, puis remplace la liste visible dans le store. Si un tour actif existe encore, son contenu peut être actualisé ; s’il a disparu, la lecture courante est arrêtée.\n\nLa logique précise des chemins parcourus est déléguée au module de découverte.",
+      "file": "store/provider.ts",
+      "pattern": "export async function discoverTours\\("
+    },
+    {
+      "title": "Initialiser le lecteur",
+      "description": "Le lecteur enregistre ses commandes, son fournisseur d’arbre, ses décorateurs et d’autres services d’affichage. Il initialise ensuite le stockage de progression ; le détail interne de chaque service dépasse cette étape.",
+      "file": "player/index.ts",
+      "pattern": "export function registerPlayerModule\\("
+    },
+    {
+      "title": "Brancher l’enregistreur",
+      "description": "L’enregistreur branche ses commandes et son fournisseur de complétion. Ce point d’entrée ne décrit pas à lui seul la façon dont une étape est enregistrée : cette logique se trouve dans les modules appelés.",
+      "file": "recorder/index.ts",
+      "pattern": "export function registerRecorderModule\\("
+    },
+    {
+      "title": "Déclarer le serveur MCP",
+      "description": "Le fournisseur MCP construit une définition de serveur pour chaque dossier ouvert. Chaque définition démarre le serveur embarqué avec `process.execPath`, utilise le dossier comme répertoire courant et transporte les échanges par stdio.\n\nL’enregistrement de cette intégration est réservé à l’interface de bureau ; le traitement d’une proposition et sa persistance sont examinés dans le parcours du serveur.",
+      "file": "mcp.ts",
+      "pattern": "export function registerMcpProvider\\("
+    }
+  ]
+}

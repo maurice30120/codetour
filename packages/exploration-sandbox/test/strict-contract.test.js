@@ -5,12 +5,12 @@ const os = require('node:os');
 const path = require('node:path');
 const { runScript } = require('..');
 
-test('an oversized read reports its real error without a QuickJS cleanup assertion', async t => {
+test('an invalid read reports its real error without a QuickJS cleanup assertion', async t => {
   const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'strict-read-error-'));
   t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
   await fs.promises.writeFile(path.join(root, 'main.ts'), 'line\n'.repeat(150));
   const code = 'function readRange(params: { file: string; start: number; end: number }) { return readLines(params.file, params.start, params.end); }';
-  await assert.rejects(runScript({ workspace: root, code, params: { file: 'main.ts', start: 1, end: 121 }, strict: true }), /at most 100 lines/i);
+  await assert.rejects(runScript({ workspace: root, code, params: { file: 'main.ts', start: 0, end: 121 }, strict: true }), /invalid line range/i);
 });
 
 test('strict execution checks plain source types and denies indirect legacy host calls', async t => {

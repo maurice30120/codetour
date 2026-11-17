@@ -1,12 +1,13 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
-/** @param {{workspace: string, code: string, params?: object, timeoutMs?: number, signal?: AbortSignal, scripts?: Record<string, string>, strict?: boolean, includeTrace?: boolean}} options */
-function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scripts, strict = false, includeTrace = false }) {
+/** @param {{workspace: string, code: string, params?: object, timeoutMs?: number, signal?: AbortSignal, scripts?: Record<string, string>, strict?: boolean, includeTrace?: boolean, searchExclude?: string[]}} options */
+function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scripts, strict = false, includeTrace = false, searchExclude = [] }) {
   if (typeof workspace !== 'string' || typeof code !== 'string' || code.length > 32768 || !Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 30000) {
     return Promise.reject(new Error('Invalid sandbox input'));
   }
-  // Issue #174 complement: procedures call ONLY the ten permanent primitives.
+  if (!Array.isArray(searchExclude) || searchExclude.some(entry => typeof entry !== 'string' || !entry.trim())) return Promise.reject(new Error('Invalid search exclusions'));
+  // Issue #174 complement: procedures call ONLY the permanent primitives.
   // Composition across procedure outputs belongs to the agent's Tour logic,
   // never inside memorized code. Reject any memorized function calling another
   // memorized function (or the memory tools) with an explicit error.
@@ -22,7 +23,7 @@ function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scr
       }
     }
     if (/\b(memory_list|memory_run|function_try|memory_unusable)\b/.test(code)) {
-      return Promise.reject(new Error('NESTING_REJECTED: memory tools cannot be called from inside a memorized procedure; only the ten permanent primitives are callable'));
+      return Promise.reject(new Error('NESTING_REJECTED: memory tools cannot be called from inside a memorized procedure; only the permanent primitives are callable'));
     }
   }
   let paramsJson;
@@ -48,7 +49,7 @@ function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scr
     child.on('error', e => finish(e));
     child.stdout.on('data', chunk => {
       output += chunk;
-      if (Buffer.byteLength(output) > 131072) { child.kill('SIGKILL'); finish(new Error('Sandbox output limit exceeded')); }
+      if (Buffer.byteLength(output) > 4194304) { child.kill('SIGKILL'); finish(new Error('Sandbox output limit exceeded')); }
     });
     child.stderr.on('data', chunk => { error = (error + chunk).slice(0, 1000); });
     child.on('close', status => {
@@ -60,7 +61,7 @@ function runScript({ workspace, code, params = {}, timeoutMs = 3000, signal, scr
       } catch { finish(new Error('Invalid sandbox output')); }
     });
     child.stdin.on('error', () => {});
-    child.stdin.end(JSON.stringify({ workspace, code, paramsJson, deadline, memorizedNames, strict }));
+    child.stdin.end(JSON.stringify({ workspace, code, paramsJson, deadline, memorizedNames, strict, searchExclude }));
   });
 }
 module.exports = { runScript };

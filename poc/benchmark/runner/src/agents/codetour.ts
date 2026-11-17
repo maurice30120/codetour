@@ -279,6 +279,7 @@ export class CodeTourExecutor implements AgentExecutor {
       const args = [
         '--code', '--memory', this.memoryPath!,
         '--iterations', String(384), '--calls', String(4096),
+        '--model', model, '--tokens', String(this.config.maxTokens), '--duration-ms', String(this.config.timeoutMs),
         fixtureRoot, question.objective,
       ];
       const child = spawn(process.execPath, [cliPath, ...args], {
@@ -288,11 +289,9 @@ export class CodeTourExecutor implements AgentExecutor {
         // RunnerConfig) — never the CLI's 32k default, which truncated
         // explorations (observed: stopReason 'tokens' at 35k in-run).
         env: {
-          ...process.env, MISTRAL_MODEL: model,
+          ...process.env,
           CODETOUR_MODEL_CONFIG: JSON.stringify(this.executionConfig()),
           CODETOUR_PROMPT_SHA256: this.canonicalPromptHash(),
-          CODETOUR_TOKEN_BUDGET: String(this.config.maxTokens),
-          CODETOUR_TIME_BUDGET_MS: String(this.config.timeoutMs),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });

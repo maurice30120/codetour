@@ -24,3 +24,6 @@ rapport-difficultes-mcp-codetour.md
 
 # Local research diagnostics may contain workspace content
 .tours/.log/
+
+# Local harness config (may hold the Mistral API key)
+.tours/config.json

@@ -67,6 +67,44 @@ function createRepository({ withBuild = true } = {}) {
     path.join(repository, "test/copilot-adapter.test.mjs"),
     path.join(root, "test/copilot-adapter.test.mjs")
   );
+  // check:fast also guards packages/exploration-poc, so the fixture carries the
+  // package sources its type check and tests read.
+  mkdirSync(path.join(root, "packages", "exploration-poc"), { recursive: true });
+  for (const entry of ["package.json", "tsconfig.json", "src", "test"]) {
+    cpSync(
+      path.join(repository, "packages", "exploration-poc", entry),
+      path.join(root, "packages", "exploration-poc", entry),
+      { recursive: true }
+    );
+  }
+  symlinkSync(
+    path.join(repository, "packages", "exploration-poc", "node_modules"),
+    path.join(root, "packages", "exploration-poc", "node_modules"),
+    "dir"
+  );
+  // The conformance spec imports the sandbox by relative path, so the fixture
+  // carries the runtime files its worker loads instead of the whole package.
+  mkdirSync(path.join(root, "packages", "exploration-sandbox"), { recursive: true });
+  for (const entry of [
+    "package.json",
+    "index.js",
+    "worker.js",
+    "validation.js",
+    "typescript-validator.js",
+    "strict-validator.js",
+    "primitives.d.ts",
+    "strict-primitives.d.ts"
+  ]) {
+    cpSync(
+      path.join(repository, "packages", "exploration-sandbox", entry),
+      path.join(root, "packages", "exploration-sandbox", entry)
+    );
+  }
+  symlinkSync(
+    path.join(repository, "packages", "exploration-sandbox", "node_modules"),
+    path.join(root, "packages", "exploration-sandbox", "node_modules"),
+    "dir"
+  );
   shareSetup(root, { withBuild });
   assert.equal(git(root, "init", "-q").status, 0);
   assert.equal(git(root, "config", "user.email", "guard@example.test").status, 0);

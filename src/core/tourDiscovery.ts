@@ -40,7 +40,7 @@ export async function discoverToursFromRoot<Uri>(
   const readDirectory = async (uri: Uri): Promise<CodeTour[]> => {
     try {
       const entries = await fs.list(uri);
-      const tours = await Promise.all(entries.map(async entry => {
+      const tours = await Promise.all(entries.filter(entry => !(entry.isDirectory && entry.name === ".memory")).map(async entry => {
         const child = fs.join(uri, entry.name);
         return entry.isDirectory ? readDirectory(child) : readTour(child);
       }));

@@ -51,7 +51,7 @@ test('the second empty memory_list result carries the anti-loop note, once per r
             const last = messages.at(-1);
             toolContents.push(typeof last?.content === 'string' ? last.content : '');
           }
-          return { toolCalls: [{ id: `l${step}`, name: 'memory_list', arguments: { query: 'start', question_id: 'q1' } }] };
+          return { toolCalls: [{ id: `l${step}`, name: 'memory_list', arguments: { query: `start${step}`, question_id: 'q1' } }] };
         }
         toolContents.push(String(messages.at(-1)?.content ?? ''));
         return { result: validResult, usage: { inputTokens: 50, outputTokens: 20 } };

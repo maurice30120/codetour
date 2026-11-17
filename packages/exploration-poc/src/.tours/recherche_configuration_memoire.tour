@@ -1,0 +1,41 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Recherche CodeTour : configuration et mémoire",
+  "description": "Parcours ciblé du harnais de recherche CodeTour : configuration, lancement CLI et résolution d’une fonction mémorisée. L’exécution détaillée et le reste de CodeTour ne sont pas couverts.",
+  "steps": [
+    {
+      "title": "Vue d’ensemble",
+      "description": "Le harnais de recherche CodeTour aide une personne à explorer du code et à retrouver des références de fichiers. Ce parcours suit le chargement de sa configuration, le lancement d’une recherche et la résolution d’une fonction mémorisée ; il ne décrit pas l’ensemble de l’extension CodeTour.\n\n**Diagram — Context view**\n```mermaid\nflowchart LR\n U[\"Personne : explore du code\"] -->|\"pose une question par CLI\"| S[\"Harnais de recherche CodeTour\"]\n S -->|\"envoie des requêtes HTTPS\"| M[\"API de modèle Mistral\"]\n S -->|\"lit des fichiers locaux\"| W[\"Workspace du projet\"]\n```\n\n**Diagram — Containers**\n```mermaid\nflowchart LR\n U[\"Personne\"] -->|\"lance une commande\"| CLI\n subgraph CLI[\"Processus CLI de recherche\"]\n C[\"CLI et moteur d’exploration\"]\n end\n subgraph WS[\"Stockage du workspace\"]\n F[\"Configuration et mémoire\"]\n end\n C -->|\"lit et écrit des fichiers\"| F\n C -->|\"envoie des requêtes HTTPS\"| API[\"API Mistral\"]\n```\n\nLe code présenté se trouve dans cette racine : [CLI](cli.ts), [configuration](config.ts) et [moteur de recherche](explore.ts)."
+    },
+    {
+      "title": "Charger la configuration",
+      "description": "`loadConfig` lit `.tours/config.json` dans la racine choisie et transmet le JSON à `parseConfig`. Si le fichier manque avec `ENOENT`, elle retourne `DEFAULT_CONFIG` ; les autres erreurs de lecture sont propagées et une configuration invalide produit une erreur explicite.",
+      "file": "config.ts",
+      "line": 62
+    },
+    {
+      "title": "Fusionner et valider",
+      "description": "`parseConfig` contrôle les sections et fusionne leurs valeurs avec les valeurs par défaut. La validation porte notamment sur les réglages numériques et les valeurs autorisées : elle empêche une configuration incorrecte d’être utilisée silencieusement.",
+      "file": "config.ts",
+      "line": 43
+    },
+    {
+      "title": "Préparer la recherche",
+      "description": "La CLI charge la configuration et construit le client de modèle. En mode Code, elle vérifie ensuite que la sandbox peut exécuter un script simple ; si ce préflight échoue, l’appel de recherche suivant n’a pas lieu.",
+      "file": "cli.ts",
+      "line": 94
+    },
+    {
+      "title": "Lancer et émettre le résultat",
+      "description": "La CLI passe à `explore` la racine, la question, le modèle, les budgets et les options de mémoire. Elle attend le résultat avant de l’émettre ; lorsque le fichier de sortie est configuré, un callback écrit aussi la progression.",
+      "file": "cli.ts",
+      "line": 111
+    },
+    {
+      "title": "Retrouver une fonction en mémoire",
+      "description": "Dans la branche `memory_run`, le moteur cherche l’identifiant demandé dans la bibliothèque ; un identifiant inconnu provoque une erreur. Le code retrouvé devient la source du script et les paramètres sont vérifiés avant la suite du traitement.\n\nLa recherche qui étaye cette étape porte sur la résolution, pas sur une analyse complète de l’exécution ou de la consolidation.",
+      "file": "explore.ts",
+      "line": 334
+    }
+  ]
+}

@@ -28,8 +28,10 @@ const MAX_READ_LINES = 100;
  * Read-only workspace interface. Symlinks escaping the workspace are rejected.
  * All operations are safe, bounded, and sourced.
  */
-export async function workspace(root: string) {
+export async function workspace(root: string, { exclude = ['.tours/.log'] }: { exclude?: string[] } = {}) {
   const base = await realpath(root);
+  // Searches and listings skip these directories; readLines on an explicit path stays allowed except for the log.
+  const excluded = new Set([...exclude, '.tours/.log'].map(entry => entry.replace(/^\.\//, '').replace(/\/+$/, '')));
   const cache = new Map<string, string[]>();
 
   // ==========================================================================
@@ -103,7 +105,7 @@ export async function workspace(root: string) {
           continue;
         }
         const name = currentPrefix ? `${currentPrefix}/${entry.name}` : entry.name;
-        if (name === '.tours/.log') continue;
+        if (excluded.has(name)) continue;
         if (!name.startsWith(prefix)) {
           if (entry.isDirectory()) {
             await visit(resolve(dir, entry.name), name);
@@ -696,7 +698,7 @@ export async function workspace(root: string) {
           continue;
         }
         const name = currentPrefix ? `${currentPrefix}/${entry.name}` : entry.name;
-        if (name === '.tours/.log') continue;
+        if (excluded.has(name)) continue;
         
         // Check if the entry name matches the pattern
         const entryMatches = patternRegex.test(entry.name);

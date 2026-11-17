@@ -1,5 +1,6 @@
 import type { Model, ToolCall } from './explore.ts';
 import { primitiveTools, primitiveNames } from './tool-contract.ts';
+import { DEFAULT_CONFIG } from './config.ts';
 
 const tools = [
   { name: 'list', description: 'List workspace files', properties: {} },
@@ -12,7 +13,7 @@ export type NamedMemoryTool = { name: string; id: string; parameters: string[]; 
 
 const INTEGER_PARAMS = new Set(['offset', 'start', 'end', 'startLine', 'endLine']);
 
-export function mistral(apiKey: string, model = 'mistral-small-latest', config: { temperature?: number; reasoningEffort?: 'low' | 'medium' | 'high' | 'max'; memorySearchId?: string; memorySearchExclusive?: boolean; memorySearchScoped?: boolean; memoryTools?: NamedMemoryTool[]; removeSearch?: boolean; removeCode?: boolean } = {}): Model {
+export function mistral(apiKey: string, model = DEFAULT_CONFIG.mistral.model, config: { apiUrl?: string; maxRetries?: number; retryBaseDelayMs?: number; temperature?: number; reasoningEffort?: 'low' | 'medium' | 'high' | 'max'; memorySearchId?: string; memorySearchExclusive?: boolean; memorySearchScoped?: boolean; memoryTools?: NamedMemoryTool[]; removeSearch?: boolean; removeCode?: boolean } = {}): Model {
   if (!apiKey) throw new Error('MISTRAL_API_KEY is required');
   const lastRequest = { model: model as string | undefined, temperature: undefined as number | undefined, maxOutputTokens: undefined as number | undefined };
   return {
@@ -30,27 +31,28 @@ export function mistral(apiKey: string, model = 'mistral-small-latest', config: 
     const namedByName = new Map(namedTools.map(tool => [tool.name, tool]));
     const namedMemory = options?.memory ? namedTools.map(tool => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: { type: 'object', properties: Object.fromEntries(tool.parameters.map(parameter => [parameter, { type: INTEGER_PARAMS.has(parameter) ? 'integer' : 'string' }])), required: tool.required ?? tool.parameters } } })) : [];
     const exclusive = !!(config.memorySearchExclusive && config.memorySearchId);
-    const functionTry = { type: 'function', function: { name: 'function_try', description: 'Strictly check TypeScript and execute in QuickJS using only the ten permanent primitives. A typed function expression receives params. Trials never mutate memory. Default path when memory_list returns nothing and the procedure contributes to this research; otherwise state why not in the final result — never a quota, never a forced creation.', parameters: { type: 'object', properties: { source: { type: 'string' }, params: { type: 'object' }, remember: { type: 'boolean' }, name: { type: 'string' }, question: { type: 'string', description: 'Stable canonical repository question, independent of this Tour wording' }, description: { type: 'string' }, returns: { type: 'string' } }, required: ['source', 'params'] } } };
-    // Wrapping obligation (spec #183 amendment): in a memory + Code Mode run
-    // the ten permanent primitives are NOT exposed as direct tools — the model
-    // can only reach them inside a function_try source. The primitives stay
-    // available to the sandbox, so exploration still works; the model simply
-    // cannot bypass composition any more.
-    const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)).filter(tool => !(options?.memory && options?.codeMode) || !primitiveNames.has(tool.function.name)), ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];
+    const functionTry = { type: 'function', function: { name: 'function_try', description: 'Strictly check TypeScript and execute in QuickJS using only the permanent primitives. A typed function expression receives params. Trials never mutate memory. Default path when memory_list returns nothing and the procedure contributes to this research; otherwise state why not in the final result — never a quota, never a forced creation.', parameters: { type: 'object', properties: { source: { type: 'string' }, params: { type: 'object' }, remember: { type: 'boolean' }, name: { type: 'string' }, question: { type: 'string', description: 'Stable canonical repository question, independent of this Tour wording' }, description: { type: 'string' }, returns: { type: 'string' } }, required: ['source', 'params'] } } };
+    // Primitives are direct tools for simple reads; function_try is reserved
+    // for procedures that compose several primitives.
+    const scratchTool = { type: 'function', function: { name: 'readScratch', description: 'Read a saved tool result by resultId and byte offset. Follow nextOffset for the next page; cite original source files, never scratch.', parameters: { type: 'object', properties: { resultId: { type: 'string' }, offset: { type: 'integer' } }, required: ['resultId', 'offset'] } } };
+    const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)), scratchTool, ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];
     const requestMaxTokens = options?.maxOutputTokens;
-    lastRequest.model = model; lastRequest.temperature = config.temperature ?? 0; lastRequest.maxOutputTokens = requestMaxTokens;
-    const request = { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, ...(options?.toolsEnabled === false ? { response_format: { type: 'json_object' } } : { tools: availableTools }), reasoning_effort: config.reasoningEffort ?? 'high', temperature: config.temperature ?? 0, max_tokens: requestMaxTokens }) };
-    let response = await fetch('https://api.mistral.ai/v1/chat/completions', request);
+    lastRequest.model = model; lastRequest.temperature = config.temperature ?? DEFAULT_CONFIG.mistral.temperature; lastRequest.maxOutputTokens = requestMaxTokens;
+    const apiUrl = config.apiUrl ?? DEFAULT_CONFIG.mistral.apiUrl;
+    const maxRetries = config.maxRetries ?? DEFAULT_CONFIG.mistral.maxRetries;
+    const retryBaseDelayMs = config.retryBaseDelayMs ?? DEFAULT_CONFIG.mistral.retryBaseDelayMs;
+    const request = { method: 'POST', signal: options?.signal, headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, messages, ...(options?.toolsEnabled === false ? { response_format: { type: 'json_object' } } : { tools: availableTools }), reasoning_effort: config.reasoningEffort ?? DEFAULT_CONFIG.mistral.reasoningEffort, temperature: config.temperature ?? DEFAULT_CONFIG.mistral.temperature, max_tokens: requestMaxTokens }) };
+    let response = await fetch(apiUrl, request);
     for (let retry = 0; response.status === 429 && retry < 3; retry++) {
       const retryAfter = Number(response.headers.get('retry-after'));
-      const delay = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 60000) : 20000 * (retry + 1);
+      const delay = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 60000) : retryBaseDelayMs * (retry + 1);
       await new Promise<void>((resolve, reject) => {
         if (options?.signal.aborted) { reject(options.signal.reason); return; }
         const timer = setTimeout(() => { options?.signal.removeEventListener('abort', abort); resolve(); }, delay);
         const abort = () => { clearTimeout(timer); reject(options?.signal.reason); };
         options?.signal.addEventListener('abort', abort, { once: true });
       });
-      response = await fetch('https://api.mistral.ai/v1/chat/completions', request);
+      response = await fetch(apiUrl, request);
     }
     if (!response.ok) throw new Error(`Mistral request failed (${response.status})`);
     const data: any = await response.json();

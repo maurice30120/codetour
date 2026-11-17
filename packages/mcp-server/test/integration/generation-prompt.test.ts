@@ -31,6 +31,9 @@ function changesTourPromptUri(reviewMode: string): string {
 // the served instructions — in the composed prompts/get form, only the
 // user's orientation clause may follow it.
 function assertAnnouncementStep(text: string, persistenceClause: string): void {
+  assert.ok(text.includes("Validation runs before writing; correct reported issues and retry."));
+  assert.ok(text.includes("only when validation without writing is needed."));
+  assert.ok(!text.includes("Rehearse first"));
   const marker = "Announce the created tour";
   const index = text.indexOf(marker);
   assert.ok(index >= 0, "the served prompt must contain the announcement step");

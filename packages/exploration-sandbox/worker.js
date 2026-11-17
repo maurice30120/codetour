@@ -6,7 +6,7 @@ const { validatePrimitives, TraceValidator, validateFull } = require('./validati
 const { validateStrict, primitiveNames } = require('./strict-validator');
 let executionTrace;
 
-async function main({ workspace, code, paramsJson, deadline, memorizedNames = [], strict = false }) {
+async function main({ workspace, code, paramsJson, deadline, memorizedNames = [], strict = false, searchExclude = [] }) {
   const startTime = Date.now();
   
   if (Date.now() >= deadline) throw new Error('Sandbox timeout');
@@ -254,6 +254,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     return current;
   };
   
+  const excluded = new Set(searchExclude.map(entry => entry.replace(/^\.\//, '').replace(/\/+$/, '')));
   const listFiles = (maxFiles = 500) => {
     trace.executedCalls.push({ name: 'listFiles', params: { maxFiles } });
     const found = [];
@@ -262,7 +263,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
         if (found.length >= maxFiles) return;
         if (entry.name === '.git' || entry.name === 'node_modules' || entry.isSymbolicLink()) continue;
         const name = prefix ? `${prefix}/${entry.name}` : entry.name;
-        if (name === '.tours/.log') continue;
+        if (name === '.tours/.log' || name === '.tours/.scratch' || excluded.has(name)) continue;
         if (entry.isDirectory()) visit(path.join(dir, entry.name), name);
         else if (entry.isFile()) found.push(name);
       }
@@ -271,12 +272,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     return found;
   };
   
-  const read = (name, start = 1, end = start + 99) => {
-    trace.executedCalls.push({ name: 'read', params: { file: name, start, end } });
-    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start || end - start >= 100) {
-      trace.errors.push({ code: 'READ_001', line: 0, message: 'Invalid line range: use positive integer bounds and at most 100 lines' });
-      throw new Error('Invalid line range: use positive integer bounds and at most 100 lines');
-    }
+  const readSource = name => {
     const file = resolve(name);
     const stat = fs.statSync(file);
     if (!stat.isFile() || stat.size > 1048576) {
@@ -288,7 +284,16 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
       trace.errors.push({ code: 'READ_003', line: 0, message: 'Binary file' });
       throw new Error('Binary file');
     }
-    return { file: name, start, lines: text.split('\n').slice(start - 1, end).map(line => line.slice(0, 2000)) };
+    return text;
+  };
+
+  const read = (name, start = 1, end = start + 99) => {
+    trace.executedCalls.push({ name: 'read', params: { file: name, start, end } });
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start || end - start >= 100) {
+      trace.errors.push({ code: 'READ_001', line: 0, message: 'Invalid line range: use positive integer bounds and at most 100 lines' });
+      throw new Error('Invalid line range: use positive integer bounds and at most 100 lines');
+    }
+    return { file: name, start, lines: readSource(name).split('\n').slice(start - 1, end).map(line => line.slice(0, 2000)) };
   };
   
   const operations = {
@@ -296,11 +301,48 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     list: () => listFiles(), // alias for backward compatibility
     readLines: (file, startLine, endLine) => {
       trace.executedCalls.push({ name: 'readLines', params: { file, startLine, endLine } });
-      if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || startLine < 1 || endLine < startLine || endLine - startLine >= 100) {
-        trace.errors.push({ code: 'READ_001', line: 0, message: 'Invalid line range: use positive integer bounds and at most 100 lines' });
-        throw new Error('Invalid line range: use positive integer bounds and at most 100 lines');
+      if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || startLine < 1 || endLine < startLine) {
+        trace.errors.push({ code: 'READ_001', line: 0, message: 'Invalid line range: use positive integer bounds' });
+        throw new Error('Invalid line range: use positive integer bounds');
       }
-      return read(file, startLine, endLine);
+      const text = readSource(file);
+      const totalLines = text === '' ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
+      const sourceLines = text.split('\n').slice(startLine - 1, Math.min(endLine, startLine + 99, totalLines));
+      const lines = [];
+      const truncatedLines = [];
+      for (const line of sourceLines) {
+        const prefix = limit => {
+          let end = Math.min(line.length, limit);
+          if (end < line.length && end > 0 && /[\uD800-\uDBFF]/.test(line[end - 1]) && /[\uDC00-\uDFFF]/.test(line[end])) end--;
+          return line.slice(0, end);
+        };
+        let excerpt = prefix(2000);
+        if (Buffer.byteLength(JSON.stringify(excerpt)) > 4000) excerpt = prefix(500);
+        if (Buffer.byteLength(JSON.stringify([...lines, excerpt])) > 4500) break;
+        if (excerpt !== line) truncatedLines.push(startLine + lines.length);
+        lines.push(excerpt);
+      }
+      const next = startLine + lines.length;
+      return { file, start: startLine, lines, nextLine: next <= endLine && next <= totalLines ? next : null, truncatedLines };
+    },
+    readLineFragment: (file, line, offset) => {
+      trace.executedCalls.push({ name: 'readLineFragment', params: { file, line, offset } });
+      if (!Number.isSafeInteger(line) || line < 1) throw new Error('Invalid line number');
+      if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid byte offset');
+      const text = readSource(file);
+      const sourceLines = text === '' ? [] : text.split('\n');
+      if (text.endsWith('\n')) sourceLines.pop();
+      if (line > sourceLines.length) throw new Error('Line does not exist');
+      const data = Buffer.from(sourceLines[line - 1], 'utf8');
+      if (offset > data.length || (offset < data.length && (data[offset] & 0xc0) === 0x80)) throw new Error('Invalid UTF-8 byte offset');
+      let end = offset;
+      let content = '';
+      for (const char of data.subarray(offset).toString('utf8')) {
+        if (Buffer.byteLength(JSON.stringify(content + char)) > 2500) break;
+        content += char;
+        end += Buffer.byteLength(char);
+      }
+      return { file, line, offset, content, nextOffset: end < data.length ? end : null };
     },
     read,
     readAround: (file, line, contextLines) => {
@@ -717,7 +759,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
     const serialized = vm.dump(jsonResult.value); 
     jsonResult.value.dispose();
     
-    if (typeof serialized !== 'string' || Buffer.byteLength(serialized) > 32768) {
+    if (typeof serialized !== 'string' || Buffer.byteLength(serialized) > 1048576) {
       trace.errors.push({ code: 'RESULT_001', line: 0, message: 'Result must be JSON within output limit' });
       throw new Error('Result must be JSON within output limit');
     }

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "CodeTour : serveur MCP de génération",
+  "description": "Parcours ciblé de l’enregistrement de l’outil Project Tour, du traitement d’une proposition et de son écriture. La validation interne et les Changes Tours restent hors périmètre.",
+  "steps": [
+    {
+      "title": "Vue d’ensemble",
+      "description": "Le serveur MCP CodeTour permet à un client compatible de soumettre une proposition de visite guidée pour un workspace. Il valide la proposition, peut la simuler sans écriture et peut enregistrer le tour accepté ; ce parcours se concentre sur le Project Tour.\n\n**Diagram — Context view**\n```mermaid\nflowchart LR\n C[\"Client MCP : crée un tour\"] -->|\"soumet une proposition via MCP\"| S[\"Serveur MCP CodeTour\"]\n S -->|\"valide et écrit les fichiers\"| W[\"Workspace\"]\n```\n\n**Diagram — Containers**\n```mermaid\nflowchart LR\n C[\"Client MCP\"] -->|\"appelle l’outil via MCP\"| P\n subgraph P[\"Processus serveur MCP\"]\n H[\"Outil et traitement de proposition\"]\n end\n subgraph W[\"Stockage du workspace\"]\n F[\"Fichiers de tour\"]\n end\n H -->|\"écrit un tour validé\"| F\n```\n\nLe parcours suit [le serveur et son outil](server.ts) puis [l’écriture atomique](persistence.ts)."
+    },
+    {
+      "title": "Enregistrer l’outil",
+      "description": "Le serveur expose `create_project_tour` avec ses schémas d’entrée et de sortie. Son rappel transmet les arguments à `handleCreateProjectTour` à travers `safeToolCall`, qui transforme une exception inattendue en réponse structurée.",
+      "file": "server.ts",
+      "line": 692
+    },
+    {
+      "title": "Valider la proposition",
+      "description": "`handleCreateProjectTour` commence par demander la validation de la proposition. Un rejet est renvoyé immédiatement ; une proposition acceptée fournit le contexte, les paramètres et les étapes utilisées par la suite.\n\nLe contenu détaillé des contrôles de validation n’est pas développé dans ce parcours.",
+      "file": "server.ts",
+      "line": 736
+    },
+    {
+      "title": "Simuler ou enregistrer",
+      "description": "Avec `dryRun`, le serveur renvoie le titre, le nombre d’étapes et les avertissements sans écrire. Sinon, il construit le fichier de tour, calcule sa cible et appelle `persistTour` ; une erreur d’écriture interrompt la réponse de succès.",
+      "file": "server.ts",
+      "line": 755
+    },
+    {
+      "title": "Écrire avec un fichier temporaire",
+      "description": "`writeTourAtomic` vérifie que le répertoire résolu reste dans le workspace, écrit un fichier temporaire dans ce répertoire et synchronise son contenu. Un renommage remplace ensuite la cible ; si le renommage échoue, le temporaire est supprimé.\n\nCe code n’établit pas à lui seul la durabilité après tous les types de panne ni la coordination de plusieurs processus.",
+      "file": "persistence.ts",
+      "pattern": "export async function writeTourAtomic\\("
+    }
+  ]
+}

@@ -32,7 +32,8 @@ test('infinite computation and excess memory are stopped', async t => {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   await assert.rejects(runScript({ workspace: root, code: '(() => { while (true) {} })()', timeoutMs: 100 }));
   await assert.rejects(runScript({ workspace: root, code: '"x".repeat(100000000)' }));
-  await assert.rejects(runScript({ workspace: root, code: '"x".repeat(50000)' }));
+  assert.equal((await runScript({ workspace: root, code: '"x".repeat(50000)' })).length, 50000);
+  await assert.rejects(runScript({ workspace: root, code: '"x".repeat(1100000)' }), /output limit/);
 });
 
 test('the timeout covers worker startup and accepts small remaining budgets', async t => {

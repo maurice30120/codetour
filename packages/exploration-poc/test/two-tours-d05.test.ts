@@ -185,6 +185,8 @@ test('Tour A creates, repairs and consolidates a procedure, then Tour B reuses i
   assert.deepEqual(runCall.parameters, { id: CANDIDATE_NAME, params: { query: 'start' } });
   assert.match(JSON.stringify(runCall.result), /main\.ts/);
   assert.equal(tourB.metrics.memoryReuses, 1);
+  assert.equal(runCall.memory?.id, CANDIDATE_NAME, 'each memory_run trace carries its own reuse outcome');
+  assert.equal(runCall.memory?.stale, false);
   // No code was recreated during the reuse Tour.
   assert.equal(tourB.callTrace.filter(call => call.type === 'function_try').length, 0);
   const reportB = tourB.consolidationReport as ConsolidationReportView;

@@ -183,9 +183,8 @@ const MARKDOWN_WRITING_GUIDANCE =
 const PROJECT_TOUR_WORKFLOW_GUIDANCE =
   "Recommended workflow: (1) explore the codebase before writing — read the entry points and the " +
   "main modules, not just file names; (2) author the complete content yourself; (3) call this tool " +
-  "once with dryRun true to rehearse the proposal: the complete validation runs and every issue is " +
-  "reported, but nothing is written; (4) correct the reported issues; (5) call again with dryRun " +
-  "omitted to persist the tour. Rehearse especially for large tours or unfamiliar workspaces. " +
+  "with dryRun omitted to create the tour; validation runs before writing, and if it reports " +
+  "issues, correct them and retry. Use dryRun true only to validate without writing. " +
   "What makes a useful Project Tour: orient the reader first (a directory or no-locator step on " +
   "where the work lives), then follow one coherent route — entry point, main components, how they " +
   "collaborate — rather than a flat file listing. Explain each step's role and why it matters, and " +
@@ -219,10 +218,9 @@ const CHANGES_TOUR_WORKFLOW_GUIDANCE =
   "Recommended workflow: (1) inspect the actual comparison before writing — the diff from the " +
   "merge-base to headRef, the affected source, and the tests — and base every statement on what " +
   "the code does, never on commit messages or file names alone; (2) call this tool with dryRun " +
-  "true to rehearse: every check runs (HEAD match, base resolution, merge-base, anchors against " +
-  "headRef, renames, Mermaid) and nothing is written; (3) correct the reported issues; (4) call " +
-  "again with dryRun omitted to persist — if HEAD moved in between, re-read the comparison and " +
-  "resubmit the new SHA with matching content. " +
+  "omitted to create the tour; checks run before writing. Correct reported issues and retry; " +
+  "if HEAD moved, re-read the comparison and resubmit the new SHA with matching content. " +
+  "Use dryRun true only to validate without writing. " +
   "What makes a useful Changes Tour: open with a directory step orienting the reader to where the " +
   "work happened; group related changes into one coherent review path; for each major change " +
   "explain what it does, how it is implemented, and its observable behavioral effect; anchor the " +
@@ -471,9 +469,9 @@ function projectTourGenerationPrompt(): string {
       "locator for general context). Anchor with a short, stable pattern, or a line " +
       "you have verified in the analyzed head snapshot, rather than a guessed line " +
       "number, so the anchor survives edits.",
-    "- Propose the tour with the `create_project_tour` tool. Rehearse first: call the " +
-      "tool once with dryRun true, correct every reported validation issue, then call " +
-      "again with dryRun omitted to persist the tour.",
+    "- Create the tour with the `create_project_tour` tool with dryRun omitted to persist. " +
+      "Validation runs before writing; correct reported issues and retry. Use dryRun true " +
+      "only when validation without writing is needed.",
     "- Some hosts register MCP tools with a server-name prefix: Copilot exposes " +
       "this tool as `codetour-create_project_tour`. Search for the tool under " +
       "whichever name your session registers it; the tool contract is unchanged.",
@@ -520,9 +518,9 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
       "implemented, and its observable behavioral effect. Anchor with a short, " +
       "stable pattern, or a line you have verified in the analyzed head snapshot, " +
       "rather than a guessed line number, so the anchor survives later edits.",
-    "- Propose the tour with the `create_changes_tour` tool. Rehearse first: call " +
-      "the tool once with dryRun true, correct every reported validation issue, " +
-      "then call again with dryRun omitted to persist the tour.",
+    "- Create the tour with the `create_changes_tour` tool with dryRun omitted to persist. " +
+      "Validation runs before writing; correct reported issues and retry. Use dryRun true " +
+      "only when validation without writing is needed.",
     "- Some hosts register MCP tools with a server-name prefix: Copilot exposes " +
       "this tool as `codetour-create_changes_tour`. Search for the tool under " +
       "whichever name your session registers it; the tool contract is unchanged.",

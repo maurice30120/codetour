@@ -2,7 +2,7 @@ const ts = require('typescript');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const primitiveNames = ['listFiles', 'searchText', 'searchIdentifiers', 'readLines', 'readAround', 'listSymbols', 'findDefinitions', 'findReferences', 'getImports', 'getGitDiff'];
+const primitiveNames = ['listFiles', 'searchText', 'searchIdentifiers', 'readLines', 'readLineFragment', 'readAround', 'listSymbols', 'findDefinitions', 'findReferences', 'getImports', 'getGitDiff'];
 
 function parameterType(value) {
   if (value === null) return 'null';
