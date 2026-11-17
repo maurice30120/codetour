@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, realpath, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 
@@ -40,8 +40,8 @@ const entrySchema = z.object({
   limits: z.object({ maxItems: z.number().int().positive().default(50), maxBytes: z.number().int().positive().default(8000) }).optional(),
   uncertaintyCases: z.array(uncertaintyCaseShape).max(10).default([]),
   revision: z.string().max(64).optional(),
-  successes: z.number().int().nonnegative(),
-  failures: z.number().int().nonnegative(),
+  successes: z.number().int().nonnegative().optional(),
+  failures: z.number().int().nonnegative().optional(),
   // G0 requirement: NO inactivity tracking or purge
   fingerprint: z.string().optional(),
   version: z.number().int().nonnegative().optional(),
@@ -49,8 +49,8 @@ const entrySchema = z.object({
   variantOf: z.string().optional(),
   validated: z.boolean().optional(),
   executionMode: z.enum(['strict', 'legacy']).optional(),
-  referenceCases: z.array(z.object({ params: z.record(z.string(), z.unknown()), ok: z.boolean(), at: z.string() })).max(5).default([])
-});
+  referenceCases: z.array(z.object({ params: z.record(z.string(), z.unknown()), ok: z.boolean(), at: z.string() })).max(5).optional()
+}).passthrough();
 type Entry = z.infer<typeof entrySchema>;
 
 /** Outcome of a catalogue comparison. 'indeterminate' is reported honestly instead of inventing equivalence. */
@@ -83,7 +83,7 @@ export interface ConsolidationCandidate {
   parameters: string[];
   paramsSchema?: Array<{ name: string; type: string }>;
   executionMode?: 'strict' | 'legacy';
-  /** Canonical name: camelCase, verb+domain+object. Mandatory for consolidation. */
+  /** TypeScript identifier used as the catalogue key. */
   name: string;
   /** Output contract declared with the candidate. */
   returns?: string;
@@ -130,6 +130,7 @@ const ENGLISH_FUNCTION_WORDS = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'fo
 export function validateDescription(description: string): { ok: boolean; reason?: string } {
   const trimmed = typeof description === 'string' ? description.trim() : '';
   if (!trimmed) return { ok: false, reason: 'Description is mandatory: state what the procedure does, its scope, the shape of its result and its key limits.' };
+  if (trimmed.includes('*/')) return { ok: false, reason: 'Description cannot contain a JSDoc comment terminator.' };
   if (trimmed.length > MAX_DESCRIPTION_LENGTH) return { ok: false, reason: `Description is too long: ${trimmed.length} characters; at most ${MAX_DESCRIPTION_LENGTH} are allowed.` };
   if (/[^\x20-\x7E]/.test(trimmed)) return { ok: false, reason: 'Description must be written in English: non-ASCII (e.g. accented) characters are not accepted.' };
   const words = trimmed.toLowerCase().match(/[a-z']+/g) ?? [];
@@ -139,12 +140,9 @@ export function validateDescription(description: string): { ok: boolean; reason?
 
 const digest = (s: string) => createHash('sha256').update(s).digest('hex');
 
-/** Canonical naming convention: camelCase, verb+domain+object (at least three segments). */
+/** Accept any usable TypeScript identifier; its meaning belongs in the documentation. */
 export function validateCanonicalName(name: string): { ok: boolean; reason?: string } {
-  if (!name || typeof name !== 'string') return { ok: false, reason: 'Missing canonical name' };
-  if (!/^[a-z][a-zA-Z0-9]*$/.test(name)) return { ok: false, reason: `Name "${name}" must be camelCase (no separators, lowercase first letter)` };
-  const segments = name.split(/(?=[A-Z])/);
-  if (segments.length < 3) return { ok: false, reason: `Name "${name}" must follow verb+domain+object (at least three camelCase segments, e.g. searchPostgresIndexes)` };
+  if (!/^[$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*$/u.test(name) || new Set(['break','case','catch','class','const','continue','debugger','default','delete','do','else','export','extends','finally','for','function','if','import','in','instanceof','let','new','return','super','switch','this','throw','try','typeof','var','void','while','with','yield','enum','await','implements','interface','package','private','protected','public','static']).has(name)) return { ok: false, reason: 'Name must be a valid TypeScript identifier' };
   return { ok: true };
 }
 
@@ -175,19 +173,24 @@ export async function scriptMemory(root: string, directory: string) {
   let entries: Entry[];
   try { entries = z.array(entrySchema).parse(JSON.parse(await readFile(file, 'utf8'))); }
   catch (error: any) { if (error?.code === 'ENOENT') entries = []; else throw new Error('Invalid script memory'); }
-  let purges = 0;
   const persist = async () => {
     const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
     await writeFile(temporary, JSON.stringify(entries), { mode: 0o600 });
     await rename(temporary, file);
   };
-  const prune = () => {
-    const original = entries.length;
-    entries = entries.filter(e => !(e.successes + e.failures >= 3 && e.failures >= 2 && e.successes + e.failures === 3));
-    purges += original - entries.length;
+  const functionDirectory = join(directory, 'functions');
+  const writeFunction = async (entry: Entry) => {
+    await mkdir(functionDirectory, { recursive: true });
+    const escapeComment = (value: string) => value.replace(/\*\//g, '* /').replace(/[\r\n]+/g, ' ');
+    const description = escapeComment(entry.description);
+    const params = entry.paramsSchema.map(p => ` * @param ${escapeComment(p.name)} ${escapeComment(p.description ?? p.type)}`).join('\n');
+    const limits = entry.uncertaintyCases.map(c => `${c.case}: ${c.signal}`).join('; ') || 'Bounded by the workspace sandbox and output limits.';
+    const source = `/**\n * ${description}\n * @question ${escapeComment(entry.objective)}\n${params ? params + '\n' : ''} * @returns ${escapeComment(entry.outputContract?.returns ?? 'See the function result.')}\n * @remarks ${escapeComment(limits)}\n */\nexport const ${entry.id} = ${entry.code};\n`;
+    const target = join(functionDirectory, `${entry.id}.ts`);
+    const temporary = `${target}.${process.pid}.${randomUUID()}.tmp`;
+    await writeFile(temporary, source, { mode: 0o600 });
+    await rename(temporary, target);
   };
-
-  const generateFingerprint = (code: string, parameters: string[]): string => digest(`${code}\0${[...parameters].sort().join(',')}`).slice(0, 16);
 
   // Full catalogue projection WITHOUT the function source: id, canonical
   // question, scope, typed params, output contract, limits, uncertainty
@@ -202,17 +205,12 @@ export async function scriptMemory(root: string, directory: string) {
     limits: entry.limits,
     uncertaintyCases: entry.uncertaintyCases,
     revision: entry.revision,
-    version: entry.version,
-    variantOf: entry.variantOf,
-    supersededBy: entry.replacedBy,
-    successes: entry.successes,
-    failures: entry.failures
   });
 
   // In-session traces only: the catalogue is NEVER mutated mid-run
   // (correction 3). Failure/reuse traces are applied in finish().
   const sessionFailures: string[] = [];
-  const sessionObservations: Array<{ id: string; params: Record<string, unknown>; ok: boolean }> = [];
+
 
   return {
     /** Catalogue without sources (public projection). */
@@ -227,7 +225,7 @@ export async function scriptMemory(root: string, directory: string) {
     /** Record an in-run failure trace (applied to the catalogue at finish). */
     recordFailure: (id: string) => { sessionFailures.push(id); },
     /** Record an in-run observation (parameters + proof validity), kept as a reference case on the entry. */
-    observeRun: (id: string, params: Record<string, unknown>, ok: boolean) => { sessionObservations.push({ id, params, ok }); },
+    observeRun: (_id: string, _params: Record<string, unknown>, _ok: boolean) => {},
     /** Peek at stored entry (source included; for execution wiring only). */
     get: (id: string) => entries.find(entry => entry.id === id),
     sources: () => Object.fromEntries(entries.map(({ id, code }) => [id, code])),
@@ -239,26 +237,8 @@ export async function scriptMemory(root: string, directory: string) {
     },
     async finish(successIds: string[], candidates: ConsolidationCandidate[]): Promise<ConsolidationReport> {
       const report: ConsolidationReport = { accepted: [], rejected: [], duplicates: [], indeterminate: [], reconciliation: [] };
-      // 1. Update success/failure counts. G0 requirement: NO inactivity tracking.
-      for (const entry of entries) {
-        const successes = successIds.filter(id => id === entry.id).length;
-        if (successes) entry.successes += successes;
-        const failures = sessionFailures.filter(id => id === entry.id).length;
-        if (failures) entry.failures += failures;
-      }
-      // 2. Record reference cases (observed runs), capped.
-      for (const observation of sessionObservations) {
-        const entry = entries.find(item => item.id === observation.id);
-        if (entry) entry.referenceCases = [
-          ...entry.referenceCases.filter(existing => JSON.stringify(existing.params) !== JSON.stringify(observation.params)).slice(-4),
-          { params: observation.params, ok: observation.ok, at: new Date().toISOString() }
-        ];
-      }
-      // 3. Consolidation of candidates (issue #187, D04): the deterministic
-      // validator decides persistence — every gate must pass, and the
-      // catalogue stays append-only for this diagnostic: no replacement, no
-      // smart dedup, and an identifier collision never overwrites a validated
-      // entry. The model only proposes; nothing here is judged by an LLM.
+      // Observation and failures stay in the run trace; they are not usage history.
+      void successIds;
       for (const candidate of candidates) {
         const canonical = `${candidate.name ?? ''}`;
         const recordOutcome = (accepted: boolean, reason?: string): void => {
@@ -304,28 +284,33 @@ export async function scriptMemory(root: string, directory: string) {
           recordOutcome(false, report.rejected.at(-1)!.reason);
           continue;
         }
-        // Gate (issue #187): append-only — an identifier collision never
-        // overwrites an existing validated entry (no rename, no shadow id).
-        if (entries.some(entry => entry.id === candidate.name)) {
-          report.rejected.push({ name: canonical, reason: `Identifier collision: "${candidate.name}" already exists; the catalogue is append-only and never overwrites a validated entry` });
-          recordOutcome(false, report.rejected.at(-1)!.reason);
-          continue;
+        const existing = entries.find(entry => entry.id === candidate.name);
+        if (existing) {
+          const sameContract = existing.objective === candidate.objective && existing.description === candidate.description
+            && JSON.stringify(existing.parameters) === JSON.stringify(candidate.parameters)
+            && existing.outputContract?.returns === candidate.returns;
+          if (!sessionFailures.includes(existing.id) || !sameContract) {
+            report.rejected.push({ name: canonical, reason: 'Identifier collision: only a failed existing function with the same contract can be corrected' });
+            recordOutcome(false, report.rejected.at(-1)!.reason);
+            continue;
+          }
         }
-        // Dedup is deliberately NOT a gate for this diagnostic (issue #183):
-        // decided duplicates stay visible in the report and in the catalogue;
-        // an indeterminate comparison only flags the relation (variantOf), it
-        // never invents an equivalence and never blocks.
         let duplicateOf: Entry | undefined;
         let indeterminateOf: Entry | undefined;
         for (const entry of entries) {
+          if (entry === existing) continue;
           const outcome = compareCandidates(candidate, entry);
           if (outcome === 'duplicate') { duplicateOf = entry; break; }
           if (outcome === 'indeterminate') indeterminateOf = entry;
         }
-        if (duplicateOf) report.duplicates.push(candidate.name);
+        if (duplicateOf) {
+          report.duplicates.push(candidate.name);
+          report.rejected.push({ name: canonical, reason: `Duplicate of ${duplicateOf.id}` });
+          recordOutcome(false, report.rejected.at(-1)!.reason);
+          continue;
+        }
         if (indeterminateOf) report.indeterminate.push(candidate.name);
-        // New entry, keyed by canonical name (append-only).
-        entries.push({
+        const newEntry: Entry = {
           id: candidate.name,
           objective: candidate.objective,
           description: candidate.description,
@@ -337,21 +322,33 @@ export async function scriptMemory(root: string, directory: string) {
           limits: { maxItems: 50, maxBytes: 8000 },
           uncertaintyCases: candidate.uncertaintyCases ?? [],
           revision: candidate.revision,
-          successes: 1,
-          failures: 0,
-          fingerprint: digest(`${candidate.code}\0${[...candidate.parameters].sort().join(',')}`).slice(0, 16),
-          version: candidate.version ?? 1,
-          variantOf: indeterminateOf?.id,
-          validated: true,
-          referenceCases: []
-        });
+          validated: true
+        };
+        const sourceFile = join(functionDirectory, `${newEntry.id}.ts`);
+        let previousSource: string | undefined;
+        try { previousSource = await readFile(sourceFile, 'utf8'); }
+        catch (error: any) { if (error?.code !== 'ENOENT') throw error; }
+        if (!existing && previousSource !== undefined) {
+          report.rejected.push({ name: canonical, reason: 'A source file with this name already exists outside the catalogue' });
+          recordOutcome(false, report.rejected.at(-1)!.reason);
+          continue;
+        }
+        const previousEntries = entries.slice();
+        await writeFunction(newEntry);
+        if (existing) entries[entries.indexOf(existing)] = newEntry;
+        else entries.push(newEntry);
+        try { await persist(); }
+        catch (error) {
+          entries = previousEntries;
+          if (previousSource === undefined) await unlink(sourceFile);
+          else await writeFile(sourceFile, previousSource, { mode: 0o600 });
+          throw error;
+        }
         report.accepted.push(candidate.name);
         recordOutcome(true);
       }
-      prune();
-      await persist();
       return report;
     },
-    purges: () => purges
+    purges: () => 0
   };
 }
