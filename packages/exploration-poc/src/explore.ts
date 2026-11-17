@@ -28,9 +28,7 @@ const resultSchema = z.object({ objective: z.string(), entryPoints: z.array(item
 export { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION };
 
 export type ToolCall = { id: string; name: string; arguments: Record<string, unknown> };
-export type PlanQuestion = { id: string; question: string; reuse?: boolean };
-export type PlanVersion = { questions: PlanQuestion[]; reason?: string; error?: string };
-export type PlanRecord = { status: 'recorded' | 'invalid' | 'missing'; runId: string; versions: PlanVersion[]; anomalies: string[] };
+export type PlanRecord = { status: 'recorded' | 'invalid' | 'missing'; runId: string; initial?: unknown; error?: string };
 export type Model = {
   complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean; toolsEnabled?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
   /** Actual provider parameters of the last request (real provenance, no defaults). */
@@ -104,23 +102,8 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const limits = { iterations: budget.iterations ?? 8, calls: budget.calls ?? 32, tokens: budget.tokens ?? 32000, durationMs: budget.durationMs ?? 60000 };
   if (Object.values(limits).some(n => !Number.isFinite(n) || n <= 0)) throw new Error('Budgets must be positive');
   const startedMs = Date.now();
-  // Correlation backbone (issue #184): one run id links plan versions, declared
-  // decisions and observed tool calls; question ids come from the plan, call ids
-  // from the provider. Observed calls are recorded by the harness, never deduced
-  // from model text.
   const runId = crypto.randomUUID();
-  const planVersions: PlanVersion[] = [];
-  const planAnomalies = new Set<string>();
-  let planStatus: 'recorded' | 'invalid' | 'missing' = 'missing';
-  let planPublished = false;
-  const knownQuestionIds = new Set<string>();
-  // Spec #183 trace vocabulary: declared plan questions already linked to an
-  // observed call — one decomposition_decision entry per question.
-  const correlatedDecisions = new Set<string>();
-  // Ticket #191: reuse=true questions served by memory_run or function_try —
-  // the end-of-run reminder targets the complement of this set.
-  const servedByCreation = new Set<string>();
-  let reuseReminderEmitted = false;
+  let plan: PlanRecord = { status: 'missing', runId };
   const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0, autoAttachedEvidence: 0, selectionSkip: null as string | null };
   const callTrace: CallTraceItem[] = [];
   let callSeq = 0;
@@ -141,27 +124,6 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     const entry = { ...base, runId, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() };
     callTrace.push(entry);
     logger?.info({ event: 'trace', trace: entry });
-  };
-  // A published plan becomes an immutable version: valid plans update the known
-  // question ids, invalid or missing plans stay visible anomalies — never a
-  // presumed success. History is appended, never rewritten.
-  const recordPlan = (raw: unknown): void => {
-    const validation = validatePlan(raw);
-    const now = new Date();
-    const type = planPublished ? 'plan_revised' : 'decomposition_plan';
-    if (validation.ok) {
-      const version: PlanVersion = validation.reason === undefined ? { questions: validation.questions } : { questions: validation.questions, reason: validation.reason };
-      planVersions.push(version);
-      planStatus = 'recorded';
-      for (const question of validation.questions) knownQuestionIds.add(question.id);
-      for (const anomaly of validation.anomalies) planAnomalies.add(anomaly);
-      recordCall({ type, name: type, inputTokens: null, outputTokens: null, usageMissing: false, result: version }, now, now);
-    } else {
-      planVersions.push({ questions: [], error: validation.error });
-      planStatus = 'invalid';
-      recordCall({ type, name: type, inputTokens: null, outputTokens: null, usageMissing: false, error: validation.error }, now, now);
-    }
-    planPublished = true;
   };
   // Spec #183 trace vocabulary: every run — complete, partial or failed — ends
   // with a run_end entry carrying the stop reason and the final usage.
@@ -282,8 +244,6 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
         // can correct the formatting instead of resuming exploration. The plan
         // published in the failed attempt is recorded too, never lost.
         const rawOutput = String((error as { rawContent?: string }).rawContent ?? '');
-        const failedPlan = (error as { plan?: unknown }).plan;
-        if (failedPlan !== undefined) recordPlan(failedPlan);
         return { messages: [
           { role: 'assistant', content: rawOutput || String((error as Error).message ?? '') },
           { role: 'user', content: (error as { rawContent?: unknown }).rawContent === '' && metrics.toolCalls === 0 ? 'Your previous response was empty. Use the available tools to explore the repository and gather evidence before returning the required JSON; report any unresolved gaps.' : 'Your final answer was not valid JSON. Your plan block, if any, was already extracted and recorded. Reply again with the final result as a single JSON object matching the required schema, outside any fenced code block, with no prose outside the JSON.' },
@@ -295,9 +255,6 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     const inputTokens = response.usage?.inputTokens ?? null;
     const outputTokens = response.usage?.outputTokens ?? null;
     recordCall({ type: 'model', name: 'model', maxOutputTokens: outputLimit, inputTokens, outputTokens, usageMissing: !response.usage }, modelCallStarted, modelCallEnded);
-    // The plan travels in the normal generation (no dedicated LLM call) and is
-    // recorded before this response's tool calls can be observed.
-    if (response.plan !== undefined) recordPlan(response.plan);
     metrics.inputTokens += inputTokens ?? 0;
     metrics.outputTokens += outputTokens ?? 0;
     if (!response.usage) metrics.usageAvailable = false;
@@ -340,55 +297,14 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           { role: 'user', content: `Source citation validation failed: ${String(error)}. Inspect the source with repository tools and correct the references. Do not invent line numbers. The original run budget still applies.` },
         ] };
       }
-      // Ticket #191: before accepting the final answer, every reuse=true
-      // question of the current plan that neither memory_run nor function_try
-      // served (and that the result does not explicitly justify by id in its
-      // uncertainties) earns ONE visible reminder — same philosophy as the
-      // citation and JSON recoveries: once per run, inside the original
-      // budget, never a hidden retry loop. A second shortfall is recorded as
-      // an anomaly, never re-reminded.
-      const unservedReuse = [...(planVersions.at(-1)?.questions ?? [])].filter(question =>
-        question.reuse === true
-        && !servedByCreation.has(question.id)
-        && !result.uncertainties.some(uncertainty => uncertainty.includes(question.id))
-      );
-      if (unservedReuse.length > 0) {
-        const ids = unservedReuse.map(question => question.id).join(', ');
-        if (!reuseReminderEmitted && !reason()) {
-          reuseReminderEmitted = true;
-          const now = new Date();
-          recordCall({ type: 'reuse_reminder', name: 'reuse_reminder', inputTokens: null, outputTokens: null, usageMissing: false, result: { unservedQuestionIds: unservedReuse.map(question => question.id) } }, now, now);
-          return { messages: [
-            { role: 'assistant', content: JSON.stringify(result) },
-            { role: 'user', content: `Reminder: plan question(s) marked reuse=true were never served by memory_run or function_try: ${ids}. Either propose the missing durable capability now with function_try(source, params), or justify in the uncertainties of your final result why no creation applies (mention the question id). The original run budget still applies; this reminder is sent once.` },
-          ] };
-        }
-        if (reuseReminderEmitted) planAnomalies.add(`reuse=true questions still unserved after the end-of-run reminder: ${ids}`);
-      }
       return { result, stopReason: Date.now() - startedMs >= limits.durationMs ? 'duration' : metrics.inputTokens + metrics.outputTokens > limits.tokens ? 'tokens' : undefined };
     }
     if (!response.toolCalls?.length) throw new Error('Model returned neither tools nor result');
     const calls = response.toolCalls.slice(0, Math.max(0, Math.min(8, limits.calls - metrics.modelCalls - metrics.toolCalls)));
     const outputs: any[] = [{ role: 'assistant', tool_calls: calls.map(call => ({ id: call.id, type: 'function', function: { name: call.name, arguments: JSON.stringify(call.arguments) } })) }];
     for (const originalCall of calls) {
-      // question_id is harness correlation metadata, not a tool argument: it is
-      // traced on the call and stripped before dispatch. An id no plan ever
-      // declared is an explicit anomaly, not a silent success.
+      // Optional caller metadata is retained in the trace, but never gates exploration.
       const questionId = typeof originalCall.arguments.question_id === 'string' ? originalCall.arguments.question_id : undefined;
-      // Issue #184: the prompt requires a question_id on every call — a call
-      // carrying none is a visible anomaly, never a silent acceptance.
-      if (questionId === undefined) planAnomalies.add(`missing question id on '${originalCall.name}' call`);
-      else if (!knownQuestionIds.has(questionId)) planAnomalies.add(`unknown question id '${questionId}'`);
-      // Spec #183 trace vocabulary: a declared decision (plan question) is
-      // linked to the first observed call that serves it — declared
-      // intentions stay traceable to real observed calls, never inferred from
-      // model prose.
-      if (questionId !== undefined && knownQuestionIds.has(questionId) && !correlatedDecisions.has(questionId)) {
-        correlatedDecisions.add(questionId);
-        const declared = [...planVersions].reverse().flatMap(version => version.questions).find(question => question.id === questionId);
-        const decisionAt = new Date();
-        recordCall({ type: 'decomposition_decision', name: 'decomposition_decision', callId: originalCall.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, result: { question: declared?.question, reuse: declared?.reuse ?? false, servedBy: originalCall.name } }, decisionAt, decisionAt);
-      }
       const call = { ...originalCall, arguments: { ...originalCall.arguments } };
       delete call.arguments.question_id;
       if (Date.now() - startedMs >= limits.durationMs || metrics.inputTokens + metrics.outputTokens >= limits.tokens) break;
@@ -462,7 +378,6 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           // Ticket #191: any memory_run/function_try call — accepted or failed —
           // counts as having served its declared question; the trace carries the
           // outcome, the reminder only targets questions never attempted.
-          if (questionId !== undefined) servedByCreation.add(questionId);
           const runStarted = new Date();
           try {
             let raw: unknown;
@@ -605,7 +520,41 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     return { messages: outputs, stopReason: reason() };
   }).addEdge(START, 'model').addConditionalEdges('model', state => state.result !== undefined || state.stopReason ? END : 'model').compile();
   const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (canonical camelCase name), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. Wrapping obligation: the ten permanent primitives (listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports, getGitDiff) are NOT exposed as direct tools — they are only callable inside a function_try source. Wrap the primitives a question needs in one TypeScript function expression with typed inputs and try it with function_try(source, params); direct primitive calls are impossible in this mode. Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Name useful procedures camelCase verb+domain+object and parameterize variations. Supply question as a stable canonical question independent of this Tour and a non-empty English description stating what the procedure does, its scope, the shape of its result and its key limits. Every successfully executed function_try trial is automatically submitted to post-Tour selection — no remember flag is needed; the selection step judges future utility, and consolidation re-executes the exact code and params and re-checks every citation, so only deterministically validated selections persist. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable.` : '';
-  const state = await graph.invoke({ messages: [{ role: 'system', content: `${DECOMPOSITION_PROMPT}
+  // A separate model call creates a local guide before any workspace tool runs.
+  // It shares the exploration budgets and never dictates subsequent tool calls.
+  const planningStarted = new Date();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(1, limits.durationMs - (Date.now() - startedMs)));
+  try {
+    metrics.modelCalls++;
+    const response = await Promise.race([
+      complete([
+        { role: 'system', content: 'Plan the investigation of exactly one technical question. Return JSON with arrays "understand", "investigate", and "reuse" (potentially useful catalogue functions). This is a flexible initial guide, not a Tour plan. Do not call tools.' },
+        { role: 'user', content: JSON.stringify({ question: objective, catalog: library?.catalog() ?? [] }) }
+      ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(4096, limits.tokens)), codeMode: false, memory: false, toolsEnabled: false }),
+      new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('budget-duration')), { once: true }))
+    ]);
+    const usage = response.usage;
+    metrics.inputTokens += usage?.inputTokens ?? 0;
+    metrics.outputTokens += usage?.outputTokens ?? 0;
+    if (!usage) metrics.usageAvailable = false;
+    const value = response.result;
+    if (value && typeof value === 'object' && !Array.isArray(value) && ['understand', 'investigate', 'reuse'].every(key => Array.isArray((value as Record<string, unknown>)[key]))) {
+      plan = { status: 'recorded', runId, initial: value };
+    } else {
+      plan = { status: 'invalid', runId, error: 'Initial planning response did not contain the expected arrays' };
+    }
+    recordCall({ type: 'decomposition_plan', name: 'initial-research-plan', inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, usageMissing: !usage, result: plan }, planningStarted, new Date());
+  } catch (error) {
+    const usage = (error as { usage?: { inputTokens: number; outputTokens: number } }).usage;
+    metrics.inputTokens += usage?.inputTokens ?? 0;
+    metrics.outputTokens += usage?.outputTokens ?? 0;
+    if (!usage) metrics.usageAvailable = false;
+    plan = { status: 'invalid', runId, error: String(error) };
+    recordCall({ type: 'decomposition_plan', name: 'initial-research-plan', inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, usageMissing: !usage, error: String(error) }, planningStarted, new Date());
+    if (controller.signal.aborted) throw error;
+  } finally { clearTimeout(timer); }
+  const state = await graph.invoke({ messages: [{ role: 'system', content: `${DECOMPOSITION_PROMPT} Initial research plan: ${JSON.stringify(plan.initial ?? null)}
 
 Explore the repository using the tools. Assess whether the evidence answers the objective; if essential evidence is missing, use further tools before returning. Record unresolved gaps in uncertainties. Return only JSON matching this exact shape: {"objective":"...","entryPoints":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"components":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"relations":[{"from":"...","to":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"uncertainties":["..."]}. Use empty arrays when needed. Each evidence must be an array of objects with real file paths and integer line numbers, not a string. Do not write a tour.${memoryInstructions}` }, { role: 'user', content: objective }] }, { recursionLimit: Math.ceil(limits.iterations) + 2 });
   const result = state.result === undefined ? { objective, entryPoints: [], components: [], relations: [], uncertainties: [state.stopReason === 'repeated_tool_failure' ? 'Exploration stopped after the same tool call repeatedly failed; no structured result was produced.' : 'Exploration stopped before a structured result was produced.'] } : resultSchema.parse(state.result);
@@ -798,55 +747,20 @@ Explore the repository using the tools. Assess whether the evidence answers the 
     metrics.memoryPurges = library.purges();
   }
   metrics.durationMs = Date.now() - startedMs;
-  if (!planPublished) planAnomalies.add('no plan was published before the structured result');
-  const plan: PlanRecord = { status: planStatus, runId, versions: planVersions, anomalies: [...planAnomalies] };
-  const status = state.result === undefined || state.stopReason ? 'partial' as const : 'complete' as const;
-  recordRunEnd(status, state.stopReason ?? null);
-  const final = { ...result, runId, plan, status, stopReason: state.stopReason ?? null, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
+  const stopReason = state.stopReason ?? (plan.status !== 'recorded' ? 'planning_failed' : null);
+  const status = state.result === undefined || stopReason ? 'partial' as const : 'complete' as const;
+  recordRunEnd(status, stopReason);
+  const final = { ...result, runId, plan, status, stopReason, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
   logger.info({ event: 'research_end', result: final });
   return final;
   } catch (error) {
     metrics.durationMs = Date.now() - startedMs;
-    const plan: PlanRecord = { status: planStatus, runId, versions: planVersions, anomalies: [...planAnomalies] };
     recordRunEnd('failed', null);
     logger?.error({ event: 'research_failed', error: String(error), metrics, plan });
     throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
       exploration: { objective, runId, plan, status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace }
     });
   }
-}
-
-/**
- * Plan validation (issue #184): a published plan must be an object with a
- * non-empty questions array of independent functional questions, each carrying
- * a non-empty string id and canonical question (reuse marker optional boolean,
- * reason optional string, meaningful on revisions). Anything else is an
- * explicit, visible anomaly — the harness never presumes a success.
- *
- * Practicable French screen for plan questions (issue #184): accented
- * characters plus a few unambiguous French tokens flag a non-English plan as
- * a visible anomaly — a heuristic screen, never proof of language, and never
- * a hard failure on its own.
- */
-const FRENCH_ACCENTS = /[éèêëàâçôûîüöÉÈÊËÀÂÇÔÛÎÜÖœŒ]/;
-const FRENCH_TOKENS = /\b(le|la|les|des|du|une|est|sont|dans|avec|pour|quel|quelle|quels|quelles|fonction|fichier)\b/i;
-function validatePlan(raw: unknown): { ok: true; questions: PlanQuestion[]; reason?: string; anomalies: string[] } | { ok: false; error: string } {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, error: 'invalid plan: expected an object with a questions array' };
-  const { questions, reason } = raw as Record<string, unknown>;
-  if (!Array.isArray(questions) || questions.length === 0) return { ok: false, error: 'invalid plan: questions must be a non-empty array' };
-  const anomalies: string[] = [];
-  for (const [index, question] of questions.entries()) {
-    if (!question || typeof question !== 'object' || Array.isArray(question)) return { ok: false, error: `invalid plan: question ${index} must be an object` };
-    const candidate = question as Record<string, unknown>;
-    if (typeof candidate.id !== 'string' || candidate.id.length === 0) return { ok: false, error: `invalid plan: question ${index} needs a non-empty string id` };
-    if (typeof candidate.question !== 'string' || candidate.question.length === 0) return { ok: false, error: `invalid plan: question ${index} needs a non-empty string question` };
-    if (candidate.reuse !== undefined && typeof candidate.reuse !== 'boolean') return { ok: false, error: `invalid plan: question ${index} reuse must be a boolean` };
-    // Issue #184: the initial plan must be in English — a practicable screen
-    // flags French questions as a visible anomaly, never a hard failure.
-    if (FRENCH_ACCENTS.test(candidate.question) || FRENCH_TOKENS.test(candidate.question)) anomalies.push(`plan not in English: question '${candidate.id}' looks French`);
-  }
-  if (reason !== undefined && typeof reason !== 'string') return { ok: false, error: 'invalid plan: reason must be a string' };
-  return { ok: true, questions: questions as PlanQuestion[], reason: reason as string | undefined, anomalies };
 }
 
 function summarizeOutcome(output: unknown): string {
