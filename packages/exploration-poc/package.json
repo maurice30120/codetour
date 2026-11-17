@@ -5,12 +5,35 @@
   "scripts": {
     "test": "node --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "explore": "node src/cli.ts"
+    "explore": "node src/cli.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && npm run build"
   },
   "dependencies": {
     "@langchain/langgraph": "^1.0.0",
+    "codetour-exploration-sandbox": "file:../exploration-sandbox",
     "pino": "^10.4.0",
     "rotating-file-stream": "^4.0.0",
     "zod": "^4.0.0"
-  }
+  },
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "codetour-research": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "bundledDependencies": [
+    "codetour-exploration-sandbox"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^5.9.3"
+  },
+  "bundleDependencies": [
+    "codetour-exploration-sandbox"
+  ]
 }
