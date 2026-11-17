@@ -15,7 +15,7 @@ export function derivedCandidateName(question: string, code: string): string {
 export type ToolCall = { id: string; name: string; arguments: Record<string, unknown> };
 export type PlanRecord = { status: 'recorded' | 'invalid' | 'missing'; runId: string; initial?: unknown; error?: string };
 export type Model = {
-  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean; toolsEnabled?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
+  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; toolsEnabled?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
   /** Actual provider parameters of the last request (real provenance, no defaults). */
   snapshot?(): { model?: string; temperature?: number; maxOutputTokens?: number };
 };

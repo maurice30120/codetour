@@ -30,7 +30,7 @@ interface Attempt {
 }
 
 /** An exploration returns validated references, never Tour prose. */
-export async function explore({ root, objective, model, budget = {}, codeMode = false, memory }: { root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string; validateQuery?: boolean; queryContract?: boolean; compactSearch?: boolean } }) {
+export async function explore({ root, objective, model, budget = {}, codeMode = false, memory }: { root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string } }) {
   if (memory && !codeMode) throw new Error('Script memory requires Code Mode');
   const limits = { iterations: budget.iterations ?? 8, calls: budget.calls ?? 32, tokens: budget.tokens ?? 32000, durationMs: budget.durationMs ?? 60000 };
   if (Object.values(limits).some(n => !Number.isFinite(n) || n <= 0)) throw new Error('Budgets must be positive');
@@ -73,7 +73,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   logger = researchLog(root, runId);
   logger.info({ event: 'research_start', objective, root, budget: limits, codeMode, memoryEnabled: !!memory, model: model.snapshot?.() });
   const complete: Model['complete'] = async (messages, options) => {
-    logger!.info({ event: 'model_request', messages, options: { maxOutputTokens: options?.maxOutputTokens, codeMode: options?.codeMode, memory: options?.memory, queryContract: options?.queryContract, toolsEnabled: options?.toolsEnabled } });
+    logger!.info({ event: 'model_request', messages, options: { maxOutputTokens: options?.maxOutputTokens, codeMode: options?.codeMode, memory: options?.memory, toolsEnabled: options?.toolsEnabled } });
     try {
       const response = await model.complete(messages, options);
       logger!.info({ event: 'model_response', response, model: model.snapshot?.() });
@@ -102,7 +102,6 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const runtimeObservations: Array<{ id: string; params: Record<string, unknown>; ok: boolean }> = [];
   const unusableIds = new Set<string>();
   const { noteEvidence, attachEvidence } = createEvidenceTracker();
-  const previousSearchOutputs = new Map<string, { content: string; toolCallId: string }>();
   let previousFailedCall: string | undefined;
   let consecutiveFailures = 0;
   const stableValue = (value: unknown): unknown => Array.isArray(value) ? value.map(stableValue) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stableValue(item)])) : value;
@@ -120,7 +119,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     try {
       metrics.modelCalls++;
       response = await Promise.race([
-        complete(state.messages, { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library, queryContract: memory?.queryContract }),
+        complete(state.messages, { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library }),
         new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('budget-duration')); }, remainingMs); })
       ]);
     } catch (error) {
@@ -305,21 +304,6 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             const citationFailure = citations?.status === 'validation_failed' ? citationRepairFeedback(citations) : undefined;
             recordCall({ type: scriptCall.type, name: scriptCall.name, callId: call.id, questionId, parameters: call.name === 'function_try' ? { remember: call.arguments.remember === true, name: call.arguments.name, question: call.arguments.question, description: call.arguments.description } : undefined, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome(citations)}` }, runStarted, runEnded);
             output = citationFailure ?? (output && typeof output === 'object' && 'staleness' in (output as Record<string, unknown>) ? { ...(output as Record<string, unknown>), result: bounded } : bounded);
-            if (stored && memory?.compactSearch && stored.code === 'search(params.query)' && Array.isArray(raw)) {
-              const matches = raw.slice(0, 8).map((match: any) => ({ ...match, text: typeof match.text === 'string' ? match.text.slice(0, 240) : match.text, textTruncated: typeof match.text === 'string' && match.text.length > 240 }));
-              const compact = { matches, returned: matches.length, observed: raw.length, truncated: raw.length > matches.length, searchIsBounded: true };
-              const key = JSON.stringify([stored.id, params]);
-              const serialized = JSON.stringify(compact);
-              const previous = previousSearchOutputs.get(key);
-              if (previous?.content === serialized) {
-                output = { repeated: true, query: (params as Record<string, unknown>).query, previousToolCallId: previous.toolCallId, message: 'The visible results are identical to the previous call; refer to that output.' };
-                metrics.memoryResultsRepeated++;
-              } else {
-                output = compact;
-                previousSearchOutputs.set(key, { content: serialized, toolCallId: call.id });
-                metrics.memoryResultsCompacted++;
-              }
-            }
             // The description is kept whole: a deterministic gate at consolidation
             // refuses off-format or oversized descriptions with a precise reason
             // instead of silently truncating them (issue #187).
@@ -337,19 +321,6 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             let candidate = !citationFailure && library && !stored
               ? { objective: String(call.arguments.question ?? objective).slice(0, 500), description, name: name || derivedCandidateName(String(call.arguments.question ?? objective), code), returns: strict ? execution.trace.contract.returns : returns, code, parameters: Object.keys(params).slice(0, 30), paramsSchema: execution.trace.contract?.paramsSchema, executionMode: strict ? 'strict' as const : 'legacy' as const, revision: await resolveRevision() }
               : undefined;
-            if (candidate && memory?.queryContract && call.arguments.contract === 'literal_query') {
-              const { probeLiteralQuery } = await import('./query-probe.mjs');
-              // probeLiteralQuery(code, deadline) — a synthetic fixture proves a
-              // declared literal-query contract (two distinguishable matches + absent
-              // query). Previously a sources object was passed as the deadline by
-              // mistake, turning every probe 'inconclusive'.
-              const validation = await probeLiteralQuery(code, startedMs + limits.durationMs);
-              if (validation.status !== 'pass') {
-                if (stored) runtimeFailures.push(stored.id);
-                candidate = undefined;
-              }
-              output = { result: output, memoryValidation: { status: validation.status, reason: validation.reason ?? 'Two matching queries and an absent query passed.' } };
-            }
             if (library && (stored || candidate)) {
               // Proof spot-check: verify a sample of (file,line) references against the
               // actual fixture. Invalid proofs are explicit — contractRespected=false in
@@ -584,19 +555,6 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       } catch (error) {
         recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, verificationStarted, new Date());
         replay = { ok: false, reason: `the re-execution failed: ${String((error as Error)?.message ?? error).slice(0, 200)}` };
-      }
-      // Optional counterfactual check: only a nonempty unchanged result proves this
-      // particular probe cannot distinguish queries. Empty/error probes are inconclusive.
-      if (memory?.validateQuery && typeof attempt.params?.query === 'string' && Array.isArray(attempt.output) && attempt.output.length > 0) {
-        const remaining = limits.durationMs - (Date.now() - startedMs);
-        if (remaining > 0) {
-          try {
-            const { runScript } = await import('../../exploration-sandbox/index.js');
-            const query = `__codetour_missing_${crypto.randomUUID()}__`;
-            const probe = await runScript({ workspace: root, code: attempt.candidate.code, params: { ...attempt.params, query }, scripts: library.sources(), timeoutMs: Math.min(5000, remaining) });
-            if (JSON.stringify(probe) === JSON.stringify(attempt.output)) { metrics.memoryQueryRejects++; continue; }
-          } catch { /* A failed probe is inconclusive, not proof of a bad script. */ }
-        }
       }
       // Consolidation trigger (correction 3): a concrete operational signal —
       // execution status success + structural proof availability + contract
