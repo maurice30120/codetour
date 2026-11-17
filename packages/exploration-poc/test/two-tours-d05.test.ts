@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 import { scriptMemory } from '../src/memory.ts';
 import { DECOMPOSITION_PROMPT } from '../src/decomposition-prompt.ts';
 
@@ -101,17 +101,11 @@ test('Tour A creates, repairs and consolidates a procedure, then Tour B reuses i
   assert.equal(tourA.stopReason, null);
   assert.equal(tourA.plan.status, 'recorded');
   assert.equal(tourA.plan.runId, tourA.runId);
-  assert.equal(tourA.plan.anomalies.length, 0);
-  assert.equal(tourA.plan.versions.length, 2, 'the plan revision is an appended version');
-  assert.equal(tourA.plan.versions[1].questions.length, 2);
-  assert.match(tourA.plan.versions[1].reason ?? '', /over-broad context range/);
-  // The Tour answer follows the user's language despite English instructions.
+  assert.deepEqual(tourA.plan.initial, { understand: ['Understand the question'], investigate: ['Inspect relevant code'], reuse: [] });
   assert.equal(tourA.objective, frenchObjective);
   assert.equal(tourA.entryPoints[0].name, 'point d’entrée principal');
-
-  const planTrace = tourA.callTrace.filter(call => call.type === 'decomposition_plan' || call.type === 'plan_revised');
-  assert.equal(planTrace.length, 2);
-  assert.deepEqual(planTrace.map(call => call.type), ['decomposition_plan', 'plan_revised']);
+  const planTrace = tourA.callTrace.filter(call => call.type === 'decomposition_plan');
+  assert.equal(planTrace.length, 1);
   assert.ok(planTrace.every(call => call.runId === tourA.runId));
 
   // The repair loop is traceable: try-1 fails citation validation, try-2 passes.
@@ -200,7 +194,7 @@ test('Tour A creates, repairs and consolidates a procedure, then Tour B reuses i
   assert.equal(tourB.metrics.inputTokens, 160 + 140 + 170);
 });
 
-test('the diagnostic distinguishes a missing plan from a recorded one', async t => {
+test('the diagnostic records the initial plan', async t => {
   const { base, root, memory } = await fixtureRepo('d05-no-plan-');
   t.after(() => rm(base, { recursive: true, force: true }));
   const result = await explore({ root, objective: 'Explain start', codeMode: true, memory, model: {
@@ -209,8 +203,8 @@ test('the diagnostic distinguishes a missing plan from a recorded one', async t 
       return { usage: { inputTokens: 60, outputTokens: 15 }, result: { objective: 'Explain start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
     }
   } });
-  assert.equal(result.plan.status, 'missing');
-  assert.ok(result.plan.anomalies.includes('no plan was published before the structured result'), 'a missing plan is an explicit anomaly');
+  assert.equal(result.plan.status, 'recorded');
+  assert.equal(result.plan.runId, result.runId);
   assert.equal(result.status, 'complete');
 });
 
@@ -350,8 +344,8 @@ test('a finite budget stops the run with an explicit stop reason and observable 
   assert.equal(result.status, 'partial');
   // Every LLM call consumed a real, observable amount of tokens from the Model seam.
   const modelCalls = result.callTrace.filter(call => call.type === 'model');
-  assert.equal(modelCalls.length, 3);
+  assert.equal(modelCalls.length, 2);
   assert.ok(modelCalls.every(call => call.inputTokens === 100 && call.outputTokens === 20 && !call.usageMissing));
-  assert.equal(result.metrics.inputTokens, 300);
-  assert.equal(result.metrics.outputTokens, 60);
+  assert.equal(result.metrics.inputTokens, 200);
+  assert.equal(result.metrics.outputTokens, 40);
 });

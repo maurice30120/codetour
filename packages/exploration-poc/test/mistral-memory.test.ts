@@ -130,8 +130,8 @@ test('malformed provider output keeps reported usage in the exploration failure 
     await assert.rejects(explore({ root, objective: 'inspect', model: mistral('fixture') }), (error: any) => {
       // The harness grants one visible JSON recovery, so the run consumes two
       // model calls (both malformed) before the second failure stays fatal.
-      assert.equal(error.exploration.metrics.inputTokens, 46);
-      assert.equal(error.exploration.metrics.outputTokens, 8);
+      assert.equal(error.exploration.metrics.inputTokens, 69);
+      assert.equal(error.exploration.metrics.outputTokens, 12);
       assert.equal(error.exploration.callTrace[0].usageMissing, false);
       assert.equal(error.exploration.callTrace[0].inputTokens, 23);
       return true;

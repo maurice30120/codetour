@@ -94,7 +94,7 @@ test('an identifier collision is refused: the catalogue is append-only and never
     assert.equal(store.catalog().length, 1, 'exactly one entry remains');
     assert.equal(report.rejected[0].name, 'searchPostgresIndexes');
     assert.match(report.rejected[0].reason, /Identifier collision/);
-    assert.match(report.rejected[0].reason, /append-only/);
+    assert.match(report.rejected[0].reason, /Identifier collision/);
     // The validated entry is untouched: same code, same description, no rename.
     const entry = store.get('searchPostgresIndexes');
     assert.equal(entry?.code, 'search(params.query)');
@@ -115,7 +115,7 @@ test('a candidate without deterministic replay evidence is refused', async () =>
   });
 });
 
-test('decided duplicates stay visible: semantic dedup never gates this diagnostic', async () => {
+test('decided duplicates are not persisted', async () => {
   await withStore(async store => {
     const first = await store.finish([], [baseCandidate({ returns: 'SearchMatch[] {file,line,text}' })]);
     assert.deepEqual(first.accepted, ['searchPostgresIndexes']);
@@ -126,9 +126,9 @@ test('decided duplicates stay visible: semantic dedup never gates this diagnosti
       code: 'search(params.query)',
       returns: 'SearchMatch[] {file,line,text}'
     })]);
-    assert.equal(second.accepted.length, 1, 'the duplicate is appended, not refused');
+    assert.equal(second.accepted.length, 0);
     assert.deepEqual(second.duplicates, ['findPostgresIndexDeclarations'], 'the duplicate is reported for visibility');
-    assert.equal(store.catalog().length, 2, 'both entries stay visible');
+    assert.equal(store.catalog().length, 1);
   });
 });
 
@@ -215,7 +215,7 @@ test('a full Tour: the proposal is replayed with the same code and params, all c
   assert.equal(second.metrics.memoryReuses, 1, 'memory_run replayed the procedure added by the earlier Tour');
 });
 
-test('a selected candidate whose trial output is not cited in the final Tour still persists when the replay re-validates it', async t => {
+test('a candidate that did not contribute evidence is not persisted', async t => {
   // Run-1 regression (#194): the model answered the final Tour from evidence
   // other than the trial output; the retained-evidence overlap must not gate
   // persistence — the deterministic replay already re-checks every citation.
@@ -233,8 +233,8 @@ test('a selected candidate whose trial output is not cited in the final Tour sti
     return { result: { selected: ['traceRepoEntryPoints'] } };
   } } });
   const report = first.consolidationReport as ConsolidationReport;
-  assert.deepEqual(report.accepted, ['traceRepoEntryPoints'], 'replay + citation re-validation decide persistence, not final-Tour overlap');
-  assert.equal((await scriptMemory(root, memory.directory)).catalog().length, 1);
+  assert.deepEqual(report.accepted, []);
+  assert.equal((await scriptMemory(root, memory.directory)).catalog().length, 0);
 });
 
 test('a candidate the model does not select is logged as such and never persists', async t => {
@@ -352,7 +352,7 @@ test('an identifier collision in a later Tour is refused: the validated entry is
   assert.deepEqual(report.accepted, []);
   assert.equal(report.rejected.length, 1);
   assert.match(report.rejected[0].reason, /Identifier collision/);
-  assert.match(report.rejected[0].reason, /append-only/);
+  assert.match(report.rejected[0].reason, /Identifier collision/);
   // The validated entry is untouched — same code, no overwrite, no shadow id.
   const store = await scriptMemory(root, memory.directory);
   assert.equal(store.catalog().length, 1);

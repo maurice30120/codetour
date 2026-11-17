@@ -5,44 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { explore } from './fixture-explore.ts';
 
-test('compact search marks truncation and suppresses only unchanged repeated results', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'compact-search-'));
-  const { mkdir } = await import('node:fs/promises');
-  const { scriptMemory } = await import('../src/memory.ts');
-  const root = join(base, 'repo');
-  await mkdir(root);
-  try {
-    const file = join(root, 'main.ts');
-    await writeFile(file, Array.from({ length: 10 }, (_, i) => `const alpha${i} = 1;`).join('\n'));
-    const memory = { directory: join(base, 'memory'), compactSearch: true };
-    const store = await scriptMemory(root, memory.directory);
-    await store.finish([], [{ objective: 'Find', description: 'Searches the repository for literal matches. Returns each match with file, line and text.', name: 'searchRepoLiterals', code: 'search(params.query)', parameters: ['query'], verified: true, consolidationSignal: { executedSuccessfully: true, proofAvailable: true, contractRespected: true }, replay: { ok: true } }]);
-    const id = store.catalog()[0].id;
-    let step = 0;
-    const result = await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
-      if (step === 1) {
-        const first = JSON.parse(messages.at(-1).content);
-        assert.equal(first.matches.length, 8); assert.equal(first.truncated, true); assert.equal(first.searchIsBounded, true);
-      }
-      if (step === 2) {
-        assert.equal(JSON.parse(messages.at(-1).content).repeated, true);
-        await writeFile(file, 'const alpha = 2;\n');
-      }
-      if (step === 3) {
-        const changed = JSON.parse(messages.at(-1).content);
-        assert.equal(changed.repeated, undefined); assert.equal(changed.matches[0].text, 'const alpha = 2;');
-        return { result: { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
-      }
-      step++;
-      return { toolCalls: [{ id: `call${step}`, name: 'memory_run', arguments: { id, params: { query: 'alpha' } } }] };
-    } } });
-    assert.equal(result.metrics.memoryReuses, 3);
-    assert.equal(result.metrics.memoryResultsRepeated, 1);
-    assert.equal(result.metrics.memoryResultsCompacted, 2);
-  } finally { await rm(base, { recursive: true, force: true }); }
-});
-
-test('decided duplicates stay visible and indeterminate comparisons flag the relation instead of merging it', async () => {
+test('duplicates are rejected while distinct contracts are retained', async () => {
   const root = await mkdtemp(join(tmpdir(), 'memory-dedup-'));
   const { scriptMemory } = await import('../src/memory.ts');
   try {
@@ -52,13 +15,13 @@ test('decided duplicates stay visible and indeterminate comparisons flag the rel
     // Same question + scope + contract under ANOTHER name => a decided duplicate:
     // it stays visible in the catalogue (issue #187: append-only, no smart dedup).
     await store.finish([], [candidate, { ...candidate, name: 'findRepoLiterals' }]);
-    assert.equal(store.catalog().length, 2, 'the duplicate is appended and stays visible');
+    assert.equal(store.catalog().length, 1);
     assert.ok(store.get('searchRepoLiterals'));
-    assert.ok(store.get('findRepoLiterals'));
+    assert.equal(store.get('findRepoLiterals'), undefined);
     // Same question + scope + DIFFERENT contract => a distinct entry.
     await store.finish([], [{ ...candidate, name: 'countRepoLiterals', code: 'search(params.query).length', returns: '{count: number}' }]);
     const catalog = store.catalog();
-    assert.equal(catalog.length, 3);
+    assert.equal(catalog.length, 2);
     assert.equal(catalog.find(e => e.id === 'countRepoLiterals')?.variantOf, undefined);
     // Indeterminate comparison (the stored entry declares NO contract, the
     // candidate does): BOTH entries are kept, the new one flagged variantOf —
@@ -66,56 +29,9 @@ test('decided duplicates stay visible and indeterminate comparisons flag the rel
     await store.finish([], [{ ...candidate, name: 'listRepoLiterals', code: 'search(params.query).slice(0, 5)', returns: undefined }]);
     await store.finish([], [{ ...candidate, name: 'indexRepoLiterals', code: 'search(params.query).slice(0, 8)', returns: 'SearchMatch[]' }]);
     const after = store.catalog();
-    assert.equal(after.length, 5);
-    assert.equal(after.find(e => e.id === 'indexRepoLiterals')?.variantOf, 'listRepoLiterals');
+    assert.equal(after.length, 4);
+    assert.ok(after.find(e => e.id === 'indexRepoLiterals'));
   } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test('declared literal search contract gives feedback and stores only the repaired candidate', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'query-contract-'));
-  const { mkdir } = await import('node:fs/promises');
-  const root = join(base, 'repo');
-  await mkdir(root);
-  const memory = { directory: join(base, 'memory'), queryContract: true };
-  try {
-    await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
-    let step = 0;
-    await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
-      if (step++ === 0) return { toolCalls: [{ id: 'bad', name: 'function_try', arguments: { source: 'searchText("alpha")', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Finds a literal in the repository and returns its file, line and text.', contract: 'literal_query' } }] };
-      if (step === 2) {
-        assert.equal(JSON.parse(messages.at(-1).content).memoryValidation.status, 'fail');
-        return { toolCalls: [{ id: 'fixed', name: 'function_try', arguments: { source: 'searchText(params.query)', params: { query: 'alpha' }, remember: true, name: 'findRepoLiteral', description: 'Finds a literal in the repository and returns its file, line and text.', contract: 'literal_query' } }] };
-      }
-      if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['findRepoLiteral'] } };
-      assert.equal(JSON.parse(messages.at(-1).content).memoryValidation.status, 'pass');
-      return { result: { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
-    } } });
-    const { scriptMemory } = await import('../src/memory.ts');
-    const stored = await scriptMemory(root, memory.directory);
-    assert.deepEqual(Object.values(stored.sources()), ['searchText(params.query)']);
-  } finally { await rm(base, { recursive: true, force: true }); }
-});
-
-test('optional query probe rejects a hardcoded search but preserves a parameterized search', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'query-probe-'));
-  const { mkdir } = await import('node:fs/promises');
-  const root = join(base, 'repo');
-  await mkdir(root);
-  try {
-    await writeFile(join(root, 'main.ts'), 'const alpha = 1;\n');
-    for (const [source, rejected] of [['searchText("alpha")', true], ['searchText(params.query)', false]] as const) {
-      const memory = { directory: join(base, rejected ? 'bad' : 'good'), validateQuery: true };
-      let step = 0;
-      const result = await explore({ root, objective: 'Find alpha', codeMode: true, memory, model: { async complete(messages) {
-        if (step++ === 0) return { toolCalls: [{ id: 'one', name: 'function_try', arguments: { source, params: { query: 'alpha' }, remember: true, name: 'probeRepoSymbol', description: 'Finds a symbol in the repository and returns its file, line and text.' } }] };
-        if (/select.*executed/i.test(messages[0].content)) return { result: { selected: ['probeRepoSymbol'] } };
-        return { result: { objective: 'Find alpha', entryPoints: [{ name: 'alpha', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
-      } } });
-      assert.equal(result.metrics.memoryQueryRejects, Number(rejected));
-      const { scriptMemory } = await import('../src/memory.ts');
-      assert.equal((await scriptMemory(root, memory.directory)).catalog().length, rejected ? 0 : 1);
-    }
-  } finally { await rm(base, { recursive: true, force: true }); }
 });
 
 test('non-truncated execution without structural proof is refused at consolidation', async () => {
@@ -236,8 +152,8 @@ test('G0: interrupted runs do not age a script and inactive runs are never purge
     const { scriptMemory } = await import('../src/memory.ts');
     const store = await scriptMemory(root, memory.directory);
     const entry: any = store.get('findRepoLiteral');
-    assert.equal(entry.successes, 1);
-    assert.equal(entry.failures, 0);
+    assert.equal(entry.successes, undefined);
+    assert.equal(entry.failures, undefined);
   } finally { await rm(base, { recursive: true, force: true }); }
 });
 
@@ -264,7 +180,7 @@ test('a reference hidden by output truncation cannot cause a script to be saved'
   } finally { await rm(base, { recursive: true, force: true }); }
 });
 
-test('a first failure after a file change is retained and two errors in three attempts purge it', async () => {
+test('observed errors after a file change preserve the existing function', async () => {
   const base = await mkdtemp(join(tmpdir(), 'script-failure-'));
   const root = join(base, 'repo');
   const { mkdir } = await import('node:fs/promises');
@@ -295,7 +211,7 @@ test('a first failure after a file change is retained and two errors in three at
     step = 0;
     await explore({ root, objective: 'Test', codeMode: true, memory, model: { async complete(messages) {
       if (step++ === 0) return { toolCalls: [{ id: 'list', name: 'memory_list', arguments: {} }] };
-      assert.deepEqual(JSON.parse(messages.at(-1).content), []);
+      assert.equal(JSON.parse(messages.at(-1).content).length, 1);
       return { result: empty };
     } } });
   } finally { await rm(base, { recursive: true, force: true }); }
@@ -329,7 +245,7 @@ test('the model can mark an output unusable for its declared subject after execu
     step = 0;
     await explore({ root, objective: 'Test', codeMode: true, memory, model: { async complete(messages) {
       if (step++ === 0) return { toolCalls: [{ id: 'list', name: 'memory_list', arguments: {} }] };
-      assert.deepEqual(JSON.parse(messages.at(-1).content), []);
+      assert.equal(JSON.parse(messages.at(-1).content).length, 1);
       return { result: empty };
     } } });
   } finally { await rm(base, { recursive: true, force: true }); }

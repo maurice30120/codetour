@@ -71,11 +71,11 @@ test('explore preserves measured calls when final evidence validation fails', as
     assert.equal(error.exploration.status, 'failed');
     assert.equal(error.exploration.metrics.inputTokens, 62);
     assert.equal(error.exploration.metrics.outputTokens, 14);
-    assert.equal(error.exploration.callTrace.length, 3);
-    assert.equal(error.exploration.callTrace[0].inputTokens, 31);
+    assert.equal(error.exploration.callTrace.length, 4);
+    assert.equal(error.exploration.callTrace[1].inputTokens, 31);
     // Spec #183 trace vocabulary: even a failed run ends with a run_end entry.
-    assert.equal(error.exploration.callTrace[2].type, 'run_end');
-    assert.match(error.exploration.callTrace[2].outcome, /status=failed/);
+    assert.equal(error.exploration.callTrace[3].type, 'run_end');
+    assert.match(error.exploration.callTrace[3].outcome, /status=failed/);
     return true;
   });
 });

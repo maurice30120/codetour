@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from '../src/decomposition-prompt.ts';
 import { PROMPT_VERSION as REEXPORTED_PROMPT_VERSION } from '../src/explore.ts';
 import { mistral } from '../src/mistral.ts';

@@ -36,7 +36,8 @@ test('a real-shaped Tour records the provider plan and still parses the final re
     try {
       globalThis.fetch = async () => {
         calls++;
-        if (calls === 1) return new Response(JSON.stringify({
+        if (calls === 1) return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ understand: ['Find the entry'], investigate: ['Search source'], reuse: [] }) } }], usage: { prompt_tokens: 10, completion_tokens: 5 } }));
+        if (calls === 2) return new Response(JSON.stringify({
           choices: [{ message: {
             content: '```plan\n{"questions":[{"id":"q1","question":"Where is the entry point declared?","reuse":false}]}\n```',
             tool_calls: [{ id: 'search-1', function: { name: 'search', arguments: '{"query":"start","question_id":"q1"}' } }]
@@ -50,16 +51,15 @@ test('a real-shaped Tour records the provider plan and still parses the final re
       };
       const result = await explore({ root, objective: 'Find start', codeMode: true, model: mistral('fixture') });
       assert.equal(result.plan.status, 'recorded');
-      assert.equal(result.plan.versions.length, 2);
-      assert.equal(result.plan.versions[1].reason, 'the entry point is confirmed');
+      assert.deepEqual(result.plan.initial, { understand: ['Find the entry'], investigate: ['Search source'], reuse: [] });
       assert.equal(result.status, 'complete');
       assert.deepEqual(result.entryPoints[0].evidence, [{ file: 'main.ts', startLine: 1, endLine: 1 }]);
       const searchEntry = result.callTrace.find(call => call.name === 'search');
       assert.equal(searchEntry?.questionId, 'q1');
       assert.equal(searchEntry?.callId, 'search-1');
       // The plan-bearing generations are fully counted in the run accounting.
-      assert.equal(result.metrics.inputTokens, 180);
-      assert.equal(result.metrics.outputTokens, 70);
+      assert.equal(result.metrics.inputTokens, 190);
+      assert.equal(result.metrics.outputTokens, 75);
     } finally { globalThis.fetch = original; }
   } finally {
     await rm(base, { recursive: true, force: true });

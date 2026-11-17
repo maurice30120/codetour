@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 import { DECOMPOSITION_PROMPT } from '../src/decomposition-prompt.ts';
 import { mistral } from '../src/mistral.ts';
 import { validateCanonicalName } from '../src/memory.ts';
@@ -63,11 +63,11 @@ test('the provider tool descriptions are English in memory mode and code mode', 
   } finally { globalThis.fetch = original; }
 });
 
-test('the canonical naming rejection explains the convention in English', () => {
-  const { ok, reason } = validateCanonicalName('searchPostgres');
+test('an invalid TypeScript identifier receives an English rejection', () => {
+  const { ok, reason } = validateCanonicalName('search-indexes');
   assert.equal(ok, false);
   assertEnglish(reason ?? '', 'the canonical naming rejection reason');
-  assert.match(reason ?? '', /verb\+domain\+object/);
+  assert.match(reason ?? '', /identifier/i);
 });
 
 test('an agent guided by English instructions returns a French result for a French request', async t => {

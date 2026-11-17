@@ -103,7 +103,7 @@ describe('Spec #172 G0 — memory catalogue contract', () => {
     assert.throws(() => memory.memory_run('unknown-id', {}), /Unknown script/);
   });
 
-  it('G0: no inactivity purge — entries survive untouched runs; failure rule purges only clearly-failed entries', async () => {
+  it('memory entries survive inactive runs and observed failures', async () => {
     const memory = await scriptMemory(tempDir, join(tempDir, 'memory'));
     const candidate = {
       objective: 'Trouver les index PostgreSQL', description: 'Searches the SQL scripts of the repository for declared index declarations. Returns one match per declaration with file, line and text.',
@@ -116,14 +116,15 @@ describe('Spec #172 G0 — memory catalogue contract', () => {
     memory.recordFailure('searchPostgresIndexes');
     memory.recordFailure('searchPostgresIndexes');
     await memory.finish([], []);
-    assert.equal(memory.catalog().length, 0, '2 failures in 3 attempts => clearly failed => purged');
+    assert.equal(memory.catalog().length, 1, 'observed failures do not delete a stored function');
     void validateCanonicalName;
   });
 
-  it('#174: naming convention rejects non-conforming names with a clear error', () => {
+  it('memory accepts TypeScript identifiers and rejects invalid names', () => {
     assert.equal(validateCanonicalName('searchPostgresIndexes').ok, true);
-    const bad = validateCanonicalName('search_indexes');
+    assert.equal(validateCanonicalName('search_indexes').ok, true);
+    const bad = validateCanonicalName('search-indexes');
     assert.equal(bad.ok, false);
-    assert.match(bad.reason ?? '', /camelCase/);
+    assert.match(bad.reason ?? '', /identifier/i);
   });
 });
