@@ -17,3 +17,7 @@ rapport-difficultes-mcp-codetour.md
 
 # Local provider credentials
 .env.local
+
+# Regenerable mock-data reports (not benchmark evidence)
+/poc/exploration-benchmark/report-generation/report-sample-*.json
+/poc/exploration-benchmark/report-generation/report-sample-*.md
