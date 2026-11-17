@@ -145,12 +145,11 @@ test('a same-name candidate is refused on collision and a refined procedure appe
   });
 });
 
-test('failure traces and observations recorded during a run never mutate the catalogue before finish', async () => {
+test('failure traces recorded during a run never mutate the catalogue before finish', async () => {
   await withStore(async store => {
     await store.finish([], [baseCandidate()]);
     const before = JSON.stringify(store.catalog());
     store.recordFailure('searchPostgresIndexes');
-    store.observeRun('searchPostgresIndexes', { query: 'x' }, false);
     assert.equal(JSON.stringify(store.catalog()), before, 'mid-run traces are recorded, catalogue untouched');
     await store.finish([], []);
     const entry: any = store.get('searchPostgresIndexes');
@@ -159,11 +158,9 @@ test('failure traces and observations recorded during a run never mutate the cat
   });
 });
 
-test('purges reflect the failure rule (G0: never inactivity-based) and stay visible in metrics', async () => {
+test('observed failures do not purge stored procedures', async () => {
   await withStore(async store => {
     await store.finish([], [baseCandidate(), baseCandidate({ name: 'readPostgresTables', description: 'Reads a table declaration from the repository scripts. Returns the matching source lines.', code: 'read(params.file)' })]);
-    assert.equal(store.purges(), 0);
-    // 3 runs, 2 failures => clearly failed entry, pruned; the other entry stays.
     store.recordFailure('searchPostgresIndexes');
     store.recordFailure('readPostgresTables');
     store.recordFailure('readPostgresTables');

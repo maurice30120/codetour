@@ -39,7 +39,6 @@ test('scriptMemory retains more than twenty independent procedures across reload
   }
   const reloaded = await scriptMemory(root, directory);
   assert.equal(reloaded.catalog().length, 21);
-  assert.equal(store.purges(), 0);
 });
 
 test('explore executes function_try source with typed params and canonical primitives', async t => {

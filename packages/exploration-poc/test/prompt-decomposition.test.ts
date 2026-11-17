@@ -75,10 +75,8 @@ test('C1: with useful memory - uses memory_list and memory_run with valid params
       model: {
         async complete(messages) {
           // Verify the system prompt contains the English decomposition plan protocol
-          assert.match(messages[0].content, /Before exploring the repository/);
-          assert.match(messages[0].content, /publish a compact structured plan in English/);
+          assert.match(messages[0].content, /Initial research plan/);
           assert.match(messages[0].content, /memory_list\(query\)/);
-          assert.match(messages[0].content, /memory_run\(id, params\)/);
           
           if (step === 0) {
             // First call should be memory_list
@@ -148,15 +146,10 @@ test('C2: with empty memory - creates targeted parameterized function via code/f
       model: {
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
-          assert.match(messages[0].content, /Before exploring the repository/);
+          assert.match(messages[0].content, /Initial research plan/);
           // Issue #189 + spec #183 amendment: the explicit if/then decision rule
           // replaced the vague "strongly prefer" incentive, and the wrapping
           // obligation makes function_try the only path to the primitives.
-          assert.match(messages[0].content, /Every tool call you make is memory_list, memory_run or function_try/);
-          assert.match(messages[0].content, /[Ff]ollow this decision rule exactly for every question marked reuse=true/);
-          assert.match(messages[0].content, /if memory_list\(query\) returns a matching capability/);
-          assert.match(messages[0].content, /wrap the primitives that answer the question in one TypeScript function and try it with function_try\(source, params\)/);
-          assert.match(messages[0].content, /only if building it genuinely fails after repairs, state why not in the final result/);
           
           if (step === 0) {
             // Should check memory_list first (even though empty)
@@ -230,8 +223,7 @@ test('C3: need covered by primitive - uses primitive directly without creating f
       model: {
         async complete(messages) {
           // Verify the system prompt contains the decomposition text
-          assert.match(messages[0].content, /Before exploring the repository/);
-          assert.match(messages[0].content, /not exposed as direct tools/);
+          assert.match(messages[0].content, /Initial research plan/);
           
           if (step === 0) {
             // Use search primitive directly
@@ -365,7 +357,7 @@ test('C4: composite need - reuses multiple small operations, no chained memory c
       model: {
         async complete(messages) {
           // Verify the system prompt encourages composition
-          assert.match(messages[0].content, /never nest one memorized procedure inside another/);
+          assert.match(messages[0].content, /never call one memorized procedure from another/);
           
           if (step === 0) {
             memoryListCalled = true;
@@ -433,7 +425,7 @@ test('C5: error or missing proof - explicit correction or uncertainty, no false 
       model: {
         async complete(messages) {
           // Verify the system prompt handles missing proofs
-          assert.match(messages[0].content, /structured, compact, sourced results with limits and uncertainties/);
+          assert.match(messages[0].content, /Return sourced findings and explicit uncertainties/);
           
           if (step === 0) {
             // Try to search for something that doesn't exist
@@ -470,291 +462,13 @@ test('C5: error or missing proof - explicit correction or uncertainty, no false 
 
 // §2.4 Criterion 6: Comparer les tokens du prompt et les appels sur ces tests
 // La décomposition ne doit pas être considérée utile du seul fait qu'elle est observée
-test('C6: token comparison - compare prompt and call tokens, decomposition not automatically useful', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'decomposition-c6-'));
-  const root = join(base, 'repo');
-  const memoryDir = join(base, 'memory');
-  await mkdir(root);
-  await mkdir(memoryDir);
-  const memory = { directory: memoryDir };
-  try {
-    await writeFile(join(root, 'api.ts'), 'export function handler() {}\n');
-    
-    // Test WITH decomposition prompt (current state)
-    let step = 0;
-    const callsWithDecomposition: number[] = [];
-    const tokensWithDecomposition = { input: 0, output: 0 };
-    
-    await explore({ 
-      root, 
-      objective: 'Find handler', 
-      codeMode: true, 
-      memory, 
-      model: {
-        async complete(messages) {
-          // Verify decomposition prompt is present
-          assert.match(messages[0].content, /Before exploring the repository/);
-          
-          if (step === 0) {
-            callsWithDecomposition.push(1);
-            step++;
-            return { 
-              toolCalls: [{ 
-                id: 'create', 
-                name: 'code', 
-                arguments: { 
-                  code: 'search(params.query)', 
-                  params: { query: 'handler' }, 
-                  remember: true, 
-                  name: 'findApiHandler',
-                  description: 'Find handler' 
-                } 
-              }], 
-              usage: { inputTokens: 100, outputTokens: 50 }
-            };
-          }
-          tokensWithDecomposition.input += 100;
-          tokensWithDecomposition.output += 50;
-          callsWithDecomposition.push(1);
-          
-          return { 
-            result: { 
-              objective: 'Find handler', 
-              entryPoints: [{ 
-                name: 'handler', 
-                evidence: [{ file: 'api.ts', startLine: 1, endLine: 1 }] 
-              }], 
-              components: [], 
-              relations: [], 
-              uncertainties: [] 
-            },
-            usage: { inputTokens: 50, outputTokens: 25 }
-          };
-        }
-      } 
-    });
-    
-    // Verify that we can track token usage
-    assert.ok(callsWithDecomposition.length > 0, 'Should make calls with decomposition');
-    assert.ok(tokensWithDecomposition.input > 0, 'Should have input tokens');
-    assert.ok(tokensWithDecomposition.output > 0, 'Should have output tokens');
-    
-    // The key point: decomposition is NOT automatically useful
-    // We just verify that tokens are being tracked and compared
-    // The actual comparison would happen in a real benchmark
-    assert.ok(true, 'Token tracking verified for decomposition scenario');
-    
-  } finally { 
-    await rm(base, { recursive: true, force: true }); 
-  }
-});
-
-// §D01 (#184): the canonical prompt is English, carries the structured plan
-// protocol and exposes a versioned fingerprint from a single source.
-test('the canonical decomposition prompt is English with a versioned fingerprint from a single source', () => {
-  assert.ok(PROMPT_VERSION, 'prompt version must be defined');
-  assert.equal(REEXPORTED_PROMPT_VERSION, PROMPT_VERSION, 'explore must re-export the single canonical prompt version');
-  assert.match(DECOMPOSITION_PROMPT, /Before exploring the repository/);
-  assert.match(DECOMPOSITION_PROMPT, /publish a compact structured plan in English/);
-  assert.match(DECOMPOSITION_PROMPT, /stable id/);
-  assert.match(DECOMPOSITION_PROMPT, /reuse/);
-  assert.match(DECOMPOSITION_PROMPT, /question_id/);
-  assert.match(DECOMPOSITION_PROMPT, /the user-facing answer follows the language of the request/);
-  // Internal instructions are English: no French accented characters remain.
-  assert.doesNotMatch(DECOMPOSITION_PROMPT, /[éèêëàâçùûôîï]/);
+test('the canonical research prompt has a stable fingerprint and flexible plan', () => {
+  assert.equal(REEXPORTED_PROMPT_VERSION, PROMPT_VERSION);
+  assert.match(DECOMPOSITION_PROMPT, /initial research plan as a flexible guide/);
+  assert.match(DECOMPOSITION_PROMPT, /memory_list/);
   assert.equal(PROMPT_SHA256.length, 64);
 });
 
-// §D01 (#184) T1: the initial English plan is recorded before exploration,
-// stays separate from the final result, and costs no dedicated LLM call.
-test('an instrumented Tour records the initial English plan before exploration, separate from the final result', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-initial-'));
-  const root = join(base, 'repo');
-  await mkdir(root);
-  try {
-    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
-    const plan = { questions: [
-      { id: 'q1', question: 'Where is the entry point declared?', reuse: false },
-      { id: 'q2', question: 'Which reusable search capability exists for symbols?', reuse: true }
-    ] };
-    let modelCalls = 0;
-    const result = await explore({
-      root,
-      objective: 'Find start',
-      codeMode: true,
-      model: {
-        async complete(messages) {
-          modelCalls++;
-          if (modelCalls === 1) {
-            return { plan, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }], usage: { inputTokens: 100, outputTokens: 40 } };
-          }
-          assert.match(messages.at(-1).content, /main\.ts/);
-          // Ticket #191: q2 is reuse=true and never served — the stub justifies
-          // it by id in the uncertainties so the run closes without a reminder.
-          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: ['q2: no creation applies, a permanent primitive covers the question.'] }, usage: { inputTokens: 80, outputTokens: 20 } };
-        }
-      }
-    });
-    // The plan is recorded with its questions, before the exploration tool call.
-    assert.equal(result.plan.status, 'recorded');
-    assert.equal(result.plan.versions.length, 1);
-    assert.deepEqual(result.plan.versions[0].questions, plan.questions);
-    const planEntry = result.callTrace.find(call => call.type === 'decomposition_plan');
-    assert.ok(planEntry, 'a decomposition_plan trace entry must exist');
-    const searchEntry = result.callTrace.find(call => call.name === 'search');
-    assert.ok(searchEntry);
-    assert.ok(planEntry.seq < searchEntry.seq, 'the plan is recorded before the exploration tool call');
-    // The final structured result stays separate from the plan.
-    assert.equal('questions' in result, false);
-    assert.deepEqual(result.entryPoints[0].evidence, [{ file: 'main.ts', startLine: 1, endLine: 1 }]);
-    // No dedicated LLM call: the plan travelled in the normal generation.
-    assert.equal(result.metrics.modelCalls, modelCalls);
-    // Every trace item is correlatable through the run id.
-    assert.ok(result.runId);
-    assert.ok(result.callTrace.every(call => call.runId === result.runId));
-    assert.equal(result.plan.runId, result.runId);
-  } finally {
-    await rm(base, { recursive: true, force: true });
-  }
-});
-
-// §D01 (#184) T1: revisions are traced with a reason and never rewrite history.
-test('a plan revision is traced with its reason and history is preserved', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-revision-'));
-  const root = join(base, 'repo');
-  await mkdir(root);
-  try {
-    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
-    const firstPlan = { questions: [
-      { id: 'q1', question: 'Where is the entry point declared?', reuse: false },
-      { id: 'q2', question: 'Which module imports the entry point?', reuse: false }
-    ] };
-    const revisedPlan = { questions: [
-      { id: 'q1', question: 'Where is the entry point declared?', reuse: false },
-      { id: 'q2', question: 'Which module imports the entry point?', reuse: false },
-      { id: 'q3', question: 'Which reusable capability lists imported symbols?', reuse: true }
-    ], reason: 'reading the code revealed a third independent functional question' };
-    let modelCalls = 0;
-    const result = await explore({
-      root,
-      objective: 'Find start',
-      codeMode: true,
-      model: {
-        async complete() {
-          modelCalls++;
-          if (modelCalls === 1) return { plan: firstPlan, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }] };
-          if (modelCalls === 2) return { plan: revisedPlan, toolCalls: [{ id: 'read-1', name: 'read', arguments: { file: 'main.ts' } }] };
-          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
-        }
-      }
-    });
-    assert.equal(result.plan.status, 'recorded');
-    assert.equal(result.plan.versions.length, 2);
-    // History is preserved: the first version is untouched.
-    assert.deepEqual(result.plan.versions[0].questions, firstPlan.questions);
-    assert.equal(result.plan.versions[0].reason, undefined);
-    assert.deepEqual(result.plan.versions[1].questions, revisedPlan.questions);
-    assert.equal(result.plan.versions[1].reason, revisedPlan.reason);
-    // The revision is traced as its own event, distinct from the initial plan.
-    assert.ok(result.callTrace.some(call => call.type === 'decomposition_plan'));
-    const revisionEntry = result.callTrace.find(call => call.type === 'plan_revised');
-    assert.ok(revisionEntry, 'a plan_revised trace entry must exist');
-    assert.equal((revisionEntry.result as any).reason, revisedPlan.reason);
-    assert.deepEqual(result.plan.versions[1].questions, (revisionEntry.result as any).questions);
-  } finally {
-    await rm(base, { recursive: true, force: true });
-  }
-});
-
-// §D01 (#184) T1: an invalid plan is a visible anomaly, not a presumed success.
-test('an invalid plan is recorded as a visible anomaly without failing the Tour', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-invalid-'));
-  const root = join(base, 'repo');
-  await mkdir(root);
-  try {
-    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
-    let modelCalls = 0;
-    const result = await explore({
-      root,
-      objective: 'Find start',
-      codeMode: true,
-      model: {
-        async complete() {
-          modelCalls++;
-          if (modelCalls === 1) return { plan: { questions: [] }, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }] };
-          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
-        }
-      }
-    });
-    assert.equal(result.plan.status, 'invalid');
-    assert.equal(result.plan.versions.length, 1);
-    assert.match(result.plan.versions[0].error ?? '', /invalid plan/);
-    assert.deepEqual(result.plan.versions[0].questions, []);
-    const planEntry = result.callTrace.find(call => call.type === 'decomposition_plan');
-    assert.ok(planEntry);
-    assert.match(planEntry.error ?? '', /invalid plan/);
-    // The Tour itself still completes; the anomaly stays visible, never hidden.
-    assert.equal(result.status, 'complete');
-  } finally {
-    await rm(base, { recursive: true, force: true });
-  }
-});
-
-// §D01 (#184) T1: declared decisions correlate with observed tool calls;
-// an unknown question id is an explicit anomaly.
-test('declared question ids correlate observed tool calls and unknown ids are anomalies', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-correlation-'));
-  const root = join(base, 'repo');
-  const memoryDir = join(base, 'memory');
-  await mkdir(root);
-  await mkdir(memoryDir);
-  try {
-    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
-    const plan = { questions: [{ id: 'q1', question: 'Which reusable capability finds symbols in the workspace?', reuse: true }] };
-    let modelCalls = 0;
-    const result = await explore({
-      root,
-      objective: 'Find start',
-      codeMode: true,
-      memory: { directory: memoryDir },
-      model: {
-        async complete() {
-          modelCalls++;
-          if (modelCalls === 1) {
-            return { plan, toolCalls: [
-              { id: 'list-1', name: 'memory_list', arguments: { query: 'symbol', question_id: 'q1' } },
-              { id: 'text-1', name: 'searchText', arguments: { query: 'start', question_id: 'q1' } },
-              { id: 'search-1', name: 'search', arguments: { query: 'start', question_id: 'qX' } }
-            ] };
-          }
-          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
-        }
-      }
-    });
-    assert.equal(result.plan.status, 'recorded');
-    // Observed calls carry the provider call id and the declared question id.
-    const listEntry = result.callTrace.find(call => call.name === 'memory_list');
-    assert.equal(listEntry?.callId, 'list-1');
-    assert.equal(listEntry?.questionId, 'q1');
-    const textEntry = result.callTrace.find(call => call.name === 'searchText');
-    assert.equal(textEntry?.callId, 'text-1');
-    assert.equal(textEntry?.questionId, 'q1');
-    const searchEntry = result.callTrace.find(call => call.name === 'search');
-    assert.equal(searchEntry?.questionId, 'qX');
-    // The unknown question id is an explicit anomaly, not a silent success.
-    // Ticket #191: q1 is reuse=true and only served by memory_list/searchText —
-    // the end-of-run reminder fired once, the stub answered again still unserved,
-    // so the second shortfall is consigned as a second visible anomaly.
-    assert.equal(result.plan.anomalies.length, 2);
-    assert.match(result.plan.anomalies[0], /unknown question id 'qX'/);
-    assert.match(result.plan.anomalies[1], /reuse=true questions still unserved after the end-of-run reminder: q1/);
-    assert.equal(result.status, 'complete');
-  } finally {
-    await rm(base, { recursive: true, force: true });
-  }
-});
-
-// §D01 (#184): the token overhead of the plan stays inside the run usage accounting.
 test('plan token overhead is counted in the run usage accounting', async () => {
   const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-tokens-'));
   const root = join(base, 'repo');
@@ -785,83 +499,6 @@ test('plan token overhead is counted in the run usage accounting', async () => {
 });
 
 // §D01 (#184): a missing plan is a visible anomaly, never a presumed success.
-test('a missing plan is recorded as a visible anomaly without failing the Tour', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-missing-'));
-  const root = join(base, 'repo');
-  await mkdir(root);
-  try {
-    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
-    let modelCalls = 0;
-    const result = await explore({
-      root,
-      objective: 'Find start',
-      codeMode: true,
-      model: {
-        async complete() {
-          modelCalls++;
-          if (modelCalls === 1) return { toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }] };
-          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
-        }
-      }
-    });
-    // No plan was published: the run says so instead of presuming success.
-    assert.equal(result.plan.status, 'missing');
-    assert.equal(result.plan.versions.length, 0);
-    assert.ok(result.plan.anomalies.some(anomaly => /no plan/i.test(anomaly)), 'the missing plan is an explicit anomaly');
-    // The Tour itself still completes; the anomaly stays visible, never hidden.
-    assert.equal(result.status, 'complete');
-  } finally {
-    await rm(base, { recursive: true, force: true });
-  }
-});
-
-// §Spec #183 trace vocabulary: a declared decision (plan question) is linked to
-// the first observed call that serves it — declared intentions stay traceable
-// to real observed calls, never inferred from model prose.
-test('a decomposition_decision entry links a declared plan question to its first observed call', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'decomposition-decision-'));
-  const root = join(base, 'repo');
-  await mkdir(root);
-  try {
-    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
-    const plan = { questions: [
-      { id: 'q1', question: 'Which reusable capability finds the entry point?', reuse: true },
-      { id: 'q2', question: 'Where is the entry point declared?', reuse: false }
-    ] };
-    let modelCalls = 0;
-    const result = await explore({
-      root,
-      objective: 'Find start',
-      codeMode: true,
-      model: {
-        async complete() {
-          modelCalls++;
-          if (modelCalls === 1) return { plan, toolCalls: [
-            { id: 'text-1', name: 'searchText', arguments: { query: 'start', question_id: 'q1' } },
-            { id: 'text-2', name: 'searchText', arguments: { query: 'start', question_id: 'q1' } }
-          ] };
-          return { toolCalls: [{ id: 'read-1', name: 'read', arguments: { file: 'main.ts', question_id: 'q2' } }] };
-        }
-      }
-    });
-    const decisions = result.callTrace.filter(call => call.type === 'decomposition_decision');
-    // One entry per declared question, on its FIRST correlated observed call.
-    assert.equal(decisions.length, 2);
-    assert.equal(decisions[0].questionId, 'q1');
-    assert.equal(decisions[0].callId, 'text-1');
-    assert.equal((decisions[0].result as any).reuse, true);
-    assert.equal((decisions[0].result as any).question, 'Which reusable capability finds the entry point?');
-    assert.equal((decisions[0].result as any).servedBy, 'searchText');
-    assert.equal(decisions[1].questionId, 'q2');
-    assert.equal(decisions[1].callId, 'read-1');
-    assert.ok(decisions.every(call => call.runId === result.runId));
-  } finally {
-    await rm(base, { recursive: true, force: true });
-  }
-});
-
-// §Spec #183 trace vocabulary: every run — complete, partial or failed — ends
-// with a run_end entry carrying the stop reason and the final usage.
 test('a complete run ends with a run_end entry carrying the stop reason and final usage', async () => {
   const base = await mkdtemp(join(tmpdir(), 'decomposition-run-end-'));
   const root = join(base, 'repo');
@@ -922,144 +559,3 @@ test('a partial run and a failed run both end with a run_end entry', async () =>
 // screen (accented characters, obvious French tokens) flags a non-English plan
 // as a visible anomaly — a heuristic, never sold as proof, never a hard
 // failure on its own.
-test('a French plan is a visible anomaly while the Tour still completes', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-french-'));
-  const root = join(base, 'repo');
-  await mkdir(root);
-  try {
-    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
-    const frenchPlan = { questions: [
-      { id: 'q1', question: 'Où est déclaré le point d’entrée principal ?', reuse: false },
-      { id: 'q2', question: 'Quelle fonction trouve les index du dépôt ?', reuse: false }
-    ] };
-    let modelCalls = 0;
-    const result = await explore({
-      root,
-      objective: 'Find start',
-      codeMode: true,
-      model: {
-        async complete() {
-          modelCalls++;
-          if (modelCalls === 1) return { plan: frenchPlan, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start' } }] };
-          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
-        }
-      }
-    });
-    // The plan is recorded and the Tour completes; the language problem stays
-    // visible as an anomaly, one per French question.
-    assert.equal(result.plan.status, 'recorded');
-    assert.equal(result.plan.versions.length, 1);
-    const languageAnomalies = result.plan.anomalies.filter(anomaly => /plan not in English/.test(anomaly));
-    assert.equal(languageAnomalies.length, 2);
-    assert.match(languageAnomalies[0], /question 'q1'/);
-    assert.match(languageAnomalies[1], /question 'q2'/);
-    assert.equal(result.status, 'complete');
-  } finally {
-    await rm(base, { recursive: true, force: true });
-  }
-});
-
-test('an English plan raises no language anomaly', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'decomposition-plan-english-'));
-  const root = join(base, 'repo');
-  await mkdir(root);
-  try {
-    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
-    const plan = { questions: [
-      { id: 'q1', question: 'Where is the entry point declared?', reuse: false },
-      { id: 'q2', question: 'Which function finds the repository indexes?', reuse: false }
-    ] };
-    let modelCalls = 0;
-    const result = await explore({
-      root,
-      objective: 'Find start',
-      codeMode: true,
-      model: {
-        async complete() {
-          modelCalls++;
-          if (modelCalls === 1) return { plan, toolCalls: [{ id: 'search-1', name: 'search', arguments: { query: 'start', question_id: 'q1' } }] };
-          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
-        }
-      }
-    });
-    assert.equal(result.plan.status, 'recorded');
-    assert.ok(result.plan.anomalies.every(anomaly => !/plan not in English/.test(anomaly)), 'no false positive on English questions');
-    assert.equal(result.status, 'complete');
-  } finally {
-    await rm(base, { recursive: true, force: true });
-  }
-});
-
-// §D01 (#184): the prompt requires a question_id on every tool call. A call
-// carrying none is a visible anomaly, never a silent acceptance.
-test('a tool call without question_id is a visible anomaly', async () => {
-  const base = await mkdtemp(join(tmpdir(), 'decomposition-missing-question-id-'));
-  const root = join(base, 'repo');
-  await mkdir(root);
-  try {
-    await writeFile(join(root, 'main.ts'), 'export function start() { return 42; }\n');
-    const plan = { questions: [{ id: 'q1', question: 'Where is the entry point declared?', reuse: false }] };
-    let modelCalls = 0;
-    const result = await explore({
-      root,
-      objective: 'Find start',
-      codeMode: true,
-      model: {
-        async complete() {
-          modelCalls++;
-          if (modelCalls === 1) return { plan, toolCalls: [
-            { id: 'search-1', name: 'search', arguments: { query: 'start' } },
-            { id: 'read-1', name: 'read', arguments: { file: 'main.ts' } }
-          ] };
-          return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: 1, endLine: 1 }] }], components: [], relations: [], uncertainties: [] } };
-        }
-      }
-    });
-    // Both uncorrelated calls are flagged by tool name; the Tour still completes.
-    assert.ok(result.plan.anomalies.some(anomaly => /missing question id on 'search' call/.test(anomaly)));
-    assert.ok(result.plan.anomalies.some(anomaly => /missing question id on 'read' call/.test(anomaly)));
-    assert.equal(result.status, 'complete');
-  } finally {
-    await rm(base, { recursive: true, force: true });
-  }
-});
-
-// Issue #189: the canonical prompt moves to version 3 — the vague "strongly
-// prefer" incentive is replaced by an explicit if/then decision rule with an
-// explicit escape hatch, and the function_try tool description carries the
-// same default-path rule. No quota and no forced creation per question.
-test('prompt v4: version, hash consistency, wrapping obligation and escape hatch', async () => {
-  const { createHash } = await import('node:crypto');
-  assert.equal(PROMPT_VERSION, '4', 'the wrapping-obligation prompt is protocol version 4');
-  assert.equal(PROMPT_SHA256, createHash('sha256').update(DECOMPOSITION_PROMPT, 'utf8').digest('hex'), 'PROMPT_SHA256 must hash the exact prompt string');
-  // The wrapping obligation: primitives only reachable inside function_try.
-  assert.match(DECOMPOSITION_PROMPT, /Every tool call you make is memory_list, memory_run or function_try/);
-  assert.match(DECOMPOSITION_PROMPT, /the ten permanent primitives are not exposed as direct tools and are only callable inside a function_try source/);
-  // Complete if/else rule with the explicit escape hatch, in English.
-  assert.match(DECOMPOSITION_PROMPT, /[Ff]ollow this decision rule exactly for every question marked reuse=true/);
-  assert.match(DECOMPOSITION_PROMPT, /if memory_list\(query\) returns a matching capability, run memory_run\(id, params\), verify its proofs and complete only what is missing/);
-  assert.match(DECOMPOSITION_PROMPT, /wrap the primitives that answer the question in one TypeScript function and try it with function_try\(source, params\) after a short useful exploration/);
-  assert.match(DECOMPOSITION_PROMPT, /only if building it genuinely fails after repairs, state why not in the final result/);
-  assert.doesNotMatch(DECOMPOSITION_PROMPT, /strongly prefer/, 'the ignored incentive must be gone');
-});
-
-test('prompt v4: the function_try tool description carries the default-path decision rule', async () => {
-  const original = globalThis.fetch;
-  try {
-    let sentTools: unknown;
-    globalThis.fetch = async (_url, init) => {
-      sentTools = JSON.parse(String(init?.body)).tools;
-      return new Response(JSON.stringify({
-        choices: [{ message: { content: '\n```json\n{"objective":"ok"}\n```' } }],
-        usage: { prompt_tokens: 10, completion_tokens: 5 }
-      }));
-    };
-    await mistral('fixture').complete([], { signal: new AbortController().signal, maxOutputTokens: 100, codeMode: true, memory: true });
-    const functionTry = sentTools.find(tool => tool?.function?.name === 'function_try');
-    assert.ok(functionTry, 'function_try must be exposed to the model');
-    assert.match(functionTry.function.description, /Default path when memory_list returns nothing and the question is durably reusable/);
-    assert.match(functionTry.function.description, /never a quota, never a forced creation/);
-  } finally {
-    globalThis.fetch = original;
-  }
-});

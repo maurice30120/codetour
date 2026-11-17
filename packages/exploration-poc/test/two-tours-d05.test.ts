@@ -182,6 +182,8 @@ test('Tour A creates, repairs and consolidates a procedure, then Tour B reuses i
   assert.ok(listCall.seq < runCall.seq, 'memory_list precedes memory_run');
   // Traceable proof: the reuse carries the sandbox execution trace.
   assert.ok(runCall.execution, 'the memory_run trace keeps the execution proof');
+  assert.deepEqual(runCall.parameters, { id: CANDIDATE_NAME, params: { query: 'start' } });
+  assert.match(JSON.stringify(runCall.result), /main\.ts/);
   assert.equal(tourB.metrics.memoryReuses, 1);
   // No code was recreated during the reuse Tour.
   assert.equal(tourB.callTrace.filter(call => call.type === 'function_try').length, 0);

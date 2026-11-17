@@ -99,8 +99,8 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const unreconciled: ReconciliationOutcome[] = [];
   // In-session traces only: the catalogue is mutated once, at the end of the run (correction 3).
   const runtimeFailures: string[] = [];
-  const runtimeObservations: Array<{ id: string; params: Record<string, unknown>; ok: boolean }> = [];
   const unusableIds = new Set<string>();
+  const abandonedAttempts = new Set<Attempt>();
   const { noteEvidence, attachEvidence } = createEvidenceTracker();
   let previousFailedCall: string | undefined;
   let consecutiveFailures = 0;
@@ -259,6 +259,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           // a candidate marked unusable never reaches the catalogue.
           if (!attempts.some(a => a.id === id || a.candidate?.name === id)) throw new Error('Script must have been executed in this run');
           unusableIds.add(id);
+          for (const previous of attempts) if (previous.candidate?.name === id) abandonedAttempts.add(previous);
           output = { recordedAfterValidation: true };
         }
         else if (codeMode && ((call.name === 'code' && typeof call.arguments.code === 'string') || (call.name === 'function_try' && typeof call.arguments.source === 'string') || (library && call.name === 'memory_run' && typeof call.arguments.id === 'string'))) {
@@ -302,7 +303,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             // leaves its code and diagnostics in the trace only.
             const citations = call.name === 'function_try' ? await validateCitations(raw, { access: citationAccess(tools), revision: await resolveRevision() }) : undefined;
             const citationFailure = citations?.status === 'validation_failed' ? citationRepairFeedback(citations) : undefined;
-            recordCall({ type: scriptCall.type, name: scriptCall.name, callId: call.id, questionId, parameters: call.name === 'function_try' ? { remember: call.arguments.remember === true, name: call.arguments.name, question: call.arguments.question, description: call.arguments.description } : undefined, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome(citations)}` }, runStarted, runEnded);
+            recordCall({ type: scriptCall.type, name: scriptCall.name, callId: call.id, questionId, parameters: call.name === 'function_try' ? { remember: call.arguments.remember === true, name: call.arguments.name, question: call.arguments.question, description: call.arguments.description } : { id: stored?.id, params }, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: stored ? bounded : citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome(citations)}` }, runStarted, runEnded);
             output = citationFailure ?? (output && typeof output === 'object' && 'staleness' in (output as Record<string, unknown>) ? { ...(output as Record<string, unknown>), result: bounded } : bounded);
             // The description is kept whole: a deterministic gate at consolidation
             // refuses off-format or oversized descriptions with a precise reason
@@ -337,10 +338,9 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
                 } catch { proofSignature.push(`${ref.file}:${ref.line}:unreadable`); proofOk = false; }
               }
               attempt = { id: stored?.id, candidate, params: params as Record<string, unknown>, output: raw, truncated: viewTruncated, proofValid: refs.length === 0 ? undefined : proofOk, proofSignature };
-              runtimeObservations.push({ id: String(stored?.id ?? candidate?.name ?? ''), params: params as Record<string, unknown>, ok: proofOk });
             }
           } catch (error) {
-            recordCall({ type: scriptCall?.type ?? 'function_try', name: call.name === 'memory_run' ? String(call.arguments.id ?? call.name) : 'function_try', callId: call.id, questionId, inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, runStarted, new Date());
+            recordCall({ type: scriptCall?.type ?? 'function_try', name: call.name === 'memory_run' ? String(call.arguments.id ?? call.name) : 'function_try', callId: call.id, questionId, parameters: stored ? { id: stored.id, params } : undefined, inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, runStarted, new Date());
             if (stored) runtimeFailures.push(stored.id);
             // Issue #188 (D05): a proposal (remember=true) whose trial never
             // executed is an explicit reconciliation outcome — proposed but not
@@ -438,7 +438,6 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   // the catalogue is only ever mutated in finish).
   if (library) {
     for (const failureId of new Set([...runtimeFailures, ...unusableIds])) library.recordFailure(failureId);
-    for (const observation of runtimeObservations) library.observeRun(observation.id, observation.params, observation.ok);
   }
   // Selection is only attempted when the Tour produced a structured result
   // with valid evidence, no stop reason, at least one admissible candidate and
@@ -447,7 +446,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   const selectionSkip = !library ? null
     : state.stopReason ? `stop_${state.stopReason}`
     : state.result === undefined ? 'no_structured_result'
-    : !attempts.some(attempt => attempt.candidate?.executionMode === 'strict' && !unusableIds.has(attempt.candidate?.name ?? '')) ? 'no_eligible_candidate'
+    : !attempts.some(attempt => attempt.candidate?.executionMode === 'strict' && !abandonedAttempts.has(attempt)) ? 'no_eligible_candidate'
     : reason() ? `budget_${reason()}`
     : null;
   metrics.selectionSkip = selectionSkip;
@@ -457,7 +456,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
     // auto-submitted to selection — the model considers their contribution and
     // never has to propose with remember. Legacy candidates are refused in the
     // reconciliation loop below and never enter the selection pool.
-    const eligible = attempts.filter(attempt => attempt.candidate?.executionMode === 'strict' && !unusableIds.has(attempt.candidate?.name ?? ''));
+    const eligible = attempts.filter(attempt => attempt.candidate?.executionMode === 'strict' && !abandonedAttempts.has(attempt));
     let selected = new Set<string>();
     if (eligible.length && !reason()) {
       const selectionStarted = new Date();
@@ -501,12 +500,12 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       }
       return Object.values(value).some(matches);
     };
-    const successful = attempts.filter(a => (!a.id || !unusableIds.has(a.id)) && (!a.candidate?.name || !unusableIds.has(a.candidate.name)) && matches(a.output));
+    const successful = attempts.filter(a => (!a.id || !unusableIds.has(a.id)) && !abandonedAttempts.has(a) && matches(a.output));
     const candidates: ConsolidationCandidate[] = [];
     for (const attempt of attempts) {
       if (!attempt.candidate || attempt.output == null) continue;
       const candidateName = attempt.candidate.name ?? '';
-      if (unusableIds.has(candidateName)) {
+      if (abandonedAttempts.has(attempt)) {
         unreconciled.push({ name: candidateName, proposed: false, replayed: false, accepted: false, reason: 'Marked unusable by memory_unusable during the Tour' });
         continue;
       }
@@ -594,10 +593,6 @@ Explore the repository using the tools. Assess whether the evidence answers the 
     // reconciliation log even when the Tour itself is not validated.
     partialReport.reconciliation.push(...unreconciled);
     consolidationReport = partialReport;
-  }
-  if (library) {
-    // Purge counters are read once, after the single end-of-run mutation.
-    metrics.memoryPurges = library.purges();
   }
   metrics.durationMs = Date.now() - startedMs;
   const stopReason = state.stopReason ?? (plan.status !== 'recorded' ? 'planning_failed' : null);

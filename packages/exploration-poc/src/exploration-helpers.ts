@@ -25,7 +25,7 @@ export type Budget = { iterations?: number; calls?: number; tokens?: number; dur
 export interface CallTraceItem {
   seq: number;
   runId: string;
-  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'plan_revised' | 'decomposition_decision' | 'reuse_reminder' | 'run_end';
+  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'decomposition_decision' | 'run_end';
   name: string;
   /** Provider tool-call id (observed calls), absent on model/plan entries. */
   callId?: string;

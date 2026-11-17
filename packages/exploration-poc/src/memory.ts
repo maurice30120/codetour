@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, realpath, rename, unlink, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { lstat, mkdir, readFile, realpath, rename, unlink, writeFile } from 'node:fs/promises';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 
 // ============================================================================
@@ -168,19 +168,46 @@ export function compareCandidates(candidate: { objective: string; description: s
 /** Local experimental store. The file name derives from the real repository path. */
 export async function scriptMemory(root: string, directory: string) {
   const repo = await realpath(root);
-  await mkdir(directory, { recursive: true });
+  const targetDirectory = resolve(directory);
+  const relativeDirectory = relative(repo, targetDirectory);
+  const insideWorkspace = relativeDirectory !== '..' && !relativeDirectory.startsWith(`..${sep}`) && !isAbsolute(relativeDirectory);
+  const ensureDirectory = async (path: string) => {
+    try {
+      const info = await lstat(path);
+      if (info.isSymbolicLink() || !info.isDirectory()) throw new Error(`Unsafe memory directory: ${path}`);
+    } catch (error: any) {
+      if (error?.code !== 'ENOENT') throw error;
+      await mkdir(path);
+    }
+  };
+  if (insideWorkspace) {
+    let current = repo;
+    for (const part of relativeDirectory.split(sep).filter(Boolean)) {
+      current = join(current, part);
+      await ensureDirectory(current);
+    }
+  } else {
+    await mkdir(targetDirectory, { recursive: true });
+    await ensureDirectory(targetDirectory);
+  }
+  const rejectSymlink = async (path: string) => {
+    try { if ((await lstat(path)).isSymbolicLink()) throw new Error(`Unsafe memory file: ${path}`); }
+    catch (error: any) { if (error?.code !== 'ENOENT') throw error; }
+  };
   const file = join(directory, `${digest(repo)}.json`);
+  await rejectSymlink(file);
   let entries: Entry[];
   try { entries = z.array(entrySchema).parse(JSON.parse(await readFile(file, 'utf8'))); }
   catch (error: any) { if (error?.code === 'ENOENT') entries = []; else throw new Error('Invalid script memory'); }
   const persist = async () => {
+    await rejectSymlink(file);
     const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
     await writeFile(temporary, JSON.stringify(entries), { mode: 0o600 });
     await rename(temporary, file);
   };
   const functionDirectory = join(directory, 'functions');
   const writeFunction = async (entry: Entry) => {
-    await mkdir(functionDirectory, { recursive: true });
+    await ensureDirectory(functionDirectory);
     const escapeComment = (value: string) => value.replace(/\*\//g, '* /').replace(/[\r\n]+/g, ' ');
     const description = escapeComment(entry.description);
     const params = entry.paramsSchema.map(p => ` * @param ${escapeComment(p.name)} ${escapeComment(p.description ?? p.type)}`).join('\n');
@@ -224,8 +251,6 @@ export async function scriptMemory(root: string, directory: string) {
     },
     /** Record an in-run failure trace (applied to the catalogue at finish). */
     recordFailure: (id: string) => { sessionFailures.push(id); },
-    /** Record an in-run observation (parameters + proof validity), kept as a reference case on the entry. */
-    observeRun: (_id: string, _params: Record<string, unknown>, _ok: boolean) => {},
     /** Peek at stored entry (source included; for execution wiring only). */
     get: (id: string) => entries.find(entry => entry.id === id),
     sources: () => Object.fromEntries(entries.map(({ id, code }) => [id, code])),
@@ -325,6 +350,8 @@ export async function scriptMemory(root: string, directory: string) {
           validated: true
         };
         const sourceFile = join(functionDirectory, `${newEntry.id}.ts`);
+        await ensureDirectory(functionDirectory);
+        await rejectSymlink(sourceFile);
         let previousSource: string | undefined;
         try { previousSource = await readFile(sourceFile, 'utf8'); }
         catch (error: any) { if (error?.code !== 'ENOENT') throw error; }
@@ -348,7 +375,6 @@ export async function scriptMemory(root: string, directory: string) {
         recordOutcome(true);
       }
       return report;
-    },
-    purges: () => 0
+    }
   };
 }
