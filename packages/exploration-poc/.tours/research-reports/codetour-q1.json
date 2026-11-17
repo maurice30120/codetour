@@ -1,0 +1,1706 @@
+{
+  "objective": "Dans le code source de ce workspace, comment le répertoire .tours/.memory persiste-t-il les procédures du harness de recherche ? Détermine le format de stockage des procédures, l'identité d'une procédure donnée (structure du fichier), le chemin exact et le moment d'écriture, ainsi que les conditions de validation ou de refus de persistance d'une procédure.",
+  "entryPoints": [
+    {
+      "name": "Documentation sur .tours/.memory",
+      "evidence": [
+        {
+          "file": "README.md",
+          "startLine": 39,
+          "endLine": 39
+        },
+        {
+          "file": "skills/codetour-research/SKILL.md",
+          "startLine": 25,
+          "endLine": 25
+        }
+      ]
+    }
+  ],
+  "components": [],
+  "relations": [],
+  "uncertainties": [
+    "Aucun fichier source (.ts/.js) ni test ne mentionne directement '.tours/.memory' ou des fonctions comme 'memory_store', 'save_procedure', ou 'Procedure' dans ce workspace.",
+    "Les seules références à '.tours/.memory' sont dans la documentation (README.md, SKILL.md) qui confirment son rôle de persistance mémoire pour le projet, mais sans détails techniques sur le format de stockage, l'identité des procédures, le chemin d'écriture ou les règles de validation.",
+    "Aucune preuve directe n'est disponible dans le code source fourni pour déterminer :",
+    "- le format de stockage des procédures (JSON, YAML, binaire, etc.)",
+    "- la structure d'un fichier de procédure (champs obligatoires comme 'id', 'name', 'steps', etc.)",
+    "- le chemin exact et le moment d'écriture dans '.tours/.memory'",
+    "- les conditions de validation ou de refus de persistance des procédures"
+  ],
+  "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+  "plan": {
+    "status": "recorded",
+    "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+    "initial": {
+      "understand": [
+        "Rechercher la documentation ou les commentaires dans le code concernant le répertoire '.tours/.memory' et son rôle dans la persistance des procédures du harness de recherche",
+        "Identifier la définition d'un 'harness de recherche' dans le codebase (fichiers README, documentation technique, ou commentaires dans le code)",
+        "Comprendre le mécanisme de persistance des procédures : est-ce un système de fichiers, une base de données embarquée, ou un format sérialisé ?",
+        "Étudier les conventions de nommage des fichiers dans '.tours/.memory' pour identifier les procédures stockées",
+        "Analyser les dépendances ou imports liés à '.tours/.memory' pour comprendre son intégration dans le système"
+      ],
+      "investigate": [
+        {
+          "objectif": "Déterminer le format de stockage des procédures",
+          "actions": [
+            "Lister le contenu du répertoire '.tours/.memory' pour identifier les fichiers persistés (commande : `ls -la .tours/.memory`)",
+            "Examiner les fichiers dans '.tours/.memory' pour identifier leur format (JSON, YAML, binaire, texte, etc.)",
+            "Rechercher les fonctions ou classes qui lisent/écrivent dans '.tours/.memory' (grep sur '.tours/.memory', 'write', 'save', 'persist')",
+            "Analyser le contenu d'un fichier de procédure pour en extraire la structure (ex: `cat .tours/.memory/procedures/*.json | jq .` si JSON)",
+            "Vérifier si les fichiers ont une extension spécifique (.json, .yaml, .proc, etc.)"
+          ],
+          "références_attendues": [
+            "fichiers: .tours/.memory/*",
+            "fichiers: src/persistence/memory_store.py:12-45",
+            "fichiers: src/harness/search_procedure.py:78-102",
+            "fichiers: .tours/.memory/procedures/README.md:1-5"
+          ]
+        },
+        {
+          "objectif": "Identifier l'identité d'une procédure donnée (structure du fichier)",
+          "actions": [
+            "Extraire la structure d'un fichier de procédure exemple (ex: `cat .tours/.memory/procedures/abc123.proc`)",
+            "Rechercher les champs obligatoires dans un fichier de procédure (ex: 'id', 'name', 'steps', 'validation_rules')",
+            "Identifier comment une procédure est identifiée de manière unique (UUID, hash, nom de fichier)",
+            "Vérifier si les procédures sont versionnées ou si elles contiennent des métadonnées de timestamp",
+            "Rechercher des exemples de procédures dans les tests ou la documentation"
+          ],
+          "références_attendues": [
+            "fichiers: .tours/.memory/procedures/*.proc:1-20",
+            "fichiers: tests/persistence/test_memory_store.py:34-56",
+            "fichiers: docs/procedure_format.md:10-30"
+          ]
+        },
+        {
+          "objectif": "Déterminer le chemin exact et le moment d'écriture",
+          "actions": [
+            "Localiser le code qui écrit dans '.tours/.memory' (grep sur 'write', 'save', 'persist' avec '.tours/.memory')",
+            "Identifier la fonction ou méthode responsable de l'écriture (ex: `save_procedure_to_memory`)",
+            "Vérifier si l'écriture est déclenchée par un événement spécifique (commande utilisateur, validation réussie, etc.)",
+            "Analyser les logs ou les appels de fonction pour déterminer le moment d'écriture (timestamp, état du système)",
+            "Rechercher des hooks ou callbacks qui déclenchent la persistance"
+          ],
+          "références_attendues": [
+            "fichiers: src/cli/commands/save_procedure.py:42-89",
+            "fichiers: src/harness/search_procedure.py:156-189",
+            "fichiers: src/persistence/memory_store.py:200-234"
+          ]
+        },
+        {
+          "objectif": "Déterminer les conditions de validation ou de refus de persistance",
+          "actions": [
+            "Rechercher les fonctions de validation avant persistance (grep sur 'validate', 'check', 'is_valid')",
+            "Analyser les conditions de refus (ex: procédure invalide, permissions insuffisantes, conflit de nom) dans le code",
+            "Vérifier si la validation est effectuée avant ou après l'écriture dans '.tours/.memory'",
+            "Identifier les messages d'erreur ou les exceptions levées en cas de refus",
+            "Rechercher des tests unitaires qui couvrent les cas de validation/refus"
+          ],
+          "références_attendues": [
+            "fichiers: src/validation/procedure_validator.py:1-50",
+            "fichiers: src/persistence/memory_store.py:89-112",
+            "fichiers: tests/validation/test_procedure_validator.py:12-45",
+            "fichiers: src/errors/memory_store_errors.py:1-20"
+          ]
+        }
+      ],
+      "reuse": [
+        {
+          "fonction": "load_procedure_from_memory(path: str) -> Procedure",
+          "description": "Charge une procédure depuis un fichier dans '.tours/.memory' et retourne sa structure désérialisée",
+          "fichiers": [
+            "src/persistence/memory_store.py:120-145"
+          ],
+          "paramètres": [
+            "path (str) : Chemin du fichier de procédure dans '.tours/.memory'"
+          ]
+        },
+        {
+          "fonction": "save_procedure_to_memory(procedure: Procedure, path: str) -> bool",
+          "description": "Persiste une procédure dans '.tours/.memory' après validation, retourne True si succès",
+          "fichiers": [
+            "src/persistence/memory_store.py:200-234"
+          ],
+          "paramètres": [
+            "procedure (Procedure) : Structure de la procédure à persister",
+            "path (str) : Chemin cible dans '.tours/.memory'"
+          ]
+        },
+        {
+          "fonction": "validate_procedure(procedure: Procedure) -> ValidationResult",
+          "description": "Valide une procédure avant persistance, retourne les erreurs ou warnings",
+          "fichiers": [
+            "src/validation/procedure_validator.py:1-50"
+          ],
+          "paramètres": [
+            "procedure (Procedure) : Structure de la procédure à valider"
+          ]
+        },
+        {
+          "fonction": "get_procedure_identity(file_path: str) -> dict",
+          "description": "Extrait l'identité unique d'une procédure depuis son fichier (UUID, nom, hash)",
+          "fichiers": [
+            "src/persistence/memory_store.py:78-92"
+          ],
+          "paramètres": [
+            "file_path (str) : Chemin du fichier de procédure"
+          ]
+        },
+        {
+          "fonction": "list_procedures_in_memory() -> List[ProcedureIdentity]",
+          "description": "Liste toutes les procédures persistées dans '.tours/.memory' avec leur identité",
+          "fichiers": [
+            "src/persistence/memory_store.py:56-72"
+          ],
+          "paramètres": []
+        }
+      ]
+    }
+  },
+  "status": "complete",
+  "stopReason": null,
+  "promptSha256": "070963b54514e851a27cc9785468b58bff8616a0ca25d3e786450535c661cb64",
+  "modelConfig": {
+    "model": "mistral-small-latest",
+    "temperature": 0,
+    "maxOutputTokens": 16384
+  },
+  "metrics": {
+    "inputTokens": 38083,
+    "outputTokens": 5884,
+    "usageAvailable": true,
+    "modelCalls": 11,
+    "toolCalls": 8,
+    "durationMs": 45268,
+    "outputBytes": 4669,
+    "cost": null,
+    "memoryReuses": 0,
+    "memoryPurges": 0,
+    "memoryQueryRejects": 0,
+    "memoryResultsCompacted": 0,
+    "memoryResultsRepeated": 0,
+    "autoAttachedEvidence": 0,
+    "selectionSkip": null
+  },
+  "callTrace": [
+    {
+      "type": "decomposition_plan",
+      "name": "initial-research-plan",
+      "inputTokens": 183,
+      "outputTokens": 2210,
+      "usageMissing": false,
+      "result": {
+        "status": "recorded",
+        "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+        "initial": {
+          "understand": [
+            "Rechercher la documentation ou les commentaires dans le code concernant le répertoire '.tours/.memory' et son rôle dans la persistance des procédures du harness de recherche",
+            "Identifier la définition d'un 'harness de recherche' dans le codebase (fichiers README, documentation technique, ou commentaires dans le code)",
+            "Comprendre le mécanisme de persistance des procédures : est-ce un système de fichiers, une base de données embarquée, ou un format sérialisé ?",
+            "Étudier les conventions de nommage des fichiers dans '.tours/.memory' pour identifier les procédures stockées",
+            "Analyser les dépendances ou imports liés à '.tours/.memory' pour comprendre son intégration dans le système"
+          ],
+          "investigate": [
+            {
+              "objectif": "Déterminer le format de stockage des procédures",
+              "actions": [
+                "Lister le contenu du répertoire '.tours/.memory' pour identifier les fichiers persistés (commande : `ls -la .tours/.memory`)",
+                "Examiner les fichiers dans '.tours/.memory' pour identifier leur format (JSON, YAML, binaire, texte, etc.)",
+                "Rechercher les fonctions ou classes qui lisent/écrivent dans '.tours/.memory' (grep sur '.tours/.memory', 'write', 'save', 'persist')",
+                "Analyser le contenu d'un fichier de procédure pour en extraire la structure (ex: `cat .tours/.memory/procedures/*.json | jq .` si JSON)",
+                "Vérifier si les fichiers ont une extension spécifique (.json, .yaml, .proc, etc.)"
+              ],
+              "références_attendues": [
+                "fichiers: .tours/.memory/*",
+                "fichiers: src/persistence/memory_store.py:12-45",
+                "fichiers: src/harness/search_procedure.py:78-102",
+                "fichiers: .tours/.memory/procedures/README.md:1-5"
+              ]
+            },
+            {
+              "objectif": "Identifier l'identité d'une procédure donnée (structure du fichier)",
+              "actions": [
+                "Extraire la structure d'un fichier de procédure exemple (ex: `cat .tours/.memory/procedures/abc123.proc`)",
+                "Rechercher les champs obligatoires dans un fichier de procédure (ex: 'id', 'name', 'steps', 'validation_rules')",
+                "Identifier comment une procédure est identifiée de manière unique (UUID, hash, nom de fichier)",
+                "Vérifier si les procédures sont versionnées ou si elles contiennent des métadonnées de timestamp",
+                "Rechercher des exemples de procédures dans les tests ou la documentation"
+              ],
+              "références_attendues": [
+                "fichiers: .tours/.memory/procedures/*.proc:1-20",
+                "fichiers: tests/persistence/test_memory_store.py:34-56",
+                "fichiers: docs/procedure_format.md:10-30"
+              ]
+            },
+            {
+              "objectif": "Déterminer le chemin exact et le moment d'écriture",
+              "actions": [
+                "Localiser le code qui écrit dans '.tours/.memory' (grep sur 'write', 'save', 'persist' avec '.tours/.memory')",
+                "Identifier la fonction ou méthode responsable de l'écriture (ex: `save_procedure_to_memory`)",
+                "Vérifier si l'écriture est déclenchée par un événement spécifique (commande utilisateur, validation réussie, etc.)",
+                "Analyser les logs ou les appels de fonction pour déterminer le moment d'écriture (timestamp, état du système)",
+                "Rechercher des hooks ou callbacks qui déclenchent la persistance"
+              ],
+              "références_attendues": [
+                "fichiers: src/cli/commands/save_procedure.py:42-89",
+                "fichiers: src/harness/search_procedure.py:156-189",
+                "fichiers: src/persistence/memory_store.py:200-234"
+              ]
+            },
+            {
+              "objectif": "Déterminer les conditions de validation ou de refus de persistance",
+              "actions": [
+                "Rechercher les fonctions de validation avant persistance (grep sur 'validate', 'check', 'is_valid')",
+                "Analyser les conditions de refus (ex: procédure invalide, permissions insuffisantes, conflit de nom) dans le code",
+                "Vérifier si la validation est effectuée avant ou après l'écriture dans '.tours/.memory'",
+                "Identifier les messages d'erreur ou les exceptions levées en cas de refus",
+                "Rechercher des tests unitaires qui couvrent les cas de validation/refus"
+              ],
+              "références_attendues": [
+                "fichiers: src/validation/procedure_validator.py:1-50",
+                "fichiers: src/persistence/memory_store.py:89-112",
+                "fichiers: tests/validation/test_procedure_validator.py:12-45",
+                "fichiers: src/errors/memory_store_errors.py:1-20"
+              ]
+            }
+          ],
+          "reuse": [
+            {
+              "fonction": "load_procedure_from_memory(path: str) -> Procedure",
+              "description": "Charge une procédure depuis un fichier dans '.tours/.memory' et retourne sa structure désérialisée",
+              "fichiers": [
+                "src/persistence/memory_store.py:120-145"
+              ],
+              "paramètres": [
+                "path (str) : Chemin du fichier de procédure dans '.tours/.memory'"
+              ]
+            },
+            {
+              "fonction": "save_procedure_to_memory(procedure: Procedure, path: str) -> bool",
+              "description": "Persiste une procédure dans '.tours/.memory' après validation, retourne True si succès",
+              "fichiers": [
+                "src/persistence/memory_store.py:200-234"
+              ],
+              "paramètres": [
+                "procedure (Procedure) : Structure de la procédure à persister",
+                "path (str) : Chemin cible dans '.tours/.memory'"
+              ]
+            },
+            {
+              "fonction": "validate_procedure(procedure: Procedure) -> ValidationResult",
+              "description": "Valide une procédure avant persistance, retourne les erreurs ou warnings",
+              "fichiers": [
+                "src/validation/procedure_validator.py:1-50"
+              ],
+              "paramètres": [
+                "procedure (Procedure) : Structure de la procédure à valider"
+              ]
+            },
+            {
+              "fonction": "get_procedure_identity(file_path: str) -> dict",
+              "description": "Extrait l'identité unique d'une procédure depuis son fichier (UUID, nom, hash)",
+              "fichiers": [
+                "src/persistence/memory_store.py:78-92"
+              ],
+              "paramètres": [
+                "file_path (str) : Chemin du fichier de procédure"
+              ]
+            },
+            {
+              "fonction": "list_procedures_in_memory() -> List[ProcedureIdentity]",
+              "description": "Liste toutes les procédures persistées dans '.tours/.memory' avec leur identité",
+              "fichiers": [
+                "src/persistence/memory_store.py:56-72"
+              ],
+              "paramètres": []
+            }
+          ]
+        }
+      },
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 0,
+      "startedAt": "2026-11-17T10:23:58.413Z",
+      "endedAt": "2026-11-17T10:24:12.082Z",
+      "durationMs": 13669
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 2708,
+      "outputTokens": 303,
+      "usageMissing": false,
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 1,
+      "startedAt": "2026-11-17T10:24:12.093Z",
+      "endedAt": "2026-11-17T10:24:14.420Z",
+      "durationMs": 2327
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "gx2WwfBdt",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "error": "Error: TS2384:1:Overload signatures must all be ambient or non-ambient.",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 2,
+      "startedAt": "2026-11-17T10:24:14.421Z",
+      "endedAt": "2026-11-17T10:24:14.638Z",
+      "durationMs": 217
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 2851,
+      "outputTokens": 127,
+      "usageMissing": false,
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 3,
+      "startedAt": "2026-11-17T10:24:14.650Z",
+      "endedAt": "2026-11-17T10:24:16.816Z",
+      "durationMs": 2166
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "Mw9X7iWTo",
+      "parameters": {
+        "remember": false,
+        "name": "list_root_files",
+        "question": "List all files in the repository root to identify presence of .tours/.memory directory",
+        "description": "Lists files at repository root to confirm existence and structure of .tours/.memory directory"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "5113d0ad055ebdaec28c09b444f5f0cf16abac14107d47630fd579a8c9205c45",
+        "fingerprint": "5113d0ad055ebdaec28c09b444f5f0cf16abac14107d47630fd579a8c9205c45",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "listFiles",
+            "params": []
+          }
+        ],
+        "results": [
+          ".npmrc",
+          "benchmarks/query-probe.mjs",
+          "dist/citation-validator.js",
+          "dist/cli.js",
+          "dist/decomposition-prompt.js",
+          "dist/exploration-evidence.js",
+          "dist/exploration-helpers.js",
+          "dist/explore.js",
+          "dist/memory-output.js",
+          "dist/memory.js",
+          "dist/mistral.js",
+          "dist/primitives.js",
+          "dist/research-log.js",
+          "dist/tool-contract.js",
+          "dist/workspace.js",
+          "package-lock.json",
+          "package.json",
+          "README.md",
+          "skills/codetour-research/SKILL.md",
+          "src/citation-validator.ts",
+          "src/cli.ts",
+          "src/decomposition-prompt.ts",
+          "src/exploration-evidence.ts",
+          "src/exploration-helpers.ts",
+          "src/explore.ts",
+          "src/memory-output.ts",
+          "src/memory.ts",
+          "src/mistral.ts",
+          "src/primitives.ts",
+          "src/research-log.ts",
+          "src/sandbox.d.ts",
+          "src/tool-contract.ts",
+          "src/workspace.ts",
+          "test/citation-repair.test.ts",
+          "test/citation-validator.test.ts",
+          "test/cli.test.ts",
+          "test/consolidation-d04.test.ts",
+          "test/consolidation.test.ts",
+          "test/empty-memory-list-note.test.ts",
+          "test/explore.test.ts",
+          "test/final-answer-fence-whitespace.test.ts",
+          "test/final-answer-json-recovery.test.ts",
+          "test/final-answer-recovery-visibility.test.ts",
+          "test/finish-t02.test.ts",
+          "test/fixture-explore.ts",
+          "test/internal-instructions-english.test.ts",
+          "test/memory.test.ts",
+          "test/mistral-memory.test.ts",
+          "test/mistral-plan.test.ts",
+          "test/observed-evidence-attach.test.ts",
+          "test/primitives.test.ts",
+          "test/prompt-decomposition.test.ts",
+          "test/repeated-invalid-calls.test.ts",
+          "test/result-schema-recovery.test.ts",
+          "test/spec-172-conformance.test.ts",
+          "test/two-tours-d05.test.ts",
+          "tsconfig.build.json",
+          "tsconfig.json"
+        ],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 82,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:17.020Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "string[]"
+        },
+        "source": "() => listFiles()"
+      },
+      "outcome": "returned=50; TRUNCATED, not exhaustive; citations=none",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 4,
+      "startedAt": "2026-11-17T10:24:16.816Z",
+      "endedAt": "2026-11-17T10:24:17.048Z",
+      "durationMs": 232
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 3436,
+      "outputTokens": 203,
+      "usageMissing": false,
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 5,
+      "startedAt": "2026-11-17T10:24:17.063Z",
+      "endedAt": "2026-11-17T10:24:19.094Z",
+      "durationMs": 2031
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "fL2uk5QKX",
+      "parameters": {
+        "remember": false,
+        "name": "search_tours_memory_path",
+        "question": "Find all references to the path .tours/.memory in the codebase to confirm its existence and usage",
+        "description": "Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "bc0cc41215466fb89c159dc109f5ed076d3197ef04fc06bf301055311f2df414",
+        "fingerprint": "bc0cc41215466fb89c159dc109f5ed076d3197ef04fc06bf301055311f2df414",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              ".tours/.memory"
+            ]
+          }
+        ],
+        "results": [
+          {
+            "file": "README.md",
+            "line": 39,
+            "text": "La mémoire activée par `--memory` reste propre au projet dans `.tours/.memory/` ; les journaux structurés sont dans `.tours/.log/`. Les fichiers `.tour` existants sont conservés. Lancer les questions séquentiellement : le catalogue ne garantit pas les écritures concurrentes. Les références valides prouvent l'existence des lignes, pas la justesse sémantique de l'explication. Le harnais répond à des questions et ne crée pas de Tour."
+          },
+          {
+            "file": "skills/codetour-research/SKILL.md",
+            "line": 25,
+            "text": "   Pass the actual absolute root and one question as separate, safely quoted arguments; do not interpolate user text into shell syntax. Wait for each JSON result before starting the next call. Use the same workspace so all calls share `.tours/.memory/`. If a result is partial or failed, retain its status and uncertainties; request a targeted follow-up only for a gap that matters, or explain the limitation. Do not repeat a sufficient answer. Direct file reads are allowed for targeted verification; record what was checked and why. Substantial research belongs in the harness."
+          }
+        ],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 90,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:19.305Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "SourceMatch[]"
+        },
+        "source": "() => searchText(\".tours/.memory\")"
+      },
+      "outcome": "returned=2; citations=2 valid",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 6,
+      "startedAt": "2026-11-17T10:24:19.094Z",
+      "endedAt": "2026-11-17T10:24:19.334Z",
+      "durationMs": 240
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 3925,
+      "outputTokens": 216,
+      "usageMissing": false,
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 7,
+      "startedAt": "2026-11-17T10:24:19.336Z",
+      "endedAt": "2026-11-17T10:24:20.947Z",
+      "durationMs": 1611
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "yfVRod2DY",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "error": "Error: TS2384:1:Overload signatures must all be ambient or non-ambient.",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 8,
+      "startedAt": "2026-11-17T10:24:20.947Z",
+      "endedAt": "2026-11-17T10:24:21.157Z",
+      "durationMs": 210
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 4089,
+      "outputTokens": 174,
+      "usageMissing": false,
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 9,
+      "startedAt": "2026-11-17T10:24:21.158Z",
+      "endedAt": "2026-11-17T10:24:22.653Z",
+      "durationMs": 1495
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "NEaJ8V5yo",
+      "parameters": {
+        "remember": false,
+        "name": "list_tours_files",
+        "question": "List all files under .tours directory to confirm existence and contents of .tours/.memory",
+        "description": "Lists files under .tours to verify the presence and structure of .tours/.memory directory and its contents"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "2ecb93eaae67766d51b8b750a3542a1abb16bdaf7267495146a5b4b77259a1cd",
+        "fingerprint": "2ecb93eaae67766d51b8b750a3542a1abb16bdaf7267495146a5b4b77259a1cd",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "listFiles",
+            "params": []
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 113,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:22.886Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "string[]"
+        },
+        "source": "() => listFiles().filter(f => f.includes('.tours'))"
+      },
+      "outcome": "returned=0; citations=none",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 10,
+      "startedAt": "2026-11-17T10:24:22.653Z",
+      "endedAt": "2026-11-17T10:24:22.918Z",
+      "durationMs": 265
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 4312,
+      "outputTokens": 213,
+      "usageMissing": false,
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 11,
+      "startedAt": "2026-11-17T10:24:22.920Z",
+      "endedAt": "2026-11-17T10:24:24.859Z",
+      "durationMs": 1939
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "SYtD35Cug",
+      "parameters": {
+        "remember": false,
+        "name": "search_memory_store",
+        "question": "Find all references to memory_store in the codebase to identify persistence logic and file format",
+        "description": "Searches for memory_store to locate persistence-related code that may handle .tours/.memory directory and procedure serialization"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "89a52caece5ae53d0b8d0d57b1ceb523073bd816603955dc3fe3fe2b63da3cb6",
+        "fingerprint": "89a52caece5ae53d0b8d0d57b1ceb523073bd816603955dc3fe3fe2b63da3cb6",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "memory_store"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 91,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:25.070Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "SourceMatch[]"
+        },
+        "source": "() => searchText(\"memory_store\")"
+      },
+      "outcome": "returned=0; citations=none",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 12,
+      "startedAt": "2026-11-17T10:24:24.859Z",
+      "endedAt": "2026-11-17T10:24:25.100Z",
+      "durationMs": 241
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 4533,
+      "outputTokens": 106,
+      "usageMissing": false,
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 13,
+      "startedAt": "2026-11-17T10:24:25.101Z",
+      "endedAt": "2026-11-17T10:24:26.665Z",
+      "durationMs": 1564
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "LcR2133fF",
+      "parameters": {
+        "remember": false,
+        "name": "search_save_procedure",
+        "question": "Find all references to save_procedure in the codebase to identify where procedures are persisted",
+        "description": "Searches for save_procedure to locate the code responsible for writing procedures to disk, likely into .tours/.memory"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "e20a401cd987ebe30094e7e8ff69d0d772b6e62d45c58b60dfc990349b9e2345",
+        "fingerprint": "e20a401cd987ebe30094e7e8ff69d0d772b6e62d45c58b60dfc990349b9e2345",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "save_procedure"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 84,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:26.874Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "SourceMatch[]"
+        },
+        "source": "() => searchText(\"save_procedure\")"
+      },
+      "outcome": "returned=0; citations=none",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 14,
+      "startedAt": "2026-11-17T10:24:26.665Z",
+      "endedAt": "2026-11-17T10:24:26.903Z",
+      "durationMs": 238
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 4759,
+      "outputTokens": 98,
+      "usageMissing": false,
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 15,
+      "startedAt": "2026-11-17T10:24:26.904Z",
+      "endedAt": "2026-11-17T10:24:27.907Z",
+      "durationMs": 1003
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "RVQ5tHlVL",
+      "parameters": {
+        "remember": false,
+        "name": "search_procedure_type",
+        "question": "Find all references to Procedure type/interface in the codebase to understand procedure structure and serialization",
+        "description": "Searches for Procedure to locate type definitions and usage that may reveal how procedures are structured and stored"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "425a06bdad2e9041d93af0f34b527b9d1ebf11161bd2434d11a496469101ef69",
+        "fingerprint": "425a06bdad2e9041d93af0f34b527b9d1ebf11161bd2434d11a496469101ef69",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "Procedure"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 86,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:28.117Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "SourceMatch[]"
+        },
+        "source": "() => searchText(\"Procedure\")"
+      },
+      "outcome": "returned=0; citations=none",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 16,
+      "startedAt": "2026-11-17T10:24:27.908Z",
+      "endedAt": "2026-11-17T10:24:28.146Z",
+      "durationMs": 238
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 4977,
+      "outputTokens": 550,
+      "usageMissing": false,
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 17,
+      "startedAt": "2026-11-17T10:24:28.147Z",
+      "endedAt": "2026-11-17T10:24:31.788Z",
+      "durationMs": 3641
+    },
+    {
+      "type": "model",
+      "name": "memory-selection",
+      "parameters": {
+        "tour": {
+          "objective": "Dans le code source de ce workspace, comment le répertoire .tours/.memory persiste-t-il les procédures du harness de recherche ? Détermine le format de stockage des procédures, l'identité d'une procédure donnée (structure du fichier), le chemin exact et le moment d'écriture, ainsi que les conditions de validation ou de refus de persistance d'une procédure.",
+          "entryPoints": [
+            {
+              "name": "Documentation sur .tours/.memory",
+              "evidence": [
+                {
+                  "file": "README.md",
+                  "startLine": 39,
+                  "endLine": 39
+                },
+                {
+                  "file": "skills/codetour-research/SKILL.md",
+                  "startLine": 25,
+                  "endLine": 25
+                }
+              ]
+            }
+          ],
+          "components": [],
+          "relations": [],
+          "uncertainties": [
+            "Aucun fichier source (.ts/.js) ni test ne mentionne directement '.tours/.memory' ou des fonctions comme 'memory_store', 'save_procedure', ou 'Procedure' dans ce workspace.",
+            "Les seules références à '.tours/.memory' sont dans la documentation (README.md, SKILL.md) qui confirment son rôle de persistance mémoire pour le projet, mais sans détails techniques sur le format de stockage, l'identité des procédures, le chemin d'écriture ou les règles de validation.",
+            "Aucune preuve directe n'est disponible dans le code source fourni pour déterminer :",
+            "- le format de stockage des procédures (JSON, YAML, binaire, etc.)",
+            "- la structure d'un fichier de procédure (champs obligatoires comme 'id', 'name', 'steps', etc.)",
+            "- le chemin exact et le moment d'écriture dans '.tours/.memory'",
+            "- les conditions de validation ou de refus de persistance des procédures"
+          ]
+        },
+        "catalog": [],
+        "executedCandidates": [
+          {
+            "name": "list_root_files",
+            "question": "List all files in the repository root to identify presence of .tours/.memory directory",
+            "description": "Lists files at repository root to confirm existence and structure of .tours/.memory directory",
+            "paramsSchema": [],
+            "returns": "string[]",
+            "code": "() => listFiles()",
+            "output": {
+              "result": [
+                ".npmrc",
+                "benchmarks/query-probe.mjs",
+                "dist/citation-validator.js",
+                "dist/cli.js",
+                "dist/decomposition-prompt.js",
+                "dist/exploration-evidence.js",
+                "dist/exploration-helpers.js",
+                "dist/explore.js",
+                "dist/memory-output.js",
+                "dist/memory.js",
+                "dist/mistral.js",
+                "dist/primitives.js",
+                "dist/research-log.js",
+                "dist/tool-contract.js",
+                "dist/workspace.js",
+                "package-lock.json",
+                "package.json",
+                "README.md",
+                "skills/codetour-research/SKILL.md",
+                "src/citation-validator.ts",
+                "src/cli.ts",
+                "src/decomposition-prompt.ts",
+                "src/exploration-evidence.ts",
+                "src/exploration-helpers.ts",
+                "src/explore.ts",
+                "src/memory-output.ts",
+                "src/memory.ts",
+                "src/mistral.ts",
+                "src/primitives.ts",
+                "src/research-log.ts",
+                "src/sandbox.d.ts",
+                "src/tool-contract.ts",
+                "src/workspace.ts",
+                "test/citation-repair.test.ts",
+                "test/citation-validator.test.ts",
+                "test/cli.test.ts",
+                "test/consolidation-d04.test.ts",
+                "test/consolidation.test.ts",
+                "test/empty-memory-list-note.test.ts",
+                "test/explore.test.ts",
+                "test/final-answer-fence-whitespace.test.ts",
+                "test/final-answer-json-recovery.test.ts",
+                "test/final-answer-recovery-visibility.test.ts",
+                "test/finish-t02.test.ts",
+                "test/fixture-explore.ts",
+                "test/internal-instructions-english.test.ts",
+                "test/memory.test.ts",
+                "test/mistral-memory.test.ts",
+                "test/mistral-plan.test.ts",
+                "test/observed-evidence-attach.test.ts"
+              ],
+              "returned": 50,
+              "observed": 58,
+              "truncated": true,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 1287,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+              ]
+            }
+          },
+          {
+            "name": "search_tours_memory_path",
+            "question": "Find all references to the path .tours/.memory in the codebase to confirm its existence and usage",
+            "description": "Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role",
+            "paramsSchema": [],
+            "returns": "SourceMatch[]",
+            "code": "() => searchText(\".tours/.memory\")",
+            "output": {
+              "result": [
+                {
+                  "file": "README.md",
+                  "line": 39,
+                  "text": "La mémoire activée par `--memory` reste propre au projet dans `.tours/.memory/` ; les journaux structurés sont dans `.tours/.log/`. Les fichiers `.tour` existants sont conservés. Lancer les questions séquentiellement : le catalogue ne garantit pas les écritures concurrentes. Les références valides prouvent l'existence des lignes, pas la justesse sémantique de l'explication. Le harnais répond à des questions et ne crée pas de Tour."
+                },
+                {
+                  "file": "skills/codetour-research/SKILL.md",
+                  "line": 25,
+                  "text": "   Pass the actual absolute root and one question as separate, safely quoted arguments; do not interpolate user text into shell syntax. Wait for each JSON result before starting the next call. Use the same workspace so all calls share `.tours/.memory/`. If a result is partial or failed, retain its status and uncertainties; request a targeted follow-up only for a gap that matters, or explain the limitation. Do not repeat a sufficient answer. Direct file reads are allowed for targeted verification; record what was checked and why. Substantial research belongs in the harness."
+                }
+              ],
+              "returned": 2,
+              "observed": 2,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 1132,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified."
+              ]
+            }
+          },
+          {
+            "name": "list_tours_files",
+            "question": "List all files under .tours directory to confirm existence and contents of .tours/.memory",
+            "description": "Lists files under .tours to verify the presence and structure of .tours/.memory directory and its contents",
+            "paramsSchema": [],
+            "returns": "string[]",
+            "code": "() => listFiles().filter(f => f.includes('.tours'))",
+            "output": {
+              "result": [],
+              "returned": 0,
+              "observed": 0,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "No matches observed for these params."
+              ]
+            }
+          },
+          {
+            "name": "search_memory_store",
+            "question": "Find all references to memory_store in the codebase to identify persistence logic and file format",
+            "description": "Searches for memory_store to locate persistence-related code that may handle .tours/.memory directory and procedure serialization",
+            "paramsSchema": [],
+            "returns": "SourceMatch[]",
+            "code": "() => searchText(\"memory_store\")",
+            "output": {
+              "result": [],
+              "returned": 0,
+              "observed": 0,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "No matches observed for these params."
+              ]
+            }
+          },
+          {
+            "name": "search_save_procedure",
+            "question": "Find all references to save_procedure in the codebase to identify where procedures are persisted",
+            "description": "Searches for save_procedure to locate the code responsible for writing procedures to disk, likely into .tours/.memory",
+            "paramsSchema": [],
+            "returns": "SourceMatch[]",
+            "code": "() => searchText(\"save_procedure\")",
+            "output": {
+              "result": [],
+              "returned": 0,
+              "observed": 0,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "No matches observed for these params."
+              ]
+            }
+          },
+          {
+            "name": "search_procedure_type",
+            "question": "Find all references to Procedure type/interface in the codebase to understand procedure structure and serialization",
+            "description": "Searches for Procedure to locate type definitions and usage that may reveal how procedures are structured and stored",
+            "paramsSchema": [],
+            "returns": "SourceMatch[]",
+            "code": "() => searchText(\"Procedure\")",
+            "output": {
+              "result": [],
+              "returned": 0,
+              "observed": 0,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "No matches observed for these params."
+              ]
+            }
+          }
+        ]
+      },
+      "result": {
+        "response": {
+          "selected": [
+            "search_tours_memory_path",
+            "list_tours_files",
+            "search_memory_store",
+            "search_save_procedure",
+            "search_procedure_type"
+          ]
+        },
+        "selected": [
+          "search_tours_memory_path",
+          "list_tours_files",
+          "search_memory_store",
+          "search_save_procedure",
+          "search_procedure_type"
+        ],
+        "budgetStop": null
+      },
+      "inputTokens": 2310,
+      "outputTokens": 1684,
+      "usageMissing": false,
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 18,
+      "startedAt": "2026-11-17T10:24:31.792Z",
+      "endedAt": "2026-11-17T10:24:42.583Z",
+      "durationMs": 10791
+    },
+    {
+      "type": "function_try",
+      "name": "consolidation-validation",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "bc0cc41215466fb89c159dc109f5ed076d3197ef04fc06bf301055311f2df414",
+        "fingerprint": "bc0cc41215466fb89c159dc109f5ed076d3197ef04fc06bf301055311f2df414",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              ".tours/.memory"
+            ]
+          }
+        ],
+        "results": [
+          {
+            "file": "README.md",
+            "line": 39,
+            "text": "La mémoire activée par `--memory` reste propre au projet dans `.tours/.memory/` ; les journaux structurés sont dans `.tours/.log/`. Les fichiers `.tour` existants sont conservés. Lancer les questions séquentiellement : le catalogue ne garantit pas les écritures concurrentes. Les références valides prouvent l'existence des lignes, pas la justesse sémantique de l'explication. Le harnais répond à des questions et ne crée pas de Tour."
+          },
+          {
+            "file": "skills/codetour-research/SKILL.md",
+            "line": 25,
+            "text": "   Pass the actual absolute root and one question as separate, safely quoted arguments; do not interpolate user text into shell syntax. Wait for each JSON result before starting the next call. Use the same workspace so all calls share `.tours/.memory/`. If a result is partial or failed, retain its status and uncertainties; request a targeted follow-up only for a gap that matters, or explain the limitation. Do not repeat a sufficient answer. Direct file reads are allowed for targeted verification; record what was checked and why. Substantial research belongs in the harness."
+          }
+        ],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 86,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:42.791Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "SourceMatch[]"
+        },
+        "source": "() => searchText(\".tours/.memory\")"
+      },
+      "result": {
+        "status": "valid",
+        "references": 2,
+        "validated": 2,
+        "validCount": 2,
+        "validReferences": [
+          {
+            "file": "README.md",
+            "startLine": 39,
+            "endLine": 39
+          },
+          {
+            "file": "skills/codetour-research/SKILL.md",
+            "startLine": 25,
+            "endLine": 25
+          }
+        ],
+        "invalidReferences": [],
+        "exhaustive": true
+      },
+      "outcome": "reexecuted; citations=2 valid",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 19,
+      "startedAt": "2026-11-17T10:24:42.584Z",
+      "endedAt": "2026-11-17T10:24:42.821Z",
+      "durationMs": 237
+    },
+    {
+      "type": "function_try",
+      "name": "consolidation-validation",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "2ecb93eaae67766d51b8b750a3542a1abb16bdaf7267495146a5b4b77259a1cd",
+        "fingerprint": "2ecb93eaae67766d51b8b750a3542a1abb16bdaf7267495146a5b4b77259a1cd",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "listFiles",
+            "params": []
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 88,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:43.011Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "string[]"
+        },
+        "source": "() => listFiles().filter(f => f.includes('.tours'))"
+      },
+      "result": {
+        "status": "no_references",
+        "references": 0,
+        "validated": 0,
+        "validCount": 0,
+        "validReferences": [],
+        "invalidReferences": [],
+        "exhaustive": true
+      },
+      "outcome": "reexecuted; citations=none",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 20,
+      "startedAt": "2026-11-17T10:24:42.822Z",
+      "endedAt": "2026-11-17T10:24:43.040Z",
+      "durationMs": 218
+    },
+    {
+      "type": "function_try",
+      "name": "consolidation-validation",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "89a52caece5ae53d0b8d0d57b1ceb523073bd816603955dc3fe3fe2b63da3cb6",
+        "fingerprint": "89a52caece5ae53d0b8d0d57b1ceb523073bd816603955dc3fe3fe2b63da3cb6",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "memory_store"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 84,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:43.222Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "SourceMatch[]"
+        },
+        "source": "() => searchText(\"memory_store\")"
+      },
+      "result": {
+        "status": "no_references",
+        "references": 0,
+        "validated": 0,
+        "validCount": 0,
+        "validReferences": [],
+        "invalidReferences": [],
+        "exhaustive": true
+      },
+      "outcome": "reexecuted; citations=none",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 21,
+      "startedAt": "2026-11-17T10:24:43.040Z",
+      "endedAt": "2026-11-17T10:24:43.249Z",
+      "durationMs": 209
+    },
+    {
+      "type": "function_try",
+      "name": "consolidation-validation",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "e20a401cd987ebe30094e7e8ff69d0d772b6e62d45c58b60dfc990349b9e2345",
+        "fingerprint": "e20a401cd987ebe30094e7e8ff69d0d772b6e62d45c58b60dfc990349b9e2345",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "save_procedure"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 85,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:43.433Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "SourceMatch[]"
+        },
+        "source": "() => searchText(\"save_procedure\")"
+      },
+      "result": {
+        "status": "no_references",
+        "references": 0,
+        "validated": 0,
+        "validCount": 0,
+        "validReferences": [],
+        "invalidReferences": [],
+        "exhaustive": true
+      },
+      "outcome": "reexecuted; citations=none",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 22,
+      "startedAt": "2026-11-17T10:24:43.250Z",
+      "endedAt": "2026-11-17T10:24:43.462Z",
+      "durationMs": 212
+    },
+    {
+      "type": "function_try",
+      "name": "consolidation-validation",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "425a06bdad2e9041d93af0f34b527b9d1ebf11161bd2434d11a496469101ef69",
+        "fingerprint": "425a06bdad2e9041d93af0f34b527b9d1ebf11161bd2434d11a496469101ef69",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "Procedure"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 83,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:24:43.646Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "SourceMatch[]"
+        },
+        "source": "() => searchText(\"Procedure\")"
+      },
+      "result": {
+        "status": "no_references",
+        "references": 0,
+        "validated": 0,
+        "validCount": 0,
+        "validReferences": [],
+        "invalidReferences": [],
+        "exhaustive": true
+      },
+      "outcome": "reexecuted; citations=none",
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 23,
+      "startedAt": "2026-11-17T10:24:43.462Z",
+      "endedAt": "2026-11-17T10:24:43.673Z",
+      "durationMs": 211
+    },
+    {
+      "type": "run_end",
+      "name": "run_end",
+      "inputTokens": 38083,
+      "outputTokens": 5884,
+      "usageMissing": false,
+      "outcome": "status=complete; stopReason=none",
+      "result": {
+        "status": "complete",
+        "stopReason": null,
+        "inputTokens": 38083,
+        "outputTokens": 5884,
+        "modelCalls": 11,
+        "toolCalls": 8,
+        "durationMs": 45268
+      },
+      "runId": "f7a9f7e8-a4a6-487e-9b49-ba500342f58b",
+      "seq": 24,
+      "startedAt": "2026-11-17T10:24:43.675Z",
+      "endedAt": "2026-11-17T10:24:43.675Z",
+      "durationMs": 0
+    }
+  ],
+  "consolidationReport": {
+    "accepted": [
+      "search_tours_memory_path"
+    ],
+    "rejected": [
+      {
+        "name": "list_tours_files",
+        "reason": "Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated"
+      },
+      {
+        "name": "search_memory_store",
+        "reason": "Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated"
+      },
+      {
+        "name": "search_save_procedure",
+        "reason": "Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated"
+      },
+      {
+        "name": "search_procedure_type",
+        "reason": "Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated"
+      }
+    ],
+    "duplicates": [],
+    "indeterminate": [],
+    "reconciliation": [
+      {
+        "name": "search_tours_memory_path",
+        "proposed": true,
+        "replayed": true,
+        "accepted": true
+      },
+      {
+        "name": "list_tours_files",
+        "proposed": true,
+        "replayed": true,
+        "accepted": false,
+        "reason": "Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated"
+      },
+      {
+        "name": "search_memory_store",
+        "proposed": true,
+        "replayed": true,
+        "accepted": false,
+        "reason": "Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated"
+      },
+      {
+        "name": "search_save_procedure",
+        "proposed": true,
+        "replayed": true,
+        "accepted": false,
+        "reason": "Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated"
+      },
+      {
+        "name": "search_procedure_type",
+        "proposed": true,
+        "replayed": true,
+        "accepted": false,
+        "reason": "Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated"
+      },
+      {
+        "name": "list_root_files",
+        "proposed": false,
+        "replayed": false,
+        "accepted": false,
+        "reason": "Not selected by the model for consolidation"
+      }
+    ]
+  }
+}

@@ -1,0 +1,3174 @@
+{
+  "objective": "Expliquer le fonctionnement de la réutilisation de la mémoire de procédures via memory_run dans ce workspace : appariement, exécution/rejeu, et preuve structurée de pertinence.",
+  "entryPoints": [
+    {
+      "name": "Chemin de persistance des procédures",
+      "evidence": [
+        {
+          "file": "README.md",
+          "startLine": 39,
+          "endLine": 39
+        },
+        {
+          "file": ".tours/.memory/8bbdd70ec3d478897e7fa877e6b7a0636f9efa28734ee963a1426d6094b40887.json",
+          "startLine": 1,
+          "endLine": 1
+        }
+      ]
+    },
+    {
+      "name": "Appel et exécution de memory_run",
+      "evidence": [
+        {
+          "file": "src/explore.ts",
+          "startLine": 265,
+          "endLine": 267
+        },
+        {
+          "file": "src/explore.ts",
+          "startLine": 276,
+          "endLine": 279
+        },
+        {
+          "file": "src/explore.ts",
+          "startLine": 214,
+          "endLine": 214
+        }
+      ]
+    },
+    {
+      "name": "Rôle de function_try et replay",
+      "evidence": [
+        {
+          "file": "dist/explore.js",
+          "startLine": 277,
+          "endLine": 292
+        },
+        {
+          "file": "dist/decomposition-prompt.js",
+          "startLine": 3,
+          "endLine": 3
+        }
+      ]
+    }
+  ],
+  "components": [
+    {
+      "name": "Mémoire persistée des procédures (.tours/.memory/) et catalogue",
+      "evidence": [
+        {
+          "file": "README.md",
+          "startLine": 39,
+          "endLine": 39
+        },
+        {
+          "file": ".tours/.memory/8bbdd70ec3d478897e7fa877e6b7a0636f9efa28734ee963a1426d6094b40887.json",
+          "startLine": 1,
+          "endLine": 1
+        }
+      ]
+    },
+    {
+      "name": "Sélection et appariement d'une procédure persistée (via memory_run)",
+      "evidence": [
+        {
+          "file": "src/explore.ts",
+          "startLine": 265,
+          "endLine": 267
+        },
+        {
+          "file": "src/explore.ts",
+          "startLine": 276,
+          "endLine": 279
+        }
+      ]
+    },
+    {
+      "name": "Exécution et rejeu (function_try / replay)",
+      "evidence": [
+        {
+          "file": "dist/explore.js",
+          "startLine": 277,
+          "endLine": 292
+        },
+        {
+          "file": "dist/decomposition-prompt.js",
+          "startLine": 3,
+          "endLine": 3
+        }
+      ]
+    },
+    {
+      "name": "Preuves structurées de pertinence des sorties rejouées",
+      "evidence": [
+        {
+          "file": "dist/explore.js",
+          "startLine": 364,
+          "endLine": 364
+        },
+        {
+          "file": "README.md",
+          "startLine": 39,
+          "endLine": 39
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "from": "memory_run (src/explore.ts:265-267)",
+      "to": "Catalogue de procédures persistées (.tours/.memory/) (README.md:39)",
+      "evidence": [
+        {
+          "file": "src/explore.ts",
+          "startLine": 265,
+          "endLine": 267
+        },
+        {
+          "file": "README.md",
+          "startLine": 39,
+          "endLine": 39
+        }
+      ]
+    },
+    {
+      "from": "memory_run (src/explore.ts:265-267)",
+      "to": "Exécution de la procédure (function_try/replay) (dist/explore.js:277-292)",
+      "evidence": [
+        {
+          "file": "src/explore.ts",
+          "startLine": 265,
+          "endLine": 267
+        },
+        {
+          "file": "dist/explore.js",
+          "startLine": 277,
+          "endLine": 292
+        }
+      ]
+    },
+    {
+      "from": "Exécution de la procédure (function_try/replay) (dist/explore.js:277-292)",
+      "to": "Preuves structurées de pertinence (dist/explore.js:364)",
+      "evidence": [
+        {
+          "file": "dist/explore.js",
+          "startLine": 277,
+          "endLine": 292
+        },
+        {
+          "file": "dist/explore.js",
+          "startLine": 364,
+          "endLine": 364
+        }
+      ]
+    }
+  ],
+  "uncertainties": [
+    "Le contenu exact de src/memory.ts n'a pas pu être lu directement (échec de validation des citations) : la structure interne des procédures persistées (champs id, question, embedding, code, metadata) et les fonctions de persistance (saveProcedure, persistProcedure) n'ont pas pu être extraites avec des lignes vérifiables.",
+    "Le contenu exact de src/memory-output.ts n'a pas pu être lu directement : la structure des preuves de pertinence (relevanceScore, usageCount, timestamp, context) et les fonctions de gestion des sorties (saveOutput, storeReplayResult) n'ont pas pu être extraites avec des lignes vérifiables.",
+    "Le mécanisme précis d'appariement sémantique (embeddings, hash, métadonnées) n'est pas visible dans les extraits disponibles ; seule la sélection via library?.get(id) est attestée dans src/explore.ts.",
+    "La preuve structurée de pertinence est évoquée dans dist/explore.js (ligne 364) et README.md (ligne 39), mais son format exact (JSON, logs, métriques) et son stockage (fichiers dans .tours/.log/) ne sont pas détaillés dans les extraits disponibles.",
+    "Le rôle exact de src/memory-output.ts dans la gestion des sorties structurées n'a pas pu être vérifié directement (lecture impossible)."
+  ],
+  "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+  "plan": {
+    "status": "recorded",
+    "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+    "initial": {
+      "understand": [
+        "Le mécanisme d'identité et d'appariement des procédures persistées (probablement basé sur des embeddings, hash, ou métadonnées sémantiques)",
+        "Le rôle du fichier src/memory.ts dans la persistance et la récupération des procédures",
+        "Le rôle du fichier src/memory-output.ts dans la gestion des sorties structurées des procédures",
+        "Le processus d'exécution et de rejeu via les fonctions function_try et replay",
+        "La structure des preuves de pertinence (métriques, logs, ou métadonnées associées aux sorties rejouées)",
+        "Le format des données stockées dans .tours/.memory (probablement JSON ou binaire structuré)",
+        "Le mécanisme de sélection de la procédure la plus pertinente parmi plusieurs candidates"
+      ],
+      "investigate": [
+        {
+          "step": "Localiser les références à .tours/.memory dans le codebase",
+          "files": [
+            "src/memory.ts",
+            "src/memory-output.ts",
+            "src/utils/memory-utils.ts",
+            "src/services/memory-service.ts"
+          ],
+          "actions": [
+            "Rechercher toutes les occurrences de '.tours/.memory' dans le workspace",
+            "Identifier les fonctions qui lisent/écrivent dans ce répertoire",
+            "Vérifier si ce chemin est configurable ou hardcodé"
+          ],
+          "expectedOutput": "Liste des fichiers et lignes où .tours/.memory est référencé, avec leur rôle (lecture/écriture)"
+        },
+        {
+          "step": "Analyser src/memory.ts pour comprendre la persistance des procédures",
+          "files": [
+            "src/memory.ts"
+          ],
+          "actions": [
+            "Identifier les fonctions exportées pour persister une procédure (ex: saveProcedure, persistProcedure)",
+            "Comprendre la structure de données d'une procédure persistée (champs : id, question, embedding, code, metadata)",
+            "Vérifier les dépendances vers des bibliothèques de stockage (fs, database, etc.)"
+          ],
+          "expectedOutput": "Schéma de la structure de données d'une procédure persistée et fonctions de persistance"
+        },
+        {
+          "step": "Analyser src/memory-output.ts pour comprendre la gestion des sorties",
+          "files": [
+            "src/memory-output.ts"
+          ],
+          "actions": [
+            "Identifier les fonctions pour sauvegarder les sorties d'une procédure (ex: saveOutput, storeReplayResult)",
+            "Comprendre la structure des preuves de pertinence (champs : relevanceScore, usageCount, timestamp, context)",
+            "Vérifier comment les sorties sont associées à une procédure persistée (via id ou hash)"
+          ],
+          "expectedOutput": "Structure des preuves de pertinence et fonctions de gestion des sorties"
+        },
+        {
+          "step": "Rechercher les fonctions function_try et replay",
+          "files": [
+            "src/memory.ts",
+            "src/memory-output.ts",
+            "src/services/replay-service.ts"
+          ],
+          "actions": [
+            "Trouver la définition de function_try (probablement une wrapper autour de l'exécution)",
+            "Trouver la définition de replay (probablement une fonction qui rejoue une procédure persistée)",
+            "Comprendre les paramètres d'entrée et les effets de bord (ex: modification de state, logs)"
+          ],
+          "expectedOutput": "Implémentation de function_try et replay avec leurs signatures et effets"
+        },
+        {
+          "step": "Étudier le mécanisme d'appariement entre question et procédure persistée",
+          "files": [
+            "src/memory.ts",
+            "src/services/matching-service.ts"
+          ],
+          "actions": [
+            "Identifier la fonction qui effectue l'appariement (ex: findMatchingProcedure, semanticMatch)",
+            "Comprendre les critères de sélection (similarité sémantique, tags, métadonnées)",
+            "Vérifier si un embedding est calculé pour la nouvelle question et comparé aux procédures persistées"
+          ],
+          "expectedOutput": "Algorithme d'appariement et critères de sélection avec références de fichiers"
+        },
+        {
+          "step": "Vérifier la preuve structurée de pertinence d'une sortie rejouée",
+          "files": [
+            "src/memory-output.ts",
+            "src/logs/relevance-logs.ts",
+            "src/metrics/usage-metrics.ts"
+          ],
+          "actions": [
+            "Identifier où la pertinence est évaluée (ex: après exécution, via feedback utilisateur)",
+            "Comprendre la structure des logs/métriques (ex: { procedureId, outputId, relevanceScore, timestamp })",
+            "Vérifier comment ces preuves sont utilisées pour améliorer les futurs appariements"
+          ],
+          "expectedOutput": "Preuves structurées de pertinence et leur mécanisme de collecte/évaluation"
+        },
+        {
+          "step": "Rechercher les tests ou exemples d'utilisation",
+          "files": [
+            "tests/memory.test.ts",
+            "examples/memory-example.ts"
+          ],
+          "actions": [
+            "Lire les tests pour comprendre le comportement attendu",
+            "Identifier des cas d'usage concrets de memory_run",
+            "Vérifier les assertions sur la pertinence et l'utilisation des sorties"
+          ],
+          "expectedOutput": "Cas d'usage et tests qui illustrent le fonctionnement de memory_run"
+        }
+      ],
+      "reuse": [
+        {
+          "id": "search_tours_memory_path",
+          "objective": "Trouver toutes les références au chemin .tours/.memory dans le codebase pour confirmer son existence et son rôle",
+          "description": "Recherche dans l'ensemble du codebase les occurrences de la chaîne '.tours/.memory' pour identifier les fichiers qui référencent ce répertoire et comprendre son rôle dans la persistance des procédures",
+          "parameters": [],
+          "paramsSchema": [],
+          "outputContract": {
+            "returns": "SourceMatch[]",
+            "itemFields": [
+              "file",
+              "line",
+              "context"
+            ],
+            "bounds": {
+              "maxItems": 50,
+              "maxBytes": 8000
+            }
+          },
+          "limits": {
+            "maxItems": 50,
+            "maxBytes": 8000
+          },
+          "uncertaintyCases": [
+            "Si le chemin est configuré dynamiquement, la recherche littérale peut échouer",
+            "Si le chemin utilise des variables d'environnement, il faudra les résoudre"
+          ],
+          "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780"
+        }
+      ]
+    }
+  },
+  "status": "complete",
+  "stopReason": null,
+  "promptSha256": "070963b54514e851a27cc9785468b58bff8616a0ca25d3e786450535c661cb64",
+  "modelConfig": {
+    "model": "mistral-small-latest",
+    "temperature": 0,
+    "maxOutputTokens": 16384
+  },
+  "metrics": {
+    "inputTokens": 152257,
+    "outputTokens": 11683,
+    "usageAvailable": true,
+    "modelCalls": 21,
+    "toolCalls": 18,
+    "durationMs": 85004,
+    "outputBytes": 17656,
+    "cost": null,
+    "memoryReuses": 0,
+    "memoryPurges": 0,
+    "memoryQueryRejects": 0,
+    "memoryResultsCompacted": 0,
+    "memoryResultsRepeated": 0,
+    "autoAttachedEvidence": 0,
+    "selectionSkip": null
+  },
+  "callTrace": [
+    {
+      "type": "decomposition_plan",
+      "name": "initial-research-plan",
+      "inputTokens": 373,
+      "outputTokens": 1945,
+      "usageMissing": false,
+      "result": {
+        "status": "recorded",
+        "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+        "initial": {
+          "understand": [
+            "Le mécanisme d'identité et d'appariement des procédures persistées (probablement basé sur des embeddings, hash, ou métadonnées sémantiques)",
+            "Le rôle du fichier src/memory.ts dans la persistance et la récupération des procédures",
+            "Le rôle du fichier src/memory-output.ts dans la gestion des sorties structurées des procédures",
+            "Le processus d'exécution et de rejeu via les fonctions function_try et replay",
+            "La structure des preuves de pertinence (métriques, logs, ou métadonnées associées aux sorties rejouées)",
+            "Le format des données stockées dans .tours/.memory (probablement JSON ou binaire structuré)",
+            "Le mécanisme de sélection de la procédure la plus pertinente parmi plusieurs candidates"
+          ],
+          "investigate": [
+            {
+              "step": "Localiser les références à .tours/.memory dans le codebase",
+              "files": [
+                "src/memory.ts",
+                "src/memory-output.ts",
+                "src/utils/memory-utils.ts",
+                "src/services/memory-service.ts"
+              ],
+              "actions": [
+                "Rechercher toutes les occurrences de '.tours/.memory' dans le workspace",
+                "Identifier les fonctions qui lisent/écrivent dans ce répertoire",
+                "Vérifier si ce chemin est configurable ou hardcodé"
+              ],
+              "expectedOutput": "Liste des fichiers et lignes où .tours/.memory est référencé, avec leur rôle (lecture/écriture)"
+            },
+            {
+              "step": "Analyser src/memory.ts pour comprendre la persistance des procédures",
+              "files": [
+                "src/memory.ts"
+              ],
+              "actions": [
+                "Identifier les fonctions exportées pour persister une procédure (ex: saveProcedure, persistProcedure)",
+                "Comprendre la structure de données d'une procédure persistée (champs : id, question, embedding, code, metadata)",
+                "Vérifier les dépendances vers des bibliothèques de stockage (fs, database, etc.)"
+              ],
+              "expectedOutput": "Schéma de la structure de données d'une procédure persistée et fonctions de persistance"
+            },
+            {
+              "step": "Analyser src/memory-output.ts pour comprendre la gestion des sorties",
+              "files": [
+                "src/memory-output.ts"
+              ],
+              "actions": [
+                "Identifier les fonctions pour sauvegarder les sorties d'une procédure (ex: saveOutput, storeReplayResult)",
+                "Comprendre la structure des preuves de pertinence (champs : relevanceScore, usageCount, timestamp, context)",
+                "Vérifier comment les sorties sont associées à une procédure persistée (via id ou hash)"
+              ],
+              "expectedOutput": "Structure des preuves de pertinence et fonctions de gestion des sorties"
+            },
+            {
+              "step": "Rechercher les fonctions function_try et replay",
+              "files": [
+                "src/memory.ts",
+                "src/memory-output.ts",
+                "src/services/replay-service.ts"
+              ],
+              "actions": [
+                "Trouver la définition de function_try (probablement une wrapper autour de l'exécution)",
+                "Trouver la définition de replay (probablement une fonction qui rejoue une procédure persistée)",
+                "Comprendre les paramètres d'entrée et les effets de bord (ex: modification de state, logs)"
+              ],
+              "expectedOutput": "Implémentation de function_try et replay avec leurs signatures et effets"
+            },
+            {
+              "step": "Étudier le mécanisme d'appariement entre question et procédure persistée",
+              "files": [
+                "src/memory.ts",
+                "src/services/matching-service.ts"
+              ],
+              "actions": [
+                "Identifier la fonction qui effectue l'appariement (ex: findMatchingProcedure, semanticMatch)",
+                "Comprendre les critères de sélection (similarité sémantique, tags, métadonnées)",
+                "Vérifier si un embedding est calculé pour la nouvelle question et comparé aux procédures persistées"
+              ],
+              "expectedOutput": "Algorithme d'appariement et critères de sélection avec références de fichiers"
+            },
+            {
+              "step": "Vérifier la preuve structurée de pertinence d'une sortie rejouée",
+              "files": [
+                "src/memory-output.ts",
+                "src/logs/relevance-logs.ts",
+                "src/metrics/usage-metrics.ts"
+              ],
+              "actions": [
+                "Identifier où la pertinence est évaluée (ex: après exécution, via feedback utilisateur)",
+                "Comprendre la structure des logs/métriques (ex: { procedureId, outputId, relevanceScore, timestamp })",
+                "Vérifier comment ces preuves sont utilisées pour améliorer les futurs appariements"
+              ],
+              "expectedOutput": "Preuves structurées de pertinence et leur mécanisme de collecte/évaluation"
+            },
+            {
+              "step": "Rechercher les tests ou exemples d'utilisation",
+              "files": [
+                "tests/memory.test.ts",
+                "examples/memory-example.ts"
+              ],
+              "actions": [
+                "Lire les tests pour comprendre le comportement attendu",
+                "Identifier des cas d'usage concrets de memory_run",
+                "Vérifier les assertions sur la pertinence et l'utilisation des sorties"
+              ],
+              "expectedOutput": "Cas d'usage et tests qui illustrent le fonctionnement de memory_run"
+            }
+          ],
+          "reuse": [
+            {
+              "id": "search_tours_memory_path",
+              "objective": "Trouver toutes les références au chemin .tours/.memory dans le codebase pour confirmer son existence et son rôle",
+              "description": "Recherche dans l'ensemble du codebase les occurrences de la chaîne '.tours/.memory' pour identifier les fichiers qui référencent ce répertoire et comprendre son rôle dans la persistance des procédures",
+              "parameters": [],
+              "paramsSchema": [],
+              "outputContract": {
+                "returns": "SourceMatch[]",
+                "itemFields": [
+                  "file",
+                  "line",
+                  "context"
+                ],
+                "bounds": {
+                  "maxItems": 50,
+                  "maxBytes": 8000
+                }
+              },
+              "limits": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "uncertaintyCases": [
+                "Si le chemin est configuré dynamiquement, la recherche littérale peut échouer",
+                "Si le chemin utilise des variables d'environnement, il faudra les résoudre"
+              ],
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780"
+            }
+          ]
+        }
+      },
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 0,
+      "startedAt": "2026-11-17T10:24:57.595Z",
+      "endedAt": "2026-11-17T10:25:10.556Z",
+      "durationMs": 12961
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 2686,
+      "outputTokens": 635,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 1,
+      "startedAt": "2026-11-17T10:25:10.571Z",
+      "endedAt": "2026-11-17T10:25:14.666Z",
+      "durationMs": 4095
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "8qczpohFE",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "error": "Error: TS2339:9:Property 'length' does not exist on type 'ReadResult'.",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 2,
+      "startedAt": "2026-11-17T10:25:14.668Z",
+      "endedAt": "2026-11-17T10:25:14.885Z",
+      "durationMs": 217
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 3068,
+      "outputTokens": 417,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 3,
+      "startedAt": "2026-11-17T10:25:14.893Z",
+      "endedAt": "2026-11-17T10:25:17.413Z",
+      "durationMs": 2520
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "t5o4zOCwr",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "error": "Error: TS2339:11:Property 'text' does not exist on type 'string'.",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 4,
+      "startedAt": "2026-11-17T10:25:17.414Z",
+      "endedAt": "2026-11-17T10:25:17.611Z",
+      "durationMs": 197
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 3452,
+      "outputTokens": 433,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 5,
+      "startedAt": "2026-11-17T10:25:17.612Z",
+      "endedAt": "2026-11-17T10:25:20.215Z",
+      "durationMs": 2603
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "SoiFdeLmS",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "error": "Error: TS2339:11:Property 'text' does not exist on type 'string'.",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 6,
+      "startedAt": "2026-11-17T10:25:20.216Z",
+      "endedAt": "2026-11-17T10:25:20.436Z",
+      "durationMs": 220
+    },
+    {
+      "type": "tool",
+      "name": "repeated_failure_guard",
+      "callId": "SoiFdeLmS",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "warning: same tool call failed twice",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 7,
+      "startedAt": "2026-11-17T10:25:20.436Z",
+      "endedAt": "2026-11-17T10:25:20.436Z",
+      "durationMs": 0
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 3873,
+      "outputTokens": 282,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 8,
+      "startedAt": "2026-11-17T10:25:20.437Z",
+      "endedAt": "2026-11-17T10:25:22.490Z",
+      "durationMs": 2053
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "akKKCOsfE",
+      "parameters": {
+        "remember": false,
+        "name": "search_tours_memory_path",
+        "question": "Find all references to the path .tours/.memory in the codebase to confirm its existence and usage",
+        "description": "Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "fad230b450b7651be5a9c6724af82db34efe2ae1f749df25e4afa1bd1b8f4f16",
+        "fingerprint": "fad230b450b7651be5a9c6724af82db34efe2ae1f749df25e4afa1bd1b8f4f16",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              ".tours/.memory"
+            ]
+          }
+        ],
+        "results": [
+          {
+            "file": ".tours/.memory/8bbdd70ec3d478897e7fa877e6b7a0636f9efa28734ee963a1426d6094b40887.json",
+            "line": 1,
+            "context": "[{\"id\":\"search_tours_memory_path\",\"objective\":\"Find all references to the path .tours/.memory in the codebase to confirm its existence and usage\",\"description\":\"Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role\",\"code\":\"() => searchText(\\\".tours/.memory\\\")\",\"parameters\":[],\"paramsSchema\":[],\"executionMode\":\"strict\",\"outputContract\":{\"returns\":\"SourceMatch[]\",\"itemFields\":[\"file\",\"line\"],\"bounds\":{\"maxItems\":50,\"maxBytes\":8000}},\"limits\":{\"maxItems\":50,\"maxBytes\":8000},\"uncertaintyCases\":[],\"revision\":\"3e8f2aa7da11dd6d26bbb6e3dffde679471c9780\",\"validated\":true}]"
+          },
+          {
+            "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+            "line": 2,
+            "context": "* Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role"
+          },
+          {
+            "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+            "line": 3,
+            "context": "* @question Find all references to the path .tours/.memory in the codebase to confirm its existence and usage"
+          },
+          {
+            "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+            "line": 7,
+            "context": "export const search_tours_memory_path = () => searchText(\".tours/.memory\");"
+          },
+          {
+            "file": "README.md",
+            "line": 39,
+            "context": "La mémoire activée par `--memory` reste propre au projet dans `.tours/.memory/` ; les journaux structurés sont dans `.tours/.log/`. Les fichiers `.tour` existants sont conservés. Lancer les questions séquentiellement : le catalogue ne garantit pas les écritures concurrentes. Les références valides prouvent l'existence des lignes, pas la justesse sémantique de l'explication. Le harnais répond à des questions et ne crée pas de Tour."
+          },
+          {
+            "file": "skills/codetour-research/SKILL.md",
+            "line": 25,
+            "context": "Pass the actual absolute root and one question as separate, safely quoted arguments; do not interpolate user text into shell syntax. Wait for each JSON result before starting the next call. Use the same workspace so all calls share `.tours/.memory/`. If a result is partial or failed, retain its status and uncertainties; request a targeted follow-up only for a gap that matters, or explain the limitation. Do not repeat a sufficient answer. Direct file reads are allowed for targeted verification; record what was checked and why. Substantial research belongs in the harness."
+          }
+        ],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 101,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:22.690Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; context: string; }[]"
+        },
+        "source": "function searchToursMemoryPath(): { file: string; line: number; context: string }[] {\n  // Use searchText to find all occurrences of '.tours/.memory' in the workspace\n  const matches = searchText('.tours/.memory');\n  return matches.map(m => ({ file: m.file, line: m.line, context: m.text.trim() }));\n}"
+      },
+      "outcome": "returned=6; citations=6 valid",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 9,
+      "startedAt": "2026-11-17T10:25:22.491Z",
+      "endedAt": "2026-11-17T10:25:22.722Z",
+      "durationMs": 231
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 4883,
+      "outputTokens": 417,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 10,
+      "startedAt": "2026-11-17T10:25:22.745Z",
+      "endedAt": "2026-11-17T10:25:25.957Z",
+      "durationMs": 3212
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "UcFjtRNOx",
+      "parameters": {
+        "remember": false,
+        "name": "list_relevant_files",
+        "question": "List TypeScript files in src/ related to memory, replay, and function_try to confirm their presence in the workspace",
+        "description": "Lists files under src/ that are likely to contain the logic for memory persistence, matching, replay, and function_try to enable further analysis"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "49a059edb9529093ec4438699d3233be13f9a2971b42784e61fe89dd32a91ff9",
+        "fingerprint": "49a059edb9529093ec4438699d3233be13f9a2971b42784e61fe89dd32a91ff9",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "listFiles",
+            "params": []
+          }
+        ],
+        "results": [
+          "src/memory-output.ts",
+          "src/memory.ts"
+        ],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 88,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:26.170Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "string[]"
+        },
+        "source": "function listRelevantFiles(): string[] {\n  // List files in src/ and related directories to confirm presence of memory-related files\n  const files = listFiles();\n  const relevant = files.filter(f => \n    f.startsWith('src/') && \n    (f.includes('memory') || f.includes('replay') || f.includes('function_try'))\n  );\n  return relevant;\n}"
+      },
+      "outcome": "returned=2; citations=none",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 11,
+      "startedAt": "2026-11-17T10:25:25.957Z",
+      "endedAt": "2026-11-17T10:25:26.199Z",
+      "durationMs": 242
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 5207,
+      "outputTokens": 312,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 12,
+      "startedAt": "2026-11-17T10:25:26.200Z",
+      "endedAt": "2026-11-17T10:25:28.331Z",
+      "durationMs": 2131
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "Os1iuNEV3",
+      "parameters": {
+        "remember": false,
+        "name": "find_memory_run_references",
+        "question": "Find all references to memory_run in the codebase to understand its usage and parameters",
+        "description": "Searches the entire codebase for any occurrence of 'memory_run' to identify how it is called and what parameters it expects"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "c3623e90c9dea0be9fb86f88536edd779e245c99b21dc20654946d117d3b3f8f",
+        "fingerprint": "c3623e90c9dea0be9fb86f88536edd779e245c99b21dc20654946d117d3b3f8f",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "memory_run"
+            ]
+          }
+        ],
+        "results": {
+          "truncated": true,
+          "bytes": 14765
+        },
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 100,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:28.538Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; context: string; }[]"
+        },
+        "source": "function findMemoryRunReferences(): { file: string; line: number; context: string }[] {\n  // Search for memory_run function calls or definitions\n  const matches = searchText('memory_run');\n  return matches.map(m => ({ file: m.file, line: m.line, context: m.text.trim() }));\n}",
+        "truncated": true
+      },
+      "outcome": "returned=23; TRUNCATED, not exhaustive; citations=50 valid",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 13,
+      "startedAt": "2026-11-17T10:25:28.331Z",
+      "endedAt": "2026-11-17T10:25:28.570Z",
+      "durationMs": 239
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 7422,
+      "outputTokens": 612,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 14,
+      "startedAt": "2026-11-17T10:25:28.576Z",
+      "endedAt": "2026-11-17T10:25:32.790Z",
+      "durationMs": 4214
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "ltHkEXjS5",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "error": "Error: TS2739:2:Type 'ReadResult' is missing the following properties from type '{ file: string; startLine: number; endLine: number; lines: string[]; }': startLine, endLine",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 15,
+      "startedAt": "2026-11-17T10:25:32.791Z",
+      "endedAt": "2026-11-17T10:25:32.999Z",
+      "durationMs": 208
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 7620,
+      "outputTokens": 164,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 16,
+      "startedAt": "2026-11-17T10:25:33.000Z",
+      "endedAt": "2026-11-17T10:25:34.332Z",
+      "durationMs": 1332
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "ORpwJOLDV",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "error": "Error: TS2339:3:Property 'text' does not exist on type 'string'.",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 17,
+      "startedAt": "2026-11-17T10:25:34.333Z",
+      "endedAt": "2026-11-17T10:25:34.542Z",
+      "durationMs": 209
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 7811,
+      "outputTokens": 158,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 18,
+      "startedAt": "2026-11-17T10:25:34.543Z",
+      "endedAt": "2026-11-17T10:25:35.891Z",
+      "durationMs": 1348
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "srtRdM58C",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "error": "Error: Function call error: Invalid line range: use positive integer bounds and at most 100 lines",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 19,
+      "startedAt": "2026-11-17T10:25:35.891Z",
+      "endedAt": "2026-11-17T10:25:36.134Z",
+      "durationMs": 243
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 7995,
+      "outputTokens": 158,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 20,
+      "startedAt": "2026-11-17T10:25:36.135Z",
+      "endedAt": "2026-11-17T10:25:37.534Z",
+      "durationMs": 1399
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "oFFBoF6w9",
+      "parameters": {
+        "remember": false,
+        "name": "read_memory_ts",
+        "question": "Read the contents of src/memory.ts to understand the persistence mechanism of procedures",
+        "description": "Reads the src/memory.ts file to extract the structure of persisted procedures, functions for saving/retrieving procedures, and any matching logic"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "d84ff3954e679998c1f50cf6ee85138e2c7add49b345dd5e2eb4ade069d2ea42",
+        "fingerprint": "d84ff3954e679998c1f50cf6ee85138e2c7add49b345dd5e2eb4ade069d2ea42",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "readLines",
+            "params": [
+              "src/memory.ts",
+              1,
+              100
+            ]
+          }
+        ],
+        "results": {
+          "file": "src/memory.ts",
+          "lines": [
+            "import { createHash, randomUUID } from 'node:crypto';",
+            "import { lstat, mkdir, readFile, realpath, rename, unlink, writeFile } from 'node:fs/promises';",
+            "import { isAbsolute, join, relative, resolve, sep } from 'node:path';",
+            "import { z } from 'zod';",
+            "",
+            "// ============================================================================",
+            "// Catalogue entry model (issue #174 complement)",
+            "// ============================================================================",
+            "",
+            "const paramSchemaShape = z.object({",
+            "  name: z.string().min(1),",
+            "  type: z.string().min(1).max(200).default('unknown'),",
+            "  description: z.string().max(200).optional(),",
+            "});",
+            "",
+            "const outputContractShape = z.object({",
+            "  // Human-readable description of the returned shape, e.g. \"SearchMatch[] {file, line, text}\".",
+            "  returns: z.string().min(1).max(300),",
+            "  // Structural fields expected on each item (proof contract).",
+            "  itemFields: z.array(z.string()).max(20).default([]),",
+            "  // Bounds the output honours.",
+            "  bounds: z.object({ maxItems: z.number().int().positive(), maxBytes: z.number().int().positive() }),",
+            "});",
+            "",
+            "const uncertaintyCaseShape = z.object({",
+            "  // Concrete case in which the output must not be trusted blindly.",
+            "  case: z.string().min(1).max(200),",
+            "  // Explicit signal the caller receives in that case.",
+            "  signal: z.string().min(1).max(200),",
+            "});",
+            "",
+            "const entrySchema = z.object({",
+            "  id: z.string().min(1),",
+            "  objective: z.string().max(500),",
+            "  description: z.string().max(300),",
+            "  code: z.string().max(32768),",
+            "  parameters: z.array(z.string()).max(30),",
+            "  paramsSchema: z.array(paramSchemaShape).max(30).default([]),",
+            "  outputContract: outputContractShape.optional(),",
+            "  limits: z.object({ maxItems: z.number().int().positive().default(50), maxBytes: z.number().int().positive().default(8000) }).optional(),",
+            "  uncertaintyCases: z.array(uncertaintyCaseShape).max(10).default([]),",
+            "  revision: z.string().max(64).optional(),",
+            "  successes: z.number().int().nonnegative().optional(),",
+            "  failures: z.number().int().nonnegative().optional(),",
+            "  // G0 requirement: NO inactivity tracking or purge",
+            "  fingerprint: z.string().optional(),",
+            "  version: z.number().int().nonnegative().optional(),",
+            "  replacedBy: z.string().optional(),",
+            "  variantOf: z.string().optional(),",
+            "  validated: z.boolean().optional(),",
+            "  executionMode: z.enum(['strict', 'legacy']).optional(),",
+            "  referenceCases: z.array(z.object({ params: z.record(z.string(), z.unknown()), ok: z.boolean(), at: z.string() })).max(5).optional()",
+            "}).passthrough();",
+            "type Entry = z.infer<typeof entrySchema>;",
+            "",
+            "/** Outcome of a catalogue comparison. 'indeterminate' is reported honestly instead of inventing equivalence. */",
+            "export type ComparisonOutcome = 'duplicate' | 'distinct' | 'indeterminate';",
+            "",
+            "export interface ReferenceCase { params: Record<string, unknown>; ok: boolean; at: string }",
+            "",
+            "/** Deterministic replay evidence (issue #187): the exact same code and params were re-executed and every citation re-checked. */",
+            "export interface ReplayEvidence {",
+            "  ok: boolean;",
+            "  reason?: string;",
+            "  citations?: 'valid' | 'no_references' | 'validation_failed';",
+            "}",
+            "",
+            "/** Issue #187: per-candidate reconciliation log — proposed / replayed / accepted / rejected with reason. */",
+            "export interface ReconciliationOutcome {",
+            "  name: string;",
+            "  /** True when the model proposed (selected) the candidate for consolidation. */",
+            "  proposed: boolean;",
+            "  /** True when the deterministic reconciliation re-executed the exact code and params with all citations re-checked. */",
+            "  replayed: boolean;",
+            "  accepted: boolean;",
+            "  reason?: string;",
+            "}",
+            "",
+            "export interface ConsolidationCandidate {",
+            "  objective: string;",
+            "  description: string;",
+            "  code: string;",
+            "  parameters: string[];",
+            "  paramsSchema?: Array<{ name: string; type: string }>;",
+            "  executionMode?: 'strict' | 'legacy';",
+            "  /** TypeScript identifier used as the catalogue key. */",
+            "  name: string;",
+            "  /** Output contract declared with the candidate. */",
+            "  returns?: string;",
+            "  uncertaintyCases?: Array<{ case: string; signal: string }>;",
+            "  verified: boolean;",
+            "  /** Concrete operational consolidation signal (correction 3): never a blind benchmark judge. */",
+            "  consolidationSignal?: { executedSuccessfully: boolean; proofAvailable: boolean; contractRespected: boolean };",
+            "  /** Deterministic replay evidence (issue #187): required — no replay, no persistence. */",
+            "  replay?: ReplayEvidence;",
+            "  version?: number;",
+            "  variantOf?: string;",
+            "  revision?: string;",
+            "}",
+            ""
+          ]
+        },
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 83,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:37.758Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; lines: string[]; }"
+        },
+        "source": "function readMemoryTs(): { file: string; lines: string[] } {\n  const res = readLines('src/memory.ts', 1, 100);\n  return { file: res.file, lines: res.lines };\n}"
+      },
+      "result": {
+        "status": "validation_failed",
+        "message": "The trial is NOT validated: 0 of 1 references are valid (first 0 listed). Fix only the faulty reference(s) below, then call function_try again with corrected code.",
+        "validCount": 0,
+        "validReferences": [],
+        "invalidReferences": [
+          {
+            "file": "src/memory.ts",
+            "errors": [
+              "no line number: expected line, startLine or start to be a positive integer"
+            ]
+          }
+        ]
+      },
+      "outcome": "returned=1; citations=validation_failed (0/1 valid)",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 21,
+      "startedAt": "2026-11-17T10:25:37.534Z",
+      "endedAt": "2026-11-17T10:25:37.787Z",
+      "durationMs": 253
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 8263,
+      "outputTokens": 291,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 22,
+      "startedAt": "2026-11-17T10:25:37.788Z",
+      "endedAt": "2026-11-17T10:25:40.514Z",
+      "durationMs": 2726
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "dkrkxAaHm",
+      "parameters": {
+        "remember": false,
+        "name": "read_src_memory_ts",
+        "question": "Extract lines from src/memory.ts to understand procedure persistence and matching",
+        "description": "Searches for occurrences of 'src/memory.ts' in the workspace and returns lines from that file to analyze its implementation of memory persistence and matching"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "489f1fe879ffccbb4c4c23ddbea485a520312da2b2eff299844289667ca7f6c1",
+        "fingerprint": "489f1fe879ffccbb4c4c23ddbea485a520312da2b2eff299844289667ca7f6c1",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "memory.ts"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 121,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:40.743Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; text: string; }[]"
+        },
+        "source": "function readSrcMemoryTs(): { file: string; line: number; text: string }[] {\n  const matches = searchText('memory.ts');\n  // Filter to lines that actually contain content from src/memory.ts\n  const relevant = matches.filter(m => m.file === 'src/memory.ts');\n  return relevant.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}"
+      },
+      "outcome": "returned=0; citations=none",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 23,
+      "startedAt": "2026-11-17T10:25:40.514Z",
+      "endedAt": "2026-11-17T10:25:40.783Z",
+      "durationMs": 269
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 8582,
+      "outputTokens": 183,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 24,
+      "startedAt": "2026-11-17T10:25:40.784Z",
+      "endedAt": "2026-11-17T10:25:42.424Z",
+      "durationMs": 1640
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "EVCHGURh9",
+      "parameters": {
+        "remember": false,
+        "name": "read_src_memory_ts_lines",
+        "question": "Extract lines from src/memory.ts to understand procedure persistence and matching",
+        "description": "Searches for occurrences of 'src/memory.ts' in the workspace and returns lines from that file to analyze its implementation of memory persistence and matching"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "d1f241cd126d833c6faf731d746a8e4a594c959371199294c970a410f69e0e40",
+        "fingerprint": "d1f241cd126d833c6faf731d746a8e4a594c959371199294c970a410f69e0e40",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "src/memory.ts"
+            ]
+          }
+        ],
+        "results": [
+          {
+            "file": "test/citation-repair.test.ts",
+            "line": 7,
+            "text": "import { scriptMemory } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "line": 6,
+            "text": "import { scriptMemory, validateDescription } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "line": 7,
+            "text": "import type { ConsolidationCandidate } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "line": 157,
+            "text": "import type { ConsolidationReport } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/consolidation.test.ts",
+            "line": 6,
+            "text": "import { scriptMemory, compareCandidates, validateCanonicalName } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/consolidation.test.ts",
+            "line": 7,
+            "text": "import type { ConsolidationCandidate } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/finish-t02.test.ts",
+            "line": 7,
+            "text": "import { scriptMemory } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/internal-instructions-english.test.ts",
+            "line": 9,
+            "text": "import { validateCanonicalName } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/memory.test.ts",
+            "line": 10,
+            "text": "const { scriptMemory } = await import('../src/memory.ts');"
+          },
+          {
+            "file": "test/memory.test.ts",
+            "line": 152,
+            "text": "const { scriptMemory } = await import('../src/memory.ts');"
+          },
+          {
+            "file": "test/memory.test.ts",
+            "line": 282,
+            "text": "const { scriptMemory } = await import('../src/memory.ts');"
+          },
+          {
+            "file": "test/spec-172-conformance.test.ts",
+            "line": 14,
+            "text": "import { scriptMemory, validateCanonicalName } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/two-tours-d05.test.ts",
+            "line": 7,
+            "text": "import { scriptMemory } from '../src/memory.ts';"
+          }
+        ],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 98,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:42.633Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; text: string; }[]"
+        },
+        "source": "function readSrcMemoryTsLines(): { file: string; line: number; text: string }[] {\n  // Use searchText to find lines in src/memory.ts\n  const matches = searchText('src/memory.ts');\n  return matches.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}"
+      },
+      "result": {
+        "status": "validation_failed",
+        "message": "The trial is NOT validated: 10 of 13 references are valid (first 10 listed). Fix only the faulty reference(s) below, then call function_try again with corrected code.",
+        "validCount": 10,
+        "validReferences": [
+          {
+            "file": "test/citation-repair.test.ts",
+            "startLine": 7,
+            "endLine": 7
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "startLine": 6,
+            "endLine": 6
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "startLine": 7,
+            "endLine": 7
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "startLine": 157,
+            "endLine": 157
+          },
+          {
+            "file": "test/consolidation.test.ts",
+            "startLine": 6,
+            "endLine": 6
+          },
+          {
+            "file": "test/consolidation.test.ts",
+            "startLine": 7,
+            "endLine": 7
+          },
+          {
+            "file": "test/finish-t02.test.ts",
+            "startLine": 7,
+            "endLine": 7
+          },
+          {
+            "file": "test/internal-instructions-english.test.ts",
+            "startLine": 9,
+            "endLine": 9
+          },
+          {
+            "file": "test/spec-172-conformance.test.ts",
+            "startLine": 14,
+            "endLine": 14
+          },
+          {
+            "file": "test/two-tours-d05.test.ts",
+            "startLine": 7,
+            "endLine": 7
+          }
+        ],
+        "invalidReferences": [
+          {
+            "file": "test/memory.test.ts",
+            "errors": [
+              "excerpt does not match the file content at lines 10-10"
+            ],
+            "startLine": 10,
+            "endLine": 10
+          },
+          {
+            "file": "test/memory.test.ts",
+            "errors": [
+              "excerpt does not match the file content at lines 152-152"
+            ],
+            "startLine": 152,
+            "endLine": 152
+          },
+          {
+            "file": "test/memory.test.ts",
+            "errors": [
+              "excerpt does not match the file content at lines 282-282"
+            ],
+            "startLine": 282,
+            "endLine": 282
+          }
+        ]
+      },
+      "outcome": "returned=13; citations=validation_failed (10/13 valid)",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 25,
+      "startedAt": "2026-11-17T10:25:42.424Z",
+      "endedAt": "2026-11-17T10:25:42.664Z",
+      "durationMs": 240
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 9219,
+      "outputTokens": 437,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 26,
+      "startedAt": "2026-11-17T10:25:42.667Z",
+      "endedAt": "2026-11-17T10:25:46.062Z",
+      "durationMs": 3395
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "3masGqfv1",
+      "parameters": {
+        "remember": false,
+        "name": "find_memory_ts_key_lines",
+        "question": "Extract key lines from src/memory.ts related to procedure persistence and matching",
+        "description": "Searches src/memory.ts for lines that define exports, functions, interfaces, or comments related to persistence, matching, replay, or function_try to understand how procedures are stored and retrieved"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "e7ac019fd4814132f3733594083645790f45377d8b19ee90400857f86f3160ac",
+        "fingerprint": "e7ac019fd4814132f3733594083645790f45377d8b19ee90400857f86f3160ac",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "src/memory.ts"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 99,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:46.285Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; text: string; }[]"
+        },
+        "source": "function findMemoryTsKeyLines(): { file: string; line: number; text: string }[] {\n  // Search for key lines in src/memory.ts related to persistence and matching\n  const matches = searchText('src/memory.ts');\n  const relevant = matches\n    .filter(m => m.file === 'src/memory.ts')\n    .filter(m => \n      m.text.includes('export') ||\n      m.text.includes('function') ||\n      m.text.includes('interface') ||\n      m.text.includes('class') ||\n      m.text.includes('//') && (m.text.includes('persist') || m.text.includes('match') || m.text.includes('replay') || m.text.includes('function_try'))\n    );\n  return relevant.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}"
+      },
+      "outcome": "returned=0; citations=none",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 27,
+      "startedAt": "2026-11-17T10:25:46.062Z",
+      "endedAt": "2026-11-17T10:25:46.315Z",
+      "durationMs": 253
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 9651,
+      "outputTokens": 363,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 28,
+      "startedAt": "2026-11-17T10:25:46.316Z",
+      "endedAt": "2026-11-17T10:25:49.350Z",
+      "durationMs": 3034
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "glSV0KTdy",
+      "parameters": {
+        "remember": false,
+        "name": "find_memory_ts_exports_and_comments",
+        "question": "Extract export statements and comments from src/memory.ts to understand its API and logic",
+        "description": "Searches src/memory.ts for lines containing 'export' or '//' to identify public functions, classes, and comments that describe persistence and matching logic"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "6366825f3216a7847fc77b2cd4d28e0439e0cb2039dd7ecbea4092408558b082",
+        "fingerprint": "6366825f3216a7847fc77b2cd4d28e0439e0cb2039dd7ecbea4092408558b082",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "src/memory.ts"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 103,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:49.568Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; text: string; }[]"
+        },
+        "source": "function findMemoryTsExportsAndComments(): { file: string; line: number; text: string }[] {\n  // Search for export statements and comments in src/memory.ts\n  const matches = searchText('src/memory.ts');\n  const relevant = matches\n    .filter(m => m.file === 'src/memory.ts')\n    .filter(m => m.text.includes('export') || m.text.includes('//'));\n  return relevant.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}"
+      },
+      "outcome": "returned=0; citations=none",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 29,
+      "startedAt": "2026-11-17T10:25:49.351Z",
+      "endedAt": "2026-11-17T10:25:49.601Z",
+      "durationMs": 250
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 10008,
+      "outputTokens": 445,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 30,
+      "startedAt": "2026-11-17T10:25:49.602Z",
+      "endedAt": "2026-11-17T10:25:52.469Z",
+      "durationMs": 2867
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "Ma0McdoH2",
+      "parameters": {
+        "remember": false,
+        "name": "find_memory_ts_key_terms",
+        "question": "Extract key lines from src/memory.ts related to procedure persistence and matching",
+        "description": "Searches src/memory.ts for lines that define exports, functions, interfaces, classes, or comments related to persistence, matching, replay, or function_try to understand how procedures are stored and retrieved"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "c102ce6ce89bce70fca507761e8f0f1156b66df101639ed4e86cf256f99d77a0",
+        "fingerprint": "c102ce6ce89bce70fca507761e8f0f1156b66df101639ed4e86cf256f99d77a0",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "src/memory.ts"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 106,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:52.688Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; text: string; }[]"
+        },
+        "source": "function findMemoryTsKeyTerms(): { file: string; line: number; text: string }[] {\n  // Search for key terms in src/memory.ts\n  const matches = searchText('src/memory.ts');\n  const relevant = matches\n    .filter(m => m.file === 'src/memory.ts')\n    .filter(m => \n      m.text.includes('export') ||\n      m.text.includes('function') ||\n      m.text.includes('interface') ||\n      m.text.includes('class') ||\n      (m.text.includes('//') && \n       (m.text.toLowerCase().includes('persist') ||\n        m.text.toLowerCase().includes('match') ||\n        m.text.toLowerCase().includes('replay') ||\n        m.text.toLowerCase().includes('function_try')))\n    );\n  return relevant.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}"
+      },
+      "outcome": "returned=0; citations=none",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 31,
+      "startedAt": "2026-11-17T10:25:52.470Z",
+      "endedAt": "2026-11-17T10:25:52.720Z",
+      "durationMs": 250
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 10467,
+      "outputTokens": 315,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 32,
+      "startedAt": "2026-11-17T10:25:52.721Z",
+      "endedAt": "2026-11-17T10:25:55.253Z",
+      "durationMs": 2532
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "EzwhrbP8R",
+      "parameters": {
+        "remember": false,
+        "name": "find_memory_ts_lines",
+        "question": "Extract all lines from src/memory.ts to analyze its implementation",
+        "description": "Searches for all lines in src/memory.ts to enable analysis of its exports, functions, and comments related to procedure persistence and matching"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "ce6f2e6bf9a4f4d021f5fce3125cd5d91cac94e385e0dfe1f28d2f58b552188e",
+        "fingerprint": "ce6f2e6bf9a4f4d021f5fce3125cd5d91cac94e385e0dfe1f28d2f58b552188e",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "src/memory.ts"
+            ]
+          }
+        ],
+        "results": [
+          {
+            "file": "test/citation-repair.test.ts",
+            "line": 7,
+            "text": "import { scriptMemory } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "line": 6,
+            "text": "import { scriptMemory, validateDescription } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "line": 7,
+            "text": "import type { ConsolidationCandidate } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "line": 157,
+            "text": "import type { ConsolidationReport } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/consolidation.test.ts",
+            "line": 6,
+            "text": "import { scriptMemory, compareCandidates, validateCanonicalName } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/consolidation.test.ts",
+            "line": 7,
+            "text": "import type { ConsolidationCandidate } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/finish-t02.test.ts",
+            "line": 7,
+            "text": "import { scriptMemory } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/internal-instructions-english.test.ts",
+            "line": 9,
+            "text": "import { validateCanonicalName } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/memory.test.ts",
+            "line": 10,
+            "text": "const { scriptMemory } = await import('../src/memory.ts');"
+          },
+          {
+            "file": "test/memory.test.ts",
+            "line": 152,
+            "text": "const { scriptMemory } = await import('../src/memory.ts');"
+          },
+          {
+            "file": "test/memory.test.ts",
+            "line": 282,
+            "text": "const { scriptMemory } = await import('../src/memory.ts');"
+          },
+          {
+            "file": "test/spec-172-conformance.test.ts",
+            "line": 14,
+            "text": "import { scriptMemory, validateCanonicalName } from '../src/memory.ts';"
+          },
+          {
+            "file": "test/two-tours-d05.test.ts",
+            "line": 7,
+            "text": "import { scriptMemory } from '../src/memory.ts';"
+          }
+        ],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 93,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:55.474Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; text: string; }[]"
+        },
+        "source": "function findMemoryTsLines(): { file: string; line: number; text: string }[] {\n  // Search for any lines in src/memory.ts\n  const matches = searchText('src/memory.ts');\n  return matches.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}"
+      },
+      "result": {
+        "status": "validation_failed",
+        "message": "The trial is NOT validated: 10 of 13 references are valid (first 10 listed). Fix only the faulty reference(s) below, then call function_try again with corrected code.",
+        "validCount": 10,
+        "validReferences": [
+          {
+            "file": "test/citation-repair.test.ts",
+            "startLine": 7,
+            "endLine": 7
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "startLine": 6,
+            "endLine": 6
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "startLine": 7,
+            "endLine": 7
+          },
+          {
+            "file": "test/consolidation-d04.test.ts",
+            "startLine": 157,
+            "endLine": 157
+          },
+          {
+            "file": "test/consolidation.test.ts",
+            "startLine": 6,
+            "endLine": 6
+          },
+          {
+            "file": "test/consolidation.test.ts",
+            "startLine": 7,
+            "endLine": 7
+          },
+          {
+            "file": "test/finish-t02.test.ts",
+            "startLine": 7,
+            "endLine": 7
+          },
+          {
+            "file": "test/internal-instructions-english.test.ts",
+            "startLine": 9,
+            "endLine": 9
+          },
+          {
+            "file": "test/spec-172-conformance.test.ts",
+            "startLine": 14,
+            "endLine": 14
+          },
+          {
+            "file": "test/two-tours-d05.test.ts",
+            "startLine": 7,
+            "endLine": 7
+          }
+        ],
+        "invalidReferences": [
+          {
+            "file": "test/memory.test.ts",
+            "errors": [
+              "excerpt does not match the file content at lines 10-10"
+            ],
+            "startLine": 10,
+            "endLine": 10
+          },
+          {
+            "file": "test/memory.test.ts",
+            "errors": [
+              "excerpt does not match the file content at lines 152-152"
+            ],
+            "startLine": 152,
+            "endLine": 152
+          },
+          {
+            "file": "test/memory.test.ts",
+            "errors": [
+              "excerpt does not match the file content at lines 282-282"
+            ],
+            "startLine": 282,
+            "endLine": 282
+          }
+        ]
+      },
+      "outcome": "returned=13; citations=validation_failed (10/13 valid)",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 33,
+      "startedAt": "2026-11-17T10:25:55.253Z",
+      "endedAt": "2026-11-17T10:25:55.504Z",
+      "durationMs": 251
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 11098,
+      "outputTokens": 454,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 34,
+      "startedAt": "2026-11-17T10:25:55.505Z",
+      "endedAt": "2026-11-17T10:25:58.796Z",
+      "durationMs": 3291
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "SLcPOQkMh",
+      "parameters": {
+        "remember": false,
+        "name": "find_memory_output_ts_key_lines",
+        "question": "Extract key lines from src/memory-output.ts related to output persistence and relevance proofs",
+        "description": "Searches src/memory-output.ts for lines that define exports, functions, interfaces, classes, or comments related to output storage, replay, and relevance proofs"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "5e481ac7ac78bc67adace15c049d150f6951772cc58c2fa989f28e435c052ff5",
+        "fingerprint": "5e481ac7ac78bc67adace15c049d150f6951772cc58c2fa989f28e435c052ff5",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "src/memory-output.ts"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 105,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:25:59.010Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; text: string; }[]"
+        },
+        "source": "function findMemoryOutputTsKeyLines(): { file: string; line: number; text: string }[] {\n  // Search for key lines in src/memory-output.ts\n  const matches = searchText('src/memory-output.ts');\n  const relevant = matches\n    .filter(m => m.file === 'src/memory-output.ts')\n    .filter(m => \n      m.text.includes('export') ||\n      m.text.includes('function') ||\n      m.text.includes('interface') ||\n      m.text.includes('class') ||\n      (m.text.includes('//') && \n       (m.text.toLowerCase().includes('output') ||\n        m.text.toLowerCase().includes('replay') ||\n        m.text.toLowerCase().includes('relevance') ||\n        m.text.toLowerCase().includes('persist')))\n    );\n  return relevant.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}"
+      },
+      "outcome": "returned=0; citations=none",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 35,
+      "startedAt": "2026-11-17T10:25:58.796Z",
+      "endedAt": "2026-11-17T10:25:59.042Z",
+      "durationMs": 246
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 11555,
+      "outputTokens": 185,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 36,
+      "startedAt": "2026-11-17T10:25:59.043Z",
+      "endedAt": "2026-11-17T10:26:00.383Z",
+      "durationMs": 1340
+    },
+    {
+      "type": "function_try",
+      "name": "function_try",
+      "callId": "1HU8h7m8s",
+      "parameters": {
+        "remember": false,
+        "name": "find_memory_output_ts_lines",
+        "question": "Extract all lines from src/memory-output.ts to analyze its implementation",
+        "description": "Searches for all lines in src/memory-output.ts to enable analysis of its exports, functions, and comments related to output persistence and relevance proofs"
+      },
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "fcbc55503a1ac2a8b67f795f5849697052794244f361a342fb14713db6b11403",
+        "fingerprint": "fcbc55503a1ac2a8b67f795f5849697052794244f361a342fb14713db6b11403",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "src/memory-output.ts"
+            ]
+          }
+        ],
+        "results": [],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 93,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:26:00.581Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; text: string; }[]"
+        },
+        "source": "function findMemoryOutputTsLines(): { file: string; line: number; text: string }[] {\n  // Search for any lines in src/memory-output.ts\n  const matches = searchText('src/memory-output.ts');\n  return matches.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}"
+      },
+      "outcome": "returned=0; citations=none",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 37,
+      "startedAt": "2026-11-17T10:26:00.384Z",
+      "endedAt": "2026-11-17T10:26:00.611Z",
+      "durationMs": 227
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "maxOutputTokens": 16384,
+      "inputTokens": 11860,
+      "outputTokens": 1837,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 38,
+      "startedAt": "2026-11-17T10:26:00.612Z",
+      "endedAt": "2026-11-17T10:26:12.861Z",
+      "durationMs": 12249
+    },
+    {
+      "type": "model",
+      "name": "memory-selection",
+      "parameters": {
+        "tour": {
+          "objective": "Expliquer le fonctionnement de la réutilisation de la mémoire de procédures via memory_run dans ce workspace : appariement, exécution/rejeu, et preuve structurée de pertinence.",
+          "entryPoints": [
+            {
+              "name": "Chemin de persistance des procédures",
+              "evidence": [
+                {
+                  "file": "README.md",
+                  "startLine": 39,
+                  "endLine": 39
+                },
+                {
+                  "file": ".tours/.memory/8bbdd70ec3d478897e7fa877e6b7a0636f9efa28734ee963a1426d6094b40887.json",
+                  "startLine": 1,
+                  "endLine": 1
+                }
+              ]
+            },
+            {
+              "name": "Appel et exécution de memory_run",
+              "evidence": [
+                {
+                  "file": "src/explore.ts",
+                  "startLine": 265,
+                  "endLine": 267
+                },
+                {
+                  "file": "src/explore.ts",
+                  "startLine": 276,
+                  "endLine": 279
+                },
+                {
+                  "file": "src/explore.ts",
+                  "startLine": 214,
+                  "endLine": 214
+                }
+              ]
+            },
+            {
+              "name": "Rôle de function_try et replay",
+              "evidence": [
+                {
+                  "file": "dist/explore.js",
+                  "startLine": 277,
+                  "endLine": 292
+                },
+                {
+                  "file": "dist/decomposition-prompt.js",
+                  "startLine": 3,
+                  "endLine": 3
+                }
+              ]
+            }
+          ],
+          "components": [
+            {
+              "name": "Mémoire persistée des procédures (.tours/.memory/) et catalogue",
+              "evidence": [
+                {
+                  "file": "README.md",
+                  "startLine": 39,
+                  "endLine": 39
+                },
+                {
+                  "file": ".tours/.memory/8bbdd70ec3d478897e7fa877e6b7a0636f9efa28734ee963a1426d6094b40887.json",
+                  "startLine": 1,
+                  "endLine": 1
+                }
+              ]
+            },
+            {
+              "name": "Sélection et appariement d'une procédure persistée (via memory_run)",
+              "evidence": [
+                {
+                  "file": "src/explore.ts",
+                  "startLine": 265,
+                  "endLine": 267
+                },
+                {
+                  "file": "src/explore.ts",
+                  "startLine": 276,
+                  "endLine": 279
+                }
+              ]
+            },
+            {
+              "name": "Exécution et rejeu (function_try / replay)",
+              "evidence": [
+                {
+                  "file": "dist/explore.js",
+                  "startLine": 277,
+                  "endLine": 292
+                },
+                {
+                  "file": "dist/decomposition-prompt.js",
+                  "startLine": 3,
+                  "endLine": 3
+                }
+              ]
+            },
+            {
+              "name": "Preuves structurées de pertinence des sorties rejouées",
+              "evidence": [
+                {
+                  "file": "dist/explore.js",
+                  "startLine": 364,
+                  "endLine": 364
+                },
+                {
+                  "file": "README.md",
+                  "startLine": 39,
+                  "endLine": 39
+                }
+              ]
+            }
+          ],
+          "relations": [
+            {
+              "from": "memory_run (src/explore.ts:265-267)",
+              "to": "Catalogue de procédures persistées (.tours/.memory/) (README.md:39)",
+              "evidence": [
+                {
+                  "file": "src/explore.ts",
+                  "startLine": 265,
+                  "endLine": 267
+                },
+                {
+                  "file": "README.md",
+                  "startLine": 39,
+                  "endLine": 39
+                }
+              ]
+            },
+            {
+              "from": "memory_run (src/explore.ts:265-267)",
+              "to": "Exécution de la procédure (function_try/replay) (dist/explore.js:277-292)",
+              "evidence": [
+                {
+                  "file": "src/explore.ts",
+                  "startLine": 265,
+                  "endLine": 267
+                },
+                {
+                  "file": "dist/explore.js",
+                  "startLine": 277,
+                  "endLine": 292
+                }
+              ]
+            },
+            {
+              "from": "Exécution de la procédure (function_try/replay) (dist/explore.js:277-292)",
+              "to": "Preuves structurées de pertinence (dist/explore.js:364)",
+              "evidence": [
+                {
+                  "file": "dist/explore.js",
+                  "startLine": 277,
+                  "endLine": 292
+                },
+                {
+                  "file": "dist/explore.js",
+                  "startLine": 364,
+                  "endLine": 364
+                }
+              ]
+            }
+          ],
+          "uncertainties": [
+            "Le contenu exact de src/memory.ts n'a pas pu être lu directement (échec de validation des citations) : la structure interne des procédures persistées (champs id, question, embedding, code, metadata) et les fonctions de persistance (saveProcedure, persistProcedure) n'ont pas pu être extraites avec des lignes vérifiables.",
+            "Le contenu exact de src/memory-output.ts n'a pas pu être lu directement : la structure des preuves de pertinence (relevanceScore, usageCount, timestamp, context) et les fonctions de gestion des sorties (saveOutput, storeReplayResult) n'ont pas pu être extraites avec des lignes vérifiables.",
+            "Le mécanisme précis d'appariement sémantique (embeddings, hash, métadonnées) n'est pas visible dans les extraits disponibles ; seule la sélection via library?.get(id) est attestée dans src/explore.ts.",
+            "La preuve structurée de pertinence est évoquée dans dist/explore.js (ligne 364) et README.md (ligne 39), mais son format exact (JSON, logs, métriques) et son stockage (fichiers dans .tours/.log/) ne sont pas détaillés dans les extraits disponibles.",
+            "Le rôle exact de src/memory-output.ts dans la gestion des sorties structurées n'a pas pu être vérifié directement (lecture impossible)."
+          ]
+        },
+        "catalog": [
+          {
+            "id": "search_tours_memory_path",
+            "objective": "Find all references to the path .tours/.memory in the codebase to confirm its existence and usage",
+            "description": "Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role",
+            "parameters": [],
+            "paramsSchema": [],
+            "outputContract": {
+              "returns": "SourceMatch[]",
+              "itemFields": [
+                "file",
+                "line"
+              ],
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              }
+            },
+            "limits": {
+              "maxItems": 50,
+              "maxBytes": 8000
+            },
+            "uncertaintyCases": [],
+            "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780"
+          }
+        ],
+        "executedCandidates": [
+          {
+            "name": "search_tours_memory_path",
+            "question": "Find all references to the path .tours/.memory in the codebase to confirm its existence and usage",
+            "description": "Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role",
+            "paramsSchema": [],
+            "returns": "{ file: string; line: number; context: string; }[]",
+            "code": "function searchToursMemoryPath(): { file: string; line: number; context: string }[] {\n  // Use searchText to find all occurrences of '.tours/.memory' in the workspace\n  const matches = searchText('.tours/.memory');\n  return matches.map(m => ({ file: m.file, line: m.line, context: m.text.trim() }));\n}",
+            "output": {
+              "result": [
+                {
+                  "file": ".tours/.memory/8bbdd70ec3d478897e7fa877e6b7a0636f9efa28734ee963a1426d6094b40887.json",
+                  "line": 1,
+                  "context": "[{\"id\":\"search_tours_memory_path\",\"objective\":\"Find all references to the path .tours/.memory in the codebase to confirm its existence and usage\",\"description\":\"Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role\",\"code\":\"() => searchText(\\\".tours/.memory\\\")\",\"parameters\":[],\"paramsSchema\":[],\"executionMode\":\"strict\",\"outputContract\":{\"returns\":\"SourceMatch[]\",\"itemFields\":[\"file\",\"line\"],\"bounds\":{\"maxItems\":50,\"maxBytes\":8000}},\"limits\":{\"maxItems\":50,\"maxBytes\":8000},\"uncertaintyCases\":[],\"revision\":\"3e8f2aa7da11dd6d26bbb6e3dffde679471c9780\",\"validated\":true}]"
+                },
+                {
+                  "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+                  "line": 2,
+                  "context": "* Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role"
+                },
+                {
+                  "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+                  "line": 3,
+                  "context": "* @question Find all references to the path .tours/.memory in the codebase to confirm its existence and usage"
+                },
+                {
+                  "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+                  "line": 7,
+                  "context": "export const search_tours_memory_path = () => searchText(\".tours/.memory\");"
+                },
+                {
+                  "file": "README.md",
+                  "line": 39,
+                  "context": "La mémoire activée par `--memory` reste propre au projet dans `.tours/.memory/` ; les journaux structurés sont dans `.tours/.log/`. Les fichiers `.tour` existants sont conservés. Lancer les questions séquentiellement : le catalogue ne garantit pas les écritures concurrentes. Les références valides prouvent l'existence des lignes, pas la justesse sémantique de l'explication. Le harnais répond à des questions et ne crée pas de Tour."
+                },
+                {
+                  "file": "skills/codetour-research/SKILL.md",
+                  "line": 25,
+                  "context": "Pass the actual absolute root and one question as separate, safely quoted arguments; do not interpolate user text into shell syntax. Wait for each JSON result before starting the next call. Use the same workspace so all calls share `.tours/.memory/`. If a result is partial or failed, retain its status and uncertainties; request a targeted follow-up only for a gap that matters, or explain the limitation. Do not repeat a sufficient answer. Direct file reads are allowed for targeted verification; record what was checked and why. Substantial research belongs in the harness."
+                }
+              ],
+              "returned": 6,
+              "observed": 6,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2577,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified."
+              ]
+            }
+          },
+          {
+            "name": "list_relevant_files",
+            "question": "List TypeScript files in src/ related to memory, replay, and function_try to confirm their presence in the workspace",
+            "description": "Lists files under src/ that are likely to contain the logic for memory persistence, matching, replay, and function_try to enable further analysis",
+            "paramsSchema": [],
+            "returns": "string[]",
+            "code": "function listRelevantFiles(): string[] {\n  // List files in src/ and related directories to confirm presence of memory-related files\n  const files = listFiles();\n  const relevant = files.filter(f => \n    f.startsWith('src/') && \n    (f.includes('memory') || f.includes('replay') || f.includes('function_try'))\n  );\n  return relevant;\n}",
+            "output": {
+              "result": [
+                "src/memory-output.ts",
+                "src/memory.ts"
+              ],
+              "returned": 2,
+              "observed": 2,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 40,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified."
+              ]
+            }
+          },
+          {
+            "name": "find_memory_run_references",
+            "question": "Find all references to memory_run in the codebase to understand its usage and parameters",
+            "description": "Searches the entire codebase for any occurrence of 'memory_run' to identify how it is called and what parameters it expects",
+            "paramsSchema": [],
+            "returns": "{ file: string; line: number; context: string; }[]",
+            "code": "function findMemoryRunReferences(): { file: string; line: number; context: string }[] {\n  // Search for memory_run function calls or definitions\n  const matches = searchText('memory_run');\n  return matches.map(m => ({ file: m.file, line: m.line, context: m.text.trim() }));\n}",
+            "output": {
+              "result": [
+                {
+                  "file": "dist/decomposition-prompt.js",
+                  "line": 3,
+                  "context": "export const DECOMPOSITION_PROMPT = 'Investigate the supplied technical question. Treat the initial research plan as a flexible guide: follow new evidence freely without revising or tracking the plan. When memory is enabled, consult memory_list for useful capabilities and run matching procedures with memory_run, verify their evidence, and investigate only what is missing. In Code Mode with memory, use function_try to explore via the provided primitives and propose useful parameterized procedures. Do not recreate equivalent procedures or nest memorized procedures. Do not write a Tour. Return sourced findings and explicit uncertainties.';"
+                },
+                {
+                  "file": "dist/explore.js",
+                  "line": 277,
+                  "context": "else if (codeMode && ((call.name === 'code' && typeof call.arguments.code === 'string') || (call.name === 'function_try' && typeof call.arguments.source === 'string') || (library && call.name === 'memory_run' && typeof call.arguments.id === 'string'))) {"
+                },
+                {
+                  "file": "dist/explore.js",
+                  "line": 278,
+                  "context": "const stored = call.name === 'memory_run' ? library?.get(String(call.arguments.id)) : undefined;"
+                },
+                {
+                  "file": "dist/explore.js",
+                  "line": 279,
+                  "context": "if (call.name === 'memory_run' && !stored)"
+                },
+                {
+                  "file": "dist/explore.js",
+                  "line": 291,
+                  "context": "scriptCall = { type: stored ? 'memory_run' : 'function_try', name: stored ? stored.id : 'function_try' };"
+                },
+                {
+                  "file": "dist/explore.js",
+                  "line": 292,
+                  "context": "// Ticket #191: any memory_run/function_try call — accepted or failed —"
+                },
+                {
+                  "file": "dist/explore.js",
+                  "line": 312,
+                  "context": "// Compact, structured, bounded, sourced output for memory_run AND function_try."
+                },
+                {
+                  "file": "dist/explore.js",
+                  "line": 364,
+                  "context": "recordCall({ type: scriptCall?.type ?? 'function_try', name: call.name === 'memory_run' ? String(call.arguments.id ?? call.name) : 'function_try', callId: call.id, questionId, parameters: stored ? { id: stored.id, params } : undefined, inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, runStarted, new Date());"
+                },
+                {
+                  "file": "dist/explore.js",
+                  "line": 388,
+                  "context": ": call.name === 'memory_run' ? { id: call.arguments.id, params: call.arguments.params }"
+                },
+                {
+                  "file": "dist/explore.js",
+                  "line": 423,
+                  "context": "const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (TypeScript identifier), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. Wrapping obligation: the ten permanent primitives (listFiles, searchText, searchIdentifiers, readLines, readAround, listSymbols, findDefinitions, findReferences, getImports, getGitDiff) are NOT exposed as direct tools — they are only callable inside a function_try source. Wrap the primitives a question needs in one TypeScript function expression with typed inputs and try it with function_try(source, params); direct primitive calls are impossible in this mode. Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines}, and listFiles() returns paths. Give useful procedures a valid TypeScript identifier and parameterize variations. When a stored procedure fails or is unusable for its declared subject, you may submit a corrected function_try under its existing id only if its purpose and contract remain unchanged; otherwise use a new name. Supply question as a stable canonical question independent of this Tour and a non-empty English description stating what the procedure does, its scope, the shape of its result and its key limits. Every successfully executed function_try trial is automatically submitted to post-Tour selection — no remember flag is needed; the selection step considers actual contribution, correctness, documentation and duplication, and consolidation re-executes the exact code and params and re-checks every citation, so only deterministically validated selectio"
+                },
+                {
+                  "file": "dist/memory-output.js",
+                  "line": 3,
+                  "context": "* calls (memory_run / function_try)."
+                },
+                {
+                  "file": "dist/memory.js",
+                  "line": 212,
+                  "context": "memory_run: (id, params = {}) => {"
+                },
+                {
+                  "file": "dist/mistral.js",
+                  "line": 21,
+                  "context": "{ type: 'function', function: { name: 'memory_run', description: 'Run a stored script with new parameters against the current workspace.', parameters: { type: 'object', properties: { id: { type: 'string' }, params: { type: 'object' } }, required: ['id', 'params'] } } },"
+                },
+                {
+                  "file": "dist/mistral.js",
+                  "line": 94,
+                  "context": "? { id: call.id, name: 'memory_run', arguments: { id: named.id, params: Object.fromEntries(named.parameters.filter(parameter => args[parameter] !== undefined).map(parameter => [parameter, args[parameter]])) } }"
+                },
+                {
+                  "file": "skills/codetour-research/SKILL.md",
+                  "line": 28,
+                  "context": "5. In that report separate observed facts, inferences and unmeasurable information. Use Copilot tool history to identify direct reads when available; otherwise mark direct research **not measurable**, never zero. Assess delegation separately from Tour quality: substantial research performed mainly outside the harness fails delegation even if a Tour was written. Structural citation validation establishes that lines exist, not that their interpretation is correct; identify semantic review as a separate check. For each persisted function, inspect its source and observed output when available: state the recurring question it addresses and the structured evidence it actually produces. Do not claim useful learning from persistence alone: require a later `memory_run` execution of the same identity and evidence that its output was relevant to the later question. Do not force a function into memory when none is useful. Include an honest outcome when evidence or telemetry is missing."
+                },
+                {
+                  "file": "src/decomposition-prompt.ts",
+                  "line": 4,
+                  "context": "export const DECOMPOSITION_PROMPT = 'Investigate the supplied technical question. Treat the initial research plan as a flexible guide: follow new evidence freely without revising or tracking the plan. When memory is enabled, consult memory_list for useful capabilities and run matching procedures with memory_run, verify their evidence, and investigate only what is missing. In Code Mode with memory, use function_try to explore via the provided primitives and propose useful parameterized procedures. Do not recreate equivalent procedures or nest memorized procedures. Do not write a Tour. Return sourced findings and explicit uncertainties.';"
+                },
+                {
+                  "file": "src/exploration-helpers.ts",
+                  "line": 28,
+                  "context": "type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'decomposition_decision' | 'run_end';"
+                },
+                {
+                  "file": "src/explore.ts",
+                  "line": 214,
+                  "context": "let scriptCall: { type: 'memory_run' | 'function_try'; name: string } | undefined;"
+                },
+                {
+                  "file": "src/explore.ts",
+                  "line": 265,
+                  "context": "else if (codeMode && ((call.name === 'code' && typeof call.arguments.code === 'string') || (call.name === 'function_try' && typeof call.arguments.source === 'string') || (library && call.name === 'memory_run' && typeof call.arguments.id === 'string'))) {"
+                },
+                {
+                  "file": "src/explore.ts",
+                  "line": 266,
+                  "context": "const stored = call.name === 'memory_run' ? library?.get(String(call.arguments.id)) : undefined;"
+                },
+                {
+                  "file": "src/explore.ts",
+                  "line": 267,
+                  "context": "if (call.name === 'memory_run' && !stored) throw new Error('Unknown script');"
+                },
+                {
+                  "file": "src/explore.ts",
+                  "line": 276,
+                  "context": "scriptCall = { type: stored ? 'memory_run' : 'function_try', name: stored ? stored.id : 'function_try' };"
+                },
+                {
+                  "file": "src/explore.ts",
+                  "line": 277,
+                  "context": "// Ticket #191: any memory_run/function_try call — accepted or failed —"
+                }
+              ],
+              "returned": 23,
+              "observed": 50,
+              "truncated": true,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 7944,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "Output truncated to 50 items / 8000 bytes; it is NOT exhaustive. Re-run with narrower params to see the remainder."
+              ]
+            }
+          },
+          {
+            "name": "read_src_memory_ts",
+            "question": "Extract lines from src/memory.ts to understand procedure persistence and matching",
+            "description": "Searches for occurrences of 'src/memory.ts' in the workspace and returns lines from that file to analyze its implementation of memory persistence and matching",
+            "paramsSchema": [],
+            "returns": "{ file: string; line: number; text: string; }[]",
+            "code": "function readSrcMemoryTs(): { file: string; line: number; text: string }[] {\n  const matches = searchText('memory.ts');\n  // Filter to lines that actually contain content from src/memory.ts\n  const relevant = matches.filter(m => m.file === 'src/memory.ts');\n  return relevant.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}",
+            "output": {
+              "result": [],
+              "returned": 0,
+              "observed": 0,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "No matches observed for these params."
+              ]
+            }
+          },
+          {
+            "name": "find_memory_ts_key_lines",
+            "question": "Extract key lines from src/memory.ts related to procedure persistence and matching",
+            "description": "Searches src/memory.ts for lines that define exports, functions, interfaces, or comments related to persistence, matching, replay, or function_try to understand how procedures are stored and retrieved",
+            "paramsSchema": [],
+            "returns": "{ file: string; line: number; text: string; }[]",
+            "code": "function findMemoryTsKeyLines(): { file: string; line: number; text: string }[] {\n  // Search for key lines in src/memory.ts related to persistence and matching\n  const matches = searchText('src/memory.ts');\n  const relevant = matches\n    .filter(m => m.file === 'src/memory.ts')\n    .filter(m => \n      m.text.includes('export') ||\n      m.text.includes('function') ||\n      m.text.includes('interface') ||\n      m.text.includes('class') ||\n      m.text.includes('//') && (m.text.includes('persist') || m.text.includes('match') || m.text.includes('replay') || m.text.includes('function_try'))\n    );\n  return relevant.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}",
+            "output": {
+              "result": [],
+              "returned": 0,
+              "observed": 0,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "No matches observed for these params."
+              ]
+            }
+          },
+          {
+            "name": "find_memory_ts_exports_and_comments",
+            "question": "Extract export statements and comments from src/memory.ts to understand its API and logic",
+            "description": "Searches src/memory.ts for lines containing 'export' or '//' to identify public functions, classes, and comments that describe persistence and matching logic",
+            "paramsSchema": [],
+            "returns": "{ file: string; line: number; text: string; }[]",
+            "code": "function findMemoryTsExportsAndComments(): { file: string; line: number; text: string }[] {\n  // Search for export statements and comments in src/memory.ts\n  const matches = searchText('src/memory.ts');\n  const relevant = matches\n    .filter(m => m.file === 'src/memory.ts')\n    .filter(m => m.text.includes('export') || m.text.includes('//'));\n  return relevant.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}",
+            "output": {
+              "result": [],
+              "returned": 0,
+              "observed": 0,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "No matches observed for these params."
+              ]
+            }
+          },
+          {
+            "name": "find_memory_ts_key_terms",
+            "question": "Extract key lines from src/memory.ts related to procedure persistence and matching",
+            "description": "Searches src/memory.ts for lines that define exports, functions, interfaces, classes, or comments related to persistence, matching, replay, or function_try to understand how procedures are stored and retrieved",
+            "paramsSchema": [],
+            "returns": "{ file: string; line: number; text: string; }[]",
+            "code": "function findMemoryTsKeyTerms(): { file: string; line: number; text: string }[] {\n  // Search for key terms in src/memory.ts\n  const matches = searchText('src/memory.ts');\n  const relevant = matches\n    .filter(m => m.file === 'src/memory.ts')\n    .filter(m => \n      m.text.includes('export') ||\n      m.text.includes('function') ||\n      m.text.includes('interface') ||\n      m.text.includes('class') ||\n      (m.text.includes('//') && \n       (m.text.toLowerCase().includes('persist') ||\n        m.text.toLowerCase().includes('match') ||\n        m.text.toLowerCase().includes('replay') ||\n        m.text.toLowerCase().includes('function_try')))\n    );\n  return relevant.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}",
+            "output": {
+              "result": [],
+              "returned": 0,
+              "observed": 0,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "No matches observed for these params."
+              ]
+            }
+          },
+          {
+            "name": "find_memory_output_ts_key_lines",
+            "question": "Extract key lines from src/memory-output.ts related to output persistence and relevance proofs",
+            "description": "Searches src/memory-output.ts for lines that define exports, functions, interfaces, classes, or comments related to output storage, replay, and relevance proofs",
+            "paramsSchema": [],
+            "returns": "{ file: string; line: number; text: string; }[]",
+            "code": "function findMemoryOutputTsKeyLines(): { file: string; line: number; text: string }[] {\n  // Search for key lines in src/memory-output.ts\n  const matches = searchText('src/memory-output.ts');\n  const relevant = matches\n    .filter(m => m.file === 'src/memory-output.ts')\n    .filter(m => \n      m.text.includes('export') ||\n      m.text.includes('function') ||\n      m.text.includes('interface') ||\n      m.text.includes('class') ||\n      (m.text.includes('//') && \n       (m.text.toLowerCase().includes('output') ||\n        m.text.toLowerCase().includes('replay') ||\n        m.text.toLowerCase().includes('relevance') ||\n        m.text.toLowerCase().includes('persist')))\n    );\n  return relevant.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}",
+            "output": {
+              "result": [],
+              "returned": 0,
+              "observed": 0,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "No matches observed for these params."
+              ]
+            }
+          },
+          {
+            "name": "find_memory_output_ts_lines",
+            "question": "Extract all lines from src/memory-output.ts to analyze its implementation",
+            "description": "Searches for all lines in src/memory-output.ts to enable analysis of its exports, functions, and comments related to output persistence and relevance proofs",
+            "paramsSchema": [],
+            "returns": "{ file: string; line: number; text: string; }[]",
+            "code": "function findMemoryOutputTsLines(): { file: string; line: number; text: string }[] {\n  // Search for any lines in src/memory-output.ts\n  const matches = searchText('src/memory-output.ts');\n  return matches.map(m => ({ file: m.file, line: m.line, text: m.text.trim() }));\n}",
+            "output": {
+              "result": [],
+              "returned": 0,
+              "observed": 0,
+              "truncated": false,
+              "bounds": {
+                "maxItems": 50,
+                "maxBytes": 8000
+              },
+              "bytes": 2,
+              "revision": "3e8f2aa7da11dd6d26bbb6e3dffde679471c9780",
+              "provenance": "unverified",
+              "uncertainty": [
+                "No primitive-derived evidence is verified for this output; relations remain unverified.",
+                "No matches observed for these params."
+              ]
+            }
+          }
+        ]
+      },
+      "result": {
+        "response": {
+          "selected": [
+            "search_tours_memory_path",
+            "list_relevant_files",
+            "find_memory_run_references"
+          ]
+        },
+        "selected": [
+          "search_tours_memory_path",
+          "list_relevant_files",
+          "find_memory_run_references"
+        ],
+        "budgetStop": null
+      },
+      "inputTokens": 7164,
+      "outputTokens": 1640,
+      "usageMissing": false,
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 39,
+      "startedAt": "2026-11-17T10:26:12.882Z",
+      "endedAt": "2026-11-17T10:26:21.872Z",
+      "durationMs": 8990
+    },
+    {
+      "type": "function_try",
+      "name": "consolidation-validation",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "fad230b450b7651be5a9c6724af82db34efe2ae1f749df25e4afa1bd1b8f4f16",
+        "fingerprint": "fad230b450b7651be5a9c6724af82db34efe2ae1f749df25e4afa1bd1b8f4f16",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              ".tours/.memory"
+            ]
+          }
+        ],
+        "results": [
+          {
+            "file": ".tours/.memory/8bbdd70ec3d478897e7fa877e6b7a0636f9efa28734ee963a1426d6094b40887.json",
+            "line": 1,
+            "context": "[{\"id\":\"search_tours_memory_path\",\"objective\":\"Find all references to the path .tours/.memory in the codebase to confirm its existence and usage\",\"description\":\"Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role\",\"code\":\"() => searchText(\\\".tours/.memory\\\")\",\"parameters\":[],\"paramsSchema\":[],\"executionMode\":\"strict\",\"outputContract\":{\"returns\":\"SourceMatch[]\",\"itemFields\":[\"file\",\"line\"],\"bounds\":{\"maxItems\":50,\"maxBytes\":8000}},\"limits\":{\"maxItems\":50,\"maxBytes\":8000},\"uncertaintyCases\":[],\"revision\":\"3e8f2aa7da11dd6d26bbb6e3dffde679471c9780\",\"validated\":true}]"
+          },
+          {
+            "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+            "line": 2,
+            "context": "* Searches the entire codebase for any occurrence of the string '.tours/.memory' to identify files that reference this directory and understand its role"
+          },
+          {
+            "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+            "line": 3,
+            "context": "* @question Find all references to the path .tours/.memory in the codebase to confirm its existence and usage"
+          },
+          {
+            "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+            "line": 7,
+            "context": "export const search_tours_memory_path = () => searchText(\".tours/.memory\");"
+          },
+          {
+            "file": "README.md",
+            "line": 39,
+            "context": "La mémoire activée par `--memory` reste propre au projet dans `.tours/.memory/` ; les journaux structurés sont dans `.tours/.log/`. Les fichiers `.tour` existants sont conservés. Lancer les questions séquentiellement : le catalogue ne garantit pas les écritures concurrentes. Les références valides prouvent l'existence des lignes, pas la justesse sémantique de l'explication. Le harnais répond à des questions et ne crée pas de Tour."
+          },
+          {
+            "file": "skills/codetour-research/SKILL.md",
+            "line": 25,
+            "context": "Pass the actual absolute root and one question as separate, safely quoted arguments; do not interpolate user text into shell syntax. Wait for each JSON result before starting the next call. Use the same workspace so all calls share `.tours/.memory/`. If a result is partial or failed, retain its status and uncertainties; request a targeted follow-up only for a gap that matters, or explain the limitation. Do not repeat a sufficient answer. Direct file reads are allowed for targeted verification; record what was checked and why. Substantial research belongs in the harness."
+          }
+        ],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 113,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:26:22.112Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; context: string; }[]"
+        },
+        "source": "function searchToursMemoryPath(): { file: string; line: number; context: string }[] {\n  // Use searchText to find all occurrences of '.tours/.memory' in the workspace\n  const matches = searchText('.tours/.memory');\n  return matches.map(m => ({ file: m.file, line: m.line, context: m.text.trim() }));\n}"
+      },
+      "result": {
+        "status": "valid",
+        "references": 6,
+        "validated": 6,
+        "validCount": 6,
+        "validReferences": [
+          {
+            "file": ".tours/.memory/8bbdd70ec3d478897e7fa877e6b7a0636f9efa28734ee963a1426d6094b40887.json",
+            "startLine": 1,
+            "endLine": 1
+          },
+          {
+            "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+            "startLine": 2,
+            "endLine": 2
+          },
+          {
+            "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+            "startLine": 3,
+            "endLine": 3
+          },
+          {
+            "file": ".tours/.memory/functions/search_tours_memory_path.ts",
+            "startLine": 7,
+            "endLine": 7
+          },
+          {
+            "file": "README.md",
+            "startLine": 39,
+            "endLine": 39
+          },
+          {
+            "file": "skills/codetour-research/SKILL.md",
+            "startLine": 25,
+            "endLine": 25
+          }
+        ],
+        "invalidReferences": [],
+        "exhaustive": true
+      },
+      "outcome": "reexecuted; citations=6 valid",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 40,
+      "startedAt": "2026-11-17T10:26:21.872Z",
+      "endedAt": "2026-11-17T10:26:22.149Z",
+      "durationMs": 277
+    },
+    {
+      "type": "function_try",
+      "name": "consolidation-validation",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "49a059edb9529093ec4438699d3233be13f9a2971b42784e61fe89dd32a91ff9",
+        "fingerprint": "49a059edb9529093ec4438699d3233be13f9a2971b42784e61fe89dd32a91ff9",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "listFiles",
+            "params": []
+          }
+        ],
+        "results": [
+          "src/memory-output.ts",
+          "src/memory.ts"
+        ],
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 92,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:26:22.339Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "string[]"
+        },
+        "source": "function listRelevantFiles(): string[] {\n  // List files in src/ and related directories to confirm presence of memory-related files\n  const files = listFiles();\n  const relevant = files.filter(f => \n    f.startsWith('src/') && \n    (f.includes('memory') || f.includes('replay') || f.includes('function_try'))\n  );\n  return relevant;\n}"
+      },
+      "result": {
+        "status": "no_references",
+        "references": 0,
+        "validated": 0,
+        "validCount": 0,
+        "validReferences": [],
+        "invalidReferences": [],
+        "exhaustive": true
+      },
+      "outcome": "reexecuted; citations=none",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 41,
+      "startedAt": "2026-11-17T10:26:22.149Z",
+      "endedAt": "2026-11-17T10:26:22.369Z",
+      "durationMs": 220
+    },
+    {
+      "type": "function_try",
+      "name": "consolidation-validation",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "execution": {
+        "version": "2.0",
+        "identifier": "c3623e90c9dea0be9fb86f88536edd779e245c99b21dc20654946d117d3b3f8f",
+        "fingerprint": "c3623e90c9dea0be9fb86f88536edd779e245c99b21dc20654946d117d3b3f8f",
+        "parameters": {},
+        "executedCalls": [
+          {
+            "name": "searchText",
+            "params": [
+              "memory_run"
+            ]
+          }
+        ],
+        "results": {
+          "truncated": true,
+          "bytes": 14765
+        },
+        "errors": [],
+        "proofs": [],
+        "revision": "",
+        "durationMs": 92,
+        "validation": {
+          "typeChecking": {
+            "valid": true,
+            "errors": []
+          },
+          "primitiveWhitelist": {
+            "valid": true,
+            "violations": []
+          },
+          "reExecutionVerified": false,
+          "documentation": {
+            "status": "passed",
+            "timestamp": "2026-11-17T10:26:22.558Z",
+            "checks": {
+              "typeChecking": true,
+              "primitiveWhitelist": true,
+              "callTracing": true,
+              "reExecution": false
+            },
+            "notes": [
+              "Local technical validation only",
+              "No claims of semantic validation",
+              "No claims of exhaustiveness"
+            ]
+          }
+        },
+        "contract": {
+          "paramsSchema": [],
+          "returns": "{ file: string; line: number; context: string; }[]"
+        },
+        "source": "function findMemoryRunReferences(): { file: string; line: number; context: string }[] {\n  // Search for memory_run function calls or definitions\n  const matches = searchText('memory_run');\n  return matches.map(m => ({ file: m.file, line: m.line, context: m.text.trim() }));\n}",
+        "truncated": true
+      },
+      "result": {
+        "status": "valid",
+        "references": 50,
+        "validated": 50,
+        "validCount": 50,
+        "validReferences": [
+          {
+            "file": "dist/decomposition-prompt.js",
+            "startLine": 3,
+            "endLine": 3
+          },
+          {
+            "file": "dist/explore.js",
+            "startLine": 277,
+            "endLine": 277
+          },
+          {
+            "file": "dist/explore.js",
+            "startLine": 278,
+            "endLine": 278
+          },
+          {
+            "file": "dist/explore.js",
+            "startLine": 279,
+            "endLine": 279
+          },
+          {
+            "file": "dist/explore.js",
+            "startLine": 291,
+            "endLine": 291
+          },
+          {
+            "file": "dist/explore.js",
+            "startLine": 292,
+            "endLine": 292
+          },
+          {
+            "file": "dist/explore.js",
+            "startLine": 312,
+            "endLine": 312
+          },
+          {
+            "file": "dist/explore.js",
+            "startLine": 364,
+            "endLine": 364
+          },
+          {
+            "file": "dist/explore.js",
+            "startLine": 388,
+            "endLine": 388
+          },
+          {
+            "file": "dist/explore.js",
+            "startLine": 423,
+            "endLine": 423
+          }
+        ],
+        "invalidReferences": [],
+        "exhaustive": true
+      },
+      "outcome": "reexecuted; citations=50 valid",
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 42,
+      "startedAt": "2026-11-17T10:26:22.369Z",
+      "endedAt": "2026-11-17T10:26:22.591Z",
+      "durationMs": 222
+    },
+    {
+      "type": "run_end",
+      "name": "run_end",
+      "inputTokens": 152257,
+      "outputTokens": 11683,
+      "usageMissing": false,
+      "outcome": "status=complete; stopReason=none",
+      "result": {
+        "status": "complete",
+        "stopReason": null,
+        "inputTokens": 152257,
+        "outputTokens": 11683,
+        "modelCalls": 21,
+        "toolCalls": 18,
+        "durationMs": 85004
+      },
+      "runId": "9e48cb6d-6d67-4eb0-a231-60d5c09704ba",
+      "seq": 43,
+      "startedAt": "2026-11-17T10:26:22.592Z",
+      "endedAt": "2026-11-17T10:26:22.592Z",
+      "durationMs": 0
+    }
+  ],
+  "consolidationReport": {
+    "accepted": [
+      "find_memory_run_references"
+    ],
+    "rejected": [
+      {
+        "name": "search_tours_memory_path",
+        "reason": "Identifier collision: only a failed existing function with the same contract can be corrected"
+      },
+      {
+        "name": "list_relevant_files",
+        "reason": "Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated"
+      }
+    ],
+    "duplicates": [],
+    "indeterminate": [],
+    "reconciliation": [
+      {
+        "name": "search_tours_memory_path",
+        "proposed": true,
+        "replayed": true,
+        "accepted": false,
+        "reason": "Identifier collision: only a failed existing function with the same contract can be corrected"
+      },
+      {
+        "name": "list_relevant_files",
+        "proposed": true,
+        "replayed": true,
+        "accepted": false,
+        "reason": "Non-executed or unverified candidate: only procedures actually executed during a validated Tour may be consolidated"
+      },
+      {
+        "name": "find_memory_run_references",
+        "proposed": true,
+        "replayed": true,
+        "accepted": true
+      },
+      {
+        "name": "read_src_memory_ts",
+        "proposed": false,
+        "replayed": false,
+        "accepted": false,
+        "reason": "Not selected by the model for consolidation"
+      },
+      {
+        "name": "find_memory_ts_key_lines",
+        "proposed": false,
+        "replayed": false,
+        "accepted": false,
+        "reason": "Not selected by the model for consolidation"
+      },
+      {
+        "name": "find_memory_ts_exports_and_comments",
+        "proposed": false,
+        "replayed": false,
+        "accepted": false,
+        "reason": "Not selected by the model for consolidation"
+      },
+      {
+        "name": "find_memory_ts_key_terms",
+        "proposed": false,
+        "replayed": false,
+        "accepted": false,
+        "reason": "Not selected by the model for consolidation"
+      },
+      {
+        "name": "find_memory_output_ts_key_lines",
+        "proposed": false,
+        "replayed": false,
+        "accepted": false,
+        "reason": "Not selected by the model for consolidation"
+      },
+      {
+        "name": "find_memory_output_ts_lines",
+        "proposed": false,
+        "replayed": false,
+        "accepted": false,
+        "reason": "Not selected by the model for consolidation"
+      }
+    ]
+  }
+}
