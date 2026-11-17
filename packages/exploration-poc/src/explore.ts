@@ -9,6 +9,8 @@ import type { CitationValidation } from './citation-validator.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposition-prompt.ts';
 import { primitiveNames } from './tool-contract.ts';
 import { createHash } from 'node:crypto';
+import { researchLog } from './research-log.ts';
+import type { Logger } from 'pino';
 
 function derivedCandidateName(question: string, code: string): string {
   const words = (question.toLowerCase().match(/[a-z]+/g) ?? [])
@@ -122,6 +124,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0, autoAttachedEvidence: 0, selectionSkip: null as string | null };
   const callTrace: CallTraceItem[] = [];
   let callSeq = 0;
+  let logger: Logger | undefined;
   let requestedEvidenceRecovery = false;
   let requestedJsonRecovery = false;
   let nextOutputLimit = 16384;
@@ -135,7 +138,9 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   let emptyMemoryListCount = 0;
   let emptyMemoryListNoteEmitted = false;
   const recordCall = (base: Omit<CallTraceItem, 'seq' | 'runId' | 'startedAt' | 'endedAt' | 'durationMs'>, startedAt: Date, endedAt: Date): void => {
-    callTrace.push({ ...base, runId, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() });
+    const entry = { ...base, runId, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() };
+    callTrace.push(entry);
+    logger?.info({ event: 'trace', trace: entry });
   };
   // A published plan becomes an immutable version: valid plans update the known
   // question ids, invalid or missing plans stay visible anomalies — never a
@@ -170,6 +175,19 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   };
   try {
   const tools = await workspace(root);
+  logger = researchLog(root, runId);
+  logger.info({ event: 'research_start', objective, root, budget: limits, codeMode, memoryEnabled: !!memory, model: model.snapshot?.() });
+  const complete: Model['complete'] = async (messages, options) => {
+    logger!.info({ event: 'model_request', messages, options: { maxOutputTokens: options?.maxOutputTokens, codeMode: options?.codeMode, memory: options?.memory, queryContract: options?.queryContract, toolsEnabled: options?.toolsEnabled } });
+    try {
+      const response = await model.complete(messages, options);
+      logger!.info({ event: 'model_response', response, model: model.snapshot?.() });
+      return response;
+    } catch (error) {
+      logger!.error({ event: 'model_error', error: String(error), model: model.snapshot?.() });
+      throw error;
+    }
+  };
   const library = memory ? await scriptMemory(root, memory.directory) : undefined;
   // Background revision lookup (lazily filled): used for staleness + sourcing.
   let currentRevision: string | undefined;
@@ -241,7 +259,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     try {
       metrics.modelCalls++;
       response = await Promise.race([
-        model.complete(state.messages, { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library, queryContract: memory?.queryContract }),
+        complete(state.messages, { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library, queryContract: memory?.queryContract }),
         new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('budget-duration')); }, remainingMs); })
       ]);
     } catch (error) {
@@ -633,7 +651,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       try {
         metrics.modelCalls++;
         const response = await Promise.race([
-          model.complete([
+          complete([
             { role: 'system', content: 'Select useful executed procedures for future Tours. Every successfully executed trial is submitted automatically; judge each candidate by its durable utility for future Tours, not by its effect on this Tour. This Tour has passed structural evidence validation only, not semantic verification. Return JSON {"selected":["canonicalName"]}; select only from the executed candidates below. You may select none. Compare canonical question, scope, inputs, output and limits with existing entries; prefer reuse over equivalent duplicates.' },
             { role: 'user', content: JSON.stringify(selectionInput) }
           ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(16384, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode: false, memory: false, toolsEnabled: false }),
@@ -784,11 +802,14 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   const plan: PlanRecord = { status: planStatus, runId, versions: planVersions, anomalies: [...planAnomalies] };
   const status = state.result === undefined || state.stopReason ? 'partial' as const : 'complete' as const;
   recordRunEnd(status, state.stopReason ?? null);
-  return { ...result, runId, plan, status, stopReason: state.stopReason ?? null, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
+  const final = { ...result, runId, plan, status, stopReason: state.stopReason ?? null, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
+  logger.info({ event: 'research_end', result: final });
+  return final;
   } catch (error) {
     metrics.durationMs = Date.now() - startedMs;
     const plan: PlanRecord = { status: planStatus, runId, versions: planVersions, anomalies: [...planAnomalies] };
     recordRunEnd('failed', null);
+    logger?.error({ event: 'research_failed', error: String(error), metrics, plan });
     throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
       exploration: { objective, runId, plan, status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace }
     });

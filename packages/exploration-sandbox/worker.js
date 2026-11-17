@@ -242,6 +242,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
       trace.errors.push({ code: 'PATH_001', line: 0, message: 'Invalid path' });
       throw new Error('Invalid path');
     }
+    if (name === '.tours/.log' || name.startsWith('.tours/.log/')) throw new Error('Diagnostic logs are not workspace evidence');
     let current = root;
     for (const part of name.split('/')) {
       current = path.join(current, part);
@@ -261,6 +262,7 @@ async function main({ workspace, code, paramsJson, deadline, memorizedNames = []
         if (found.length >= maxFiles) return;
         if (entry.name === '.git' || entry.name === 'node_modules' || entry.isSymbolicLink()) continue;
         const name = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (name === '.tours/.log') continue;
         if (entry.isDirectory()) visit(path.join(dir, entry.name), name);
         else if (entry.isFile()) found.push(name);
       }
