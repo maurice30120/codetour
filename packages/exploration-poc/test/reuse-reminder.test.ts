@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 
 // Ticket #191 (spec #183): before accepting the final answer, every plan
 // question marked reuse=true that neither memory_run nor function_try served

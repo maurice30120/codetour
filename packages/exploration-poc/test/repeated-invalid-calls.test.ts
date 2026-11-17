@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 
 const bad = { source: 'function explore(terms: string[]) { return searchText(terms[0]); }', params: { terms: ['start'] } };
 const good = { source: 'function explore(p: { terms: string[] }) { return searchText(p.terms[0]); }', params: { terms: ['start'] } };

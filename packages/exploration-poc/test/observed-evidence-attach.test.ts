@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 
 // Regression captured on the 2026-11-17 zai-glm-5-3-flash run: the model declared
 // a component without evidence and the run died on the schema. The harness now

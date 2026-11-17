@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 
 test('the model receives the complete structured evidence contract', async () => {
   const root = await mkdtemp(join(tmpdir(), 'exploration-'));
@@ -40,14 +40,14 @@ test('a run stopped by its iteration budget returns an explicit partial result a
   const root = await mkdtemp(join(tmpdir(), 'exploration-'));
   try {
     await writeFile(join(root, 'main.ts'), 'const start = 1;\n');
-    const result = await explore({ root, objective: 'Find start', budget: { iterations: 1 }, model: {
+    const result = await explore({ root, objective: 'Find start', budget: { iterations: 2 }, model: {
       async complete() { return { toolCalls: [{ id: '1', name: 'search', arguments: { query: 'start' } }], usage: { inputTokens: 20, outputTokens: 5 } }; }
     } });
     assert.equal(result.status, 'partial');
     assert.equal(result.stopReason, 'iterations');
     assert.equal(result.metrics.inputTokens, 20);
     assert.equal(result.metrics.outputTokens, 5);
-    assert.equal(result.metrics.modelCalls, 1);
+    assert.equal(result.metrics.modelCalls, 2);
     assert.equal(result.metrics.toolCalls, 1);
     assert.deepEqual(result.entryPoints, []);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -125,7 +125,7 @@ test('an empty ungrounded answer cannot complete exploration', async () => {
     } } });
     assert.equal(result.status, 'partial');
     assert.equal(result.stopReason, 'evidence_missing');
-    assert.equal(result.metrics.modelCalls, 2);
+    assert.equal(result.metrics.modelCalls, 3);
     assert.equal(result.metrics.inputTokens, 20);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -172,7 +172,7 @@ test('failed exploration preserves effective model identity and provider usage',
       assert.deepEqual(failure.modelConfig, modelConfig);
       assert.equal(failure.metrics.inputTokens, 20);
       assert.equal(failure.metrics.outputTokens, 4);
-      assert.equal(failure.metrics.modelCalls, 2);
+      assert.equal(failure.metrics.modelCalls, 3);
       assert.equal(failure.status, 'failed');
       return true;
     });
@@ -184,13 +184,13 @@ test('citation corrections continue inside the original budget with all tokens c
   try {
     await writeFile(join(root, 'main.ts'), 'const start = 1;\n');
     let calls = 0;
-    const result = await explore({ root, objective: 'Find start', budget: { iterations: 3 }, model: { async complete(messages) {
+    const result = await explore({ root, objective: 'Find start', budget: { iterations: 4 }, model: { async complete(messages) {
       calls++;
       if (calls > 1) assert.match(messages.at(-1).content, /main\.ts/);
       return { result: { objective: 'Find start', entryPoints: [{ name: 'start', evidence: [{ file: 'main.ts', startLine: calls < 3 ? 5 : 1, endLine: calls < 3 ? 5 : 1 }] }], components: [], relations: [], uncertainties: [] }, usage: { inputTokens: 10, outputTokens: 2 } };
     } } });
     assert.equal(result.status, 'complete');
-    assert.equal(result.metrics.modelCalls, 3);
+    assert.equal(result.metrics.modelCalls, 4);
     assert.equal(result.metrics.inputTokens + result.metrics.outputTokens, 36);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { realpath } from 'node:fs/promises';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 
 // Ticket #190 (spec #183): on the 2026-11-16 real run the model called
 // memory_list six times with returned=0 and revised its plan seven times

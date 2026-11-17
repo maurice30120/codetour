@@ -153,7 +153,7 @@ test('the reconciliation log distinguishes proposed, replayed, accepted and reje
 // ============================================================================
 
 import { mkdir, writeFile } from 'node:fs/promises';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 import type { ConsolidationReport } from '../src/memory.ts';
 
 const emptyResult = { objective: 'Inspect repository', entryPoints: [], components: [], relations: [], uncertainties: [] };

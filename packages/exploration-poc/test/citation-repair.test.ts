@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 import { scriptMemory } from '../src/memory.ts';
 
 const emptyResult = { objective: 'Inspect repository', entryPoints: [], components: [], relations: [], uncertainties: [] };

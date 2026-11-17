@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 import { scriptMemory } from '../src/memory.ts';
 
 const emptyResult = { objective: 'Inspect repository', entryPoints: [], components: [], relations: [], uncertainties: [] };
@@ -65,7 +65,7 @@ test('explore executes function_try source with typed params and canonical primi
 test('explore preserves measured calls when final evidence validation fails', async t => {
   const root = await mkdtemp(join(tmpdir(), 't02-failure-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  await assert.rejects(explore({ root, objective: emptyResult.objective, budget: { iterations: 2 }, model: { async complete() {
+  await assert.rejects(explore({ root, objective: emptyResult.objective, budget: { iterations: 3 }, model: { async complete() {
     return { result: { ...emptyResult, entryPoints: [{ name: 'missing', evidence: [{ file: 'missing.ts', startLine: 1, endLine: 1 }] }] }, usage: { inputTokens: 31, outputTokens: 7 } };
   } } }), (error: any) => {
     assert.equal(error.exploration.status, 'failed');

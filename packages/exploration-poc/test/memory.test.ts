@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 
 test('compact search marks truncation and suppresses only unchanged repeated results', async () => {
   const base = await mkdtemp(join(tmpdir(), 'compact-search-'));

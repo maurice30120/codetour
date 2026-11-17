@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { explore } from '../src/explore.ts';
+import { explore } from './fixture-explore.ts';
 
 test('repairs a final result missing a required field without losing its evidence', async t => {
   const root = await mkdtemp(join(tmpdir(), 'schema-recovery-'));
