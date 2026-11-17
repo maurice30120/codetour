@@ -316,7 +316,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       let scriptCall: { type: 'memory_run' | 'function_try'; name: string } | undefined;
       try {
         if (primitiveNames.has(call.name)) {
-          const { runScript } = await import('../../exploration-sandbox/index.js');
+          const { runScript } = await import('codetour-exploration-sandbox');
           const args = call.arguments;
           const expressions: Record<string, string> = {
             listFiles: 'listFiles(params.maxFiles)', searchText: 'searchText(params.query)', searchIdentifiers: 'searchIdentifiers(params.identifier)',
@@ -371,7 +371,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('Invalid parameters');
           const remaining = limits.durationMs - (Date.now() - startedMs);
           if (remaining <= 0) return { messages: outputs, stopReason: 'duration' };
-          const { runScript } = await import('../../exploration-sandbox/index.js');
+          const { runScript } = await import('codetour-exploration-sandbox');
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), remaining);
           scriptCall = { type: stored ? 'memory_run' : 'function_try', name: stored ? stored.id : 'function_try' };
@@ -666,7 +666,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       const verificationStarted = new Date();
       let replay: ConsolidationCandidate['replay'];
       try {
-        const { runScript } = await import('../../exploration-sandbox/index.js');
+        const { runScript } = await import('codetour-exploration-sandbox');
         const rerun = await runScript({ workspace: root, code: attempt.candidate.code, params: attempt.params, strict: true, includeTrace: true, timeoutMs: Math.min(5000, remaining) });
         // Every citation is re-checked exactly as it was checked at trial time:
         // every candidate reaching this replay is a strict function_try trial
@@ -692,7 +692,7 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         const remaining = limits.durationMs - (Date.now() - startedMs);
         if (remaining > 0) {
           try {
-            const { runScript } = await import('../../exploration-sandbox/index.js');
+            const { runScript } = await import('codetour-exploration-sandbox');
             const query = `__codetour_missing_${crypto.randomUUID()}__`;
             const probe = await runScript({ workspace: root, code: attempt.candidate.code, params: { ...attempt.params, query }, scripts: library.sources(), timeoutMs: Math.min(5000, remaining) });
             if (JSON.stringify(probe) === JSON.stringify(attempt.output)) { metrics.memoryQueryRejects++; continue; }

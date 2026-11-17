@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { runScript } from '../../exploration-sandbox/index.js';
+import { runScript } from 'codetour-exploration-sandbox';
 
 // This evaluates the narrow contract “literal query -> file/line evidence”.
 // It is not a validator for arbitrary scripts or for their security.
