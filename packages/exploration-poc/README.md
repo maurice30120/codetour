@@ -11,6 +11,22 @@ npm pack
 npm install -g ./codetour-exploration-poc-0.1.0.tgz
 ```
 
+Pour rendre le skill disponible dans tous les projets de l'utilisateur, copier
+son dossier depuis ce checkout vers l'emplacement personnel Copilot (vérifier
+auparavant qu'il ne contient pas une version à conserver) :
+
+```sh
+mkdir -p ~/.copilot/skills/codetour-research
+cp skills/codetour-research/SKILL.md ~/.copilot/skills/codetour-research/SKILL.md
+```
+
+Dans une nouvelle session VS Code Copilot Chat, sélectionner
+`/codetour-research` et ajouter la demande de Project Tour. Vérifier que la
+commande apparaît et que son invocation charge les instructions ; noter la
+version de VS Code et tout comportement divergent. Le skill est manuel : les
+demandes ordinaires continuent d'utiliser le parcours Copilot et MCP habituel.
+Voir [Agent Skills dans VS Code](https://code.visualstudio.com/docs/agent-customization/agent-skills).
+
 Depuis tout projet, lancer une question à la fois :
 
 ```sh
