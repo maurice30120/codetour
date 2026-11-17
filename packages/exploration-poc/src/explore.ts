@@ -1,67 +1,20 @@
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
-import { z } from 'zod';
+import { createEvidenceTracker, resultSchema } from './exploration-evidence.ts';
 import { workspace } from './workspace.ts';
 import { scriptMemory } from './memory.ts';
 import type { ConsolidationCandidate, ReconciliationOutcome } from './memory.ts';
 import { boundedOutput, looksLikeEvidence, sampleEvidenceRefs } from './memory-output.ts';
 import { citationAccess, citationRepairFeedback, validateCitations } from './citation-validator.ts';
-import type { CitationValidation } from './citation-validator.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposition-prompt.ts';
 import { primitiveNames } from './tool-contract.ts';
-import { createHash } from 'node:crypto';
-
-function derivedCandidateName(question: string, code: string): string {
-  const words = (question.toLowerCase().match(/[a-z]+/g) ?? [])
-    .filter(word => word.length > 2 && !new Set(['what', 'where', 'which', 'how', 'the', 'are', 'and', 'for', 'does', 'from', 'with', 'this', 'that']).has(word))
-    .slice(0, 5).map(word => word.slice(0, 12));
-  const subject = (words.length ? words : ['procedure']).map(word => word[0].toUpperCase() + word.slice(1)).join('');
-  const suffix = createHash('sha256').update(code).digest('hex').slice(0, 8);
-  return `inspectRepo${subject}Code${suffix}`;
-}
-
-const evidence = z.object({ file: z.string().min(1), startLine: z.number().int().positive(), endLine: z.number().int().positive() });
-const item = z.object({ name: z.string(), evidence: z.array(evidence) });
-const resultSchema = z.object({ objective: z.string(), entryPoints: z.array(item), components: z.array(item), relations: z.array(z.object({ from: z.string(), to: z.string(), evidence: z.array(evidence) })), uncertainties: z.array(z.string()) });
+import { derivedCandidateName, citationOutcome, summarizeOutcome } from './exploration-helpers.ts';
+import type { Model, Budget, PlanRecord, CallTraceItem } from './exploration-helpers.ts';
+export type { Model, Budget, PlanRecord, CallTraceItem, ToolCall } from './exploration-helpers.ts';
 
 export { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION };
 
-export type ToolCall = { id: string; name: string; arguments: Record<string, unknown> };
-export type PlanRecord = { status: 'recorded' | 'invalid' | 'missing'; runId: string; initial?: unknown; error?: string };
-export type Model = {
-  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean; toolsEnabled?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
-  /** Actual provider parameters of the last request (real provenance, no defaults). */
-  snapshot?(): { model?: string; temperature?: number; maxOutputTokens?: number };
-};
-export type Budget = { iterations?: number; calls?: number; tokens?: number; durationMs?: number };
 const State = Annotation.Root({ messages: Annotation<any[]>({ reducer: (a, b) => a.concat(b), default: () => [] }), result: Annotation<any>, stopReason: Annotation<string> });
 
-/** Per-call usage/telemetry trace: real timestamps, real durations, provider usage. */
-export interface CallTraceItem {
-  seq: number;
-  runId: string;
-  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'plan_revised' | 'decomposition_decision' | 'reuse_reminder' | 'run_end';
-  name: string;
-  /** Provider tool-call id (observed calls), absent on model/plan entries. */
-  callId?: string;
-  /** Declared question id carried by the call (question_id argument). */
-  questionId?: string;
-  startedAt: string;
-  endedAt: string;
-  durationMs: number;
-  inputTokens: number | null;
-  outputTokens: number | null;
-  /** True when the provider response carried no usage fields — never fabricated after the fact. */
-  usageMissing: boolean;
-  outcome?: string;
-  error?: string;
-  finishReason?: string | null;
-  contentShape?: string | string[];
-  reasoningTokens?: number;
-  maxOutputTokens?: number;
-  execution?: unknown;
-  parameters?: Record<string, unknown>;
-  result?: unknown;
-}
 
 interface Attempt {
   id?: string;
@@ -74,27 +27,7 @@ interface Attempt {
   proofSignature?: string[];
 }
 
-/**
- * Citation outcome summary shared by the trial-time trace and the
- * consolidation replay trace (single source for the duplicated mapping).
- */
-function citationOutcome(citations?: CitationValidation): string {
-  if (!citations) return '';
-  const summary = citations.status === 'valid' ? `${citations.validCount} valid` : citations.status === 'validation_failed' ? `validation_failed (${citations.validCount}/${citations.references} valid)` : 'none';
-  return `; citations=${summary}`;
-}
-
-/**
- * An exploration returns validated references, never Tour prose.
- *
- * Deliberate single-function seam (review note — divergent change): explore()
- * absorbs the plan protocol, citation gating, reconciliation and budgets
- * because they all share the same closure state (metrics, the trace recorder,
- * budget clocks, workspace tools and the memory catalogue handle). Extracting
- * a mid-run module would mean threading that state through new seams for no
- * behavioural gain in this diagnostic phase, and the seam under test is the
- * explore() entry point itself (spec #183: use the existing harness seam).
- */
+/** An exploration returns validated references, never Tour prose. */
 export async function explore({ root, objective, model, budget = {}, codeMode = false, memory }: { root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string; validateQuery?: boolean; queryContract?: boolean; compactSearch?: boolean } }) {
   if (memory && !codeMode) throw new Error('Script memory requires Code Mode');
   const limits = { iterations: budget.iterations ?? 8, calls: budget.calls ?? 32, tokens: budget.tokens ?? 32000, durationMs: budget.durationMs ?? 60000 };
@@ -150,41 +83,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const runtimeFailures: string[] = [];
   const runtimeObservations: Array<{ id: string; params: Record<string, unknown>; ok: boolean }> = [];
   const unusableIds = new Set<string>();
-  // Deterministic evidence attachment: every (file, line) range actually
-  // observed through tool outputs is recorded here; items the model names
-  // without evidence in its final answer are anchored from this buffer.
-  const observedEvidence: Array<{ file: string; line: number; text: string }> = [];
-  const noteEvidence = (node: unknown, file?: string): void => {
-    if (!node || typeof node !== 'object' || observedEvidence.length >= 4000) return;
-    if (Array.isArray(node)) { for (const child of node) noteEvidence(child, file); return; }
-    const record = node as Record<string, unknown>;
-    const currentFile = typeof record.file === 'string' && record.file ? record.file : file;
-    if (typeof record.line === 'number' && Number.isInteger(record.line) && record.line > 0 && currentFile) {
-      observedEvidence.push({ file: currentFile, line: record.line, text: typeof record.text === 'string' ? record.text : '' });
-    }
-    for (const value of Object.values(record)) if (value && typeof value === 'object') noteEvidence(value, currentFile);
-  };
-  const EVIDENCE_STOPWORDS = new Set(['and', 'the', 'for', 'with', 'from', 'this', 'that', 'into', 'onto', 'aux', 'avec', 'des', 'dans', 'dont', 'est', 'les', 'une', 'pour', 'quoi', 'sur', 'entre', 'vers']);
-  const attachEvidence = (result: z.infer<typeof resultSchema>): void => {
-    for (const target of [...result.entryPoints, ...result.components, ...result.relations]) {
-      if (target.evidence.length > 0) continue;
-      const label = 'name' in target ? target.name : `${target.from} ${target.to}`;
-      const lowered = (label.match(/[A-Za-z0-9]+/g) ?? []).map(token => token.toLowerCase()).filter(token => token.length >= 3 && !EVIDENCE_STOPWORDS.has(token));
-      if (!lowered.length) continue;
-      const picked: z.infer<typeof resultSchema>['entryPoints'][number]['evidence'] = [];
-      const seen = new Set<string>();
-      for (const observed of observedEvidence) {
-        const haystack = `${observed.file}\n${observed.text}`.toLowerCase();
-        if (!lowered.some(term => haystack.includes(term))) continue;
-        const key = `${observed.file}:${observed.line}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        picked.push({ file: observed.file, startLine: observed.line, endLine: observed.line });
-        if (picked.length >= 3) break;
-      }
-      if (picked.length) { target.evidence = picked; metrics.autoAttachedEvidence += picked.length; }
-    }
-  };
+  const { noteEvidence, attachEvidence } = createEvidenceTracker();
   const previousSearchOutputs = new Map<string, { content: string; toolCallId: string }>();
   let previousFailedCall: string | undefined;
   let consecutiveFailures = 0;
@@ -254,7 +153,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
         throw parsed.error;
       }
       const result = parsed.data;
-      attachEvidence(result);
+      metrics.autoAttachedEvidence += attachEvidence(result);
       const hasEvidence = [...result.entryPoints, ...result.components, ...result.relations].some(item => item.evidence.length > 0);
       if (!hasEvidence) {
         // One recovery inside the original budget; no extra run or hidden retry.
@@ -742,14 +641,3 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   }
 }
 
-function summarizeOutcome(output: unknown): string {
-  if (output && typeof output === 'object' && 'error' in (output as Record<string, unknown>)) return 'error';
-  if (Array.isArray(output)) return `returned=${output.length}`;
-  if (output && typeof output === 'object') {
-    if ('truncated' in (output as Record<string, unknown>) && (output as Record<string, unknown>).truncated === true) return 'truncated';
-    if (looksLikeEvidence(output)) return 'evidence';
-    const keys = Object.keys(output as Record<string, unknown>).slice(0, 4);
-    return `keys=${keys.join(',')}`;
-  }
-  return typeof output === 'string' ? `text=${output.length}` : 'ok';
-}
