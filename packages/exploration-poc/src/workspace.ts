@@ -41,6 +41,8 @@ export async function workspace(root: string) {
     if (!path || typeof path !== 'string' || path.length > 1000) {
       throw new InvalidPathError(path);
     }
+    const requested = relative(base, resolve(base, path));
+    if (requested === '.tours/.log' || requested.startsWith(`.tours${sep}.log${sep}`)) throw new PathOutsideWorkspaceError(path);
     const target = await realpath(resolve(base, path));
     const rel = relative(base, target);
     if (rel === '..' || rel.startsWith(`..${sep}`) || resolve(base, rel) !== target) {
@@ -101,6 +103,7 @@ export async function workspace(root: string) {
           continue;
         }
         const name = currentPrefix ? `${currentPrefix}/${entry.name}` : entry.name;
+        if (name === '.tours/.log') continue;
         if (!name.startsWith(prefix)) {
           if (entry.isDirectory()) {
             await visit(resolve(dir, entry.name), name);
@@ -693,6 +696,7 @@ export async function workspace(root: string) {
           continue;
         }
         const name = currentPrefix ? `${currentPrefix}/${entry.name}` : entry.name;
+        if (name === '.tours/.log') continue;
         
         // Check if the entry name matches the pattern
         const entryMatches = patternRegex.test(entry.name);

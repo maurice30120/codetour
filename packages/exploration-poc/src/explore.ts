@@ -9,6 +9,8 @@ import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposi
 import { primitiveNames } from './tool-contract.ts';
 import { derivedCandidateName, citationOutcome, summarizeOutcome } from './exploration-helpers.ts';
 import type { Model, Budget, PlanRecord, CallTraceItem } from './exploration-helpers.ts';
+import { researchLog } from './research-log.ts';
+import type { Logger } from 'pino';
 export type { Model, Budget, PlanRecord, CallTraceItem, ToolCall } from './exploration-helpers.ts';
 
 export { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION };
@@ -38,6 +40,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const metrics = { inputTokens: 0, outputTokens: 0, usageAvailable: true, modelCalls: 0, toolCalls: 0, durationMs: 0, outputBytes: 0, cost: null as number | null, memoryReuses: 0, memoryPurges: 0, memoryQueryRejects: 0, memoryResultsCompacted: 0, memoryResultsRepeated: 0, autoAttachedEvidence: 0, selectionSkip: null as string | null };
   const callTrace: CallTraceItem[] = [];
   let callSeq = 0;
+  let logger: Logger | undefined;
   let requestedEvidenceRecovery = false;
   let requestedJsonRecovery = false;
   let nextOutputLimit = 16384;
@@ -51,7 +54,9 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   let emptyMemoryListCount = 0;
   let emptyMemoryListNoteEmitted = false;
   const recordCall = (base: Omit<CallTraceItem, 'seq' | 'runId' | 'startedAt' | 'endedAt' | 'durationMs'>, startedAt: Date, endedAt: Date): void => {
-    callTrace.push({ ...base, runId, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() });
+    const entry = { ...base, runId, seq: callSeq++, startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt.getTime() - startedAt.getTime() };
+    callTrace.push(entry);
+    logger?.info({ event: 'trace', trace: entry });
   };
   // Spec #183 trace vocabulary: every run — complete, partial or failed — ends
   // with a run_end entry carrying the stop reason and the final usage.
@@ -65,6 +70,19 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   };
   try {
   const tools = await workspace(root);
+  logger = researchLog(root, runId);
+  logger.info({ event: 'research_start', objective, root, budget: limits, codeMode, memoryEnabled: !!memory, model: model.snapshot?.() });
+  const complete: Model['complete'] = async (messages, options) => {
+    logger!.info({ event: 'model_request', messages, options: { maxOutputTokens: options?.maxOutputTokens, codeMode: options?.codeMode, memory: options?.memory, queryContract: options?.queryContract, toolsEnabled: options?.toolsEnabled } });
+    try {
+      const response = await model.complete(messages, options);
+      logger!.info({ event: 'model_response', response, model: model.snapshot?.() });
+      return response;
+    } catch (error) {
+      logger!.error({ event: 'model_error', error: String(error), model: model.snapshot?.() });
+      throw error;
+    }
+  };
   const library = memory ? await scriptMemory(root, memory.directory) : undefined;
   // Background revision lookup (lazily filled): used for staleness + sourcing.
   let currentRevision: string | undefined;
@@ -102,7 +120,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     try {
       metrics.modelCalls++;
       response = await Promise.race([
-        model.complete(state.messages, { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library, queryContract: memory?.queryContract }),
+        complete(state.messages, { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library, queryContract: memory?.queryContract }),
         new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('budget-duration')); }, remainingMs); })
       ]);
     } catch (error) {
@@ -409,7 +427,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   try {
     metrics.modelCalls++;
     const response = await Promise.race([
-      model.complete([
+      complete([
         { role: 'system', content: 'Plan the investigation of exactly one technical question. Return JSON with arrays "understand", "investigate", and "reuse" (potentially useful catalogue functions). This is a flexible initial guide, not a Tour plan. Do not call tools.' },
         { role: 'user', content: JSON.stringify({ question: objective, catalog: library?.catalog() ?? [] }) }
       ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(4096, limits.tokens)), codeMode: false, memory: false, toolsEnabled: false }),
@@ -481,8 +499,9 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       try {
         metrics.modelCalls++;
         const response = await Promise.race([
-          model.complete([
+          complete([
             { role: 'system', content: 'Select executed procedures that actually contributed to this research, worked correctly, are clearly documented (purpose, parameters, return and limits), and do not duplicate an existing procedure. Project-specific procedures are welcome; do not predict future utility. This result has structural evidence validation only, not semantic verification. Return JSON {"selected":["name"]}; select only from the executed candidates below. You may select none. Compare question, scope, inputs, output and limits with existing entries; prefer reuse over duplicates.' },
+
             { role: 'user', content: JSON.stringify(selectionInput) }
           ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(16384, limits.tokens - metrics.inputTokens - metrics.outputTokens)), codeMode: false, memory: false, toolsEnabled: false }),
           new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('budget-duration')), { once: true }))
@@ -625,10 +644,13 @@ Explore the repository using the tools. Assess whether the evidence answers the 
   const stopReason = state.stopReason ?? (plan.status !== 'recorded' ? 'planning_failed' : null);
   const status = state.result === undefined || stopReason ? 'partial' as const : 'complete' as const;
   recordRunEnd(status, stopReason);
-  return { ...result, runId, plan, status, stopReason, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
+  const final = { ...result, runId, plan, status, stopReason, promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace, consolidationReport };
+  logger.info({ event: 'research_end', result: final });
+  return final;
   } catch (error) {
     metrics.durationMs = Date.now() - startedMs;
     recordRunEnd('failed', null);
+    logger?.error({ event: 'research_failed', error: String(error), metrics, plan });
     throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
       exploration: { objective, runId, plan, status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace }
     });
