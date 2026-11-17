@@ -1,69 +1,22 @@
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
-import { z } from 'zod';
+import { createEvidenceTracker, resultSchema } from './exploration-evidence.ts';
 import { workspace } from './workspace.ts';
 import { scriptMemory } from './memory.ts';
 import type { ConsolidationCandidate, ReconciliationOutcome } from './memory.ts';
 import { boundedOutput, looksLikeEvidence, sampleEvidenceRefs } from './memory-output.ts';
 import { citationAccess, citationRepairFeedback, validateCitations } from './citation-validator.ts';
-import type { CitationValidation } from './citation-validator.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposition-prompt.ts';
 import { primitiveNames } from './tool-contract.ts';
-import { createHash } from 'node:crypto';
+import { derivedCandidateName, citationOutcome, summarizeOutcome } from './exploration-helpers.ts';
+import type { Model, Budget, PlanRecord, CallTraceItem } from './exploration-helpers.ts';
 import { researchLog } from './research-log.ts';
 import type { Logger } from 'pino';
-
-function derivedCandidateName(question: string, code: string): string {
-  const words = (question.toLowerCase().match(/[a-z]+/g) ?? [])
-    .filter(word => word.length > 2 && !new Set(['what', 'where', 'which', 'how', 'the', 'are', 'and', 'for', 'does', 'from', 'with', 'this', 'that']).has(word))
-    .slice(0, 5).map(word => word.slice(0, 12));
-  const subject = (words.length ? words : ['procedure']).map(word => word[0].toUpperCase() + word.slice(1)).join('');
-  const suffix = createHash('sha256').update(code).digest('hex').slice(0, 8);
-  return `inspectRepo${subject}Code${suffix}`;
-}
-
-const evidence = z.object({ file: z.string().min(1), startLine: z.number().int().positive(), endLine: z.number().int().positive() });
-const item = z.object({ name: z.string(), evidence: z.array(evidence) });
-const resultSchema = z.object({ objective: z.string(), entryPoints: z.array(item), components: z.array(item), relations: z.array(z.object({ from: z.string(), to: z.string(), evidence: z.array(evidence) })), uncertainties: z.array(z.string()) });
+export type { Model, Budget, PlanRecord, CallTraceItem, ToolCall } from './exploration-helpers.ts';
 
 export { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION };
 
-export type ToolCall = { id: string; name: string; arguments: Record<string, unknown> };
-export type PlanRecord = { status: 'recorded' | 'invalid' | 'missing'; runId: string; initial?: unknown; error?: string };
-export type Model = {
-  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; queryContract?: boolean; toolsEnabled?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
-  /** Actual provider parameters of the last request (real provenance, no defaults). */
-  snapshot?(): { model?: string; temperature?: number; maxOutputTokens?: number };
-};
-export type Budget = { iterations?: number; calls?: number; tokens?: number; durationMs?: number };
 const State = Annotation.Root({ messages: Annotation<any[]>({ reducer: (a, b) => a.concat(b), default: () => [] }), result: Annotation<any>, stopReason: Annotation<string> });
 
-/** Per-call usage/telemetry trace: real timestamps, real durations, provider usage. */
-export interface CallTraceItem {
-  seq: number;
-  runId: string;
-  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'plan_revised' | 'decomposition_decision' | 'reuse_reminder' | 'run_end';
-  name: string;
-  /** Provider tool-call id (observed calls), absent on model/plan entries. */
-  callId?: string;
-  /** Declared question id carried by the call (question_id argument). */
-  questionId?: string;
-  startedAt: string;
-  endedAt: string;
-  durationMs: number;
-  inputTokens: number | null;
-  outputTokens: number | null;
-  /** True when the provider response carried no usage fields — never fabricated after the fact. */
-  usageMissing: boolean;
-  outcome?: string;
-  error?: string;
-  finishReason?: string | null;
-  contentShape?: string | string[];
-  reasoningTokens?: number;
-  maxOutputTokens?: number;
-  execution?: unknown;
-  parameters?: Record<string, unknown>;
-  result?: unknown;
-}
 
 interface Attempt {
   id?: string;
@@ -76,28 +29,8 @@ interface Attempt {
   proofSignature?: string[];
 }
 
-/**
- * Citation outcome summary shared by the trial-time trace and the
- * consolidation replay trace (single source for the duplicated mapping).
- */
-function citationOutcome(citations?: CitationValidation): string {
-  if (!citations) return '';
-  const summary = citations.status === 'valid' ? `${citations.validCount} valid` : citations.status === 'validation_failed' ? `validation_failed (${citations.validCount}/${citations.references} valid)` : 'none';
-  return `; citations=${summary}`;
-}
-
-/**
- * An exploration returns validated references, never Tour prose.
- *
- * Deliberate single-function seam (review note — divergent change): explore()
- * absorbs the plan protocol, citation gating, reconciliation and budgets
- * because they all share the same closure state (metrics, the trace recorder,
- * budget clocks, workspace tools and the memory catalogue handle). Extracting
- * a mid-run module would mean threading that state through new seams for no
- * behavioural gain in this diagnostic phase, and the seam under test is the
- * explore() entry point itself (spec #183: use the existing harness seam).
- */
-export async function explore({ root, objective, model, budget = {}, codeMode = false, memory }: { root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string; validateQuery?: boolean; queryContract?: boolean; compactSearch?: boolean } }) {
+/** An exploration returns validated references, never Tour prose. */
+export async function explore({ root, objective, model, budget = {}, codeMode = false, memory }: { root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string } }) {
   if (memory && !codeMode) throw new Error('Script memory requires Code Mode');
   const limits = { iterations: budget.iterations ?? 8, calls: budget.calls ?? 32, tokens: budget.tokens ?? 32000, durationMs: budget.durationMs ?? 60000 };
   if (Object.values(limits).some(n => !Number.isFinite(n) || n <= 0)) throw new Error('Budgets must be positive');
@@ -140,7 +73,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   logger = researchLog(root, runId);
   logger.info({ event: 'research_start', objective, root, budget: limits, codeMode, memoryEnabled: !!memory, model: model.snapshot?.() });
   const complete: Model['complete'] = async (messages, options) => {
-    logger!.info({ event: 'model_request', messages, options: { maxOutputTokens: options?.maxOutputTokens, codeMode: options?.codeMode, memory: options?.memory, queryContract: options?.queryContract, toolsEnabled: options?.toolsEnabled } });
+    logger!.info({ event: 'model_request', messages, options: { maxOutputTokens: options?.maxOutputTokens, codeMode: options?.codeMode, memory: options?.memory, toolsEnabled: options?.toolsEnabled } });
     try {
       const response = await model.complete(messages, options);
       logger!.info({ event: 'model_response', response, model: model.snapshot?.() });
@@ -168,42 +101,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   const runtimeFailures: string[] = [];
   const runtimeObservations: Array<{ id: string; params: Record<string, unknown>; ok: boolean }> = [];
   const unusableIds = new Set<string>();
-  // Deterministic evidence attachment: every (file, line) range actually
-  // observed through tool outputs is recorded here; items the model names
-  // without evidence in its final answer are anchored from this buffer.
-  const observedEvidence: Array<{ file: string; line: number; text: string }> = [];
-  const noteEvidence = (node: unknown, file?: string): void => {
-    if (!node || typeof node !== 'object' || observedEvidence.length >= 4000) return;
-    if (Array.isArray(node)) { for (const child of node) noteEvidence(child, file); return; }
-    const record = node as Record<string, unknown>;
-    const currentFile = typeof record.file === 'string' && record.file ? record.file : file;
-    if (typeof record.line === 'number' && Number.isInteger(record.line) && record.line > 0 && currentFile) {
-      observedEvidence.push({ file: currentFile, line: record.line, text: typeof record.text === 'string' ? record.text : '' });
-    }
-    for (const value of Object.values(record)) if (value && typeof value === 'object') noteEvidence(value, currentFile);
-  };
-  const EVIDENCE_STOPWORDS = new Set(['and', 'the', 'for', 'with', 'from', 'this', 'that', 'into', 'onto', 'aux', 'avec', 'des', 'dans', 'dont', 'est', 'les', 'une', 'pour', 'quoi', 'sur', 'entre', 'vers']);
-  const attachEvidence = (result: z.infer<typeof resultSchema>): void => {
-    for (const target of [...result.entryPoints, ...result.components, ...result.relations]) {
-      if (target.evidence.length > 0) continue;
-      const label = 'name' in target ? target.name : `${target.from} ${target.to}`;
-      const lowered = (label.match(/[A-Za-z0-9]+/g) ?? []).map(token => token.toLowerCase()).filter(token => token.length >= 3 && !EVIDENCE_STOPWORDS.has(token));
-      if (!lowered.length) continue;
-      const picked: z.infer<typeof resultSchema>['entryPoints'][number]['evidence'] = [];
-      const seen = new Set<string>();
-      for (const observed of observedEvidence) {
-        const haystack = `${observed.file}\n${observed.text}`.toLowerCase();
-        if (!lowered.some(term => haystack.includes(term))) continue;
-        const key = `${observed.file}:${observed.line}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        picked.push({ file: observed.file, startLine: observed.line, endLine: observed.line });
-        if (picked.length >= 3) break;
-      }
-      if (picked.length) { target.evidence = picked; metrics.autoAttachedEvidence += picked.length; }
-    }
-  };
-  const previousSearchOutputs = new Map<string, { content: string; toolCallId: string }>();
+  const { noteEvidence, attachEvidence } = createEvidenceTracker();
   let previousFailedCall: string | undefined;
   let consecutiveFailures = 0;
   const stableValue = (value: unknown): unknown => Array.isArray(value) ? value.map(stableValue) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stableValue(item)])) : value;
@@ -221,7 +119,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     try {
       metrics.modelCalls++;
       response = await Promise.race([
-        complete(state.messages, { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library, queryContract: memory?.queryContract }),
+        complete(state.messages, { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library }),
         new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('budget-duration')); }, remainingMs); })
       ]);
     } catch (error) {
@@ -272,7 +170,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
         throw parsed.error;
       }
       const result = parsed.data;
-      attachEvidence(result);
+      metrics.autoAttachedEvidence += attachEvidence(result);
       const hasEvidence = [...result.entryPoints, ...result.components, ...result.relations].some(item => item.evidence.length > 0);
       if (!hasEvidence) {
         // One recovery inside the original budget; no extra run or hidden retry.
@@ -406,21 +304,6 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             const citationFailure = citations?.status === 'validation_failed' ? citationRepairFeedback(citations) : undefined;
             recordCall({ type: scriptCall.type, name: scriptCall.name, callId: call.id, questionId, parameters: call.name === 'function_try' ? { remember: call.arguments.remember === true, name: call.arguments.name, question: call.arguments.question, description: call.arguments.description } : undefined, inputTokens: null, outputTokens: null, usageMissing: false, execution: execution.trace, result: citationFailure?.validation, outcome: `returned=${bounded.returned}${bounded.truncated ? '; TRUNCATED, not exhaustive' : ''}${citationOutcome(citations)}` }, runStarted, runEnded);
             output = citationFailure ?? (output && typeof output === 'object' && 'staleness' in (output as Record<string, unknown>) ? { ...(output as Record<string, unknown>), result: bounded } : bounded);
-            if (stored && memory?.compactSearch && stored.code === 'search(params.query)' && Array.isArray(raw)) {
-              const matches = raw.slice(0, 8).map((match: any) => ({ ...match, text: typeof match.text === 'string' ? match.text.slice(0, 240) : match.text, textTruncated: typeof match.text === 'string' && match.text.length > 240 }));
-              const compact = { matches, returned: matches.length, observed: raw.length, truncated: raw.length > matches.length, searchIsBounded: true };
-              const key = JSON.stringify([stored.id, params]);
-              const serialized = JSON.stringify(compact);
-              const previous = previousSearchOutputs.get(key);
-              if (previous?.content === serialized) {
-                output = { repeated: true, query: (params as Record<string, unknown>).query, previousToolCallId: previous.toolCallId, message: 'The visible results are identical to the previous call; refer to that output.' };
-                metrics.memoryResultsRepeated++;
-              } else {
-                output = compact;
-                previousSearchOutputs.set(key, { content: serialized, toolCallId: call.id });
-                metrics.memoryResultsCompacted++;
-              }
-            }
             // The description is kept whole: a deterministic gate at consolidation
             // refuses off-format or oversized descriptions with a precise reason
             // instead of silently truncating them (issue #187).
@@ -438,19 +321,6 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
             let candidate = !citationFailure && library && !stored
               ? { objective: String(call.arguments.question ?? objective).slice(0, 500), description, name: name || derivedCandidateName(String(call.arguments.question ?? objective), code), returns: strict ? execution.trace.contract.returns : returns, code, parameters: Object.keys(params).slice(0, 30), paramsSchema: execution.trace.contract?.paramsSchema, executionMode: strict ? 'strict' as const : 'legacy' as const, revision: await resolveRevision() }
               : undefined;
-            if (candidate && memory?.queryContract && call.arguments.contract === 'literal_query') {
-              const { probeLiteralQuery } = await import('./query-probe.mjs');
-              // probeLiteralQuery(code, deadline) — a synthetic fixture proves a
-              // declared literal-query contract (two distinguishable matches + absent
-              // query). Previously a sources object was passed as the deadline by
-              // mistake, turning every probe 'inconclusive'.
-              const validation = await probeLiteralQuery(code, startedMs + limits.durationMs);
-              if (validation.status !== 'pass') {
-                if (stored) runtimeFailures.push(stored.id);
-                candidate = undefined;
-              }
-              output = { result: output, memoryValidation: { status: validation.status, reason: validation.reason ?? 'Two matching queries and an absent query passed.' } };
-            }
             if (library && (stored || candidate)) {
               // Proof spot-check: verify a sample of (file,line) references against the
               // actual fixture. Invalid proofs are explicit — contractRespected=false in
@@ -686,19 +556,6 @@ Explore the repository using the tools. Assess whether the evidence answers the 
         recordCall({ type: 'function_try', name: 'consolidation-validation', inputTokens: null, outputTokens: null, usageMissing: false, error: String(error) }, verificationStarted, new Date());
         replay = { ok: false, reason: `the re-execution failed: ${String((error as Error)?.message ?? error).slice(0, 200)}` };
       }
-      // Optional counterfactual check: only a nonempty unchanged result proves this
-      // particular probe cannot distinguish queries. Empty/error probes are inconclusive.
-      if (memory?.validateQuery && typeof attempt.params?.query === 'string' && Array.isArray(attempt.output) && attempt.output.length > 0) {
-        const remaining = limits.durationMs - (Date.now() - startedMs);
-        if (remaining > 0) {
-          try {
-            const { runScript } = await import('../../exploration-sandbox/index.js');
-            const query = `__codetour_missing_${crypto.randomUUID()}__`;
-            const probe = await runScript({ workspace: root, code: attempt.candidate.code, params: { ...attempt.params, query }, scripts: library.sources(), timeoutMs: Math.min(5000, remaining) });
-            if (JSON.stringify(probe) === JSON.stringify(attempt.output)) { metrics.memoryQueryRejects++; continue; }
-          } catch { /* A failed probe is inconclusive, not proof of a bad script. */ }
-        }
-      }
       // Consolidation trigger (correction 3): a concrete operational signal —
       // execution status success + structural proof availability + contract
       // respected. NEVER a blind benchmark judge. Partial/failed Tours never
@@ -756,16 +613,4 @@ Explore the repository using the tools. Assess whether the evidence answers the 
       exploration: { objective, runId, plan, status: 'failed', error: String((error as Error).message ?? error).slice(0, 500), promptSha256: PROMPT_SHA256, modelConfig: model.snapshot?.(), metrics, callTrace }
     });
   }
-}
-
-function summarizeOutcome(output: unknown): string {
-  if (output && typeof output === 'object' && 'error' in (output as Record<string, unknown>)) return 'error';
-  if (Array.isArray(output)) return `returned=${output.length}`;
-  if (output && typeof output === 'object') {
-    if ('truncated' in (output as Record<string, unknown>) && (output as Record<string, unknown>).truncated === true) return 'truncated';
-    if (looksLikeEvidence(output)) return 'evidence';
-    const keys = Object.keys(output as Record<string, unknown>).slice(0, 4);
-    return `keys=${keys.join(',')}`;
-  }
-  return typeof output === 'string' ? `text=${output.length}` : 'ok';
 }
