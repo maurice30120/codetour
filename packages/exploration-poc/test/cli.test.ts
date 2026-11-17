@@ -15,9 +15,10 @@ test('CLI forwards per-run budgets and model configuration and emits measured fa
   await writeFile(preload, `globalThis.fetch = async (_url, init) => {
     const body = JSON.parse(init.body);
     if (body.model !== 'fixture-model' || body.temperature !== 0.3 || body.max_tokens !== 50) throw new Error('configuration lost');
+    if (!body.tools) return new Response(JSON.stringify({ choices: [{message: {content: JSON.stringify({understand: ['inspect'], investigate: ['find evidence'], reuse: []})}}], usage: {prompt_tokens: 0, completion_tokens: 0}}));
     return new Response(JSON.stringify({ choices: [{message: {content: JSON.stringify({objective: 'inspect', entryPoints: [{name: 'missing', evidence: [{file: 'missing.ts', startLine: 1, endLine: 1}]}], components: [], relations: [], uncertainties: []})}}], usage: {prompt_tokens: 31, completion_tokens: 7}}));
   };`);
-  const child = spawnSync(process.execPath, ['--import', preload, cli, '--code', '--memory', join(root, 'memory'), '--tokens', '50', '--duration-ms', '10000', root, 'inspect'], {
+  const child = spawnSync(process.execPath, ['--import', preload, cli, '--code', '--memory', '--workspace', root, '--tokens', '50', '--duration-ms', '10000', 'inspect'], {
     encoding: 'utf8', timeout: 15000, env: { ...process.env, MISTRAL_API_KEY: 'fixture-key', MISTRAL_MODEL: 'fixture-model', MISTRAL_TEMPERATURE: '0.3' }
   });
   assert.equal(child.status, 1);
