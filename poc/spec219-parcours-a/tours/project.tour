@@ -1,0 +1,41 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Research Harness — tool dispatch, memory validation and observation masking",
+  "description": "A Project Tour of the exploration POC harness at commit 2f1ebcf: how the CLI starts a run, how the explore loop dispatches tool calls, forged-call rejection, and observation masking.",
+  "steps": [
+    {
+      "title": "Overview",
+      "description": "**Orientation.** The exploration POC is a CLI research harness: the `codetour-research` CLI takes one Research Question plus optional budgets and flags, drives a model in a loop, and executes tool calls (`list`, `search`, `read`, `git`, scratch and code runs) between model calls until the model returns a final JSON answer.\n\nTwo protections matter on this route: memory memories are validated before execution, and tool calls outside the allow-list hit a named rejection path instead of failing silently.\n\n**Diagram — Context view**\n\n```mermaid\nflowchart LR\n  Operator[Operator asking a Research Question] --> CLI[codetour-research CLI]\n  CLI --> Loop[explore loop in explore.ts]\n  Loop --> Tools[Workspace tools: list, search, read, git]\n  Loop --> Sandbox[QuickJS sandbox: code, function_try, memory_run]\n  Loop --> Masking[maskObservations before every model call]\n  Masking --> Model[LLM answering with tool calls]\n  Model --> Loop\n```"
+    },
+    {
+      "title": "CLI entry point — arguments, budgets and the output-file lock",
+      "description": "`cli.ts` parses `--code`, `--memory` (optional positional directory), budget flags (`--tokens`, `--duration-ms`, `--iterations`, `--calls`, `--temperature`) and `--output-file`, then builds the Mistral-format model and calls `explore()`.\n\nThe `acquireLock` helper writes a lock file under `.tours/.log/locks/` keyed by the output file path: a second run on the same output file fails fast while the first process is alive, and a stale lock from a dead pid is removed and replaced.",
+      "file": "packages/exploration-poc/src/cli.ts",
+      "pattern": "Refuses a second run"
+    },
+    {
+      "title": "Explore loop — the model node",
+      "description": "`explore.ts` runs the investigate loop: each iteration calls `complete(maskObservations(state.messages, config.context.keepToolResults, spilled), ...)` — the model always sees a history already masked by `maskObservations`.\n\nThe budget guard above it recomputes the output-token allowance each round (`limits.tokens - metrics.inputTokens - metrics.outputTokens`), so a single run cannot exceed its configured tokens, calls, or duration budgets.",
+      "file": "packages/exploration-poc/src/explore.ts",
+      "pattern": "complete\\(maskObservations"
+    },
+    {
+      "title": "Dispatch chain — every tool call is matched exactly once",
+      "description": "After each model reply the loop dispatches `call.name` through a single `if / else if` chain: `readScratch` first, then the workspace tools (`list`, `search`, `read`, `git`), and from the `codeMode` branch the execution of `code` / `function_try` / `memory_run` near the anchored line.\n\nThe final `else throw new Error('Unknown tool or invalid arguments')` closes the chain: call names outside the allow-list never run — they surface as a tool-error observation the model reads on its next turn.",
+      "file": "packages/exploration-poc/src/explore.ts",
+      "pattern": "else if \\(codeMode"
+    },
+    {
+      "title": "Observation masking — old tool results become stubs",
+      "description": "`maskObservations` keeps the last `keep` tool-role messages verbatim (configured as `context.keepToolResults`) and replaces older, larger results with a one-line stub JSON: `{ omitted: true, note, bytes, head }` where `note` names the original call and `head` keeps its first 300 characters.\n\nThis is why dozens of tool calls do not grow the resent prompt linearly — and why a reader should trust the cited sources over the masked stubs: the stub explicitly says to rely on what was noted, and the full result is only available when it was spilled to scratch.",
+      "file": "packages/exploration-poc/src/mask.ts",
+      "pattern": "export const MASK_MIN_BYTES = 2000"
+    },
+    {
+      "title": "Forged calls are named, not hidden",
+      "description": "Reactions to rejection are recorded like any other observation: `Unknown script` for a forged `memory_run` id (this line — `library?.get(id)` returns undefined and the loop throws instead of executing anything), `Invalid parameters` for malformed arguments, and `Unknown tool or invalid arguments` for any call outside the allow-list.\n\nThe model sees the error text on its next model call and can correct course; nothing is retried silently, and the final JSON answer must still pass citation validation before the run reports success.",
+      "file": "packages/exploration-poc/src/explore.ts",
+      "pattern": "throw new Error\\('Unknown script'\\)"
+    }
+  ]
+}
