@@ -7,6 +7,7 @@ import { constants } from 'node:fs';
 import { explore } from './explore.ts';
 import { mistral } from './mistral.ts';
 import { loadConfig } from './config.ts';
+import { knowledgeDirectory } from './knowledge.ts';
 import { PROMPT_SHA256 } from './decomposition-prompt.ts';
 import { summarize } from './summary.ts';
 import type { Budget, Model } from './explore.ts';
@@ -47,6 +48,7 @@ try {
 const args = process.argv.slice(2);
 let codeMode = false;
 let memoryEnabled = false;
+let knowledgeEnabled = false;
 let legacyMemory: string | undefined;
 let workspacePath: string | undefined;
 const budget: Budget = {};
@@ -65,6 +67,7 @@ while (args[0]?.startsWith('--')) {
     // Retain the previous directory argument when it is visibly a path.
     if (args[0] && (args[0].startsWith('/') || args[0].startsWith('./') || args[0].startsWith('../'))) legacyMemory = args.shift();
   }
+  else if (option === '--knowledge') knowledgeEnabled = true;
   else if ((option === '--workspace' || option === '--root') && args[0]) workspacePath = args.shift();
   else if (option === '--output-file' && args[0] && !args[0].startsWith('--')) outputFile = args.shift();
   else if (option === '--tokens' || option === '--token-budget') budget.tokens = positive(args.shift());
@@ -75,7 +78,7 @@ while (args[0]?.startsWith('--')) {
   else if (option === '--model' && args[0]) modelName = args.shift();
   else throw new Error('Unknown or incomplete option');
 }
-if (!args.length) throw new Error('Usage: codetour-research [--workspace <directory>] [--code] [--memory] [--output-file <path>] [--tokens <n>] [--duration-ms <n>] <question>');
+if (!args.length) throw new Error('Usage: codetour-research [--workspace <directory>] [--code] [--memory] [--knowledge] [--output-file <path>] [--tokens <n>] [--duration-ms <n>] <question>');
 // Preserve the old positional workspace form when the first argument is an existing directory.
 if (!workspacePath && args.length > 1) {
   try { if ((await stat(resolve(args[0]))).isDirectory()) workspacePath = args.shift(); } catch { /* question, not a directory */ }
@@ -89,7 +92,10 @@ const objective = args.join(' ').trim();
 if (!objective) throw new Error('A research question is required');
 const canonicalMemory = join(root, '.tours', '.memory');
 if (legacyMemory && resolve(legacyMemory) !== canonicalMemory) throw new Error(`Memory must be stored at ${canonicalMemory}`);
+// Spec #219: the Knowledge catalogue is fixed, under the hidden memory root.
 const memory = memoryEnabled ? { directory: canonicalMemory } : undefined;
+const knowledge = knowledgeEnabled ? { directory: knowledgeDirectory(root) } : undefined;
+if (memory && knowledge) throw new Error('Knowledge mode is exclusive of Memory Functions: use --memory or --knowledge, not both');
 // .tours/config.json holds every setting; CLI options override it per run. Only the API key may also come from the environment.
 const config = await loadConfig(root);
 const effectiveTemperature = temperature ?? config.mistral.temperature;
@@ -108,7 +114,7 @@ if (outputFile) {
   await writeFile(progressFile, '');
   onProgress = event => appendFileSync(progressFile, `${JSON.stringify(event)}\n`);
 }
-const result = await explore({ root, objective, codeMode, memory, budget, model, config, onProgress });
+const result = await explore({ root, objective, codeMode, memory, knowledge, budget, model, config, onProgress });
 await emit(result);
 } catch (error) {
   if ((error as any).lockConflict) { process.stderr.write(`${(error as Error).message}\n`); process.exitCode = 1; }
