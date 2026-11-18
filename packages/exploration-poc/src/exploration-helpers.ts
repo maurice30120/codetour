@@ -15,7 +15,7 @@ export function derivedCandidateName(question: string, code: string): string {
 export type ToolCall = { id: string; name: string; arguments: Record<string, unknown> };
 export type PlanRecord = { status: 'recorded' | 'invalid' | 'missing'; runId: string; initial?: unknown; error?: string };
 export type Model = {
-  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; toolsEnabled?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
+  complete(messages: any[], options?: { signal: AbortSignal; maxOutputTokens: number; codeMode: boolean; memory: boolean; knowledge?: boolean; toolsEnabled?: boolean }): Promise<{ plan?: unknown; toolCalls?: ToolCall[]; result?: unknown; usage?: { inputTokens: number; outputTokens: number } }>;
   /** Actual provider parameters of the last request (real provenance, no defaults). */
   snapshot?(): { model?: string; temperature?: number; maxOutputTokens?: number };
 };
@@ -25,7 +25,7 @@ export type Budget = { iterations?: number; calls?: number; tokens?: number; dur
 export interface CallTraceItem {
   seq: number;
   runId: string;
-  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'function_try' | 'decomposition_plan' | 'decomposition_decision' | 'run_end';
+  type: 'model' | 'tool' | 'memory_run' | 'memory_list' | 'knowledge_read' | 'function_try' | 'decomposition_plan' | 'decomposition_decision' | 'run_end';
   name: string;
   /** Provider tool-call id (observed calls), absent on model/plan entries. */
   callId?: string;
@@ -49,6 +49,8 @@ export interface CallTraceItem {
   result?: unknown;
   /** Per-call reuse outcome of a stored procedure (memory_run only). */
   memory?: { id: string; stale: boolean; proofValid: boolean | null };
+  /** Per-call Knowledge outcome (spec #219): availability vs read vs refusal. */
+  knowledge?: { name: string; status: 'available' | 'read' | 'refused'; reason?: string };
 }
 
 

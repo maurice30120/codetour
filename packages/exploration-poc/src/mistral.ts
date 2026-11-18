@@ -35,7 +35,16 @@ export function mistral(apiKey: string, model = DEFAULT_CONFIG.mistral.model, co
     // Primitives are direct tools for simple reads; function_try is reserved
     // for procedures that compose several primitives.
     const scratchTool = { type: 'function', function: { name: 'readScratch', description: 'Read a saved tool result by resultId and byte offset. Follow nextOffset for the next page; cite original source files, never scratch.', parameters: { type: 'object', properties: { resultId: { type: 'string' }, offset: { type: 'integer' } }, required: ['resultId', 'offset'] } } };
-    const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)), scratchTool, ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...namedMemory];
+    // Spec #219: in the Knowledge run the model discovers entries by name and
+    // description only and reads one validated Markdown body on request.
+    // Memory Functions are absent: no memory_run, no memory_unusable and no
+    // function_try tool is offered, and the harness rejects forged invocations
+    // at dispatch. The plain `code` tool stays available with --code.
+    const knowledgeTools = options?.knowledge ? [
+      { type: 'function', function: { name: 'memory_list', description: 'Discover the available Knowledge entries: name and description only (their bodies load on request).', parameters: { type: 'object', properties: { query: { type: 'string' } } } } },
+      { type: 'function', function: { name: 'memory_read', description: 'Read one Knowledge entry by exact name: the harness verifies the complete declared evidence contract and returns the validated Markdown body. Knowledge is read, never executed.', parameters: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } } }
+    ] : [];
+    const availableTools = [...(options?.memory ? primitiveTools : tools).filter(tool => !(exclusive || config.removeSearch) || !['search', 'searchText'].includes(tool.function.name)), scratchTool, ...(options?.codeMode && !exclusive && !config.removeCode ? [options.memory ? functionTry : codeTool] : []), ...(options?.memory ? memoryTools : []), ...(!options?.knowledge ? namedMemory : []), ...knowledgeTools];
     const requestMaxTokens = options?.maxOutputTokens;
     lastRequest.model = model; lastRequest.temperature = config.temperature ?? DEFAULT_CONFIG.mistral.temperature; lastRequest.maxOutputTokens = requestMaxTokens;
     const apiUrl = config.apiUrl ?? DEFAULT_CONFIG.mistral.apiUrl;

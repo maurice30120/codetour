@@ -8,6 +8,7 @@ import { DEFAULT_CONFIG } from './config.ts';
 import type { HarnessConfig } from './config.ts';
 import { scriptMemory, validateDescription } from './memory.ts';
 import type { ConsolidationCandidate, ReconciliationOutcome } from './memory.ts';
+import { loadKnowledgeLibrary } from './knowledge.ts';
 import { boundedOutput, looksLikeEvidence, sampleEvidenceRefs } from './memory-output.ts';
 import { citationAccess, citationRepairFeedback, validateCitations } from './citation-validator.ts';
 import { DECOMPOSITION_PROMPT, PROMPT_SHA256, PROMPT_VERSION } from './decomposition-prompt.ts';
@@ -36,8 +37,12 @@ interface Attempt {
 }
 
 /** An exploration returns validated references, never Tour prose. */
-export async function explore({ root, objective, model, budget = {}, codeMode = false, memory, config = DEFAULT_CONFIG, onProgress }: { onProgress?: (event: Record<string, unknown>) => void; root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string }; config?: HarnessConfig }) {
+export async function explore({ root, objective, model, budget = {}, codeMode = false, memory, knowledge, config = DEFAULT_CONFIG, onProgress }: { onProgress?: (event: Record<string, unknown>) => void; root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string }; knowledge?: { directory: string }; config?: HarnessConfig }) {
   if (memory && !codeMode) throw new Error('Script memory requires Code Mode');
+  // Spec #219: the experimental Knowledge run is a distinct mode — Memory
+  // Functions stay entirely outside it (no discovery, exposure, execution,
+  // creation or consolidation), so the two options never combine.
+  if (memory && knowledge) throw new Error('Knowledge mode is exclusive of Memory Functions: use --memory or --knowledge, not both');
   const limits = { iterations: budget.iterations ?? config.budget.iterations, calls: budget.calls ?? config.budget.calls, tokens: budget.tokens ?? config.budget.tokens, durationMs: budget.durationMs ?? config.budget.durationMs };
   const { scriptTimeoutMs, maxOutputTokens, planMaxOutputTokens } = config.limits;
   if (Object.values(limits).some(n => !Number.isFinite(n) || n <= 0)) throw new Error('Budgets must be positive');
@@ -87,7 +92,11 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   try {
   const tools = await workspace(root, { exclude: config.search.exclude });
   logger = researchLog(root, runId, config.log);
-  logger.info({ event: 'research_start', objective, root, budget: limits, codeMode, memoryEnabled: !!memory, model: model.snapshot?.() });
+  const library = memory ? await scriptMemory(root, memory.directory) : undefined;
+  // Knowledge catalogue (spec #219): read-only, deterministic verification, no
+  // consolidation. A missing or invalid catalogue never breaks a search.
+  const knowledgeLibrary = knowledge ? await loadKnowledgeLibrary(root, knowledge.directory) : undefined;
+  logger.info({ event: 'research_start', objective, root, budget: limits, codeMode, memoryEnabled: !!memory, knowledgeEnabled: !!knowledgeLibrary, model: model.snapshot?.() });
   const complete: Model['complete'] = async (messages, options) => {
     logger!.info({ event: 'model_request', messages, options: { maxOutputTokens: options?.maxOutputTokens, codeMode: options?.codeMode, memory: options?.memory, toolsEnabled: options?.toolsEnabled } });
     try {
@@ -99,7 +108,6 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       throw error;
     }
   };
-  const library = memory ? await scriptMemory(root, memory.directory) : undefined;
   // Background revision lookup (lazily filled): used for staleness + sourcing.
   let currentRevision: string | undefined;
   const resolveRevision = async (): Promise<string> => {
@@ -145,7 +153,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       metrics.modelCalls++;
       progress('investigate');
       response = await Promise.race([
-        complete(maskObservations(state.messages, config.context.keepToolResults, spilled), { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library, ...(finalizingAfterLoop ? { toolsEnabled: false } : {}) }),
+        complete(maskObservations(state.messages, config.context.keepToolResults, spilled), { signal: controller.signal, maxOutputTokens: outputLimit, codeMode, memory: !!library, knowledge: !!knowledgeLibrary, ...(finalizingAfterLoop ? { toolsEnabled: false } : {}) }),
         new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error('budget-duration')); }, remainingMs); })
       ]);
     } catch (error) {
@@ -244,6 +252,8 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
       let failed = false;
       let attempt: Attempt | undefined;
       let scriptCall: { type: 'memory_run' | 'function_try'; name: string } | undefined;
+      // Knowledge read outcome for the trace (spec #219): available vs read vs refused.
+      let knowledgeRead: { name: string; status: 'read' | 'refused'; reason?: string } | undefined;
       try {
         if (call.name === 'readScratch') {
           if (typeof call.arguments.resultId !== 'string' || typeof call.arguments.offset !== 'number') throw new Error('resultId and offset are required');
@@ -332,7 +342,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           for (const previous of attempts) if (previous.candidate?.name === id) abandonedAttempts.add(previous);
           output = { recordedAfterValidation: true };
         }
-        else if (codeMode && ((call.name === 'code' && typeof call.arguments.code === 'string') || (call.name === 'function_try' && typeof call.arguments.source === 'string') || (library && call.name === 'memory_run' && typeof call.arguments.id === 'string'))) {
+        else if (codeMode && ((call.name === 'code' && typeof call.arguments.code === 'string') || (!knowledgeLibrary && call.name === 'function_try' && typeof call.arguments.source === 'string') || (library && call.name === 'memory_run' && typeof call.arguments.id === 'string'))) {
           const stored = call.name === 'memory_run' ? library?.get(String(call.arguments.id)) : undefined;
           if (call.name === 'memory_run' && !stored) throw new Error('Unknown script');
           const code = stored?.code ?? String(call.arguments.source ?? call.arguments.code);
@@ -432,6 +442,28 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           }
           finally { clearTimeout(timer); }
         }
+        else if (knowledgeLibrary && call.name === 'memory_list') {
+          // Knowledge discovery (spec #219): name and description only.
+          const query = typeof call.arguments.query === 'string' ? call.arguments.query : undefined;
+          output = await knowledgeLibrary.list(query);
+        }
+        else if (knowledgeLibrary && call.name === 'memory_read' && typeof call.arguments.name === 'string') {
+          // Deterministic Knowledge read (spec #219): every declared file
+          // proof is verified first; a refusal returns exactly `invalid` — no
+          // body, no cited path and no hash value. Knowledge is read, never
+          // executed.
+          const readStarted = new Date();
+          const selected = await knowledgeLibrary.read(String(call.arguments.name));
+          const readEnded = new Date();
+          if (selected.status === 'valid') {
+            output = selected.body;
+            knowledgeRead = { name: selected.name, status: 'read' };
+          } else {
+            output = 'invalid';
+            knowledgeRead = { name: String(call.arguments.name), status: 'refused', reason: selected.reason };
+          }
+          recordCall({ type: 'knowledge_read', name: 'memory_read', callId: call.id, questionId, parameters: { name: call.arguments.name }, inputTokens: null, outputTokens: null, usageMissing: false, result: output, outcome: selected.status === 'valid' ? undefined : `refused=${selected.reason}`, ...(knowledgeRead ? { knowledge: knowledgeRead } : {}) }, readStarted, readEnded);
+        }
         else throw new Error('Unknown tool or invalid arguments');
       } catch (error) { failed = true; output = { error: String((error as Error).message ?? error).slice(0, 500) }; }
       const identity = call.name === 'function_try' ? { source: call.arguments.source, params: call.arguments.params }
@@ -481,7 +513,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
           }
         }
       } else { consecutiveOverlappingReads = 0; overlappingReadWarningEmitted = false; }
-      if (!scriptCall) {
+      if (!scriptCall && !knowledgeRead) {
         // Plain primitives and memory catalogue calls: real timestamps and durations.
         const toolEnded = new Date();
         recordCall({ type: call.name === 'memory_list' ? 'memory_list' : 'tool', name: call.name, callId: call.id, questionId, parameters: call.arguments, result: output, inputTokens: null, outputTokens: null, usageMissing: false, outcome: summarizeOutcome(output) }, toolStarted, toolEnded);
@@ -520,6 +552,10 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     return { messages: outputs, stopReason: reason() };
   }).addEdge(START, 'model').addConditionalEdges('model', state => state.result !== undefined || state.stopReason ? END : 'model').compile();
   const memoryInstructions = library ? ` Script memory is enabled. memory_list(query) returns the catalogue WITHOUT function source code: id (TypeScript identifier), objective (canonical question), description (scope), typed params, output contract, limits and uncertainty cases. Available entries: ${JSON.stringify(library.catalog())}. If a listed function can help, call memory_run with its id and suitable params, verify its proofs, and complete only what is missing. The permanent primitives (listFiles, searchText, searchIdentifiers, readLines, readLineFragment, readAround, listSymbols, findDefinitions, findReferences, getImports, getGitDiff) are available as direct tools: use them for simple reads and searches. When a reusable procedure would add value and no stored procedure or primitive already covers it, try function_try to compose primitives into structured, cited evidence. Do not create a function merely to satisfy a quota; conclude when the evidence is sufficient. Use a TypeScript function expression with typed inputs; the harness passes params to it. searchText(query) returns {file,line,text}[], readLines(file,start,end) returns {file,start,lines,nextLine,truncatedLines}; continue with nextLine and the same end, and recover truncated lines with readLineFragment(file,line,offset), starting at offset 0 and continuing with nextOffset. listFiles() returns paths. Give useful procedures a valid TypeScript identifier and parameterize variations. When a stored procedure fails or is unusable for its declared subject, you may submit a corrected function_try under its existing id only if its purpose and contract remain unchanged; otherwise use a new name. Supply question as a stable canonical question independent of this Tour and a non-empty English description (ASCII only: no accented characters, even when the question is in French) stating what the procedure does, its scope, the shape of its result and its key limits. Every successfully executed function_try trial is automatically submitted to post-Tour selection — no remember flag is needed; the selection step considers actual contribution, correctness, documentation and duplication, and consolidation re-executes the exact code and params and re-checks every citation, so only deterministically validated selections persist. Do not wrap a primitive merely to remember it. Combine independent outputs in your Tour logic; never call one memorized procedure from another. Syntactic matches are candidates, not proven semantic relations; report missing evidence as uncertainty. If a stored function was selected for its declared subject but returned unusable output, call memory_unusable. The catalogue above is already complete: do not call memory_list to rediscover it. If no entry fits, build the missing procedure with function_try early instead of repeating searches.` : '';
+  // Spec #219 Knowledge run: curated Markdown bodies behind deterministic
+  // evidence; availability never injects content, Memory Functions are absent.
+  const knowledgeCatalogList = knowledgeLibrary ? await knowledgeLibrary.catalog() : [];
+  const knowledgeInstructions = knowledgeLibrary ? ` Experimental Knowledge mode. Knowledge entries hold curated Markdown bodies with deterministic evidence. memory_list(query) discovers the available entries by name and description — available now: ${JSON.stringify(knowledgeCatalogList)} — without loading any body. memory_read(name) verifies the entry's whole declared evidence contract (SHA-256 of every cited file) and returns its validated Markdown body; a refused entry returns invalid and no detail. Knowledge is interpreted, never executed. Memory Functions are unavailable in this run (no memory_run, no function_try, no consolidation); forged calls are rejected at dispatch.` : '';
   // A separate model call creates a local guide before any workspace tool runs.
   // It shares the exploration budgets and never dictates subsequent tool calls.
   const planningStarted = new Date();
@@ -531,7 +567,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
     const response = await Promise.race([
       complete([
         { role: 'system', content: 'Plan the investigation of exactly one technical question. Return JSON with arrays "understand", "investigate", and "reuse" (potentially useful catalogue functions). This is a flexible initial guide, not a Tour plan. Do not call tools.' },
-        { role: 'user', content: JSON.stringify({ question: objective, catalog: library?.catalog() ?? [] }) }
+        { role: 'user', content: JSON.stringify({ question: objective, catalog: knowledgeCatalogList.length ? knowledgeCatalogList : (library?.catalog() ?? []) }) }
       ], { signal: controller.signal, maxOutputTokens: Math.max(1, Math.min(planMaxOutputTokens, limits.tokens)), codeMode: false, memory: false, toolsEnabled: false }),
       new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('budget-duration')), { once: true }))
     ]);
@@ -557,7 +593,7 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   } finally { clearTimeout(timer); }
   const state = await graph.invoke({ messages: [{ role: 'system', content: `${DECOMPOSITION_PROMPT} Initial research plan: ${JSON.stringify(plan.initial ?? null)}
 
-Explore the repository using the tools. Assess whether the evidence answers the objective; if essential evidence is missing, use further tools before returning. Record unresolved gaps in uncertainties. Return only JSON matching this exact shape: {"objective":"...","entryPoints":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"components":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"relations":[{"from":"...","to":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"uncertainties":["..."]}. Use empty arrays when needed. Each evidence must be an array of objects with real file paths and integer line numbers, not a string. Copy line numbers exactly from tool output (each numbered line, match or range); never estimate, recompute or round them. Do not write a tour.${memoryInstructions}` }, { role: 'user', content: objective }] }, { recursionLimit: Math.ceil(limits.iterations) + 2 });
+Explore the repository using the tools. Assess whether the evidence answers the objective; if essential evidence is missing, use further tools before returning. Record unresolved gaps in uncertainties. Return only JSON matching this exact shape: {"objective":"...","entryPoints":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"components":[{"name":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"relations":[{"from":"...","to":"...","evidence":[{"file":"relative/path","startLine":1,"endLine":1}]}],"uncertainties":["..."]}. Use empty arrays when needed. Each evidence must be an array of objects with real file paths and integer line numbers, not a string. Copy line numbers exactly from tool output (each numbered line, match or range); never estimate, recompute or round them. Do not write a tour.${memoryInstructions}${knowledgeInstructions}` }, { role: 'user', content: objective }] }, { recursionLimit: Math.ceil(limits.iterations) + 2 });
   const result = state.result === undefined ? { objective, entryPoints: [], components: [], relations: [], uncertainties: [state.stopReason === 'repeated_tool_failure' ? 'Exploration stopped after the same tool call repeatedly failed; no structured result was produced.' : 'Exploration stopped before a structured result was produced.'] } : resultSchema.parse(state.result);
   for (const e of [...result.entryPoints, ...result.components, ...result.relations].flatMap(x => x.evidence)) {
     const lines = await tools.read(e.file, e.startLine, e.endLine, true);
