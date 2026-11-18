@@ -76,12 +76,24 @@ A reusable search method expressed as short instructions for the Research Harnes
 _Avoid_: Micro-skill, skill, Memory Function, executable script
 
 **Memory Entry**:
-A reusable item persisted in a workspace's `.tours/.memory/`: either a Memory Function or a Memory Method. Only a Consolidation Run creates one.
+A reusable item persisted in a workspace's `.tours/.memory/`: a Memory Function, a Memory Method, or — in the experimental Knowledge mode only — a hand-prepared Knowledge Entry under `.tours/.memory/knowledge/`. Only a Consolidation Run creates Memory Functions and Memory Methods; Knowledge Entries are prepared manually (spec #219).
 _Avoid_: Skill, compétence
 
 **Memory Catalogue**:
 The set of Memory Entries stored in a workspace's `.tours/.memory/`, discoverable by description without loading their content.
 _Avoid_: Memory dump, function library
+
+**Knowledge Entry**:
+One hand-prepared Markdown file of the experimental Knowledge mode (spec #219), stored under `.tours/.memory/knowledge/`: a name, a description and SHA-256 evidence proofs in frontmatter, and a body the Research Harness returns only after verifying every declared proof. Not a new memory kind: the durable vocabulary (ADR 0035, ADR 0036) still calls this Markdown concept a Memory Method, created by a Consolidation Run; Knowledge Entry is the prototype's chosen name for it, an experimental exception recorded here without rewriting those decisions.
+_Avoid_: Knowledge base, skill, document
+
+**Knowledge Catalogue**:
+The set of Knowledge Entries stored in a workspace's `.tours/.memory/knowledge/`, a fixed location under the hidden memory root, discovered by name and description without loading any body.
+_Avoid_: Knowledge base, dump
+
+**Knowledge Mode**:
+The experimental Research Harness mode (`--knowledge`, spec #219) in which the Knowledge Catalogue is discovered by name and description only, `memory_read(name)` returns one validated body behind the existing Observation Masking, Memory Functions are unavailable, and no Consolidation Run runs. Exclusive of the historical Memory Function mode.
+_Avoid_: Memory mode, hybrid mode
 
 **Research Run**:
 One execution of the Research Harness on a Research Question. It may use Memory Entries but never creates one.

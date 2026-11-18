@@ -57,7 +57,11 @@ test('a Knowledge run discovers entries by name and description and reads one va
     }
   } });
   assert.equal(result.status, 'complete');
-  // Traces distinguish availability (list result) from reading (knowledge entry).
+  // Traces distinguish the three states: available entries (one per catalogue
+  // entry surfaced to the model), then read and refused outcomes.
+  const available = result.callTrace.filter(item => item.type === 'knowledge_available');
+  assert.deepEqual(available.map(item => item.knowledge?.name), ['dispatch_flow']);
+  assert.equal(available[0].knowledge?.status, 'available');
   const listed = result.callTrace.find(item => item.type === 'memory_list');
   const listedResult = (listed?.result as Array<{ name: string; description: string }>) ?? [];
   assert.deepEqual(listedResult, [{ name: 'dispatch_flow', description: 'How tool calls dispatch and refuse forgery' }]);
@@ -107,6 +111,11 @@ test('stale, forged, escaping, malformed and unknown Knowledge reads refuse with
     // The refusal carries nothing but the word; the reason kinds stay trace-only.
     assert.equal(read.result, 'invalid');
   }
+  // The three schema-valid entries were surfaced as available before any read;
+  // the malformed one is not discoverable and never appears.
+  const available = result.callTrace.filter(item => item.type === 'knowledge_available');
+  assert.deepEqual(available.map(item => item.knowledge?.name), ['escaping_flow', 'forged_flow', 'stale_flow']);
+  for (const item of available) assert.equal(item.knowledge?.status, 'available');
 });
 
 test('forged Memory Function calls are rejected at dispatch in a --code --knowledge run', async t => {

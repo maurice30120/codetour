@@ -81,6 +81,10 @@ test('a --code --knowledge CLI run keeps search tools and code, reads only a val
   // Discovery, read and refusal stay distinguishable in the traces.
   const listed = result.callTrace.find(item => item.type === 'memory_list');
   assert.deepEqual((listed?.result as Array<{ name: string }>)?.map(entry => entry.name).sort(), ['dispatch_flow', 'stale_entry']);
+  // Story 18: each discoverable entry is traced as available before any read.
+  const available = result.callTrace.filter(item => item.type === 'knowledge_available');
+  assert.deepEqual(available.map(item => item.knowledge?.name).sort(), ['dispatch_flow', 'stale_entry']);
+  for (const item of available) assert.equal(item.knowledge?.status, 'available');
   const reads = result.callTrace.filter(item => item.type === 'knowledge_read');
   assert.equal(reads.length, 2);
   assert.equal(reads[0].knowledge?.status, 'read');
@@ -109,6 +113,8 @@ test('a --code --memory CLI run keeps its historical Memory Function tools so th
   // The historical request still offers function_try and the Memory Function
   // tools, and never a Knowledge read: the mode is untouched.
   assert.deepEqual(requests[1], ['findDefinitions', 'findReferences', 'function_try', 'getGitDiff', 'getImports', 'listFiles', 'listSymbols', 'memory_list', 'memory_run', 'memory_unusable', 'readAround', 'readLineFragment', 'readLines', 'readScratch', 'searchIdentifiers', 'searchText']);
+  // No Knowledge run: no availability traces either.
+  assert.ok(!result.callTrace.some(item => item.type === 'knowledge_available'));
 });
 test('the CLI refuses --memory and --knowledge together, before any model call', async t => {
   const root = await workspace_('t220-conflict-');
