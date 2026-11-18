@@ -4,7 +4,7 @@ import { access, mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/
 import { appendFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
-import { explore } from './explore.ts';
+import { explore, MEMORY_KNOWLEDGE_EXCLUSIVE_ERROR } from './explore.ts';
 import { mistral } from './mistral.ts';
 import { loadConfig } from './config.ts';
 import { knowledgeDirectory } from './knowledge.ts';
@@ -95,7 +95,7 @@ if (legacyMemory && resolve(legacyMemory) !== canonicalMemory) throw new Error(`
 // Spec #219: the Knowledge catalogue is fixed, under the hidden memory root.
 const memory = memoryEnabled ? { directory: canonicalMemory } : undefined;
 const knowledge = knowledgeEnabled ? { directory: knowledgeDirectory(root) } : undefined;
-if (memory && knowledge) throw new Error('Knowledge mode is exclusive of Memory Functions: use --memory or --knowledge, not both');
+if (memory && knowledge) throw new Error(MEMORY_KNOWLEDGE_EXCLUSIVE_ERROR);
 // .tours/config.json holds every setting; CLI options override it per run. Only the API key may also come from the environment.
 const config = await loadConfig(root);
 const effectiveTemperature = temperature ?? config.mistral.temperature;

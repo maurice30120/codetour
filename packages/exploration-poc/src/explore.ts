@@ -36,13 +36,16 @@ interface Attempt {
   proofSignature?: string[];
 }
 
+// Spec #219: the experimental Knowledge run is a distinct mode — Memory
+// Functions stay entirely outside it (no discovery, exposure, execution,
+// creation or consolidation), so the two options never combine. One shared
+// message: cli.ts reuses it for its earlier pre-check, before any model call.
+export const MEMORY_KNOWLEDGE_EXCLUSIVE_ERROR = 'Knowledge mode is exclusive of Memory Functions: use --memory or --knowledge, not both';
+
 /** An exploration returns validated references, never Tour prose. */
 export async function explore({ root, objective, model, budget = {}, codeMode = false, memory, knowledge, config = DEFAULT_CONFIG, onProgress }: { onProgress?: (event: Record<string, unknown>) => void; root: string; objective: string; model: Model; budget?: Budget; codeMode?: boolean; memory?: { directory: string }; knowledge?: { directory: string }; config?: HarnessConfig }) {
   if (memory && !codeMode) throw new Error('Script memory requires Code Mode');
-  // Spec #219: the experimental Knowledge run is a distinct mode — Memory
-  // Functions stay entirely outside it (no discovery, exposure, execution,
-  // creation or consolidation), so the two options never combine.
-  if (memory && knowledge) throw new Error('Knowledge mode is exclusive of Memory Functions: use --memory or --knowledge, not both');
+  if (memory && knowledge) throw new Error(MEMORY_KNOWLEDGE_EXCLUSIVE_ERROR);
   const limits = { iterations: budget.iterations ?? config.budget.iterations, calls: budget.calls ?? config.budget.calls, tokens: budget.tokens ?? config.budget.tokens, durationMs: budget.durationMs ?? config.budget.durationMs };
   const { scriptTimeoutMs, maxOutputTokens, planMaxOutputTokens } = config.limits;
   if (Object.values(limits).some(n => !Number.isFinite(n) || n <= 0)) throw new Error('Budgets must be positive');
@@ -555,6 +558,13 @@ export async function explore({ root, objective, model, budget = {}, codeMode = 
   // Spec #219 Knowledge run: curated Markdown bodies behind deterministic
   // evidence; availability never injects content, Memory Functions are absent.
   const knowledgeCatalogList = knowledgeLibrary ? await knowledgeLibrary.catalog() : [];
+  // Story 18: availability is traced so it is never mistaken for reuse — one
+  // trace entry per catalogue entry surfaced to the model below, before any
+  // read; the read/refused outcomes stay on the knowledge_read entries.
+  const surfacedAt = new Date();
+  for (const entry of knowledgeCatalogList) {
+    recordCall({ type: 'knowledge_available', name: 'knowledge_available', inputTokens: null, outputTokens: null, usageMissing: false, knowledge: { name: entry.name, status: 'available' } }, surfacedAt, surfacedAt);
+  }
   const knowledgeInstructions = knowledgeLibrary ? ` Experimental Knowledge mode. Knowledge entries hold curated Markdown bodies with deterministic evidence. memory_list(query) discovers the available entries by name and description — available now: ${JSON.stringify(knowledgeCatalogList)} — without loading any body. memory_read(name) verifies the entry's whole declared evidence contract (SHA-256 of every cited file) and returns its validated Markdown body; a refused entry returns invalid and no detail. Knowledge is interpreted, never executed. Memory Functions are unavailable in this run (no memory_run, no function_try, no consolidation); forged calls are rejected at dispatch.` : '';
   // A separate model call creates a local guide before any workspace tool runs.
   // It shares the exploration budgets and never dictates subsequent tool calls.
