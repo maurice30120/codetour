@@ -35,6 +35,12 @@ const config = {
       "codetour-mcp": path.resolve(
         __dirname,
         "packages/mcp-server/dist/src/cli.js"
+      ),
+      // The native Knowledge contract is the same module the historical
+      // harness shim re-exports (ADR 0039).
+      "codetour-knowledge": path.resolve(
+        __dirname,
+        "packages/knowledge/dist/src/index.js"
       )
     }
   },

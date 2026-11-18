@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { lstat, mkdir, readFile, realpath, rename, unlink, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
+import { validateCanonicalName } from 'codetour-knowledge';
 
 // ============================================================================
 // Catalogue entry model (issue #174 complement)
@@ -140,11 +141,10 @@ export function validateDescription(description: string): { ok: boolean; reason?
 
 const digest = (s: string) => createHash('sha256').update(s).digest('hex');
 
-/** Accept any usable TypeScript identifier; its meaning belongs in the documentation. */
-export function validateCanonicalName(name: string): { ok: boolean; reason?: string } {
-  if (!/^[$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*$/u.test(name) || new Set(['break','case','catch','class','const','continue','debugger','default','delete','do','else','export','extends','finally','for','function','if','import','in','instanceof','let','new','return','super','switch','this','throw','try','typeof','var','void','while','with','yield','enum','await','implements','interface','package','private','protected','public','static']).has(name)) return { ok: false, reason: 'Name must be a valid TypeScript identifier' };
-  return { ok: true };
-}
+// One canonical-name rule for Memory Methods and Knowledge entries (ADR 0036,
+// ADR 0039). Imported for the hardening paths below and re-exported so
+// historical harness imports keep working.
+export { validateCanonicalName };
 
 /**
  * Dedup on question + scope + contract — never on the name alone.

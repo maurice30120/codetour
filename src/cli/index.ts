@@ -19,6 +19,7 @@ import { launchTerminalReader } from "./terminalLauncher";
 import { runTerminalTour } from "./terminal";
 import { resolveTourSelection } from "./tourResolution";
 import { fileURLToPath } from "node:url";
+import { isKnowledgeInvocation, registerKnowledgeCommand, reportKnowledgeUsageError } from "./knowledge";
 
 const USAGE = "Usage: codetour [tour] [--renderer html|terminal]";
 
@@ -66,6 +67,9 @@ function buildProgram(): Command {
       const exitCode = await runMcpCli(args);
       if (exitCode !== 0) process.exit(exitCode);
     });
+  // The native Knowledge family is deterministic and works outside Git: its
+  // positional subcommands never reach the Tour reader.
+  registerKnowledgeCommand(command);
   return command;
 }
 
@@ -274,6 +278,15 @@ async function main(): Promise<void> {
     await command.parseAsync(process.argv, { from: "node" });
   } catch (error) {
     if ((error as CommanderError).code === "commander.helpDisplayed") return;
+    // A command with subcommands but no action prints its help and raises
+    // `commander.help`: that is an informational success, not a JSON result.
+    if ((error as CommanderError).code === "commander.help") return;
+    // The Knowledge family keeps one JSON object on stdout and its documented
+    // usage status, including for commander's own parse diagnostics.
+    if (isKnowledgeInvocation(process.argv)) {
+      reportKnowledgeUsageError(error);
+      return;
+    }
     throw toCliError(error as CommanderError);
   }
 }

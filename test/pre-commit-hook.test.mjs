@@ -35,7 +35,7 @@ function shareSetup(root, { withBuild = true } = {}) {
   symlinkSync(path.join(repository, "node_modules"), path.join(root, "node_modules"), "dir");
   if (!withBuild) return;
   symlinkSync(path.join(repository, "dist"), path.join(root, "dist"), "dir");
-  for (const packageName of ["description-renderer", "mcp-server"]) {
+  for (const packageName of ["description-renderer", "knowledge", "mcp-server"]) {
     mkdirSync(path.join(root, "packages", packageName), { recursive: true });
     symlinkSync(
       path.join(repository, "packages", packageName, "dist"),
@@ -55,6 +55,7 @@ function createRepository({ withBuild = true } = {}) {
     ".gitattributes",
     ".gitignore",
     ".github/extensions",
+    "scripts",
     "src",
     "tsconfig.json",
     "tsconfig.test.json",
@@ -69,13 +70,15 @@ function createRepository({ withBuild = true } = {}) {
   );
   // check:fast also guards packages/exploration-poc, so the fixture carries the
   // package sources its type check and tests read.
-  mkdirSync(path.join(root, "packages", "exploration-poc"), { recursive: true });
-  for (const entry of ["package.json", "tsconfig.json", "src", "test"]) {
-    cpSync(
-      path.join(repository, "packages", "exploration-poc", entry),
-      path.join(root, "packages", "exploration-poc", entry),
-      { recursive: true }
-    );
+  for (const packageName of ["exploration-poc", "knowledge"]) {
+    mkdirSync(path.join(root, "packages", packageName), { recursive: true });
+    for (const entry of ["package.json", "tsconfig.json", "src", "test"]) {
+      cpSync(
+        path.join(repository, "packages", packageName, entry),
+        path.join(root, "packages", packageName, entry),
+        { recursive: true }
+      );
+    }
   }
   symlinkSync(
     path.join(repository, "packages", "exploration-poc", "node_modules"),

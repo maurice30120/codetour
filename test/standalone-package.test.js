@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { spawnSync, spawn } = require("node:child_process");
 const { createRequire } = require("node:module");
 const root = path.resolve(__dirname, "..");
@@ -129,6 +130,55 @@ test("packaged CLI reads a Tour without a globally available Node executable", (
     ], { cwd: repo, env, encoding: "utf8", timeout: 30000 });
     assert.equal(terminal.status, 0, terminal.stdout + "\n" + terminal.stderr);
   }
+});
+
+test("packaged codetour knowledge lists metadata, verifies a read and hashes evidence offline", () => {
+  const workspace = path.join(shared.tmp, "knowledge workspace");
+  const catalogue = path.join(workspace, ".tours", ".memory", "knowledge");
+  fs.mkdirSync(catalogue, { recursive: true });
+  const cited = "export const start = 1;\n";
+  fs.writeFileSync(path.join(workspace, "main.ts"), cited);
+  const digest = crypto.createHash("sha256").update(cited).digest("hex");
+  fs.writeFileSync(path.join(catalogue, "dispatch_flow.md"),
+    `---\nname: dispatch_flow\ndescription: How tool calls dispatch\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${digest}\n---\nVerified standalone body.\n`);
+  fs.writeFileSync(path.join(catalogue, "stale_flow.md"),
+    `---\nname: stale_flow\ndescription: cites a changed file\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${"0".repeat(64)}\n---\nStandalone secret body.\n`);
+  const env = restrictedEnv();
+  const run = args => spawnPackagedSync(["knowledge", ...args], { cwd: workspace, env, encoding: "utf8" });
+
+  const listed = run(["list"]);
+  assert.equal(listed.status, 0, listed.stderr);
+  assert.equal(listed.stderr, "");
+  const list = JSON.parse(listed.stdout);
+  assert.equal(list.status, "ok");
+  assert.deepEqual(list.entries, [
+    { name: "dispatch_flow", description: "How tool calls dispatch" },
+    { name: "stale_flow", description: "cites a changed file" }
+  ]);
+  assert.doesNotMatch(listed.stdout, /Verified standalone body|Standalone secret body|sha256/);
+
+  const read = run(["read", "dispatch_flow"]);
+  assert.equal(read.status, 0, read.stderr);
+  const valid = JSON.parse(read.stdout);
+  assert.equal(valid.status, "valid");
+  assert.equal(valid.body, "Verified standalone body.\n");
+  assert.deepEqual(valid.evidence, [{ path: "main.ts", sha256: digest }]);
+
+  const stale = run(["read", "stale_flow"]);
+  assert.equal(stale.status, 4, stale.stderr);
+  assert.deepEqual(JSON.parse(stale.stdout),
+    { status: "invalid", workspace: fs.realpathSync(workspace), name: "stale_flow", reason: "file_hash_mismatch" });
+  assert.doesNotMatch(stale.stdout, /Standalone secret body|main\.ts|0{64}/);
+
+  const hashed = run(["hash", "main.ts"]);
+  assert.equal(hashed.status, 0, hashed.stderr);
+  assert.deepEqual(JSON.parse(hashed.stdout), { status: "ok", workspace: fs.realpathSync(workspace), path: "main.ts", sha256: digest });
+
+  const empty = path.join(shared.tmp, "knowledge absent");
+  fs.mkdirSync(empty);
+  const absent = spawnPackagedSync(["knowledge", "list"], { cwd: empty, env, encoding: "utf8" });
+  assert.equal(absent.status, 3, absent.stderr);
+  assert.deepEqual(JSON.parse(absent.stdout), { status: "empty", workspace: fs.realpathSync(empty), entries: [] });
 });
 
 test("packaged codetour mcp creates a Project Tour in a non-Git workspace without global Node", async () => {
