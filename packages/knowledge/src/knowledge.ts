@@ -190,10 +190,16 @@ const sameHash = (declared: string, computed: string): boolean => {
   return declaredBuffer.length === computedBuffer.length && timingSafeEqual(declaredBuffer, computedBuffer);
 };
 
-const escapes = (root: string, target: string): boolean => {
+/**
+ * True when `target` is not strictly inside `root`. Every workspace path rule
+ * (verification, hashing and persistence) shares this single check.
+ */
+export const isOutsideWorkspace = (root: string, target: string): boolean => {
   const confined = relative(root, target);
   return confined === '..' || confined.startsWith(`..${sep}`) || isAbsolute(confined);
 };
+
+const escapes = isOutsideWorkspace;
 
 /**
  * Deterministic verification of a parsed Knowledge entry. EVERY declared

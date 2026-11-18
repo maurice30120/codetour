@@ -340,3 +340,310 @@ test("knowledge hash distinguishes absence from invalid paths without leaking re
     rmSync(outsideRoot, { recursive: true, force: true });
   }
 });
+
+function writeProposal(ws, value, fileName = "proposal.json") {
+  const file = path.join(ws, fileName);
+  writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value));
+  return file;
+}
+
+function catalogueEntries(ws) {
+  try {
+    return readdirSync(path.join(ws, catalogue)).sort();
+  } catch {
+    return [];
+  }
+}
+
+const saveArgs = (ws, proposal) => ["knowledge", "save", "--workspace", ws, "--proposal", proposal];
+
+test("knowledge save publishes a proposal that a second independent invocation discovers and rereads", () => {
+  const ws = workspace("codetour-knowledge-save-");
+  const launch = workspace("codetour-knowledge-save-launch-");
+  try {
+    writeFileSync(path.join(ws, "main.ts"), "export const start = 1;\n");
+    const body = "## Dispatch flow\n\nBody line one.\n\n- item one\n- item two\n";
+    const proposal = writeProposal(ws, {
+      entries: [{
+        name: "dispatch_flow",
+        description: "How tool calls dispatch",
+        body,
+        evidence: [{ path: "main.ts" }]
+      }]
+    });
+
+    const saved = runCli(saveArgs(ws, proposal), { cwd: launch });
+    assert.equal(saved.status, 0, saved.stderr);
+    assert.equal(saved.stderr, "");
+    assert.deepEqual(saved.json, { status: "saved", workspace: ws, saved: ["dispatch_flow"] });
+    assert.doesNotMatch(saved.stdout, /body line one|sha256|[0-9a-f]{64}/i);
+
+    // A second, independent invocation rediscovers the entry by metadata only.
+    const listed = runCli(["knowledge", "list", "--workspace", ws], { cwd: launch });
+    assert.equal(listed.status, 0, listed.stderr);
+    assert.deepEqual(listed.json.entries, [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
+
+    // ...and rereads the exact Markdown body behind the computed evidence.
+    const read = runCli(["knowledge", "read", "dispatch_flow", "--workspace", ws], { cwd: launch });
+    assert.equal(read.status, 0, read.stderr);
+    assert.equal(read.json.status, "valid");
+    assert.equal(read.json.body, body);
+    assert.deepEqual(read.json.evidence, [{ path: "main.ts", sha256: sha256("export const start = 1;\n") }]);
+
+    // No model credential reaches the child process.
+    for (const key of Object.keys(credentialFreeEnv())) {
+      assert.doesNotMatch(key, /API_KEY|TOKEN|SECRET/i);
+    }
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+    rmSync(launch, { recursive: true, force: true });
+  }
+});
+
+test("knowledge save writes several entries atomically, accepting computed and declared hashes", () => {
+  const ws = workspace("codetour-knowledge-save-multi-");
+  try {
+    writeFileSync(path.join(ws, "main.ts"), "main bytes\n");
+    writeFileSync(path.join(ws, "docs.md"), "docs bytes\n");
+    const proposal = writeProposal(ws, {
+      entries: [
+        {
+          name: "first_flow",
+          description: "computed evidence",
+          body: "First body.\n",
+          evidence: [{ path: "./main.ts" }]
+        },
+        {
+          name: "second_flow",
+          description: "declared evidence",
+          body: "Second body.\n",
+          evidence: [{ path: "docs.md", sha256: sha256("docs bytes\n").toUpperCase() }]
+        }
+      ]
+    });
+
+    const saved = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(saved.status, 0, saved.stderr);
+    assert.deepEqual(saved.json, { status: "saved", workspace: ws, saved: ["first_flow", "second_flow"] });
+    assert.deepEqual(catalogueEntries(ws), ["first_flow.md", "second_flow.md"]);
+
+    const first = runCli(["knowledge", "read", "first_flow"], { cwd: ws });
+    assert.equal(first.status, 0, first.stderr);
+    assert.deepEqual(first.json.evidence, [{ path: "main.ts", sha256: sha256("main bytes\n") }]);
+    const second = runCli(["knowledge", "read", "second_flow"], { cwd: ws });
+    assert.equal(second.status, 0, second.stderr);
+    assert.deepEqual(second.json.evidence, [{ path: "docs.md", sha256: sha256("docs bytes\n") }]);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test("an explicit empty proposal is a no-op that creates nothing", () => {
+  const ws = workspace("codetour-knowledge-save-noop-");
+  try {
+    const proposal = writeProposal(ws, { entries: [] });
+    const result = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, "");
+    assert.deepEqual(result.json, { status: "no-op", workspace: ws, entries: [] });
+    assert.deepEqual(catalogueEntries(ws), []);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test("a name conflict preserves the existing entry byte for byte and publishes no sibling", () => {
+  const ws = workspace("codetour-knowledge-save-conflict-");
+  try {
+    writeFileSync(path.join(ws, "main.ts"), "main bytes\n");
+    seedValidWorkspace(ws, { name: "dispatch_flow", description: "Original description" });
+    const existing = path.join(ws, catalogue, "dispatch_flow.md");
+    const before = readFileSync(existing);
+    const proposal = writeProposal(ws, {
+      entries: [
+        { name: "brand_new", description: "new", body: "New body.\n", evidence: [{ path: "main.ts" }] },
+        { name: "dispatch_flow", description: "Replacement description", body: "Replacement body.\n", evidence: [{ path: "main.ts" }] }
+      ]
+    });
+
+    const result = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(result.status, 4, result.stderr);
+    assert.deepEqual(result.json, {
+      status: "conflict",
+      workspace: ws,
+      conflicts: [{ name: "dispatch_flow", reason: "name_conflict" }]
+    });
+    assert.deepEqual(readFileSync(existing), before);
+    // No partial publication and no staging file survives.
+    assert.deepEqual(catalogueEntries(ws), ["dispatch_flow.md"]);
+
+    const read = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(read.status, 0, read.stderr);
+    assert.equal(read.json.description, "Original description");
+    assert.equal(read.json.body, "Verified body.\n");
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test("refused evidence publishes nothing and leaves the existing catalogue untouched", () => {
+  const ws = workspace("codetour-knowledge-save-invalid-");
+  const outside = workspace("codetour-knowledge-save-invalid-outside-");
+  try {
+    writeFileSync(path.join(ws, "main.ts"), "main bytes\n");
+    writeFileSync(path.join(ws, "docs.md"), "docs bytes\n");
+    mkdirSync(path.join(ws, "dir"));
+    writeFileSync(path.join(outside, "secret.ts"), "outside secret bytes\n");
+    symlinkSync(path.join(outside, "secret.ts"), path.join(ws, "linked.ts"));
+    seedValidWorkspace(ws, { name: "kept_flow", description: "Kept entry" });
+    const kept = path.join(ws, catalogue, "kept_flow.md");
+    const before = readFileSync(kept);
+
+    const proposal = writeProposal(ws, {
+      entries: [
+        { name: "valid_sibling", description: "valid", body: "Body.\n", evidence: [{ path: "main.ts" }] },
+        { name: "missing_file", description: "missing", body: "Body.\n", evidence: [{ path: "gone.ts" }] },
+        { name: "changed_hash", description: "changed", body: "Body.\n", evidence: [{ path: "main.ts", sha256: sha256("older bytes\n") }] },
+        { name: "outside_path", description: "outside", body: "Body.\n", evidence: [{ path: "../secret.ts" }] },
+        { name: "absolute_path", description: "absolute", body: "Body.\n", evidence: [{ path: path.join(outside, "secret.ts") }] },
+        { name: "escaping_link", description: "link", body: "Body.\n", evidence: [{ path: "linked.ts" }] },
+        { name: "directory", description: "directory", body: "Body.\n", evidence: [{ path: "dir" }] },
+        { name: "symbolic", description: "symbol", body: "Body.\n", evidence: [{ type: "symbol", path: "main.ts" }] },
+        { name: "bad_hash_shape", description: "shape", body: "Body.\n", evidence: [{ path: "main.ts", sha256: "not-a-hash" }] },
+        { name: "bad_evidence_item", description: "shape", body: "Body.\n", evidence: ["main.ts"] }
+      ]
+    });
+
+    const result = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(result.status, 4, result.stderr);
+    assert.deepEqual(result.json, {
+      status: "invalid",
+      workspace: ws,
+      rejected: [
+        { name: "missing_file", reason: "file_missing" },
+        { name: "changed_hash", reason: "file_hash_mismatch" },
+        { name: "outside_path", reason: "path_outside_workspace" },
+        { name: "absolute_path", reason: "path_outside_workspace" },
+        { name: "escaping_link", reason: "symlink_escape" },
+        { name: "directory", reason: "not_a_file" },
+        { name: "symbolic", reason: "unsupported_proof" },
+        { name: "bad_hash_shape", reason: "malformed_evidence" },
+        { name: "bad_evidence_item", reason: "malformed_evidence" }
+      ]
+    });
+    assert.doesNotMatch(result.stdout, /outside secret bytes|main bytes|docs bytes|sha256|[0-9a-f]{64}/i);
+    assert.deepEqual(catalogueEntries(ws), ["kept_flow.md"]);
+    assert.deepEqual(readFileSync(kept), before);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test("invalid fields, duplicate names and malformed proposals publish nothing", () => {
+  const ws = workspace("codetour-knowledge-save-shape-");
+  try {
+    writeFileSync(path.join(ws, "main.ts"), "main bytes\n");
+    const evidence = [{ path: "main.ts" }];
+    const runProposal = value => runCli(saveArgs(ws, writeProposal(ws, value)), { cwd: ws });
+
+    let result = runProposal({
+      entries: [
+        { name: "not an id", description: "d", body: "Body.\n", evidence },
+        { name: "blank_description", description: "   ", body: "Body.\n", evidence },
+        { name: "multiline_description", description: "one\ntwo", body: "Body.\n", evidence },
+        { name: "empty_body", description: "d", body: " \n", evidence },
+        { name: "no_evidence", description: "d", body: "Body.\n", evidence: [] },
+        { name: "unknown_field", description: "d", body: "Body.\n", evidence, extra: true }
+      ]
+    });
+    assert.equal(result.status, 4, result.stderr);
+    assert.deepEqual(result.json.rejected, [
+      { name: "not an id", reason: "invalid_name" },
+      { name: "blank_description", reason: "invalid_description" },
+      { name: "multiline_description", reason: "invalid_description" },
+      { name: "empty_body", reason: "invalid_body" },
+      { name: "no_evidence", reason: "missing_evidence" },
+      { name: "unknown_field", reason: "malformed_entry" }
+    ]);
+
+    result = runProposal({
+      entries: [
+        { name: "same_name", description: "first", body: "First body.\n", evidence },
+        { name: "same_name", description: "second", body: "Second body.\n", evidence }
+      ]
+    });
+    assert.equal(result.status, 4, result.stderr);
+    assert.deepEqual(result.json.rejected, [{ name: "same_name", reason: "duplicate_name" }]);
+
+    result = runProposal({ entries: "not-an-array" });
+    assert.equal(result.status, 4, result.stderr);
+    assert.deepEqual(result.json, { status: "invalid", workspace: ws, rejected: [{ reason: "malformed_proposal" }] });
+
+    result = runProposal({ entries: [], extra: true });
+    assert.equal(result.status, 4, result.stderr);
+    assert.deepEqual(result.json.rejected, [{ reason: "malformed_proposal" }]);
+
+    // Malformed JSON is an invalid contract, not a usage error.
+    result = runCli(saveArgs(ws, writeProposal(ws, "{ not json", "broken.json")), { cwd: ws });
+    assert.equal(result.status, 4, result.stderr);
+    assert.deepEqual(result.json, { status: "invalid", workspace: ws, rejected: [{ reason: "malformed_proposal" }] });
+
+    assert.deepEqual(catalogueEntries(ws), []);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test("knowledge save accepts convenience flags and refuses ambiguous or absent input as usage", () => {
+  const ws = workspace("codetour-knowledge-save-flags-");
+  try {
+    writeFileSync(path.join(ws, "main.ts"), "main bytes\n");
+    writeFileSync(path.join(ws, "docs.md"), "docs bytes\n");
+    writeFileSync(path.join(ws, "body.md"), "# Flag body\n\nMarkdown kept.\n");
+
+    const saved = runCli([
+      "knowledge", "save",
+      "--name", "flag_flow",
+      "--description", "Built from flags",
+      "--body-file", "body.md",
+      "--evidence", "main.ts",
+      "--evidence", "docs.md"
+    ], { cwd: ws });
+    assert.equal(saved.status, 0, saved.stderr);
+    assert.deepEqual(saved.json, { status: "saved", workspace: ws, saved: ["flag_flow"] });
+
+    const read = runCli(["knowledge", "read", "flag_flow"], { cwd: ws });
+    assert.equal(read.status, 0, read.stderr);
+    assert.equal(read.json.body, "# Flag body\n\nMarkdown kept.\n");
+    assert.deepEqual(read.json.evidence.map(proof => proof.path), ["main.ts", "docs.md"]);
+
+    const proposal = writeProposal(ws, { entries: [] });
+    const ambiguous = runCli(saveArgs(ws, proposal).concat(["--name", "both"]), { cwd: ws });
+    assert.equal(ambiguous.status, 2, ambiguous.stderr);
+    assert.equal(ambiguous.json.status, "usage");
+    assert.equal(typeof ambiguous.json.reason, "string");
+
+    const bare = runCli(["knowledge", "save"], { cwd: ws });
+    assert.equal(bare.status, 2, bare.stderr);
+    assert.equal(bare.json.status, "usage");
+
+    const missingFile = runCli(saveArgs(ws, path.join(ws, "absent.json")), { cwd: ws });
+    assert.equal(missingFile.status, 2, missingFile.stderr);
+    assert.deepEqual(missingFile.json, {
+      status: "usage",
+      reason: "proposal_unreadable",
+      message: "Cannot read proposal: " + path.join(ws, "absent.json")
+    });
+
+    const missingBody = runCli([
+      "knowledge", "save", "--name", "no_body", "--description", "d",
+      "--body-file", "absent.md", "--evidence", "main.ts"
+    ], { cwd: ws });
+    assert.equal(missingBody.status, 2, missingBody.stderr);
+    assert.equal(missingBody.json.status, "usage");
+    assert.equal(missingBody.json.reason, "body_unreadable");
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
