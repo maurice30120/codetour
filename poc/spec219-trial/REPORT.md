@@ -137,17 +137,23 @@ Knowledge preparation time is **not** re-measured and **not** counted here: the
 119 s of §3.1 stays the recorded prep figure, referenced from attempt 1.
 
 > **Distinct from the separate reprise run:** an earlier, independent reprise of
-> parcours B preceded attempt 2 (run `a7443b5e-…`, status `partial` /
-> `repeated_tool_failure`, 19 model calls, 52 tool calls, no structured result,
-> no Tour, `knowledge_available` seen but never read). Its facts are recorded
-> here only; the reprise's traces lived in a disposable temp directory and were
-> **not preserved** — no primary artifact of that partial run exists. It is
-> **not** the attempt recorded here, and it is not a basis for timing: attempt 2
-> has its own run identity `49a4cdfa-…`, its own isolated snapshot
-> `/tmp/spec-219-wt/run-b-snapshot2` and the end-to-end protocol above (one
-> attempt, completion, Tour creation). Both reprises are single attempts; this
-> report's verdict rests on attempt 2 only, with the reprise's partial run kept
-> as recorded history, not aggregated.
+> parcours B is recorded in `poc/spec219-trial/REPRISE-2026-11-18.md` (run
+> `a7443b5e-…`, status `partial` / `repeated_tool_failure`, 19 model calls,
+> 52 tool calls, no structured result, no Tour, `knowledge_available` seen but
+> never read, traces in a disposable temp directory). It is **not** the attempt
+> recorded here: attempt 2 has its own run identity `49a4cdfa-…`, its own
+> isolated snapshot `/tmp/spec-219-wt/run-b-snapshot2` and the end-to-end
+> protocol above (one attempt, completion, Tour creation). Both reprises are
+> single attempts; this report's verdict rests on attempt 2 only, with the
+> reprise's partial run kept as recorded history, not aggregated.
+>
+> The reprise record (with its further diagnostics: explicit-reading, baseline
+> and `--memory` function reuse runs, all run-ids trace-backed in the temp log
+> directory) and the reprise's MCP-created diagnostic Tour
+> (`.tours/research-dispatch-knowledge.tour` — not a timed parcours B artifact)
+> are committed alongside this report; the reprise's raw traces remain in the
+> disposable temp directory and no reprise figure is aggregated into the
+> verdict above.
 
 | Field | Value |
 | --- | --- |
