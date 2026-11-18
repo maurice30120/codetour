@@ -152,6 +152,7 @@ build the CLI:
 ```bash
 npm ci
 npm ci --prefix packages/description-renderer
+npm ci --prefix packages/knowledge
 npm ci --prefix packages/mcp-server
 npm run build
 CODETOUR_ROOT="$PWD"
@@ -188,6 +189,32 @@ The process speaks MCP over stdio with the same two tools as the extension;
 the working directory is the Tour Workspace, or pass `--workspace-root`. See
 the [standalone distribution guide](docs/standalone-distribution.md) for
 packaged-launcher client configuration.
+
+### Read a Knowledge catalogue
+
+`codetour knowledge` is the deterministic, offline surface for the Knowledge
+entries under `<workspace>/.tours/.memory/knowledge/`. It needs no model, no
+API key and no network. Pass `--workspace <dir>` to choose the project
+explicitly; otherwise the current directory is resolved once and used for
+every proof. Exactly one JSON object is written to stdout; diagnostics go to
+stderr.
+
+```bash
+cd /path/to/project
+node "$CODETOUR_ROOT/dist/cli.js" knowledge list
+node "$CODETOUR_ROOT/dist/cli.js" knowledge list --query dispatch
+node "$CODETOUR_ROOT/dist/cli.js" knowledge read dispatch_flow
+node "$CODETOUR_ROOT/dist/cli.js" knowledge hash src/main.ts
+```
+
+`list` returns names and descriptions only. `read` returns the Markdown body
+only when every declared file proof matches its SHA-256; otherwise it reports
+an `invalid` reason without the body, a cited path or a hash value. `hash`
+prints the deterministic digest for preparing evidence. Exit statuses are
+stable: `0` success, `1` internal error, `2` usage error or unusable workspace,
+`3` absence (empty catalogue, unknown entry, missing file), `4` invalid
+(malformed contract, stale or forged hash, unsupported proof, path outside the
+workspace, symlink escape).
 
 ### Try the experimental Copilot adapter
 
@@ -260,6 +287,7 @@ Use **Node.js 24.18.0** and **npm 12.0.1**, pinned in the repository.
 ```bash
 npm ci
 npm ci --prefix packages/description-renderer
+npm ci --prefix packages/knowledge
 npm ci --prefix packages/mcp-server
 npm test
 npm run package

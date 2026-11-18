@@ -76,7 +76,7 @@ A reusable search method expressed as short instructions for the Research Harnes
 _Avoid_: Micro-skill, skill, Memory Function, executable script
 
 **Memory Entry**:
-A reusable item persisted in a workspace's `.tours/.memory/`: a Memory Function, a Memory Method, or — in the experimental Knowledge mode only — a hand-prepared Knowledge Entry under `.tours/.memory/knowledge/`. Only a Consolidation Run creates Memory Functions and Memory Methods; Knowledge Entries are prepared manually (spec #219).
+A reusable item persisted in a workspace's `.tours/.memory/`: a Memory Function, a Memory Method, or — in the experimental Knowledge mode only — a hand-prepared Knowledge Entry under `.tours/.memory/knowledge/`. Only a Consolidation Run creates Memory Functions and Memory Methods; Knowledge Entries are prepared manually and, since spec #223, are read natively as well (ADR 0039).
 _Avoid_: Skill, compétence
 
 **Memory Catalogue**:
@@ -84,7 +84,7 @@ The set of Memory Entries stored in a workspace's `.tours/.memory/`, discoverabl
 _Avoid_: Memory dump, function library
 
 **Knowledge Entry**:
-One hand-prepared Markdown file of the experimental Knowledge mode (spec #219), stored under `.tours/.memory/knowledge/`: a name, a description and SHA-256 evidence proofs in frontmatter, and a body the Research Harness returns only after verifying every declared proof. Not a new memory kind: the durable vocabulary (ADR 0035, ADR 0036) still calls this Markdown concept a Memory Method, created by a Consolidation Run; Knowledge Entry is the prototype's chosen name for it, an experimental exception recorded here without rewriting those decisions.
+One hand-prepared Markdown file stored under `.tours/.memory/knowledge/`: a name, a description and SHA-256 evidence proofs in frontmatter, and a body a reader returns only after verifying every declared proof. It was introduced by the experimental Knowledge mode (spec #219) and, since spec #223, is also read by the native deterministic CLI (ADR 0039). Not a new memory kind: the durable vocabulary (ADR 0035, ADR 0036) still calls this Markdown concept a Memory Method, created by a Consolidation Run; Knowledge Entry is the prototype's chosen name for it, an experimental exception recorded here without rewriting those decisions.
 _Avoid_: Knowledge base, skill, document
 
 **Knowledge Catalogue**:
@@ -92,8 +92,12 @@ The set of Knowledge Entries stored in a workspace's `.tours/.memory/knowledge/`
 _Avoid_: Knowledge base, dump
 
 **Knowledge Mode**:
-The experimental Research Harness mode (`--knowledge`, spec #219) in which the Knowledge Catalogue is discovered by name and description only, `memory_read(name)` returns one validated body behind the existing Observation Masking, Memory Functions are unavailable, and no Consolidation Run runs. Exclusive of the historical Memory Function mode.
+The experimental Research Harness mode (`--knowledge`, spec #219) in which the Knowledge Catalogue is discovered by name and description only, `memory_read(name)` returns one validated body behind the existing Observation Masking, Memory Functions are unavailable, and no Consolidation Run runs. Exclusive of the historical Memory Function mode. Historical harness behaviour, kept as historical by ADR 0039.
 _Avoid_: Memory mode, hybrid mode
+
+**Native Knowledge CLI**:
+The deterministic `codetour knowledge` command family (spec #223, ADR 0039): `list` reports names and descriptions only, `read <name>` returns a body only when every declared SHA-256 proof verifies, and `hash <path>` prepares evidence. It resolves one explicit or current workspace, works offline in any project without a model, API key or network, and never creates, consolidates or executes a Memory Entry.
+_Avoid_: Knowledge server, Knowledge agent, Memory Function runner
 
 **Research Run**:
 One execution of the Research Harness on a Research Question. It may use Memory Entries but never creates one.

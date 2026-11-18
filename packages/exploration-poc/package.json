@@ -12,6 +12,7 @@
   "dependencies": {
     "@langchain/langgraph": "^1.0.0",
     "codetour-exploration-sandbox": "file:../exploration-sandbox",
+    "codetour-knowledge": "file:../knowledge",
     "pino": "^10.4.0",
     "rotating-file-stream": "^4.0.0",
     "zod": "^4.0.0"
