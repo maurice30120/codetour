@@ -1,8 +1,10 @@
 import { createInterface } from "node:readline";
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRunState, pruneRunStates, removeRunState, writeRunState } from "./run-log.mjs";
 
 // The same command supplies playback, MCP tools and the offline review resource.
 export function codeTourMcpServer(cwd = process.cwd()) {
@@ -54,6 +56,39 @@ async function servedPrompt(cwd, name, args) {
     });
     send({id: 1, method: "initialize", params: {protocolVersion: "2024-11-05", capabilities: {}, clientInfo: {name: "codetour-copilot", version: "1.0.0"}}});
   });
+}
+
+// The adapter owns exactly one workspace for a generation: the directory the
+// Copilot session was started in, resolved once to an absolute real path. The
+// same value is passed to `codetour mcp --workspace-root`, used for the run
+// log, and recorded in the run state, so the CLI, the MCP and the agentStop
+// hook cannot disagree about which workspace a Tour describes.
+function resolveWorkspace(cwd) {
+  const requested = path.resolve(cwd || process.cwd());
+  let resolved;
+  try {
+    resolved = realpathSync(requested);
+  } catch (error) {
+    throw new Error(
+      `The CodeTour workspace '${requested}' does not exist or is not readable (${error instanceof Error ? error.message : String(error)}). ` +
+      "Start Copilot in the directory the Tour should describe, or change to it before running /codetour."
+    );
+  }
+  if (!statSync(resolved).isDirectory()) {
+    throw new Error(`The CodeTour workspace '${resolved}' is not a directory.`);
+  }
+  return resolved;
+}
+
+// The session identity stored in the run log. The real host exposes
+// `session.sessionId`; the environment fallback covers a host that only passes
+// it to child processes. A missing identifier keeps the run locally traceable
+// but cannot be matched by the agentStop hook, so the generation continues and
+// no false guarantee is claimed.
+function sessionIdentity(session) {
+  if (typeof session.sessionId === "string" && session.sessionId) return session.sessionId;
+  const fromEnvironment = process.env.COPILOT_AGENT_SESSION_ID;
+  return typeof fromEnvironment === "string" && fromEnvironment ? fromEnvironment : null;
 }
 
 // The CLI remains the sole owner of discovery, selection and rendering.
@@ -145,6 +180,10 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
       action = choice === 0 ? "Generate" : "Read";
     }
     if (action === "Generate") {
+      // Resolve the single workspace before any prompt or analysis: an
+      // unusable directory is an explicit failure, never a silent fallback to
+      // the extension process's cwd.
+      const workspace = resolveWorkspace(cwd);
       let type = explicit?.[1];
       if (!type) {
         const choice = await select(session, "Which type of Tour?", ["Project Tour", "Changes Tour"]);
@@ -173,27 +212,57 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
         if (answer === null || answer === undefined) return;
         brief = answer.trim();
       }
+      // One identity for this generation: the served prompt tells the agent to
+      // pass it to the creation and consolidation tools, and the run log gives
+      // the agentStop hook an authenticated trace to read. The original
+      // request is the user's complete slash-command request, reproduced
+      // verbatim; the orientation phrase travels separately as `brief`.
+      const runId = randomUUID();
+      const originalRequest = explicit?.[3] ? input : undefined;
       // codetour mcp composes the generation prompt for this run, including
-      // the user's orientation phrase and its language when one was given; the
-      // adapter only relays the choices and the user's words.
+      // the user's original request, the orientation phrase, the Knowledge
+      // catalogue and the run identity; the adapter only relays the choices
+      // and the user's words.
       let prompt;
       try {
         prompt = await servedPrompt(
-          cwd,
+          workspace,
           type === "project" ? "generate_project_tour" : "generate_changes_tour",
-          type === "project" ? (brief ? {brief} : {}) : {reviewMode, ...(brief ? {brief} : {})}
+          type === "project"
+            ? {runId, ...(originalRequest ? {request: originalRequest} : {}), ...(brief ? {brief} : {})}
+            : {runId, reviewMode, ...(brief ? {brief} : {})}
         );
       } catch (error) {
         // A bare spawn error would leave the user without the cause: name the
-        // MCP server and the repair path.
+        // MCP server and the repair path. Nothing has been sent and no run
+        // state was written, so no analysis can start.
         throw new Error(
           `CodeTour MCP server 'codetour' is unavailable: ${error instanceof Error ? error.message : String(error)} ` +
           "Run 'codetour --install copilot' and verify the server with 'copilot mcp list'."
         );
       }
-      // The slash command has completed its choices; start the requested run now.
-      // Enqueue leaves explicit commands waiting for another Enter on CLI 1.0.105.
-      await session.send({prompt, mode: "immediate"});
+      // The run exists before the first agent request. A failed send removes
+      // it again, so a hook never chases a generation that never started.
+      await pruneRunStates(workspace).catch(() => undefined);
+      await writeRunState(workspace, createRunState({
+        runId,
+        workspace,
+        sessionId: sessionIdentity(session),
+        kind: type,
+        request: originalRequest || brief || undefined
+      }));
+      try {
+        // The slash command has completed its choices; start the requested run now.
+        // Enqueue leaves explicit commands waiting for another Enter on CLI 1.0.105.
+        await session.send({prompt, mode: "immediate"});
+      } catch (error) {
+        await removeRunState(workspace, runId).catch(() => undefined);
+        throw error;
+      }
+      // Only the MCP's own tool results confirm a Tour or a consolidation. The
+      // adapter does not announce an outcome it has not observed: creation and
+      // persistence are reported by the MCP tool results in the conversation,
+      // and the agentStop guard reads the server-written closure.
       return;
     }
     const { title, renderer } = parse(input);

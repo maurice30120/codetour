@@ -166,9 +166,10 @@ function reportUnknownFields(
   }
 }
 
-const PROJECT_PARAM_FIELDS = ["workspacePath", "title", "description", "fileName", "dryRun", "steps"] as const;
+const PROJECT_PARAM_FIELDS = ["workspacePath", "runId", "title", "description", "fileName", "dryRun", "steps"] as const;
 const CHANGES_PARAM_FIELDS = [
   "workspacePath",
+  "runId",
   "title",
   "description",
   "fileName",
@@ -251,6 +252,13 @@ function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
   const workspacePath = isOptionalString(raw, "workspacePath", "workspacePath", issues);
   if (workspacePath !== undefined) {
     params.workspacePath = workspacePath;
+  }
+  // The generation run identity is opaque to the Tour: the adapters and the
+  // MCP run log own its format. It is validated only as a non-empty string so
+  // a malformed value cannot reach the run log as a path component.
+  const runId = isOptionalString(raw, "runId", "runId", issues);
+  if (runId !== undefined) {
+    params.runId = runId;
   }
   const title = isOptionalString(raw, "title", "title", issues);
   if (title !== undefined) {

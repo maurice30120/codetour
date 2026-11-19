@@ -454,6 +454,7 @@ test("the Knowledge tools work without any API key or Research Harness", async (
         assert.deepEqual(tools, [
           "create_changes_tour",
           "create_project_tour",
+          "knowledge_close_run",
           "knowledge_list",
           "knowledge_read",
           "knowledge_save",

@@ -5,6 +5,13 @@ import {
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import * as path from "path";
+import {
+  isValidRunId,
+  recordConsolidation,
+  recordTourCreated,
+  type ConsolidationClosure,
+  type ConsolidationStatus,
+} from "./run-log";
 import { createContext, selectContext } from "./context";
 import {
   changedFiles,
@@ -48,6 +55,7 @@ import {
   KNOWLEDGE_LIST_MAX_LIMIT,
   KNOWLEDGE_LIST_TOOL,
   KNOWLEDGE_READ_TOOL,
+  KNOWLEDGE_CLOSE_RUN_TOOL,
   KNOWLEDGE_SAVE_TOOL,
   knowledgeCatalogueProjection,
   listKnowledgePage,
@@ -189,6 +197,29 @@ function originalRequestSection(request: string | undefined): string {
     "",
     "It is written in the user's language: write the Tour-level description " +
       "and every step description in that same language.",
+    "",
+  ].join("\n");
+}
+
+// The run identity section names the CodeTour generation this prompt belongs
+// to. The identity is created by the controlled adapter and written to
+// `.tours/.log/` before the agent is contacted; passing it back to the MCP
+// creation and consolidation tools is what lets the server record the two
+// authenticated outcomes under the same run. Direct clients that do not use
+// the wrapper receive no run identity and keep the previous behavior.
+function runIdentitySection(runId: string | undefined): string {
+  const raw = typeof runId === "string" ? runId.trim() : "";
+  if (!raw) return "";
+  return [
+    "## Run identity",
+    "",
+    `Run identity: \`${raw}\``,
+    "",
+    "This identifier belongs to the current CodeTour generation. Pass it as " +
+      "`runId` to `create_project_tour` and to `knowledge_save` (or " +
+      "`knowledge_close_run`) so the MCP records the creation and " +
+      "consolidation outcomes for this exact run. Do not invent another " +
+      "identifier.",
     "",
   ].join("\n");
 }
@@ -396,6 +427,12 @@ const toolResultSchema = z.object({
 const projectToolInputSchema = z
   .object({
     workspacePath: z.unknown().optional(),
+    runId: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional CodeTour generation run identity; when present, a successful creation is recorded in the run log for the agentStop guard."
+      ),
     title: z.unknown().optional(),
     description: z
       .unknown()
@@ -427,6 +464,12 @@ const projectToolInputSchema = z
 const changesToolInputSchema = z
   .object({
     workspacePath: z.unknown().optional(),
+    runId: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional CodeTour generation run identity; when present, a successful creation is recorded in the run log for the agentStop guard."
+      ),
     title: z.unknown().optional(),
     description: z
       .unknown()
@@ -519,6 +562,29 @@ const knowledgeSaveInputSchema = knowledgeToolInputSchema
       .describe(
         "The entries array of a Knowledge proposal: zero entries is an explicit completed_zero, one or many entries are validated and published together. Each entry has name, description, body and evidence [{path, sha256?}]."
       ),
+    runId: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional CodeTour generation run identity from the served prompt. When present, the MCP persists the consolidation closure under <workspace>/.tours/.log/ and returns it."
+      ),
+  })
+  .passthrough();
+
+const knowledgeCloseRunInputSchema = knowledgeToolInputSchema
+  .extend({
+    runId: z
+      .unknown()
+      .optional()
+      .describe(
+        "The CodeTour generation run identity from the served prompt. Required."
+      ),
+    reason: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional short reason why the consolidation assessment was deliberately skipped."
+      ),
   })
   .passthrough();
 
@@ -554,6 +620,15 @@ const KNOWLEDGE_SAVE_DESCRIPTION =
   "existing names, \"invalid\" lists the rejections, and \"failed\" reports an " +
   "unexpected failure. Never claim persistence that this result does not " +
   "report.";
+
+const KNOWLEDGE_CLOSE_RUN_DESCRIPTION =
+  "Close one CodeTour generation run without a Knowledge proposal. Use it " +
+  "only when you deliberately cannot make a consolidation assessment (for " +
+  "example the Tour creation failed and there is nothing to consolidate). " +
+  "The MCP persists a \"skipped\" closure under <workspace>/.tours/.log/ for " +
+  "the runId and returns it, so the agentStop guard sees an assessed run " +
+  "instead of an omission. Never use it to avoid an assessment you could make, " +
+  "and never to claim that Knowledge was created.";
 
 // A session whose tool catalog has no CodeTour creation tool cannot produce a
 // Tour. The prompt makes that state explicit and actionable instead of letting
@@ -780,9 +855,17 @@ export function createServer(workspaceRoot: string): McpServer {
               "verbatim: it orients the Tour and its language is the " +
               "user's language, in which the Tour is written."
           ),
+        runId: z
+          .string()
+          .optional()
+          .describe(
+            "Optional CodeTour generation run identity created by the " +
+              "controlled adapter; embedded in the prompt and passed back to " +
+              "the creation and consolidation tools."
+          ),
       },
     },
-    async ({ brief, request }) => ({
+    async ({ brief, request, runId }) => ({
       messages: [
         {
           role: "user" as const,
@@ -792,6 +875,7 @@ export function createServer(workspaceRoot: string): McpServer {
               projectTourGenerationPrompt() +
               tourOrientationClause(brief) +
               originalRequestSection(request) +
+              runIdentitySection(runId) +
               (await knowledgeCatalogueProjection(ctx.root)) +
               KNOWLEDGE_DECOMPOSITION_METHOD,
           },
@@ -816,9 +900,17 @@ export function createServer(workspaceRoot: string): McpServer {
               "verbatim: it orients the Tour and its language is the " +
               "user's language, in which the Tour is written."
           ),
+        runId: z
+          .string()
+          .optional()
+          .describe(
+            "Optional CodeTour generation run identity created by the " +
+              "controlled adapter; embedded in the prompt and passed back to " +
+              "the creation and consolidation tools."
+          ),
       },
     },
-    ({ reviewMode, brief }) => ({
+    ({ reviewMode, brief, runId }) => ({
       messages: [
         {
           role: "user" as const,
@@ -826,7 +918,8 @@ export function createServer(workspaceRoot: string): McpServer {
             type: "text" as const,
             text:
               changesTourGenerationPrompt(reviewMode) +
-              tourOrientationClause(brief),
+              tourOrientationClause(brief) +
+              runIdentitySection(runId),
           },
         },
       ],
@@ -880,6 +973,15 @@ export function createServer(workspaceRoot: string): McpServer {
     (args) => safeToolCall(args, (input) => handleKnowledgeSave(ctx, input))
   );
 
+  server.registerTool(
+    KNOWLEDGE_CLOSE_RUN_TOOL,
+    {
+      description: KNOWLEDGE_CLOSE_RUN_DESCRIPTION,
+      inputSchema: knowledgeCloseRunInputSchema,
+    },
+    (args) => safeToolCall(args, (input) => handleKnowledgeCloseRun(ctx, input))
+  );
+
   return server;
 }
 
@@ -913,6 +1015,9 @@ async function handleCreateProjectTour(
     return errorResponse(result.rejection);
   }
   const { ctx, params, steps: finalSteps } = result.proposal;
+  if (params.runId !== undefined && !isValidRunId(params.runId)) {
+    return errorResponse("INVALID_RUN_ID", "The runId must be a CodeTour generation identity.");
+  }
 
   const warnings = [
     ...stepLimitWarnings(finalSteps),
@@ -947,13 +1052,24 @@ async function handleCreateProjectTour(
     return writeFailure;
   }
 
-  return successResponse(
-    normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, targetPath))),
+  const relativePath = normalizeSlashes(
+    path.relative(defaultContext.root, path.join(ctx.root, targetPath))
+  );
+  const response = successResponse(
+    relativePath,
     title,
     finalSteps.length,
     warnings,
     `Created Project Tour at ${targetPath} with ${finalSteps.length} step(s).`
   );
+  await appendRunIdentity(
+    response,
+    defaultContext.realRoot,
+    params.runId,
+    "project",
+    relativePath
+  );
+  return response;
 }
 
 // Create a Changes Tour: analyze committed changes from the merge-base of
@@ -970,6 +1086,9 @@ async function handleCreateChangesTour(
     return errorResponse(result.rejection);
   }
   const { ctx, params } = result.proposal;
+  if (params.runId !== undefined && !isValidRunId(params.runId)) {
+    return errorResponse("INVALID_RUN_ID", "The runId must be a CodeTour generation identity.");
+  }
 
   const baseRef = params.baseRef as string;
   const headRef = params.headRef as string;
@@ -1147,13 +1266,24 @@ async function handleCreateChangesTour(
     return writeFailure;
   }
 
-  return successResponse(
-    normalizeSlashes(path.relative(defaultContext.root, path.join(ctx.root, targetPath))),
+  const relativePath = normalizeSlashes(
+    path.relative(defaultContext.root, path.join(ctx.root, targetPath))
+  );
+  const response = successResponse(
+    relativePath,
     title,
     finalSteps.length,
     warnings,
     `Created Changes Tour at ${targetPath} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`
   );
+  await appendRunIdentity(
+    response,
+    defaultContext.realRoot,
+    params.runId,
+    "changes",
+    relativePath
+  );
+  return response;
 }
 
 // ---------------------------------------------------------------------------
@@ -1379,12 +1509,18 @@ async function handleKnowledgeSave(
       },
     ]);
   }
+  const runId = workspace.args.runId;
+  if (runId !== undefined && !isValidRunId(runId)) {
+    return knowledgeArgumentError([
+      { path: "runId", message: "must be a CodeTour generation run identity" },
+    ]);
+  }
 
   let result;
   try {
     result = await saveKnowledgeProposal(workspace.context.root, { entries });
   } catch (error) {
-    return knowledgeResponse(
+    const response = knowledgeResponse(
       {
         status: "failed",
         workspace: workspace.label,
@@ -1394,24 +1530,45 @@ async function handleKnowledgeSave(
       "Error (KNOWLEDGE_SAVE_FAILED): the proposal could not be processed; nothing was persisted.",
       true
     );
+    await appendConsolidation(
+      response,
+      defaultContext.realRoot,
+      runId as string | undefined,
+      { status: "failed", outcome: "internal_error" }
+    );
+    return response;
   }
 
   if (result.status === "saved") {
-    return knowledgeResponse(
+    const response = knowledgeResponse(
       { status: "created", workspace: workspace.label, created: result.saved },
       `Created ${result.saved.length} Knowledge entr${result.saved.length === 1 ? "y" : "ies"}: ` +
         result.saved.join(", ") + "."
     );
+    await appendConsolidation(
+      response,
+      defaultContext.realRoot,
+      runId as string | undefined,
+      { status: "created", outcome: "created", created: result.saved }
+    );
+    return response;
   }
   if (result.status === "no-op") {
-    return knowledgeResponse(
+    const response = knowledgeResponse(
       { status: "completed_zero", workspace: workspace.label, created: [] },
       "Consolidation completed with zero entries: nothing was created. This is " +
         "an explicit no-op, not a forgotten consolidation."
     );
+    await appendConsolidation(
+      response,
+      defaultContext.realRoot,
+      runId as string | undefined,
+      { status: "completed_zero", outcome: "completed_zero", created: [] }
+    );
+    return response;
   }
   if (result.status === "conflict") {
-    return knowledgeResponse(
+    const response = knowledgeResponse(
       {
         status: "conflict",
         workspace: workspace.label,
@@ -1424,8 +1581,15 @@ async function handleKnowledgeSave(
           .join("\n"),
       true
     );
+    await appendConsolidation(
+      response,
+      defaultContext.realRoot,
+      runId as string | undefined,
+      { status: "failed", outcome: "conflict" }
+    );
+    return response;
   }
-  return knowledgeResponse(
+  const response = knowledgeResponse(
     {
       status: "invalid",
       workspace: workspace.label,
@@ -1442,6 +1606,89 @@ async function handleKnowledgeSave(
         .join("\n"),
     true
   );
+  await appendConsolidation(
+    response,
+    defaultContext.realRoot,
+    runId as string | undefined,
+    { status: "failed", outcome: "invalid" }
+  );
+  return response;
+}
+
+// Close a run without a Knowledge proposal. `skipped` is an explicit
+// assessment, distinct from an omission: the hook will not ask for a second
+// continuation on a run that deliberately skipped consolidation.
+async function handleKnowledgeCloseRun(
+  defaultContext: WorkspaceContext,
+  args: unknown
+): Promise<ToolResponse> {
+  const workspace = selectKnowledgeWorkspace(defaultContext, args);
+  if (!isSelectedKnowledgeWorkspace(workspace)) return workspace;
+  const runId = workspace.args.runId;
+  if (!isValidRunId(runId)) {
+    return knowledgeArgumentError([
+      { path: "runId", message: "must be a CodeTour generation run identity" },
+    ]);
+  }
+  const reason = workspace.args.reason;
+  if (reason !== undefined && typeof reason !== "string") {
+    return knowledgeArgumentError([
+      { path: "reason", message: "must be a string when present" },
+    ]);
+  }
+  const response = knowledgeResponse(
+    { status: "skipped", workspace: workspace.label, runId },
+    `Consolidation for run ${runId} was explicitly skipped; no Knowledge was ` +
+      "created. The MCP records this as a closed run, not as an omission."
+  );
+  await appendConsolidation(
+    response,
+    defaultContext.realRoot,
+    runId,
+    { status: "skipped", outcome: "skipped", reason: reason as string | undefined }
+  );
+  return response;
+}
+
+// Persist one authenticated closure next to the run identity and expose it in
+// the tool result. A run-log failure is reported but never turns a successful
+// Knowledge save into an error: the Knowledge file is the authoritative
+// content, the closure is the run trace.
+async function appendConsolidation(
+  response: ToolResponse,
+  root: string,
+  runId: string | undefined,
+  closure: {
+    status: ConsolidationStatus;
+    outcome?: string;
+    created?: string[];
+    reason?: string;
+  }
+): Promise<void> {
+  if (!runId) return;
+  const structured = response.structuredContent as
+    | Record<string, unknown>
+    | undefined;
+  if (!structured) return;
+  const complete: ConsolidationClosure = {
+    status: closure.status,
+    runId,
+    at: new Date().toISOString(),
+    ...(closure.created ? { created: closure.created } : {}),
+    ...(closure.outcome ? { outcome: closure.outcome } : {}),
+    ...(closure.reason ? { reason: closure.reason } : {}),
+  };
+  structured.runId = runId;
+  structured.consolidation = complete;
+  try {
+    const recorded = await recordConsolidation(root, runId, "project", complete);
+    structured.consolidationPersisted = recorded.persisted;
+    if (!recorded.persisted) structured.consolidationPersistReason = recorded.reason;
+  } catch (error) {
+    structured.consolidationPersisted = false;
+    structured.consolidationPersistReason =
+      error instanceof Error ? error.message : String(error);
+  }
 }
 
 // Non-blocking warning when a Tour exceeds fifteen steps.
@@ -1534,6 +1781,33 @@ function resultText(
     `Title: ${title}`,
     ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
   ].join("\n");
+}
+
+// A successful creation is reported once, with the same shape for both Tour
+// kinds; the optional run identity is added as bookkeeping only after the Tour
+// file exists, and a run-log failure never turns a created Tour into an error.
+async function appendRunIdentity(
+  response: ToolResponse,
+  root: string,
+  runId: string | undefined,
+  kind: "project" | "changes",
+  tourPath: string
+): Promise<void> {
+  if (!runId) return;
+  const structured = response.structuredContent as
+    | Record<string, unknown>
+    | undefined;
+  if (!structured) return;
+  structured.runId = runId;
+  try {
+    const recorded = await recordTourCreated(root, runId, kind, tourPath);
+    structured.runRecorded = recorded.persisted;
+    if (!recorded.persisted) structured.runRecordReason = recorded.reason;
+  } catch (error) {
+    structured.runRecorded = false;
+    structured.runRecordReason =
+      error instanceof Error ? error.message : String(error);
+  }
 }
 
 function successResponse(

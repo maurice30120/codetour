@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, copyFileSync, symlinkSync, cpSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, copyFileSync, symlinkSync, cpSync, readdirSync, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { runCodeTourCommand, codeTourMcpServer } from "../.github/extensions/codetour/adapter.mjs";
@@ -685,4 +685,169 @@ test("the Copilot host registers the shared standalone MCP with the selected wor
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
   }
+});
+
+// ---------------------------------------------------------------------------
+// Generation wrapper invariant (spec #223, ticket #228)
+// ---------------------------------------------------------------------------
+
+function readRunStates(root) {
+  const directory = path.join(root, ".tours", ".log");
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory)
+    .filter(name => name.startsWith("codetour-run-") && name.endsWith(".json"))
+    .map(name => JSON.parse(readFileSync(path.join(directory, name), "utf8")));
+}
+
+function runStateFor(root, runId) {
+  return readRunStates(root).find(state => state.runId === runId);
+}
+
+function rememberCli() {
+  const previous = process.env.CODETOUR_CLI;
+  const restore = () => {
+    if (previous === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previous;
+  };
+  return restore;
+}
+
+test("a generation writes one workspace-scoped run before sending the served prompt", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    let sent;
+    let stateAtSend;
+    const logs = [];
+    const request = "generate project Explique-moi le flux de paiement, de l'entrée à la persistance.";
+    await runCodeTourCommand({
+      sessionId: "session-0123456789abcdef",
+      capabilities: {},
+      send: async options => {
+        sent = options;
+        stateAtSend = readRunStates(root);
+      },
+      log: async message => logs.push(message)
+    }, request, root);
+    assert.ok(sent, logs.join("\n"));
+    assert.equal(sent.mode, "immediate");
+    // The original request and the orientation travel to prompts/get, so the
+    // composed message carries both exactly as the user wrote them.
+    assert.match(sent.prompt, /## The user's original request/);
+    assert.ok(sent.prompt.includes(request), "the original request must be intact");
+    assert.match(sent.prompt, /## Tour orientation from the user/);
+    assert.match(sent.prompt, /Explique-moi le flux de paiement/);
+    // prompts/get composed the run identity into the prompt before the send.
+    const identity = sent.prompt.match(/Run identity: `([A-Za-z0-9_-]{8,64})`/);
+    assert.ok(identity, "the served prompt names the CodeTour run identity");
+    assert.equal(stateAtSend.length, 1, "the run state exists before session.send");
+    const state = stateAtSend[0];
+    assert.equal(state.runId, identity[1]);
+    assert.equal(state.sessionId, "session-0123456789abcdef");
+    assert.equal(state.workspace, realpathSync(root));
+    assert.equal(state.tourCreated, false);
+    assert.equal(state.consolidation, null);
+    assert.equal(state.continuationUsed, false);
+    // The adapter never claims a confirmed outcome it has not observed.
+    assert.doesNotMatch(logs.join("\n"), /Tour created|Knowledge (created|persisted)|consolidation (completed|closed)/i);
+  } finally {
+    restore();
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("an unusable workspace fails visibly without asking the MCP or the agent", async () => {
+  const missing = path.join(os.tmpdir(), `codetour-missing-workspace-${process.pid}-${Date.now()}`);
+  const logs = [];
+  await runCodeTourCommand({
+    capabilities: {},
+    send: async () => assert.fail("No analysis may start for an unusable workspace"),
+    log: async message => logs.push(message)
+  }, "generate project Explique le flux.", missing);
+  const message = logs.join("\n");
+  assert.match(message, /workspace/i);
+  assert.match(message, /not a directory|does not exist|introuvable/i);
+  assert.ok(!existsSync(missing));
+});
+
+test("an empty served prompt fails without sending or writing a run", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  const wrapper = path.join(root, "empty-prompt-mcp.js");
+  writeFileSync(wrapper, [
+    'const { createInterface } = require("node:readline");',
+    'const lines = createInterface({input: process.stdin});',
+    'const send = message => process.stdout.write(JSON.stringify({jsonrpc: "2.0", ...message}) + "\\n");',
+    'lines.on("line", line => {',
+    '  const message = JSON.parse(line);',
+    '  if (message.id === 1) send({id: 1, result: {protocolVersion: "2024-11-05", capabilities: {}, serverInfo: {name: "empty", version: "1"}}});',
+    '  else if (message.id === 2) send({id: 2, result: {messages: []}});',
+    '});'
+  ].join("\n"));
+  process.env.CODETOUR_CLI = wrapper;
+  try {
+    const logs = [];
+    await runCodeTourCommand({
+      capabilities: {},
+      send: async () => assert.fail("An empty served prompt must not start analysis"),
+      log: async message => logs.push(message)
+    }, "generate project Explique le flux.", root);
+    assert.match(logs.join("\n"), /empty prompt/);
+    assert.match(logs.join("\n"), /CodeTour MCP server/);
+    assert.deepEqual(readRunStates(root), [], "no run state is written when the wrapper fails");
+  } finally {
+    restore();
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("concurrent generations keep separate run states per session", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    const send = async () => {};
+    await Promise.all(["session-aaaaaaaaaaaaaaaa", "session-bbbbbbbbbbbbbbbb"].map(sessionId =>
+      runCodeTourCommand({sessionId, capabilities: {}, send, log: async () => {}},
+        `generate project Session ${sessionId}.`, root)));
+    const states = readRunStates(root).sort((left, right) => left.sessionId.localeCompare(right.sessionId));
+    assert.equal(states.length, 2);
+    assert.deepEqual(states.map(state => state.sessionId), ["session-aaaaaaaaaaaaaaaa", "session-bbbbbbbbbbbbbbbb"]);
+    assert.notEqual(states[0].runId, states[1].runId);
+  } finally {
+    restore();
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("a new generation prunes expired run states without touching Knowledge", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    const log = path.join(root, ".tours", ".log");
+    mkdirSync(log, {recursive: true});
+    const stale = "codetour-run-run-9999999999999999.json";
+    writeFileSync(path.join(log, stale), JSON.stringify({
+      version: 1, runId: "run-9999999999999999", workspace: realpathSync(root), sessionId: "old",
+      kind: "project", request: null, at: "2020-01-01T00:00:00.000Z", updatedAt: "2020-01-01T00:00:00.000Z",
+      tourCreated: true, tourPath: ".tours/project.tour", consolidation: null, continuationUsed: true
+    }));
+    mkdirSync(path.join(root, ".tours", ".memory", "knowledge"), {recursive: true});
+    writeFileSync(path.join(root, ".tours", ".memory", "knowledge", "kept.md"), "---\nname: kept\n---\nbody\n");
+    await runCodeTourCommand({sessionId: "session-cccccccccccccccc", capabilities: {}, send: async () => {}, log: async () => {}},
+      "generate project Explique le flux.", root);
+    assert.ok(!existsSync(path.join(log, stale)), "an expired run state is removed");
+    assert.ok(existsSync(path.join(root, ".tours", ".memory", "knowledge", "kept.md")), "Knowledge is never pruned");
+    assert.equal(readRunStates(root).length, 1);
+  } finally {
+    restore();
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("the extension no longer joins a second CodeTour MCP server", () => {
+  const source = readFileSync(path.resolve(".github/extensions/codetour/extension.mjs"), "utf8");
+  assert.match(source, /joinSession\(\{\s*commands/);
+  assert.doesNotMatch(source, /mcpServers/, "the plugin's mcp.json is the single MCP source");
 });

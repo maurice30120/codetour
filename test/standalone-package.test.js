@@ -250,6 +250,7 @@ test("packaged codetour installs and removes the Knowledge skill offline", () =>
     CODETOUR_COPILOT_MCP_CONFIG: path.join(workspace, "mcp-config.json"),
     CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(workspace, "copilot-extensions"),
     CODETOUR_COPILOT_SKILLS_DIR: path.join(workspace, "copilot skills"),
+    CODETOUR_COPILOT_PLUGIN_DIR: path.join(workspace, "copilot plugin"),
   };
   const skillFile = path.join(workspace, "copilot skills", "codetour-knowledge", "SKILL.md");
   const installed = spawnPackagedSync(["--install", "copilot"], { cwd: workspace, env, encoding: "utf8" });
@@ -292,6 +293,7 @@ test("packaged codetour mcp creates a Project Tour in a non-Git workspace withou
       [
         "create_changes_tour",
         "create_project_tour",
+        "knowledge_close_run",
         "knowledge_list",
         "knowledge_read",
         "knowledge_save",
