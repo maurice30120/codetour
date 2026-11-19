@@ -123,6 +123,8 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
       assert.deepEqual(noMatch.structured.entries, []);
       assert.equal(noMatch.structured.total, 0);
 
+      // The last page is complete: `truncated` describes what remains after
+      // the page, not the page's length compared with the whole catalogue.
       const page = await callTool(client, KNOWLEDGE_LIST, { limit: 1, offset: 1 });
       assert.deepEqual(page.structured, {
         status: "ok",
@@ -130,6 +132,17 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
         entries: [{ name: "stale_flow", description: "Cites a changed file" }],
         total: 2,
         offset: 1,
+        limit: 1,
+        truncated: false,
+      });
+
+      const middle = await callTool(client, KNOWLEDGE_LIST, { limit: 1, offset: 0 });
+      assert.deepEqual(middle.structured, {
+        status: "ok",
+        workspace: ".",
+        entries: [{ name: "dispatch_flow", description: "How tool calls dispatch" }],
+        total: 2,
+        offset: 0,
         limit: 1,
         truncated: true,
       });
@@ -535,6 +548,16 @@ test("prompts/get carries the original request and the catalogue before the deco
       assert.ok(catalogueAt < decompositionAt, "the catalogue precedes the decomposition method");
       assert.ok(text.includes("dispatch_flow"));
       assert.ok(text.includes("How tool calls dispatch"));
+      // The projection is a metadata candidate list, not a validation claim:
+      // stale entries are still listed, so only knowledge_read validates.
+      assert.match(text, /metadata candidates/i);
+      assert.match(text, /never a body/i);
+      assert.match(text, /validation happens only when/i);
+      assert.match(text, /knowledge_read/);
+      assert.ok(
+        !text.includes("Validated Knowledge entries available"),
+        "discovery must not claim the listed entries are validated"
+      );
       assert.ok(!text.includes("Prompt body."), "the catalogue projection never carries a body");
       // The wrapper prescribes targeted gap exploration and no second pass.
       assert.match(text, /atomic questions/i);

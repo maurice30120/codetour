@@ -99,7 +99,7 @@ for the packaged-launcher client configuration shape.
 Finally, configure your MCP client with the command and its working directory,
 as in the example below. Once connected, the client automatically discovers
 `create_project_tour`, `create_changes_tour`, `knowledge_list`,
-`knowledge_read` and `knowledge_save`.
+`knowledge_read`, `knowledge_save` and `knowledge_close_run`.
 
 ## MCP client configuration
 
@@ -292,7 +292,7 @@ written when any diagram or ordinary Tour validation fails.
 The server exposes the same Knowledge contract as the native
 `codetour knowledge` CLI, from the shared `codetour-knowledge` package: no
 format, hash or conflict rule is reimplemented here. The catalogue is the
-fixed location `<workspace>/.tours/.memory/knowledge/`; all three tools accept
+fixed location `<workspace>/.tours/.memory/knowledge/`; all four tools accept
 the optional `workspacePath` (a directory relative to the configured workspace
 root, resolved with the same confinement as the Tour tools) and always stay
 inside the workspace.
@@ -308,8 +308,10 @@ inside the workspace.
 
 Returns metadata only — `entries: [{name, description}]` — never a body,
 evidence, a cited path or a hash. The name is the identifier. `total` is the
-number of matches in the whole filtered catalogue, and `truncated` is true when
-the page does not contain all of them, so paging is explicit. A missing or
+number of matches in the whole filtered catalogue, and `truncated` is true only
+when matching entries remain after this page
+(`offset + entries.length < total`), so paging is explicit and the last page is
+complete. A missing or
 empty catalogue (or a query with no match) is a normal `status: "empty"`
 result with HTTP-style success semantics (`isError` false), not an error.
 
@@ -368,8 +370,12 @@ only evidence that persistence happened: “no file was created” must not be
 reported as success, and it is not automatically a forgotten consolidation
 when the agent explicitly proposed zero entries. With a `runId`, the result
 also carries `consolidation: {status, runId, at, …}` and
-`consolidationPersisted`; `status` is `created`, `completed_zero` or `failed`
-(with an `outcome` of `conflict`, `invalid` or `internal_error`).
+`consolidationPersisted`; `status` is `created`, `completed_zero`, `partial`
+or `failed` (with an `outcome` of `conflict`, `invalid` or
+`internal_error`). `partial` means the run made several save calls and at
+least one published entries while another was refused or failed: the closure
+keeps the published names and the refusal outcome instead of claiming a plain
+success.
 
 #### `knowledge_close_run`
 
@@ -404,6 +410,7 @@ of these codes:
 | `STALE_HEAD`               | `headRef` does not match the current `HEAD`.                      |
 | `INVALID_BASE_REF`         | The merge-base between `baseRef` and `headRef` cannot be computed. |
 | `NO_CHANGES`               | No committed changes between the merge-base and `headRef`; the previous tour file is preserved. |
+| `INVALID_RUN_ID`           | The supplied `runId` is not a valid CodeTour generation identity (8–64 characters from `A-Z`, `a-z`, `0-9`, `_` and `-`). |
 | `SCHEMA_VALIDATION_FAILED` | Internal: the generated tour did not validate against the CodeTour schema. |
 | `OUTPUT_PATH_ESCAPES_WORKSPACE` | The output directory resolves outside the workspace root. |
 | `INTERNAL_ERROR`            | Unexpected server failure; reported as a result, never as a protocol error. |
@@ -424,16 +431,25 @@ generation run:
 
 | Prompt                   | Arguments                        | Composes                                                    |
 | ------------------------ | -------------------------------- | ----------------------------------------------------------- |
-| `generate_project_tour`  | `request?`, `brief?`, `runId?`   | the Project Tour instructions, the user's original request, the run identity, the Knowledge catalogue projection and the decomposition method. |
-| `generate_changes_tour`  | `reviewMode`, `brief?`, `runId?` | the Changes Tour instructions for the mode, the orientation and the run identity. |
+| `generate_project_tour`  | `request?`, `brief?`, `runId?`   | the Project Tour instructions, the user's actual demand, the run identity, the Knowledge catalogue projection and the decomposition method. |
+| `generate_changes_tour`  | `reviewMode`, `request?`, `brief?`, `runId?` | the Changes Tour instructions for the mode, the user's actual demand, the orientation and the run identity. |
 
-`request` is the user's original request reproduced **verbatim**. `brief`
-remains the optional orientation phrase (backward compatibility for adapters
-that predate `request`): it orients the Tour and its language remains the
-Tour's language. `runId` is the controlled adapter's generation identity; when
-present the prompt states it and tells the agent to pass it to
-`create_project_tour` and `knowledge_save` (or `knowledge_close_run`), which is
-what lets the MCP persist the server-written run trace.
+`request` is the user's actual demand reproduced **verbatim**: the controlled
+adapter strips the `/codetour`, `generate`, type and review-mode prefix and
+passes only the words the user wrote, for both Tour types, and omits the
+argument when the user gave no demand. `brief` remains the optional
+orientation phrase (backward compatibility for adapters that predate
+`request`): it orients the Tour and its language remains the Tour's language,
+so an adapter that only used `brief` keeps working unchanged. `runId` is the
+controlled adapter's generation identity; when present the prompt states it
+and tells the agent to pass it to `create_project_tour` and `knowledge_save`
+(or `knowledge_close_run`), which is what lets the MCP persist the
+server-written run trace.
+
+For `generate_changes_tour`, the composed message is, in this order: the
+Changes Tour instructions for the mode (including the embedded review
+instructions in `critical`), the user's actual demand, the optional
+orientation clause, then the run identity section.
 
 For `generate_project_tour`, the composed message is, in this order:
 

@@ -7,6 +7,33 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Added
 
+- The native `codetour knowledge` CLI. `list` discovers catalogue metadata
+  without bodies, `read` returns a body only when every declared `file` proof
+  still hashes to its SHA-256, `hash` prepares evidence deterministically, and
+  `save` validates a whole proposal before publishing it atomically. Every
+  command prints one JSON object on stdout with stable exit statuses (`0`
+  success, `1` internal, `2` usage or unusable workspace, `3` absence, `4`
+  invalid), and none needs a model, a network or an API key. See ADR 0039.
+- The CodeTour MCP server exposes the same Knowledge contract as
+  `knowledge_list`, `knowledge_read`, `knowledge_save` and
+  `knowledge_close_run`, and both generation prompts accept the user's
+  demand as `request` next to a bounded Knowledge catalogue projection. A
+  `knowledge_save` carrying the run identity records `created`,
+  `completed_zero`, `partial` or `failed`; `knowledge_close_run` records an
+  explicit `skipped`. Both write the server-authenticated run log. See ADR
+  0040.
+- A Copilot Agent Plugins 1.0 plugin ships one CodeTour MCP server, the
+  `codetour-generate` skill and a deterministic `agentStop` hook.
+  `codetour --install copilot` installs the plugin, the extension and the
+  standalone `codetour-knowledge` skill offline; `--uninstall copilot`
+  removes only what this CLI owns. See ADR 0041.
+- A run log under `<workspace>/.tours/.log/` gives the guarded
+  `/codetour generate` wrapper and the hook one authenticated state per
+  `runId` — `tourCreated`, the consolidation closure and `continuationUsed` —
+  with atomic writes under a cross-process lock, pruning that never touches
+  Knowledge, and one JavaScript source of truth shared by the extension and
+  the plugin (`npm run sync:copilot-run-log`, pinned byte for byte by a test).
+
 - A Tour generation can be accompanied by a phrase: `/codetour generate`
   accepts a free orientation after the type and review mode
   (`/codetour generate project montre-moi le rendu Mermaid`). The phrase
@@ -40,6 +67,10 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Changed
 
+- `/codetour generate` sends only the user's demand to `prompts/get` as
+  `request`, for Project and Changes Tours alike: the command, type and
+  review-mode prefix are adapter syntax and never travel as the user's words.
+  The same phrase still travels as `brief` for the Tour orientation.
 - The terminal reader is the default renderer: `codetour` and `/codetour` open
   the interactive terminal Tour without a flag, and `--renderer html` selects
   the HTML page explicitly.

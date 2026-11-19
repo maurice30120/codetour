@@ -28,6 +28,29 @@ function writeTrackedReaderWrapper(file) {
   ].join("\n"));
 }
 
+function writeRecordingMcpWrapper(file) {
+  // A minimal stdio MCP server that records the exact prompts/get arguments
+  // the adapter sends, then serves a deterministic prompt. It lets the tests
+  // observe what leaves the adapter, not only the prompt the real MCP composes.
+  writeFileSync(file, [
+    'const { createInterface } = require("node:readline");',
+    'const { appendFileSync } = require("node:fs");',
+    'const lines = createInterface({input: process.stdin});',
+    'const send = message => process.stdout.write(JSON.stringify({jsonrpc: "2.0", ...message}) + "\\n");',
+    'lines.on("line", line => {',
+    '  const message = JSON.parse(line);',
+    '  if (message.id === 1) send({id: 1, result: {protocolVersion: "2024-11-05", capabilities: {}, serverInfo: {name: "recording", version: "1"}}});',
+    '  else if (message.id === 2) {',
+    '    const params = message.params || {};',
+    '    appendFileSync(process.env.CODETOUR_TEST_PROMPT_ARGS, JSON.stringify({name: params.name, arguments: params.arguments || {}}) + "\\n");',
+    '    const args = params.arguments || {};',
+    '    const text = [`recorded prompt ${params.name}`].concat(args.request ? [`request: ${args.request}`] : [], args.brief ? [`brief: ${args.brief}`] : []).join("\\n");',
+    '    send({id: 2, result: {messages: [{role: "user", content: {type: "text", text}}]}});',
+    '  }',
+    '});'
+  ].join("\n"));
+}
+
 function writeRendererRecordingWrapper(file) {
   // Records the reader launch arguments instead of running the real CLI: the
   // terminal renderer would otherwise open a window during the test run.
@@ -691,6 +714,12 @@ test("the Copilot host registers the shared standalone MCP with the selected wor
 // Generation wrapper invariant (spec #223, ticket #228)
 // ---------------------------------------------------------------------------
 
+async function recordedPromptArgs(recorded) {
+  for (let i = 0; i < 100 && !existsSync(recorded); i++) await delay(50);
+  assert.ok(existsSync(recorded), "the adapter should call prompts/get before sending");
+  return readFileSync(recorded, "utf8").trim().split("\n").filter(Boolean).map(line => JSON.parse(line));
+}
+
 function readRunStates(root) {
   const directory = path.join(root, ".tours", ".log");
   if (!existsSync(directory)) return [];
@@ -719,7 +748,7 @@ test("a generation writes one workspace-scoped run before sending the served pro
     let sent;
     let stateAtSend;
     const logs = [];
-    const request = "generate project Explique-moi le flux de paiement, de l'entrée à la persistance.";
+    const demand = "Explique-moi le flux de paiement, de l'entrée à la persistance.";
     await runCodeTourCommand({
       sessionId: "session-0123456789abcdef",
       capabilities: {},
@@ -728,15 +757,16 @@ test("a generation writes one workspace-scoped run before sending the served pro
         stateAtSend = readRunStates(root);
       },
       log: async message => logs.push(message)
-    }, request, root);
+    }, `generate project ${demand}`, root);
     assert.ok(sent, logs.join("\n"));
     assert.equal(sent.mode, "immediate");
-    // The original request and the orientation travel to prompts/get, so the
-    // composed message carries both exactly as the user wrote them.
+    // The user's demand, never the command text, travels to prompts/get: the
+    // composed message carries it as both the original request and the
+    // orientation, exactly as the user wrote it.
     assert.match(sent.prompt, /## The user's original request/);
-    assert.ok(sent.prompt.includes(request), "the original request must be intact");
+    assert.ok(sent.prompt.includes(demand), "the user's demand must be intact");
+    assert.doesNotMatch(sent.prompt, /generate project Explique-moi/, "the command prefix is adapter syntax, not the user's words");
     assert.match(sent.prompt, /## Tour orientation from the user/);
-    assert.match(sent.prompt, /Explique-moi le flux de paiement/);
     // prompts/get composed the run identity into the prompt before the send.
     const identity = sent.prompt.match(/Run identity: `([A-Za-z0-9_-]{8,64})`/);
     assert.ok(identity, "the served prompt names the CodeTour run identity");
@@ -744,6 +774,7 @@ test("a generation writes one workspace-scoped run before sending the served pro
     const state = stateAtSend[0];
     assert.equal(state.runId, identity[1]);
     assert.equal(state.sessionId, "session-0123456789abcdef");
+    assert.equal(state.request, demand, "the run records the user's demand, never the command");
     assert.equal(state.workspace, realpathSync(root));
     assert.equal(state.tourCreated, false);
     assert.equal(state.consolidation, null);
@@ -753,6 +784,91 @@ test("a generation writes one workspace-scoped run before sending the served pro
   } finally {
     restore();
     rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("both Tour types send the user's demand, never the command, to prompts/get", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  const previousArgs = process.env.CODETOUR_TEST_PROMPT_ARGS;
+  const recorded = path.join(root, "prompt-args.jsonl");
+  writeRecordingMcpWrapper(path.join(root, "recording-mcp.js"));
+  process.env.CODETOUR_CLI = path.join(root, "recording-mcp.js");
+  process.env.CODETOUR_TEST_PROMPT_ARGS = recorded;
+  try {
+    const demand = "Explique-moi le flux d'authentification, de la connexion à la session.";
+    for (const command of [`generate project ${demand}`, `generate changes critical ${demand}`]) {
+      await runCodeTourCommand({capabilities: {}, send: async () => {}, log: async text => assert.fail(text)}, command, root);
+    }
+    const calls = await recordedPromptArgs(recorded);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].name, "generate_project_tour");
+    assert.equal(calls[0].arguments.request, demand, "the project request is the user's demand only");
+    assert.equal(calls[0].arguments.brief, demand, "the same phrase keeps its orientation role");
+    assert.equal(calls[1].name, "generate_changes_tour");
+    assert.equal(calls[1].arguments.reviewMode, "critical");
+    assert.equal(calls[1].arguments.request, demand, "the changes request is the user's demand only");
+    assert.equal(calls[1].arguments.brief, demand);
+    for (const call of calls) {
+      const args = JSON.stringify(call.arguments);
+      assert.ok(!args.includes("generate project"), "the project command prefix never travels as request");
+      assert.ok(!args.includes("generate changes"), "the changes command prefix never travels as request");
+      assert.ok(!args.includes("critical Explique"), "the review-mode prefix never travels as request");
+    }
+  } finally {
+    restore();
+    if (previousArgs === undefined) delete process.env.CODETOUR_TEST_PROMPT_ARGS; else process.env.CODETOUR_TEST_PROMPT_ARGS = previousArgs;
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("a generation with an empty demand sends no request argument", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  const previousArgs = process.env.CODETOUR_TEST_PROMPT_ARGS;
+  const recorded = path.join(root, "prompt-args.jsonl");
+  writeRecordingMcpWrapper(path.join(root, "recording-mcp.js"));
+  process.env.CODETOUR_CLI = path.join(root, "recording-mcp.js");
+  process.env.CODETOUR_TEST_PROMPT_ARGS = recorded;
+  try {
+    await runCodeTourCommand({
+      capabilities: {ui: {elicitation: true}},
+      ui: {input: async () => ""},
+      send: async () => {},
+      log: async text => assert.fail(text)
+    }, "generate project", root);
+    const calls = await recordedPromptArgs(recorded);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].name, "generate_project_tour");
+    assert.ok(!("request" in calls[0].arguments), "an empty demand is omitted, never sent as an empty string");
+    assert.ok(!("brief" in calls[0].arguments), "an empty orientation is omitted too");
+    const states = readRunStates(root);
+    assert.equal(states.length, 1);
+    assert.equal(states[0].request, null, "the run records no request when the user gave none");
+  } finally {
+    restore();
+    if (previousArgs === undefined) delete process.env.CODETOUR_TEST_PROMPT_ARGS; else process.env.CODETOUR_TEST_PROMPT_ARGS = previousArgs;
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("a Changes Tour serves the user's demand as the original request", async () => {
+  const previousCli = process.env.CODETOUR_CLI;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    let sent;
+    const demand = "Montre comment la revue critique est câblée.";
+    await runCodeTourCommand({capabilities: {}, send: async options => {sent = options;}, log: async text => assert.fail(text)},
+      `generate changes critical ${demand}`);
+    assert.ok(sent);
+    assert.match(sent.prompt, /create_changes_tour/);
+    assert.match(sent.prompt, /review mode: critical/);
+    assert.match(sent.prompt, /## The user's original request/);
+    assert.ok(sent.prompt.includes(demand), "the changes prompt carries the demand verbatim");
+    assert.doesNotMatch(sent.prompt, /generate changes critical Montre/, "the command prefix is not the request");
+    assert.match(sent.prompt, /## Tour orientation from the user/);
+  } finally {
+    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
   }
 });
 

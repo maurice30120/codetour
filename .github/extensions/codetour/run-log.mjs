@@ -13,10 +13,13 @@ import { randomUUID } from "node:crypto";
 // cross-process lock, so two generations, a resumed session or a concurrent
 // stop cannot lose each other's fields.
 //
-// This file is the source of truth for the JavaScript surfaces (the Copilot
-// adapter, the plugin hook). The MCP server implements the same on-disk
-// contract in TypeScript (`packages/mcp-server/src/run-log.ts`); the shared
-// tests pin both implementations to the same format.
+// This file is the single source of truth for the JavaScript surfaces (the
+// Copilot adapter, the plugin hook). The plugin copy at
+// `packages/copilot-plugin/com.github.copilot/lib/run-log.mjs` is generated
+// from it by `node scripts/sync-copilot-run-log.js`; a test fails when the two
+// ever diverge, so there is no silent drift. The MCP server implements the
+// same on-disk contract in TypeScript (`packages/mcp-server/src/run-log.ts`);
+// the shared tests pin both implementations to the same format.
 
 export const RUN_STATE_VERSION = 1;
 export const RUN_LOG_DIRECTORY = path.join(".tours", ".log");

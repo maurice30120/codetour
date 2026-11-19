@@ -241,9 +241,68 @@ export function recordTourCreated(
 }
 
 /**
+ * Merge one save outcome into the run's accumulated consolidation state.
+ *
+ * A save call is all-or-nothing, but a run can make several save calls. When
+ * one of them created entries and another was refused in a separate call, the
+ * run did not fully succeed: the closure becomes `partial`, keeping the
+ * published names and the refusal outcome. This never turns a refusal into a
+ * success and never hides the entries that were actually written.
+ */
+function mergeConsolidation(
+  previous: ConsolidationClosure | null,
+  incoming: ConsolidationClosure
+): ConsolidationClosure {
+  if (!previous) return incoming;
+  // Names are facts: once any save call published entries, no later closure
+  // may erase them or downgrade the run to "nothing was created".
+  const created = [
+    ...new Set([
+      ...(previous.created ?? []),
+      ...(incoming.created ?? []),
+    ]),
+  ];
+  // A failed closure is a refused persistence attempt. A partial closure
+  // already records one, so either previous shape counts as a failure.
+  const previousFailed =
+    previous.status === "failed" || previous.status === "partial";
+  const failed = previousFailed || incoming.status === "failed";
+  if (created.length > 0) {
+    const outcome = failed
+      ? incoming.status === "failed"
+        ? incoming.outcome
+        : previous.outcome ?? "conflict"
+      : "created";
+    return {
+      ...incoming,
+      status: failed ? "partial" : "created",
+      created,
+      // The accumulated closure's outcome always agrees with its status: a
+      // later empty answer cannot leave `outcome: "completed_zero"` on a
+      // closure that records published entries.
+      outcome,
+    };
+  }
+  if (failed) {
+    // Nothing was created: keep the refusal that actually happened rather
+    // than letting a later empty answer hide it.
+    if (previous.status === "failed" && incoming.status !== "failed") {
+      return previous;
+    }
+    return incoming;
+  }
+  // No creation and no refusal: an explicit zero beats a later deliberate
+  // skip, and a later explicit zero replaces a skip.
+  return previous.status === "completed_zero" ? previous : incoming;
+}
+
+/**
  * Record the consolidation closure. Any status closes the run for the hook:
  * an explicit zero creation and a refusal are assessments, not omissions. Only
  * a missing closure remains incomplete.
+ *
+ * The merge happens under the run-state lock, so two concurrent save calls
+ * cannot lose each other's created names or refusal outcome.
  */
 export function recordConsolidation(
   workspace: string,
@@ -253,7 +312,7 @@ export function recordConsolidation(
 ): Promise<RunUpdate> {
   return updateRunState(workspace, runId, kind, (state) => ({
     ...state,
-    consolidation: closure,
+    consolidation: mergeConsolidation(state.consolidation, closure),
     updatedAt: new Date().toISOString(),
   }));
 }

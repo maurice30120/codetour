@@ -7,6 +7,7 @@ import { z } from "zod";
 import * as path from "path";
 import {
   isValidRunId,
+  readRunState,
   recordConsolidation,
   recordTourCreated,
   type ConsolidationClosure,
@@ -64,8 +65,9 @@ import { knowledgeDirectory, loadKnowledgeLibrary, saveKnowledgeProposal } from 
 import packageJson from "../package.json";
 
 // The MCP server exposes the two Tour creation tools (`create_project_tour`
-// and `create_changes_tour`) and the three Knowledge tools of spec #223
-// (`knowledge_list`, `knowledge_read`, `knowledge_save`). The AI agent writes
+// and `create_changes_tour`) and the four Knowledge tools of spec #223
+// (`knowledge_list`, `knowledge_read`, `knowledge_save`,
+// `knowledge_close_run`). The AI agent writes
 // the content; the server only validates proposals, applies Git and security
 // rules, and atomically writes the corresponding reserved Tour file or
 // Knowledge entry. Knowledge bodies are untrusted data: the server returns
@@ -143,15 +145,18 @@ export const GENERATE_PROJECT_TOUR_PROMPT_NAME = "generate_project_tour";
 export const GENERATE_CHANGES_TOUR_PROMPT_NAME = "generate_changes_tour";
 const GENERATE_PROJECT_TOUR_PROMPT_DESCRIPTION =
   "Generation prompt for the create_project_tour tool, composed for one " +
-  "run: the served Project Tour generation instructions, the user's original " +
-  "request verbatim (the optional request argument), a bounded Knowledge " +
-  "catalogue projection (metadata only), and the explicit decomposition " +
-  "method; the optional brief still carries the Tour orientation and language.";
+  "run: the served Project Tour generation instructions, the user's actual " +
+  "demand verbatim (the optional request argument, without the command " +
+  "prefix), a bounded Knowledge catalogue projection (metadata only), and " +
+  "the explicit decomposition method; the optional brief still carries the " +
+  "Tour orientation and language.";
 const GENERATE_CHANGES_TOUR_PROMPT_DESCRIPTION =
   "Generation prompt for the create_changes_tour tool, composed for one " +
   "run: the served Changes Tour generation instructions for the requested " +
-  "reviewMode, plus the Tour orientation carried by the optional brief when " +
-  "the user's request was accompanied by a phrase.";
+  "reviewMode, the user's actual demand (the optional request argument, " +
+  "reproduced verbatim without the command prefix), and the Tour orientation " +
+  "carried by the optional brief when the user's request was accompanied by a " +
+  "phrase.";
 
 // The user's orientation clause appended to a served generation prompt. The
 // brief is the phrase that accompanied the user's generation request: it
@@ -843,9 +848,10 @@ export function createServer(workspaceRoot: string): McpServer {
           .string()
           .optional()
           .describe(
-            "Optional original request from the user, reproduced verbatim " +
+            "Optional actual demand from the user, reproduced verbatim " +
               "before the Knowledge catalogue and the decomposition method. " +
-              "Adapters should pass the user's words unchanged."
+              "Adapters strip the command/type prefix and pass only the " +
+              "user's words unchanged."
           ),
         brief: z
           .string()
@@ -892,6 +898,15 @@ export function createServer(workspaceRoot: string): McpServer {
         reviewMode: z
           .enum(["neutral", "critical"])
           .describe("The review mode of the Changes Tour generation."),
+        request: z
+          .string()
+          .optional()
+          .describe(
+            "Optional actual demand from the user, reproduced verbatim " +
+              "before the orientation and the run identity. Adapters strip " +
+              "the command, type and review-mode prefix and pass the user's " +
+              "words unchanged."
+          ),
         brief: z
           .string()
           .optional()
@@ -910,7 +925,7 @@ export function createServer(workspaceRoot: string): McpServer {
           ),
       },
     },
-    ({ reviewMode, brief, runId }) => ({
+    ({ reviewMode, request, brief, runId }) => ({
       messages: [
         {
           role: "user" as const,
@@ -918,6 +933,7 @@ export function createServer(workspaceRoot: string): McpServer {
             type: "text" as const,
             text:
               changesTourGenerationPrompt(reviewMode) +
+              originalRequestSection(request) +
               tourOrientationClause(brief) +
               runIdentitySection(runId),
           },
@@ -1650,6 +1666,18 @@ async function handleKnowledgeCloseRun(
   return response;
 }
 
+// The kind recorded in the run state is the adapter's real generation kind.
+// A consolidation must never create a missing state as `project` when the run
+// is a Changes run, so an existing state is read first; only a direct client
+// with no state at all falls back to the neutral Project default.
+async function runKindFor(
+  root: string,
+  runId: string
+): Promise<"project" | "changes"> {
+  const state = await readRunState(root, runId);
+  return state?.kind === "changes" ? "changes" : "project";
+}
+
 // Persist one authenticated closure next to the run identity and expose it in
 // the tool result. A run-log failure is reported but never turns a successful
 // Knowledge save into an error: the Knowledge file is the authoritative
@@ -1681,8 +1709,14 @@ async function appendConsolidation(
   structured.runId = runId;
   structured.consolidation = complete;
   try {
-    const recorded = await recordConsolidation(root, runId, "project", complete);
+    const kind = await runKindFor(root, runId);
+    const recorded = await recordConsolidation(root, runId, kind, complete);
     structured.consolidationPersisted = recorded.persisted;
+    // The persisted closure is the accumulated one: a separate save call may
+    // have created entries or already been refused for this same run.
+    if (recorded.persisted && recorded.state?.consolidation) {
+      structured.consolidation = recorded.state.consolidation;
+    }
     if (!recorded.persisted) structured.consolidationPersistReason = recorded.reason;
   } catch (error) {
     structured.consolidationPersisted = false;
