@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { COPILOT_PLUGIN_FILES } from "./copilot-plugin.generated";
 import { COPILOT_EXTENSION_FILES } from "./copilot-extension.generated";
-import { CODETOUR_KNOWLEDGE_SKILL } from "./knowledge-skill.generated";
 
 const root = path.resolve(__dirname, "../../..");
 const pluginSource = path.join(root, "packages", "copilot-plugin");
@@ -125,6 +124,4 @@ test("the installed plugin totals exactly the declared components", () => {
       "skills/codetour-generate/SKILL.md"
     ]
   );
-  // The personal #226 skill remains a separate, unchanged surface.
-  assert.match(CODETOUR_KNOWLEDGE_SKILL, /^---\nname: codetour-knowledge\n/);
 });

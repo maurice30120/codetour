@@ -9,7 +9,6 @@ import * as os from "os";
 import * as path from "path";
 import { COPILOT_EXTENSION_FILES } from "./copilot-extension.generated";
 import { COPILOT_PLUGIN_FILES } from "./copilot-plugin.generated";
-import { CODETOUR_KNOWLEDGE_SKILL } from "./knowledge-skill.generated";
 
 const cli = path.resolve(__dirname, "../../cli.js");
 
@@ -27,9 +26,11 @@ function run(cwd: string, args: string[], env: Record<string, string> = {}) {
     // ~/.copilot/mcp-config.json, nor the real ~/.copilot/skills directory.
     env: {
       ...process.env,
+      // COPILOT_HOME redirects the user directory itself, so the retired-skill
+      // removal never reads or deletes the real ~/.copilot/skills directory.
+      COPILOT_HOME: path.join(cwd, "copilot-home"),
       CODETOUR_COPILOT_MCP_CONFIG: path.join(cwd, "mcp-config.json"),
       CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(cwd, "copilot-extensions"),
-      CODETOUR_COPILOT_SKILLS_DIR: path.join(cwd, "copilot-skills"),
       // The Agent Plugins 1.0 directory is installed directly in tests: the
       // real `copilot plugin install` is exercised by
       // test/copilot-plugin-install.test.mjs against the installed CLI.
@@ -44,7 +45,7 @@ function pluginDirectory(workspace: string): string {
 }
 
 function skillFile(workspace: string): string {
-  return path.join(workspace, "copilot-skills", "codetour-knowledge", "SKILL.md");
+  return path.join(workspace, "copilot-home", "skills", "codetour-knowledge", "SKILL.md");
 }
 
 function mcpConfig(workspace: string): { mcpServers?: Record<string, Record<string, unknown>> } {
@@ -137,86 +138,43 @@ test("an install writes the adapter files and repeats without changing anything"
   }
 });
 
-test("an install writes the Knowledge skill the CLI can load without a checkout", () => {
-  const workspace = temporaryDirectory("codetour-skill-install-");
+test("an install removes a leftover standalone Knowledge skill and preserves foreign skills", () => {
+  const workspace = temporaryDirectory("codetour-skill-retired-");
   try {
+    // A copy an older CLI wrote before the skill was retired, next to a skill
+    // the plugin knows nothing about.
+    mkdirSync(path.dirname(skillFile(workspace)), { recursive: true });
+    writeFileSync(skillFile(workspace), "---\nname: codetour-knowledge\n---\nan older installment\n");
+    const foreign = path.join(workspace, "copilot-home", "skills", "other-skill", "SKILL.md");
+    mkdirSync(path.dirname(foreign), { recursive: true });
+    writeFileSync(foreign, "---\nname: other-skill\n---\nforeign\n");
+
     const installed = run(workspace, ["--install", "copilot"]);
     assert.equal(installed.status, 0, installed.stderr);
-    assert.match(installed.stdout, /Installed the Knowledge skill/);
-    // The embedded copy is the skill source of truth: the installed file must
-    // be exactly it, at the personal Skills location Copilot discovers.
-    assert.equal(readFileSync(skillFile(workspace), "utf8"), CODETOUR_KNOWLEDGE_SKILL);
-    assert.match(readFileSync(skillFile(workspace), "utf8"), /^---\nname: codetour-knowledge\n/);
-    // The skill is not a .tour and does not sit in an agent-specific extension
-    // directory: it is the personal skill Copilot lists.
-    const agents = run(workspace, ["--agents"]);
-    assert.equal(agents.status, 0, agents.stderr);
-    assert.match(agents.stdout, /installed/);
-    assert.match(agents.stdout, /copilot-skills|codetour-knowledge/);
-
-    // Repeating the install is a no-op, not a rewrite of identical content.
-    const second = run(workspace, ["--install", "copilot"]);
-    assert.equal(second.status, 0, second.stderr);
-    assert.equal(readFileSync(skillFile(workspace), "utf8"), CODETOUR_KNOWLEDGE_SKILL);
+    assert.match(installed.stdout, /Removed the retired standalone Knowledge skill/);
+    assert.ok(!existsSync(skillFile(workspace)), "the retired skill is not installed again");
+    assert.ok(!existsSync(path.dirname(skillFile(workspace))), "its empty directory is removed too");
+    assert.equal(readFileSync(foreign, "utf8"), "---\nname: other-skill\n---\nforeign\n");
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
 });
 
-test("the diagnostics report a missing or outdated Knowledge skill", () => {
-  const workspace = temporaryDirectory("codetour-skill-status-");
-  try {
-    assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
-
-    rmSync(skillFile(workspace));
-    const missing = run(workspace, ["--agents"]);
-    assert.equal(missing.status, 0, missing.stderr);
-    assert.match(missing.stdout, /incomplete/);
-    assert.match(missing.stdout, /Knowledge skill/);
-    assert.match(missing.stdout, /codetour --install copilot/);
-    assert.match(run(workspace, ["--doctor"]).stdout, /copilot: .*integration incomplete/);
-
-    // Reinstalling restores the owned skill file.
-    assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
-    assert.equal(readFileSync(skillFile(workspace), "utf8"), CODETOUR_KNOWLEDGE_SKILL);
-
-    writeFileSync(skillFile(workspace), "---\nname: codetour-knowledge\n---\nan older revision\n");
-    const outdated = run(workspace, ["--agents"]);
-    assert.equal(outdated.status, 0, outdated.stderr);
-    assert.match(outdated.stdout, /outdated/);
-    assert.match(outdated.stdout, /Knowledge skill/);
-
-    const repaired = run(workspace, ["--install", "copilot"]);
-    assert.equal(repaired.status, 0, repaired.stderr);
-    assert.match(repaired.stdout, /Replaced the differing Knowledge skill/);
-    assert.equal(readFileSync(skillFile(workspace), "utf8"), CODETOUR_KNOWLEDGE_SKILL);
-  } finally {
-    rmSync(workspace, { recursive: true, force: true });
-  }
-});
-
-test("an uninstall removes only the Knowledge skill it owns and preserves edited ones", () => {
+test("an uninstall removes a leftover standalone Knowledge skill too", () => {
   const workspace = temporaryDirectory("codetour-skill-uninstall-");
   try {
     assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
-    // A foreign skill in the shared personal directory is never touched.
-    const foreign = path.join(workspace, "copilot-skills", "other-skill", "SKILL.md");
+    mkdirSync(path.dirname(skillFile(workspace)), { recursive: true });
+    writeFileSync(skillFile(workspace), "---\nname: codetour-knowledge\n---\nan older installment\n");
+    const foreign = path.join(workspace, "copilot-home", "skills", "other-skill", "SKILL.md");
     mkdirSync(path.dirname(foreign), { recursive: true });
     writeFileSync(foreign, "---\nname: other-skill\n---\nforeign\n");
 
     const removed = run(workspace, ["--uninstall", "copilot"]);
     assert.equal(removed.status, 0, removed.stderr);
-    assert.ok(!existsSync(skillFile(workspace)), "the unchanged owned skill is removed");
-    assert.ok(!existsSync(path.dirname(skillFile(workspace))), "its empty directory is removed too");
+    assert.match(removed.stdout, /Removed the retired standalone Knowledge skill/);
+    assert.ok(!existsSync(skillFile(workspace)), "the retired skill is removed with the integration");
     assert.equal(readFileSync(foreign, "utf8"), "---\nname: other-skill\n---\nforeign\n");
-
-    // An edited skill is user work: the uninstall reports it and leaves it.
-    assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
-    writeFileSync(skillFile(workspace), "---\nname: codetour-knowledge\n---\nedited by the user\n");
-    const preserved = run(workspace, ["--uninstall", "copilot"]);
-    assert.equal(preserved.status, 0, preserved.stderr);
-    assert.match(preserved.stdout, /left .* untouched|preserved/i);
-    assert.equal(readFileSync(skillFile(workspace), "utf8"), "---\nname: codetour-knowledge\n---\nedited by the user\n");
     assert.ok(!existsSync(path.join(workspace, "copilot-extensions", "extension.mjs")), "owned adapter files are removed");
   } finally {
     rmSync(workspace, { recursive: true, force: true });
@@ -364,7 +322,6 @@ test("an unreadable MCP configuration is reported and left untouched while the p
     assert.match(installed.stdout, /Left .*mcp-config\.json untouched/);
     assert.ok(existsSync(configFile), "the unreadable path is left in place");
     assert.ok(existsSync(path.join(pluginDirectory(workspace), "plugin.json")), "the plugin is still installed");
-    assert.ok(existsSync(skillFile(workspace)), "the Knowledge skill is still installed");
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
@@ -392,9 +349,9 @@ test("an unlaunchable plugin MCP launcher is rejected before any adapter file is
       env: {
         ...process.env,
         PATH: emptyBin,
+        COPILOT_HOME: path.join(workspace, "copilot-home"),
         CODETOUR_COPILOT_MCP_CONFIG: path.join(workspace, "mcp-config.json"),
         CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(workspace, "copilot-extensions"),
-        CODETOUR_COPILOT_SKILLS_DIR: path.join(workspace, "copilot-skills"),
         CODETOUR_COPILOT_PLUGIN_DIR: pluginDirectory(workspace)
       }
     });
@@ -421,7 +378,7 @@ test("a failed plugin installation restores the previous adapter and skill", () 
     const custom = "// a pre-existing custom installation\n";
     writeFileSync(path.join(extensionDir, "extension.mjs"), custom);
     // A file where the managed plugin directory belongs makes the last write
-    // fail after the adapter files and the skill were installed.
+    // fail after the adapter files were installed.
     writeFileSync(pluginDirectory(workspace), "not a directory\n");
     const installed = run(workspace, ["--install", "copilot"], { CODETOUR_COPILOT_EXTENSIONS_DIR: extensionDir });
     assert.notEqual(installed.status, 0);
@@ -431,7 +388,6 @@ test("a failed plugin installation restores the previous adapter and skill", () 
       "the replaced adapter file is restored to its previous content"
     );
     assert.ok(!existsSync(path.join(extensionDir, "adapter.mjs")), "an adapter file created by the failed install is removed");
-    assert.ok(!existsSync(skillFile(workspace)), "the Knowledge skill written by the failed install is rolled back");
     assert.equal(readFileSync(pluginDirectory(workspace), "utf8"), "not a directory\n", "the user path is untouched");
   } finally {
     rmSync(workspace, { recursive: true, force: true });

@@ -74,7 +74,8 @@ test("codetour --install copilot installs the plugin into a temporary COPILOT_HO
     assert.equal(installed.status, 0, installed.stderr);
     assert.match(installed.stdout, /Installed the CodeTour plugin/);
     assert.ok(existsSync(path.join(home, "extensions", "codetour", "adapter.mjs")));
-    assert.ok(existsSync(path.join(home, "skills", "codetour-knowledge", "SKILL.md")));
+    assert.ok(!existsSync(path.join(home, "skills", "codetour-knowledge", "SKILL.md")),
+      "the retired standalone Knowledge skill is not installed; the plugin is the only guidance");
 
     const plugins = spawnSync("copilot", ["plugin", "list", "--json"], { env, encoding: "utf8" });
     assert.equal(plugins.status, 0, plugins.stderr);

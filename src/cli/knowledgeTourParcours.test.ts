@@ -3,7 +3,7 @@ import * as assert from "node:assert/strict";
 import { spawnSync, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -11,9 +11,9 @@ import { loadTour } from "../store/tourSchema";
 
 // The parcours seam: one temporary workspace, the installed CLI bundle and the
 // real CodeTour MCP stdio server. Nothing here re-implements the workflow; the
-// test performs the exact calls the installed skill prescribes and proves that
-// the Knowledge catalogue, the CLI reads and the MCP Tour all target the same
-// workspace.
+// test performs the exact calls the served generation prompt prescribes and
+// proves that the Knowledge catalogue, the CLI reads and the MCP Tour all
+// target the same workspace.
 const root = path.resolve(__dirname, "../../..");
 const cli = path.join(root, "dist", "cli.js");
 const mcpRequire = createRequire(path.join(root, "packages", "mcp-server", "package.json"));
@@ -42,13 +42,12 @@ function runCli(args: string[], cwd: string, env: Record<string, string>) {
   return { ...result, json };
 }
 
-test("a project Tour is built from the Knowledge the installed skill tells the agent to read", async () => {
+test("a project Tour is built from the Knowledge discovered in the same workspace", async () => {
   const workspace = realpathSync(mkdtempSync(path.join(os.tmpdir(), "codetour-parcours-")));
-  const skillsDir = path.join(workspace, "copilot-skills");
   const env = credentialFreeEnv({
+    COPILOT_HOME: path.join(workspace, "copilot-home"),
     CODETOUR_COPILOT_MCP_CONFIG: path.join(workspace, "mcp-config.json"),
-    CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(workspace, "copilot-extensions"),
-    CODETOUR_COPILOT_SKILLS_DIR: skillsDir
+    CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(workspace, "copilot-extensions")
   });
   try {
     // 1. The target workspace, and the skill Copilot discovers there.
@@ -58,12 +57,10 @@ test("a project Tour is built from the Knowledge the installed skill tells the a
 
     const installed = runCli(["--install", "copilot"], workspace, env);
     assert.equal(installed.status, 0, installed.stderr);
-    const skillFile = path.join(skillsDir, "codetour-knowledge", "SKILL.md");
-    assert.equal(
-      readFileSync(skillFile, "utf8"),
-      readFileSync(path.join(root, "packages", "knowledge", "skills", "codetour-knowledge", "SKILL.md"), "utf8")
+    assert.ok(
+      !existsSync(path.join(env.COPILOT_HOME, "skills", "codetour-knowledge", "SKILL.md")),
+      "the retired standalone Knowledge skill is not installed"
     );
-    assert.match(readFileSync(skillFile, "utf8"), /codetour knowledge read <name> --workspace/);
 
     // 2. Consolidation: one reusable Knowledge about the dispatch path.
     const body = "## Dispatch\n\n`dispatch` returns the tool name it receives.\n";

@@ -4,7 +4,6 @@ import * as os from "os";
 import * as path from "path";
 import { COPILOT_EXTENSION_FILES } from "./copilot-extension.generated";
 import { COPILOT_PLUGIN_FILES } from "./copilot-plugin.generated";
-import { CODETOUR_KNOWLEDGE_SKILL } from "./knowledge-skill.generated";
 
 // Agent integrations registry (spec: agent-integrations-copilot-codex.md).
 // Every integration owns detection, status, installation, uninstallation and
@@ -62,18 +61,21 @@ function copilotExtensionDirectory(): string {
     path.join(copilotHome(), "extensions", "codetour");
 }
 
-// Copilot discovers personal skills from <user directory>/skills; the native
-// CodeTour skill is installed as one named directory holding its SKILL.md.
-// COPILOT_HOME relocates the user directory, and the explicit override lets
-// tests install into a temporary directory instead of the developer's home.
-const KNOWLEDGE_SKILL_NAME = "codetour-knowledge";
-
-function copilotSkillsDirectory(): string {
-  return process.env.CODETOUR_COPILOT_SKILLS_DIR || path.join(copilotHome(), "skills");
-}
-
-function knowledgeSkillTarget(): string {
-  return path.join(copilotSkillsDirectory(), KNOWLEDGE_SKILL_NAME, "SKILL.md");
+// The standalone Knowledge skill is retired: the Agent Plugins 1.0 plugin is
+// the only CodeTour guidance Copilot loads (served MCP prompt, plugin skill,
+// agentStop hook). An install or uninstall removes a directory an older CLI
+// wrote under the Copilot user directory so two conflicting CodeTour skills
+// cannot coexist; every other skill there belongs to someone else.
+async function removeRetiredKnowledgeSkill(): Promise<string | undefined> {
+  const skillDirectory = path.join(copilotHome(), "skills", "codetour-knowledge");
+  try {
+    await fs.stat(skillDirectory);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+  await fs.rm(skillDirectory, { recursive: true, force: true });
+  return skillDirectory;
 }
 
 // The Agent Plugins 1.0 plugin is the single owner of the CodeTour MCP server
@@ -259,14 +261,6 @@ async function readCopilotFile(target: string): Promise<string | undefined> {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
   }
-}
-
-// The Knowledge skill has its own directory outside the adapter directory and
-// the same three ownership states: missing, current and modified by the user.
-async function knowledgeSkillState(target: string): Promise<"current" | "modified" | "missing"> {
-  const existing = await readCopilotFile(target);
-  if (existing === undefined) return "missing";
-  return existing === CODETOUR_KNOWLEDGE_SKILL ? "current" : "modified";
 }
 
 // A failed install puts the adapter back as it found it: files that existed get
@@ -543,11 +537,8 @@ const copilotIntegration: AgentIntegration = {
     const states = await copilotFileStates(directory);
     const allCurrent = states.every(file => file.state === "current");
     const allMissing = states.every(file => file.state === "missing");
-    // The skill and the plugin live outside the adapter directory and are
-    // reported separately, with their own ownership states.
-    const skillTarget = knowledgeSkillTarget();
-    const skill = await knowledgeSkillState(skillTarget);
-    const skillCurrent = skill === "current";
+    // The plugin lives outside the adapter directory and is reported
+    // separately, with its own ownership states.
     const override = copilotPluginOverride();
     const installed = await installedCopilotPlugin();
     const pluginRoot = override || installed?.cachePath;
@@ -559,7 +550,6 @@ const copilotIntegration: AgentIntegration = {
     const pluginChanged = pluginStates.filter(file => file.state !== "current").map(file => file.name);
     const changed = [
       ...states.filter(file => file.state !== "current").map(file => file.name),
-      ...(skillCurrent ? [] : [`${KNOWLEDGE_SKILL_NAME}/SKILL.md`]),
       ...(pluginCurrent ? [] : pluginChanged.map(name => `plugin:${name}`))
     ].join(", ");
     const mcpFile = copilotMcpConfigPath();
@@ -579,43 +569,33 @@ const copilotIntegration: AgentIntegration = {
     const foreignNote = foreign
       ? ` A same-named 'codetour' server in ${mcpFile} was configured by someone else and is preserved; remove it yourself if it duplicates the plugin.`
       : "";
-    if (allCurrent && skillCurrent && pluginCurrent) {
+    if (allCurrent && pluginCurrent) {
       if (legacyOwned) {
         return {
           state: "outdated" as const,
-          detail: `The adapter, skill and plugin are installed, but a ${legacyCurrent ? "legacy" : "stale"} 'codetour' entry in ${mcpFile} duplicates the plugin's server. ` +
+          detail: `The adapter and plugin are installed, but a ${legacyCurrent ? "legacy" : "stale"} 'codetour' entry in ${mcpFile} duplicates the plugin's server. ` +
             "Re-run 'codetour --install copilot' to remove the entry this CLI owns."
         };
       }
       return {
         state: "installed" as const,
-        detail: `The adapter files are installed in ${directory}, the Knowledge skill is installed in ${skillTarget}, ` +
-          `and the CodeTour plugin is installed${pluginRoot ? ` in ${pluginRoot}` : ""}. ` +
+        detail: `The adapter files are installed in ${directory}, ` +
+          `the CodeTour plugin is installed${pluginRoot ? ` in ${pluginRoot}` : ""}. ` +
           `The plugin declares the single 'codetour' MCP server.${foreignNote}`
       };
     }
-    if (allCurrent && skillCurrent && !pluginPresent) {
+    if (allCurrent && !pluginPresent) {
       return {
         state: "incomplete" as const,
         detail: `The adapter files are installed in ${directory}, but the CodeTour plugin is missing. ` +
           "Re-run 'codetour --install copilot' so Copilot loads the 'codetour' MCP server and the agentStop guard."
       };
     }
-    if (allCurrent && skillCurrent && pluginPresent) {
+    if (allCurrent && pluginPresent) {
       return {
         state: "outdated" as const,
         detail: `The CodeTour plugin in ${pluginRoot} differs from this CLI (${pluginChanged.join(", ")}). ` +
           "Re-run 'codetour --install copilot' to replace it."
-      };
-    }
-    if (allCurrent && !skillCurrent) {
-      return {
-        state: skill === "missing" ? "incomplete" as const : "outdated" as const,
-        detail: skill === "missing"
-          ? `The adapter files are installed in ${directory}, but the Knowledge skill is missing from ${skillTarget}. ` +
-            "Re-run 'codetour --install copilot' to write it."
-          : `The Knowledge skill in ${skillTarget} differs from this CLI. ` +
-            "Re-run 'codetour --install copilot' to replace it."
       };
     }
     if (allCurrent) {
@@ -650,24 +630,14 @@ const copilotIntegration: AgentIntegration = {
     for (const name of Object.keys(COPILOT_EXTENSION_FILES)) {
       previous.set(name, await readCopilotFile(path.join(directory, name)));
     }
-    // The Knowledge skill and the plugin are installed in the same
-    // transaction as the adapter files: a failed install restores their
-    // previous state too.
-    const skillTarget = knowledgeSkillTarget();
-    const skillDirectory = path.dirname(skillTarget);
-    const previousSkill = await readCopilotFile(skillTarget);
-    const skillDiffering = previousSkill !== undefined && previousSkill !== CODETOUR_KNOWLEDGE_SKILL;
-    let skillDirectoryExisted = true;
-    try {
-      skillDirectoryExisted = (await fs.stat(skillDirectory)).isDirectory();
-    } catch {
-      skillDirectoryExisted = false;
-    }
+    // The plugin is installed in the same transaction as the adapter files: a
+    // failed install restores their previous state too.
     const override = copilotPluginOverride();
     const previousPlugin = await readManagedFiles(override);
     const pluginStatesBefore = await pluginFileStates(override);
     const pluginDiffering = pluginStatesBefore.filter(file => file.state === "modified").map(file => file.name);
     let pluginInstalledByThisRun = false;
+    let retiredSkillDirectory: string | undefined;
     try {
       await fs.mkdir(directory, { recursive: true });
       for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
@@ -678,11 +648,6 @@ const copilotIntegration: AgentIntegration = {
           throw new Error(`Could not verify ${target} after installation.`);
         }
       }
-      await fs.mkdir(skillDirectory, { recursive: true });
-      await fs.writeFile(skillTarget, CODETOUR_KNOWLEDGE_SKILL, "utf8");
-      if (await fs.readFile(skillTarget, "utf8") !== CODETOUR_KNOWLEDGE_SKILL) {
-        throw new Error(`Could not verify ${skillTarget} after installation.`);
-      }
       if (override) {
         await fs.mkdir(override, { recursive: true });
         await writeManagedFiles(override);
@@ -690,18 +655,9 @@ const copilotIntegration: AgentIntegration = {
         await installCopilotPlugin();
         pluginInstalledByThisRun = true;
       }
+      retiredSkillDirectory = await removeRetiredKnowledgeSkill();
     } catch (error) {
       const unrestored = await restoreCopilotFiles(directory, previous);
-      try {
-        if (previousSkill === undefined) {
-          await fs.rm(skillTarget, { force: true });
-          if (!skillDirectoryExisted) await fs.rmdir(skillDirectory).catch(() => undefined);
-        } else {
-          await fs.writeFile(skillTarget, previousSkill, "utf8");
-        }
-      } catch {
-        unrestored.push(`${KNOWLEDGE_SKILL_NAME}/SKILL.md`);
-      }
       if (override) {
         unrestored.push(...await restoreManagedFiles(override, previousPlugin));
       } else if (pluginInstalledByThisRun) {
@@ -720,17 +676,16 @@ const copilotIntegration: AgentIntegration = {
       console.log(`Replaced differing adapter files (${differing.join(", ")}) in ${directory}.`);
     }
     console.log(`Installed the CodeTour adapter in ${directory}.`);
-    if (skillDiffering) {
-      console.log(`Replaced the differing Knowledge skill in ${skillTarget}.`);
+    if (retiredSkillDirectory) {
+      console.log(`Removed the retired standalone Knowledge skill from ${retiredSkillDirectory}.`);
     }
-    console.log(`Installed the Knowledge skill in ${skillTarget}.`);
     if (pluginDiffering.length) {
       console.log(`Replaced differing plugin files (${pluginDiffering.join(", ")}).`);
     }
     const pluginLocation = override || await installedCopilotPlugin().then(plugin => plugin?.cachePath);
     console.log(`Installed the CodeTour plugin${pluginLocation ? ` in ${pluginLocation}` : ""}.`);
     console.log("Run 'copilot plugin list' and 'copilot mcp list' to confirm the 'codetour' plugin and its server.");
-    console.log("Run 'copilot skill list' to confirm the 'codetour-generate' and 'codetour-knowledge' skills.");
+    console.log("Run 'copilot skill list' to confirm the plugin's 'codetour-generate' skill.");
     const legacy = await removeLegacyCodetourMcpRegistration();
     if (legacy) console.log(legacy);
     console.log("Start 'copilot --experimental' in a trusted Git worktree, accept the extension");
@@ -772,16 +727,11 @@ const copilotIntegration: AgentIntegration = {
     for (const file of states) {
       if (file.state === "current") await fs.rm(path.join(directory, file.name));
     }
-    // The skill is owned separately and lives in the shared skills directory:
-    // an edited file is user work, reported and preserved, never deleted.
-    const skillTarget = knowledgeSkillTarget();
-    const skill = await knowledgeSkillState(skillTarget);
-    if (skill === "current") {
-      await fs.rm(skillTarget, { force: true });
-      await fs.rmdir(path.dirname(skillTarget)).catch(() => undefined);
-      console.log(`Removed the Knowledge skill from ${skillTarget}.`);
-    } else if (skill === "modified") {
-      console.log(`Left ${skillTarget} untouched: it differs from the Knowledge skill this CLI installed.`);
+    // The retired standalone Knowledge skill is removed with the rest of the
+    // integration; other skills in the shared directory are untouched.
+    const retiredSkillDirectory = await removeRetiredKnowledgeSkill();
+    if (retiredSkillDirectory) {
+      console.log(`Removed the retired standalone Knowledge skill from ${retiredSkillDirectory}.`);
     }
     const remaining = await fs.readdir(directory).catch(() => [] as string[]);
     // Idempotent: the directory may already be gone from an earlier uninstall.

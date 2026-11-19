@@ -28,8 +28,8 @@ The package reads, hashes and writes these files only: no model, no network, no 
 key. The packaged `codetour knowledge` CLI and the historical Research Harness both
 consume this package, so the contract exists once. See ADR 0039.
 
-`skills/codetour-knowledge/SKILL.md` is the native Copilot skill that composes
-this contract with the CodeTour MCP. It is the readable source of truth; its
-text is embedded into the root CLI bundle by `node scripts/embed-knowledge-skill.js`
-so `codetour --install copilot` can install it without a checkout. Edit the
-Markdown, regenerate, and commit both copies.
+The historical `skills/codetour-knowledge` skill is retired: the CodeTour
+Agent Plugins 1.0 plugin composes this contract into its served generation
+prompt (`knowledge_list`, `knowledge_read`, `knowledge_save`,
+`knowledge_close_run`), so every host receives the same method from the MCP
+server instead of a second, CLI-first skill.

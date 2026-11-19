@@ -17,13 +17,12 @@ Existing title and renderer invocations still select and open a Tour using the s
 
 ## Install
 
-`codetour --install copilot` installs three surfaces from the running CLI revision, with no checkout and no network:
+`codetour --install copilot` installs two surfaces from the running CLI revision, with no checkout and no network:
 
 - the **extension** in `~/.copilot/extensions/codetour/` (`CODETOUR_COPILOT_EXTENSIONS_DIR` overrides; `COPILOT_HOME` relocates the user directory);
-- the personal **Knowledge skill** in `~/.copilot/skills/codetour-knowledge/SKILL.md` (`CODETOUR_COPILOT_SKILLS_DIR` overrides);
 - the **Agent Plugins 1.0 plugin** from `packages/copilot-plugin/`, either through `copilot plugin install` (production) or into `CODETOUR_COPILOT_PLUGIN_DIR` (tests and managed layouts).
 
-The adapter files, the skill and the plugin are embedded in the CLI bundle, so the install works offline. A failed install restores the previous adapter files, skill and managed plugin files. `codetour --uninstall copilot` removes the plugin first, then only the files this CLI owns; edited adapter, skill or plugin files are reported and preserved.
+The adapter files and the plugin are embedded in the CLI bundle, so the install works offline. A failed install restores the previous adapter files and managed plugin files. `codetour --uninstall copilot` removes the plugin first, then only the files this CLI owns; edited adapter or plugin files are reported and preserved. The standalone `codetour-knowledge` skill is retired and never installed: an install or uninstall removes a `~/.copilot/skills/codetour-knowledge/` directory an older CLI wrote, so no second CodeTour guidance coexists with the plugin.
 
 The plugin requires GitHub Copilot CLI **1.0.106 or later**. On that version the local Agent Plugins 1.0 directory is accepted (`plugin.json` with `https://agent-plugins.org/schemas/1.0.0/plugin.schema.json`, root `mcp.json`, `com.github.copilot/` components, `skills/<name>/SKILL.md`), `${PLUGIN_ROOT}` and `${PLUGIN_DATA}` are expanded, and `${COPILOT_SESSION_CWD}` is expanded in MCP `args`. `copilot plugin install <dir>` is still a direct/local install and prints a deprecation warning; no marketplace is involved. `copilot plugin list`, `copilot mcp list` and `copilot skill list` are the inspection surfaces.
 

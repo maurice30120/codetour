@@ -306,64 +306,31 @@ calls the tools directly does not receive them. See the
 for the exact composition, catalogue bounds, refusal reasons and the
 untrusted-data boundary.
 
-### Install the native Knowledge skill
+### The Knowledge workflow lives in the plugin
 
-The same `codetour --install copilot` also writes the `codetour-knowledge`
-skill to `~/.copilot/skills/codetour-knowledge/SKILL.md`, which is where Copilot
-discovers personal skills. The source of truth is
-[`packages/knowledge/skills/codetour-knowledge/SKILL.md`](packages/knowledge/skills/codetour-knowledge/SKILL.md);
-its text is embedded in the CLI bundle by `scripts/embed-knowledge-skill.js`, so
-the install needs no checkout and no network. `codetour --agents` and
-`codetour --doctor` report the skill as part of the integration (`incomplete`
-when it is missing, `outdated` when it differs), and `codetour --uninstall
-copilot` removes only the unchanged file this CLI owns: an edited skill and
-foreign skills in the shared directory are preserved and reported.
-
-Prerequisites for a run: the `codetour` CLI on `PATH`, the CodeTour MCP server
-registered (`codetour --install copilot`), and a workspace whose
-`.tours/.memory/knowledge/` catalogue you are willing to read. Confirm both with
-`copilot mcp list` and `copilot skill list`.
-
-The skill runs one deterministic workflow:
-
-1. it pins one explicit workspace root and uses it for every CLI and MCP call;
-   an ambiguous or absent workspace is diagnosed instead of guessed;
-2. it calls `codetour knowledge list`; an empty catalogue (exit `3`,
-   `status:"empty"`) means "no Knowledge" and exploration continues normally;
-3. it selects only relevant entries from the metadata and calls
-   `codetour knowledge read <name>` for each; only `status:"valid"` bodies are
-   reference context, announced with the fixed notice that begins
-   « La Knowledge suivante a été validée… ». It does not re-read or re-verify
-   every cited source, and it adds no second mandatory anchor pass: the MCP
-   validates the Tour anchors;
-4. it explores targeted gaps only where the valid Knowledge is insufficient,
-   and reports gaps and uncertainty honestly;
-5. it creates the Tour directly with `create_project_tour` and reports it
-   created only after the MCP succeeds, with the confirmed path. Missing tools
-   or a failed creation are explicit; a chat answer is not a Tour;
-6. it makes one explicit consolidation assessment and proposes zero, one or
-   more reusable Knowledge entries to `codetour knowledge save`, reporting
-   `saved`, `no-op`, `conflict` or `invalid` exactly as returned.
-
-Observe the result on the three existing surfaces: the JSON of
-`codetour knowledge list|read|save`, the `create_project_tour` response (its
-status and `.tours/project.tour` path), and the installed skill file. Limits:
-the consolidation step is an instruction, not an enforced guard — no step
-guarantees it ran, so an answer that omits it is possible and must be reported
-as omitted rather than assumed. The skill never invokes the Research Harness,
-never creates, selects or runs a Memory Function and never needs a harness API
-key; historical `.tours/.memory/` artefacts stay untouched. A `valid` read or a
-`saved` proposal proves only that declared evidence still matches; it is not a
-semantic guarantee that the explanation is correct or complete.
+The standalone `codetour-knowledge` skill is retired: the Copilot plugin is the
+only CodeTour guidance. Discovery goes through the MCP `knowledge_list`
+(metadata only; entries whose evidence no longer matches are listed under
+`invalid` with their reason, to fix or remove — see ADR 0044), reference reads
+through `knowledge_read` (a body is returned only when every declared SHA-256
+proof still matches), the Tour method travels only in the served
+`generate_project_tour` prompt, and consolidation goes through
+`knowledge_save`, `knowledge_close_run` and the plugin's `agentStop` guard.
+The `codetour knowledge` CLI commands remain for use outside Copilot.
+`codetour --install copilot` and `--uninstall copilot` remove a
+`~/.copilot/skills/codetour-knowledge/` directory an older CLI wrote, so no
+second, conflicting CodeTour skill is loaded next to the plugin. Limits stay
+as they were: a `valid` read or a `saved` proposal proves only that declared
+evidence still matches; it is not a semantic guarantee that the explanation is
+correct or complete.
 
 ### Install the Copilot plugin
 
-`codetour --install copilot` installs three surfaces from the same CLI revision,
+`codetour --install copilot` installs two surfaces from the same CLI revision,
 without a checkout or network:
 
 1. the experimental `/codetour` extension (reader and generation entry point);
-2. the personal `codetour-knowledge` skill (the workflow above);
-3. the **Agent Plugins 1.0** plugin from
+2. the **Agent Plugins 1.0** plugin from
    [`packages/copilot-plugin/`](packages/copilot-plugin/README.md), embedded in
    the CLI bundle by `scripts/embed-copilot-plugin.js`.
 
@@ -383,7 +350,7 @@ later; Agent Plugins 1.0 and the `agentStop` contract were verified on 1.0.106):
 ```sh
 copilot plugin list           # codetour
 copilot mcp list              # exactly one codetour server, from the plugin
-copilot skill list            # codetour-generate (plugin) and codetour-knowledge
+copilot skill list            # codetour-generate, from the plugin
 codetour --agents             # integration state and repair command
 ```
 

@@ -24,9 +24,8 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
   0040.
 - A Copilot Agent Plugins 1.0 plugin ships one CodeTour MCP server, the
   `codetour-generate` skill and a deterministic `agentStop` hook.
-  `codetour --install copilot` installs the plugin, the extension and the
-  standalone `codetour-knowledge` skill offline; `--uninstall copilot`
-  removes only what this CLI owns. See ADR 0041.
+  `codetour --install copilot` installs the plugin and the extension offline;
+  `--uninstall copilot` removes what this CLI owns. See ADR 0041.
 - A run log under `<workspace>/.tours/.log/` gives the guarded
   `/codetour generate` wrapper and the hook one authenticated state per
   `runId` — `tourCreated`, the consolidation closure and `continuationUsed` —
@@ -92,6 +91,13 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Changed
 
+- The standalone `codetour-knowledge` skill is retired: the plugin alone guides
+  discovery, Tour creation and consolidation through its MCP server and the
+  served `generate_project_tour` prompt. `--install copilot` and `--uninstall
+  copilot` no longer write the skill and remove a
+  `~/.copilot/skills/codetour-knowledge/` directory an older CLI wrote, so no
+  second CodeTour guidance loads next to the plugin; the `codetour knowledge`
+  CLI commands stay. See the update to ADR 0039.
 - MCP Knowledge discovery verifies before it serves: `knowledge_list` and the
   `prompts/get` catalogue projection run the same evidence verification as
   `knowledge_read`, list only verified contracts as entries, and return every

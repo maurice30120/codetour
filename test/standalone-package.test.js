@@ -242,29 +242,30 @@ test("packaged codetour knowledge saves a proposal that a second invocation disc
   assert.equal(JSON.parse(reread.stdout).body, body);
 });
 
-test("packaged codetour installs and removes the Knowledge skill offline", () => {
+test("packaged codetour removes a leftover Knowledge skill offline, never installs one", () => {
   const workspace = path.join(shared.tmp, "skill workspace");
   fs.mkdirSync(workspace);
   const env = {
     ...restrictedEnv(),
+    COPILOT_HOME: path.join(workspace, "copilot home"),
     CODETOUR_COPILOT_MCP_CONFIG: path.join(workspace, "mcp-config.json"),
     CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(workspace, "copilot-extensions"),
-    CODETOUR_COPILOT_SKILLS_DIR: path.join(workspace, "copilot skills"),
     CODETOUR_COPILOT_PLUGIN_DIR: path.join(workspace, "copilot plugin"),
   };
-  const skillFile = path.join(workspace, "copilot skills", "codetour-knowledge", "SKILL.md");
+  // A copy an older CLI wrote before the skill was retired. The plugin is the
+  // only guidance now: the install travels inside the standalone artifact with
+  // no checkout and no network, and must retire the old skill, not ship one.
+  const skillDirectory = path.join(workspace, "copilot home", "skills", "codetour-knowledge");
+  fs.mkdirSync(skillDirectory, { recursive: true });
+  fs.writeFileSync(path.join(skillDirectory, "SKILL.md"), "---\nname: codetour-knowledge\n---\nan older installment\n");
   const installed = spawnPackagedSync(["--install", "copilot"], { cwd: workspace, env, encoding: "utf8" });
   assert.equal(installed.status, 0, installed.stderr);
-  assert.match(installed.stdout, /Installed the Knowledge skill/);
-  // The skill travels inside the standalone artifact: no checkout, no network.
-  const skill = fs.readFileSync(skillFile, "utf8");
-  assert.match(skill, /^---\nname: codetour-knowledge\n/);
-  assert.match(skill, /codetour knowledge list --workspace/);
-  assert.ok(skill.includes("« La Knowledge suivante a été validée pour l’instantané de code étudié."));
+  assert.match(installed.stdout, /Removed the retired standalone Knowledge skill/);
+  assert.equal(fs.existsSync(skillDirectory), false);
 
   const removed = spawnPackagedSync(["--uninstall", "copilot"], { cwd: workspace, env, encoding: "utf8" });
   assert.equal(removed.status, 0, removed.stderr);
-  assert.equal(fs.existsSync(skillFile), false);
+  assert.equal(fs.existsSync(skillDirectory), false);
 });
 
 test("packaged codetour mcp creates a Project Tour in a non-Git workspace without global Node", async () => {
@@ -348,7 +349,9 @@ test("packaged codetour mcp exposes the Knowledge tools and the enriched Project
     assert.equal(listed.structured.status, "ok");
     assert.deepEqual(listed.structured.entries, [
       { name: "packaged_flow", description: "Read through the packaged MCP" },
-      { name: "packaged_stale", description: "Cites changed bytes" },
+    ]);
+    assert.deepEqual(listed.structured.invalid, [
+      { name: "packaged_stale", reason: "file_hash_mismatch" },
     ]);
     assert.doesNotMatch(listed.text + JSON.stringify(listed.structured), /Packaged MCP body|Packaged stale body|sha256/);
 
