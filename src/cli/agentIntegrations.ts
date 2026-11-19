@@ -3,6 +3,7 @@ import { promises as fs, readdirSync, existsSync } from "fs";
 import * as os from "os";
 import * as path from "path";
 import { COPILOT_EXTENSION_FILES } from "./copilot-extension.generated";
+import { CODETOUR_KNOWLEDGE_SKILL } from "./knowledge-skill.generated";
 
 // Agent integrations registry (spec: agent-integrations-copilot-codex.md).
 // Every integration owns detection, status, installation, uninstallation and
@@ -52,6 +53,21 @@ function firstLine(output: string): string {
 function copilotExtensionDirectory(): string {
   return process.env.CODETOUR_COPILOT_EXTENSIONS_DIR ||
     path.join(os.homedir(), ".copilot", "extensions", "codetour");
+}
+
+// Copilot discovers personal skills from <user directory>/skills; the native
+// CodeTour skill is installed as one named directory holding its SKILL.md.
+// COPILOT_HOME relocates the user directory, and the explicit override lets
+// tests install into a temporary directory instead of the developer's home.
+const KNOWLEDGE_SKILL_NAME = "codetour-knowledge";
+
+function copilotSkillsDirectory(): string {
+  const home = process.env.COPILOT_HOME || path.join(os.homedir(), ".copilot");
+  return process.env.CODETOUR_COPILOT_SKILLS_DIR || path.join(home, "skills");
+}
+
+function knowledgeSkillTarget(): string {
+  return path.join(copilotSkillsDirectory(), KNOWLEDGE_SKILL_NAME, "SKILL.md");
 }
 
 // One MCP server entry as read from a user configuration. Foreign entries stay
@@ -215,6 +231,14 @@ async function readCopilotFile(target: string): Promise<string | undefined> {
   }
 }
 
+// The Knowledge skill has its own directory outside the adapter directory and
+// the same three ownership states: missing, current and modified by the user.
+async function knowledgeSkillState(target: string): Promise<"current" | "modified" | "missing"> {
+  const existing = await readCopilotFile(target);
+  if (existing === undefined) return "missing";
+  return existing === CODETOUR_KNOWLEDGE_SKILL ? "current" : "modified";
+}
+
 // A failed install puts the adapter back as it found it: files that existed get
 // their previous content, files this install created are removed. The returned
 // names are the ones a best-effort restore could not repair, so the caller can
@@ -253,7 +277,15 @@ const copilotIntegration: AgentIntegration = {
     const states = await copilotFileStates(directory);
     const allCurrent = states.every(file => file.state === "current");
     const allMissing = states.every(file => file.state === "missing");
-    const changed = states.filter(file => file.state !== "current").map(file => file.name).join(", ");
+    // The skill lives in the shared personal skills directory, not in the
+    // adapter directory, so it is read and reported separately.
+    const skillTarget = knowledgeSkillTarget();
+    const skill = await knowledgeSkillState(skillTarget);
+    const skillCurrent = skill === "current";
+    const changed = [
+      ...states.filter(file => file.state !== "current").map(file => file.name),
+      ...(skillCurrent ? [] : [`${KNOWLEDGE_SKILL_NAME}/SKILL.md`])
+    ].join(", ");
     const mcpFile = copilotMcpConfigPath();
     let registered = false;
     let current = false;
@@ -268,17 +300,30 @@ const copilotIntegration: AgentIntegration = {
     } catch (error) {
       unreadable = error instanceof Error ? error.message : String(error);
     }
-    if (allCurrent && current) {
+    if (allCurrent && skillCurrent && current) {
       return {
         state: "installed" as const,
-        detail: `The adapter files are installed in ${directory} and the 'codetour' MCP server is registered in ${mcpFile}.`
+        detail: `The adapter files are installed in ${directory}, the Knowledge skill is installed in ${skillTarget}, ` +
+          `and the 'codetour' MCP server is registered in ${mcpFile}.`
       };
     }
-    if (allCurrent && registered) {
+    if (allCurrent && skillCurrent && registered) {
       return {
         state: "outdated" as const,
         detail: `The 'codetour' MCP server in ${mcpFile} was registered by a different CodeTour installation. ` +
           "Re-run 'codetour --install copilot' to register the current launcher."
+      };
+    }
+    if (allCurrent && !skillCurrent) {
+      // The native skill is part of the integration: without it Copilot lists
+      // no `codetour-knowledge` workflow even though the tools are registered.
+      return {
+        state: skill === "missing" ? "incomplete" as const : "outdated" as const,
+        detail: skill === "missing"
+          ? `The adapter files are installed in ${directory}, but the Knowledge skill is missing from ${skillTarget}. ` +
+            "Re-run 'codetour --install copilot' to write it."
+          : `The Knowledge skill in ${skillTarget} differs from this CLI. ` +
+            "Re-run 'codetour --install copilot' to replace it."
       };
     }
     if (allCurrent) {
@@ -325,6 +370,19 @@ const copilotIntegration: AgentIntegration = {
       previous.set(name, await readCopilotFile(path.join(directory, name)));
     }
     const registered = isCurrentCodetourMcpEntry(mcpConfig.mcpServers?.codetour, entry);
+    // The Knowledge skill is installed in the same transaction as the adapter
+    // files: a failed install restores its previous state too.
+    const skillTarget = knowledgeSkillTarget();
+    const skillDirectory = path.dirname(skillTarget);
+    const previousSkill = await readCopilotFile(skillTarget);
+    const skillExisted = previousSkill !== undefined;
+    const skillDiffering = skillExisted && previousSkill !== CODETOUR_KNOWLEDGE_SKILL;
+    let skillDirectoryExisted = true;
+    try {
+      skillDirectoryExisted = (await fs.stat(skillDirectory)).isDirectory();
+    } catch {
+      skillDirectoryExisted = false;
+    }
     try {
       await fs.mkdir(directory, { recursive: true });
       for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
@@ -334,6 +392,11 @@ const copilotIntegration: AgentIntegration = {
         if (await fs.readFile(target, "utf8") !== content) {
           throw new Error(`Could not verify ${target} after installation.`);
         }
+      }
+      await fs.mkdir(skillDirectory, { recursive: true });
+      await fs.writeFile(skillTarget, CODETOUR_KNOWLEDGE_SKILL, "utf8");
+      if (await fs.readFile(skillTarget, "utf8") !== CODETOUR_KNOWLEDGE_SKILL) {
+        throw new Error(`Could not verify ${skillTarget} after installation.`);
       }
       // The extension also joins the session with its own MCP server, but that
       // registration is invisible and can be lost with the extension process.
@@ -347,6 +410,18 @@ const copilotIntegration: AgentIntegration = {
       // Adapter files are already written: put the previous state back so a
       // failed install never leaves half a registration.
       const unrestored = await restoreCopilotFiles(directory, previous);
+      try {
+        if (previousSkill === undefined) {
+          await fs.rm(skillTarget, { force: true });
+          // An empty directory this install created is not part of the user's
+          // configuration: remove it instead of leaving a misleading skeleton.
+          if (!skillDirectoryExisted) await fs.rmdir(skillDirectory).catch(() => undefined);
+        } else {
+          await fs.writeFile(skillTarget, previousSkill, "utf8");
+        }
+      } catch {
+        unrestored.push(`${KNOWLEDGE_SKILL_NAME}/SKILL.md`);
+      }
       if (unrestored.length) {
         throw new Error(
           `${error instanceof Error ? error.message : String(error)} ` +
@@ -360,6 +435,11 @@ const copilotIntegration: AgentIntegration = {
       console.log(`Replaced differing adapter files (${differing.join(", ")}) in ${directory}.`);
     }
     console.log(`Installed the CodeTour adapter in ${directory}.`);
+    if (skillDiffering) {
+      console.log(`Replaced the differing Knowledge skill in ${skillTarget}.`);
+    }
+    console.log(`Installed the Knowledge skill in ${skillTarget}.`);
+    console.log("Run 'copilot skill list' to confirm the 'codetour-knowledge' skill is available.");
     if (registered) {
       console.log(`The 'codetour' MCP server is already registered in ${mcpFile}.`);
     } else {
@@ -389,6 +469,17 @@ const copilotIntegration: AgentIntegration = {
     }
     for (const file of states) {
       if (file.state === "current") await fs.rm(path.join(directory, file.name));
+    }
+    // The skill is owned separately and lives in the shared skills directory:
+    // an edited file is user work, reported and preserved, never deleted.
+    const skillTarget = knowledgeSkillTarget();
+    const skill = await knowledgeSkillState(skillTarget);
+    if (skill === "current") {
+      await fs.rm(skillTarget, { force: true });
+      await fs.rmdir(path.dirname(skillTarget)).catch(() => undefined);
+      console.log(`Removed the Knowledge skill from ${skillTarget}.`);
+    } else if (skill === "modified") {
+      console.log(`Left ${skillTarget} untouched: it differs from the Knowledge skill this CLI installed.`);
     }
     const remaining = await fs.readdir(directory).catch(() => [] as string[]);
     // Idempotent: the directory may already be gone from an earlier uninstall.
