@@ -1,0 +1,15 @@
+---
+name: gardeConsolidationAgentStop
+description: Le hook agentStop du plugin Copilot bloque au plus une fois un run dont le Tour est créé sans consolidation, avec le runId de l’adaptateur.
+evidence:
+  - type: file
+    path: .github/extensions/codetour/adapter.mjs
+    sha256: 7c27c28cab92a12a4c6e1a10f1e1a8a356191811d8436e54deba0466ac160030
+  - type: file
+    path: packages/copilot-plugin/com.github.copilot/hooks/agent-stop.mjs
+    sha256: 3fa65ed7e49ed13f25c64ba87be55329c184ba3594aedfc298a734cee0457c68
+  - type: file
+    path: packages/copilot-plugin/com.github.copilot/lib/run-log.mjs
+    sha256: 5d20b068cdd582a1d9bf9d076b2dbf978747c7c70b9b5d295f2b7ae8d1e6139a
+---
+L’adaptateur (.github/extensions/codetour/adapter.mjs) crée un `runId` par `randomUUID()`, le passe au prompt MCP et écrit un état de run sous `.tours/.log` (run-log.mjs). Le hook `agent-stop.mjs` ne bloque que si `tourCreated` est vrai, qu’aucune consolidation n’est enregistrée et que `continuationUsed` est faux ; il le marque avant de bloquer, donc une seule continuation par arrêt. La raison demande `knowledge_save` (zéro, une ou plusieurs entrées) ou `knowledge_close_run` skipped.

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Vérification et réutilisation des Knowledge",
+  "description": "Comment CodeTour projette son catalogue de Knowledge dans le prompt, laisse l'agent choisir une entrée pertinente, la vérifie par preuves SHA-256, puis signale échecs et consolidation.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour permet à un agent de générer des Tours de code. Les **Knowledge** sont des notes réutilisables, adossées à des fichiers du workspace, que l'agent peut relire avant d'explorer le code, puis enrichir après avoir créé le Tour.\n\nCe parcours suit le cycle : projection du catalogue, sélection, vérification, limites des preuves SHA-256, signalement des échecs et de la consolidation.\n\n**Diagram — Context view**\n\n```mermaid\nflowchart LR\n  Agent[\"Agent hôte\"] -->|\"lit le catalogue et les entrées via MCP\"| Serveur[\"Serveur MCP CodeTour\"]\n  Serveur -->|\"lit et hache les fichiers via le système de fichiers\"| Workspace[\"Workspace .tours/.memory/knowledge\"]\n  Agent -->|\"déclenche l'arrêt via le hook agentStop\"| Hook[\"Hook Copilot\"]\n  Hook -->|\"lit l'état du run dans .tours/.log\"| Workspace\n```\n\nZones :\n- [packages/knowledge](packages/knowledge) : format, vérification et sauvegarde des entrées.\n- [packages/mcp-server](packages/mcp-server) : projection du catalogue, outils `knowledge_*`, journal de run.\n- [packages/copilot-plugin](packages/copilot-plugin) : hook de garde de consolidation."
+    },
+    {
+      "title": "1. Projection du catalogue",
+      "description": "`knowledgeCatalogueProjection` produit la section injectée dans le prompt : uniquement **nom et description**, jamais le corps.\n\nLa liste est bornée à 30 entrées (`KNOWLEDGE_PROMPT_CATALOGUE_LIMIT`). Si elle est tronquée, le texte le dit et renvoie vers `knowledge_list` (filtre par sous-chaîne littérale, `offset`, `limit`). Un catalogue vide est un état normal, pas une erreur.",
+      "file": "packages/mcp-server/src/knowledge.ts",
+      "pattern": "export async function knowledgeCatalogueProjection"
+    },
+    {
+      "title": "Le catalogue n'est pas validé",
+      "description": "`listKnowledgePage` s'appuie sur `loadKnowledgeLibrary` et ne fait qu'une découverte de métadonnées : une entrée périmée ou illisible peut donc apparaître dans la liste.\n\nLe commentaire précise qu'aucun index vectoriel, BM25 ni modèle supplémentaire n'intervient. La pertinence n'est pas calculée par le code : c'est l'agent qui compare les métadonnées à ses questions.",
+      "file": "packages/mcp-server/src/knowledge.ts",
+      "pattern": "export async function listKnowledgePage"
+    },
+    {
+      "title": "2. Sélection par l'agent",
+      "description": "La sélection est une consigne de méthode, pas un algorithme : l'agent décompose la demande en questions atomiques, puis appelle `knowledge_read` pour chaque entrée dont les métadonnées correspondent.\n\nLa méthode ajoute de ne pas re-vérifier systématiquement les sources déjà couvertes et de n'explorer le code que pour les lacunes.",
+      "file": "packages/mcp-server/src/knowledge.ts",
+      "pattern": "export const KNOWLEDGE_DECOMPOSITION_METHOD"
+    },
+    {
+      "title": "3. Vérification à la lecture",
+      "description": "`verifyKnowledge` contrôle **toutes** les preuves `file`, jamais un échantillon : chemin non absolu, confiné au workspace, pas de lien symbolique sortant, fichier régulier, puis comparaison du SHA-256.\n\nLe premier échec arrête la vérification avec une raison : `file_missing`, `path_outside_workspace`, `symlink_escape` ou `file_hash_mismatch`. Aucun corps, chemin ni empreinte ne sort avec le refus.",
+      "file": "packages/knowledge/src/knowledge.ts",
+      "pattern": "export async function verifyKnowledge"
+    },
+    {
+      "title": "Ce que garantit le SHA-256",
+      "description": "`fileProofHash` calcule le SHA-256 des octets du fichier cité.\n\n**Garanti** : les octets cités sont identiques à ceux observés à l'écriture de l'entrée.\n\n**Non garanti** : que l'explication soit juste ou complète, ni que le reste du code n'ait pas changé. Le message du serveur le rappelle, et le corps reste une donnée non fiable, jamais une instruction.",
+      "file": "packages/knowledge/src/knowledge.ts",
+      "pattern": "export const fileProofHash"
+    },
+    {
+      "title": "4. Réponse de `knowledge_read`",
+      "description": "Le serveur renvoie trois statuts :\n\n- `valid` : corps et preuves, avec l'avertissement sur les limites de la vérification ;\n\n- `absent` : aucun nom correspondant (`unknown_entry`) ;\n\n- `invalid` : refus avec la seule raison lisible par machine, sans contenu.\n\nL'agent n'utilise un corps que pour `valid`; sinon il explore la lacune dans le code.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "A refusal names only its machine-readable cause"
+    },
+    {
+      "title": "5. Consolidation : `knowledge_save`",
+      "description": "Après la création du Tour, `handleKnowledgeSave` rend un résultat observable :\n\n- `created` avec les noms publiés ;\n\n- `completed_zero` pour une proposition vide explicite (consolidation terminée, pas oubli) ;\n\n- `conflict` si un nom existe déjà, sans rien écrire ;\n\n- `invalid` avec les rejets ;\n\n- `failed` en cas d'erreur interne.\n\nAvec un `runId`, chaque issue est enregistrée dans le journal de run via `appendConsolidation`.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleKnowledgeSave"
+    },
+    {
+      "title": "Clôture sans proposition",
+      "description": "`knowledge_close_run` enregistre une clôture `skipped` : une évaluation explicite, distincte d'une omission. Le hook ne redemandera alors pas de consolidation pour ce run.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleKnowledgeCloseRun"
+    },
+    {
+      "title": "6. Garde `agentStop`",
+      "description": "Le hook ne bloque que si le Tour est créé, qu'aucune consolidation n'est enregistrée et que la continuation n'a pas déjà servi. Il marque `continuationUsed` avant de bloquer : au plus une relance par arrêt.\n\nTout état de clôture (`created`, `completed_zero`, `failed`, `skipped`…) rend le hook inerte. Les erreurs de stockage deviennent des diagnostics sur stderr, jamais un blocage.",
+      "file": "packages/copilot-plugin/com.github.copilot/hooks/agent-stop.mjs",
+      "pattern": "function isClosed"
+    }
+  ]
+}
