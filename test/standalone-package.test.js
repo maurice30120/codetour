@@ -181,6 +181,67 @@ test("packaged codetour knowledge lists metadata, verifies a read and hashes evi
   assert.deepEqual(JSON.parse(absent.stdout), { status: "empty", workspace: fs.realpathSync(empty), entries: [] });
 });
 
+test("packaged codetour knowledge saves a proposal that a second invocation discovers and rereads", () => {
+  const workspace = path.join(shared.tmp, "knowledge save workspace");
+  fs.mkdirSync(workspace);
+  const cited = "export const start = 1;\n";
+  fs.writeFileSync(path.join(workspace, "main.ts"), cited);
+  const digest = crypto.createHash("sha256").update(cited).digest("hex");
+  const body = "## Standalone consolidation\n\nSaved by the packaged CLI.\n";
+  const proposal = path.join(shared.tmp, "standalone proposal.json");
+  fs.writeFileSync(proposal, JSON.stringify({
+    entries: [{
+      name: "saved_flow",
+      description: "Saved offline",
+      body,
+      evidence: [{ path: "main.ts" }],
+    }],
+  }));
+  const env = restrictedEnv();
+  const run = args => spawnPackagedSync(["knowledge", ...args], { cwd: workspace, env, encoding: "utf8" });
+  const resolved = fs.realpathSync(workspace);
+
+  const saved = run(["save", "--workspace", workspace, "--proposal", proposal]);
+  assert.equal(saved.status, 0, saved.stderr);
+  assert.equal(saved.stderr, "");
+  assert.deepEqual(JSON.parse(saved.stdout), { status: "saved", workspace: resolved, saved: ["saved_flow"] });
+  assert.doesNotMatch(saved.stdout, /Standalone consolidation|sha256|[0-9a-f]{64}/);
+
+  // A second, independent invocation rediscovers the entry by metadata only.
+  const listed = run(["list", "--workspace", workspace]);
+  assert.equal(listed.status, 0, listed.stderr);
+  assert.deepEqual(JSON.parse(listed.stdout), {
+    status: "ok",
+    workspace: resolved,
+    entries: [{ name: "saved_flow", description: "Saved offline" }],
+  });
+  assert.doesNotMatch(listed.stdout, /Standalone consolidation|sha256/);
+
+  // ...and rereads the exact Markdown body behind the computed evidence.
+  const read = run(["read", "saved_flow", "--workspace", workspace]);
+  assert.equal(read.status, 0, read.stderr);
+  assert.deepEqual(JSON.parse(read.stdout), {
+    status: "valid",
+    workspace: resolved,
+    name: "saved_flow",
+    description: "Saved offline",
+    body,
+    evidence: [{ path: "main.ts", sha256: digest }],
+  });
+
+  // Saving the same name again is a conflict that preserves the first entry.
+  const conflict = run(["save", "--workspace", workspace, "--proposal", proposal]);
+  assert.equal(conflict.status, 4, conflict.stderr);
+  assert.deepEqual(JSON.parse(conflict.stdout), {
+    status: "conflict",
+    workspace: resolved,
+    conflicts: [{ name: "saved_flow", reason: "name_conflict" }],
+  });
+  const reread = run(["read", "saved_flow", "--workspace", workspace]);
+  assert.equal(reread.status, 0, reread.stderr);
+  assert.equal(JSON.parse(reread.stdout).body, body);
+});
+
 test("packaged codetour mcp creates a Project Tour in a non-Git workspace without global Node", async () => {
   const workspace = path.join(shared.tmp, "tour workspace");
   fs.mkdirSync(workspace);
