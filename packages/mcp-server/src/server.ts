@@ -276,7 +276,8 @@ const PROJECT_TOUR_ORIENTATION_GUIDANCE =
   "(2) a Mermaid flowchart introduced by the exact caption **Diagram — Context view**, showing " +
   "the actors, the system under study, and external systems; every edge must state an interaction " +
   "verb and its mechanism, for example `Client -->|\"places orders (HTTPS)\"| API`; " +
-  "Quote flowchart edge labels containing punctuation such as parentheses; " +
+  "prefer this quoted form for every labeled edge, not only when the label contains punctuation; " +
+  "Mermaid documents other valid label syntaxes, so treat this form as the preferred convention, not the only one; " +
   "(3) a second Mermaid flowchart introduced by the exact caption **Diagram — Containers**, but only " +
   "when the project has more than one execution or storage boundary—otherwise omit it and never draw " +
   "a boundary that does not exist; (4) a short zone-to-workspace-directory mapping with relative " +
@@ -596,7 +597,11 @@ const knowledgeCloseRunInputSchema = knowledgeToolInputSchema
 
 const KNOWLEDGE_LIST_DESCRIPTION =
   "List the Knowledge catalogue of the workspace by name and description only " +
-  "(metadata). Never returns a body. An entry name is its identifier. The " +
+  "(metadata). Never returns a body. Every returned entry is verified: its whole " +
+  "declared SHA-256 evidence contract matches, so discovery serves only valid " +
+  "contracts; entries that fail validation are returned under invalid with a " +
+  "machine-readable reason, listed in full regardless of the query, so they can " +
+  "be fixed or removed. An entry name is its identifier. The " +
   "optional query is a literal, case-insensitive substring filter on names and " +
   "descriptions. limit and offset paginate the filtered catalogue; total and " +
   "truncated describe it explicitly. A missing or empty catalogue is a normal " +
@@ -1444,17 +1449,27 @@ async function handleKnowledgeList(
     status: page.status,
     workspace: workspace.label,
     entries: page.entries,
+    invalid: page.invalid,
     total: page.total,
     offset: page.offset,
     limit: page.limit,
     truncated: page.truncated,
   };
+  const invalidNote =
+    page.invalid.length === 0
+      ? ""
+      : ` ${page.invalid.length} catalogue entr${page.invalid.length === 1 ? "y" : "ies"} ` +
+        "failed validation and are listed under invalid with their reason; " +
+        "fix the cited contract or remove the entry instead of reading them.";
   const text =
     page.status === "empty"
-      ? "No Knowledge entries match: the catalogue is absent, empty or has no " +
-        "match for this query. This is a normal empty result, not an error."
-      : `Listed ${page.entries.length} of ${page.total} Knowledge entries by name ` +
+      ? "No verified Knowledge entry matches: the catalogue is absent, empty " +
+        "or has no match for this query. This is a normal empty result, not " +
+        "an error." +
+        invalidNote
+      : `Listed ${page.entries.length} of ${page.total} verified Knowledge entries by name ` +
         "and description only." +
+        invalidNote +
         (page.truncated
           ? ` This page is truncated; call ${KNOWLEDGE_LIST_TOOL} with offset to page through the catalogue.`
           : "");

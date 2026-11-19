@@ -1,10 +1,11 @@
 import { createInterface } from "node:readline";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, realpathSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRunState, pruneRunStates, removeRunState, writeRunState } from "./run-log.mjs";
+import { createRunState, pruneRunStates, recordRunMetrics, removeRunState, writeRunState } from "./run-log.mjs";
 
 // The same command supplies playback, MCP tools and the offline review resource.
 export function codeTourMcpServer(cwd = process.cwd()) {
@@ -123,6 +124,149 @@ function resolveCommand(configured) {
   return [configured];
 }
 
+// The Copilot user directory rules the CodeTour surfaces: extensions and the
+// user mcp-config follow COPILOT_HOME exactly like the installer
+// (codetour --install copilot), and the same overrides exist for tests and
+// relocated layouts. The pre-launch report reads them before any generation,
+// so a session can prove which integration it would serve (spec #223).
+function codeTourPreLaunchScan() {
+  const home = process.env.COPILOT_HOME || path.join(os.homedir(), ".copilot");
+  const extensionDirectory = process.env.CODETOUR_COPILOT_EXTENSIONS_DIR || path.join(home, "extensions", "codetour");
+  const mcpConfigPath = process.env.CODETOUR_COPILOT_MCP_CONFIG || path.join(home, "mcp-config.json");
+  const expectedExtensionFiles = ["adapter.mjs", "extension.mjs", "run-log.mjs"];
+  let adapterOrigin = "installed";
+  let adapterVersion = null;
+  let directory = path.dirname(fileURLToPath(import.meta.url));
+  for (let depth = 0; depth < 6 && directory !== path.dirname(directory); depth++) {
+    try {
+      const version = JSON.parse(readFileSync(path.join(directory, "package.json"), "utf8")).version;
+      if (typeof version === "string") { adapterOrigin = "development"; adapterVersion = version; break; }
+    } catch { /* no package.json at this level */ }
+    directory = path.dirname(directory);
+  }
+  const extension = {path: extensionDirectory, present: false, files: []};
+  try {
+    for (const entry of readdirSync(extensionDirectory)) {
+      if (expectedExtensionFiles.includes(entry)) extension.files.push(entry);
+    }
+    extension.present = extension.files.length > 0;
+  } catch { /* no extension directory in this home */ }
+  const plugin = {present: false, path: null, version: null, launcher: null, launcherPath: null, launcherBuild: null};
+  const pluginDirectory = process.env.CODETOUR_COPILOT_PLUGIN_DIR;
+  if (pluginDirectory) {
+    try {
+      const manifest = JSON.parse(readFileSync(path.join(pluginDirectory, "plugin.json"), "utf8"));
+      plugin.present = true;
+      plugin.path = pluginDirectory;
+      plugin.version = typeof manifest.version === "string" ? manifest.version : null;
+    } catch { plugin.path = pluginDirectory; }
+  } else {
+    try {
+      // Copilot's config.json carries leading `//` comment lines, like the
+      // installer's own reader.
+      const config = JSON.parse(readFileSync(path.join(home, "config.json"), "utf8")
+        .split(/\r?\n/).filter(line => !line.trimStart().startsWith("//")).join("\n"));
+      const entry = (config?.installedPlugins || []).find(installed => installed?.name === "codetour");
+      if (entry) {
+        plugin.present = true;
+        plugin.path = typeof entry.cache_path === "string" ? entry.cache_path : null;
+        plugin.version = typeof entry.version === "string" ? entry.version : null;
+      }
+    } catch { /* no readable install metadata in this home */ }
+  }
+  if (plugin.present && plugin.path) {
+    try {
+      const server = JSON.parse(readFileSync(path.join(plugin.path, "mcp.json"), "utf8")).mcpServers?.codetour;
+      if (server && server.command) {
+        const args = Array.isArray(server.args) ? server.args : [];
+        const scriptOrLauncher = args.find(arg => typeof arg === "string" && arg !== "mcp" && !arg.startsWith("--")) || server.command;
+        plugin.launcher = [server.command, ...args].join(" ");
+        plugin.launcherPath = scriptOrLauncher;
+        plugin.launcherBuild = buildVersion(scriptOrLauncher);
+      }
+    } catch { /* the cache path exists but is not a readable plugin */ }
+  }
+  const user = {path: mcpConfigPath, declaresCodetour: false};
+  try {
+    const config = JSON.parse(readFileSync(mcpConfigPath, "utf8"));
+    const server = config?.mcpServers?.codetour;
+    if (server) {
+      user.declaresCodetour = true;
+      user.entry = [server.command, ...(Array.isArray(server.args) ? server.args : [])].join(" ");
+    }
+  } catch { /* none yet: the normal state of a plugin-only home */ }
+  const duplicates = readdirOrNone(path.dirname(extensionDirectory))
+    .filter(entry => entry.toLowerCase().includes("codetour"));
+  return {home, adapterOrigin, adapterVersion, extension, plugin, user, duplicates};
+}
+
+// The build a launcher script would serve: the package.json beside its
+// checkout. Native standalone launchers have none and stay unversioned.
+function buildVersion(scriptOrLauncher) {
+  if (typeof scriptOrLauncher !== "string" || !scriptOrLauncher) return null;
+  try {
+    const version = JSON.parse(readFileSync(path.join(path.dirname(path.resolve(scriptOrLauncher)), "..", "package.json"), "utf8")).version;
+    return typeof version === "string" ? version : null;
+  } catch {
+    return null;
+  }
+}
+
+function readdirOrNone(directory) {
+  try {
+    return readdirSync(directory).filter(entry => statSync(path.join(directory, entry)).isDirectory());
+  } catch {
+    return [];
+  }
+}
+
+// One pre-launch report per generation: what this adapter runs, what this
+// Copilot home holds, and one explicit problem per duplicate surface or
+// launcher that points at another build. Problems are diagnostics, never a
+// stop: the report tells the truth, and starting the run stays the user's.
+function codeTourPreLaunch(workspace) {
+  const scan = codeTourPreLaunchScan();
+  const launcher = codeTourMcpServer(workspace);
+  const problems = [];
+  if (!scan.plugin.present || !scan.plugin.launcher) {
+    problems.push(`the CodeTour plugin is not installed in ${scan.home}: run 'codetour --install copilot' from the build that should serve; this session may have no CodeTour MCP server.`);
+  }
+  if (scan.plugin.launcherPath && !existsSync(scan.plugin.launcherPath)) {
+    problems.push(`the CodeTour plugin's launcher ${scan.plugin.launcherPath} does not exist: sessions get no CodeTour tools; run 'codetour --install copilot' again.`);
+  }
+  if (scan.plugin.version && scan.plugin.launcherBuild && scan.plugin.version !== scan.plugin.launcherBuild) {
+    problems.push(`the CodeTour plugin (v${scan.plugin.version} at ${scan.plugin.path}) launches a CLI of build v${scan.plugin.launcherBuild} at ${scan.plugin.launcherPath}: a stale or foreign build serves this session; reinstall from the build that should serve.`);
+  }
+  if (scan.user.declaresCodetour) {
+    problems.push(`${scan.user.path} also declares a CodeTour MCP server (${scan.user.entry || "codetour"}): with the plugin's server, sessions load the CodeTour tools twice; remove the stale entry.`);
+  }
+  if (scan.duplicates.length > 1) {
+    problems.push(`more than one CodeTour extension directory exists under ${path.dirname(scan.extension.path)}: ${scan.duplicates.join(", ")}.`);
+  }
+  const lines = [
+    `CodeTour pre-launch: adapter ${fileURLToPath(import.meta.url)} (${scan.adapterOrigin}${scan.adapterVersion ? ` v${scan.adapterVersion}` : ""})`,
+    `CodeTour pre-launch: launcher ${[launcher.command, ...launcher.args].join(" ")}`,
+    `CodeTour pre-launch: workspace ${workspace}`,
+    `CodeTour pre-launch: extension ${scan.extension.present ? `${scan.extension.path} (${scan.extension.files.join(", ")})` : `${scan.extension.path}: none`}`,
+    `CodeTour pre-launch: plugin ${scan.plugin.present ? `v${scan.plugin.version || "?"} at ${scan.plugin.path || "?"}; MCP launcher ${scan.plugin.launcher || "?"}${scan.plugin.launcherBuild ? ` (build v${scan.plugin.launcherBuild})` : ""}` : `${scan.home}: none`}`,
+    `CodeTour pre-launch: user mcp-config ${scan.user.declaresCodetour ? `${scan.user.path} declares ${scan.user.entry}` : `${scan.user.path}: no extra CodeTour server`}`
+  ];
+  return {
+    launcher: [launcher.command, ...launcher.args].join(" "),
+    lines,
+    problems,
+    scan
+  };
+}
+
+// The report is display, never a condition of the run: a host that cannot log
+// still generates. Every line lands before the first agent request.
+async function reportPreLaunch(session, report) {
+  if (typeof session.log !== "function") return;
+  for (const line of report.lines) await session.log(line, {level: "info"});
+  for (const problem of report.problems) await session.log(`CodeTour pre-launch: ${problem}`, {level: "error"});
+}
+
 function parse(raw) {
   // The final token is the renderer flag when present; the remaining text is
   // the exact Tour title (including spaces), optionally enclosed in quotes.
@@ -224,6 +368,21 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
       // same phrase travels separately as the orientation `brief`.
       const runId = randomUUID();
       const originalRequest = demand || undefined;
+      // Preparation facts only the adapter knows (spec #223 observability):
+      // when the command started and how long the served prompt composed.
+      // The agentStop hook appends the usage windows; token accounting for the
+      // preparation phase itself is not reliably attributable, so none of
+      // these fields claim tokens.
+      // Before any agent request, show which integration this generation
+      // would use: the launcher, the resolved workspace and the CodeTour
+      // surfaces of this Copilot home, with an explicit problem for every
+      // duplicate surface or stale build (spec #223). The same facts are
+      // recorded in the run state's metrics for the trial record.
+      const preLaunch = codeTourPreLaunch(workspace);
+      await reportPreLaunch(session, preLaunch);
+      const commandAt = new Date().toISOString();
+      const promptTool = type === "project" ? "generate_project_tour" : "generate_changes_tour";
+      const promptComposeStartedAt = Date.now();
       // codetour mcp composes the generation prompt for this run, including
       // the user's actual request, the orientation phrase, the Knowledge
       // catalogue and the run identity; the adapter only relays the choices
@@ -232,7 +391,7 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
       try {
         prompt = await servedPrompt(
           workspace,
-          type === "project" ? "generate_project_tour" : "generate_changes_tour",
+          promptTool,
           type === "project"
             ? {runId, ...(originalRequest ? {request: originalRequest} : {}), ...(brief ? {brief} : {})}
             : {runId, reviewMode, ...(originalRequest ? {request: originalRequest} : {}), ...(brief ? {brief} : {})}
@@ -246,6 +405,7 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
           "Run 'codetour --install copilot' and verify the server with 'copilot mcp list'."
         );
       }
+      const promptComposeMs = Date.now() - promptComposeStartedAt;
       // The run exists before the first agent request. A failed send removes
       // it again, so a hook never chases a generation that never started.
       await pruneRunStates(workspace).catch(() => undefined);
@@ -254,7 +414,25 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
         workspace,
         sessionId: sessionIdentity(session),
         kind: type,
-        request: originalRequest || brief || undefined
+        request: originalRequest || brief || undefined,
+        metrics: {
+          preparation: {commandAt, promptTool, promptComposeMs},
+          integration: {
+            launcher: preLaunch.launcher,
+            workspace,
+            adapter: {path: fileURLToPath(import.meta.url), origin: preLaunch.scan.adapterOrigin, version: preLaunch.scan.adapterVersion},
+            extension: {path: preLaunch.scan.extension.path, present: preLaunch.scan.extension.present, files: preLaunch.scan.extension.files},
+            plugin: {
+              path: preLaunch.scan.plugin.path,
+              present: preLaunch.scan.plugin.present,
+              version: preLaunch.scan.plugin.version,
+              launcher: preLaunch.scan.plugin.launcher,
+              launcherBuild: preLaunch.scan.plugin.launcherBuild
+            },
+            user: {path: preLaunch.scan.user.path, declaresCodetour: preLaunch.scan.user.declaresCodetour},
+            problems: preLaunch.problems
+          }
+        }
       }));
       try {
         // The slash command has completed its choices; start the requested run now.
@@ -264,6 +442,10 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
         await removeRunState(workspace, runId).catch(() => undefined);
         throw error;
       }
+      // The host accepted the prompt: stamp the end of the preparation phase
+      // onto the run record. A lost stamp only leaves the timestamp absent;
+      // the run and its guard are unchanged elsewhere.
+      await recordRunMetrics(workspace, runId, {preparation: {sentAt: new Date().toISOString()}}).catch(() => undefined);
       // Only the MCP's own tool results confirm a Tour or a consolidation. The
       // adapter does not announce an outcome it has not observed: creation and
       // persistence are reported by the MCP tool results in the conversation,

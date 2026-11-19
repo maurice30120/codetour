@@ -34,11 +34,18 @@ nombre ; voir [la décision sur Mermaid](../adr/0007-render-mermaid-diagrams-wit
 et [la validation MCP](../../packages/mcp-server/src/mermaid-validation.ts).
 
 Dans les changements locaux, l'exemple fourni par `create_project_tour` est
-remplacé par un exemple valide, accompagné d'une indication sur les guillemets.
-Un test d'intégration récupère l'exemple exposé par le MCP et le fait rendre par
-le moteur utilisé par CodeTour. La suite MCP a passé après correction. Une
-validation de l'effet sur les générations Copilot reste à établir : un exemple
-valide n'empêche pas le modèle de produire un autre diagramme invalide.
+remplacé par un exemple valide ; l'indication qui l'accompagne demande la
+forme canonique quotée pour toute arête étiquetée, sans prétendre que Mermaid
+n'accepte qu'elle — d'autres syntaxes de libellés sont documentées comme
+valides. Le diagnostic de syntaxe transmet désormais un extrait borné du
+message du parser, ramené à un seul niveau d'espacement, à côté de l'extrait
+borné de la source. Un test d'intégration récupère l'exemple exposé par le MCP
+et le fait rendre par le moteur utilisé par CodeTour ; deux tests de
+non-régression moteur vérifient que l'exemple canonique passe et que l'ancienne
+forme à deux-points échoue toujours. Les suites renderer et MCP ont passé après
+correction. Une validation de l'effet sur les générations Copilot reste à
+établir : un exemple valide et un diagnostic actionnable n'empêchent pas le
+modèle de produire un autre diagramme invalide.
 
 ## Pistes
 
@@ -69,6 +76,12 @@ traitement de la légende, les limites, les résultats quand une ligne ou colonn
 n'est pas disponible et l'absence d'écriture de fichiers.
 
 ### 3. Améliorer les diagnostics existants
+
+**État : en partie engagée.** Le diagnostic de syntaxe expose maintenant le
+message du moteur — nettoyé et borné — et les messages distinguent déjà
+légende, type, taille et syntaxe par leur `path`. Restent à extraire une
+position fiable depuis le message du moteur et d'éventuelles suggestions
+produites de façon déterministe.
 
 Avant d'ajouter un outil, examiner si la réponse actuelle de création peut
 exposer une erreur plus exploitable : distinguer légende, type, taille et

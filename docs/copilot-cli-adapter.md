@@ -65,6 +65,14 @@ The adapter then:
 
 An unreachable server, a timeout or an empty prompt is an explicit error that names the `codetour` MCP server and the `codetour --install copilot` repair. There is **no fallback prompt**, no mode change and no analysis in that case; no run state is written. A failed `session.send` removes the run state again.
 
+The run state is created with the preparation metrics the adapter alone knows (ADR 0042): the command start, the served prompt tool, the composition duration and the send stamp after the host accepted the prompt. These stamps make the preparation phase observable without claiming any token figure; the usage windows are recorded from the Copilot session events at stop time.
+
+## Pre-launch report
+
+Before the first agent request, every generation reports the integration it would use (ADR 0043): the running adapter file, the launcher the CLI calls resolve to, the resolved workspace, the installed extension files, the installed plugin (version, cache path, MCP launcher and the build version beside the launcher script) and the user `mcp-config.json` declaration. The scan is offline and reads exactly the paths the installer writes, with the same `COPILOT_HOME` and `CODETOUR_COPILOT_*` overrides.
+
+Problems are reported at error level and never stop the run: a plugin that is not installed in this home, a launcher that does not exist, a launcher pointing at a different build (the staleness/foreign-checkout case), a second `codetour` MCP server declared in the user config, or duplicate CodeTour extension directories. The same facts are recorded in the run state's `metrics.integration`, so the per-`runId` trial record shows which integration was actually loaded.
+
 The server composes the served generation instructions, the original request, the orientation phrase, the run identity, a bounded Knowledge catalogue projection and the decomposition method. Critical Changes Tours also carry the complete shared review skill pack. The adapter holds no Tour prose of its own. It never announces a Tour creation or a persistence it has not observed: only the MCP tool results in the conversation report those outcomes, and the agentStop guard reads the server-written trace.
 
 ## Run state and consolidation
@@ -94,11 +102,23 @@ One JSON file per run, keyed by `runId` and scoped to one workspace and one sess
     "created": [],
     "outcome": "completed_zero"
   },
-  "continuationUsed": false
+  "continuationUsed": false,
+  "metrics": {
+    "version": 1,
+    "preparation": {
+      "commandAt": "2026-11-19T…Z",
+      "promptTool": "generate_project_tour",
+      "promptComposeMs": 87,
+      "sentAt": "2026-11-19T…Z"
+    },
+    "usage": {"source": "copilot-session-events-v1", "observed": true, "observedAt": "2026-11-19T…Z", "model": "…", "projectState": {"branch": "…", "headCommit": "…"}, "totals": {"records": 2, "durationMs": 4800, "inputTokens": 489549, "outputTokens": 430, "cacheReadTokens": 427051, "cacheWriteTokens": 62478, "reasoningTokens": 0}, "calls": {"successful": {"create_project_tour": 1, "knowledge_save": 1}, "refused": {}}, "windows": {"generation": {"fromAt": "…", "untilAt": "…", "records": 1, "durationMs": 4000, "inputTokens": 364887, "outputTokens": 123, "cacheReadTokens": 305382, "cacheWriteTokens": 59489, "reasoningTokens": 0, "calls": {"successful": {"create_project_tour": 1}, "refused": {}}}, "consolidation": {"fromAt": "…", "untilAt": "…", "records": 1, "durationMs": 800, "inputTokens": 124662, "outputTokens": 307, "cacheReadTokens": 121669, "cacheWriteTokens": 2989, "reasoningTokens": 0, "calls": {"successful": {"knowledge_save": 1}, "refused": {}}}, "boundaryObserved": true}}
+  }
 }
 ```
 
 The adapter writes the file; `create_project_tour` / `create_changes_tour` set `tourCreated`; `knowledge_save` with the `runId` writes `created`, `completed_zero` or `failed` (with `outcome` `conflict`, `invalid` or `internal_error`); `knowledge_close_run` writes an explicit `skipped`. All updates are atomic read-modify-write operations under a cross-process lock. A run that bypasses the wrapper has no state and is unguarded. Pruning removes states older than seven days on the next generation and never touches Knowledge; the hook ignores runs older than 24 hours.
+
+The optional `metrics` block is plugin-side observability (ADR 0042): the adapter stamps the preparation facts it alone knows, and the agentStop guard summarizes the Copilot session usage records at every stop — model, Copilot version, project state, CodeTour tool calls (successful results and refusals joined start/completion by `toolCallId`), tokens and cache split into a generation window (until the last successful Tour creation) and a consolidation window, bounded by the next run of the same session. `inputTokens` include the cached reads exactly as the session reports them; the snapshot is a recomputation, never an accumulation, and totals stop at the last observed stop. Metrics never feed the guard and are never written by the MCP: an unobservable session events file records `observed:false` with a reason instead of failing a run.
 
 ## The agentStop guard
 

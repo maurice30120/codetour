@@ -307,7 +307,12 @@ inside the workspace.
 | `offset`        | number | no       | Number of matching entries to skip; defaults to 0.                |
 
 Returns metadata only — `entries: [{name, description}]` — never a body,
-evidence, a cited path or a hash. The name is the identifier. `total` is the
+evidence, a cited path or a hash. Only verified contracts are listed: discovery
+runs the same evidence verification as `knowledge_read` (ADR 0044). Every
+catalogue entry that fails validation is returned under `invalid: [{name,
+reason}]` — the file stem when no servable name is declared — listed in full
+regardless of the query, so it can be fixed or removed instead of being hidden.
+The name is the identifier. `total` is the
 number of matches in the whole filtered catalogue, and `truncated` is true only
 when matching entries remain after this page
 (`offset + entries.length < total`), so paging is explicit and the last page is

@@ -96,16 +96,44 @@ test("a diagram without a detectable kind reports found: undefined", async () =>
   );
 });
 
-test("an invalid Mermaid source reports the found source text", async () => {
+test("an invalid Mermaid source reports the engine message and the found source text", async () => {
   const issues = await validateMermaidDescriptions({
     description: captionedDiagram("Request lifecycle", INVALID_FLOWCHART_SOURCE),
+  });
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].path, "description.mermaid[0].source");
+  // The engine part is pinned exactly on purpose: the engine is locked
+  // (DESCRIPTION_RENDERER_VERSION), and a parser wording change must force
+  // this contract — and the served guidance — to be re-evaluated.
+  assert.equal(
+    issues[0].message,
+    "the Mermaid source at line 3, column 1 has invalid Mermaid syntax; " +
+      "the diagram engine reports: Parse error on line 2: ...owchart TD this is not mermaid at al " +
+      "----------------------^ Expecting 'SEMI', 'NEWLINE', 'EOF', 'AMP', 'START_LINK', " +
+      "'LINK', 'LINK_ID', got 'NODE_STRING'; " +
+      'found: "flowchart TD\\n    this is not mermaid at all ((("'
+  );
+});
+
+test("the historical colon edge-label refusal reports the engine's expectation", async () => {
+  // The form the former guidance example shipped (`Client --> API: places
+  // orders (HTTPS)`). What the agent now receives names the offending token,
+  // turning the correction into an edit instead of a guess.
+  const issues = await validateMermaidDescriptions({
+    description: captionedDiagram(
+      "Request lifecycle",
+      "flowchart LR\nClient --> API: places orders (HTTPS)"
+    ),
   });
   assert.equal(issues.length, 1);
   assert.equal(issues[0].path, "description.mermaid[0].source");
   assert.equal(
     issues[0].message,
     "the Mermaid source at line 3, column 1 has invalid Mermaid syntax; " +
-      'found: "flowchart TD\\n    this is not mermaid at all ((("'
+      "the diagram engine reports: Parse error on line 2: ... LRClient --> API: places orders (HTTPS " +
+      "----------------------^ Expecting 'SEMI', 'NEWLINE', 'EOF', 'AMP', 'START_LINK', " +
+      "'LINK', 'LINK_ID', got 'NODE_STRING'; " +
+      'found: "flowchart LR\\nClient --> API: places orders (HTTPS)"'
   );
 });
 
@@ -126,10 +154,10 @@ test("an invalid Mermaid source above the excerpt bound reports a bounded excerp
   assert.equal(issues[0].path, "description.mermaid[0].source");
   assert.ok(
     issues[0].message.startsWith(
-      "the Mermaid source at line 3, column 1 has invalid Mermaid syntax; found: "
+      "the Mermaid source at line 3, column 1 has invalid Mermaid syntax; the diagram engine reports: "
     )
   );
-  assert.ok(issues[0].message.length < 300);
+  assert.ok(issues[0].message.length < 600);
   assert.ok(issues[0].message.includes("[truncated]"));
 });
 

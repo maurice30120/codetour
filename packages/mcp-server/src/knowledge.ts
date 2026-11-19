@@ -2,7 +2,11 @@ import {
   knowledgeDirectory,
   loadKnowledgeLibrary,
 } from "codetour-knowledge";
-import type { KnowledgeMetadata } from "codetour-knowledge";
+import type {
+  KnowledgeFailureReason,
+  KnowledgeMetadata,
+} from "codetour-knowledge";
+import { readdir } from "node:fs/promises";
 
 // The Knowledge surface of the existing CodeTour MCP server (spec #223,
 // ticket #227): the same shared contract as the native `codetour knowledge`
@@ -10,9 +14,11 @@ import type { KnowledgeMetadata } from "codetour-knowledge";
 //
 // This module owns the catalogue projection and the bounded page shape; the
 // MCP response shaping stays in server.ts next to the Tour tools so every tool
-// keeps one result vocabulary. It never reads a body for discovery and never
-// adds a second parser: `codetour-knowledge` is the single source of truth for
-// the `.tours/.memory/knowledge` format, hashing, verification and persistence.
+// keeps one result vocabulary. Discovery verifies every entry (ADR 0043), but
+// a body never reaches discovery output — the page stays metadata-only — and
+// the module adds no second parser: `codetour-knowledge` is the single source
+// of truth for the `.tours/.memory/knowledge` format, hashing, verification
+// and persistence.
 
 /** Documented tool names. Clients must not rely on any other spelling. */
 export const KNOWLEDGE_LIST_TOOL = "knowledge_list";
@@ -31,23 +37,47 @@ export const KNOWLEDGE_LIST_MAX_LIMIT = 200;
  */
 export const KNOWLEDGE_PROMPT_CATALOGUE_LIMIT = 30;
 
+/**
+ * One catalogue entry that exists on disk but cannot serve a verified body:
+ * a static contract refusal and an evidence-verification refusal are reported
+ * the same way, with the machine-readable reason of `knowledge_read`-grade
+ * verification. No body, cited path or hash value is ever included, so a
+ * reporting row cannot leak what the refusal must not leak.
+ */
+export interface KnowledgeInvalidEntry {
+  /** Catalogue file stem; the declared name when the contract declares one. */
+  name: string;
+  /** Refusal cause; the same vocabulary as `knowledge_read`. */
+  reason: KnowledgeFailureReason;
+}
+
 /** One bounded page of catalogue metadata, never a body. */
 export interface KnowledgeCataloguePage {
-  /** `empty` means the filtered catalogue has no entry; it is not an error. */
+  /** `empty` means the filtered catalogue has no verified entry; not an error. */
   status: "ok" | "empty";
+  /** Verified entries only: every declared SHA-256 proof matched. */
   entries: KnowledgeMetadata[];
-  /** Number of matching entries in the whole catalogue, before pagination. */
+  /**
+   * Catalogue entries that failed validation, listed in full regardless of
+   * the query so the failure is visible to fix instead of being hidden.
+   */
+  invalid: KnowledgeInvalidEntry[];
+  /** Number of matching verified entries in the whole catalogue, before pagination. */
   total: number;
   offset: number;
   limit: number;
-  /** True when the page does not contain every matching entry. */
+  /** True when the page does not contain every matching verified entry. */
   truncated: boolean;
 }
 
 /**
- * Discover the catalogue and return one bounded page of metadata. A missing,
- * unreadable or empty catalogue is a normal empty result. Invalid entries are
- * skipped by discovery (metadata only) and never break the listing.
+ * Discover the catalogue and return one bounded page of verified metadata.
+ * Discovery validates: every catalogue file is read and its whole evidence
+ * contract verified, exactly like `knowledge_read`; only verified entries
+ * populate `entries`, everything else is reported under `invalid` with its
+ * reason. A missing, unreadable or empty catalogue is a normal empty result.
+ * Verification scales with the catalogue size and stays offline and
+ * deterministic — the cost is local hashing, never a model call.
  */
 export async function listKnowledgePage(
   root: string,
@@ -56,17 +86,42 @@ export async function listKnowledgePage(
   limit: number
 ): Promise<KnowledgeCataloguePage> {
   const library = await loadKnowledgeLibrary(root, knowledgeDirectory(root));
-  const matches = await library.list(query);
+  let stems: string[];
+  try {
+    stems = (await readdir(knowledgeDirectory(root)))
+      .filter((file) => file.endsWith(".md"))
+      .map((file) => file.slice(0, -3))
+      .sort();
+  } catch {
+    stems = [];
+  }
+  const valid: KnowledgeMetadata[] = [];
+  const invalid: KnowledgeInvalidEntry[] = [];
+  for (const stem of stems) {
+    const read = await library.read(stem);
+    if (read.status === "valid") {
+      valid.push({ name: read.name, description: read.description });
+    } else {
+      invalid.push({ name: stem, reason: read.reason });
+    }
+  }
+  const lowerQuery = query?.toLowerCase();
+  const matches = lowerQuery
+    ? valid.filter((entry) =>
+        `${entry.name} ${entry.description}`.toLowerCase().includes(lowerQuery)
+      )
+    : valid;
   const entries = matches.slice(offset, offset + limit);
   return {
     status: matches.length === 0 ? "empty" : "ok",
     entries,
+    invalid,
     total: matches.length,
     offset,
     limit,
-    // A page is truncated only when matching entries remain after it. The
-    // last page of a paged listing is complete even though its length is
-    // smaller than the catalogue.
+    // A page is truncated only when matching verified entries remain after
+    // it. The last page of a paged listing is complete even though its
+    // length is smaller than the catalogue.
     truncated: offset + entries.length < matches.length,
   };
 }
@@ -83,14 +138,15 @@ export async function knowledgeCatalogueProjection(root: string): Promise<string
   const lines = [
     "## Knowledge catalogue (metadata only)",
     "",
-    "Knowledge metadata candidates discovered in this workspace. A name is " +
-      "the identifier; only metadata is listed here, never a body. Discovery " +
-      "parses metadata without validating an entry, so a stale or unreadable " +
-      "entry can still appear: validation happens only when " +
-      "`knowledge_read` returns `status: \"valid\"`.",
+    "Knowledge entries discovered in this workspace. A name is the " +
+      "identifier; only metadata is listed here, never a body. Every listed " +
+      "entry is verified: its whole declared SHA-256 evidence contract " +
+      "matches the cited files, the same check `knowledge_read` runs. " +
+      "Verified evidence proves the cited bytes are unchanged, never that " +
+      "the explanation is semantically correct or complete.",
     "",
   ];
-  if (page.entries.length === 0) {
+  if (page.entries.length === 0 && page.invalid.length === 0) {
     lines.push(
       "No Knowledge entries exist in this workspace. An absent or empty " +
         "catalogue is a normal state, not a failure: continue with ordinary " +
@@ -103,6 +159,24 @@ export async function knowledgeCatalogueProjection(root: string): Promise<string
     lines.push(`- \`${entry.name}\` — ${entry.description}`);
   }
   lines.push("");
+  if (page.invalid.length > 0) {
+    lines.push(
+      "Catalogue entries that failed validation — never rely on them; fix or " +
+        "remove them before consolidating:",
+      ...page.invalid.map((entry) => `- \`${entry.name}\` — ${entry.reason}`),
+      ""
+    );
+  }
+  if (page.entries.length === 0) {
+    lines.push(
+      `No verified Knowledge entry exists in this workspace; ${page.invalid.length} ` +
+        "catalogue entries failed validation above. Treat the catalogue as " +
+        "empty for this run: continue with ordinary targeted exploration, and " +
+        "fix or remove the invalid entries instead of reading them.",
+      ""
+    );
+    return lines.join("\n");
+  }
   if (page.truncated) {
     lines.push(
       `Showing ${page.entries.length} of ${page.total} entries: this projection ` +

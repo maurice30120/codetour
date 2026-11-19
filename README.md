@@ -2,6 +2,23 @@
 
 **Explore a codebase, understand a branch, and ask questions right beside the code.**
 
+**Install or update with one command.** The script detects your platform,
+downloads the VSIX that the Release workflow built and attached to the
+[latest GitHub release](https://github.com/maurice30120/codetour/releases), and
+installs it in VS Code; rerun it after each new release.
+
+macOS, Linux, or Git Bash:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/maurice30120/codetour/main/scripts/install-latest.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/maurice30120/codetour/main/scripts/install-latest.ps1 | iex
+```
+
 CodeTour IA is a VS Code desktop extension for guided code walkthroughs. Create
 tours with an AI agent or record them yourself, then follow explanations anchored
 to the files they describe. Keep tours in your repository so the next developer
@@ -44,7 +61,8 @@ GitHub release.
 2. In VS Code, run **Extensions: Install from VSIX...** and select the file.
 3. Open a project folder and find **CodeTour** in the Explorer.
 
-For installation from the terminal, replace the filename with the downloaded asset:
+The one-command scripts at the top of this README wrap the platform detection,
+the download below, and this terminal installation:
 
 ```bash
 code --install-extension ./codetour-<platform>-<version>.vsix
@@ -275,7 +293,8 @@ accurate, complete or the best one.
 
 The same Knowledge contract is exposed by the existing MCP server (VS Code
 extension, `codetour mcp`, and the `codetour-mcp` npm package) as
-`knowledge_list` (metadata only), `knowledge_read` (verified body or a refusal
+`knowledge_list` (verified metadata only, with invalid entries reported for
+fixing), `knowledge_read` (verified body or a refusal
 with no content), `knowledge_save` (one observable consolidation outcome:
 `created`, `completed_zero`, `conflict`, `invalid` or `failed`) and
 `knowledge_close_run` (an explicit `skipped` closure for a generation run). The

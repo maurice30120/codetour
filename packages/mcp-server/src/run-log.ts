@@ -62,6 +62,14 @@ export interface RunState {
   tourPath: string | null;
   consolidation: ConsolidationClosure | null;
   continuationUsed: boolean;
+  /**
+   * Additive observability block written by the plugin side only (spec #223):
+   * the adapter records preparation facts and the agentStop hook summarizes
+   * the Copilot session usage records. Metrics are never an authenticated
+   * outcome and never feed a guard decision; the server preserves the field
+   * verbatim and does not read it.
+   */
+  metrics?: Record<string, unknown>;
 }
 
 export function isValidRunId(runId: unknown): runId is string {

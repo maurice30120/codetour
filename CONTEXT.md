@@ -120,15 +120,23 @@ One `/codetour generate` execution, identified by a `runId` created by the contr
 _Avoid_: session, task, generation attempt
 
 **Run State**:
-The atomic JSON file `<workspace>/.tours/.log/codetour-run-<runId>.json` (spec #223, ticket #228, ADR 0041). It records the run identity, workspace, session, Tour creation, the server-written Consolidation Closure and whether the single continuation was used. The adapter creates it, the MCP updates the authenticated outcomes, and the agentStop hook only reads it (plus toggling `continuationUsed`). It contains no Tour or Knowledge content.
+The atomic JSON file `<workspace>/.tours/.log/codetour-run-<runId>.json` (spec #223, ticket #228, ADR 0041). It records the run identity, workspace, session, Tour creation, the server-written Consolidation Closure and whether the single continuation was used; an optional `metrics` block records usage (ADR 0042). The adapter creates it, the MCP updates the authenticated outcomes, and the agentStop guard reads it, toggles `continuationUsed` and records the usage snapshot. It contains no Tour or Knowledge content.
 _Avoid_: hook cache, agent memory, transcript
+
+**Run Usage Metrics**:
+The additive, optional `metrics` object of a Run State (spec #223, ADR 0042). The adapter writes the preparation facts only it knows (command start, served-prompt composition time, send stamp) and the Pre-Launch Report; the agentStop guard recomputes a snapshot from the Copilot session's own usage records at each stop: model, Copilot version, project state, CodeTour tool calls (successful results and refusals, joined start/completion by `toolCallId`), tokens and cache, with generation and consolidation windows split at the last successful Tour creation. Metrics are never an authenticated outcome, never feed the guard, and an unobservable snapshot is reported as `observed:false` instead of being omitted.
+_Avoid_: run telemetry claims, token report, cost accounting
+
+**Pre-Launch Report**:
+The integration display the adapter emits before any agent request of a generation (spec #223, ADR 0043): the running adapter file and its origin, the launcher the CLI resolves, the resolved workspace, the installed extension files, the installed plugin (version, cache path, MCP launcher and the build version beside the launcher script) and the user `mcp-config.json` declaration. One problem per hazard (missing plugin, missing launcher, launcher serving another build, a second `codetour` MCP server in the user config, duplicate extension directories) is reported at error level and never stops the run. The same facts are recorded in `metrics.integration`.
+_Avoid_: integration banner, doctor output, gate
 
 **Consolidation Closure**:
 The server-written verdict that closes one Generation Run in the Run State: `created`, `completed_zero`, `failed` (with its `outcome`), `skipped`, or the reserved `partial`. `completed_zero` is an explicit assessment with nothing to persist, not an omission; a run with no closure is incomplete and is the only case the agentStop hook may ask to close once.
 _Avoid_: consolidation summary, agent claim, omitted Knowledge
 
 **AgentStop Guard**:
-The deterministic Copilot `agentStop` hook of the Agent Plugin (spec #223, ticket #228, ADR 0041). It is inert for ordinary conversations, other sessions or workspaces, `stop_hook_active`, a run without a created Tour, any Consolidation Closure, and any storage failure. For one incomplete Generation Run it returns at most one `{decision:"block"}` asking for `knowledge_save` or `knowledge_close_run`, after marking `continuationUsed`. It never calls a model and never creates Tour or Knowledge content.
+The deterministic Copilot `agentStop` hook of the Agent Plugin (spec #223, ticket #228, ADR 0041). It is inert for ordinary conversations, other sessions or workspaces, `stop_hook_active`, a run without a created Tour, any Consolidation Closure, and any storage failure. For one incomplete Generation Run it returns at most one `{decision:"block"}` asking for `knowledge_save` or `knowledge_close_run`, after marking `continuationUsed`. Independently of the decision it records the Run Usage Metrics snapshot for every run of this session (ADR 0042). It never calls a model and never creates Tour or Knowledge content.
 _Avoid_: auto-consolidation, retry loop, second agent
 
 **Research Run**:

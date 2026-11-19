@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { listRunStates, updateRunState } from "../lib/run-log.mjs";
+import {
+  collectSessionUsage,
+  listRunStates,
+  recordRunMetrics,
+  summarizeRunUsage,
+  updateRunState
+} from "../lib/run-log.mjs";
 
 // Copilot agentStop guard for one CodeTour generation run.
 //
@@ -11,6 +17,13 @@ import { listRunStates, updateRunState } from "../lib/run-log.mjs";
 // stdout:
 //   {}                                  let the agent stop (the default)
 //   {"decision":"block","reason":"..."} ask for ONE continuation
+//
+// Besides the guard decision, every stop that matches a CodeTour run of this
+// session records one usage snapshot (spec #223 observability) into the run
+// state's metrics: model, project state, calls, tokens and cache split into
+// generation and consolidation, built from the Copilot session usage records.
+// The snapshot never feeds the decision, never reports a Tour or Knowledge
+// outcome, and an unreadable session events file is a diagnostic, not a block.
 //
 // Inert when: the conversation is not a CodeTour run for this session and
 // workspace, the stop is already a hook-triggered re-entry, this run already
@@ -55,6 +68,37 @@ function isClosed(state) {
   return state.consolidation !== null && state.consolidation !== undefined;
 }
 
+// Record the usage snapshot for every Generation Run of this session in this
+// workspace (spec #223 observability). This is a recomputation from Copilot's
+// own session usage records, never an accumulation: the newest snapshot at
+// the newest stop replaces the previous one. The windows cannot be attributed
+// more finely than the record timestamps allow, so values are reported with
+// their boundaries instead of being claimed as exact per-runId consumption.
+// Nothing here influences the guard: any failure is a diagnostic.
+async function recordUsageMetrics(workspace, sessionId, states) {
+  const mine = states
+    .filter(state => state.workspace === workspace && state.sessionId === sessionId)
+    .sort((left, right) => (Date.parse(left.at) || 0) - (Date.parse(right.at) || 0));
+  if (mine.length === 0) return;
+  const session = await collectSessionUsage(sessionId);
+  const stopAt = new Date().toISOString();
+  for (let index = 0; index < mine.length; index++) {
+    const summary = summarizeRunUsage(session, {
+      runAt: mine[index].at,
+      stopAt,
+      nextRunAt: index + 1 < mine.length ? mine[index + 1].at : null
+    });
+    try {
+      const recorded = await recordRunMetrics(workspace, mine[index].runId, {usage: summary});
+      if (!recorded.updated && recorded.reason && recorded.reason !== "noop") {
+        diagnostic(`usage metrics not updated (${recorded.reason})`);
+      }
+    } catch (error) {
+      diagnostic(`could not record usage metrics (${error?.message || error})`);
+    }
+  }
+}
+
 function continuationReason(state) {
   return [
     `Finish the CodeTour consolidation for run ${state.runId} before stopping.`,
@@ -75,6 +119,7 @@ async function decide(input) {
 
   const listed = await listRunStates(workspace);
   for (const problem of listed.problems) diagnostic(`ignored run state (${problem})`);
+  await recordUsageMetrics(workspace, sessionId, listed.states);
   const candidates = listed.states.filter(state =>
     state.workspace === workspace &&
     state.sessionId === sessionId &&

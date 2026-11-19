@@ -1,5 +1,7 @@
-import { constants, promises as fs } from "node:fs";
+import { constants, createReadStream, promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { createInterface } from "node:readline";
 import { randomUUID } from "node:crypto";
 
 // One CodeTour generation run, persisted under <workspace>/.tours/.log/.
@@ -12,6 +14,14 @@ import { randomUUID } from "node:crypto";
 // Knowledge content. Every update is an atomic read-modify-write under a small
 // cross-process lock, so two generations, a resumed session or a concurrent
 // stop cannot lose each other's fields.
+//
+// One additive, optional field exists alongside the guarded outcomes: the
+// `metrics` object (spec #223 observability). The adapter writes the
+// preparation facts it alone knows, and the agentStop hook summarizes the
+// Copilot session usage records at stop time (tokens, cache, calls, model,
+// project state, generation/consolidation windows). Metrics are never
+// authenticated, never feed the guard decision, and a run without them is
+// valid; the MCP server only preserves the field.
 //
 // This file is the single source of truth for the JavaScript surfaces (the
 // Copilot adapter, the plugin hook). The plugin copy at
@@ -27,6 +37,24 @@ export const RUN_FILE_PREFIX = "codetour-run-";
 export const RUN_STATE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const RUN_STATE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Run usage metrics (spec #223 observability). One additive, optional
+// `metrics` object in the run state, written only by the plugin side: the
+// adapter records the preparation facts it alone knows, and the agentStop hook
+// summarizes the Copilot session usage records at stop time. Metrics are never
+// an authenticated outcome and never feed a guard decision; a run stays valid
+// without them, and every snapshot is a recomputation, never an accumulation.
+export const RUN_METRICS_VERSION = 1;
+export const CODETOUR_TOOLS = new Set([
+  "create_project_tour",
+  "create_changes_tour",
+  "knowledge_list",
+  "knowledge_read",
+  "knowledge_save",
+  "knowledge_close_run"
+]);
+export const CODETOUR_CREATION_TOOLS = new Set(["create_project_tour", "create_changes_tour"]);
+const CODETOUR_TOOL_SUFFIX = new RegExp(`codetour[-_](${[...CODETOUR_TOOLS].join("|")})$`);
+const USAGE_TOKEN_KEYS = ["inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "reasoningTokens"];
 const RUN_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{7,63}$/;
 const LOCK_SUFFIX = ".lock";
 const LOCK_TIMEOUT_MS = 5000;
@@ -45,8 +73,8 @@ export function runStatePath(workspace, runId) {
   return path.join(runLogDirectory(workspace), `${RUN_FILE_PREFIX}${runId}.json`);
 }
 
-export function createRunState({ runId, workspace, sessionId, kind, request, at = new Date().toISOString() }) {
-  return {
+export function createRunState({ runId, workspace, sessionId, kind, request, at = new Date().toISOString(), metrics }) {
+  const state = {
     version: RUN_STATE_VERSION,
     runId,
     workspace,
@@ -60,6 +88,10 @@ export function createRunState({ runId, workspace, sessionId, kind, request, at 
     consolidation: null,
     continuationUsed: false
   };
+  if (metrics && typeof metrics === "object" && !Array.isArray(metrics)) {
+    state.metrics = {...metrics, version: RUN_METRICS_VERSION};
+  }
+  return state;
 }
 
 export function isRunState(value) {
@@ -236,4 +268,237 @@ export async function pruneRunStates(workspace, now = Date.now()) {
     const age = Number.isFinite(stamp) ? now - stamp : Infinity;
     if (age > RUN_STATE_RETENTION_MS) await fs.rm(file, { force: true }).catch(() => undefined);
   }
+}
+
+// Resolve the Copilot CLI session-state directory that holds
+// `session-state/<sessionId>/events.jsonl`. The explicit override exists for
+// tests and relocated layouts; COPILOT_HOME relocates the whole user
+// directory, so it wins over the default home.
+export function sessionStateDirectory(options = {}) {
+  return options.sessionStateDirectory ||
+    process.env.CODETOUR_COPILOT_SESSION_STATE_DIR ||
+    path.join(process.env.COPILOT_HOME || path.join(os.homedir(), ".copilot"), "session-state");
+}
+
+function codeTourToolName(toolName) {
+  if (typeof toolName !== "string") return null;
+  const match = toolName.match(CODETOUR_TOOL_SUFFIX);
+  return match ? match[1] : null;
+}
+
+function numberOrZero(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function emptyUsage() {
+  const usage = {records: 0, durationMs: 0};
+  for (const key of USAGE_TOKEN_KEYS) usage[key] = 0;
+  return usage;
+}
+
+function accumulateUsage(usage, record) {
+  usage.records += 1;
+  usage.durationMs += numberOrZero(record.duration);
+  for (const key of USAGE_TOKEN_KEYS) usage[key] += numberOrZero(record[key]);
+  return usage;
+}
+
+/**
+ * Read one Copilot session's raw usage facts from its events file: per-call
+ * token records and CodeTour tool executions. Tolerant by contract — a
+ * missing, unreadable, malformed or partial file yields an unobserved report
+ * instead of an error, because the metrics are observability data and lose to
+ * any guard decision. Input tokens include cached reads, exactly as the
+ * session usage records report them.
+ */
+export async function collectSessionUsage(sessionId, options = {}) {
+  const file = path.join(sessionStateDirectory(options), sessionId, "events.jsonl");
+  const collected = {
+    source: "copilot-session-events-v1",
+    sessionId: typeof sessionId === "string" && sessionId ? sessionId : null,
+    file,
+    observedAt: new Date().toISOString(),
+    observed: false,
+    reason: "unreadable",
+    copilotVersion: null,
+    projectState: null,
+    model: null,
+    models: {},
+    records: [],
+    results: []
+  };
+  let events;
+  try {
+    events = createInterface({input: createReadStream(file, {encoding: "utf8"}), crlfDelay: Infinity});
+  } catch {
+    return {...collected, reason: "missing"};
+  }
+  // One CodeTour tool execution = a `tool.execution_start` naming the tool,
+  // then a `tool.execution_complete` carrying only the same `toolCallId`. The
+  // completion is joined back to its start; only joined calls are reported.
+  const pending = new Map();
+  try {
+    for await (const line of events) {
+      if (!line.includes("usage_record") && !line.includes("execution") && !line.includes("session.start")) continue;
+      let event;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (!event || typeof event !== "object") continue;
+      const data = event.data;
+      if (!data || typeof data !== "object") continue;
+      if (event.type === "session.start") {
+        collected.copilotVersion = typeof data.copilotVersion === "string" ? data.copilotVersion : null;
+        const context = data.context;
+        if (context && typeof context === "object") {
+          collected.projectState = {
+            branch: typeof context.branch === "string" ? context.branch : null,
+            headCommit: typeof context.headCommit === "string" ? context.headCommit : null
+          };
+        }
+      } else if (event.type === "session.usage_record" && data.usage && typeof data.usage === "object") {
+        const usage = data.usage;
+        const record = {
+          at: typeof event.timestamp === "string" ? event.timestamp : null,
+          model: typeof usage.model === "string" ? usage.model : null,
+          duration: numberOrZero(usage.duration)
+        };
+        for (const key of USAGE_TOKEN_KEYS) record[key] = numberOrZero(usage[key]);
+        collected.records.push(record);
+        if (record.model) collected.models[record.model] = (collected.models[record.model] || 0) + 1;
+      } else if (event.type === "tool.execution_start") {
+        const tool = codeTourToolName(data.toolName);
+        if (tool && typeof event.timestamp === "string" && typeof data.toolCallId === "string") {
+          pending.set(data.toolCallId, {tool, at: event.timestamp});
+        }
+      } else if (event.type === "tool.execution_complete") {
+        const start = typeof data.toolCallId === "string" ? pending.get(data.toolCallId) : undefined;
+        if (start && typeof event.timestamp === "string") {
+          pending.delete(data.toolCallId);
+          collected.results.push({tool: start.tool, at: event.timestamp, success: data.success === true});
+        }
+      }
+    }
+  } catch (error) {
+    collected.reason = error?.code === "ENOENT" ? "missing" : `unreadable: ${error?.message || error}`;
+    return collected;
+  }
+  collected.observed = true;
+  delete collected.reason;
+  let best = 0;
+  for (const [model, count] of Object.entries(collected.models)) {
+    if (count > best) {
+      collected.model = model;
+      best = count;
+    }
+  }
+  return collected;
+}
+
+/**
+ * Summarize a session's usage facts into the per-phase record for one run:
+ * the run window starts at the run state's creation, ends at the hook
+ * snapshot (another run's start bounds attribution in shared sessions), and
+ * the last successful Tour creation splits generation from consolidation —
+ * the same separation the trial logbook performed by hand. An unresolved
+ * boundary keeps every record in the generation window and reports it
+ * explicitly instead of inventing a consolidation phase.
+ */
+export function summarizeRunUsage(collected, {runAt, stopAt, nextRunAt}) {
+  const source = {
+    source: collected?.source || "copilot-session-events-v1",
+    observed: collected?.observed === true,
+    observedAt: collected?.observedAt || new Date().toISOString(),
+    file: collected?.file || null
+  };
+  if (!source.observed) return {...source, reason: collected?.reason || "unavailable"};
+  const from = Date.parse(runAt);
+  const until = Number.isFinite(Date.parse(stopAt)) ? Date.parse(stopAt) : Date.now();
+  const next = Date.parse(nextRunAt);
+  const end = Number.isFinite(next) ? Math.min(next, until) : until;
+  const inWindow = timestamp => {
+    const at = Date.parse(timestamp);
+    return Number.isFinite(at) && at >= from && at < end;
+  };
+  const records = (collected.records || []).filter(record => inWindow(record.at));
+  // Only a completed call joins back to its start, so attempts are refusals
+  // or successes observed exactly once; a call without a completion stays out.
+  const results = (collected.results || []).filter(result => inWindow(result.at));
+  const boundary = results
+    .filter(result => CODETOUR_CREATION_TOOLS.has(result.tool) && result.success)
+    .map(result => Date.parse(result.at))
+    .reduce((latest, at) => Math.max(latest, at), null);
+  const callsFor = subset => {
+    const calls = {};
+    for (const result of subset) {
+      const statusKey = result.success ? "successful" : "refused";
+      calls[statusKey] = calls[statusKey] || {};
+      calls[statusKey][result.tool] = (calls[statusKey][result.tool] || 0) + 1;
+    }
+    for (const key of ["successful", "refused"]) calls[key] = calls[key] || {};
+    return calls;
+  };
+  const totals = records.reduce((sum, record) => accumulateUsage(sum, record), emptyUsage());
+  const generationUntil = boundary === null ? end : boundary;
+  const usageWindow = (fromMs, untilMs, windowResults) => ({
+    fromAt: new Date(fromMs).toISOString(),
+    untilAt: new Date(untilMs).toISOString(),
+    ...records
+      .filter(record => {
+        const at = Date.parse(record.at);
+        return at >= fromMs && at < untilMs;
+      })
+      .reduce((sum, record) => accumulateUsage(sum, record), emptyUsage()),
+    calls: callsFor(windowResults)
+  });
+  return {
+    ...source,
+    file: collected.file,
+    copilotVersion: collected.copilotVersion,
+    model: collected.model,
+    models: collected.models,
+    projectState: collected.projectState,
+    totals,
+    calls: callsFor(results),
+    windows: {
+      generation: usageWindow(from, generationUntil, results.filter(result => Date.parse(result.at) < generationUntil)),
+      consolidation: boundary === null
+        ? null
+        : usageWindow(boundary, end, results.filter(result => Date.parse(result.at) >= boundary)),
+      boundaryObserved: boundary !== null
+    }
+  };
+}
+
+function mergeMetrics(previous, incoming) {
+  if (!previous || typeof previous !== "object" || Array.isArray(previous)) {
+    return incoming;
+  }
+  const merged = {...previous};
+  for (const [key, value] of Object.entries(incoming)) {
+    merged[key] = value && typeof value === "object" && !Array.isArray(value) &&
+      previous[key] && typeof previous[key] === "object" && !Array.isArray(previous[key])
+      ? {...previous[key], ...value}
+      : value;
+  }
+  return merged;
+}
+
+/**
+ * Merge one metrics part into a run state under the same cross-process lock as
+ * every other writer. The metric block is observability only: an unreadable
+ * snapshot or a lost update is reported to the caller and never flips a run
+ * outcome, a Tour creation or a consolidation closure.
+ */
+export async function recordRunMetrics(workspace, runId, metrics) {
+  if (!metrics || typeof metrics !== "object" || Array.isArray(metrics)) {
+    throw new Error("Invalid CodeTour run metrics.");
+  }
+  return updateRunState(workspace, runId, state => ({
+    ...state,
+    metrics: mergeMetrics(state.metrics, {...metrics, version: RUN_METRICS_VERSION}),
+    updatedAt: new Date().toISOString()
+  }));
 }

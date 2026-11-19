@@ -72,6 +72,7 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
         status: "empty",
         workspace: ".",
         entries: [],
+        invalid: [],
         total: 0,
         offset: 0,
         limit: 50,
@@ -97,14 +98,20 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
 
       const listed = await callTool(client, KNOWLEDGE_LIST, {});
       assert.equal(listed.isError, false, listed.text);
+      // Discovery verifies (ADR 0043): only verified contracts are listed as
+      // entries; the stale and unsupported entries are reported under invalid
+      // with their reason, so nobody can mistake them for servable metadata.
       assert.deepEqual(listed.structured, {
         status: "ok",
         workspace: ".",
         entries: [
           { name: "dispatch_flow", description: "How tool calls dispatch" },
-          { name: "stale_flow", description: "Cites a changed file" },
         ],
-        total: 2,
+        invalid: [
+          { name: "stale_flow", reason: "file_hash_mismatch" },
+          { name: "symbol_flow", reason: "unsupported_proof" },
+        ],
+        total: 1,
         offset: 0,
         limit: 50,
         truncated: false,
@@ -117,11 +124,29 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
         [{ name: "dispatch_flow", description: "How tool calls dispatch" }],
         "the query is a literal case-insensitive substring filter"
       );
+      assert.deepEqual(filtered.structured.invalid, [
+        { name: "stale_flow", reason: "file_hash_mismatch" },
+        { name: "symbol_flow", reason: "unsupported_proof" },
+      ]);
+      // The invalid report is independent of the query: the whole broken set
+      // stays visible for fixing.
+      assert.deepEqual(filtered.structured.invalid, [
+        { name: "stale_flow", reason: "file_hash_mismatch" },
+        { name: "symbol_flow", reason: "unsupported_proof" },
+      ]);
 
       const noMatch = await callTool(client, KNOWLEDGE_LIST, { query: "absent-topic" });
       assert.equal(noMatch.isError, false);
       assert.deepEqual(noMatch.structured.entries, []);
       assert.equal(noMatch.structured.total, 0);
+      assert.deepEqual(noMatch.structured.invalid, [
+        { name: "stale_flow", reason: "file_hash_mismatch" },
+        { name: "symbol_flow", reason: "unsupported_proof" },
+      ]);
+      assert.deepEqual(noMatch.structured.invalid, [
+        { name: "stale_flow", reason: "file_hash_mismatch" },
+        { name: "symbol_flow", reason: "unsupported_proof" },
+      ]);
 
       // The last page is complete: `truncated` describes what remains after
       // the page, not the page's length compared with the whole catalogue.
@@ -129,8 +154,12 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
       assert.deepEqual(page.structured, {
         status: "ok",
         workspace: ".",
-        entries: [{ name: "stale_flow", description: "Cites a changed file" }],
-        total: 2,
+        entries: [],
+        invalid: [
+          { name: "stale_flow", reason: "file_hash_mismatch" },
+          { name: "symbol_flow", reason: "unsupported_proof" },
+        ],
+        total: 1,
         offset: 1,
         limit: 1,
         truncated: false,
@@ -141,10 +170,14 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
         status: "ok",
         workspace: ".",
         entries: [{ name: "dispatch_flow", description: "How tool calls dispatch" }],
-        total: 2,
+        invalid: [
+          { name: "stale_flow", reason: "file_hash_mismatch" },
+          { name: "symbol_flow", reason: "unsupported_proof" },
+        ],
+        total: 1,
         offset: 0,
         limit: 1,
-        truncated: true,
+        truncated: false,
       });
 
       const wrongLimit = await callTool(client, KNOWLEDGE_LIST, { limit: 0 });
@@ -523,6 +556,62 @@ test("the Knowledge tools work without any API key or Research Harness", async (
   }
 });
 
+test("knowledge_list surfaces invalid catalogue entries for fixing", async () => {
+  const root = tempDir("codetour-knowledge-invalid-");
+  try {
+    const digest = writeWorkspaceFile(root, "src/main.ts", "export const start = 1;\n");
+    writeEntry(root, "dispatch_flow", {
+      description: "How tool calls dispatch",
+      body: "Verified body.\n",
+      evidence: [{ path: "src/main.ts", sha256: digest }],
+    });
+    writeEntry(root, "stale_flow", {
+      description: "Cites a changed file",
+      body: "STALE BODY\n",
+      evidence: [{ path: "src/main.ts" }],
+    });
+    writeEntry(root, "symbol_flow", {
+      description: "Uses an unsupported proof",
+      body: "SYMBOL BODY\n",
+      symbol: true,
+    });
+    // A name that contradicts its file stem is a static refusal, not an
+    // invisible entry: the stem is reported so the fix points at the file.
+    fs.writeFileSync(
+      path.join(catalogueDirectory(root), "other_name.md"),
+      ["---", "name: dispatch_flow", "description: Declared name differs", "evidence:", "  - type: file", "    path: src/main.ts", "---", "Body.\n"].join("\n")
+    );
+
+    await withServer(root, async (client) => {
+      const listed = await callTool(client, KNOWLEDGE_LIST, {});
+      assert.equal(listed.isError, false, listed.text);
+      assert.deepEqual(listed.structured, {
+        status: "ok",
+        workspace: ".",
+        entries: [
+          { name: "dispatch_flow", description: "How tool calls dispatch" },
+        ],
+        invalid: [
+          { name: "other_name", reason: "malformed_contract" },
+          { name: "stale_flow", reason: "file_hash_mismatch" },
+          { name: "symbol_flow", reason: "unsupported_proof" },
+        ],
+        total: 1,
+        offset: 0,
+        limit: 50,
+        truncated: false,
+      });
+      assert.match(listed.text, /failed validation/i);
+      assert.match(listed.text, /3 catalogue entries failed validation/i);
+      assert.match(listed.text, /listed under invalid with their reason/i);
+      assert.match(listed.text, /fix the cited contract or remove the entry/i);
+      assert.doesNotMatch(textOf(listed), /SECRET BODY|sha256|[0-9a-f]{64}/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 // prompts/get is the wrapper surface: the original request, then the catalogue
 // projection, then the decomposition method. A client that never calls it gets
 // the tool descriptions only.
@@ -549,6 +638,13 @@ test("prompts/get carries the original request and the catalogue before the deco
       body: "Prompt body.\n",
       evidence: [{ path: "src/main.ts", sha256: digest }],
     });
+    // A broken contract is reported, never hidden: the projection must name
+    // it with its reason so the agent fixes it instead of ignoring it.
+    writeEntry(root, "stale_flow", {
+      description: "Cites a changed file",
+      body: "PROMPT STALE BODY\n",
+      evidence: [{ path: "src/main.ts" }],
+    });
     await withServer(root, async (client) => {
       const request =
         "Explique-moi comment les appels d'outils sont distribués.\n" +
@@ -571,17 +667,17 @@ test("prompts/get carries the original request and the catalogue before the deco
       assert.ok(catalogueAt < decompositionAt, "the catalogue precedes the decomposition method");
       assert.ok(text.includes("dispatch_flow"));
       assert.ok(text.includes("How tool calls dispatch"));
-      // The projection is a metadata candidate list, not a validation claim:
-      // stale entries are still listed, so only knowledge_read validates.
-      assert.match(text, /metadata candidates/i);
+      // Discovery verifies (ADR 0043): the projection claims exactly what
+      // verification proves — the evidence contract matches, nothing more.
+      assert.match(text, /Every listed entry is verified/i);
       assert.match(text, /never a body/i);
-      assert.match(text, /validation happens only when/i);
       assert.match(text, /knowledge_read/);
-      assert.ok(
-        !text.includes("Validated Knowledge entries available"),
-        "discovery must not claim the listed entries are validated"
-      );
       assert.ok(!text.includes("Prompt body."), "the catalogue projection never carries a body");
+      // The broken contract is named with its reason, and its body stays
+      // unread: the projection reports, it does not serve content.
+      assert.ok(text.includes("Catalogue entries that failed validation"));
+      assert.ok(text.includes("`stale_flow` — file_hash_mismatch"));
+      assert.ok(!text.includes("PROMPT STALE BODY"), "the invalid report never carries a body");
       // The wrapper prescribes targeted gap exploration and no second pass.
       assert.match(text, /atomic questions/i);
       assert.match(text, /targeted gap/i);

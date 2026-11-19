@@ -30,8 +30,3 @@ decomposition steps and never prescribes a second anchor or verification pass.
 5. If the MCP server or its prompt is unavailable, say so and stop: give the
    repair command `codetour --install copilot` and point at
    `copilot mcp list`. A text answer is not a Tour.
-
-The standalone `codetour-knowledge` skill installed by `codetour --install
-copilot` is an optional fallback for hosts without this plugin's MCP prompt.
-This plugin never depends on it and never routes the workflow through its
-CLI-first method.

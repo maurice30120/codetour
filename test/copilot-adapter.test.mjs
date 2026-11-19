@@ -28,6 +28,15 @@ function writeTrackedReaderWrapper(file) {
   ].join("\n"));
 }
 
+// The pre-launch report logs before every generation (integration display,
+// spec #223). Tests that are not about the report collect the messages
+// instead of failing on any log.
+function collectLogs() {
+  const entries = [];
+  return {entries, log: async message => { entries.push(message); }};
+}
+const preLaunchLines = [];
+
 function writeRecordingMcpWrapper(file) {
   // A minimal stdio MCP server that records the exact prompts/get arguments
   // the adapter sends, then serves a deterministic prompt. It lets the tests
@@ -203,7 +212,7 @@ test("generation relays the served neutral Changes Tour prompt to the host", asy
         input: async prompt => { events.push(prompt); return ""; }
       },
       send: async options => { events.push("send"); sent = options; },
-      log: async message => { events.push(message); }
+      log: async message => { preLaunchLines.push(message); }
     }, "");
     assert.deepEqual(events, ["Read or generate a CodeTour?", "Which type of Tour?", "Neutral or critical?", "What should this Tour focus on? (empty for the standard Tour, cancel to stop)", "send"]);
     assert.deepEqual(menus, [["1. Generate", "2. Read"], ["1. Project Tour", "2. Changes Tour"], ["1. Neutral", "2. Critical"]]);
@@ -225,7 +234,7 @@ test("the top-level choice is a numbered menu with Generate first", async () => 
       input: async () => assert.fail("menus must use the host selection dialog")
     },
     send: async () => assert.fail("A cancelled type menu must not start a generation"),
-    log: async text => assert.fail(text)
+    log: collectLogs().log
   }, "");
   assert.deepEqual(menus, [
     ["Read or generate a CodeTour?", ["1. Generate", "2. Read"]],
@@ -261,7 +270,7 @@ test("an explicit Project Tour bypasses review choices and sends the served prom
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
     const sent = [];
-    await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async () => ""}, send: async options => sent.push(options), log: async text => assert.fail(text)}, "generate project");
+    await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async () => ""}, send: async options => sent.push(options), log: collectLogs().log}, "generate project");
     assert.equal(sent.length, 1);
     assert.equal(sent[0].mode, "immediate");
     assert.match(sent[0].prompt, /create_project_tour/);
@@ -279,7 +288,7 @@ test("a generation without an orientation asks for it before launching", async (
     const questions = [];
     let sent;
     await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async message => { questions.push(message); return ""; }},
-      send: async options => {sent = options;}, log: async text => assert.fail(text)}, "generate project");
+      send: async options => {sent = options;}, log: collectLogs().log}, "generate project");
     assert.deepEqual(questions, ["What should this Tour focus on? (empty for the standard Tour, cancel to stop)"]);
     assert.ok(sent);
     // An empty answer keeps the standard composed prompt, with no user
@@ -296,7 +305,7 @@ test("cancelling the orientation question stops the generation", async () => {
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
     await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async () => null},
-      send: async () => assert.fail("A cancelled orientation must not start a run"), log: async text => assert.fail(text)}, "generate changes critical");
+      send: async () => assert.fail("A cancelled orientation must not start a run"), log: collectLogs().log}, "generate changes critical");
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
   }
@@ -308,7 +317,7 @@ test("an answered orientation question orients the composed prompt", async () =>
   try {
     let sent;
     await runCodeTourCommand({capabilities:{ui:{elicitation:true}}, ui:{input: async () => "Concentre-toi sur le pipeline CI."},
-      send: async options => {sent = options;}, log: async text => assert.fail(text)}, "generate changes neutral");
+      send: async options => {sent = options;}, log: collectLogs().log}, "generate changes neutral");
     assert.match(sent.prompt, /create_changes_tour/);
     assert.match(sent.prompt, /Concentre-toi sur le pipeline CI\./);
     assert.match(sent.prompt, /Tour orientation from the user/);
@@ -336,7 +345,7 @@ test("the orientation phrase travels verbatim into the served prompt", async () 
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
     let sent;
-    await runCodeTourCommand({capabilities:{}, send: async options => {sent = options;}, log: async text => assert.fail(text)},
+    await runCodeTourCommand({capabilities:{}, send: async options => {sent = options;}, log: collectLogs().log},
       "generate project Explique-moi le flux d'authentification, de la connexion a la session.");
     assert.ok(sent);
     assert.equal(sent.mode, "immediate");
@@ -356,7 +365,7 @@ test("a Changes Tour carries the orientation phrase alongside its review mode", 
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
     let sent;
-    await runCodeTourCommand({capabilities:{}, send: async options => {sent = options;}, log: async text => assert.fail(text)},
+    await runCodeTourCommand({capabilities:{}, send: async options => {sent = options;}, log: collectLogs().log},
       "generate changes critical Montre comment la revue critique est câblée.");
     assert.ok(sent);
     assert.match(sent.prompt, /create_changes_tour/);
@@ -378,7 +387,7 @@ test("an orientation phrase elicits the Tour type then orients the run", async (
       capabilities: {ui: {elicitation: true}},
       ui: {select: async prompt => { events.push(prompt); return "1. Project Tour"; }},
       send: async options => { events.push("send"); sent = options; },
-      log: async message => { events.push(message); }
+      log: async message => { preLaunchLines.push(message); }
     }, "generate Explique-moi le rendu Mermaid.");
     assert.deepEqual(events, ["Which type of Tour?", "send"]);
     assert.match(sent.prompt, /create_project_tour/);
@@ -400,7 +409,7 @@ test("a typo-like first word opens the type menu and keeps the rest as orientati
         input: async () => assert.fail(`${raw} must not ask for an orientation already given`)
       },
       send: async options => { sent = options; },
-      log: async text => assert.fail(`${raw}: ${text}`)
+      log: collectLogs().log
     }, raw);
     assert.deepEqual(menus, [["Which type of Tour?", ["1. Project Tour", "2. Changes Tour"]]], `${raw} must open the type menu`);
     assert.ok(sent, `${raw} must generate after the type choice`);
@@ -419,7 +428,7 @@ test("a free orientation phrase that does not name a type stays an orientation",
       capabilities: {ui: {elicitation: true}},
       ui: {select: async prompt => prompt === "Which type of Tour?" ? "2. Changes Tour" : "2. Critical"},
       send: async options => { sent = options; },
-      log: async text => assert.fail(text)
+      log: collectLogs().log
     }, "generate Changements récents dans le module de paiement.");
     assert.ok(sent);
     assert.match(sent.prompt, /create_changes_tour/);
@@ -743,7 +752,9 @@ function rememberCli() {
 test("a generation writes one workspace-scoped run before sending the served prompt", async () => {
   const root = createTourWorkspace([]);
   const restore = rememberCli();
+  const previousHome = process.env.COPILOT_HOME;
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  process.env.COPILOT_HOME = writeCleanCopilotHome(root);
   try {
     let sent;
     let stateAtSend;
@@ -779,10 +790,39 @@ test("a generation writes one workspace-scoped run before sending the served pro
     assert.equal(state.tourCreated, false);
     assert.equal(state.consolidation, null);
     assert.equal(state.continuationUsed, false);
+    // Preparation facts are adapter-exclusive (spec #223 observability): the
+    // command start and the served-prompt composition time. No token figure is
+    // claimed here; the hook owns the usage windows.
+    assert.ok(state.metrics, "the run state carries the adapter's preparation metrics");
+    assert.equal(state.metrics.version, 1);
+    assert.ok(state.metrics.preparation.commandAt, "the preparation start is stamped");
+    assert.equal(state.metrics.preparation.promptTool, "generate_project_tour");
+    assert.ok(
+      typeof state.metrics.preparation.promptComposeMs === "number" && state.metrics.preparation.promptComposeMs >= 0,
+      "the prompt composition time is a non-negative number"
+    );
+    assert.equal(state.metrics.preparation.sentAt, undefined, "the send stamp only exists after the host accepted the prompt");
     // The adapter never claims a confirmed outcome it has not observed.
     assert.doesNotMatch(logs.join("\n"), /Tour created|Knowledge (created|persisted)|consolidation (completed|closed)/i);
+    const stateAfterRun = runStateFor(root, state.runId);
+    assert.ok(stateAfterRun, "the run state still exists after the send");
+    assert.ok(stateAfterRun.metrics.preparation.sentAt, "the host accepting the prompt stamps the send time");
+    assert.equal(stateAfterRun.metrics.preparation.commandAt, state.metrics.preparation.commandAt, "the preparation stamp is never rewritten");
+    // The integration actually observed for this run is recorded beside the
+    // preparation facts: the launcher, the resolved workspace and a clean
+    // home's surface list with no problem.
+    const integration = stateAfterRun.metrics.integration;
+    assert.equal(integration.workspace, state.workspace);
+    assert.match(integration.launcher, /mcp --workspace-root /);
+    assert.equal(integration.problems.length, 0, "a clean install reports no problem");
+    assert.equal(integration.plugin.present, true);
+    assert.equal(integration.plugin.version, "0.1.2");
+    assert.equal(integration.plugin.launcherBuild, "0.1.2");
+    assert.equal(integration.adapter.origin, "development");
+    assert.ok(integration.extension.present, "the fixture home holds the installed extension files");
   } finally {
     restore();
+    if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
     rmSync(root, {recursive:true, force:true});
   }
 });
@@ -798,7 +838,7 @@ test("both Tour types send the user's demand, never the command, to prompts/get"
   try {
     const demand = "Explique-moi le flux d'authentification, de la connexion à la session.";
     for (const command of [`generate project ${demand}`, `generate changes critical ${demand}`]) {
-      await runCodeTourCommand({capabilities: {}, send: async () => {}, log: async text => assert.fail(text)}, command, root);
+      await runCodeTourCommand({capabilities: {}, send: async () => {}, log: collectLogs().log}, command, root);
     }
     const calls = await recordedPromptArgs(recorded);
     assert.equal(calls.length, 2);
@@ -835,7 +875,7 @@ test("a generation with an empty demand sends no request argument", async () => 
       capabilities: {ui: {elicitation: true}},
       ui: {input: async () => ""},
       send: async () => {},
-      log: async text => assert.fail(text)
+      log: collectLogs().log
     }, "generate project", root);
     const calls = await recordedPromptArgs(recorded);
     assert.equal(calls.length, 1);
@@ -858,7 +898,7 @@ test("a Changes Tour serves the user's demand as the original request", async ()
   try {
     let sent;
     const demand = "Montre comment la revue critique est câblée.";
-    await runCodeTourCommand({capabilities: {}, send: async options => {sent = options;}, log: async text => assert.fail(text)},
+    await runCodeTourCommand({capabilities: {}, send: async options => {sent = options;}, log: collectLogs().log},
       `generate changes critical ${demand}`);
     assert.ok(sent);
     assert.match(sent.prompt, /create_changes_tour/);
@@ -966,4 +1006,182 @@ test("the extension no longer joins a second CodeTour MCP server", () => {
   const source = readFileSync(path.resolve(".github/extensions/codetour/extension.mjs"), "utf8");
   assert.match(source, /joinSession\(\{\s*commands/);
   assert.doesNotMatch(source, /mcpServers/, "the plugin's mcp.json is the single MCP source");
+});
+
+// A fabricated but faithfully-shaped Copilot user home: the plugin installed
+// through config.json (leading `//` comment lines tolerated), its mcp.json
+// launcher pointing at a fake distribution, and the installed extension
+// files. Tests patch single files of it to report one precise problem.
+function writeCleanCopilotHome(root, { metadataVersion = "0.1.2", buildVersion = "0.1.2" } = {}) {
+  const home = path.join(root, "copilot-home");
+  const plugin = path.join(home, "installed-plugins", "_direct", "codetour-plugin-fixture");
+  const script = path.join(root, "fake-dist", "cli.js");
+  mkdirSync(plugin, {recursive: true});
+  mkdirSync(path.dirname(script), {recursive: true});
+  writeFileSync(script, "// fixture launcher\n");
+  writeFileSync(path.join(root, "package.json"), JSON.stringify({version: buildVersion}));
+  writeFileSync(path.join(home, "config.json"), JSON.stringify({
+    installedPlugins: [{name: "codetour", version: metadataVersion, cache_path: plugin}]
+  }));
+  writeFileSync(path.join(plugin, "mcp.json"), JSON.stringify({
+    mcpServers: {codetour: {type: "stdio", command: "node", args: [script, "mcp", "--workspace-root", "${COPILOT_SESSION_CWD}"]}}
+  }, null, 2));
+  const extension = path.join(home, "extensions", "codetour");
+  mkdirSync(extension, {recursive: true});
+  for (const name of ["adapter.mjs", "extension.mjs", "run-log.mjs"]) writeFileSync(path.join(extension, name), "// fixture\n");
+  return home;
+}
+
+test("a clean install reports no pre-launch problem and names its surfaces", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  const previousHome = process.env.COPILOT_HOME;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  process.env.COPILOT_HOME = writeCleanCopilotHome(root);
+  try {
+    let sent;
+    const logs = [];
+    await runCodeTourCommand({
+      sessionId: "session-pre-launch-clean",
+      capabilities: {ui: {elicitation: true}},
+      ui: {input: async () => ""},
+      send: async options => { sent = options; },
+      log: async (message, options) => logs.push(`${options?.level || "info"}: ${message}`)
+    }, "generate project", root);
+    assert.ok(sent, logs.join("\n"));
+    assert.deepEqual(logs.filter(entry => entry.startsWith("error:")), [], "a clean home reports no problem");
+    const report = logs.join("\n");
+    assert.match(report, /CodeTour pre-launch: launcher /);
+    assert.match(report, /CodeTour pre-launch: workspace /, "the resolved workspace is displayed");
+    assert.match(report, /CodeTour pre-launch: plugin v0\.1\.2 at .*codetour-plugin-fixture/);
+    assert.match(report, /MCP launcher node .*cli\.js mcp --workspace-root /);
+    assert.match(report, /\(build v0\.1\.2\)/);
+    assert.match(report, /CodeTour pre-launch: extension .*adapter\.mjs, extension\.mjs, run-log\.mjs/);
+    assert.match(report, /no extra CodeTour server/);
+  } finally {
+    restore();
+    if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("a stale or foreign plugin build is named before the run", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  const previousHome = process.env.COPILOT_HOME;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  process.env.COPILOT_HOME = writeCleanCopilotHome(root);
+  writeFileSync(path.join(root, "package.json"), JSON.stringify({version: "0.0.9"}));
+  try {
+    let sent;
+    const logs = [];
+    await runCodeTourCommand({
+      capabilities: {ui: {elicitation: true}},
+      ui: {input: async () => ""},
+      send: async options => { sent = options; },
+      log: async (message, options) => logs.push(`${options?.level || "info"}: ${message}`)
+    }, "generate project", root);
+    // The stale build is a problem, not a stop: the generation still starts.
+    assert.ok(sent, logs.join("\n"));
+    const errors = logs.filter(entry => entry.startsWith("error:")).join("\n");
+    assert.match(errors, /stale or foreign build/);
+    assert.match(errors, /v0\.1\.2 at .*codetour-plugin-fixture/);
+    assert.match(errors, /build v0\.0\.9/);
+    assert.match(errors, /reinstall/);
+  } finally {
+    restore();
+    if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("a second CodeTour MCP declaration is reported as a duplicate", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  const previousHome = process.env.COPILOT_HOME;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  const home = writeCleanCopilotHome(root);
+  process.env.COPILOT_HOME = home;
+  writeFileSync(path.join(home, "mcp-config.json"), JSON.stringify({
+    mcpServers: {codetour: {type: "stdio", command: "codetour", args: ["mcp"]}}
+  }));
+  try {
+    let sent;
+    const logs = [];
+    await runCodeTourCommand({
+      capabilities: {ui: {elicitation: true}},
+      ui: {input: async () => ""},
+      send: async options => { sent = options; },
+      log: async (message, options) => logs.push(`${options?.level || "info"}: ${message}`)
+    }, "generate project", root);
+    assert.ok(sent, logs.join("\n"));
+    const errors = logs.filter(entry => entry.startsWith("error:")).join("\n");
+    assert.match(errors, /mcp-config\.json also declares a CodeTour MCP server/);
+    assert.match(errors, /load the CodeTour tools twice/);
+    assert.match(errors, /remove the stale entry/);
+    assert.match(logs.join("\n"), /mcp-config\.json declares codetour mcp/);
+  } finally {
+    restore();
+    if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("a missing plugin launcher is reported before the run", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  const previousHome = process.env.COPILOT_HOME;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  const home = writeCleanCopilotHome(root);
+  process.env.COPILOT_HOME = home;
+  writeFileSync(path.join(home, "installed-plugins", "_direct", "codetour-plugin-fixture", "mcp.json"), JSON.stringify({
+    mcpServers: {codetour: {type: "stdio", command: "node", args: [path.join(root, "gone-dist", "cli.js"), "mcp", "--workspace-root", "${COPILOT_SESSION_CWD}"]}}
+  }));
+  try {
+    let sent;
+    const logs = [];
+    await runCodeTourCommand({
+      capabilities: {ui: {elicitation: true}},
+      ui: {input: async () => ""},
+      send: async options => { sent = options; },
+      log: async (message, options) => logs.push(`${options?.level || "info"}: ${message}`)
+    }, "generate project", root);
+    assert.ok(sent, logs.join("\n"));
+    const errors = logs.filter(entry => entry.startsWith("error:")).join("\n");
+    assert.match(errors, /plugin's launcher .* does not exist/);
+    assert.match(errors, /gone-dist/);
+  } finally {
+    restore();
+    if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("duplicate CodeTour extension directories are named in the report", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  const previousHome = process.env.COPILOT_HOME;
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  const home = writeCleanCopilotHome(root);
+  process.env.COPILOT_HOME = home;
+  mkdirSync(path.join(home, "extensions", "codetour-backup"), {recursive: true});
+  writeFileSync(path.join(home, "extensions", "codetour-backup", "adapter.mjs"), "// stale copy\n");
+  try {
+    let sent;
+    const logs = [];
+    await runCodeTourCommand({
+      capabilities: {ui: {elicitation: true}},
+      ui: {input: async () => ""},
+      send: async options => { sent = options; },
+      log: async (message, options) => logs.push(`${options?.level || "info"}: ${message}`)
+    }, "generate project", root);
+    assert.ok(sent, logs.join("\n"));
+    const errors = logs.filter(entry => entry.startsWith("error:")).join("\n");
+    assert.match(errors, /more than one CodeTour extension directory/);
+    assert.match(errors, /codetour, codetour-backup/);
+  } finally {
+    restore();
+    if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
+    rmSync(root, {recursive:true, force:true});
+  }
 });

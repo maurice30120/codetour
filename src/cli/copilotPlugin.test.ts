@@ -74,7 +74,10 @@ test("the plugin skill defers to the served MCP prompt instead of duplicating it
   assert.match(skill, /primary CodeTour path/i);
   assert.match(skill, /knowledge_save/);
   assert.match(skill, /knowledge_close_run/);
-  assert.match(skill, /optional fallback/i);
+  // The superseded CLI-first skill is not mentioned at all: naming it as a
+  // fallback would invite a host to route the workflow through it.
+  assert.doesNotMatch(skill, /optional fallback/i);
+  assert.doesNotMatch(skill, /codetour-knowledge/i);
   // It must not route the workflow to the superseded CLI-first skill.
   assert.doesNotMatch(skill, /use it for the complete Tour workflow/i);
   assert.doesNotMatch(skill, /codetour knowledge (?:list|read|save|hash)/i);

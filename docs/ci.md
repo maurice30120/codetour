@@ -11,7 +11,10 @@ the VSIX but do not retain it as an Actions artifact.
 To download an installable VSIX, publish a GitHub release. The Release workflow
 checks out its tag, packages each platform and attaches the VSIX files to that
 release. Download the file matching your platform from the release's **Assets**
-section, then use **Extensions: Install from VSIX...** in VS Code.
+section, then use **Extensions: Install from VSIX...** in VS Code. The
+README's *Install or update with one command* (`scripts/install-latest.sh`)
+wraps the same download and `code --install-extension` in a single terminal
+command.
 
 To attach or rebuild files for an existing release, open **Actions > Release >
 Run workflow**, select `main` and enter that release's tag. This manual run only

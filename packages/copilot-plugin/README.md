@@ -81,6 +81,109 @@ The controlled adapter writes one file per generation:
 - Files are pruned after seven days by the next generation; Knowledge is never
   touched by pruning. The hook ignores runs older than 24 hours.
 
+## Run usage metrics
+
+The run state carries one additive, optional `metrics` object (ADR 0042):
+
+```json
+"metrics": {
+  "version": 1,
+  "preparation": {
+    "commandAt": "2026-11-19T11:26:19.259Z",
+    "promptTool": "generate_project_tour",
+    "promptComposeMs": 87,
+    "sentAt": "2026-11-19T11:26:21.004Z"
+  },
+  "usage": {
+    "source": "copilot-session-events-v1",
+    "observed": true,
+    "observedAt": "2026-11-19T11:28:22.000Z",
+    "file": "/Users/…/.copilot/session-state/<sessionId>/events.jsonl",
+    "copilotVersion": "1.0.114",
+    "model": "claude-sonnet-5.5",
+    "projectState": {"branch": "spec-223-integration", "headCommit": "9ef3…"},
+    "totals": {"records": 2, "durationMs": 4800, "inputTokens": 489549, "outputTokens": 430, "cacheReadTokens": 427051, "cacheWriteTokens": 62478, "reasoningTokens": 0},
+    "calls": {"successful": {"create_project_tour": 1, "knowledge_save": 1}, "refused": {}},
+    "windows": {
+      "generation": {"fromAt": "…", "untilAt": "…", "records": 1, "durationMs": 4000, "inputTokens": 364887, "outputTokens": 123, "cacheReadTokens": 305382, "cacheWriteTokens": 59489, "reasoningTokens": 0},
+      "consolidation": {"fromAt": "…", "untilAt": "…", "records": 1, "durationMs": 800, "inputTokens": 124662, "outputTokens": 307, "cacheReadTokens": 121669, "cacheWriteTokens": 2989, "reasoningTokens": 0},
+      "boundaryObserved": true
+    }
+  }
+}
+```
+
+- The adapter writes the preparation facts only it knows: the command start,
+  the served prompt that composed the request and how long the composition
+  took, and the send stamp after the host accepted the prompt. No token figure
+  is claimed for that phase.
+- At every stop that matches a run of this session, the hook recomputes the
+  snapshot from Copilot's own session usage records
+  (~/.copilot/session-state/<sessionId>/events.jsonl on 1.0.114): model,
+  Copilot version, branch and head commit, CodeTour tool calls and token
+  totals. A CodeTour tool execution is one `tool.execution_start` naming the
+  tool joined with one `tool.execution_complete` carrying the same
+  `toolCallId`; `calls` separates the successful results from the refusals
+  (`success:false`). `inputTokens` include the cached reads exactly as the
+  session reports them. The generation window ends at the last successful
+  Tour creation; what follows is the consolidation window. A second run of
+  the same session bounds the first run's window, so two runs never claim
+  each other's records.
+- The snapshot is a recomputation, never an accumulation: the newest one
+  replaces the previous. Totals stop at the last observed stop, so a final
+  user reply composed after the last stop lands in the next snapshot when one
+  occurs.
+- Metrics are observability, never a guarded outcome: they never feed the
+  continuation decision and are never written by the MCP. A missing,
+  unreadable or unparseable session events file, or a host without hooks,
+  records `observed:false` with a reason — or nothing at all — and changes no
+  decision.
+- `CODETOUR_COPILOT_SESSION_STATE_DIR` overrides the session-state root for
+  tests and relocated layouts; `COPILOT_HOME` relocates the base directory.
+- The format of Copilot's session events is Copilot-internal and may change
+  between CLI versions; the `source` field names the layout the snapshot was
+  read with.
+
+## Pre-launch report
+
+Every generation reports its integration before the first agent request
+(ADR 0043), as `session.log` info lines:
+
+```text
+CodeTour pre-launch: adapter /…/extensions/codetour/adapter.mjs (installed)
+CodeTour pre-launch: launcher node /…/dist/cli.js mcp --workspace-root /real/workspace
+CodeTour pre-launch: workspace /real/workspace
+CodeTour pre-launch: extension /…/.copilot/extensions/codetour (adapter.mjs, extension.mjs, run-log.mjs)
+CodeTour pre-launch: plugin v0.1.2 at /…/installed-plugins/_direct/codetour-plugin-…; MCP launcher node /…/dist/cli.js mcp --workspace-root ${COPILOT_SESSION_CWD} (build v0.1.2)
+CodeTour pre-launch: user mcp-config /…/.copilot/mcp-config.json: no extra CodeTour server
+```
+
+One problem is reported at error level, never as a stop — the report tells
+the truth and starting the run stays the user's:
+
+- the CodeTour plugin is not installed in the Copilot home (no
+  `config.json` entry, no `CODETOUR_COPILOT_PLUGIN_DIR`): run
+  `codetour --install copilot` from the build that should serve;
+- the plugin's launcher does not exist on disk (a moved or deleted
+  checkout): sessions would get no CodeTour tools;
+- the plugin's launcher points at another build (`plugin.json` version
+  differs from the package.json beside the launched CLI): a stale or
+  foreign build serves the session — the trial case of a personal plugin
+  left pointing at another checkout;
+- the user `mcp-config.json` also declares a `codetour` MCP server: the
+  session would load the CodeTour tools twice;
+- more than one CodeTour extension directory exists under the extensions
+  root.
+
+The same facts are recorded in the run state's `metrics.integration`
+launcher, workspace, adapter origin, extension files, plugin version and
+launcher build, user config declaration and `problems` - so the trial
+record per runId shows which integration was actually loaded. The scan is
+offline (no `copilot` invocation, no network) and reads exactly the paths
+the installer writes; `COPILOT_HOME` relocates it,
+`CODETOUR_COPILOT_EXTENSIONS_DIR`, `CODETOUR_COPILOT_MCP_CONFIG` and
+`CODETOUR_COPILOT_PLUGIN_DIR` override single surfaces.
+
 ## Requirements
 
 - GitHub Copilot CLI 1.0.106 or later (verified with 1.0.106; the bundled
