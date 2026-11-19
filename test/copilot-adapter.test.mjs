@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, copyFileSync, symlinkSync, cpSync, readdirSync, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { runCodeTourCommand, codeTourMcpServer } from "../.github/extensions/codetour/adapter.mjs";
+import { runCodeTourCommand, codeTourMcpServer, generationTool } from "../.github/extensions/codetour/adapter.mjs";
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 function processIsRunning(pid) {
@@ -135,7 +135,7 @@ test("missing UI capability is reported without launching a reader", async () =>
     for (const name of ["a", "b"]) writeFileSync(path.join(root, ".tours", `${name}.tour`), JSON.stringify({title:name,steps:[{description:"test"}]}));
     process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
     const messages = [];
-    await runCodeTourCommand({capabilities:{},log:async text => messages.push(text)}, "", root);
+    await runCodeTourCommand({capabilities:{},log:async text => messages.push(text)}, "--renderer terminal", root);
     assert.match(messages.join("\n"), /requires an interactive Copilot session/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
@@ -202,20 +202,17 @@ test("generation relays the served neutral Changes Tour prompt to the host", asy
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
     const events = [];
-    const menus = [];
-    const answers = ["1. Generate", "2. Changes Tour", "1. Neutral"];
     let sent;
     await runCodeTourCommand({
       capabilities: {ui: {elicitation: true}},
       ui: {
-        select: async (prompt, choices) => { events.push(prompt); menus.push(choices); return answers.shift(); },
+        select: async () => assert.fail("explicit generation never opens a menu"),
         input: async prompt => { events.push(prompt); return ""; }
       },
       send: async options => { events.push("send"); sent = options; },
       log: async message => { preLaunchLines.push(message); }
-    }, "");
-    assert.deepEqual(events, ["Read or generate a CodeTour?", "Which type of Tour?", "Neutral or critical?", "What should this Tour focus on? (empty for the standard Tour, cancel to stop)", "send"]);
-    assert.deepEqual(menus, [["1. Generate", "2. Read"], ["1. Project Tour", "2. Changes Tour"], ["1. Neutral", "2. Critical"]]);
+    }, "generate changes neutral");
+    assert.deepEqual(events, ["What should this Tour focus on? (empty for the standard Tour, cancel to stop)", "send"]);
     assert.equal(sent.mode, "immediate", "a completed command must start generation without an extra Enter");
     assert.match(sent.prompt, /create_changes_tour/);
     assert.match(sent.prompt, /Review mode "neutral"/);
@@ -225,21 +222,40 @@ test("generation relays the served neutral Changes Tour prompt to the host", asy
 });
 
 
-test("the top-level choice is a numbered menu with Generate first", async () => {
-  const menus = [];
+test("an incomplete generation delegates missing choices to the agent without extension menus", async () => {
+  const sent = [];
   await runCodeTourCommand({
     capabilities: {ui: {elicitation: true}},
     ui: {
-      select: async (prompt, choices) => { menus.push([prompt, choices]); return menus.length === 1 ? choices[0] : null; },
-      input: async () => assert.fail("menus must use the host selection dialog")
+      select: async () => assert.fail("generation choices belong to ask_user"),
+      input: async () => assert.fail("generation questions belong to ask_user")
     },
-    send: async () => assert.fail("A cancelled type menu must not start a generation"),
+    send: async options => sent.push(options),
     log: collectLogs().log
   }, "");
-  assert.deepEqual(menus, [
-    ["Read or generate a CodeTour?", ["1. Generate", "2. Read"]],
-    ["Which type of Tour?", ["1. Project Tour", "2. Changes Tour"]]
-  ]);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].mode, "immediate");
+  assert.match(sent[0].prompt, /ask_user/);
+  assert.match(sent[0].prompt, /Project Tour/);
+  assert.match(sent[0].prompt, /Changes Tour/);
+  assert.match(sent[0].prompt, /codetour_prepare_generation/);
+});
+
+test("the choice dialogue preserves an explicit Changes Tour and a natural-language critical request", async () => {
+  const root = createTourWorkspace([]);
+  try {
+    let sent;
+    await runCodeTourCommand({
+      send: async options => { sent = options; },
+      log: collectLogs().log
+    }, "generate changes Fais une revue critique de ma branche.", root);
+    const {dialogueId, ...choices} = JSON.parse(sent.prompt.split("\n").at(-1));
+    assert.ok(dialogueId);
+    assert.deepEqual(choices, {type: "changes", request: "Fais une revue critique de ma branche."});
+    assert.deepEqual(readRunStates(root), [], "collecting choices is not a Generation Run");
+  } finally {
+    rmSync(root, {recursive:true, force:true});
+  }
 });
 
 
@@ -377,7 +393,7 @@ test("a Changes Tour carries the orientation phrase alongside its review mode", 
   }
 });
 
-test("an orientation phrase elicits the Tour type then orients the run", async () => {
+test("an orientation phrase reaches the agent intact before the type is resolved", async () => {
   const previousCli = process.env.CODETOUR_CLI;
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
@@ -385,37 +401,35 @@ test("an orientation phrase elicits the Tour type then orients the run", async (
     let sent;
     await runCodeTourCommand({
       capabilities: {ui: {elicitation: true}},
-      ui: {select: async prompt => { events.push(prompt); return "1. Project Tour"; }},
+      ui: {select: async () => assert.fail("type selection belongs to ask_user")},
       send: async options => { events.push("send"); sent = options; },
       log: async message => { preLaunchLines.push(message); }
     }, "generate Explique-moi le rendu Mermaid.");
-    assert.deepEqual(events, ["Which type of Tour?", "send"]);
-    assert.match(sent.prompt, /create_project_tour/);
+    assert.deepEqual(events, ["send"]);
+    assert.match(sent.prompt, /ask_user/);
     assert.match(sent.prompt, /Explique-moi le rendu Mermaid\./);
-    assert.match(sent.prompt, /Tour orientation from the user/);
+    assert.doesNotMatch(sent.prompt, /Run identity:/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
   }
 });
 
-test("a typo-like first word opens the type menu and keeps the rest as orientation", async () => {
+test("a typo-like first word delegates type resolution and keeps the request intact", async () => {
   for (const [raw, brief] of [["generate change the login flow", "change the login flow"], ["generate chages", "chages"], ["generate changse neutral", "changse neutral"]]) {
-    const menus = [];
     let sent;
     await runCodeTourCommand({
       capabilities: {ui: {elicitation: true}},
       ui: {
-        select: async (prompt, choices) => { menus.push([prompt, choices]); return choices[0]; },
+        select: async () => assert.fail("type selection belongs to ask_user"),
         input: async () => assert.fail(`${raw} must not ask for an orientation already given`)
       },
       send: async options => { sent = options; },
       log: collectLogs().log
     }, raw);
-    assert.deepEqual(menus, [["Which type of Tour?", ["1. Project Tour", "2. Changes Tour"]]], `${raw} must open the type menu`);
-    assert.ok(sent, `${raw} must generate after the type choice`);
-    assert.match(sent.prompt, /create_project_tour/);
+    assert.ok(sent, `${raw} must reach the agent for type resolution`);
+    assert.match(sent.prompt, /ask_user/);
     assert.match(sent.prompt, new RegExp(brief.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-    assert.match(sent.prompt, /Tour orientation from the user/);
+    assert.doesNotMatch(sent.prompt, /Run identity:/);
   }
 });
 
@@ -426,14 +440,14 @@ test("a free orientation phrase that does not name a type stays an orientation",
     let sent;
     await runCodeTourCommand({
       capabilities: {ui: {elicitation: true}},
-      ui: {select: async prompt => prompt === "Which type of Tour?" ? "2. Changes Tour" : "2. Critical"},
+      ui: {select: async () => assert.fail("the adapter must not interpret natural-language choices")},
       send: async options => { sent = options; },
       log: collectLogs().log
     }, "generate Changements récents dans le module de paiement.");
     assert.ok(sent);
-    assert.match(sent.prompt, /create_changes_tour/);
+    assert.match(sent.prompt, /ask_user/);
     assert.match(sent.prompt, /Changements récents dans le module de paiement\./);
-    assert.match(sent.prompt, /Tour orientation from the user/);
+    assert.doesNotMatch(sent.prompt, /Run identity:/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
   }
@@ -451,17 +465,23 @@ test("a quoted \"generate\" title is read instead of starting a generation", asy
   });
 });
 
-for (const cancelAt of [0, 1, 2]) test(`cancelling generation choice ${cancelAt + 1} never starts analysis`, async () => {
-  const answers = ["1. Generate", "2. Changes Tour", "2. Critical"];
-  let count = 0;
-  await runCodeTourCommand({capabilities:{ui:{elicitation:true}},
-    ui:{select:async () => count++ === cancelAt ? null : answers[count - 1], input: async () => ""},
-    send: async () => assert.fail("Analysis started after cancellation"), log:async text => assert.fail(text)}, "");
-  assert.equal(count, cancelAt + 1);
+test("a failed dialogue send reports the error without creating a generation run", async () => {
+  const root = createTourWorkspace([]);
+  try {
+    const logs = [];
+    await runCodeTourCommand({
+      send: async () => { throw new Error("dialogue refused"); },
+      log: async message => logs.push(message)
+    }, "generate changes", root);
+    assert.deepEqual(readRunStates(root), []);
+    assert.deepEqual(logs, ["CodeTour: dialogue refused"]);
+  } finally {
+    rmSync(root, {recursive:true, force:true});
+  }
 });
 
 test("invalid and unavailable generation choices fail without silently creating Tours", async () => {
-  for (const raw of ["generate changes invented", "generate project critical", "generate"]) {
+  for (const raw of ["generate project critical", "generate project"]) {
     const errors = [];
     await runCodeTourCommand({capabilities:{}, send:async () => assert.fail("Unexpected generation"), log:async text => errors.push(text)}, raw);
     assert.equal(errors.length, 1);
@@ -612,14 +632,11 @@ test("the Tour list reuses the adapter's numbered selection menu", async () => {
     const session = {capabilities:{ui:{elicitation:true}},
       ui:{select: async (prompt, choices) => {
         menus.push([prompt, choices]);
-        return prompt === "Select a CodeTour" ? choices[1] : "2. Read";
+        return choices[1];
       }},
       log: async () => {}};
-    await runCodeTourCommand(session, "", root);
-    // One menu implementation: every choice, the Tour list included, is
-    // labelled with its number and answered through its position.
+    await runCodeTourCommand(session, "--renderer terminal", root);
     assert.deepEqual(menus, [
-      ["Read or generate a CodeTour?", ["1. Generate", "2. Read"]],
       ["Select a CodeTour", ["1. First Tour", "2. Second Tour"]]
     ]);
     const calls = await recordedReaderArgs(recorded);
@@ -633,9 +650,9 @@ test("cancelling Tour selection never launches a reader", async () => {
   await withRealCli(root, async output => {
     const errors = [];
     const session = {capabilities:{ui:{elicitation:true}},
-      ui:{select: async prompt => prompt === "Read or generate a CodeTour?" ? "2. Read" : null},
+      ui:{select: async () => null},
       log: async text => errors.push(text)};
-    await runCodeTourCommand(session, "", root);
+    await runCodeTourCommand(session, "--renderer terminal", root);
     await delay(500);
     assert.ok(!existsSync(output), "a cancelled selection must not launch a reader");
     assert.deepEqual(errors, []);
@@ -748,6 +765,124 @@ function rememberCli() {
   };
   return restore;
 }
+
+test("the generation tool returns the served critical prompt with a guarded session-scoped run", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    const tool = generationTool({
+      sessionId: "stale-session",
+      send: async () => assert.fail("a tool must return its prompt, not send a nested agent request"),
+      ui: {
+        select: async () => assert.fail("choices are already resolved"),
+        input: async () => assert.fail("the request is already resolved")
+      },
+      log: collectLogs().log
+    }, root);
+    const request = "Fais une revue critique de ma branche.";
+    const result = await tool.handler({type: "changes", reviewMode: "critical", request}, {sessionId: "dialogue-session"});
+    assert.equal(result.resultType, "success", result.textResultForLlm);
+    assert.match(result.textResultForLlm, /review mode: critical/);
+    assert.ok(result.textResultForLlm.includes(request));
+    const states = readRunStates(root);
+    assert.equal(states.length, 1);
+    assert.equal(states[0].sessionId, "dialogue-session");
+    assert.equal(states[0].workspace, realpathSync(root));
+    assert.equal(states[0].kind, "changes");
+    assert.equal(states[0].request, request);
+    assert.equal(states[0].tourCreated, false);
+    assert.equal(states[0].consolidation, null);
+    assert.equal(states[0].continuationUsed, false);
+    assert.ok(result.textResultForLlm.includes(states[0].runId));
+  } finally {
+    restore();
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("the generation tool rejects unresolved choices and unavailable prompts without leaving a run", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  process.env.CODETOUR_CLI = path.join(root, "unavailable-cli");
+  try {
+    const tool = generationTool(collectLogs(), root);
+    for (const [args, expected] of [
+      [{type: "unknown", request: ""}, /Tour type must be project or changes/],
+      [{type: "changes", request: ""}, /explicit neutral or critical/],
+      [{type: "changes", reviewMode: "invented", request: ""}, /explicit neutral or critical/],
+      [{type: "project", reviewMode: "critical", request: ""}, /Project Tours do not have a review mode/],
+      [{type: "project", request: 42}, /request must be text/],
+      [{type: "project", request: ""}, /MCP server 'codetour' is unavailable/]
+    ]) {
+      const result = await tool.handler(args, {sessionId: "dialogue-session"});
+      assert.equal(result.resultType, "failure");
+      assert.match(result.textResultForLlm, expected);
+      assert.deepEqual(readRunStates(root), []);
+    }
+  } finally {
+    restore();
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("the generation tool prepares a standard Project Tour without asking another question", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    const result = await generationTool({
+      ui: {
+        select: async () => assert.fail("the type is resolved"),
+        input: async () => assert.fail("an empty request explicitly chooses a standard Tour")
+      },
+      log: collectLogs().log
+    }, root).handler({type: "project", request: ""}, {sessionId: "project-dialogue"});
+    assert.equal(result.resultType, "success", result.textResultForLlm);
+    assert.match(result.textResultForLlm, /create_project_tour/);
+    assert.doesNotMatch(result.textResultForLlm, /review mode|critical-instructions|Tour orientation from the user/i);
+    const [state] = readRunStates(root);
+    assert.equal(state.kind, "project");
+    assert.equal(state.sessionId, "project-dialogue");
+    assert.equal(state.metrics.preparation.sentAt, undefined, "a tool return must not claim session.send accepted a prompt");
+  } finally {
+    restore();
+    rmSync(root, {recursive:true, force:true});
+  }
+});
+
+test("a resolved dialogue starts run attribution at the dialogue rather than after the user's choices", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
+  try {
+    let dialogue;
+    let sentAt;
+    const session = {
+      sessionId: "attribution-session",
+      send: async ({prompt}) => {
+        dialogue = JSON.parse(prompt.split("\n").at(-1));
+        sentAt = new Date().toISOString();
+      },
+      log: collectLogs().log
+    };
+    await runCodeTourCommand(session, "generate", root);
+    await delay(20);
+    const tool = generationTool(session, root);
+    const args = {type: "project", request: "", dialogueId: dialogue.dialogueId};
+    const result = await tool.handler(args, {sessionId: session.sessionId});
+    assert.equal(result.resultType, "success", result.textResultForLlm);
+    const [state] = readRunStates(root);
+    assert.ok(state.at <= sentAt, "dialogue usage must not fall in the preceding run's window");
+    assert.equal(state.metrics.preparation.commandAt, state.at);
+    const replay = await tool.handler(args, {sessionId: session.sessionId});
+    assert.equal(replay.resultType, "failure", "a consumed dialogue must not start another run");
+    assert.equal(readRunStates(root).length, 1);
+  } finally {
+    restore();
+    rmSync(root, {recursive:true, force:true});
+  }
+});
 
 test("a generation writes one workspace-scoped run before sending the served prompt", async () => {
   const root = createTourWorkspace([]);
@@ -924,6 +1059,18 @@ test("an unusable workspace fails visibly without asking the MCP or the agent", 
   assert.match(message, /workspace/i);
   assert.match(message, /not a directory|does not exist|introuvable/i);
   assert.ok(!existsSync(missing));
+});
+
+test("an unusable workspace cannot start a choice dialogue", async () => {
+  const missing = path.join(os.tmpdir(), `codetour-missing-dialogue-${process.pid}-${Date.now()}`);
+  const logs = [];
+  let sent = false;
+  await runCodeTourCommand({
+    send: async () => { sent = true; },
+    log: async message => logs.push(message)
+  }, "generate", missing);
+  assert.equal(sent, false);
+  assert.match(logs.join("\n"), /workspace.*does not exist/i);
 });
 
 test("an empty served prompt fails without sending or writing a run", async () => {

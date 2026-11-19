@@ -116,7 +116,7 @@ The versioned Agent Plugins 1.0 directory `packages/copilot-plugin/` (spec #223,
 _Avoid_: extension bundle, marketplace plugin, second MCP server
 
 **Generation Run**:
-One `/codetour generate` execution, identified by a `runId` created by the controlled adapter. It is scoped to exactly one resolved workspace and one Copilot session, and it is the unit the Run State, the creation tools and the consolidation closure refer to. A run exists only after `prompts/get` succeeded; a direct skill or direct MCP call without the wrapper is not a Generation Run.
+One generation started by `/codetour generate` or the controlled adapter's `codetour_prepare_generation` tool, identified by a `runId`. It is scoped to exactly one resolved workspace and one Copilot session, and it is the unit the Run State, the creation tools and the consolidation closure refer to. A run exists only after `prompts/get` succeeded; the preceding choice dialogue alone, or a direct MCP call without the adapter, is not a Generation Run.
 _Avoid_: session, task, generation attempt
 
 **Run State**:
@@ -128,7 +128,7 @@ The additive, optional `metrics` object of a Run State (spec #223, ADR 0042). Th
 _Avoid_: run telemetry claims, token report, cost accounting
 
 **Pre-Launch Report**:
-The integration display the adapter emits before any agent request of a generation (spec #223, ADR 0043): the running adapter file and its origin, the launcher the CLI resolves, the resolved workspace, the installed extension files, the installed plugin (version, cache path, MCP launcher and the build version beside the launcher script) and the user `mcp-config.json` declaration. One problem per hazard (missing plugin, missing launcher, launcher serving another build, a second `codetour` MCP server in the user config, duplicate extension directories) is reported at error level and never stops the run. The same facts are recorded in `metrics.integration`.
+The integration display the adapter emits before serving a generation prompt, after any agent-driven choice dialogue (spec #223, ADR 0043): the running adapter file and its origin, the launcher the CLI resolves, the resolved workspace, the installed extension files, the installed plugin (version, cache path, MCP launcher and the build version beside the launcher script) and the user `mcp-config.json` declaration. One problem per hazard (missing plugin, missing launcher, launcher serving another build, a second `codetour` MCP server in the user config, duplicate extension directories) is reported at error level and never stops the run. The same facts are recorded in `metrics.integration`.
 _Avoid_: integration banner, doctor output, gate
 
 **Consolidation Closure**:

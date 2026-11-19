@@ -22,6 +22,16 @@ start, the served-prompt composition time and the moment the host accepted
 after a successful send. Token accounting for the preparation phase is not
 reliably attributable, so no token figure is recorded for it.
 
+Amended 2026-11-19: `/codetour` can first send an agent-driven choice dialogue.
+A single-use `dialogueId`, retained in the adapter's process and bound to the
+session and workspace, carries that start time into the eventual preparation
+tool call. Only a successful served prompt creates a Run State, whose `at`
+and preparation `commandAt` include the dialogue's start so its model usage
+does not land in the preceding run's window. Cancelled dialogues create no
+run; a later generation without their identifier cannot inherit their time.
+A tool result does not claim `sentAt`, which remains specific to a successful
+`session.send`.
+
 **Usage belongs to the agentStop guard.** Copilot CLI 1.0.114 writes
 `~/.copilot/session-state/<sessionId>/events.jsonl` (`COPILOT_HOME` relocates
 the base directory, `CODETOUR_COPILOT_SESSION_STATE_DIR` overrides the whole

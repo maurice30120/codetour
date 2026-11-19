@@ -27,14 +27,25 @@ plugin session runs exactly one CodeTour server and one copy of every tool. The
 plugin's built-in skill is minimal and defers to the served MCP prompt; the
 Tour method is not duplicated in the plugin or in the extension.
 
-**Generation wrapper invariant.** `/codetour generate` resolves exactly one
-workspace (real path, explicit failure when unusable), calls `prompts/get`
+**Generation wrapper invariant.** `/codetour generate` and the extension's
+`codetour_prepare_generation` tool resolve exactly one
+workspace (real path, explicit failure when unusable), call `prompts/get`
 `generate_project_tour` with the complete original request as `request`, the
-orientation as `brief` and a fresh `runId`, and only then calls `session.send`.
+orientation as `brief` and a fresh `runId`, and only then deliver the prompt
+through `session.send` or the tool result.
 An unreachable server, an empty prompt or a provider failure stops the command
 with no analysis, no fallback prompt and no run state. The adapter never
 announces a Tour creation or a persistence it has not observed; only the MCP's
 tool results report those outcomes.
+
+Amended 2026-11-19: missing generation choices are collected by the agent with
+`ask_user`, replacing the extension's generation menus. Explicit choices,
+including natural-language choices, are kept. This preparatory dialogue can
+precede `prompts/get` but performs no generation analysis and creates no Run
+State. Once resolved, the agent calls `codetour_prepare_generation` and follows
+its returned prompt in the same turn, rather than sending a nested agent
+request. Both entry paths share the guarded preparation above. Existing Tour
+reader selection remains a host menu.
 
 **Run state and the agentStop guard.** The adapter writes one atomic state file
 under `<workspace>/.tours/.log/codetour-run-<runId>.json` before sending.

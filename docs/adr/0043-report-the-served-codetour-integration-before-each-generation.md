@@ -7,7 +7,7 @@ The decision is to move these facts into view at the only moment they can
 still be acted on - before the generation runs - without turning the
 observation into a gate.
 
-**Where: the adapter, before any agent request.** The agentStop guard writes
+**Where: the adapter, before serving the generation prompt.** The agentStop guard writes
 diagnostics and at most one continuation block; it is not a display surface.
 The extension adapter owns the generation start and has the host's
 `session.log`, so it reports six info lines right after the choices and the
