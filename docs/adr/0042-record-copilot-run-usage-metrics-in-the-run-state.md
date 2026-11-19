@@ -44,7 +44,7 @@ production stream without `session.usage_record` yields an
 Recorded totals stop at the last observed stop, so tokens produced while the
 final user reply is composed land in the next snapshot if another stop
 occurs. The session events format is Copilot-internal and may change: the
-source string pin the format that was read.
+source string pins the format that was read.
 
 **Consequences.** A run state is now comparable per runId for model, project
 state, calls, tokens and cache with preparation, generation and consolidation
