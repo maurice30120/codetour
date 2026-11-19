@@ -226,7 +226,13 @@ test(
       const tools = await client.listTools();
       assert.deepEqual(
         tools.tools.map(tool => tool.name).sort(),
-        ["create_changes_tour", "create_project_tour"]
+        [
+          "create_changes_tour",
+          "create_project_tour",
+          "knowledge_list",
+          "knowledge_read",
+          "knowledge_save",
+        ]
       );
       const response = await callTool(client, "create_project_tour", {
         title: "Subcommand Tour",

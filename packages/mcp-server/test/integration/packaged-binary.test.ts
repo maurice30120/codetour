@@ -63,10 +63,13 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
     // when their directories already exist; without the local sources, a cold
     // platform-specific cache (notably macOS ARM) fails in --offline mode.
     fs.mkdirSync(installationRoot, { recursive: true });
+    // Dereference the source: a worktree's node_modules is a symlink to the
+    // main checkout's tree, and copying it verbatim would make the consumer
+    // share (and mutate) that tree instead of receiving a private seed.
     fs.cpSync(
       path.join(packageRoot, "node_modules"),
       path.join(installationRoot, "node_modules"),
-      { recursive: true }
+      { recursive: true, dereference: true }
     );
     await npm(
       [
@@ -120,7 +123,7 @@ test("the installed codetour-mcp binary serves both public MCP tools", async () 
       fs.cpSync(
         path.join(rendererRoot, "node_modules"),
         path.join(installationRoot, "node_modules"),
-        { recursive: true }
+        { recursive: true, dereference: true }
       );
     }
 

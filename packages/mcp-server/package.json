@@ -18,6 +18,7 @@
   "files": [
     "dist/src",
     "dist/node_modules/codetour-description-renderer",
+    "dist/node_modules/codetour-knowledge",
     "dist/package.json",
     "dist/schema.json",
     "schema.json",
@@ -40,6 +41,7 @@
     "@resvg/resvg-js": "2.6.2",
     "ajv": "^6.12.6",
     "codetour-description-renderer": "file:../description-renderer",
+    "codetour-knowledge": "file:../knowledge",
     "jsdom": "26.1.0",
     "mermaid": "11.12.2",
     "safe-regex2": "^5.1.1",

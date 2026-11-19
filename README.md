@@ -59,7 +59,9 @@ Codex, configured with your chosen provider. Installing the extension alone does
 not generate tours. You can record and replay tours without an AI agent.
 
 The extension bundles a local MCP server exposing `create_project_tour` and
-`create_changes_tour`. VS Code and GitHub Copilot discover a server for each
+`create_changes_tour`, plus the `knowledge_list`, `knowledge_read` and
+`knowledge_save` tools over the workspace Knowledge catalogue. VS Code and
+GitHub Copilot discover a server for each
 workspace folder automatically. For Codex, run **CodeTour IA: Configure MCP for
 Codex** from the Command Palette. After moving or updating the extension, use
 **CodeTour IA: Repair MCP Configuration for Codex** if its configuration is stale.
@@ -185,9 +187,10 @@ cd /path/to/workspace
 node "$CODETOUR_ROOT/dist/cli.js" mcp
 ```
 
-The process speaks MCP over stdio with the same two tools as the extension;
-the working directory is the Tour Workspace, or pass `--workspace-root`. See
-the [standalone distribution guide](docs/standalone-distribution.md) for
+The process speaks MCP over stdio with the same tools as the extension — both
+Tour creation tools and the three Knowledge tools — from one shared server
+implementation; the working directory is the Tour Workspace, or pass
+`--workspace-root`. See the [standalone distribution guide](docs/standalone-distribution.md) for
 packaged-launcher client configuration.
 
 ### Read and save a Knowledge catalogue
@@ -269,6 +272,19 @@ symlink escape, name conflict).
 Evidence validity is not semantic correctness: a `saved` or `valid` result
 proves the declared sources still hash as declared, not that the explanation is
 accurate, complete or the best one.
+
+The same Knowledge contract is exposed by the existing MCP server (VS Code
+extension, `codetour mcp`, and the `codetour-mcp` npm package) as
+`knowledge_list` (metadata only), `knowledge_read` (verified body or a refusal
+with no content) and `knowledge_save` (one observable consolidation outcome:
+`created`, `completed_zero`, `conflict`, `invalid` or `failed`). The
+`generate_project_tour` MCP prompt adds the user's original request, a bounded
+catalogue projection and an explicit decomposition/consolidation method before
+generation. Those instructions travel only through `prompts/get`: a client that
+calls the tools directly does not receive them. See the
+[MCP server documentation](packages/mcp-server/README.md#generation-prompts-promptsget)
+for the exact composition, catalogue bounds, refusal reasons and the
+untrusted-data boundary.
 
 ### Try the experimental Copilot adapter
 
