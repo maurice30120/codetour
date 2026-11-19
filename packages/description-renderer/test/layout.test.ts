@@ -6,9 +6,9 @@ import { measureContentBounds, parseSvgDocument } from "../src/dom";
 test("wide diagrams fit native comments and leave space around their content", async () => {
   const source = [
     "flowchart LR",
-    "  Client[Clients des centrales] --> Centrale[Centrale_Cameleon.WebApi]",
-    "  Centrale -->|HTTP api/soti| Soti[Soti_Cameleon.WebApi]",
-    "  Soti -->|HTTP + X-Config-File| Service[Service SOTI externe]"
+    "  Client[Storefront clients] --> Store[Storefront.WebApi]",
+    "  Store -->|HTTP /orders| Orders[Orders.WebApi]",
+    "  Orders -->|HTTP + idempotency key| Billing[billing service]"
   ].join("\n");
   const { png, svg } = await renderMermaidDiagram(source, "dark");
   assert.ok(png.readUInt32BE(16) <= 900, "diagram exceeds the comment reading width");

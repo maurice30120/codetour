@@ -1,0 +1,47 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Revue critique des changements #223 non commités",
+  "description": "Revue factuelle des changements locaux liés à la spécification #223 et à PR #231. Le contexte de demande provient de PR #231 (« Implement spec #223: native Knowledge and the guarded Copilot generation run »). L’axe Spec est évalué sur les exigences visibles du titre, du résumé et de la description de cette PR. Aucun document de normes de code distinct n’a été trouvé sous les noms usuels; AGENTS.md ne contient que les instructions de chargement des domaines et de suivi des tickets.\n\n**Standards:** aucune violation documentée établie. Aucun défaut critique établi dans les changements inspectés.\n\n**Spec:** les changements observés couvrent les surfaces annoncées: avertissements de preuve insuffisante, propagation CLI/MCP et tests.\n\nGenerated from the merge-base of `main` (`8f42a4ff2364d55e11196dce1c99cbfbf109963b`) to `78fa36258fc3bca39a1fab5a2f077ea65033435c`, including uncommitted changes (non-reproducible local state).",
+  "steps": [
+    {
+      "title": "Vue d’ensemble",
+      "description": "Ces dix fichiers non commités étendent le catalogue Knowledge natif de la spécification #223: ils ajoutent un signal lorsque une entrée repose sur moins de deux fichiers distincts, puis propagent ce signal aux résultats CLI et MCP.\n\n**Spec:** PR #231 demande une intégration native de Knowledge et un lancement Copilot gardé. Le périmètre non commité se concentre sur l’avertissement de preuve insuffisante; aucun écart manifeste avec le résumé de la PR n’est établi.\n\nLe périmètre Git contient dix fichiers modifiés, dont aucun n’est actuellement indexé."
+    },
+    {
+      "title": "Calcul central du niveau de preuve",
+      "description": "Le résultat de publication obtient désormais un tableau d’avertissements calculé à partir des preuves validées.\n\nUn chemin d’évidence distinct est compté une fois; moins de deux chemins produit `insufficient_backing`. La publication reste réussie, mais le retour porte explicitement le nom de l’entrée et le nombre de chemins distincts.\n\n**Standards:** aucun standard documentaire du dépôt ne contredit ce comportement. Ce jugement reste fondé sur la lecture du code, pas sur un défaut confirmé par un linter.\n\n**Spec:** l’avertissement répond à l’exigence générale de preuves vérifiables annoncée par la PR: il ne remplace pas la validation de contenu, qui reste hors du contrat de preuve.",
+      "file": "packages/knowledge/src/persistence.ts",
+      "pattern": "function publishedWarnings"
+    },
+    {
+      "title": "Exposition MCP du signal",
+      "description": "Le handler MCP reprend les avertissements du noyau partagé au lieu de les cacher. Il inclut les lignes `warnings` dans la réponse `created` et ajoute une note lisible indiquant qu’une preuve cite moins de deux fichiers distincts.\n\nCe passage contient aussi la limite explicite que la preuve vérifie les octets, pas la vérité sémantique ou l’exhaustivité de l’entrée.\n\n**Standards:** aucune règle documentaire de code trouvée pour les structures de réponse. La séparation entre structure MCP et texte humain est cohérente avec les tests voisins.\n\n**Spec:** cette propagation est attendue pour rendre visible l’état de publication sans écrire partiellement.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "const warningNote"
+    },
+    {
+      "title": "Surface native CLI",
+      "description": "La commande CLI transmet directement `result.warnings` dans son résultat `saved`. Elle ne reconstruit pas la logique d’évaluation ni ne divise les résultats de publication.\n\nLa valeur de retour reste additive par rapport à `saved`, avec les noms publiés séparés des avertissements.\n\n**Standards:** aucune violation démontrée. Ce changement évite aussi une duplication évidente de la logique centrale.\n\n**Spec:** la surface CLI reste déterministe et partage donc la même décision que le noyau commun décrit dans la PR.",
+      "file": "src/cli/knowledge.ts",
+      "pattern": "const result = await saveKnowledgeProposal"
+    },
+    {
+      "title": "Tests du noyau",
+      "description": "Les tests du noyau couvrent la publication sans avertissement avec deux chemins, l’avertissement pour un seul chemin répété, les noms réservés, les conflits et les propositions invalides.\n\nLes cas observables distinguent le nombre de chemins distincts du nombre d’éléments d’évidence.\n\n**Standards:** aucune violation documentaire établie. La politique de test couvre les conclusions utiles plutôt que les constantes d’implémentation.\n\n**Spec:** ces cas soutiennent le contrat annoncé: publication atomique, aucun écrasement et diagnostic visible des preuves faibles.",
+      "file": "packages/knowledge/test/persistence.test.ts",
+      "pattern": "an entry backed by two distinct files"
+    },
+    {
+      "title": "Tests MCP",
+      "description": "Le test d’intégration vérifie que le résultat MCP contient `created`, `warnings` et un avertissement seulement pour l’entrée à preuve unique.\n\nIl vérifie aussi que les chemins et les empreintes ne sont pas renvoyés par le résultat public. Le changement CLI possède des assertions correspondantes pour les sorties structurées.\n\n**Spec:** cette couverture correspond à la séparation entre métadonnées publiques, preuves internes et résultats de publication décrite par la PR.\n\n**Standards:** le test a été ajouté à l’intégration existante plutôt que dans un nouvel emplacement isolé; aucun standard documentaire contraire n’est trouvé.",
+      "file": "packages/mcp-server/test/integration/knowledge-tools.test.ts",
+      "pattern": "insufficiently backed entries"
+    },
+    {
+      "title": "Documentation et suite de validation",
+      "description": "La documentation Knowledge décrit maintenant le champ `warnings` et son code `insufficient_backing`, tandis que le README MCP documente le même résultat côté outil.\n\n**Spec:** la documentation reste alignée avec le code sur la nature additive et non bloquante de l’avertissement.\n\nLa commande `npm test -- --test-reporter=spec` a été exécutée sur l’ensemble du dépôt et s’est terminée avec un code zéro. Je n’affirme pas un nombre exact de tests.",
+      "file": "packages/knowledge/README.md",
+      "pattern": "warnings"
+    }
+  ]
+}

@@ -248,7 +248,17 @@ async function saveCommand(options: KnowledgeSaveOptions): Promise<void> {
 
   const result = await saveKnowledgeProposal(workspace, proposal);
   if (result.status === "saved") {
-    emit({ status: "saved", workspace, saved: result.saved }, KNOWLEDGE_EXIT.ok);
+    // Warnings are advisory backing signals about published entries; they
+    // name published entries only, never a cited path or a hash value.
+    emit(
+      {
+        status: "saved",
+        workspace,
+        saved: result.saved,
+        warnings: result.warnings,
+      },
+      KNOWLEDGE_EXIT.ok
+    );
     return;
   }
   if (result.status === "no-op") {

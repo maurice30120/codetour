@@ -133,6 +133,16 @@ test("tool guidance gives a valid Mermaid example and Knowledge name rule", asyn
         "the project tool supplies a simple literal anchor-pattern example"
       );
       assert.match(project.description, /metacharacters/);
+      // The tool descriptions stay in context even when the served prompt is
+      // not read, so the code-verification, flow-tracing and user-file rules
+      // live here too.
+      assert.match(
+        project.description,
+        /not proof of present behavior/,
+        "the project tool must make documentation context, not proof"
+      );
+      assert.match(project.description, /transport or storage boundary/);
+      assert.match(project.description, /provides or names in the request/);
     });
   } finally {
     rmrf(root);
@@ -184,6 +194,74 @@ test("serves the Project Tour generation prompt resource", async () => {
       // The prompt ends with the announcement step for the created tour.
       assertAnnouncementStep(text, "dryRun omitted to persist");
       assertUnavailableToolGuidance(text);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("the Project Tour prompt verifies claims against code and traces flows end to end", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const text = await readResourceText(
+        client,
+        PROJECT_TOUR_PROMPT_RESOURCE_URI
+      );
+      // Architectural claims are verified against the current code: served
+      // documentation is context about intent, never proof of present behavior.
+      assert.ok(
+        text.includes("not proof of present behavior"),
+        "the prompt must make documentation context, not proof"
+      );
+      assert.ok(
+        text.includes("follow the code and report the divergence"),
+        "the prompt must resolve a documentation-versus-code conflict on the code"
+      );
+      // Important flows are followed from the entry point to the transport
+      // or storage boundary, recording observed variants and error cases.
+      assert.ok(text.includes("entry point"));
+      assert.ok(text.includes("transport or storage boundary"));
+      assert.ok(text.includes("variants"));
+      assert.ok(text.includes("error cases"));
+      // User-provided files are examined and integrated when relevant.
+      assert.ok(
+        text.includes("provides or names in the request"),
+        "the prompt must examine the files the user provides"
+      );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("every served generation prompt scopes knowledge rules and requires cited backing", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const surfaces = [
+        await readResourceText(client, PROJECT_TOUR_PROMPT_RESOURCE_URI),
+        await readResourceText(client, changesTourPromptUri("neutral")),
+        await readResourceText(client, changesTourPromptUri("critical")),
+      ];
+      for (const text of surfaces) {
+        assert.ok(
+          text.includes("general rule or an exception"),
+          "the prompt must distinguish general rules from their exceptions"
+        );
+        assert.ok(
+          text.includes("not proven general"),
+          "the prompt must refuse to generalize from a single path"
+        );
+        assert.ok(
+          text.includes("every claim of the body is backed"),
+          "the prompt must back every body claim with the cited files"
+        );
+        assert.ok(
+          text.includes("every file a reader needs"),
+          "the prompt must require the evidence a reader needs"
+        );
+      }
     });
   } finally {
     rmrf(root);

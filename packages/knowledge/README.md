@@ -10,7 +10,11 @@ The single deterministic source of the Knowledge contract used by CodeTour:
   over `<workspace>/.tours/.memory/knowledge`.
 - `hashWorkspaceFile(root, path)` — the same confinement rules for preparing evidence.
 - `saveKnowledgeProposal(root, proposal)` — validate a whole proposal, compute or
-  verify every SHA-256 proof, then publish `{status:"saved"|"no-op"|"conflict"|"invalid"}`.
+  verify every SHA-256 proof, then publish
+  `{status:"saved"|"no-op"|"conflict"|"invalid"}`. A `saved` result carries advisory
+  `warnings`: one `insufficient_backing` row per published entry whose evidence cites
+  fewer than two distinct files, so a thin backing is reported instead of passing
+  silently.
   Nothing is written unless every entry is valid and no `<name>.md` exists.
 - `serializeKnowledgeEntry(entry)` — the exact catalogue grammar, body preserved verbatim.
 - `validateCanonicalName(name)` — the shared identifier rule for Memory Methods and

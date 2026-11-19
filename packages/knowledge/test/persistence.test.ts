@@ -42,7 +42,11 @@ test('a proposal is persisted as one parseable entry with its computed evidence 
   const result = await saveKnowledgeProposal(root, {
     entries: [{ name: 'dispatch_flow', description: 'How tool calls dispatch', body, evidence: [{ path: 'main.ts' }] }]
   });
-  assert.deepEqual(result, { status: 'saved', saved: ['dispatch_flow'] });
+  assert.deepEqual(result, {
+    status: 'saved',
+    saved: ['dispatch_flow'],
+    warnings: [{ name: 'dispatch_flow', code: 'insufficient_backing', distinctEvidencePaths: 1 }]
+  });
 
   const source = await readFile(join(knowledgeDirectory(root), 'dispatch_flow.md'), 'utf8');
   const parsed = parseKnowledge(source, 'dispatch_flow.md');
@@ -68,7 +72,11 @@ test('Knowledge names allow hyphens, digits and reserved words while confining p
   await writeFile(join(root, 'main.ts'), 'bytes\n');
   const makeEntry = (name: string) => ({ name, description: 'test', body: 'content\n', evidence: [{ path: 'main.ts' }] });
   const names = ['knowledge-lecture-verifiee', '1st-step', 'class', 'legacyName'];
-  assert.deepEqual(await saveKnowledgeProposal(root, { entries: names.map(makeEntry) }), { status: 'saved', saved: names });
+  assert.deepEqual(await saveKnowledgeProposal(root, { entries: names.map(makeEntry) }), {
+    status: 'saved',
+    saved: names,
+    warnings: names.map(name => ({ name, code: 'insufficient_backing', distinctEvidencePaths: 1 }))
+  });
   const library = await loadKnowledgeLibrary(root, knowledgeDirectory(root));
   assert.deepEqual((await library.list()).map(entry => entry.name).sort(), [...names].sort());
   for (const name of names) assert.equal((await library.read(name)).status, 'valid', name);
@@ -197,6 +205,35 @@ test('invalid fields and a malformed proposal shape are refused without publicat
   assert.deepEqual(await catalogueFiles(root), []);
 });
 
+test('an entry backed by two distinct files publishes without a warning, one citing a single file twice stays flagged', async t => {
+  const root = await realRoot('knowledge-save-backing-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'main.ts'), 'export const start = 1;\n');
+  await writeFile(join(root, 'reader.ts'), 'export const read = () => 1;\n');
+  const result = await saveKnowledgeProposal(root, {
+    entries: [
+      {
+        name: 'well_backed_flow',
+        description: 'cites two distinct files',
+        body: 'body\n',
+        evidence: [{ path: 'main.ts' }, { path: 'reader.ts' }]
+      },
+      {
+        name: 'single_file_flow',
+        description: 'cites the same file twice',
+        body: 'body\n',
+        evidence: [{ path: 'main.ts' }, { path: 'main.ts' }]
+      }
+    ]
+  });
+  assert.deepEqual(result, {
+    status: 'saved',
+    saved: ['well_backed_flow', 'single_file_flow'],
+    warnings: [{ name: 'single_file_flow', code: 'insufficient_backing', distinctEvidencePaths: 1 }]
+  });
+  assert.deepEqual(await catalogueFiles(root), ['single_file_flow.md', 'well_backed_flow.md']);
+});
+
 test('a provided matching hash is accepted and normalized while an uppercase hash verifies', async t => {
   const root = await realRoot('knowledge-save-provided-');
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -205,7 +242,11 @@ test('a provided matching hash is accepted and normalized while an uppercase has
   const result = await saveKnowledgeProposal(root, {
     entries: [{ name: 'provided', description: 'declares its hash', body: 'body\n', evidence: [{ path: './main.ts', sha256: digest.toUpperCase() }] }]
   });
-  assert.deepEqual(result, { status: 'saved', saved: ['provided'] });
+  assert.deepEqual(result, {
+    status: 'saved',
+    saved: ['provided'],
+    warnings: [{ name: 'provided', code: 'insufficient_backing', distinctEvidencePaths: 1 }]
+  });
   const parsed = parseKnowledge(await readFile(join(knowledgeDirectory(root), 'provided.md'), 'utf8'), 'provided.md');
   assert.equal(parsed.status, 'valid');
   assert.deepEqual((parsed as { evidence: unknown }).evidence, [{ type: 'file', path: 'main.ts', sha256: digest }]);

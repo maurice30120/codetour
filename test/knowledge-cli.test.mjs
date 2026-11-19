@@ -376,7 +376,12 @@ test("knowledge save publishes a proposal that a second independent invocation d
     const saved = runCli(saveArgs(ws, proposal), { cwd: launch });
     assert.equal(saved.status, 0, saved.stderr);
     assert.equal(saved.stderr, "");
-    assert.deepEqual(saved.json, { status: "saved", workspace: ws, saved: ["dispatch_flow"] });
+    assert.deepEqual(saved.json, {
+      status: "saved",
+      workspace: ws,
+      saved: ["dispatch_flow"],
+      warnings: [{ name: "dispatch_flow", code: "insufficient_backing", distinctEvidencePaths: 1 }]
+    });
     assert.doesNotMatch(saved.stdout, /body line one|sha256|[0-9a-f]{64}/i);
 
     // A second, independent invocation rediscovers the entry by metadata only.
@@ -425,7 +430,15 @@ test("knowledge save writes several entries atomically, accepting computed and d
 
     const saved = runCli(saveArgs(ws, proposal), { cwd: ws });
     assert.equal(saved.status, 0, saved.stderr);
-    assert.deepEqual(saved.json, { status: "saved", workspace: ws, saved: ["first_flow", "second_flow"] });
+    assert.deepEqual(saved.json, {
+      status: "saved",
+      workspace: ws,
+      saved: ["first_flow", "second_flow"],
+      warnings: [
+        { name: "first_flow", code: "insufficient_backing", distinctEvidencePaths: 1 },
+        { name: "second_flow", code: "insufficient_backing", distinctEvidencePaths: 1 }
+      ]
+    });
     assert.deepEqual(catalogueEntries(ws), ["first_flow.md", "second_flow.md"]);
 
     const first = runCli(["knowledge", "read", "first_flow"], { cwd: ws });
@@ -612,7 +625,12 @@ test("knowledge save accepts convenience flags and refuses ambiguous or absent i
       "--evidence", "docs.md"
     ], { cwd: ws });
     assert.equal(saved.status, 0, saved.stderr);
-    assert.deepEqual(saved.json, { status: "saved", workspace: ws, saved: ["flag_flow"] });
+    assert.deepEqual(saved.json, {
+      status: "saved",
+      workspace: ws,
+      saved: ["flag_flow"],
+      warnings: []
+    });
 
     const read = runCli(["knowledge", "read", "flag_flow"], { cwd: ws });
     assert.equal(read.status, 0, read.stderr);

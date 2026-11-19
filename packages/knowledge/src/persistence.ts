@@ -19,6 +19,9 @@ import { validateNewKnowledgeName } from './name';
  * inside the workspace, avoid symlink escapes and either declare its exact
  * SHA-256 or receive a computed one. Any invalid entry or any existing
  * `<name>.md` refuses the whole proposal, so publication is never partial.
+ * A published entry whose evidence cites fewer than two distinct files is
+ * still published, but reported under `warnings` instead of passing silently
+ * as fully backed (the signal is advisory and names no cited path or hash).
  * Writes are staged in the catalogue directory and published by hard link,
  * which is atomic and can never overwrite an existing entry.
  */
@@ -84,8 +87,24 @@ export interface KnowledgeNameConflict {
   reason: 'name_conflict';
 }
 
+/** Advisory codes about published entries; never a refusal and never a leak. */
+export type KnowledgeSaveWarningCode = 'insufficient_backing';
+
+/**
+ * One advisory signal about a published entry: the entry IS published, but its
+ * whole verification contract rests on fewer distinct cited files than a rule
+ * beyond those files would need. The signal names the entry and reports the
+ * count of distinct cited paths — never a path or a hash value.
+ */
+export interface KnowledgeSaveWarning {
+  name: string;
+  code: KnowledgeSaveWarningCode;
+  /** Number of distinct cited paths of the published entry. */
+  distinctEvidencePaths: number;
+}
+
 export type KnowledgeSaveResult =
-  | { status: 'saved'; saved: string[] }
+  | { status: 'saved'; saved: string[]; warnings: KnowledgeSaveWarning[] }
   | { status: 'no-op' }
   | { status: 'conflict'; conflicts: KnowledgeNameConflict[] }
   | { status: 'invalid'; rejected: KnowledgeSaveRejection[] };
@@ -238,6 +257,23 @@ const removeQuietly = async (target: string): Promise<void> => {
 };
 
 /**
+ * Deterministic backing signal about published entries, computed from the
+ * validated evidence alone: an entry whose published contract cites fewer
+ * than two distinct files cannot demonstrate a rule beyond that single path,
+ * so it is reported instead of passing as fully backed. The signal is
+ * advisory — publication stays successful — and it never refuses, never
+ * names a cited path and never names a hash value.
+ */
+function publishedWarnings(entries: KnowledgePersistableEntry[]): KnowledgeSaveWarning[] {
+  return entries.flatMap(entry => {
+    const distinctEvidencePaths = new Set(entry.evidence.map(proof => proof.path)).size;
+    return distinctEvidencePaths < 2
+      ? [{ name: entry.name, code: 'insufficient_backing' as const, distinctEvidencePaths }]
+      : [];
+  });
+}
+
+/**
  * Validate and persist a whole proposal. Validation, duplicate detection and
  * conflict detection all run before the first byte is staged; staging files
  * are removed on every path and publication rolls back if a late conflict
@@ -306,7 +342,11 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
       await Promise.allSettled(published.map(removeQuietly));
       return { status: 'conflict', conflicts: lateConflicts };
     }
-    return { status: 'saved', saved: validated.map(entry => entry.name) };
+    return {
+      status: 'saved',
+      saved: validated.map(entry => entry.name),
+      warnings: publishedWarnings(validated)
+    };
   } catch (error) {
     await Promise.allSettled(published.map(removeQuietly));
     throw error;

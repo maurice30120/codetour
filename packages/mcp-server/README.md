@@ -368,7 +368,7 @@ conclusion is observable:
 
 | `status`        | Meaning                                                                 | `isError` |
 | --------------- | ----------------------------------------------------------------------- | --------- |
-| `created`       | The entries were published; `created` lists their names.                 | false     |
+| `created`       | The entries were published; `created` lists their names. A published entry whose evidence cites fewer than two distinct files additionally appears under `warnings` as one advisory `{name, code: "insufficient_backing", distinctEvidencePaths}` row, so a thin backing is never published silently. | false |
 | `completed_zero`| An explicit empty proposal: a completed consolidation, not an omission.  | false     |
 | `conflict`      | At least one name exists; `conflicts` lists it; nothing was written.     | true      |
 | `invalid`       | The proposal is invalid; `rejected` lists `{name?, reason}`; nothing was written. | true |

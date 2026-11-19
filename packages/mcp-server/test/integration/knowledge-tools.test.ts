@@ -333,6 +333,10 @@ test("knowledge_save creates entries, reports conflicts, and never overwrites an
         status: "created",
         workspace: ".",
         created: ["saved_flow", "second_flow"],
+        warnings: [
+          { name: "saved_flow", code: "insufficient_backing", distinctEvidencePaths: 1 },
+          { name: "second_flow", code: "insufficient_backing", distinctEvidencePaths: 1 },
+        ],
       });
       // No body, hash or cited path is echoed by a publication result.
       assert.doesNotMatch(textOf(created), /Created by knowledge_save|sha256|[0-9a-f]{64}/);
@@ -377,6 +381,50 @@ test("knowledge_save creates entries, reports conflicts, and never overwrites an
       assert.equal(preserved.structured.body, "## Saved\n\nCreated by knowledge_save.\n");
       const late = await callTool(client, KNOWLEDGE_READ, { name: "late_flow" });
       assert.equal(late.structured.status, "absent");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("knowledge_save flags insufficiently backed entries instead of publishing them silently", async () => {
+  const root = tempDir("codetour-knowledge-backing-");
+  try {
+    writeFile(root, "src/main.ts", "export const start = 1;\n");
+    writeFile(root, "src/reader.ts", "export const read = () => 1;\n");
+    await withServer(root, async (client) => {
+      const created = await callTool(client, KNOWLEDGE_SAVE, {
+        entries: [
+          {
+            name: "well_backed_flow",
+            description: "Two distinct cited files back the entry",
+            body: "Reference body.\n",
+            evidence: [{ path: "src/main.ts" }, { path: "src/reader.ts" }],
+          },
+          {
+            name: "single_path_flow",
+            description: "Cites one distinct file only",
+            body: "Reference body.\n",
+            evidence: [{ path: "src/main.ts" }, { path: "src/main.ts" }],
+          },
+        ],
+      });
+      assert.equal(created.isError, false, created.text);
+      assert.deepEqual(created.structured, {
+        status: "created",
+        workspace: ".",
+        created: ["well_backed_flow", "single_path_flow"],
+        warnings: [
+          { name: "single_path_flow", code: "insufficient_backing", distinctEvidencePaths: 1 },
+        ],
+      });
+      // The flag names the published entry loudly: no cited path and no hash
+      // value is ever echoed by a publication result.
+      assert.match(created.text, /insufficiently backed/);
+      assert.match(created.text, /single_path_flow/);
+      assert.doesNotMatch(textOf(created), /sha256|[0-9a-f]{64}/);
+      assert.ok(!textOf(created).includes("src/main.ts"));
+      assert.ok(!textOf(created).includes("src/reader.ts"));
     });
   } finally {
     rmrf(root);

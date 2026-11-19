@@ -383,7 +383,12 @@ const TOUR_LANGUAGE_GUIDANCE =
 const PROJECT_TOUR_DESCRIPTION =
   "Create a CodeTour guided walkthrough for understanding a codebase. Use this tool for onboarding " +
   "or explaining the project's architecture and execution flows. Read the relevant source before " +
-  "writing the tour; every explanation and anchor must be supported by the code. " +
+  "writing the tour; every explanation and anchor must be supported by the code. Verify every " +
+  "architectural claim against the current code: documentation is context about intent, not proof " +
+  "of present behavior. Follow each important flow from its entry point to the transport or storage " +
+  "boundary it reaches, and record the variants and error cases the code actually implements. Read " +
+  "the files the user provides or names in the request, and integrate the ones relevant to an " +
+  "explained flow as steps, leaving the unrelated ones out. " +
   "Build a coherent route from the project's purpose and entry points through its key components " +
   "and how they collaborate. Choose representative files rather than listing every module. " +
   "Each step should explain the anchored code's role, why it matters, and its connection to the " +
@@ -697,8 +702,15 @@ const KNOWLEDGE_SAVE_DESCRIPTION =
   "the published entries, \"completed_zero\" is an explicit empty proposal " +
   "(a completed consolidation, not a forgotten one), \"conflict\" lists the " +
   "existing names, \"invalid\" lists the rejections, and \"failed\" reports an " +
-  "unexpected failure. Never claim persistence that this result does not " +
-  "report. runId is optional: omit it when no run identity was given to you. Write each entry's description and body in the user's language.";
+  "unexpected failure. A published result also carries `warnings`: one " +
+  "advisory `insufficient_backing` row per published entry whose evidence " +
+  "cites fewer than two distinct files, so a thin backing is never passed " +
+  "over silently. Never claim persistence that this result does not " +
+  "report. runId is optional: omit it when no run identity was given to you. " +
+  "In each entry, distinguish the general rules from their exceptions and " +
+  "state the scope you verified; verify that every claim of the body is " +
+  "backed by the files you cite, and include every file the reader needs in " +
+  "`evidence`. Write each entry's description and body in the user's language.";
 
 const KNOWLEDGE_CLOSE_RUN_DESCRIPTION =
   "Close one CodeTour generation run without a Knowledge proposal. Use it " +
@@ -750,12 +762,23 @@ const LANGUAGE_STEP =
   "the code or the commit messages.";
 
 // Shared consolidation step: tells the agent which facts deserve a Knowledge
-// entry and requires a stated reason when none is kept.
+// entry, requires a stated reason when none is kept, and requires each entry
+// to scope its claims: a general rule kept distinct from its exceptions, and
+// a body whose every claim is backed by the files cited as evidence.
 const CONSOLIDATION_STEP =
   "- After the tour is created, consolidate with `knowledge_save` (or " +
   "`knowledge_close_run` only if the run is deliberately skipped). Save only " +
   "durable facts: invariants, architecture or conventions that stay true beyond " +
-  "this tour and that you verified in the code. Do not save details specific to " +
+  "this tour and that you verified in the code. In each entry, state explicitly " +
+  "whether the fact is a general rule or an exception, and give the scope you " +
+  "verified: a rule observed on one path is not proven general, so name where " +
+  "it holds and mark the exceptions as exceptions instead of generalizing from " +
+  "a single path. Before saving, verify that every claim of the body is backed " +
+  "by the files you cite, and include in `evidence` every file a reader needs " +
+  "to verify the entry; do not save a claim that no cited file supports. " +
+  "`knowledge_save` reports a published entry whose evidence cites fewer than " +
+  "two distinct files under `warnings`: treat that as a scope reminder, not as " +
+  "proof of generality. Do not save details specific to " +
   "this tour or diff (its narrative, step order, one-off change description). " +
   "When you keep no entry, pass an empty `entries` array and state in one " +
   "sentence why nothing durable qualified.";
@@ -780,6 +803,21 @@ function projectTourGenerationPrompt(): string {
     "- Read the relevant source before writing; every explanation and anchor must " +
       "be supported by the code. Explore the codebase first — the entry points and " +
       "the main modules, not just file names.",
+    "- Verify every architectural claim against the current code before writing " +
+      "it. Documentation you find in the workspace (readme, design or architecture " +
+      "documents, code comments) is context about intent, not proof of present " +
+      "behavior: when such a document contradicts the code, follow the code and " +
+      "report the divergence in the tour.",
+    "- For each important flow the tour explains, follow the code from its entry " +
+      "point to the transport or storage boundary it reaches (a network call, an " +
+      "IPC hop, a file, a database) and anchor what you actually observe on the " +
+      "way: the variants the code implements (branches, alternatives, feature " +
+      "paths) and the error cases it handles. State a variant or an error path " +
+      "only when you read it in the code, not when a document or a name suggests it.",
+    "- Read the files the user provides or names in the request before writing. " +
+      "Integrate as a step on the route every provided file that is relevant to an " +
+      "explained flow, anchored like any other step; leave out the unrelated ones " +
+      "after reading them rather than forcing them in.",
     "- Orient the reader first (a directory or no-locator step on where the work " +
       "lives), then follow one coherent route — entry point, main components, how " +
       "they collaborate — rather than a flat file listing. One step covers one idea.",
@@ -1740,10 +1778,29 @@ async function handleKnowledgeSave(
   }
 
   if (result.status === "saved") {
+    // Advisory backing signals about published entries: an entry is created,
+    // but the result states loudly when its evidence contract rests on fewer
+    // distinct files than a rule beyond them would need — never silently.
+    // The signal carries entry names only, no cited path and no hash value.
+    const warnings = result.warnings ?? [];
+    const warningNote =
+      warnings.length === 0
+        ? ""
+        : `\n${warnings.length} published entr${warnings.length === 1 ? "y" : "ies"} ` +
+          `${warnings.length === 1 ? "is" : "are"} insufficiently backed: ` +
+          `${warnings.map((warning) => warning.name).join(", ")} cite${warnings.length === 1 ? "s" : ""} ` +
+          "fewer than two distinct files. Verified evidence proves only that the " +
+          "cited bytes are unchanged: keep these entries scoped to what their " +
+          "cited files support, or complete their evidence before relying on them.";
     const response = knowledgeResponse(
-      { status: "created", workspace: workspace.label, created: result.saved },
+      {
+        status: "created",
+        workspace: workspace.label,
+        created: result.saved,
+        warnings,
+      },
       `Created ${result.saved.length} Knowledge entr${result.saved.length === 1 ? "y" : "ies"}: ` +
-        result.saved.join(", ") + "."
+        result.saved.join(", ") + "." + warningNote
     );
     await appendConsolidation(
       response,
