@@ -267,7 +267,7 @@ export async function hashWorkspaceFile(root: string, path: string): Promise<Kno
   let bytes: Buffer;
   try { bytes = await readFile(real); }
   catch { return { status: 'absent', reason: 'file_missing' }; }
-  return { status: 'ok', path: relative(realRoot, real), sha256: fileProofHash(bytes) };
+  return { status: 'ok', path: relative(realRoot, real).split(sep).join('/'), sha256: fileProofHash(bytes) };
 }
 
 export interface KnowledgeLibrary {

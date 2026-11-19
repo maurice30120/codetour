@@ -42,7 +42,13 @@ function runCli(args: string[], cwd: string, env: Record<string, string>) {
   return { ...result, json };
 }
 
-test("a project Tour is built from the Knowledge discovered in the same workspace", async () => {
+// The installation step drives the real Copilot CLI (Agent Plugins 1.0
+// registration); without the binary the parcours cannot exercise it, in line
+// with the skip contract of test/copilot-plugin-install.test.mjs.
+const copilotProbe = spawnSync("copilot", ["--version"], { encoding: "utf8" });
+const copilotSkip = copilotProbe.status === 0 ? undefined : "the 'copilot' CLI is not available on PATH";
+
+test("a project Tour is built from the Knowledge discovered in the same workspace", { skip: copilotSkip }, async () => {
   const workspace = realpathSync(mkdtempSync(path.join(os.tmpdir(), "codetour-parcours-")));
   const env = credentialFreeEnv({
     COPILOT_HOME: path.join(workspace, "copilot-home"),
