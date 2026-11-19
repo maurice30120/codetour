@@ -276,8 +276,9 @@ accurate, complete or the best one.
 The same Knowledge contract is exposed by the existing MCP server (VS Code
 extension, `codetour mcp`, and the `codetour-mcp` npm package) as
 `knowledge_list` (metadata only), `knowledge_read` (verified body or a refusal
-with no content) and `knowledge_save` (one observable consolidation outcome:
-`created`, `completed_zero`, `conflict`, `invalid` or `failed`). The
+with no content), `knowledge_save` (one observable consolidation outcome:
+`created`, `completed_zero`, `conflict`, `invalid` or `failed`) and
+`knowledge_close_run` (an explicit `skipped` closure for a generation run). The
 `generate_project_tour` MCP prompt adds the user's original request, a bounded
 catalogue projection and an explicit decomposition/consolidation method before
 generation. Those instructions travel only through `prompts/get`: a client that
@@ -335,6 +336,64 @@ never creates, selects or runs a Memory Function and never needs a harness API
 key; historical `.tours/.memory/` artefacts stay untouched. A `valid` read or a
 `saved` proposal proves only that declared evidence still matches; it is not a
 semantic guarantee that the explanation is correct or complete.
+
+### Install the Copilot plugin
+
+`codetour --install copilot` installs three surfaces from the same CLI revision,
+without a checkout or network:
+
+1. the experimental `/codetour` extension (reader and generation entry point);
+2. the personal `codetour-knowledge` skill (the workflow above);
+3. the **Agent Plugins 1.0** plugin from
+   [`packages/copilot-plugin/`](packages/copilot-plugin/README.md), embedded in
+   the CLI bundle by `scripts/embed-copilot-plugin.js`.
+
+The plugin is the single owner of the CodeTour MCP declaration. Its `mcp.json`
+declares the existing `codetour mcp` server scoped to the Copilot session
+workspace, so a plugin session runs one server and one copy of every tool. The
+extension no longer joins a second server, and the install removes only the
+legacy `codetour` entry an older CodeTour release wrote into
+`~/.copilot/mcp-config.json`; a same-named entry written by someone else is
+preserved and reported. The plugin also ships a minimal `codetour-generate`
+skill that defers to the served MCP prompt instead of duplicating the Tour
+method, and an `agentStop` guard.
+
+Verify the installed surfaces (the plugin needs GitHub Copilot CLI 1.0.106 or
+later; Agent Plugins 1.0 and the `agentStop` contract were verified on 1.0.106):
+
+```sh
+copilot plugin list           # codetour
+copilot mcp list              # exactly one codetour server, from the plugin
+copilot skill list            # codetour-generate (plugin) and codetour-knowledge
+codetour --agents             # integration state and repair command
+```
+
+Run a guarded generation from a trusted Git worktree:
+
+```text
+/codetour generate project Explique le flux de paiement
+```
+
+The controlled adapter resolves one workspace, fetches `prompts/get`
+`generate_project_tour` with the complete original request and the orientation
+phrase **before** calling the agent, and fails visibly when the server or the
+prompt is unavailable: no analysis starts and no fallback prompt is used. It
+writes `<workspace>/.tours/.log/codetour-run-<runId>.json` before sending; the
+MCP records the Tour creation and the consolidation closure under that same
+`runId`. The plugin's `agentStop` hook reads only that server trace. It is inert
+for ordinary conversations, other sessions or workspaces, `stop_hook_active`, a
+run without a Tour, any closure (including `completed_zero`) and any storage
+failure. For one incomplete run it asks for at most one continuation to call
+`knowledge_save` or `knowledge_close_run`, then stays inert.
+
+Limits are real, not implied guarantees: a run started through a direct skill or
+direct MCP calls has no run state and is unguarded; hooks disabled or a plugin
+not loaded means no guard; the MCP results and the run state always report the
+truth, and a missing closure is reported as an omission, never assumed. The
+consolidation closure is all-or-nothing today, so `partial` is reserved. See
+[ADR 0041](docs/adr/0041-deliver-codetour-as-an-agent-plugins-1-0-plugin-with-one-guarded-run.md)
+and the [plugin README](packages/copilot-plugin/README.md) for the exact file
+format, expiry and outcomes.
 
 ### Try the experimental Copilot adapter
 

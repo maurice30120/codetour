@@ -23,6 +23,8 @@ export interface TourStep {
 
 export interface ProjectParams {
   workspacePath?: string;
+  /** Optional CodeTour generation run identity (spec #223, ticket #228). */
+  runId?: string;
   title?: string;
   description?: string;
   fileName?: string;

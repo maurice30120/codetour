@@ -6,7 +6,7 @@ The agent analyzes the code and writes the explanations; the server validates
 the proposal, applies the Git and security rules, and atomically replaces the
 reserved tour file.
 
-Two specialized Tour creation tools are exposed, next to the three Knowledge
+Two specialized Tour creation tools are exposed, next to the four Knowledge
 tools of spec #223:
 
 - `create_project_tour` — a **Project Tour** that explains a codebase as a
@@ -14,8 +14,9 @@ tools of spec #223:
 - `create_changes_tour` — a **Changes Tour** that explains the committed
   changes on a branch since it diverged from a base ref, written to
   `.tours/changes.tour`.
-- `knowledge_list`, `knowledge_read`, `knowledge_save` — discovery, verified
-  reading and deterministic consolidation of the workspace Knowledge
+- `knowledge_list`, `knowledge_read`, `knowledge_save`,
+  `knowledge_close_run` — discovery, verified reading, deterministic
+  consolidation and an explicit skip closure over the workspace Knowledge
   catalogue under `.tours/.memory/knowledge/`.
 
 Both outputs are compatible with the general CodeTour schema, within a
@@ -345,6 +346,7 @@ client must not let a directive inside a body change its instructions.
 | Argument        | Type   | Required | Description                                                          |
 | --------------- | ------ | -------- | -------------------------------------------------------------------- |
 | `entries`       | object[] | yes    | The proposal's entries: `{name, description, body, evidence:[{path, sha256?}]}`. An empty array is an explicit zero-entry consolidation. |
+| `runId`         | string | no       | CodeTour generation run identity from the served prompt. When present, the MCP persists the matching consolidation closure in `<workspace>/.tours/.log/` and returns it. |
 | `workspacePath` | string | no       | Directory relative to the workspace root.                             |
 
 Every entry is validated before anything is written. An omitted `sha256` is
@@ -364,7 +366,24 @@ conclusion is observable:
 A save result never echoes a body, a cited path or a hash value, and it is the
 only evidence that persistence happened: “no file was created” must not be
 reported as success, and it is not automatically a forgotten consolidation
-when the agent explicitly proposed zero entries.
+when the agent explicitly proposed zero entries. With a `runId`, the result
+also carries `consolidation: {status, runId, at, …}` and
+`consolidationPersisted`; `status` is `created`, `completed_zero` or `failed`
+(with an `outcome` of `conflict`, `invalid` or `internal_error`).
+
+#### `knowledge_close_run`
+
+| Argument        | Type   | Required | Description                                                          |
+| --------------- | ------ | -------- | -------------------------------------------------------------------- |
+| `runId`         | string | yes      | CodeTour generation run identity from the served prompt.             |
+| `reason`        | string | no       | Why the consolidation assessment was deliberately skipped.           |
+| `workspacePath` | string | no       | Directory relative to the workspace root.                             |
+
+It records an explicit `skipped` consolidation closure for the run and returns
+`{status:"skipped", runId, consolidation: {status:"skipped", runId, at}}`.
+`skipped` is a closed run, distinct from an omission (no closure at all). The
+tool never creates Knowledge and cannot claim `created`; it exists so a run
+that deliberately cannot be assessed is not left open for the agentStop guard.
 
 ### Result
 
@@ -405,13 +424,16 @@ generation run:
 
 | Prompt                   | Arguments                        | Composes                                                    |
 | ------------------------ | -------------------------------- | ----------------------------------------------------------- |
-| `generate_project_tour`  | `request?`, `brief?`             | the Project Tour instructions, the user's original request, the Knowledge catalogue projection and the decomposition method. |
-| `generate_changes_tour`  | `reviewMode`, `brief?`           | the Changes Tour instructions for the mode and the orientation. |
+| `generate_project_tour`  | `request?`, `brief?`, `runId?`   | the Project Tour instructions, the user's original request, the run identity, the Knowledge catalogue projection and the decomposition method. |
+| `generate_changes_tour`  | `reviewMode`, `brief?`, `runId?` | the Changes Tour instructions for the mode, the orientation and the run identity. |
 
 `request` is the user's original request reproduced **verbatim**. `brief`
 remains the optional orientation phrase (backward compatibility for adapters
 that predate `request`): it orients the Tour and its language remains the
-Tour's language.
+Tour's language. `runId` is the controlled adapter's generation identity; when
+present the prompt states it and tells the agent to pass it to
+`create_project_tour` and `knowledge_save` (or `knowledge_close_run`), which is
+what lets the MCP persist the server-written run trace.
 
 For `generate_project_tour`, the composed message is, in this order:
 
@@ -420,19 +442,28 @@ For `generate_project_tour`, the composed message is, in this order:
    including the creation call and the announcement step;
 2. the optional orientation clause (`brief`);
 3. the user's original request, intact, with its language;
-4. a **Knowledge catalogue projection**: up to 30 entries as name and
+4. the **run identity** section when `runId` is present (absent for direct
+   clients, which keeps the previous behavior);
+5. a **Knowledge catalogue projection**: up to 30 entries as name and
    one-line description, never a body. A larger catalogue is truncated with an
    explicit “Showing 30 of N entries” line and the instruction to call
    `knowledge_list` with `query`, `offset` and `limit`, then `knowledge_read`.
    An absent or empty catalogue is stated as normal. There is no vector index,
    BM25 or additional model;
-5. the **decomposition method**, after the catalogue: decompose the request
+6. the **decomposition method**, after the catalogue: decompose the request
    into atomic questions, use only `status: "valid"` Knowledge as reference
    context, read targetedly, explore gaps only when the Knowledge is
-   insufficient, create the Tour with `create_project_tour`, then close
-   consolidation explicitly with `knowledge_save` (zero, one or many entries)
-   and report `created`, `completed_zero`, `conflict`, `invalid`, `failed`, or
-   `omitted`.
+   insufficient, create the Tour with `create_project_tour` (passing `runId`),
+   then close consolidation explicitly with `knowledge_save` (zero, one or many
+   entries, passing `runId`) or `knowledge_close_run` for a deliberate skip,
+   and report `created`, `completed_zero`, `conflict`, `invalid`, `failed` or
+   `skipped`.
+
+The MCP run log lives at `<workspace>/.tours/.log/codetour-run-<runId>.json`.
+`create_*_tour` records `tourCreated`; `knowledge_save`/`knowledge_close_run`
+record the closure. The Copilot plugin's `agentStop` hook reads only that file.
+The file format and the bounded continuation are documented in the
+[plugin README](../../packages/copilot-plugin/README.md) and ADR 0041.
 
 The method explicitly does **not** impose a systematic re-verification of the
 sources the Knowledge already covers, and does **not** add a second

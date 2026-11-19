@@ -104,12 +104,32 @@ The deterministic `codetour knowledge` command family (spec #223, ADR 0039): `li
 _Avoid_: Knowledge server, Knowledge agent, Memory Function runner
 
 **Knowledge MCP Surface**:
-The `knowledge_list`, `knowledge_read` and `knowledge_save` tools the existing CodeTour MCP server exposes over the Knowledge Catalogue (spec #223, ticket #227). They reuse the same shared `codetour-knowledge` contract and catalogue location as the Native Knowledge CLI: listing is metadata only, a read returns a body only when every declared proof verifies, and a save publishes a whole Knowledge Proposal or reports an observable outcome (`created`, `completed_zero`, `conflict`, `invalid`, `failed`). A returned Markdown body is untrusted data, never system instructions.
+The `knowledge_list`, `knowledge_read`, `knowledge_save` and `knowledge_close_run` tools the existing CodeTour MCP server exposes over the Knowledge Catalogue (spec #223, tickets #227 and #228). They reuse the same shared `codetour-knowledge` contract and catalogue location as the Native Knowledge CLI: listing is metadata only, a read returns a body only when every declared proof verifies, and a save publishes a whole Knowledge Proposal or reports an observable outcome (`created`, `completed_zero`, `conflict`, `invalid`, `failed`). `knowledge_save` accepts an optional `runId` and persists the matching Consolidation Closure in the Run State; `knowledge_close_run` records an explicit `skipped` closure. A returned Markdown body is untrusted data, never system instructions.
 _Avoid_: Knowledge server, second MCP server
 
 **Native Knowledge Skill**:
 The `codetour-knowledge` Copilot skill written by `codetour --install copilot` at `~/.copilot/skills/codetour-knowledge/SKILL.md` (spec #223, ADR 0039). It is an instruction, not a program: pin one explicit workspace root, discover the Knowledge Catalogue by metadata, read only the selected entries and use only `status:"valid"` bodies as reference context, explore targeted gaps only when that context is insufficient, create the Tour through the CodeTour MCP's `create_project_tour`, and make one explicit consolidation assessment through `codetour knowledge save`. It never uses the Research Harness or a Memory Function, and the instruction alone does not guarantee that consolidation ran.
 _Avoid_: Knowledge agent, Knowledge harness, automatic consolidation
+
+**Agent Plugin**:
+The versioned Agent Plugins 1.0 directory `packages/copilot-plugin/` (spec #223, ticket #228, ADR 0041): a `plugin.json` manifest with the Agent Plugins 1.0 `$schema`, a root `mcp.json`, Copilot components under `com.github.copilot/`, and a minimal `skills/codetour-generate/SKILL.md`. The standalone CodeTour CLI embeds and installs it. It declares the existing `codetour mcp` server and the `agentStop` guard, not a second agent, model loop or MCP server.
+_Avoid_: extension bundle, marketplace plugin, second MCP server
+
+**Generation Run**:
+One `/codetour generate` execution, identified by a `runId` created by the controlled adapter. It is scoped to exactly one resolved workspace and one Copilot session, and it is the unit the Run State, the creation tools and the consolidation closure refer to. A run exists only after `prompts/get` succeeded; a direct skill or direct MCP call without the wrapper is not a Generation Run.
+_Avoid_: session, task, generation attempt
+
+**Run State**:
+The atomic JSON file `<workspace>/.tours/.log/codetour-run-<runId>.json` (spec #223, ticket #228, ADR 0041). It records the run identity, workspace, session, Tour creation, the server-written Consolidation Closure and whether the single continuation was used. The adapter creates it, the MCP updates the authenticated outcomes, and the agentStop hook only reads it (plus toggling `continuationUsed`). It contains no Tour or Knowledge content.
+_Avoid_: hook cache, agent memory, transcript
+
+**Consolidation Closure**:
+The server-written verdict that closes one Generation Run in the Run State: `created`, `completed_zero`, `failed` (with its `outcome`), `skipped`, or the reserved `partial`. `completed_zero` is an explicit assessment with nothing to persist, not an omission; a run with no closure is incomplete and is the only case the agentStop hook may ask to close once.
+_Avoid_: consolidation summary, agent claim, omitted Knowledge
+
+**AgentStop Guard**:
+The deterministic Copilot `agentStop` hook of the Agent Plugin (spec #223, ticket #228, ADR 0041). It is inert for ordinary conversations, other sessions or workspaces, `stop_hook_active`, a run without a created Tour, any Consolidation Closure, and any storage failure. For one incomplete Generation Run it returns at most one `{decision:"block"}` asking for `knowledge_save` or `knowledge_close_run`, after marking `continuationUsed`. It never calls a model and never creates Tour or Knowledge content.
+_Avoid_: auto-consolidation, retry loop, second agent
 
 **Research Run**:
 One execution of the Research Harness on a Research Question. It may use Memory Entries but never creates one.
