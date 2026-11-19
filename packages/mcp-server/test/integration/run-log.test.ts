@@ -29,25 +29,37 @@ function runLogPath(root: string, runId: string): string {
   return path.join(root, RUN_LOG_DIRECTORY, `${RUN_FILE_PREFIX}${runId}.json`);
 }
 
-function seedRunState(root: string, sessionId: string): void {
+function seedRunState(
+  root: string,
+  sessionId: string,
+  overrides: Partial<{
+    runId: string;
+    kind: "project" | "changes";
+    request: string;
+    tourCreated: boolean;
+    tourPath: string | null;
+    consolidation: Record<string, unknown> | null;
+  }> = {}
+): void {
   const at = new Date().toISOString();
-  const file = runLogPath(root, RUN_ID);
+  const runId = overrides.runId ?? RUN_ID;
+  const file = runLogPath(root, runId);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(
     file,
     JSON.stringify(
       {
         version: 1,
-        runId: RUN_ID,
+        runId,
         workspace: fs.realpathSync(root),
         sessionId,
-        kind: "project",
-        request: "generate project Explique le flux.",
+        kind: overrides.kind ?? "project",
+        request: overrides.request ?? "generate project Explique le flux.",
         at,
         updatedAt: at,
-        tourCreated: false,
-        tourPath: null,
-        consolidation: null,
+        tourCreated: overrides.tourCreated ?? false,
+        tourPath: overrides.tourPath ?? null,
+        consolidation: overrides.consolidation ?? null,
         continuationUsed: false
       },
       null,
@@ -197,6 +209,201 @@ test("a refused consolidation is a failed closure, not an omission", async () =>
       );
       const state = await readRunState(fs.realpathSync(root), RUN_ID);
       assert.equal(state?.consolidation?.status, "failed");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("a created save followed by a separate refused save records a partial closure", async () => {
+  const root = tempDir("codetour-run-partial-");
+  try {
+    writeFile(root, "src/main.ts", "export const start = 1;\n");
+    await withServer(root, async (client) => {
+      const created = await callTool(client, "knowledge_save", {
+        runId: RUN_ID,
+        entries: [
+          {
+            name: "dispatch_flow",
+            description: "How dispatch works",
+            body: "The dispatch flow.\n",
+            evidence: [{ path: "src/main.ts" }]
+          }
+        ]
+      });
+      assert.equal(created.isError, false, created.text);
+      assert.equal(created.structured.status, "created");
+      assert.equal(
+        (created.structured.consolidation as { status: string }).status,
+        "created"
+      );
+
+      // A second save call for the same run is refused (name conflict): the
+      // run has a creation and a refusal in separate calls, so its closure is
+      // partial, never a plain `created` success.
+      const refused = await callTool(client, "knowledge_save", {
+        runId: RUN_ID,
+        entries: [
+          {
+            name: "late_flow",
+            description: "Must not be published",
+            body: "Late body.\n",
+            evidence: [{ path: "src/main.ts" }]
+          },
+          {
+            name: "dispatch_flow",
+            description: "Replacement attempt",
+            body: "Replacement body.\n",
+            evidence: [{ path: "src/main.ts" }]
+          }
+        ]
+      });
+      assert.equal(refused.isError, true, refused.text);
+      assert.equal(refused.structured.status, "conflict");
+      const closure = refused.structured.consolidation as {
+        status: string;
+        created: string[];
+        outcome: string;
+      };
+      assert.equal(closure.status, "partial");
+      assert.deepEqual(closure.created, ["dispatch_flow"]);
+      assert.equal(closure.outcome, "conflict");
+
+      const state = await readRunState(fs.realpathSync(root), RUN_ID);
+      assert.equal(state?.consolidation?.status, "partial");
+      assert.deepEqual(state?.consolidation?.created, ["dispatch_flow"]);
+      assert.equal(state?.consolidation?.outcome, "conflict");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("a refused save followed by a successful save also records partial", async () => {
+  const root = tempDir("codetour-run-partial-reverse-");
+  try {
+    writeFile(root, "src/main.ts", "export const start = 1;\n");
+    await withServer(root, async (client) => {
+      const refused = await callTool(client, "knowledge_save", {
+        runId: RUN_ID,
+        entries: [
+          {
+            name: "missing_file",
+            description: "Cites a missing file",
+            body: "Body.\n",
+            evidence: [{ path: "src/missing.ts" }]
+          }
+        ]
+      });
+      assert.equal(refused.isError, true);
+      assert.equal(
+        (refused.structured.consolidation as { status: string }).status,
+        "failed"
+      );
+
+      const created = await callTool(client, "knowledge_save", {
+        runId: RUN_ID,
+        entries: [
+          {
+            name: "dispatch_flow",
+            description: "How dispatch works",
+            body: "The dispatch flow.\n",
+            evidence: [{ path: "src/main.ts" }]
+          }
+        ]
+      });
+      assert.equal(created.isError, false, created.text);
+      const closure = created.structured.consolidation as {
+        status: string;
+        created: string[];
+        outcome: string;
+      };
+      assert.equal(closure.status, "partial");
+      assert.deepEqual(closure.created, ["dispatch_flow"]);
+      assert.equal(closure.outcome, "invalid");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("a recorded creation survives a later explicit zero or deliberate skip", async () => {
+  const root = tempDir("codetour-run-created-sticky-");
+  const runs = [
+    { runId: "run-zero-after-created-01", name: "sticky_zero", close: "zero" },
+    { runId: "run-skip-after-created-01", name: "sticky_skip", close: "skip" }
+  ] as const;
+  try {
+    writeFile(root, "src/main.ts", "export const start = 1;\n");
+    await withServer(root, async (client) => {
+      for (const run of runs) {
+        seedRunState(root, "session-sticky", { runId: run.runId });
+        const created = await callTool(client, "knowledge_save", {
+          runId: run.runId,
+          entries: [
+            {
+              name: run.name,
+              description: "Created before a later closure",
+              body: "The dispatch flow.\n",
+              evidence: [{ path: "src/main.ts" }]
+            }
+          ]
+        });
+        assert.equal(created.isError, false, created.text);
+        assert.equal(created.structured.status, "created");
+
+        const later =
+          run.close === "zero"
+            ? await callTool(client, "knowledge_save", { runId: run.runId, entries: [] })
+            : await callTool(client, "knowledge_close_run", { runId: run.runId, reason: "nothing reusable" });
+        assert.equal(later.isError, false, later.text);
+
+        // A later empty answer or deliberate skip may not erase the fact that
+        // this run published an entry.
+        const closure = later.structured.consolidation as {
+          status: string;
+          created: string[];
+          outcome: string;
+        };
+        assert.equal(closure.status, "created");
+        assert.deepEqual(closure.created, [run.name]);
+        assert.equal(closure.outcome, "created");
+        const state = await readRunState(fs.realpathSync(root), run.runId);
+        assert.equal(state?.consolidation?.status, "created");
+        assert.deepEqual(state?.consolidation?.created, [run.name]);
+        assert.equal(state?.consolidation?.outcome, "created");
+      }
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("a consolidation keeps the run kind from the run state", async () => {
+  const root = tempDir("codetour-run-kind-");
+  const projectRun = "run-project-kind-0001";
+  const changesRun = "run-changes-kind-0001";
+  try {
+    writeFile(root, "src/main.ts", "export const start = 1;\n");
+    await withServer(root, async (client) => {
+      for (const [runId, kind] of [
+        [projectRun, "project"],
+        [changesRun, "changes"]
+      ] as const) {
+        seedRunState(root, "session-kind", { runId, kind });
+        const saved = await callTool(client, "knowledge_save", {
+          runId,
+          entries: []
+        });
+        assert.equal(saved.isError, false, saved.text);
+        assert.equal(saved.structured.consolidationPersisted, true, saved.text);
+        const state = await readRunState(fs.realpathSync(root), runId);
+        assert.equal(
+          state?.kind,
+          kind,
+          `a ${kind} run must never be recorded as the other kind`
+        );
+      }
     });
   } finally {
     rmrf(root);

@@ -84,3 +84,82 @@ dont 213,2 k en cache ; `COPILOT_EXIT=0`.
   de l'omettre ; le `no-op` observé n'est pas une garantie générale.
 - La validité des preuves (`sha256` conformes) reste distincte de la justesse
   sémantique et de la complétude.
+
+## Complément du 19/11/2026 — deuxième session, réutilisation et ouverture réelle
+
+Le constat de la revue était juste : l'essai initial créait la Knowledge **avant**
+la session, puis un seul Tour, et ne consignait pas l'ouverture du Tour. Ce
+complément rejoue le parcours avec **deux sessions Copilot distinctes** sur le
+même espace de travail et ouvre les deux Tours avec le lecteur du CLI.
+
+Dispositif : même espace `codetour-copilot-trial.3OahTR`, même Knowledge
+`dispatch_flow` (créée hors session par `codetour knowledge save`). Le `PATH`
+d'une session est préfixé par un lanceur temporaire `codetour` qui exécute le
+`dist/cli.js` construit de ce dépôt : c'est la correction du blocage « ancien
+`codetour` du PATH » observé lors de la première tentative. `COPILOT_HOME`
+temporaire, aucune écriture dans `~/.copilot`.
+
+### Session 2 (réelle, indépendante)
+
+```sh
+PATH="<shim>:$PATH" COPILOT_HOME="<temp>" copilot -p "Use the codetour-knowledge skill in this workspace. A previous independent session already saved a validated Knowledge entry here. Run codetour knowledge list / read dispatch_flow … create a Project Tour named 'Reuse de dispatch_flow' with fileName 'second-session' … then perform the mandatory consolidation step and report every CLI and MCP status verbatim." \
+  --trust-folder --allow-all --disable-client-telemetry
+```
+
+Sortie observée (statuts verbatim) :
+
+- `codetour knowledge list` → `{"status":"ok",…,"entries":[{"name":"dispatch_flow","description":"How a tool call is dispatched"}]}` ;
+- `codetour knowledge read dispatch_flow` → `status:"valid"`, corps
+  `## Dispatch\n\n\`dispatch\` returns the tool name it receives; it does not execute the tool.`,
+  preuve `src/dispatch.ts` / `b83a6afd…c33ff` ;
+- deux refus MCP utiles (`INVALID_PROPOSAL` : diagramme Mermaid invalide et
+  `workspacePath` absolu, puis `pattern` sans correspondance), corrigés et
+  relancés ;
+- création finale : `{"status":"created","title":"Reuse de dispatch_flow","path":".tours/second-session.tour","stepCount":3,"warnings":[]}` ;
+- consolidation : `{"status":"no-op","workspace":"…","entries":[]}`.
+
+La session 2 a donc **relu la Knowledge validée de la session 1** et l'a citée
+explicitement dans une étape (« Ce Tour réutilise la Knowledge `dispatch_flow`,
+validée par la session précédente »). Coût observé : 0,53 AI Credit, 43 s,
+209,4 k tokens dont 187,9 k en cache.
+
+### Ouverture réelle des Tours
+
+Les deux Tours ont été ouverts par le lecteur HTML du CLI construit, sans
+navigateur (`CODETOUR_TEST_HTML_OUTPUT` écrit la page et n'ouvre rien) :
+
+```sh
+codetour --internal-resolve-tour "Tour de src/dispatch.ts"
+CODETOUR_TEST_HTML_OUTPUT=... node dist/cli.js --internal-tour-id <id> --renderer html
+codetour --internal-resolve-tour "Reuse de dispatch_flow"
+CODETOUR_TEST_HTML_OUTPUT=... node dist/cli.js --internal-tour-id <id> --renderer html
+```
+
+- `tour.html` : titre `Tour de src/dispatch.ts`, ancre `src/dispatch.ts`, 18 462 octets ;
+- `second-session.html` : titre `Reuse de dispatch_flow`, ancre `src/dispatch.ts`
+  (7 occurrences), 15 573 octets ;
+- les deux fichiers `.tour` coexistent : `.tours/project.tour` (session 1) et
+  `.tours/second-session.tour` (session 2), sans écrasement.
+
+### Complément déterministe (sans modèle)
+
+Le même parcours en deux générations est aussi prouvé sans modèle ni réseau par
+`dist/test/cli/knowledgeTourParcours.test.js`, test « a second generation reuses
+the Knowledge validated by the first and opens its Tour » : génération 1
+(`knowledge save` + `create_project_tour`), puis génération 2 dans de nouveaux
+processus (`list`, `read` valid, second `create_project_tour`), ouverture du
+second Tour par le lecteur HTML, et chargement des deux Tours par `loadTour`.
+Ce test est la preuve reproductible ; l'essai réel ci-dessus en est la
+démonstration sur l'hôte Copilot.
+
+### Limites honnêtes
+
+- La Knowledge de cet essai est créée hors session par le CLI, puis relue par
+  deux sessions : la réutilisation de session à session est démontrée, mais pas
+  la création de Knowledge *par* la session 1 puis sa relecture par la session 2
+  (la session 1 a répondu `no-op`) ; le test déterministe, lui, couvre la
+  création par la génération 1 puis la relecture par la génération 2.
+- La session 2 a de nouveau chargé le skill personnel `codetour-knowledge` et
+  utilisé le CLI pour la lecture ; elle a créé le Tour par le MCP. C'est le
+  parcours prescrit par ce ticket, pas le wrapper gardé `/codetour generate`.
+- Modèle et coûts sont ceux de l'essai, pas des seuils.

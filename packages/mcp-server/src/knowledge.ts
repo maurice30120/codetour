@@ -64,7 +64,10 @@ export async function listKnowledgePage(
     total: matches.length,
     offset,
     limit,
-    truncated: entries.length < matches.length,
+    // A page is truncated only when matching entries remain after it. The
+    // last page of a paged listing is complete even though its length is
+    // smaller than the catalogue.
+    truncated: offset + entries.length < matches.length,
   };
 }
 
@@ -80,8 +83,11 @@ export async function knowledgeCatalogueProjection(root: string): Promise<string
   const lines = [
     "## Knowledge catalogue (metadata only)",
     "",
-    "Validated Knowledge entries available for this workspace. A name is the " +
-      "identifier; only metadata is listed here, never a body.",
+    "Knowledge metadata candidates discovered in this workspace. A name is " +
+      "the identifier; only metadata is listed here, never a body. Discovery " +
+      "parses metadata without validating an entry, so a stale or unreadable " +
+      "entry can still appear: validation happens only when " +
+      "`knowledge_read` returns `status: \"valid\"`.",
     "",
   ];
   if (page.entries.length === 0) {

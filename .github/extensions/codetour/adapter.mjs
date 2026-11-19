@@ -198,7 +198,12 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
         reviewMode = choice === 0 ? "neutral" : "critical";
       }
       if (typeof session.send !== "function") throw new Error("This Copilot host cannot send a generation request to its agent.");
-      let brief = (explicit?.[3] || "").trim();
+      // The phrase after the command/type/mode prefix is the user's actual
+      // demand. It is the only text that may travel as `request`: the raw
+      // command text is adapter syntax, not the user's words. The same phrase
+      // keeps its orientation role as `brief`.
+      const demand = (explicit?.[3] || "").trim();
+      let brief = demand;
       // A generation always asks for its orientation before launching: the
       // user can confirm or redirect the run while it is still free.
       // Cancelling stops the Tour instead of generating silently; an empty
@@ -215,14 +220,14 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
       // One identity for this generation: the served prompt tells the agent to
       // pass it to the creation and consolidation tools, and the run log gives
       // the agentStop hook an authenticated trace to read. The original
-      // request is the user's complete slash-command request, reproduced
-      // verbatim; the orientation phrase travels separately as `brief`.
+      // request is only the user's demand phrase, never the command text; the
+      // same phrase travels separately as the orientation `brief`.
       const runId = randomUUID();
-      const originalRequest = explicit?.[3] ? input : undefined;
+      const originalRequest = demand || undefined;
       // codetour mcp composes the generation prompt for this run, including
-      // the user's original request, the orientation phrase, the Knowledge
+      // the user's actual request, the orientation phrase, the Knowledge
       // catalogue and the run identity; the adapter only relays the choices
-      // and the user's words.
+      // and the user's words. Both Tour types carry the request.
       let prompt;
       try {
         prompt = await servedPrompt(
@@ -230,7 +235,7 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
           type === "project" ? "generate_project_tour" : "generate_changes_tour",
           type === "project"
             ? {runId, ...(originalRequest ? {request: originalRequest} : {}), ...(brief ? {brief} : {})}
-            : {runId, reviewMode, ...(brief ? {brief} : {})}
+            : {runId, reviewMode, ...(originalRequest ? {request: originalRequest} : {}), ...(brief ? {brief} : {})}
         );
       } catch (error) {
         // A bare spawn error would leave the user without the cause: name the

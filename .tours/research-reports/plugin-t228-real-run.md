@@ -163,3 +163,113 @@ node --test test/copilot-adapter.test.mjs
 
 No Python, no TokenEconomizer checkout, no API key and no marketplace were
 used.
+
+## 5. Real `/codetour generate project <demand>` dispatch under an interactive PTY (19/11/2026)
+
+Section 4 recorded the honest limitation of prompt mode (`copilot -p`) on CLI
+1.0.106. This section closes it on the installed CLI **1.0.114** (the host now
+reports 1.0.114; the platform behaviour is what matters, and it is recorded as
+observed). `copilot --help` documents `-i, --interactive <prompt>`: "Start
+interactive mode and automatically execute this prompt". That is the entry
+point that actually dispatches an extension slash command.
+
+### Dispositif
+
+Temporary `COPILOT_HOME` and a project path with spaces; plugin, extension and
+skill installed from the current build:
+
+```sh
+COPILOT_HOME="$TMP/copilot home with spaces" \
+CODETOUR_CLI="$REPO/dist/cli.js" \
+node dist/cli.js --install copilot
+```
+
+The `.tours/` directory was empty before the run. The adapter resolves the CLI
+from `CODETOUR_CLI` (set here); a temporary PATH shim `codetour -> node
+dist/cli.js` mirrors a real installation for the skill's CLI calls.
+
+The session is driven through a Python `pty` (no shell, bounded to 180 s,
+Enter sent once at +4 s and once at +20 s so an onboarding screen cannot mask
+the command):
+
+```sh
+python3 drive.py "$TMP" 180
+# argv: copilot -i "/codetour generate project Explique la fonction double et sa valeur de retour." \
+#       --experimental --allow-all --disable-client-telemetry
+```
+
+`--trust-folder` is rejected with `-i` (`the argument '--interactive <prompt>'
+cannot be used with '--trust-folder'`), so it was removed; the temp project is
+trusted for the run by `--allow-all`.
+
+### Observed (definitive run)
+
+- **The command is dispatched.** The extension loaded and the adapter ran: it
+  wrote `<workspace>/.tours/.log/codetour-run-0e73b815-….json` at **+4.7 s**,
+  before any model/tool activity. That file can only be written after
+  `prompts/get` resolved (the adapter writes it immediately before
+  `session.send`), so the hard invariant `prompts/get → run state →
+  session.send` is observed on the real host, not only on the fake host.
+- **The request is the user's demand, not the command.** The run state records
+  `"request": "Explique la fonction double et sa valeur de retour."` — the
+  command/type prefix is gone, as the code-review fix requires. (An earlier
+  attempt with the stale embedded adapter recorded the raw `generate project …`
+  command, which is how the stale embedding was caught; see "Build defect".)
+- **A Tour is created.** At **+29.8 s** the agent called
+  `codetour-create_project_tour` with the served `runId`
+  (`0e73b815-050d-429f-9367-b46c58b0e28d`) and the MCP returned
+  `Created Project Tour at .tours/project.tour with 4 step(s).`
+- **The closure is server-written.** The agent then called
+  `codetour-knowledge_save` with `entries: []` and the same `runId`; the MCP
+  persisted `consolidation: {status:"completed_zero", created:[], outcome:"completed_zero"}`.
+- **The hook is inert on a closed run.** The `agentStop` hook ran at the end of
+  the turn (`stop_hook_active:false`) and returned `{}`.
+- The session TUI stays open after the turn, so the driver terminated it at the
+  180 s bound; all artefacts above were already on disk.
+
+Session events confirm the order: `skill(codetour-knowledge)` →
+`bash codetour knowledge list` (`status:"empty"`) → `view src/math.ts` →
+`codetour-create_project_tour` (one `INVALID_PROPOSAL` with an absolute
+`workspacePath`, corrected to `"."`) → `codetour-knowledge_save` → `hook.end {}`.
+
+### Build defect found and fixed
+
+The first PTY attempt installed the adapter from `src/cli/copilot-extension.generated.ts`,
+which was stale: the WIP commit edited `.github/extensions/codetour/adapter.mjs`
+but had not regenerated the embedded module. `npm run build` does **not**
+regenerate the embeddings; `node scripts/embed-copilot-extension.js` and
+`node scripts/embed-copilot-plugin.js` must be run after editing those sources,
+and the compiled tests (`agentIntegrations.test.ts`, `copilotPlugin.test.ts`)
+fail when they diverge. The final build regenerates both modules. The first
+attempt is still valid evidence that the host dispatches the command (it
+created a Tour and a `completed_zero` closure); the definitive attempt above
+additionally proves the new `request` extraction.
+
+### Intermediate attempt (honest record)
+
+With the regenerated adapter but before the PATH shim, the adapter ran and
+recorded the stripped request, but the agent loaded the personal
+`codetour-knowledge` skill and its `codetour knowledge list --workspace "$PWD"`
+resolved to an old `codetour` on `PATH`, which exited
+`CodeTour: Unknown option: --workspace`. The agent then correctly refused to
+invent a Tour (`Aucun tour n'a été créé`). That is an environment blocker, not
+an adapter failure: the run state already existed, and the adapter path was
+unchanged. Adding the PATH shim produced the successful definitive run above.
+
+### Cleanup and final state
+
+`node dist/cli.js --uninstall copilot` removed the plugin, the personal skill
+and the extension from the temporary home. `copilot plugin list` and `copilot
+mcp list` show no CodeTour entry; the extension and skill directories are gone.
+The developer's real `~/.copilot` was never used: every command ran with a
+temporary `COPILOT_HOME`. The temp home and project were deleted after the
+evidence was recorded here.
+
+### Residual limitation
+
+The entry point is interactive: an automated run needs a PTY and a heuristic
+end-of-turn (the process does not exit by itself). `-p` still does not dispatch
+extension commands, so a CI-style guarded generation remains impossible
+without a PTY driver. The criterion "controlled entry point on a real host" is
+therefore **met**, with the platform-limited automation caveat stated here
+rather than hidden.

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawnSync, execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
@@ -134,6 +135,120 @@ test("a project Tour is built from the Knowledge the installed skill tells the a
     assert.equal(tour.steps[1].line, 1);
     assert.match(tour.steps[1].description, /`dispatch` returns the tool name/);
     // The evidence the Knowledge cited is still the file the Tour anchors to.
+  } finally {
+    rmSync(workspace, { recursive: true, force: true, maxRetries: 50, retryDelay: 100 });
+  }
+});
+
+test("a second generation reuses the Knowledge validated by the first and opens its Tour", async () => {
+  const workspace = realpathSync(mkdtempSync(path.join(os.tmpdir(), "codetour-parcours-reuse-")));
+  const env = credentialFreeEnv();
+  try {
+    mkdirSync(path.join(workspace, "src"));
+    execFileSync("git", ["init", "-q", workspace]);
+    const source = "export function dispatch(tool: string): string {\n  return tool;\n}\n";
+    writeFileSync(path.join(workspace, "src", "dispatch.ts"), source);
+
+    const body = "## Dispatch\n\n`dispatch` returns the tool name it receives.\n";
+    const proposal = path.join(workspace, "proposal.json");
+    writeFileSync(proposal, JSON.stringify({
+      entries: [{
+        name: "dispatch_flow",
+        description: "How a tool call is dispatched",
+        body,
+        evidence: [{ path: "src/dispatch.ts" }]
+      }]
+    }));
+
+    // One independent MCP client per generation, exactly as two separate
+    // sessions would connect: the second client knows nothing of the first.
+    async function createTour(fileName: string, title: string, description: string) {
+      const client = new Client({ name: `codetour-generation-${fileName}`, version: "0.0.0" }, { capabilities: {} });
+      const transport = new StdioClientTransport({
+        command: process.execPath,
+        args: [cli, "mcp"],
+        cwd: workspace,
+        env,
+        stderr: "pipe"
+      });
+      try {
+        await client.connect(transport);
+        const response = await client.callTool({
+          name: "create_project_tour",
+          arguments: {
+            title,
+            fileName,
+            steps: [
+              { description: "This Tour follows one tool call from its entry point to its result." },
+              { file: "src/dispatch.ts", line: 1, description }
+            ]
+          }
+        });
+        assert.equal(response.isError ?? false, false, JSON.stringify(response.content));
+        const created = (response as any).structuredContent;
+        assert.equal(created.status, "created");
+        return created as { status: string; path: string; stepCount: number };
+      } finally {
+        await client.close();
+      }
+    }
+
+    // Generation 1: it publishes the reusable Knowledge, then builds the
+    // first Tour from what it just observed.
+    const saved = runCli(["knowledge", "save", "--workspace", workspace, "--proposal", proposal], workspace, env);
+    assert.equal(saved.status, 0, saved.stderr);
+    assert.deepEqual(saved.json.saved, ["dispatch_flow"]);
+    const first = await createTour("generation-one", "Generation one: dispatch", "First generation explanation of `dispatch`.");
+
+    // Generation 2: a brand-new process pair. It rediscovers the entry by
+    // metadata and rereads the body through the evidence gate; nothing carries
+    // over in memory from generation 1.
+    const listed = runCli(["knowledge", "list", "--workspace", workspace], workspace, env);
+    assert.equal(listed.status, 0, listed.stderr);
+    assert.deepEqual(listed.json.entries, [{ name: "dispatch_flow", description: "How a tool call is dispatched" }]);
+    assert.doesNotMatch(listed.stdout, /dispatch returns the tool name/);
+
+    const read = runCli(["knowledge", "read", "dispatch_flow", "--workspace", workspace], workspace, env);
+    assert.equal(read.status, 0, read.stderr);
+    assert.equal(read.json.status, "valid");
+    assert.equal(read.json.body, body);
+    assert.deepEqual(read.json.evidence, [{ path: "src/dispatch.ts", sha256: createHash("sha256").update(source).digest("hex") }]);
+
+    // The second Tour is built from the body generation 2 read, not from the
+    // source file alone: the validated Knowledge is the reference context.
+    const second = await createTour("generation-two", "Generation two: dispatch reused", read.json.body);
+    assert.notEqual(second.path, first.path, "the two generations write distinct Tours");
+
+    // Open the second Tour through the CLI's own HTML reader, without a
+    // browser: the same loader and renderer a user gets.
+    const htmlPath = path.join(workspace, "generation-two.html");
+    const resolved = runCli(["--internal-resolve-tour", "Generation two: dispatch reused"], workspace, env);
+    assert.equal(resolved.status, 0, resolved.stderr);
+    const opened = runCli(["--internal-tour-id", resolved.json.id, "--renderer", "html"], workspace, {
+      ...env,
+      CODETOUR_TEST_HTML_OUTPUT: htmlPath
+    });
+    assert.equal(opened.status, 0, opened.stderr);
+    const html = readFileSync(htmlPath, "utf8");
+    assert.match(html, /Generation two: dispatch reused/);
+    assert.match(html, /returns the tool name it receives/);
+
+    // Both Tours still load through the reader's own schema loader; the first
+    // generation's output was not overwritten by the second.
+    for (const [created, title, description] of [
+      [first, "Generation one: dispatch", "First generation explanation of `dispatch`."],
+      [second, "Generation two: dispatch reused", body]
+    ] as const) {
+      const file = path.join(workspace, created.path);
+      assert.ok(file.startsWith(path.join(workspace, ".tours")), created.path);
+      const tour = loadTour(readFileSync(file, "utf8"), pathToFileURL(file).toString());
+      assert.equal(tour.title, title);
+      assert.equal(tour.steps.length, 2);
+      assert.equal(tour.steps[1].file, "src/dispatch.ts");
+      assert.equal(tour.steps[1].line, 1);
+      assert.ok(tour.steps[1].description.includes(description.slice(0, 24)));
+    }
+    // The Knowledge evidence still matches the source both generations cite.
     assert.equal(readFileSync(path.join(workspace, "src", "dispatch.ts"), "utf8"), source);
   } finally {
     rmSync(workspace, { recursive: true, force: true, maxRetries: 50, retryDelay: 100 });
