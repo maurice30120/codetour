@@ -9,9 +9,21 @@ The single deterministic source of the Knowledge contract used by CodeTour:
 - `loadKnowledgeLibrary(root, directory)` — `catalog()`, `list(query)` and `read(name)`
   over `<workspace>/.tours/.memory/knowledge`.
 - `hashWorkspaceFile(root, path)` — the same confinement rules for preparing evidence.
+- `saveKnowledgeProposal(root, proposal)` — validate a whole proposal, compute or
+  verify every SHA-256 proof, then publish `{status:"saved"|"no-op"|"conflict"|"invalid"}`.
+  Nothing is written unless every entry is valid and no `<name>.md` exists.
+- `serializeKnowledgeEntry(entry)` — the exact catalogue grammar, body preserved verbatim.
 - `validateCanonicalName(name)` — the shared identifier rule for Memory Methods and
   Knowledge entries.
 
-The package reads and hashes files only: no model, no network, no API key. The
-packaged `codetour knowledge` CLI and the historical Research Harness both consume
-this package, so the contract exists once. See ADR 0039.
+A proposal is `{"entries":[{name, description, body, evidence:[{path, sha256?}]}]}`.
+The name is a canonical identifier, the description is one non-empty line, the body
+is Markdown kept byte-for-byte, and evidence cites at least one workspace-relative
+file. A missing `sha256` is computed from the bytes; a declared one is verified and
+normalized. Every entry is validated before the first byte is staged, so an invalid
+entry, a duplicate name or an existing entry refuses the whole proposal: no partial
+publication, no overwrite, and no staging file left behind.
+
+The package reads, hashes and writes these files only: no model, no network, no API
+key. The packaged `codetour knowledge` CLI and the historical Research Harness both
+consume this package, so the contract exists once. See ADR 0039.

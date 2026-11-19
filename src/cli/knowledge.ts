@@ -1,7 +1,12 @@
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
-import { knowledgeDirectory, loadKnowledgeLibrary, hashWorkspaceFile } from "codetour-knowledge";
+import {
+  knowledgeDirectory,
+  loadKnowledgeLibrary,
+  hashWorkspaceFile,
+  saveKnowledgeProposal
+} from "codetour-knowledge";
 
 /**
  * The `codetour knowledge` family is the deterministic, native surface of the
@@ -82,6 +87,19 @@ interface KnowledgeOptions {
   query?: string;
 }
 
+interface KnowledgeSaveOptions extends KnowledgeOptions {
+  proposal?: string;
+  name?: string;
+  description?: string;
+  bodyFile?: string;
+  evidence?: string[];
+}
+
+/** Accumulate a repeatable option, preserving the order the user wrote. */
+function repeatable(value: string, previous: string[]): string[] {
+  return previous.concat(value);
+}
+
 async function listCommand(options: KnowledgeOptions): Promise<void> {
   const resolved = requireWorkspace(await resolveWorkspace(options.workspace));
   if (!resolved) return;
@@ -140,11 +158,116 @@ async function hashCommand(target: string, options: KnowledgeOptions): Promise<v
   emit({ status: "invalid", workspace, path: target, reason: hashed.reason }, KNOWLEDGE_EXIT.invalid);
 }
 
+const usage = (reason: string, message: string): void => {
+  emit({ status: "usage", reason, message }, KNOWLEDGE_EXIT.usage);
+};
+
+/**
+ * Read a JSON proposal file. An unreadable file is a usage error (the caller
+ * gave a path that cannot be used); malformed JSON is an invalid contract and
+ * is refused before anything is written.
+ */
+async function readProposal(file: string): Promise<{ status: "ok"; value: unknown } | { status: "unreadable" } | { status: "malformed" }> {
+  let source: string;
+  try {
+    source = await fs.readFile(file, "utf8");
+  } catch {
+    process.stderr.write("codetour knowledge: cannot read proposal " + file + "\n");
+    return { status: "unreadable" };
+  }
+  try {
+    return { status: "ok", value: JSON.parse(source) };
+  } catch {
+    return { status: "malformed" };
+  }
+}
+
+/**
+ * Validate and persist a Knowledge proposal (zero, one or many entries).
+ *
+ * A proposal file and the convenience flags are two ways to describe the same
+ * input, never combined. Validation, conflict detection and publication are
+ * owned by `saveKnowledgeProposal`, so the CLI cannot diverge from the shared
+ * contract: a refusal publishes nothing and an existing entry is preserved.
+ * The result carries names only — never a body, a hash or a resolved path.
+ */
+async function saveCommand(options: KnowledgeSaveOptions): Promise<void> {
+  const resolved = requireWorkspace(await resolveWorkspace(options.workspace));
+  if (!resolved) return;
+  const { workspace } = resolved;
+
+  const hasProposal = options.proposal !== undefined;
+  const hasConvenience = options.name !== undefined || options.description !== undefined ||
+    options.bodyFile !== undefined || (options.evidence ?? []).length > 0;
+  if (hasProposal && hasConvenience) {
+    usage("ambiguous_input", "Use either --proposal or the convenience flags, not both.");
+    return;
+  }
+  if (!hasProposal && !hasConvenience) {
+    usage("missing_input", "Pass --proposal, or --name, --description, --body-file and --evidence.");
+    return;
+  }
+
+  let proposal: unknown;
+  if (hasProposal) {
+    const file = path.resolve(process.cwd(), options.proposal!);
+    const read = await readProposal(file);
+    if (read.status === "unreadable") {
+      usage("proposal_unreadable", "Cannot read proposal: " + file);
+      return;
+    }
+    if (read.status === "malformed") {
+      emit({ status: "invalid", workspace, rejected: [{ reason: "malformed_proposal" }] }, KNOWLEDGE_EXIT.invalid);
+      return;
+    }
+    proposal = read.value;
+  } else {
+    if (options.name === undefined || options.description === undefined || options.bodyFile === undefined) {
+      usage("missing_entry_field", "Convenience mode requires --name, --description and --body-file.");
+      return;
+    }
+    // The body is the one input resolved against the workspace, like evidence.
+    const file = path.resolve(workspace, options.bodyFile);
+    let body: string;
+    try {
+      body = await fs.readFile(file, "utf8");
+    } catch {
+      process.stderr.write("codetour knowledge: cannot read body file " + options.bodyFile + "\n");
+      usage("body_unreadable", "Cannot read body file: " + options.bodyFile);
+      return;
+    }
+    proposal = {
+      entries: [{
+        name: options.name,
+        description: options.description,
+        body,
+        evidence: (options.evidence ?? []).map(evidence => ({ path: evidence }))
+      }]
+    };
+  }
+
+  const result = await saveKnowledgeProposal(workspace, proposal);
+  if (result.status === "saved") {
+    emit({ status: "saved", workspace, saved: result.saved }, KNOWLEDGE_EXIT.ok);
+    return;
+  }
+  if (result.status === "no-op") {
+    // An explicit zero-entry proposal is a valid, observable no-op.
+    emit({ status: "no-op", workspace, entries: [] }, KNOWLEDGE_EXIT.ok);
+    return;
+  }
+  if (result.status === "conflict") {
+    emit({ status: "conflict", workspace, conflicts: result.conflicts }, KNOWLEDGE_EXIT.invalid);
+    return;
+  }
+  emit({ status: "invalid", workspace, rejected: result.rejected }, KNOWLEDGE_EXIT.invalid);
+}
+
 /** Register the native `knowledge` command family on the root program. */
 export function registerKnowledgeCommand(program: Command): void {
   const knowledge = program
     .command("knowledge")
-    .description("discover, verify and read Knowledge entries; deterministic, offline, no model");
+    .description("discover, verify, read and save Knowledge entries; deterministic, offline, no model");
   knowledge
     .command("list")
     .description("list Knowledge entries by name and description only")
@@ -161,6 +284,16 @@ export function registerKnowledgeCommand(program: Command): void {
     .description("print the deterministic SHA-256 of a workspace file, for evidence proofs")
     .option("--workspace <dir>", "workspace root (defaults to the current directory)")
     .action((target: string, options: KnowledgeOptions) => runAction(() => hashCommand(target, options)));
+  knowledge
+    .command("save")
+    .description("validate and persist a proposal (zero, one or many entries); nothing is written on any refusal")
+    .option("--workspace <dir>", "workspace root (defaults to the current directory)")
+    .option("--proposal <file>", 'proposal JSON: {"entries":[{"name","description","body","evidence":[{"path","sha256"?}]}]}')
+    .option("--name <name>", "convenience: entry name, with --description, --body-file and --evidence")
+    .option("--description <text>", "convenience: one-line entry description")
+    .option("--body-file <file>", "convenience: Markdown body file, resolved against the workspace")
+    .option("--evidence <path>", "convenience: workspace-relative evidence path (repeatable)", repeatable, [])
+    .action((options: KnowledgeSaveOptions) => runAction(() => saveCommand(options)));
 }
 
 /** True when the process was launched through the `knowledge` family. */

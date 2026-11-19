@@ -190,7 +190,7 @@ the working directory is the Tour Workspace, or pass `--workspace-root`. See
 the [standalone distribution guide](docs/standalone-distribution.md) for
 packaged-launcher client configuration.
 
-### Read a Knowledge catalogue
+### Read and save a Knowledge catalogue
 
 `codetour knowledge` is the deterministic, offline surface for the Knowledge
 entries under `<workspace>/.tours/.memory/knowledge/`. It needs no model, no
@@ -205,16 +205,70 @@ node "$CODETOUR_ROOT/dist/cli.js" knowledge list
 node "$CODETOUR_ROOT/dist/cli.js" knowledge list --query dispatch
 node "$CODETOUR_ROOT/dist/cli.js" knowledge read dispatch_flow
 node "$CODETOUR_ROOT/dist/cli.js" knowledge hash src/main.ts
+node "$CODETOUR_ROOT/dist/cli.js" knowledge save --proposal proposal.json
 ```
 
 `list` returns names and descriptions only. `read` returns the Markdown body
 only when every declared file proof matches its SHA-256; otherwise it reports
 an `invalid` reason without the body, a cited path or a hash value. `hash`
-prints the deterministic digest for preparing evidence. Exit statuses are
-stable: `0` success, `1` internal error, `2` usage error or unusable workspace,
-`3` absence (empty catalogue, unknown entry, missing file), `4` invalid
-(malformed contract, stale or forged hash, unsupported proof, path outside the
-workspace, symlink escape).
+prints the deterministic digest for preparing evidence.
+
+#### Save a proposal
+
+`save` validates a whole proposal and persists it atomically, or publishes
+nothing. A proposal file is a JSON object with one key:
+
+```json
+{
+  "entries": [
+    {
+      "name": "dispatch_flow",
+      "description": "How tool calls dispatch",
+      "body": "Markdown body, interpreted never executed.\n",
+      "evidence": [{ "path": "src/main.ts" }, { "path": "docs/dispatch.md", "sha256": "<64 hex>" }]
+    }
+  ]
+}
+```
+
+`name` is a canonical identifier equal to the entry file name, `description`
+is one non-empty line and `evidence` cites at least one workspace-relative
+path. A relative `--proposal` path is resolved from the directory the CLI is
+launched in; the entry's evidence paths are always resolved against the
+workspace. An omitted `sha256` is computed from the cited bytes; a declared one is
+verified and normalized, so a stale or forged digest is refused. Paths outside
+the workspace, escaping symbolic links, missing or non-regular files and
+unsupported (`symbol`) proofs are refused the same way they are on read.
+
+The same entry can be described with convenience flags instead of a file
+(`--body-file` is resolved against the workspace, `--evidence` is repeatable):
+
+```bash
+node "$CODETOUR_ROOT/dist/cli.js" knowledge save \
+  --name dispatch_flow --description "How tool calls dispatch" \
+  --body-file docs/dispatch.md --evidence src/main.ts
+```
+
+A proposal is all-or-nothing: every entry is validated first, an existing
+`<name>.md` is never overwritten, and any refusal leaves the catalogue
+untouched. An empty `entries` list is a valid, explicit no-op. Results:
+
+| status | meaning | exit |
+| --- | --- | --- |
+| `saved` | every entry was published; `saved` lists the names | 0 |
+| `no-op` | zero entries were proposed; nothing was created | 0 |
+| `conflict` | at least one name already exists; `conflicts` lists it, nothing was written | 4 |
+| `invalid` | at least one entry or the proposal shape is invalid; `rejected` lists names and reasons, nothing was written | 4 |
+
+Exit statuses are stable: `0` success, `1` internal error, `2` usage error
+(unreadable proposal or body file, ambiguous input, unusable workspace), `3`
+absence (empty catalogue, unknown entry, missing file), `4` invalid (malformed
+contract, stale or forged hash, unsupported proof, path outside the workspace,
+symlink escape, name conflict).
+
+Evidence validity is not semantic correctness: a `saved` or `valid` result
+proves the declared sources still hash as declared, not that the explanation is
+accurate, complete or the best one.
 
 ### Try the experimental Copilot adapter
 
