@@ -74,7 +74,7 @@ test("rejects an active scheme in the tour-level description", async () => {
   }
 });
 
-test("exposes exactly the two Tour tools and the three Knowledge tools", async () => {
+test("exposes exactly the two Tour tools and the four Knowledge tools", async () => {
   const root = tempDir();
   try {
     await withServer(root, async (client) => {

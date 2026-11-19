@@ -188,7 +188,7 @@ node "$CODETOUR_ROOT/dist/cli.js" mcp
 ```
 
 The process speaks MCP over stdio with the same tools as the extension — both
-Tour creation tools and the three Knowledge tools — from one shared server
+Tour creation tools and the four Knowledge tools — from one shared server
 implementation; the working directory is the Tour Workspace, or pass
 `--workspace-root`. See the [standalone distribution guide](docs/standalone-distribution.md) for
 packaged-launcher client configuration.

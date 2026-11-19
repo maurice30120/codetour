@@ -47,8 +47,12 @@ it is inert for ordinary conversations, other sessions or workspaces,
 state, and any storage failure. For one incomplete run it returns at most one
 `{decision:"block"}` after marking `continuationUsed` under a cross-process
 lock. It never writes Tour or Knowledge content and never infers a closure from
-assistant text. `partial` is part of the closure vocabulary but the current
-all-or-nothing save cannot produce it.
+assistant text. `partial` is part of the closure vocabulary: each save is
+all-or-nothing, but a run whose successive save calls both created entries and
+hit a refusal records `partial`, preserving the entries actually published.
+(Amended 2026-11-19 after the final code review: the earlier text said the
+all-or-nothing save could not produce `partial`; the accumulation across save
+calls makes it reachable without weakening the per-call atomicity.)
 
 **Consequences.** An explicit zero-entry `knowledge_save` is a completed
 consolidation, not an omission; an absent closure is the only state the hook
