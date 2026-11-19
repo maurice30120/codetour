@@ -27,8 +27,10 @@ export function initializeStorage(context: ExtensionContext) {
         ([id]) => store.activeTour?.tour.id === id
       );
 
-      if (progress && !progress![1].includes(store.activeTour!.step)) {
-        progress![1].push(store.activeTour!.step);
+      if (progress) {
+        if (!progress[1].includes(store.activeTour!.step)) {
+          progress[1].push(store.activeTour!.step);
+        }
       } else {
         store.progress.push([
           store.activeTour!.tour.id,

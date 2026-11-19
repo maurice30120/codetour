@@ -275,7 +275,8 @@ const PROJECT_TOUR_ORIENTATION_GUIDANCE =
   "(1) two or three sentences explaining what the system does and for whom; " +
   "(2) a Mermaid flowchart introduced by the exact caption **Diagram — Context view**, showing " +
   "the actors, the system under study, and external systems; every edge must state an interaction " +
-  "verb and its mechanism, for example `Client --> API: places orders (HTTPS)`; " +
+  "verb and its mechanism, for example `Client -->|\"places orders (HTTPS)\"| API`; " +
+  "Quote flowchart edge labels containing punctuation such as parentheses; " +
   "(3) a second Mermaid flowchart introduced by the exact caption **Diagram — Containers**, but only " +
   "when the project has more than one execution or storage boundary—otherwise omit it and never draw " +
   "a boundary that does not exist; (4) a short zone-to-workspace-directory mapping with relative " +
@@ -616,7 +617,10 @@ const KNOWLEDGE_READ_DESCRIPTION =
 const KNOWLEDGE_SAVE_DESCRIPTION =
   "Create a deterministic consolidation outcome from a Knowledge proposal: " +
   "the entries array holds zero, one or many entries with name, description, " +
-  "body and evidence [{path, sha256?}]. An omitted sha256 is computed and a " +
+  "body and evidence [{path, sha256?}]. Names are flat: start with a letter, digit, _ or $, " +
+  "then use letters, digits, _, $ or hyphens, such as knowledge-lecture-verifiee; " +
+  "Windows device names such as CON are reserved for new entries. " +
+  "An omitted sha256 is computed and a " +
   "declared one is verified against the cited bytes. Every entry is validated " +
   "before anything is written, an existing <name>.md is never overwritten, and " +
   "any refusal publishes nothing. Results are observable: \"created\" names " +

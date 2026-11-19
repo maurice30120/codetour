@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { renderMermaidDiagram } from "codetour-description-renderer";
 import { rmrf, tempDir, withServer } from "../helpers/test-utils";
 import {
   CHANGES_TOUR_PROMPT_RESOURCE_TEMPLATE,
@@ -111,6 +112,25 @@ async function readResourceText(
   assert.equal(content.uri, uri);
   return content.text ?? "";
 }
+
+test("tool guidance gives a valid Mermaid example and Knowledge name rule", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async client => {
+      const tools = (await client.listTools()).tools;
+      const project = tools.find(tool => tool.name === "create_project_tour");
+      const save = tools.find(tool => tool.name === "knowledge_save");
+      assert.ok(project?.description);
+      assert.ok(save?.description);
+      const example = project.description.match(/`(Client -->[^`]+)`/);
+      assert.ok(example, "the project tool supplies an edge-label example");
+      await renderMermaidDiagram(`flowchart LR\n${example[1]}`, "light");
+      assert.match(save.description, /knowledge-lecture-verifiee/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
 
 test("serves the Project Tour generation prompt resource", async () => {
   const root = tempDir();

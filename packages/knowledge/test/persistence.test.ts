@@ -62,6 +62,26 @@ test('a proposal is persisted as one parseable entry with its computed evidence 
   assert.equal((read as { body: string }).body, body);
 });
 
+test('Knowledge names allow hyphens, digits and reserved words while confining paths', async t => {
+  const root = await realRoot('knowledge-name-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'main.ts'), 'bytes\n');
+  const makeEntry = (name: string) => ({ name, description: 'test', body: 'content\n', evidence: [{ path: 'main.ts' }] });
+  const names = ['knowledge-lecture-verifiee', '1st-step', 'class', 'legacyName'];
+  assert.deepEqual(await saveKnowledgeProposal(root, { entries: names.map(makeEntry) }), { status: 'saved', saved: names });
+  const library = await loadKnowledgeLibrary(root, knowledgeDirectory(root));
+  assert.deepEqual((await library.list()).map(entry => entry.name).sort(), [...names].sort());
+  for (const name of names) assert.equal((await library.read(name)).status, 'valid', name);
+  for (const name of ['../outside', 'path/name', 'path\\name', '/absolute', '.', '..', '-option', 'bad\nname']) {
+    const result = await saveKnowledgeProposal(root, { entries: [makeEntry(name)] });
+    assert.equal(result.status, 'invalid', name);
+    assert.equal((await library.read(name)).status, 'invalid', name);
+  }
+  for (const name of ['CON', 'nul', 'COM1', 'lpt9']) {
+    assert.equal((await saveKnowledgeProposal(root, { entries: [makeEntry(name)] })).status, 'invalid', name);
+  }
+});
+
 test('serializeKnowledgeEntry round-trips the body through the read grammar', () => {
   const source = serializeKnowledgeEntry({
     name: 'round_trip',

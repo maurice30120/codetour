@@ -9,7 +9,7 @@ import {
   parseKnowledge,
   type KnowledgeFileProof
 } from './knowledge';
-import { validateCanonicalName } from './name';
+import { validateNewKnowledgeName } from './name';
 
 /**
  * Deterministic persistence of Knowledge entries (spec #223, ticket #225).
@@ -134,7 +134,7 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>): Pro
   if (Object.keys(raw).some(key => !['name', 'description', 'body', 'evidence'].includes(key))) {
     return failure('malformed_entry', rawName);
   }
-  if (typeof raw.name !== 'string' || !validateCanonicalName(raw.name).ok) return failure('invalid_name', rawName);
+  if (typeof raw.name !== 'string' || !validateNewKnowledgeName(raw.name).ok) return failure('invalid_name', rawName);
   const name = raw.name;
   if (seen.has(name)) return failure('duplicate_name', name);
   seen.add(name);

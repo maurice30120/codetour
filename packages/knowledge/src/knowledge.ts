@@ -2,14 +2,14 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { z } from 'zod';
-import { validateCanonicalName } from './name';
+import { validateKnowledgeName } from './name';
 
 /**
  * A Knowledge entry (spec #219): one Markdown file in the `knowledge` memory
  * catalogue. Its frontmatter declares a name, a description and a nonempty
  * evidence list; the free-form Markdown body after the closing `---` is what
  * `memory_read` returns once the whole evidence contract has been verified.
- * The name is a valid TypeScript identifier equal to the file name, so
+ * The name is a safe flat Knowledge name equal to the file name, so
  * discovery presents entries by name and description only.
  */
 export interface KnowledgeMetadata {
@@ -155,7 +155,7 @@ function parseFrontmatter(lines: string[]): Record<string, unknown> | undefined 
 /**
  * Parse one Knowledge file: the static contract only, never the workspace —
  * malformed frontmatter, an oversized or missing body, a name that is not an
- * identifier equal to the file name, or a nonempty-but-unsupported evidence
+ * safe name equal to the file name, or a nonempty-but-unsupported evidence
  * item (`symbol`) are refused here, before any evidence is verified.
  */
 export function parseKnowledge(source: string, fileName: string): KnowledgeValidation {
@@ -170,7 +170,7 @@ export function parseKnowledge(source: string, fileName: string): KnowledgeValid
   const parsed = frontmatterSchema.safeParse(frontmatter);
   if (!parsed.success) return { status: 'invalid', reason: 'malformed_contract' };
   const { name, description, evidence } = parsed.data;
-  if (!validateCanonicalName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };
+  if (!validateKnowledgeName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };
   if (name !== fileName.replace(/\.md$/, '')) return { status: 'invalid', reason: 'malformed_contract' };
   // `symbol` items match the known grammar but can never verify in this
   // prototype: refuse the entry up front instead of failing at read time.
@@ -290,9 +290,9 @@ export async function loadKnowledgeLibrary(root: string, directory: string): Pro
   const realDirectory = realRoot ? await realpath(directory).catch(() => undefined) : undefined;
   const usable = (): string | undefined => realRoot && realDirectory && !escapes(realRoot, realDirectory) ? realDirectory : undefined;
   const readEntryFile = async (name: string): Promise<{ status: 'valid'; source: string } | { status: 'invalid'; reason: KnowledgeFailureReason }> => {
-    // A catalogue name is a TypeScript identifier (the file-name rule), which
+    // A catalogue name is a safe flat name (the file-name rule), which
     // also keeps every lookup inside the flat catalogue directory.
-    if (!validateCanonicalName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };
+    if (!validateKnowledgeName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };
     const dir = usable();
     if (!dir) return { status: 'invalid', reason: 'unknown_entry' };
     let real: string;
@@ -331,7 +331,7 @@ export async function loadKnowledgeLibrary(root: string, directory: string): Pro
       return entries.filter(entry => `${entry.name} ${entry.description}`.toLowerCase().includes(lowerQuery));
     },
     read: async name => {
-      if (typeof name !== 'string' || !validateCanonicalName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };
+      if (typeof name !== 'string' || !validateKnowledgeName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };
       const entryFile = await readEntryFile(name);
       if (entryFile.status !== 'valid') return entryFile;
       const parsed = parseKnowledge(entryFile.source, name);

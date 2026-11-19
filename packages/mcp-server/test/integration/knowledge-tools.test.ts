@@ -350,6 +350,29 @@ test("knowledge_save creates entries, reports conflicts, and never overwrites an
   }
 });
 
+test("knowledge_save and knowledge_read accept a hyphenated Knowledge name", async () => {
+  const root = tempDir("codetour-knowledge-hyphen-");
+  try {
+    writeFile(root, "src/main.ts", "export const start = 1;\n");
+    await withServer(root, async client => {
+      const saved = await callTool(client, KNOWLEDGE_SAVE, {
+        entries: [{ name: "lecture-verifiee", description: "Verified flow", body: "Reference body.\n", evidence: [{ path: "src/main.ts" }] }],
+      });
+      assert.equal(saved.structured.status, "created");
+      const list = await callTool(client, KNOWLEDGE_LIST, {});
+      assert.deepEqual(list.structured.entries, [{ name: "lecture-verifiee", description: "Verified flow" }]);
+      const read = await callTool(client, KNOWLEDGE_READ, { name: "lecture-verifiee" });
+      assert.equal(read.structured.status, "valid");
+      assert.equal(read.structured.body, "Reference body.\n");
+      const refused = await callTool(client, KNOWLEDGE_READ, { name: "../outside" });
+      assert.equal(refused.structured.status, "invalid");
+      assert.equal(refused.structured.body, undefined);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("knowledge_save reports an explicit zero-entry proposal as completed_zero", async () => {
   const root = tempDir("codetour-knowledge-zero-");
   try {
