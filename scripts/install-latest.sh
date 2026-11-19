@@ -1,18 +1,25 @@
 #!/bin/sh
 # Installs or updates the CodeTour IA VS Code extension in one command.
 #
-# Downloads the platform-matching VSIX from the latest GitHub release of
+# Downloads the platform-matching VSIX from a GitHub release of
 # ${CODETOUR_REPO:-maurice30120/codetour} — the release assets are the VSIX
 # files the Release workflow builds and attaches in CI — then runs
 # `code --install-extension` on it. Running the script again upgrades the
-# installed extension to the latest published version. See README.md >>
+# installed extension to the selected version. See README.md >>
 # Install or update with one command.
+#
+# Source selection, relative to the default (latest stable release):
+#   CODETOUR_TAG=<tag>            install this exact release
+#   CODETOUR_CHANNEL=beta         accept the newest release even when it is
+#                                 marked as a pre-release
+#   CODETOUR_VSIX_URL=<url>       install an explicit VSIX download URL
+#   CODETOUR_REPO=<owner>/<repo>  serve a fork
 
 set -eu
 
 REPO="${CODETOUR_REPO:-maurice30120/codetour}"
-API_URL="https://api.github.com/repos/$REPO/releases/latest"
 RELEASES_URL="https://github.com/$REPO/releases"
+API_BASE="https://api.github.com/repos/$REPO"
 
 fail() {
   printf 'install-latest: %s\n' "$1" >&2
@@ -45,9 +52,16 @@ if [ -z "$code_cmd" ]; then
 fi
 
 vsix_url="${CODETOUR_VSIX_URL:-}"
+channel="${CODETOUR_CHANNEL:-stable}"
 tag=""
 if [ -z "$vsix_url" ]; then
-  release_json="$(curl -fsSL --retry 3 "$API_URL")" || fail "Could not fetch the latest release from $API_URL. Check the network, the GitHub API rate limit, or that a release exists (none were published when this happened first: $RELEASES_URL)."
+  api_path="/releases/latest"
+  if [ -n "${CODETOUR_TAG:-}" ]; then
+    api_path="/releases/tags/$CODETOUR_TAG"
+  elif [ "$channel" = "beta" ]; then
+    api_path="/releases"
+  fi
+  release_json="$(curl -fsSL --retry 3 "$API_BASE$api_path")" || fail "Could not fetch https://api.github.com/repos/$REPO$api_path. Check the network, the GitHub API rate limit, or that the release exists ($RELEASES_URL). A repository holding only pre-releases makes the default stable channel fail with 404 — retry with CODETOUR_TAG=<tag>."
   tag="$(printf '%s\n' "$release_json" | grep -o '"tag_name": *"[^"]*"' | sed 's/"tag_name": *"\([^"]*\)".*/\1/' | head -n 1)"
   vsix_url="$(printf '%s\n' "$release_json" \
     | grep -o "https://[^\"]*/download/[^\"]*/codetour-$target-[0-9][0-9.]*\.vsix" \
@@ -55,10 +69,13 @@ if [ -z "$vsix_url" ]; then
   if [ -z "$vsix_url" ]; then
     assets="$(printf '%s\n' "$release_json" | grep -o 'codetour-[a-z0-9]*-[a-z0-9]*-[0-9][0-9.]*\.vsix' | sort -u || true)"
     if [ -n "$assets" ]; then
-      fail "The latest release $tag has no 'codetour-$target-*.vsix' asset. Available VSIX assets:
+      fail "Release $tag has no 'codetour-$target-*.vsix' asset. Available VSIX assets:
 $assets"
     fi
-    fail "The latest release $tag has no CodeTour VSIX asset. The Release workflow may still be building; retry in a few minutes."
+    if [ "$channel" = "beta" ]; then
+      fail "The newest release $tag carries no CodeTour VSIX asset yet; the Release workflow may still be building or the release has no assets at all. Retry in a few minutes, or pin one with CODETOUR_TAG=<tag>."
+    fi
+    fail "Release $tag has no CodeTour VSIX asset yet; the Release workflow may still be building. Retry in a few minutes."
   fi
 else
   tag="pinned URL override"

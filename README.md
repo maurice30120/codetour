@@ -19,6 +19,10 @@ Windows PowerShell:
 irm https://raw.githubusercontent.com/maurice30120/codetour/main/scripts/install-latest.ps1 | iex
 ```
 
+The `main` URL tracks the latest stable release. From the `beta` branch, the
+same command with `CODETOUR_CHANNEL=beta` (PowerShell: `$env:CODETOUR_CHANNEL`)
+also accepts pre-releases; `CODETOUR_TAG=<tag>` pins an exact release.
+
 CodeTour IA is a VS Code desktop extension for guided code walkthroughs. Create
 tours with an AI agent or record them yourself, then follow explanations anchored
 to the files they describe. Keep tours in your repository so the next developer

@@ -85,9 +85,12 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
   `scripts/install-latest.ps1` (Windows) install or update the extension with
   one command: they detect the packaging target, download the platform VSIX the
   Release workflow attached to the latest GitHub release and call
-  `code --install-extension`. `CODETOUR_VSIX_URL` pins an explicit VSIX and
-  `CODETOUR_REPO` serves forks. The README exposes both commands at the top
-  under *Install or update with one command*.
+  `code --install-extension`. `CODETOUR_TAG` pins an explicit release,
+  `CODETOUR_CHANNEL=beta` accepts pre-releases, `CODETOUR_VSIX_URL` pins an
+  explicit VSIX and `CODETOUR_REPO` serves forks. The README exposes both
+  commands at the top under *Install or update with one command*. Beta
+  releases are cut from the pushed `beta` branch and install through the same
+  script with `CODETOUR_CHANNEL=beta`.
 
 ### Changed
 

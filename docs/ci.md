@@ -14,7 +14,12 @@ release. Download the file matching your platform from the release's **Assets**
 section, then use **Extensions: Install from VSIX...** in VS Code. The
 README's *Install or update with one command* (`scripts/install-latest.sh`)
 wraps the same download and `code --install-extension` in a single terminal
-command.
+command. Marking a release as a pre-release keeps it out of `releases/latest`
+(a beta therefore never replaces a stable build in the default install path);
+opt into it with `CODETOUR_TAG=<tag>` or `CODETOUR_CHANNEL=beta`. Beta
+releases are cut from the pushed `beta` branch: fast-forward it to the commit
+to package before publishing the pre-release, so its raw URL serves the
+current script.
 
 To attach or rebuild files for an existing release, open **Actions > Release >
 Run workflow**, select `main` and enter that release's tag. This manual run only
