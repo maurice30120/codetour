@@ -33,8 +33,9 @@ The default renderer is the terminal: it opens a separate terminal window. `--re
 ### Start the MCP server with `codetour mcp`
 
 The same launcher starts the CodeTour MCP server, so an agent outside VS Code
-can create Project Tours and Changes Tours with the same two tools, validation
-and workspace confinement as the extension and the `codetour-mcp` npm package:
+can create Project Tours and Changes Tours and discover, read and save
+Knowledge with the same tools, validation and workspace confinement as the
+extension and the `codetour-mcp` npm package:
 
 ```sh
 cd /path/to/workspace
@@ -118,7 +119,10 @@ Execution can be blocked by macOS Gatekeeper, Windows security controls, or an e
 
 ## Validation status
 
-`npm run test:standalone` builds an artifact for the running host and tests Tour discovery and HTML output with the packaged runtime. It also launches `codetour mcp` through the packaged launcher with an MCP SDK client in a workspace that is not a Git repository, with a PATH that exposes no global Node executable on macOS: it performs the handshake, lists both tools, creates a Project Tour, verifies the produced files, and checks `--help`, `--version`, invalid arguments, inaccessible workspaces and stdin shutdown. The packager rejects an artifact whose CLI bundle exceeds the measured size budget or contains a second MCP server entry.
+`npm run test:standalone` builds an artifact for the running host and tests Tour discovery and HTML output with the packaged runtime. It also launches `codetour mcp` through the packaged launcher with an MCP SDK client in a workspace that is not a Git repository, with a PATH that exposes no global Node executable on macOS: it performs the handshake, lists every tool, creates a Project Tour, lists,
+reads and saves Knowledge and requests the enriched Project Tour prompt,
+verifies the produced files, and checks `--help`, `--version`, invalid
+arguments, inaccessible workspaces and stdin shutdown. The packager rejects an artifact whose CLI bundle exceeds the measured size budget or contains a second MCP server entry.
 
 On macOS it also runs the packaged terminal reader in a pseudo-terminal and checks that a Tour Step appears and the reader exits. This does not prove the graphical terminal window works, validate Copilot, or replace testing on a fresh machine without a global runtime and without admin access. Windows and both macOS architectures each need their own actual artifact and graphical smoke test before the POC packaging acceptance criterion is complete.
 

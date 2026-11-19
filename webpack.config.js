@@ -94,6 +94,17 @@ const mcpConfig = {
     "@resvg/resvg-js": RESVG_EXTERNAL,
     ...OPTIONAL_NATIVE_EXTERNALS
   },
+  // The embedded server uses the same shared Knowledge contract as the CLI
+  // bundle and the VS Code extension bundle.
+  resolve: {
+    extensions: [".ts", ".js", ".json"],
+    alias: {
+      "codetour-knowledge": path.resolve(
+        __dirname,
+        "packages/knowledge/dist/src/index.js"
+      )
+    }
+  },
   devtool: "source-map",
   output: {
     path: path.resolve(__dirname, "dist"),

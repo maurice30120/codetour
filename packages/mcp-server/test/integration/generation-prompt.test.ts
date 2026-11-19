@@ -59,9 +59,18 @@ function assertAnnouncementStep(text: string, persistenceClause: string): void {
   );
   const remainder =
     lineEnd === -1 ? "" : text.slice(lineEnd).trim();
+  // The served instructions end with the announcement. The composed
+  // prompts/get form may append, in this order, the orientation clause, the
+  // user's original request, the Knowledge catalogue projection and the
+  // decomposition method (spec #223).
+  const followUps = [
+    "## Tour orientation from the user",
+    "## The user's original request",
+    "## Knowledge catalogue (metadata only)",
+    "## Decomposition method",
+  ];
   assert.ok(
-    remainder === "" ||
-      remainder.startsWith("## Tour orientation from the user"),
+    remainder === "" || followUps.some((heading) => remainder.startsWith(heading)),
     "the announcement must be the final step of the served instructions"
   );
 }

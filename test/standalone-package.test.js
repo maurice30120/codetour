@@ -289,7 +289,13 @@ test("packaged codetour mcp creates a Project Tour in a non-Git workspace withou
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map(tool => tool.name).sort(),
-      ["create_changes_tour", "create_project_tour"]
+      [
+        "create_changes_tour",
+        "create_project_tour",
+        "knowledge_list",
+        "knowledge_read",
+        "knowledge_save",
+      ]
     );
     const response = await callTool(client, "create_project_tour", {
       title: "Standalone Tour",
@@ -306,6 +312,81 @@ test("packaged codetour mcp creates a Project Tour in a non-Git workspace withou
       [".tours", ".tours/project.tour"]
     );
     assert.equal(stderrChunks.join(""), "");
+  } finally {
+    await client.close();
+  }
+});
+
+test("packaged codetour mcp exposes the Knowledge tools and the enriched Project Tour prompt", async () => {
+  const workspace = path.join(shared.tmp, "knowledge mcp workspace");
+  fs.mkdirSync(workspace);
+  const cited = "export const start = 1;\n";
+  fs.writeFileSync(path.join(workspace, "main.ts"), cited);
+  const digest = crypto.createHash("sha256").update(cited).digest("hex");
+  const catalogue = path.join(workspace, ".tours", ".memory", "knowledge");
+  fs.mkdirSync(catalogue, { recursive: true });
+  fs.writeFileSync(path.join(catalogue, "packaged_flow.md"),
+    `---\nname: packaged_flow\ndescription: Read through the packaged MCP\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${digest}\n---\nPackaged MCP body.\n`);
+  fs.writeFileSync(path.join(catalogue, "packaged_stale.md"),
+    `---\nname: packaged_stale\ndescription: Cites changed bytes\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${"0".repeat(64)}\n---\nPackaged stale body.\n`);
+  const client = new Client(
+    { name: "standalone-knowledge-test-client", version: "0.0.0" },
+    { capabilities: {} }
+  );
+  const transport = new StdioClientTransport({
+    command: shared.launcher,
+    args: ["mcp"],
+    cwd: workspace,
+    env: restrictedEnv(),
+  });
+  await client.connect(transport);
+  try {
+    const listed = await callTool(client, "knowledge_list", {});
+    assert.equal(listed.isError, false, listed.text);
+    assert.equal(listed.structured.status, "ok");
+    assert.deepEqual(listed.structured.entries, [
+      { name: "packaged_flow", description: "Read through the packaged MCP" },
+      { name: "packaged_stale", description: "Cites changed bytes" },
+    ]);
+    assert.doesNotMatch(listed.text + JSON.stringify(listed.structured), /Packaged MCP body|Packaged stale body|sha256/);
+
+    const read = await callTool(client, "knowledge_read", { name: "packaged_flow" });
+    assert.equal(read.isError, false, read.text);
+    assert.equal(read.structured.status, "valid");
+    assert.equal(read.structured.body, "Packaged MCP body.\n");
+
+    const stale = await callTool(client, "knowledge_read", { name: "packaged_stale" });
+    assert.equal(stale.isError, false, stale.text);
+    assert.equal(stale.structured.status, "invalid");
+    assert.equal(stale.structured.reason, "file_hash_mismatch");
+    assert.doesNotMatch(stale.text + JSON.stringify(stale.structured), /Packaged stale body|main\.ts|0{64}/);
+
+    const created = await callTool(client, "knowledge_save", {
+      entries: [{
+        name: "packaged_saved",
+        description: "Saved through the packaged MCP",
+        body: "Packaged saved body.\n",
+        evidence: [{ path: "main.ts" }],
+      }],
+    });
+    assert.equal(created.isError, false, created.text);
+    assert.deepEqual(created.structured, { status: "created", workspace: ".", created: ["packaged_saved"] });
+    const reread = await callTool(client, "knowledge_read", { name: "packaged_saved" });
+    assert.equal(reread.structured.body, "Packaged saved body.\n");
+
+    const request = "Explique la distribution des appels d'outils.";
+    const prompt = await client.getPrompt({
+      name: "generate_project_tour",
+      arguments: { request },
+    });
+    const text = prompt.messages
+      .map(message => (typeof message.content === "string" ? message.content : message.content.text ?? ""))
+      .join("\n");
+    assert.equal(text.split(request).length - 1, 1, "the original request travels verbatim");
+    assert.ok(text.indexOf("## Knowledge catalogue") >= 0);
+    assert.ok(text.indexOf("## Knowledge catalogue") < text.indexOf("## Decomposition method"));
+    assert.ok(text.includes("packaged_flow"));
+    assert.ok(!text.includes("Packaged MCP body."));
   } finally {
     await client.close();
   }

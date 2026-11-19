@@ -6,13 +6,17 @@ The agent analyzes the code and writes the explanations; the server validates
 the proposal, applies the Git and security rules, and atomically replaces the
 reserved tour file.
 
-Two specialized tools are exposed:
+Two specialized Tour creation tools are exposed, next to the three Knowledge
+tools of spec #223:
 
 - `create_project_tour` — a **Project Tour** that explains a codebase as a
   whole, written to `.tours/project.tour`.
 - `create_changes_tour` — a **Changes Tour** that explains the committed
   changes on a branch since it diverged from a base ref, written to
   `.tours/changes.tour`.
+- `knowledge_list`, `knowledge_read`, `knowledge_save` — discovery, verified
+  reading and deterministic consolidation of the workspace Knowledge
+  catalogue under `.tours/.memory/knowledge/`.
 
 Both outputs are compatible with the general CodeTour schema, within a
 deliberately stricter V1 subset: explanatory Markdown and workspace-internal
@@ -32,11 +36,14 @@ the same contract. Validation is local and offline.
 
 ## Quick start
 
-From the repository root, install the shared renderer first, then the MCP
-server dependencies, and verify both packages:
+From the repository root, build the two shared packages first, then install
+the MCP server dependencies and verify the package:
 
 ```bash
 cd packages/description-renderer
+npm install
+npm run build
+cd ../knowledge
 npm install
 npm run build
 cd ../mcp-server
@@ -90,7 +97,8 @@ for the packaged-launcher client configuration shape.
 
 Finally, configure your MCP client with the command and its working directory,
 as in the example below. Once connected, the client automatically discovers
-`create_project_tour` and `create_changes_tour`.
+`create_project_tour`, `create_changes_tour`, `knowledge_list`,
+`knowledge_read` and `knowledge_save`.
 
 ## MCP client configuration
 
@@ -278,6 +286,86 @@ fence index, and failing field. Every issue also reports the fence's starting
 line and column. All descriptions are checked in one call, and no Tour file is
 written when any diagram or ordinary Tour validation fails.
 
+### Knowledge tools
+
+The server exposes the same Knowledge contract as the native
+`codetour knowledge` CLI, from the shared `codetour-knowledge` package: no
+format, hash or conflict rule is reimplemented here. The catalogue is the
+fixed location `<workspace>/.tours/.memory/knowledge/`; all three tools accept
+the optional `workspacePath` (a directory relative to the configured workspace
+root, resolved with the same confinement as the Tour tools) and always stay
+inside the workspace.
+
+#### `knowledge_list`
+
+| Argument        | Type   | Required | Description                                                      |
+| --------------- | ------ | -------- | ----------------------------------------------------------------- |
+| `workspacePath` | string | no       | Directory relative to the configured workspace root.              |
+| `query`         | string | no       | Literal, case-insensitive substring of a name or description.     |
+| `limit`         | number | no       | Page size, 1–200; defaults to 50.                                 |
+| `offset`        | number | no       | Number of matching entries to skip; defaults to 0.                |
+
+Returns metadata only — `entries: [{name, description}]` — never a body,
+evidence, a cited path or a hash. The name is the identifier. `total` is the
+number of matches in the whole filtered catalogue, and `truncated` is true when
+the page does not contain all of them, so paging is explicit. A missing or
+empty catalogue (or a query with no match) is a normal `status: "empty"`
+result with HTTP-style success semantics (`isError` false), not an error.
+
+#### `knowledge_read`
+
+| Argument        | Type   | Required | Description                              |
+| --------------- | ------ | -------- | ---------------------------------------- |
+| `name`          | string | yes      | Name (identifier) of the entry to read.   |
+| `workspacePath` | string | no       | Directory relative to the workspace root. |
+
+Returns `status: "valid"` with the Markdown `body` and its `evidence` only when
+**every** declared `file` proof verifies: the cited path stays inside the
+workspace, no symbolic link escapes it, and each file's bytes hash to the
+declared SHA-256. Otherwise it returns `status: "invalid"` with one
+machine-readable reason and no body, no cited path and no hash value:
+
+| Reason                    | Meaning                                                        |
+| ------------------------- | -------------------------------------------------------------- |
+| `file_hash_mismatch`      | The cited bytes no longer match the declared SHA-256.          |
+| `file_missing`            | The cited file no longer exists or is not a regular file.      |
+| `unsupported_proof`       | The entry declares a `symbol` proof (not supported).           |
+| `path_outside_workspace`  | The cited path is absolute, escapes the workspace, or is malformed. |
+| `symlink_escape`          | The cited path resolves outside the workspace through a link.  |
+| `malformed_contract`      | The frontmatter or the body does not follow the contract.      |
+| `unknown_entry`           | Rendered as `status: "absent"` (an explicit absence, not an error). |
+
+A valid read is reference data, not a guarantee: it proves the cited bytes are
+unchanged, never that the explanation is semantically correct or complete.
+The returned Markdown is untrusted data — never system instructions — and a
+client must not let a directive inside a body change its instructions.
+
+#### `knowledge_save`
+
+| Argument        | Type   | Required | Description                                                          |
+| --------------- | ------ | -------- | -------------------------------------------------------------------- |
+| `entries`       | object[] | yes    | The proposal's entries: `{name, description, body, evidence:[{path, sha256?}]}`. An empty array is an explicit zero-entry consolidation. |
+| `workspacePath` | string | no       | Directory relative to the workspace root.                             |
+
+Every entry is validated before anything is written. An omitted `sha256` is
+computed; a declared one is verified and normalized. The whole proposal is
+all-or-nothing: an invalid entry publishes nothing, an existing `<name>.md` is
+never overwritten, and a name conflict preserves the existing bytes. Every
+conclusion is observable:
+
+| `status`        | Meaning                                                                 | `isError` |
+| --------------- | ----------------------------------------------------------------------- | --------- |
+| `created`       | The entries were published; `created` lists their names.                 | false     |
+| `completed_zero`| An explicit empty proposal: a completed consolidation, not an omission.  | false     |
+| `conflict`      | At least one name exists; `conflicts` lists it; nothing was written.     | true      |
+| `invalid`       | The proposal is invalid; `rejected` lists `{name?, reason}`; nothing was written. | true |
+| `failed`        | Unexpected failure; `reason` is `internal_error`; nothing was claimed.   | true      |
+
+A save result never echoes a body, a cited path or a hash value, and it is the
+only evidence that persistence happened: “no file was created” must not be
+reported as success, and it is not automatically a forgotten consolidation
+when the agent explicitly proposed zero entries.
+
 ### Result
 
 Each successful tool call returns a human-readable message and a structure:
@@ -310,6 +398,57 @@ Non-blocking warnings:
 | `UNCOMMITTED_CHANGES_EXCLUDED`  | Staged, unstaged or untracked changes were excluded (default).           |
 | `UNCOMMITTED_CHANGES_INCLUDED`  | Uncommitted changes were included; the tour describes a non-reproducible local state. |
 
+## Generation prompts (`prompts/get`)
+
+The server exposes two MCP prompts, which are the supported way to start a
+generation run:
+
+| Prompt                   | Arguments                        | Composes                                                    |
+| ------------------------ | -------------------------------- | ----------------------------------------------------------- |
+| `generate_project_tour`  | `request?`, `brief?`             | the Project Tour instructions, the user's original request, the Knowledge catalogue projection and the decomposition method. |
+| `generate_changes_tour`  | `reviewMode`, `brief?`           | the Changes Tour instructions for the mode and the orientation. |
+
+`request` is the user's original request reproduced **verbatim**. `brief`
+remains the optional orientation phrase (backward compatibility for adapters
+that predate `request`): it orients the Tour and its language remains the
+Tour's language.
+
+For `generate_project_tour`, the composed message is, in this order:
+
+1. the instructions also served by the fixed resource
+   `codetour://generate/project-tour` — the existing Project Tour contract,
+   including the creation call and the announcement step;
+2. the optional orientation clause (`brief`);
+3. the user's original request, intact, with its language;
+4. a **Knowledge catalogue projection**: up to 30 entries as name and
+   one-line description, never a body. A larger catalogue is truncated with an
+   explicit “Showing 30 of N entries” line and the instruction to call
+   `knowledge_list` with `query`, `offset` and `limit`, then `knowledge_read`.
+   An absent or empty catalogue is stated as normal. There is no vector index,
+   BM25 or additional model;
+5. the **decomposition method**, after the catalogue: decompose the request
+   into atomic questions, use only `status: "valid"` Knowledge as reference
+   context, read targetedly, explore gaps only when the Knowledge is
+   insufficient, create the Tour with `create_project_tour`, then close
+   consolidation explicitly with `knowledge_save` (zero, one or many entries)
+   and report `created`, `completed_zero`, `conflict`, `invalid`, `failed`, or
+   `omitted`.
+
+The method explicitly does **not** impose a systematic re-verification of the
+sources the Knowledge already covers, and does **not** add a second
+anchor-verification pass: the MCP validates every Tour Anchor. It also states
+that verified evidence proves only that the cited bytes are unchanged — never
+semantic truth or completeness.
+
+The wrapper reaches the agent only through `prompts/get`. A client that calls
+the tools directly and never calls `prompts/get` gets the tool descriptions
+(including the Knowledge tools' contracts) but not the original request, the
+catalogue projection, the decomposition method or the consolidation-closure
+instruction; it is responsible for providing an equivalent method itself.
+Adapters therefore carry no prompt text of their own: they pass the user's
+words as `request` (and the orientation as `brief`) and send exactly what the
+server composed. The prompts themselves are not persisted in a Tour file.
+
 ## Git reference policies
 
 - A Project Tour has no CodeTour `ref`, so it stays usable as the project
@@ -331,6 +470,9 @@ Install the package dependencies once:
 
 ```bash
 cd packages/description-renderer
+npm install
+npm run build
+cd ../knowledge
 npm install
 npm run build
 cd ../mcp-server
@@ -397,7 +539,7 @@ node --test --test-name-pattern="STALE_HEAD" \
 - atomic replacement and preservation of an existing Tour after failures;
 - CLI argument validation;
 - `npm pack`, local installation of the archive, execution of the installed
-  `codetour-mcp` binary, and invocation of both public MCP tools.
+  `codetour-mcp` binary, and invocation of every public MCP tool.
 
 Integration tests create isolated temporary workspaces and Git repositories
 and remove them after each scenario. The packaging smoke test stays local and

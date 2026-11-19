@@ -17,10 +17,11 @@ const targets = {
 
 // Measured standalone budget for dist/cli.js. The bundle carried the reader
 // at 5,948,925 bytes; embedding the shared MCP entry (SDK, validation and
-// their dependencies) measured 6,855,754 bytes, so the budget leaves a finite
+// their dependencies) measured 6,855,754 bytes; embedding the shared Knowledge
+// contract (spec #223) measured 7,977,595 bytes, so the budget leaves a finite
 // margin above the measured size instead of growing unbounded. Update it with
 // a new measurement when the bundle intentionally grows.
-const MAX_CLI_BUNDLE_BYTES = 8_000_000;
+const MAX_CLI_BUNDLE_BYTES = 8_500_000;
 
 // The MCP server entry must ship exactly once, inside dist/cli.js. The usage
 // banner is the marker: it appears once per copy of the shared entry.
