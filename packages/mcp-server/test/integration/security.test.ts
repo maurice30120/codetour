@@ -83,6 +83,7 @@ test("exposes exactly the two Tour tools and the four Knowledge tools", async ()
       assert.deepEqual(names, [
         "create_changes_tour",
         "create_project_tour",
+        "get_generation_prompt",
         "knowledge_close_run",
         "knowledge_list",
         "knowledge_read",

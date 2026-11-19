@@ -101,6 +101,12 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
   `~/.copilot/skills/codetour-knowledge/` directory an older CLI wrote, so no
   second CodeTour guidance loads next to the plugin; the `codetour knowledge`
   CLI commands stay. See the update to ADR 0039.
+- The Changes Tour contract now rejects a proposal that anchors no modified file
+  with `MISSING_CHANGED_FILE_ANCHOR` instead of returning an advisory warning,
+  so a tour can no longer describe a change set without pointing at it;
+  deletion-only branches stay valid, and the error names anchorable files. The
+  served prompts and tool descriptions also give literal anchor-pattern
+  examples and state that ambiguous or invalid expressions are rejected.
 - MCP Knowledge discovery verifies before it serves: `knowledge_list` and the
   `prompts/get` catalogue projection run the same evidence verification as
   `knowledge_read`, list only verified contracts as entries, and return every
@@ -129,6 +135,11 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Fixed
 
+- A served generation prompt always states the run-identity contract: when no
+  adapter identity exists, it says `runId` is optional and must be omitted
+  rather than sent empty, and that consolidation closes through
+  `knowledge_save` with an empty `entries` array. The Tour and Knowledge tools
+  treat a blank `runId` as absent instead of rejecting it.
 - Refused Project and Changes Tour creations report what the diagram engine
   itself failed on: the Mermaid validation diagnostic carries the engine's
   parse message — whitespace-collapsed and excerpt-bounded next to the source

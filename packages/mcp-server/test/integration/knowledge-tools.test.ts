@@ -406,6 +406,19 @@ test("knowledge_save and knowledge_read accept a hyphenated Knowledge name", asy
   }
 });
 
+test("knowledge_save treats a blank runId as no run instead of rejecting it", async () => {
+  const root = tempDir("codetour-knowledge-blank-run-");
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, KNOWLEDGE_SAVE, { entries: [], runId: "" });
+      assert.equal(response.isError, false, response.text);
+      assert.equal((response.structured as { status: string }).status, "completed_zero");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("knowledge_save reports an explicit zero-entry proposal as completed_zero", async () => {
   const root = tempDir("codetour-knowledge-zero-");
   try {
@@ -523,6 +536,7 @@ test("the Knowledge tools work without any API key or Research Harness", async (
         assert.deepEqual(tools, [
           "create_changes_tour",
           "create_project_tour",
+          "get_generation_prompt",
           "knowledge_close_run",
           "knowledge_list",
           "knowledge_read",

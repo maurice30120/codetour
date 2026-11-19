@@ -67,6 +67,7 @@ function assertAnnouncementStep(text: string, persistenceClause: string): void {
   const followUps = [
     "## Tour orientation from the user",
     "## The user's original request",
+    "## Run identity",
     "## Knowledge catalogue (metadata only)",
     "## Decomposition method",
   ];
@@ -126,6 +127,12 @@ test("tool guidance gives a valid Mermaid example and Knowledge name rule", asyn
       assert.ok(example, "the project tool supplies an edge-label example");
       await renderMermaidDiagram(`flowchart LR\n${example[1]}`, "light");
       assert.match(save.description, /knowledge-lecture-verifiee/);
+      assert.match(
+        project.description,
+        /pattern: "export function createServer"/,
+        "the project tool supplies a simple literal anchor-pattern example"
+      );
+      assert.match(project.description, /metacharacters/);
     });
   } finally {
     rmrf(root);
@@ -165,6 +172,14 @@ test("serves the Project Tour generation prompt resource", async () => {
       assert.ok(
         text.includes("guess"),
         "the prompt warns against guessed line numbers"
+      );
+      assert.ok(
+        text.includes('pattern: "export function createServer"'),
+        "the prompt supplies a simple literal anchor-pattern example"
+      );
+      assert.ok(
+        text.includes("metacharacters"),
+        "the prompt explains when to escape a literal pattern"
       );
       // The prompt ends with the announcement step for the created tour.
       assertAnnouncementStep(text, "dryRun omitted to persist");
@@ -235,6 +250,14 @@ test("serves the neutral Changes Tour generation prompt", async () => {
       assert.ok(
         text.includes("guess"),
         "the prompt warns against guessed line numbers"
+      );
+      assert.ok(
+        text.includes("MISSING_CHANGED_FILE_ANCHOR"),
+        "the prompt states that a changed-file anchor is mandatory"
+      );
+      assert.ok(
+        text.includes('pattern: "export function createServer"'),
+        "the prompt supplies a simple literal anchor-pattern example"
       );
       // The prompt ends with the announcement step for the created tour.
       assertAnnouncementStep(text, "dryRun omitted to persist");
@@ -495,6 +518,31 @@ test("keeps the composed instructions English while carrying a French brief verb
         text.replace(brief, ""),
         "the composed Project Tour instructions"
       );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("get_generation_prompt serves the same prompt as prompts/get for hosts without prompts/get", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const args = { reviewMode: "critical", request: "Revue de la MR 9" };
+      const viaPrompt = promptText(
+        (await client.getPrompt({ name: GENERATE_CHANGES_TOUR_PROMPT_NAME, arguments: args })).messages
+      );
+      const result = (await client.callTool({
+        name: "get_generation_prompt",
+        arguments: { type: "changes", ...args },
+      })) as { content: Array<{ type: string; text: string }> };
+      assert.strictEqual(result.content[0].text, viaPrompt);
+
+      const project = (await client.callTool({
+        name: "get_generation_prompt",
+        arguments: { type: "project" },
+      })) as { content: Array<{ type: string; text: string }> };
+      assert.ok(project.content[0].text.includes("create_project_tour"));
     });
   } finally {
     rmrf(root);

@@ -84,7 +84,7 @@ function hookDecision(root: string, sessionId: string): Record<string, unknown> 
   return JSON.parse(result.stdout);
 }
 
-test("prompts/get embeds the run identity only when the adapter supplies one", async () => {
+test("prompts/get states the run identity, or that it is optional when absent", async () => {
   const root = tempDir("codetour-run-prompt-");
   try {
     await withServer(root, async (client) => {
@@ -107,7 +107,10 @@ test("prompts/get embeds the run identity only when the adapter supplies one", a
         const content = message.content as { text?: string };
         return typeof message.content === "string" ? message.content : content.text ?? "";
       }).join("\n");
-      assert.ok(!plain.includes("## Run identity"));
+      assert.ok(plain.includes("## Run identity (optional)"));
+      assert.ok(plain.includes("omit it"));
+      assert.ok(plain.includes("never pass an empty string"));
+      assert.ok(!plain.includes(`Run identity: \``));
     });
   } finally {
     rmrf(root);
@@ -440,6 +443,29 @@ test("a malformed runId is refused without writing a run log", async () => {
       });
       assert.equal(created.isError, true);
       assert.match(created.text, /runId/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("a blank runId is treated as absent instead of invalid", async () => {
+  const root = tempDir("codetour-run-blank-");
+  try {
+    writeFile(root, "hello.txt", "hello\n");
+    await withServer(root, async (client) => {
+      const created = await callTool(client, "create_project_tour", {
+        runId: "   ",
+        steps: [{ file: "hello.txt", description: "Anchored step." }]
+      });
+      assert.equal(created.isError, false, created.text);
+      assert.equal(created.structured.runId, undefined);
+      const saved = await callTool(client, "knowledge_save", {
+        runId: "",
+        entries: []
+      });
+      assert.equal(saved.isError, false, saved.text);
+      assert.ok(!fs.existsSync(path.join(root, RUN_LOG_DIRECTORY)));
     });
   } finally {
     rmrf(root);

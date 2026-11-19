@@ -240,10 +240,14 @@ A committed-only Changes Tour is reproducible: the resolved merge-base SHA is
 persisted in `baseRef` and the analyzed head SHA in `ref`. File steps are
 automatically marked with `display: "diff"` so VS Code opens the Git diff
 between the two commits; added files have an empty left side, and renamed files
-record the original path in `baseFile`. Deleted files must be explained by
-steps without a locator. When `includeUncommittedChanges: true` actually
-includes local changes, anchors are checked against the current workspace, the
-tour has no `ref`, and file steps open the current files.
+record the original path in `baseFile`. At least one step must anchor a file
+that the comparison modified and that still exists in the analyzed snapshot;
+the server rejects a proposal without one (`MISSING_CHANGED_FILE_ANCHOR`).
+Deleted files must be explained by steps without a locator, and a
+deletion-only branch is exempt because it has no anchorable changed file.
+When `includeUncommittedChanges: true` actually includes local changes,
+anchors are checked against the current workspace, the tour has no `ref`, and
+file steps open the current files.
 
 ### Steps
 
@@ -254,7 +258,7 @@ tour has no `ref`, and file steps open the current files.
 | `file`        | string | Workspace-relative path; at most one of `file`/`directory` per step.         |
 | `directory`   | string | Workspace-relative path; use for structural overview steps and at most one of `file`/`directory` per step. |
 | `line`        | number | 1-based line; only valid with `file`, mutually exclusive with `pattern`.     |
-| `pattern`     | string | Regular expression matching exactly one occurrence; only valid with `file`.  |
+| `pattern`     | string | Regular expression matching exactly one occurrence; only valid with `file`. Prefer a short literal substring copied from the file, escaping regex metacharacters when present. |
 | `selection`   | object | `{ start: {line, character}, end: {line, character} }`, 1-based; only valid with `file`. |
 | `baseFile`    | string | Workspace-relative path of the file at `baseRef` when it was renamed; `file` is the path at `ref`. Requires `file`. |
 | `display`     | string | `"diff"`: open the Git diff between `baseRef` and `ref`. Requires `file`. |
@@ -415,6 +419,7 @@ of these codes:
 | `STALE_HEAD`               | `headRef` does not match the current `HEAD`.                      |
 | `INVALID_BASE_REF`         | The merge-base between `baseRef` and `headRef` cannot be computed. |
 | `NO_CHANGES`               | No committed changes between the merge-base and `headRef`; the previous tour file is preserved. |
+| `MISSING_CHANGED_FILE_ANCHOR` | At least one changed file still exists in the analyzed snapshot, but no step anchors it with `file` plus `line` or `pattern`; deletion-only changes are exempt. The previous tour file is preserved. |
 | `INVALID_RUN_ID`           | The supplied `runId` is not a valid CodeTour generation identity (8–64 characters from `A-Z`, `a-z`, `0-9`, `_` and `-`). |
 | `SCHEMA_VALIDATION_FAILED` | Internal: the generated tour did not validate against the CodeTour schema. |
 | `OUTPUT_PATH_ESCAPES_WORKSPACE` | The output directory resolves outside the workspace root. |
@@ -425,7 +430,6 @@ Non-blocking warnings:
 | Code                            | Meaning                                                                  |
 | ------------------------------- | ------------------------------------------------------------------------ |
 | `STEP_LIMIT_EXCEEDED`           | The tour has more than fifteen steps.                                    |
-| `NO_CHANGED_FILE_ANCHOR`        | No step anchors a file modified by the changes.                          |
 | `UNCOMMITTED_CHANGES_EXCLUDED`  | Staged, unstaged or untracked changes were excluded (default).           |
 | `UNCOMMITTED_CHANGES_INCLUDED`  | Uncommitted changes were included; the tour describes a non-reproducible local state. |
 
@@ -439,6 +443,12 @@ generation run:
 | `generate_project_tour`  | `request?`, `brief?`, `runId?`   | the Project Tour instructions, the user's actual demand, the run identity, the Knowledge catalogue projection and the decomposition method. |
 | `generate_changes_tour`  | `reviewMode`, `request?`, `brief?`, `runId?` | the Changes Tour instructions for the mode, the user's actual demand, the orientation and the run identity. |
 
+Hosts that do not expose `prompts/get` to the agent serve the same text through
+the `get_generation_prompt` tool (`type: "project" | "changes"`, plus the same
+optional arguments). Its `runId` is optional and normally absent: when absent,
+the returned prompt states that the identity is optional and that it must be
+omitted, never sent as an empty string.
+
 `request` is the user's actual demand reproduced **verbatim**: the controlled
 adapter strips the `/codetour`, `generate`, type and review-mode prefix and
 passes only the words the user wrote, for both Tour types, and omits the
@@ -449,7 +459,10 @@ so an adapter that only used `brief` keeps working unchanged. `runId` is the
 controlled adapter's generation identity; when present the prompt states it
 and tells the agent to pass it to `create_project_tour` and `knowledge_save`
 (or `knowledge_close_run`), which is what lets the MCP persist the
-server-written run trace.
+server-written run trace. When no identity is supplied — the normal case for
+an agent calling `get_generation_prompt` directly — the prompt states that
+`runId` is optional, that it must be omitted rather than sent empty, and that
+consolidation closes through `knowledge_save` with an empty `entries` array.
 
 For `generate_changes_tour`, the composed message is, in this order: the
 Changes Tour instructions for the mode (including the embedded review
@@ -463,8 +476,8 @@ For `generate_project_tour`, the composed message is, in this order:
    including the creation call and the announcement step;
 2. the optional orientation clause (`brief`);
 3. the user's original request, intact, with its language;
-4. the **run identity** section when `runId` is present (absent for direct
-   clients, which keeps the previous behavior);
+4. the **run identity** section: the identity when `runId` is present, or an
+   explicit optional-identity notice telling the agent to omit it otherwise;
 5. a **Knowledge catalogue projection**: up to 30 entries as name and
    one-line description, never a body. A larger catalogue is truncated with an
    explicit “Showing 30 of N entries” line and the instruction to call

@@ -255,10 +255,12 @@ function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
   }
   // The generation run identity is opaque to the Tour: the adapters and the
   // MCP run log own its format. It is validated only as a non-empty string so
-  // a malformed value cannot reach the run log as a path component.
+  // a malformed value cannot reach the run log as a path component. A blank
+  // value is treated as absent, never as an invalid identity: hosts serving
+  // `get_generation_prompt` have no adapter identity to pass.
   const runId = isOptionalString(raw, "runId", "runId", issues);
-  if (runId !== undefined) {
-    params.runId = runId;
+  if (runId !== undefined && runId.trim() !== "") {
+    params.runId = runId.trim();
   }
   const title = isOptionalString(raw, "title", "title", issues);
   if (title !== undefined) {
@@ -529,7 +531,10 @@ function validateStep(
     } catch (error) {
       issues.push({
         path: `${base}.pattern`,
-        message: `is not a valid regular expression: ${(error as Error).message}`,
+        message:
+          `is not a valid regular expression: ${(error as Error).message}; ` +
+          "prefer a short literal substring copied from the file and escape " +
+          "regular-expression metacharacters such as `(`, `)`, `.`, `[`, `]`, `*`, `+`, `?`, `|`, `^`, `$`, `{` and `}`",
       });
       regex = undefined as unknown as RegExp;
     }
@@ -537,14 +542,16 @@ function validateStep(
       if (!safeRegex(regex)) {
         issues.push({
           path: `${base}.pattern`,
-          message: "may cause excessive backtracking and is not allowed",
+          message: "may cause excessive backtracking and is not allowed; use a short literal substring instead",
         });
       } else {
         const matches = fileContent.match(new RegExp(regex.source, "g")) ?? [];
         if (matches.length !== 1) {
           issues.push({
             path: `${base}.pattern`,
-            message: `must match exactly one occurrence in the file (matched ${matches.length})`,
+            message:
+              `must match exactly one occurrence in the file (matched ${matches.length}); ` +
+              "use a longer substring copied verbatim from the file, or a verified line",
           });
         }
       }

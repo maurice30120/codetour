@@ -4,6 +4,7 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import * as fs from "fs";
 import * as path from "path";
 import {
   isValidRunId,
@@ -22,6 +23,7 @@ import {
   isGitRepository,
   mergeBase,
   normalizeSlashes,
+  readCommitAnchors,
   resolveCommit,
   uncommittedChanges,
   workspacePrefix,
@@ -206,15 +208,37 @@ function originalRequestSection(request: string | undefined): string {
   ].join("\n");
 }
 
+// A blank runId means "no run": get_generation_prompt serves no identity (only
+// the controlled adapter creates one), and agents often pass an empty string.
+function withoutBlankRunId<T extends { runId?: unknown }>(params: T): T {
+  return typeof params.runId === "string" && !params.runId.trim()
+    ? { ...params, runId: undefined }
+    : params;
+}
+
 // The run identity section names the CodeTour generation this prompt belongs
 // to. The identity is created by the controlled adapter and written to
 // `.tours/.log/` before the agent is contacted; passing it back to the MCP
 // creation and consolidation tools is what lets the server record the two
-// authenticated outcomes under the same run. Direct clients that do not use
-// the wrapper receive no run identity and keep the previous behavior.
+// authenticated outcomes under the same run. Direct clients and hosts that
+// call `get_generation_prompt` receive no identity: the section then says so
+// explicitly, because an agent that assumes an identity exists tends to send
+// an empty `runId`, which is never valid.
 function runIdentitySection(runId: string | undefined): string {
   const raw = typeof runId === "string" ? runId.trim() : "";
-  if (!raw) return "";
+  if (!raw) {
+    return [
+      "## Run identity (optional)",
+      "",
+      "This run has no adapter-generated identity. `runId` is optional and " +
+        "absent here: omit it from the creation tool and from " +
+        "`knowledge_save`, and never pass an empty string. Without an identity, " +
+        "close consolidation with `knowledge_save` and an empty `entries` array " +
+        "when nothing durable qualified, instead of `knowledge_close_run` " +
+        "(which requires a `runId`).",
+      "",
+    ].join("\n");
+  }
   return [
     "## Run identity",
     "",
@@ -256,6 +280,20 @@ const MARKDOWN_WRITING_GUIDANCE =
   "blank lines so they remain readable in the narrow editor comment panel. " +
   "keep each explanation concise and tied to the current Tour Anchor. Do not add " +
   "structure mechanically: a short, single-purpose description may remain one paragraph. ";
+
+// Anchor patterns are the most common source of rejected proposals: agents
+// compose regular expressions by hand instead of copying one line. The guidance
+// below keeps the pattern literal and tells the agent what the validator
+// rejects; it is repeated in the served prompts because that text is what the
+// agent follows at generation time.
+const SIMPLE_ANCHOR_GUIDANCE =
+  "Prefer a short, literal pattern copied from one line and unique in the file, " +
+  "for example `pattern: \"export function createServer\"` or " +
+  "`pattern: \"const MAX_RECOMMENDED_STEPS = 15\"`. Do not compose alternations, " +
+  "lookarounds or long regular expressions. If the copied text contains regular-expression " +
+  "metacharacters such as `(`, `)`, `.`, `[`, `]`, `*`, `+`, `?`, `|`, `^`, `$`, `{` or `}`, " +
+  "escape them. Otherwise use a `line` you verified in the analyzed snapshot, or a `selection`. " +
+  "A pattern that does not compile, or that matches zero or several occurrences, is rejected. ";
 
 const PROJECT_TOUR_WORKFLOW_GUIDANCE =
   "Recommended workflow: (1) explore the codebase before writing — read the entry points and the " +
@@ -323,6 +361,25 @@ const REVIEW_MODE_GUIDANCE =
   "you want: a client driving an interactive user decides the mode before the analysis starts, " +
   "and callers invoking the tool directly keep the neutral default. ";
 
+const GET_GENERATION_PROMPT_TOOL = "get_generation_prompt";
+const GET_GENERATION_PROMPT_DESCRIPTION =
+  "Return the CodeTour generation prompt for one run: the same text as the " +
+  "generate_project_tour and generate_changes_tour MCP prompts, for hosts where " +
+  "prompts/get cannot be called by the agent. Call it first, then follow the " +
+  "returned prompt exactly. Call it once per run: the next call is the creation " +
+  "tool, reusing the runId (if any) and the exact parameters the prompt states, " +
+  "with no new tool search. Pass type \"project\" or \"changes\"; for \"changes\" " +
+  "pass the reviewMode the user chose and the user's request verbatim. `runId` " +
+  "is optional: this tool usually serves no adapter-generated identity, so omit " +
+  "it and never pass an empty string.";
+
+// Tool descriptions are always in the agent's context, even when the tool is
+// called directly without the served prompt, so the language rule lives here too.
+const TOUR_LANGUAGE_GUIDANCE =
+  "Language: write the title, the description and every step description in the " +
+  "language the user writes in (their request, or otherwise the conversation), " +
+  "not in the language of this tool description, the code or the commit messages. ";
+
 const PROJECT_TOUR_DESCRIPTION =
   "Create a CodeTour guided walkthrough for understanding a codebase. Use this tool for onboarding " +
   "or explaining the project's architecture and execution flows. Read the relevant source before " +
@@ -344,6 +401,7 @@ const PROJECT_TOUR_DESCRIPTION =
   "(a regular expression matching exactly once in the file), or selection (start/end positions " +
   "with 1-based line and character). line and pattern are mutually exclusive. Prefer a short, " +
   "stable pattern when it identifies the intended code reliably; otherwise use a verified line. " +
+  SIMPLE_ANCHOR_GUIDANCE +
   "Project Tours use ordinary file navigation and anchors are checked against the current workspace. " +
   "You author the complete content; the server validates it and atomically writes the tour file, " +
   "replacing the previous file at that destination only on success. Validation issues are returned together; " +
@@ -353,6 +411,7 @@ const PROJECT_TOUR_DESCRIPTION =
   "the proposal is valid. " +
   "Optional workspacePath selects a directory relative to the configured workspace root for this call. " +
   "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. " +
+  TOUR_LANGUAGE_GUIDANCE +
   MARKDOWN_WRITING_GUIDANCE +
   MERMAID_TOOL_GUIDANCE +
   IMAGE_TOOL_GUIDANCE;
@@ -386,7 +445,12 @@ const CHANGES_TOUR_DESCRIPTION =
   "locator: file or directory. File steps may use line (1-based), pattern (a regular expression " +
   "matching exactly once), or selection (start/end positions with 1-based line and character). " +
   "line and pattern are mutually exclusive. Prefer a short, stable pattern identifying the discussed " +
-  "change; otherwise use a verified line in headRef. Explain deleted files with no-locator steps. " +
+  "change; otherwise use a verified line in headRef. " +
+  SIMPLE_ANCHOR_GUIDANCE +
+  "At least one step must anchor a file modified by the comparison when such a file still exists " +
+  "in the analyzed snapshot; a proposal without one is rejected with MISSING_CHANGED_FILE_ANCHOR. " +
+  "Changes that only delete files are exempt. " +
+  "Explain deleted files with no-locator steps. " +
   "For committed-only tours, anchors are validated against headRef, the persisted baseRef is the " +
   "resolved merge-base SHA, and ref is headRef. The server marks file steps with display: \"diff\"; " +
   "directory and no-locator steps retain ordinary navigation. New files have an empty original side. " +
@@ -408,6 +472,7 @@ const CHANGES_TOUR_DESCRIPTION =
   "with the same warnings, and no file is written even when the proposal is valid. " +
   "Optional workspacePath selects a repository or subdirectory relative to the configured workspace root for this call. " +
   "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. " +
+  TOUR_LANGUAGE_GUIDANCE +
   MARKDOWN_WRITING_GUIDANCE +
   MERMAID_TOOL_GUIDANCE +
   IMAGE_TOOL_GUIDANCE;
@@ -633,7 +698,7 @@ const KNOWLEDGE_SAVE_DESCRIPTION =
   "(a completed consolidation, not a forgotten one), \"conflict\" lists the " +
   "existing names, \"invalid\" lists the rejections, and \"failed\" reports an " +
   "unexpected failure. Never claim persistence that this result does not " +
-  "report.";
+  "report. runId is optional: omit it when no run identity was given to you. Write each entry's description and body in the user's language.";
 
 const KNOWLEDGE_CLOSE_RUN_DESCRIPTION =
   "Close one CodeTour generation run without a Knowledge proposal. Use it " +
@@ -671,6 +736,39 @@ const ANNOUNCEMENT_STEP =
 // Project Tour generation prompt served by the PROJECT_TOUR_PROMPT_RESOURCE_URI
 // resource. It addresses the host agent and cites the tool; it never mentions
 // a review mode, which only exists for Changes Tours.
+// Language rule shared by both builders. It holds even without a request or
+// brief, so the Tour never falls back to the language of the code or prompt.
+// Shared anchor-pattern step. The validator rejects an invalid or ambiguous
+// pattern; stating the simple form here prevents the agent from composing a
+// complex expression that fails on the first call.
+const ANCHOR_PATTERN_STEP = `- Anchor patterns: ${SIMPLE_ANCHOR_GUIDANCE.trim()}`;
+
+const LANGUAGE_STEP =
+  "- Language: write the Tour-level description, every step description and " +
+  "any Knowledge entry in the language the user writes in (their request, or " +
+  "otherwise the conversation). Never switch to the language of this prompt, " +
+  "the code or the commit messages.";
+
+// Shared consolidation step: tells the agent which facts deserve a Knowledge
+// entry and requires a stated reason when none is kept.
+const CONSOLIDATION_STEP =
+  "- After the tour is created, consolidate with `knowledge_save` (or " +
+  "`knowledge_close_run` only if the run is deliberately skipped). Save only " +
+  "durable facts: invariants, architecture or conventions that stay true beyond " +
+  "this tour and that you verified in the code. Do not save details specific to " +
+  "this tour or diff (its narrative, step order, one-off change description). " +
+  "When you keep no entry, pass an empty `entries` array and state in one " +
+  "sentence why nothing durable qualified.";
+
+// Changes Tours are anchored on the local Git comparison. The request origin
+// (pull or merge request) is only known if the user supplies it.
+const CHANGE_REQUEST_CONTEXT_STEP =
+  "- The tour is based on the local Git comparison. To frame the intent, read " +
+  "the pull/merge request with the CLI matching the remote host if installed " +
+  "(`gh` for GitHub, `glab` for GitLab), or use the PR/MR link, title or " +
+  "description the user gave. If none is available, state that no request " +
+  "context was found and do not invent a title or goal.";
+
 function projectTourGenerationPrompt(): string {
   return [
     "# CodeTour Project Tour generation prompt",
@@ -690,6 +788,7 @@ function projectTourGenerationPrompt(): string {
       "locator for general context). Anchor with a short, stable pattern, or a line " +
       "you have verified in the analyzed head snapshot, rather than a guessed line " +
       "number, so the anchor survives edits.",
+    ANCHOR_PATTERN_STEP,
     "- Create the tour with the `create_project_tour` tool with dryRun omitted to persist. " +
       "Validation runs before writing; correct reported issues and retry. Use dryRun true " +
       "only when validation without writing is needed.",
@@ -701,6 +800,8 @@ function projectTourGenerationPrompt(): string {
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_project_tour` tool " +
       "description.",
+    LANGUAGE_STEP,
+    CONSOLIDATION_STEP,
     ANNOUNCEMENT_STEP,
     "",
   ].join("\n");
@@ -739,6 +840,11 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
       "implemented, and its observable behavioral effect. Anchor with a short, " +
       "stable pattern, or a line you have verified in the analyzed head snapshot, " +
       "rather than a guessed line number, so the anchor survives later edits.",
+    "- At least one step must anchor a file modified by the comparison when such a " +
+      "file still exists in the analyzed snapshot; a proposal without one is " +
+      "rejected with MISSING_CHANGED_FILE_ANCHOR. Changes that only delete files are " +
+      "exempt, and deleted files are explained with no-locator steps.",
+    ANCHOR_PATTERN_STEP,
     "- Create the tour with the `create_changes_tour` tool with dryRun omitted to persist. " +
       "Validation runs before writing; correct reported issues and retry. Use dryRun true " +
       "only when validation without writing is needed.",
@@ -750,6 +856,9 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
       "`.tours/<fileName>.tour` when a bare `fileName` is supplied. The full input " +
       "contract and writing guidance are part of the `create_changes_tour` tool " +
       "description.",
+    CHANGE_REQUEST_CONTEXT_STEP,
+    LANGUAGE_STEP,
+    CONSOLIDATION_STEP,
     ...(reviewMode === "critical"
       ? ["", "## Embedded review instructions", "", criticalReviewSkillPack()]
       : []),
@@ -844,6 +953,55 @@ export function createServer(workspaceRoot: string): McpServer {
     }
   );
 
+  const composeProjectPrompt = async (
+    request: string | undefined,
+    brief: string | undefined,
+    runId: string | undefined
+  ): Promise<string> =>
+    projectTourGenerationPrompt() +
+    tourOrientationClause(brief) +
+    originalRequestSection(request) +
+    runIdentitySection(runId) +
+    (await knowledgeCatalogueProjection(ctx.root)) +
+    KNOWLEDGE_DECOMPOSITION_METHOD;
+
+  const composeChangesPrompt = (
+    reviewMode: "neutral" | "critical",
+    request: string | undefined,
+    brief: string | undefined,
+    runId: string | undefined
+  ): string =>
+    changesTourGenerationPrompt(reviewMode) +
+    originalRequestSection(request) +
+    tourOrientationClause(brief) +
+    runIdentitySection(runId);
+
+  // Hosts such as Copilot give the agent no way to call prompts/get. This tool
+  // serves the very same composed prompt so the agent is never blocked.
+  server.registerTool(
+    GET_GENERATION_PROMPT_TOOL,
+    {
+      description: GET_GENERATION_PROMPT_DESCRIPTION,
+      inputSchema: {
+        type: z.enum(["project", "changes"]).describe("The kind of Tour to generate."),
+        reviewMode: z
+          .enum(["neutral", "critical"])
+          .optional()
+          .describe("Changes Tour only: the review mode chosen by the user. Defaults to neutral."),
+        request: z.string().optional().describe("The user's request, verbatim."),
+        brief: z.string().optional().describe("Optional phrase orienting the Tour, in the user's language."),
+        runId: z.string().optional().describe("Optional run identity. Only the controlled adapter creates one: omit it (never pass an empty string) when none was given to you."),
+      },
+    },
+    async ({ type, reviewMode, request, brief, runId }) => {
+      const text =
+        type === "project"
+          ? await composeProjectPrompt(request, brief, runId)
+          : composeChangesPrompt(reviewMode ?? "neutral", request, brief, runId);
+      return { content: [{ type: "text" as const, text }] };
+    }
+  );
+
   // The generation prompts are the composed form of the served generation
   // instructions: prompts/get is what an adapter calls for one concrete run,
   // passing the user's orientation phrase through instead of embedding any
@@ -886,13 +1044,7 @@ export function createServer(workspaceRoot: string): McpServer {
           role: "user" as const,
           content: {
             type: "text" as const,
-            text:
-              projectTourGenerationPrompt() +
-              tourOrientationClause(brief) +
-              originalRequestSection(request) +
-              runIdentitySection(runId) +
-              (await knowledgeCatalogueProjection(ctx.root)) +
-              KNOWLEDGE_DECOMPOSITION_METHOD,
+            text: await composeProjectPrompt(request, brief, runId),
           },
         },
       ],
@@ -940,11 +1092,7 @@ export function createServer(workspaceRoot: string): McpServer {
           role: "user" as const,
           content: {
             type: "text" as const,
-            text:
-              changesTourGenerationPrompt(reviewMode) +
-              originalRequestSection(request) +
-              tourOrientationClause(brief) +
-              runIdentitySection(runId),
+            text: composeChangesPrompt(reviewMode, request, brief, runId),
           },
         },
       ],
@@ -1039,7 +1187,8 @@ async function handleCreateProjectTour(
   if (!result.ok) {
     return errorResponse(result.rejection);
   }
-  const { ctx, params, steps: finalSteps } = result.proposal;
+  const { ctx, steps: finalSteps } = result.proposal;
+  const params = withoutBlankRunId(result.proposal.params);
   if (params.runId !== undefined && !isValidRunId(params.runId)) {
     return errorResponse("INVALID_RUN_ID", "The runId must be a CodeTour generation identity.");
   }
@@ -1110,7 +1259,8 @@ async function handleCreateChangesTour(
   if (!result.ok) {
     return errorResponse(result.rejection);
   }
-  const { ctx, params } = result.proposal;
+  const { ctx } = result.proposal;
+  const params = withoutBlankRunId(result.proposal.params);
   if (params.runId !== undefined && !isValidRunId(params.runId)) {
     return errorResponse("INVALID_RUN_ID", "The runId must be a CodeTour generation identity.");
   }
@@ -1217,30 +1367,45 @@ async function handleCreateChangesTour(
   const warningsFromStepLimit = stepLimitWarnings(finalSteps);
   warnings.push(...warningsFromStepLimit);
 
-  // Set of changed files (committed, plus uncommitted files when
-  // includeUncommittedChanges is active), used for the NO_CHANGED_FILE_ANCHOR
-  // warning.
-  const changedInWorkspace = await changedFilesInWorkspace(ctx, mergeBaseSha, headRef);
-  if (includeUncommittedChanges) {
-    for (const entry of uncommitted) {
-      if (!changedInWorkspace.includes(entry.path)) {
-        changedInWorkspace.push(entry.path);
-      }
-    }
-  }
+  // A Changes Tour must anchor at least one file the comparison actually
+  // modified. The former advisory warning let a whole tour describe a change
+  // set without ever pointing at it, so the agent had to regenerate. Deleted
+  // files cannot host an anchor; when every changed file is gone (a
+  // deletion-only branch), the rule has nothing to anchor and stays satisfied.
+  const anchorableChangedFiles = await changedFilesAvailableToAnchor(
+    ctx,
+    mergeBaseSha,
+    headRef,
+    uncommitted,
+    includeUncommittedChanges
+  );
   if (
-    changedInWorkspace.length > 0 &&
+    anchorableChangedFiles.length > 0 &&
     !finalSteps.some(
       (step) =>
         step.file !== undefined &&
-        changedInWorkspace.includes(normalizeSlashes(step.file))
+        anchorableChangedFiles.includes(normalizeSlashes(step.file))
     )
   ) {
-    warnings.push({
-      code: "NO_CHANGED_FILE_ANCHOR",
-      message:
-        "No step anchors a file modified by these changes; consider anchoring steps on changed files.",
-    });
+    const listed = anchorableChangedFiles.slice(0, 5).join(", ");
+    const suffix =
+      anchorableChangedFiles.length > 5
+        ? ` and ${anchorableChangedFiles.length - 5} more`
+        : "";
+    return errorResponse(
+      "MISSING_CHANGED_FILE_ANCHOR",
+      `No step anchors a file modified by these changes. Add at least one step ` +
+        `with file and a line or a short unique pattern on one of: ${listed}${suffix}. ` +
+        "The previous tour file was preserved.",
+      [
+        {
+          path: "steps",
+          message:
+            `must anchor at least one changed file (${listed}${suffix}) ` +
+            "with file plus line or pattern; deletion-only changes are exempt",
+        },
+      ]
+    );
   }
 
   const title = params.title ?? (await defaultChangesTitle(ctx, headRef));
@@ -1544,7 +1709,7 @@ async function handleKnowledgeSave(
       },
     ]);
   }
-  const runId = workspace.args.runId;
+  const runId = withoutBlankRunId(workspace.args).runId;
   if (runId !== undefined && !isValidRunId(runId)) {
     return knowledgeArgumentError([
       { path: "runId", message: "must be a CodeTour generation run identity" },
@@ -1796,6 +1961,41 @@ async function changedFilesInWorkspace(
     .map(normalizeSlashes)
     .filter((file) => file.startsWith(prefix))
     .map((file) => file.slice(prefix.length));
+}
+
+// Changed paths that a step can actually anchor. A committed-only tour reads
+// anchors from the analyzed commit, so a file deleted there is not anchorable
+// even if a working-tree copy exists; an included-local-changes tour reads the
+// workspace, so only a regular file present on disk qualifies. The distinction
+// is what keeps a deletion-only branch from being rejected.
+async function changedFilesAvailableToAnchor(
+  ctx: WorkspaceContext,
+  mergeBaseSha: string,
+  headRef: string,
+  uncommitted: ReadonlyArray<{ path: string }>,
+  includesLocalChanges: boolean
+): Promise<string[]> {
+  const changed = await changedFilesInWorkspace(ctx, mergeBaseSha, headRef);
+  if (includesLocalChanges) {
+    for (const entry of uncommitted) {
+      if (!changed.includes(entry.path)) {
+        changed.push(entry.path);
+      }
+    }
+    return changed.filter((file) => {
+      try {
+        return fs.statSync(path.resolve(ctx.root, file)).isFile();
+      } catch {
+        return false;
+      }
+    });
+  }
+  if (changed.length === 0) return [];
+  const anchors = await readCommitAnchors(ctx, headRef, []);
+  return changed.filter(
+    (file) =>
+      anchors.get(path.posix.normalize(normalizeSlashes(file)))?.kind === "file"
+  );
 }
 
 // Default Changes Tour title: "Changes on <branch>", falling back to the short
