@@ -103,6 +103,10 @@ _Avoid_: Knowledge upload, Knowledge payload
 The deterministic `codetour knowledge` command family (spec #223, ADR 0039): `list` reports names and descriptions only, `read <name>` returns a body only when every declared SHA-256 proof verifies, `hash <path>` prepares evidence, and `save` validates and persists a Knowledge Proposal. It resolves one explicit or current workspace, works offline in any project without a model, API key or network, and writes only Knowledge Entry files, never a Memory Function or a harness artefact.
 _Avoid_: Knowledge server, Knowledge agent, Memory Function runner
 
+**Native Knowledge Skill**:
+The `codetour-knowledge` Copilot skill written by `codetour --install copilot` at `~/.copilot/skills/codetour-knowledge/SKILL.md` (spec #223, ADR 0039). It is an instruction, not a program: pin one explicit workspace root, discover the Knowledge Catalogue by metadata, read only the selected entries and use only `status:"valid"` bodies as reference context, explore targeted gaps only when that context is insufficient, create the Tour through the CodeTour MCP's `create_project_tour`, and make one explicit consolidation assessment through `codetour knowledge save`. It never uses the Research Harness or a Memory Function, and the instruction alone does not guarantee that consolidation ran.
+_Avoid_: Knowledge agent, Knowledge harness, automatic consolidation
+
 **Research Run**:
 One execution of the Research Harness on a Research Question. It may use Memory Entries but never creates one.
 _Avoid_: Tour (reserved for the guided explanation), research Tour

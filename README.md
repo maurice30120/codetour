@@ -270,6 +270,56 @@ Evidence validity is not semantic correctness: a `saved` or `valid` result
 proves the declared sources still hash as declared, not that the explanation is
 accurate, complete or the best one.
 
+### Install the native Knowledge skill
+
+The same `codetour --install copilot` also writes the `codetour-knowledge`
+skill to `~/.copilot/skills/codetour-knowledge/SKILL.md`, which is where Copilot
+discovers personal skills. The source of truth is
+[`packages/knowledge/skills/codetour-knowledge/SKILL.md`](packages/knowledge/skills/codetour-knowledge/SKILL.md);
+its text is embedded in the CLI bundle by `scripts/embed-knowledge-skill.js`, so
+the install needs no checkout and no network. `codetour --agents` and
+`codetour --doctor` report the skill as part of the integration (`incomplete`
+when it is missing, `outdated` when it differs), and `codetour --uninstall
+copilot` removes only the unchanged file this CLI owns: an edited skill and
+foreign skills in the shared directory are preserved and reported.
+
+Prerequisites for a run: the `codetour` CLI on `PATH`, the CodeTour MCP server
+registered (`codetour --install copilot`), and a workspace whose
+`.tours/.memory/knowledge/` catalogue you are willing to read. Confirm both with
+`copilot mcp list` and `copilot skill list`.
+
+The skill runs one deterministic workflow:
+
+1. it pins one explicit workspace root and uses it for every CLI and MCP call;
+   an ambiguous or absent workspace is diagnosed instead of guessed;
+2. it calls `codetour knowledge list`; an empty catalogue (exit `3`,
+   `status:"empty"`) means "no Knowledge" and exploration continues normally;
+3. it selects only relevant entries from the metadata and calls
+   `codetour knowledge read <name>` for each; only `status:"valid"` bodies are
+   reference context, announced with the fixed notice that begins
+   « La Knowledge suivante a été validée… ». It does not re-read or re-verify
+   every cited source, and it adds no second mandatory anchor pass: the MCP
+   validates the Tour anchors;
+4. it explores targeted gaps only where the valid Knowledge is insufficient,
+   and reports gaps and uncertainty honestly;
+5. it creates the Tour directly with `create_project_tour` and reports it
+   created only after the MCP succeeds, with the confirmed path. Missing tools
+   or a failed creation are explicit; a chat answer is not a Tour;
+6. it makes one explicit consolidation assessment and proposes zero, one or
+   more reusable Knowledge entries to `codetour knowledge save`, reporting
+   `saved`, `no-op`, `conflict` or `invalid` exactly as returned.
+
+Observe the result on the three existing surfaces: the JSON of
+`codetour knowledge list|read|save`, the `create_project_tour` response (its
+status and `.tours/project.tour` path), and the installed skill file. Limits:
+the consolidation step is an instruction, not an enforced guard — no step
+guarantees it ran, so an answer that omits it is possible and must be reported
+as omitted rather than assumed. The skill never invokes the Research Harness,
+never creates, selects or runs a Memory Function and never needs a harness API
+key; historical `.tours/.memory/` artefacts stay untouched. A `valid` read or a
+`saved` proposal proves only that declared evidence still matches; it is not a
+semantic guarantee that the explanation is correct or complete.
+
 ### Try the experimental Copilot adapter
 
 After building the CLI, follow the [Copilot adapter setup](docs/copilot-cli-adapter.md)
