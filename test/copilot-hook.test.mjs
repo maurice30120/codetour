@@ -415,7 +415,76 @@ test("a stop matching a session run records the usage snapshot with its phases",
   }
 });
 
+test("a created Tour reports its name and consumed tokens on stderr", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-report-"));
+  const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;
+  process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = sessions;
+  try {
+    const now = Date.now();
+    const runAt = new Date(now - 120000).toISOString();
+    writeState(workspace, {
+      at: runAt,
+      tourCreated: true,
+      tourPath: ".tours/changes.tour",
+      tourTitle: "Revue critique des changements",
+      consolidation: { status: "completed_zero", runId: "run-0123456789abcdef", at: new Date(now - 15000).toISOString() }
+    });
+    writeSessionEvents(sessions, "session-a", sessionEventsFixture({
+      runAt,
+      beforeAt: new Date(now - 3600000).toISOString(),
+      generationAt: new Date(now - 90000).toISOString(),
+      tourAt: new Date(now - 60000).toISOString(),
+      consolidationAt: new Date(now - 30000).toISOString()
+    }));
+    const first = runHook(payload({ cwd: workspace }));
+    assert.deepEqual(first.output, {});
+    assert.match(
+      first.stderr,
+      /CodeTour usage: run run-0123456789abcdef "Revue critique des changements" \(\.tours\/changes\.tour\)/
+    );
+    assert.match(first.stderr, /generation 364,887 in \/ 123 out \(305,382 cached\)/);
+    assert.match(first.stderr, /consolidation 124,662 in \/ 307 out \(121,669 cached\)/);
+    assert.match(first.stderr, /total 489,549 in \/ 430 out \(427,051 cached\)/);
+    assert.match(first.stderr, /claude-sonnet-5\.5/);
+    // The newest stop recomputes the same figures: the line is not repeated.
+    const second = runHook(payload({ cwd: workspace }));
+    assert.deepEqual(second.output, {});
+    assert.equal((second.stderr.match(/CodeTour usage:/g) || []).length, 0);
+  } finally {
+    if (previousStateDir === undefined) delete process.env.CODETOUR_COPILOT_SESSION_STATE_DIR; else process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = previousStateDir;
+    rmSync(root, { recursive: true, force: true });
+    rmSync(sessions, { recursive: true, force: true });
+  }
+});
+
+test("an unobserved usage snapshot is reported as such, never omitted", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-unobserved-"));
+  const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;
+  process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = sessions;
+  try {
+    writeState(workspace, {
+      tourCreated: true,
+      tourPath: ".tours/project.tour",
+      tourTitle: "Project Overview",
+      continuationUsed: true
+    });
+    const result = runHook(payload({ cwd: workspace }));
+    assert.deepEqual(result.output, {});
+    assert.match(
+      result.stderr,
+      /CodeTour usage: run run-0123456789abcdef "Project Overview" \(\.tours\/project\.tour\) — usage not observed \(missing\)/
+    );
+  } finally {
+    if (previousStateDir === undefined) delete process.env.CODETOUR_COPILOT_SESSION_STATE_DIR; else process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = previousStateDir;
+    rmSync(root, { recursive: true, force: true });
+    rmSync(sessions, { recursive: true, force: true });
+  }
+});
+
 test("another run of the same session bounds the first run's usage window", () => {
+
   const { root, workspace } = workspaceWithSpaces();
   const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-"));
   const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;

@@ -39,6 +39,65 @@ function diagnostic(message) {
   process.stderr.write(`CodeTour agentStop: ${message}\n`);
 }
 
+// The user-facing usage line. Also stderr, so it never enters the hook
+// protocol, and never influences the decision.
+function report(message) {
+  process.stderr.write(`CodeTour usage: ${message}\n`);
+}
+
+const tokens = new Intl.NumberFormat("en-GB");
+
+function formatTokens(usage) {
+  const input = tokens.format(usage.inputTokens || 0);
+  const output = tokens.format(usage.outputTokens || 0);
+  const cached = usage.cacheReadTokens || 0;
+  return `${input} in / ${output} out${cached > 0 ? ` (${tokens.format(cached)} cached)` : ""}`;
+}
+
+// One readable summary per run: the Tour that was created, its path, the
+// generation and consolidation token phases, and the run total. Unobservable
+// usage is reported as such instead of being omitted.
+function usageReport(state, summary) {
+  const title =
+    typeof state.tourTitle === "string" && state.tourTitle
+      ? state.tourTitle
+      : state.tourPath
+        ? path.basename(state.tourPath)
+        : null;
+  const label = [title ? `"${title}"` : null, state.tourPath ? `(${state.tourPath})` : null]
+    .filter(Boolean)
+    .join(" ");
+  const prefix = `run ${state.runId}${label ? ` ${label}` : ""}`;
+  if (summary.observed !== true) {
+    return `${prefix} — usage not observed (${summary.reason || "unavailable"})`;
+  }
+  const parts = [`generation ${formatTokens(summary.windows.generation)}`];
+  if (summary.windows.consolidation) {
+    parts.push(`consolidation ${formatTokens(summary.windows.consolidation)}`);
+  }
+  parts.push(`total ${formatTokens(summary.totals)}`);
+  if (summary.model) parts.push(summary.model);
+  return `${prefix} — ${parts.join("; ")}`;
+}
+
+// The newest snapshot replaces the previous one, so the line is printed only
+// when the figures actually changed: observability must not become a chorus on
+// every stop of a long conversation.
+function usageChanged(previous, next) {
+  if (!previous || typeof previous !== "object") return true;
+  const stable = usage => {
+    if (!usage || typeof usage !== "object") return "";
+    const copy = JSON.parse(JSON.stringify(usage));
+    delete copy.observedAt;
+    for (const window of [copy.windows?.generation, copy.windows?.consolidation]) {
+      // The stop time moves on every call; the figures are what matters.
+      if (window) delete window.untilAt;
+    }
+    return JSON.stringify(copy);
+  };
+  return stable(previous) !== stable(next);
+}
+
 async function readInput() {
   const chunks = [];
   let size = 0;
@@ -92,6 +151,13 @@ async function recordUsageMetrics(workspace, sessionId, states) {
       const recorded = await recordRunMetrics(workspace, mine[index].runId, {usage: summary});
       if (!recorded.updated && recorded.reason && recorded.reason !== "noop") {
         diagnostic(`usage metrics not updated (${recorded.reason})`);
+      }
+      if (
+        recorded.updated &&
+        mine[index].tourCreated === true &&
+        usageChanged(mine[index].metrics?.usage, summary)
+      ) {
+        report(usageReport(recorded.state || mine[index], summary));
       }
     } catch (error) {
       diagnostic(`could not record usage metrics (${error?.message || error})`);

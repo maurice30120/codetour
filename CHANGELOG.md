@@ -91,6 +91,14 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
   commands at the top under *Install or update with one command*. Beta
   releases are cut from the pushed `beta` branch and install through the same
   script with `CODETOUR_CHANNEL=beta`.
+- A successful `create_project_tour` / `create_changes_tour` now names the Tour
+  in its first line (`Created Changes Tour "…" at .tours/changes.tour`), and the
+  MCP records that title in the run state. At each stop that changes the
+  figures, the `agentStop` hook prints one `CodeTour usage:` line on stderr with
+  the Tour name, its path, the generation and consolidation token phases
+  (input, output, cached) and the run total (ADR 0042 amendment). Tokens are
+  final only at the stop that observes them; an unreadable session events file
+  is reported as `usage not observed`, never invented.
 
 ### Changed
 

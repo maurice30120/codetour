@@ -127,12 +127,14 @@ test("create_project_tour records the Tour under the run identity", async () => 
         steps: [{ file: "hello.txt", description: "Anchored step." }]
       });
       assert.equal(created.isError, false, created.text);
+      assert.match(created.text, /Created Project Tour "Project Overview" at \.tours\/project\.tour/);
       assert.equal(created.structured.runId, RUN_ID);
       assert.equal(created.structured.runRecorded, true, created.text);
       const state = await readRunState(fs.realpathSync(root), RUN_ID);
       assert.ok(state);
       assert.equal(state.tourCreated, true);
       assert.equal(state.tourPath, ".tours/project.tour");
+      assert.equal(state.tourTitle, "Project Overview");
     });
   } finally {
     rmrf(root);

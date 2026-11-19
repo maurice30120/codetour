@@ -1247,7 +1247,7 @@ async function handleCreateProjectTour(
       title,
       finalSteps.length,
       warnings,
-      `Validated Project Tour proposal with ${finalSteps.length} step(s); nothing was written (dryRun).`
+      `Validated Project Tour proposal "${title}" with ${finalSteps.length} step(s); nothing was written (dryRun).`
     );
   }
 
@@ -1272,14 +1272,15 @@ async function handleCreateProjectTour(
     title,
     finalSteps.length,
     warnings,
-    `Created Project Tour at ${targetPath} with ${finalSteps.length} step(s).`
+    `Created Project Tour "${title}" at ${targetPath} with ${finalSteps.length} step(s).`
   );
   await appendRunIdentity(
     response,
     defaultContext.realRoot,
     params.runId,
     "project",
-    relativePath
+    relativePath,
+    title
   );
   return response;
 }
@@ -1455,7 +1456,7 @@ async function handleCreateChangesTour(
       title,
       finalSteps.length,
       warnings,
-      `Validated Changes Tour proposal with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}); nothing was written (dryRun).`
+      `Validated Changes Tour proposal "${title}" with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}); nothing was written (dryRun).`
     );
   }
   // Enrich the description automatically with the provenance, base, and head
@@ -1502,14 +1503,15 @@ async function handleCreateChangesTour(
     title,
     finalSteps.length,
     warnings,
-    `Created Changes Tour at ${targetPath} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`
+    `Created Changes Tour "${title}" at ${targetPath} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`
   );
   await appendRunIdentity(
     response,
     defaultContext.realRoot,
     params.runId,
     "changes",
-    relativePath
+    relativePath,
+    title
   );
   return response;
 }
@@ -2080,15 +2082,10 @@ interface ToolResponse {
 }
 
 // The human-readable summary shared by the successful tool results: the
-// status message, the title that was (or would be) written, and any warnings.
-function resultText(
-  message: string,
-  title: string,
-  warnings: Warning[]
-): string {
+// status message (which names the Tour) and any warnings.
+function resultText(message: string, warnings: Warning[]): string {
   return [
     message,
-    `Title: ${title}`,
     ...warnings.map((warning) => `Warning (${warning.code}): ${warning.message}`),
   ].join("\n");
 }
@@ -2101,7 +2098,8 @@ async function appendRunIdentity(
   root: string,
   runId: string | undefined,
   kind: "project" | "changes",
-  tourPath: string
+  tourPath: string,
+  tourTitle: string
 ): Promise<void> {
   if (!runId) return;
   const structured = response.structuredContent as
@@ -2110,7 +2108,7 @@ async function appendRunIdentity(
   if (!structured) return;
   structured.runId = runId;
   try {
-    const recorded = await recordTourCreated(root, runId, kind, tourPath);
+    const recorded = await recordTourCreated(root, runId, kind, tourPath, tourTitle);
     structured.runRecorded = recorded.persisted;
     if (!recorded.persisted) structured.runRecordReason = recorded.reason;
   } catch (error) {
@@ -2135,7 +2133,7 @@ function successResponse(
     warnings,
   };
   return {
-    content: [{ type: "text", text: resultText(message, title, warnings) }],
+    content: [{ type: "text", text: resultText(message, warnings) }],
     structuredContent: result as unknown as Record<string, unknown>,
   };
 }
@@ -2153,7 +2151,7 @@ function validatedResponse(
     warnings,
   };
   return {
-    content: [{ type: "text", text: resultText(message, title, warnings) }],
+    content: [{ type: "text", text: resultText(message, warnings) }],
     structuredContent: result as unknown as Record<string, unknown>,
   };
 }

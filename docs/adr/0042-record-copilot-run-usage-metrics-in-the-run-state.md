@@ -64,3 +64,13 @@ what an economy was proved. A session-time stop still marks `updatedAt`, and
 the hook stays inert on storage damage. Hosts without hooks produce no
 metrics; that absence is a real state, in line with ADR 0041's "no false
 guarantee".
+
+Amended 2026-11-19: the metrics also reach the user. The MCP records the
+persisted Tour's title in the run state (`tourTitle`), and at each stop whose
+recomputed figures differ from the previous snapshot the agentStop guard
+prints one `CodeTour usage:` line on stderr — the only channel Copilot keeps
+for the user — with the Tour name, its path, the generation and consolidation
+phases and the run total. An unobserved snapshot is printed as such. The
+creation tool's own text names the Tour in its first line, since the final
+token figures cannot exist while generation is still running.
+

@@ -60,6 +60,8 @@ export interface RunState {
   updatedAt: string;
   tourCreated: boolean;
   tourPath: string | null;
+  /** The title of the persisted Tour, so later readers need not open the file. */
+  tourTitle?: string | null;
   consolidation: ConsolidationClosure | null;
   continuationUsed: boolean;
   /**
@@ -192,6 +194,7 @@ function baseState(
     updatedAt: at,
     tourCreated: false,
     tourPath: null,
+    tourTitle: null,
     consolidation: null,
     continuationUsed: false,
   };
@@ -238,12 +241,14 @@ export function recordTourCreated(
   workspace: string,
   runId: string,
   kind: "project" | "changes",
-  tourPath: string
+  tourPath: string,
+  tourTitle: string
 ): Promise<RunUpdate> {
   return updateRunState(workspace, runId, kind, (state) => ({
     ...state,
     tourCreated: true,
     tourPath,
+    tourTitle,
     updatedAt: new Date().toISOString(),
   }));
 }
