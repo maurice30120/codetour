@@ -1,0 +1,18 @@
+{
+  "name": "codetour-pi-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal native Pi integration for CodeTour MCP",
+  "engines": {
+    "node": ">=22"
+  },
+  "pi": {
+    "extensions": [
+      "./index.mjs"
+    ]
+  },
+  "scripts": {
+    "test": "node --test test.mjs"
+  }
+}
