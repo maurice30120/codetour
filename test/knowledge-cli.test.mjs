@@ -75,13 +75,22 @@ function entry(name, description, proofs, body = "Verified body.\n") {
   return { frontmatter: lines.join("\n"), body };
 }
 
+// The revision token is opaque: a shape assertion pins that an entry carries
+// one, never its value.
+function entriesWithoutRevisions(entries) {
+  return entries.map(({ revision, ...rest }) => {
+    assert.equal(typeof revision, "string", `${rest.name} must carry a revision`);
+    return rest;
+  });
+}
+
 function seedValidWorkspace(ws, { name = "dispatch_flow", description = "How tool calls dispatch" } = {}) {
   writeFileSync(path.join(ws, "main.ts"), "export const start = 1;\n");
   const content = entry(name, description, [{ path: "main.ts", sha256: sha256("export const start = 1;\n") }]);
   writeCatalogueEntry(ws, `${name}.md`, content.frontmatter, content.body);
 }
 
-test("knowledge list reports name and description only from the resolved workspace", () => {
+test("knowledge list reports name, description and revision only from the resolved workspace", () => {
   const ws = workspace("codetour-knowledge-list-");
   try {
     seedValidWorkspace(ws);
@@ -92,14 +101,17 @@ test("knowledge list reports name and description only from the resolved workspa
     const result = runCli(["knowledge", "list"], { cwd: ws });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stderr, "");
-    assert.deepEqual(result.json, {
-      status: "ok",
-      workspace: ws,
-      entries: [
-        { name: "dispatch_flow", description: "How tool calls dispatch" },
-        { name: "other_flow", description: "Second entry" }
-      ]
-    });
+    assert.deepEqual(
+      { ...result.json, entries: entriesWithoutRevisions(result.json.entries) },
+      {
+        status: "ok",
+        workspace: ws,
+        entries: [
+          { name: "dispatch_flow", description: "How tool calls dispatch" },
+          { name: "other_flow", description: "Second entry" }
+        ]
+      }
+    );
     // Discovery is metadata only: no body, evidence or hash reaches stdout.
     assert.doesNotMatch(result.stdout, /Verified body|sha256|main\.ts/);
   } finally {
@@ -114,7 +126,7 @@ test("knowledge list filters a literal case-insensitive query and reports an emp
     seedValidWorkspace(ws);
     const filtered = runCli(["knowledge", "list", "--query", "DISPATCH"], { cwd: ws });
     assert.equal(filtered.status, 0, filtered.stderr);
-    assert.deepEqual(filtered.json.entries, [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
+    assert.deepEqual(entriesWithoutRevisions(filtered.json.entries), [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
 
     const unmatched = runCli(["knowledge", "list", "--query", "no-such-entry"], { cwd: ws });
     assert.equal(unmatched.status, 3, unmatched.stderr);
@@ -172,7 +184,9 @@ test("knowledge read returns the Markdown body only after every declared proof v
     const result = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stderr, "");
-    assert.deepEqual(result.json, {
+    const { revision, ...shape } = result.json;
+    assert.equal(typeof revision, "string");
+    assert.deepEqual(shape, {
       status: "valid",
       workspace: ws,
       name: "dispatch_flow",
@@ -187,6 +201,53 @@ test("knowledge read returns the Markdown body only after every declared proof v
     for (const key of Object.keys(credentialFreeEnv())) {
       assert.doesNotMatch(key, /API_KEY|TOKEN|SECRET/i);
     }
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test("knowledge list and read expose the same opaque revision, including for a refused entry", () => {
+  const ws = workspace("codetour-knowledge-revision-");
+  try {
+    seedValidWorkspace(ws);
+    const digest = sha256("export const start = 1;\n");
+    const listed = runCli(["knowledge", "list"], { cwd: ws });
+    assert.equal(listed.status, 0, listed.stderr);
+    const [discovered] = listed.json.entries;
+    assert.equal(typeof discovered.revision, "string");
+    assert.ok(discovered.revision.length > 0);
+    // Opaque: neither the body, nor the cited path, nor the source hash.
+    assert.notEqual(discovered.revision, digest);
+    assert.doesNotMatch(listed.stdout, /Verified body|main\.ts|sha256/);
+    // Stable while the entry file is unchanged.
+    assert.equal(runCli(["knowledge", "list"], { cwd: ws }).json.entries[0].revision, discovered.revision);
+
+    const read = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(read.status, 0, read.stderr);
+    assert.equal(read.json.revision, discovered.revision, "list and read expose one token for one file");
+
+    // A one-byte change of the entry file moves the revision, and the refusal
+    // still carries it so a repair can be conditioned on the bytes read.
+    writeCatalogueEntry(
+      ws,
+      "dispatch_flow.md",
+      entry("dispatch_flow", "How tool calls dispatch", [
+        { path: "main.ts", sha256: "f".repeat(64) }
+      ]).frontmatter,
+      "REFUSED BODY\n"
+    );
+    const refused = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(refused.status, 4, refused.stderr);
+    assert.equal(refused.json.status, "invalid");
+    assert.equal(refused.json.reason, "file_hash_mismatch");
+    assert.equal(typeof refused.json.revision, "string");
+    assert.notEqual(refused.json.revision, discovered.revision);
+    assert.doesNotMatch(refused.stdout, /REFUSED BODY|main\.ts|sha256|f{64}/);
+    // An entry that does not exist has no file to hash, so no revision.
+    const absent = runCli(["knowledge", "read", "never_written"], { cwd: ws });
+    assert.equal(absent.status, 3, absent.stderr);
+    assert.equal(absent.json.status, "absent");
+    assert.equal(absent.json.revision, undefined);
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }
@@ -227,8 +288,15 @@ test("knowledge read refuses malformed, stale, forged, missing, outside, escapin
     for (const [name, reason] of Object.entries(expected)) {
       const result = runCli(["knowledge", "read", name], { cwd: ws });
       assert.equal(result.status, 4, `${name}: ${result.stdout} ${result.stderr}`);
-      assert.deepEqual(result.json, { status: "invalid", workspace: ws, name, reason });
-      assert.doesNotMatch(result.stdout, /SECRET BODY|outside secret bytes|\.ts|sha256|[0-9a-f]{64}/);
+      const { revision, ...shape } = result.json;
+      assert.equal(typeof revision, "string", `${name} carries the revision of its entry file`);
+      assert.deepEqual(shape, { status: "invalid", workspace: ws, name, reason });
+      // The revision is a hex token by contract: the evidence hashes of this
+      // fixture are named instead of refusing every hex string.
+      assert.doesNotMatch(result.stdout, /SECRET BODY|outside secret bytes|\.ts|sha256/);
+      for (const evidenceHash of [digest, sha256("older bytes\n"), "a".repeat(64)]) {
+        assert.ok(!result.stdout.includes(evidenceHash), `${name} must not leak an evidence hash`);
+      }
     }
 
     // Discovery is metadata-only: malformed contracts are skipped, while
@@ -238,7 +306,7 @@ test("knowledge read refuses malformed, stale, forged, missing, outside, escapin
     assert.equal(listed.status, 0, listed.stderr);
     assert.deepEqual(listed.json.entries.map(item => item.name),
       ["absolute", "changed", "forged", "missing", "outside", "symlink"]);
-    assert.doesNotMatch(listed.stdout, /SECRET BODY|outside secret bytes|sha256|[0-9a-f]{64}/);
+    assert.doesNotMatch(listed.stdout, /SECRET BODY|outside secret bytes|sha256/);
 
     const unknown = runCli(["knowledge", "read", "never_written"], { cwd: ws });
     assert.equal(unknown.status, 3, unknown.stderr);
@@ -260,7 +328,7 @@ test("an explicit workspace wins from a different launch directory", () => {  co
 
     const listed = runCli(["knowledge", "list", "--workspace", ws], { cwd: elsewhere });
     assert.equal(listed.status, 0, listed.stderr);
-    assert.deepEqual(listed.json.entries, [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
+    assert.deepEqual(entriesWithoutRevisions(listed.json.entries), [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
     assert.equal(listed.json.workspace, ws);
 
     const read = runCli(["knowledge", "read", "dispatch_flow", "--workspace", ws], { cwd: elsewhere });
@@ -387,7 +455,7 @@ test("knowledge save publishes a proposal that a second independent invocation d
     // A second, independent invocation rediscovers the entry by metadata only.
     const listed = runCli(["knowledge", "list", "--workspace", ws], { cwd: launch });
     assert.equal(listed.status, 0, listed.stderr);
-    assert.deepEqual(listed.json.entries, [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
+    assert.deepEqual(entriesWithoutRevisions(listed.json.entries), [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
 
     // ...and rereads the exact Markdown body behind the computed evidence.
     const read = runCli(["knowledge", "read", "dispatch_flow", "--workspace", ws], { cwd: launch });

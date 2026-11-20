@@ -4,6 +4,10 @@ The single deterministic source of the Knowledge contract used by CodeTour:
 
 - `parseKnowledge(source, fileName)` — restricted frontmatter grammar, never touches the workspace.
 - `fileProofHash(bytes)` — deterministic SHA-256 of cited bytes.
+- `knowledgeRevision(bytes)` — the Knowledge Revision: the SHA-256 of an entry
+  file's complete bytes, as an opaque token. It is computed without validating
+  the contract, so an entry whose evidence no longer verifies still has one, and
+  `catalog()`, `list(query)` and `read(name)` expose it (ADR 0048).
 - `verifyKnowledge(entry, root)` — every declared `file` proof must stay inside the
   workspace, avoid symlink escapes and match its SHA-256 before the body is returned.
 - `loadKnowledgeLibrary(root, directory)` — `catalog()`, `list(query)` and `read(name)`

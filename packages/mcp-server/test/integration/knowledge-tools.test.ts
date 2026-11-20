@@ -67,6 +67,24 @@ function textOf(response: { text: string; structured: Record<string, unknown> })
   return `${response.text}\n${JSON.stringify(response.structured)}`;
 }
 
+// The revision token is opaque: a shape assertion pins that a row carries one,
+// never its value.
+function rowsWithoutRevisions(rows: unknown): Array<Record<string, unknown>> {
+  return (rows as Array<Record<string, unknown>>).map((row) => {
+    const { revision, ...rest } = row;
+    assert.equal(typeof revision, "string", `${String(rest.name)} must carry a revision`);
+    return rest;
+  });
+}
+
+function pageWithoutRevisions(page: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...page,
+    entries: rowsWithoutRevisions(page.entries),
+    invalid: rowsWithoutRevisions(page.invalid),
+  };
+}
+
 test("knowledge_list reports metadata only and treats an absent catalogue as empty", async () => {
   const root = tempDir("codetour-knowledge-list-");
   try {
@@ -106,7 +124,7 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
       // Discovery verifies (ADR 0043): only verified contracts are listed as
       // entries; the stale and unsupported entries are reported under invalid
       // with their reason, so nobody can mistake them for servable metadata.
-      assert.deepEqual(listed.structured, {
+      assert.deepEqual(pageWithoutRevisions(listed.structured), {
         status: "ok",
         workspace: ".",
         entries: [
@@ -121,21 +139,28 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
         limit: 50,
         truncated: false,
       });
-      assert.doesNotMatch(textOf(listed), /SECRET BODY|sha256|[0-9a-f]{64}/);
+      // Discovery leaks no body, no cited path and no evidence hash. The
+      // revision is a hex token by contract, so the check names the source
+      // hashes it must never echo instead of refusing every hex string.
+      const listedSurface = textOf(listed);
+      assert.doesNotMatch(listedSurface, /SECRET BODY|sha256|src\/main\.ts/);
+      for (const evidenceHash of [digest, "f".repeat(64), "0".repeat(64)]) {
+        assert.ok(!listedSurface.includes(evidenceHash), "no evidence hash may reach discovery");
+      }
 
       const filtered = await callTool(client, KNOWLEDGE_LIST, { query: "DISPATCH" });
       assert.deepEqual(
-        filtered.structured.entries,
+        rowsWithoutRevisions(filtered.structured.entries),
         [{ name: "dispatch_flow", description: "How tool calls dispatch" }],
         "the query is a literal case-insensitive substring filter"
       );
-      assert.deepEqual(filtered.structured.invalid, [
+      assert.deepEqual(rowsWithoutRevisions(filtered.structured.invalid), [
         { name: "stale_flow", reason: "file_hash_mismatch" },
         { name: "symbol_flow", reason: "symbol_hash_mismatch" },
       ]);
       // The invalid report is independent of the query: the whole broken set
       // stays visible for fixing.
-      assert.deepEqual(filtered.structured.invalid, [
+      assert.deepEqual(rowsWithoutRevisions(filtered.structured.invalid), [
         { name: "stale_flow", reason: "file_hash_mismatch" },
         { name: "symbol_flow", reason: "symbol_hash_mismatch" },
       ]);
@@ -144,11 +169,11 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
       assert.equal(noMatch.isError, false);
       assert.deepEqual(noMatch.structured.entries, []);
       assert.equal(noMatch.structured.total, 0);
-      assert.deepEqual(noMatch.structured.invalid, [
+      assert.deepEqual(rowsWithoutRevisions(noMatch.structured.invalid), [
         { name: "stale_flow", reason: "file_hash_mismatch" },
         { name: "symbol_flow", reason: "symbol_hash_mismatch" },
       ]);
-      assert.deepEqual(noMatch.structured.invalid, [
+      assert.deepEqual(rowsWithoutRevisions(noMatch.structured.invalid), [
         { name: "stale_flow", reason: "file_hash_mismatch" },
         { name: "symbol_flow", reason: "symbol_hash_mismatch" },
       ]);
@@ -156,7 +181,7 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
       // The last page is complete: `truncated` describes what remains after
       // the page, not the page's length compared with the whole catalogue.
       const page = await callTool(client, KNOWLEDGE_LIST, { limit: 1, offset: 1 });
-      assert.deepEqual(page.structured, {
+      assert.deepEqual(pageWithoutRevisions(page.structured), {
         status: "ok",
         workspace: ".",
         entries: [],
@@ -171,7 +196,7 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
       });
 
       const middle = await callTool(client, KNOWLEDGE_LIST, { limit: 1, offset: 0 });
-      assert.deepEqual(middle.structured, {
+      assert.deepEqual(pageWithoutRevisions(middle.structured), {
         status: "ok",
         workspace: ".",
         entries: [{ name: "dispatch_flow", description: "How tool calls dispatch" }],
@@ -194,6 +219,48 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
   }
 });
 
+test("knowledge_read returns the revision at root level for a valid and for a refused entry", async () => {
+  const root = tempDir("codetour-knowledge-revision-read-");
+  try {
+    const digest = writeWorkspaceFile(root, "src/main.ts", "export const start = 1;\n");
+    const entry = (declared: string, body: string) =>
+      writeEntry(root, "dispatch_flow", {
+        description: "How tool calls dispatch",
+        body,
+        evidence: [{ path: "src/main.ts", sha256: declared }],
+      });
+    entry(digest, "SECRET BODY one\n");
+    await withServer(root, async (client) => {
+      const valid = await callTool(client, KNOWLEDGE_READ, { name: "dispatch_flow" });
+      assert.equal(valid.structured.status, "valid");
+      const revision = valid.structured.revision;
+      assert.equal(typeof revision, "string");
+      assert.ok((revision as string).length > 0);
+      // Opaque: never a source hash, never the body.
+      assert.notEqual(revision, digest);
+      assert.doesNotMatch(JSON.stringify(valid.structured.revision), /SECRET BODY|src\/main\.ts/);
+      // Stable while the entry file is unchanged.
+      const repeated = await callTool(client, KNOWLEDGE_READ, { name: "dispatch_flow" });
+      assert.equal(repeated.structured.revision, revision);
+      // A one-byte change moves the revision, and the refusal keeps it: a
+      // repair write can address an entry whose contract already fails.
+      entry("f".repeat(64), "SECRET BODY two\n");
+      const refused = await callTool(client, KNOWLEDGE_READ, { name: "dispatch_flow" });
+      assert.equal(refused.structured.status, "invalid");
+      assert.equal(refused.structured.reason, "file_hash_mismatch");
+      assert.equal(typeof refused.structured.revision, "string");
+      assert.notEqual(refused.structured.revision, revision);
+      assert.doesNotMatch(textOf(refused), /SECRET BODY|src\/main\.ts|f{64}/);
+      // No entry file, no revision: absence stays content-free.
+      const absent = await callTool(client, KNOWLEDGE_READ, { name: "never_written" });
+      assert.equal(absent.structured.status, "absent");
+      assert.equal(absent.structured.revision, undefined);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("knowledge_read returns the body only when every declared proof verifies", async () => {
   const root = tempDir("codetour-knowledge-read-");
   try {
@@ -210,7 +277,9 @@ test("knowledge_read returns the body only when every declared proof verifies", 
     await withServer(root, async (client) => {
       const response = await callTool(client, KNOWLEDGE_READ, { name: "dispatch_flow" });
       assert.equal(response.isError, false, response.text);
-      assert.deepEqual(response.structured, {
+      assert.equal(typeof response.structured.revision, "string");
+      const { revision, ...shape } = response.structured;
+      assert.deepEqual(shape, {
         status: "valid",
         workspace: ".",
         name: "dispatch_flow",
@@ -275,7 +344,9 @@ test("knowledge_read refuses stale, missing, unsupported and escaping evidence w
       for (const [name, reason] of cases) {
         const response = await callTool(client, KNOWLEDGE_READ, { name });
         assert.equal(response.isError, false, `${name}: ${response.text}`);
-        assert.deepEqual(response.structured, {
+        const { revision, ...shape } = response.structured;
+        assert.equal(typeof revision, "string", `${name} carries the revision of its entry file`);
+        assert.deepEqual(shape, {
           status: "invalid",
           workspace: ".",
           name,
@@ -283,7 +354,12 @@ test("knowledge_read refuses stale, missing, unsupported and escaping evidence w
         });
         const surface = textOf(response);
         assert.doesNotMatch(surface, /SECRET BODY/, `${name} must never return the body`);
-        assert.doesNotMatch(surface, /sha256|[0-9a-f]{64}/, `${name} must not leak a hash`);
+        // The revision is a hex token by contract: the evidence hashes of this
+        // fixture are named instead of refusing every hex string.
+        assert.doesNotMatch(surface, /sha256/, `${name} must not leak a hash`);
+        for (const evidenceHash of ["f".repeat(64), sha256("anything"), sha256("export const leak = 9;\n")]) {
+          assert.ok(!surface.includes(evidenceHash), `${name} must not leak an evidence hash`);
+        }
         assert.ok(!surface.includes("src/main.ts"), `${name} must not leak a cited path`);
         assert.ok(!surface.includes(outside), `${name} must not leak an outside path`);
       }
@@ -446,7 +522,7 @@ test("knowledge_save and knowledge_read accept a hyphenated Knowledge name", asy
       });
       assert.equal(saved.structured.status, "created");
       const list = await callTool(client, KNOWLEDGE_LIST, {});
-      assert.deepEqual(list.structured.entries, [{ name: "lecture-verifiee", description: "Verified flow" }]);
+      assert.deepEqual(rowsWithoutRevisions(list.structured.entries), [{ name: "lecture-verifiee", description: "Verified flow" }]);
       const read = await callTool(client, KNOWLEDGE_READ, { name: "lecture-verifiee" });
       assert.equal(read.structured.status, "valid");
       assert.equal(read.structured.body, "Reference body.\n");
@@ -623,6 +699,60 @@ test("the Knowledge tools work without any API key or Research Harness", async (
   }
 });
 
+test("knowledge_list exposes an opaque revision for verified entries and invalid rows alike", async () => {
+  const root = tempDir("codetour-knowledge-revision-list-");
+  try {
+    const digest = writeWorkspaceFile(root, "src/main.ts", "export const start = 1;\n");
+    writeEntry(root, "dispatch_flow", {
+      description: "How tool calls dispatch",
+      body: "SECRET BODY dispatch\n",
+      evidence: [{ path: "src/main.ts", sha256: digest }],
+    });
+    writeEntry(root, "stale_flow", {
+      description: "Cites a changed file",
+      body: "SECRET BODY stale\n",
+      evidence: [{ path: "src/main.ts" }],
+    });
+    type Row = { name: string; revision?: string };
+    await withServer(root, async (client) => {
+      const listed = await callTool(client, KNOWLEDGE_LIST, {});
+      assert.equal(listed.isError, false, listed.text);
+      const verified = (listed.structured.entries as Row[]).find((row) => row.name === "dispatch_flow");
+      const broken = (listed.structured.invalid as Row[]).find((row) => row.name === "stale_flow");
+      assert.ok(verified && broken);
+      for (const row of [verified, broken]) {
+        assert.equal(typeof row.revision, "string", `${row.name} must carry a revision`);
+        assert.ok((row.revision as string).length > 0);
+      }
+      // Opaque: the token is neither a source hash nor a body, and discovery
+      // still leaks no cited path.
+      assert.notEqual(verified.revision, digest);
+      assert.notEqual(broken.revision, digest);
+      assert.doesNotMatch(JSON.stringify(listed.structured), /SECRET BODY|src\/main\.ts/);
+      // Stable while the entry file is unchanged.
+      const again = await callTool(client, KNOWLEDGE_LIST, {});
+      assert.equal(
+        (again.structured.entries as Row[]).find((row) => row.name === "dispatch_flow")?.revision,
+        verified.revision
+      );
+      // A one-byte change moves the revision of an entry whose contract is
+      // already failing, so a repair write can be conditioned on it.
+      writeEntry(root, "stale_flow", {
+        description: "Cites a changed file",
+        body: "SECRET BODY stale, one byte more\n",
+        evidence: [{ path: "src/main.ts" }],
+      });
+      const moved = await callTool(client, KNOWLEDGE_LIST, {});
+      assert.notEqual(
+        (moved.structured.invalid as Row[]).find((row) => row.name === "stale_flow")?.revision,
+        broken.revision
+      );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("knowledge_list surfaces invalid catalogue entries for fixing", async () => {
   const root = tempDir("codetour-knowledge-invalid-");
   try {
@@ -652,7 +782,7 @@ test("knowledge_list surfaces invalid catalogue entries for fixing", async () =>
     await withServer(root, async (client) => {
       const listed = await callTool(client, KNOWLEDGE_LIST, {});
       assert.equal(listed.isError, false, listed.text);
-      assert.deepEqual(listed.structured, {
+      assert.deepEqual(pageWithoutRevisions(listed.structured), {
         status: "ok",
         workspace: ".",
         entries: [
@@ -672,7 +802,13 @@ test("knowledge_list surfaces invalid catalogue entries for fixing", async () =>
       assert.match(listed.text, /3 catalogue entries failed validation/i);
       assert.match(listed.text, /listed under invalid with their reason/i);
       assert.match(listed.text, /fix the cited contract or remove the entry/i);
-      assert.doesNotMatch(textOf(listed), /SECRET BODY|sha256|[0-9a-f]{64}/);
+      // An invalid row carries its revision, and still no body, cited path or
+      // evidence hash.
+      const listedSurface = textOf(listed);
+      assert.doesNotMatch(listedSurface, /SECRET BODY|sha256|src\/main\.ts/);
+      for (const evidenceHash of [digest, "f".repeat(64)]) {
+        assert.ok(!listedSurface.includes(evidenceHash), "no evidence hash may reach discovery");
+      }
     });
   } finally {
     rmrf(root);
@@ -755,6 +891,45 @@ test("prompts/get carries the original request and the catalogue before the deco
       assert.match(text, /conflict/);
       assert.match(text, /omitted/);
       assert.ok(text.includes("create_project_tour"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("prompts/get carries every entry revision so a write mode needs no extra call", async () => {
+  const root = tempDir("codetour-knowledge-prompt-revision-");
+  try {
+    const digest = writeWorkspaceFile(root, "src/main.ts", "export const start = 1;\n");
+    writeEntry(root, "dispatch_flow", {
+      description: "How tool calls dispatch",
+      body: "Prompt body.\n",
+      evidence: [{ path: "src/main.ts", sha256: digest }],
+    });
+    writeEntry(root, "stale_flow", {
+      description: "Cites a changed file",
+      body: "PROMPT STALE BODY\n",
+      evidence: [{ path: "src/main.ts" }],
+    });
+    await withServer(root, async (client) => {
+      const listed = await callTool(client, KNOWLEDGE_LIST, {});
+      type Row = { name: string; revision?: string };
+      const verified = (listed.structured.entries as Row[]).find((row) => row.name === "dispatch_flow");
+      const broken = (listed.structured.invalid as Row[]).find((row) => row.name === "stale_flow");
+      assert.ok(verified?.revision && broken?.revision);
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: { request: "Give me a tour of this project." },
+      });
+      const text = promptText(prompt.messages);
+      // The projection carries the same tokens discovery returns: one call is
+      // enough to choose a mode, including for an entry that cannot be read.
+      assert.ok(text.includes(verified.revision as string), "the verified entry revision is projected");
+      assert.ok(text.includes(broken.revision as string), "the invalid row revision is projected");
+      assert.match(text, /revision/i);
+      assert.match(text, /compare-and-swap/i);
+      assert.ok(!text.includes("Prompt body."), "the projection still never carries a body");
+      assert.ok(!text.includes("PROMPT STALE BODY"), "the invalid row still never carries a body");
     });
   } finally {
     rmrf(root);

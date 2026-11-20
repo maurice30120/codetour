@@ -34,13 +34,13 @@ test('a valid Knowledge entry is discoverable and its verified body is returned 
   await writeFile(join(root, 'main.ts'), 'export const start = 1;\n');
   await writeEntry(root, 'dispatch_flow.md', `---\n${frontmatter(await proofOf(root, 'main.ts'))}\n---\nBody line one.\n\nBody line two.\n`);
   const library = await readRoot(root);
-  assert.deepEqual(await library.catalog(), [{ name: 'dispatch_flow', description: 'How tool calls dispatch and refuse forgery' }]);
+  assert.deepEqual(await library.catalog().then(entries => entries.map(({ name, description }) => ({ name, description }))), [{ name: 'dispatch_flow', description: 'How tool calls dispatch and refuse forgery' }]);
   const read = await library.read('dispatch_flow');
   assert.equal(read.status, 'valid');
   assert.equal((read as { body: string }).body, 'Body line one.\n\nBody line two.\n');
 });
 
-test('discovery presents name and description only, sorted, without evidence or body', async t => {
+test('discovery presents name, description and revision only, sorted, without evidence or body', async t => {
   const root = await realRoot('knowledge-meta-');
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, 'docs.md'), 'cited bytes\n');
@@ -48,8 +48,8 @@ test('discovery presents name and description only, sorted, without evidence or 
   await writeEntry(root, 'zeta.md', `---\nname: zeta\ndescription: last\nevidence:\n  - type: file\n    path: docs.md\n    sha256: ${proof}\n---\nzeta body\n`);
   await writeEntry(root, 'alpha.md', `---\nname: alpha\ndescription: first\nevidence:\n  - type: file\n    path: docs.md\n    sha256: ${proof}\n---\nalpha body\n`);
   const catalog = await (await readRoot(root)).catalog();
-  assert.deepEqual(catalog, [{ name: 'alpha', description: 'first' }, { name: 'zeta', description: 'last' }]);
-  for (const entry of catalog) assert.deepEqual(Object.keys(entry).sort(), ['description', 'name']);
+  assert.deepEqual(catalog.map(({ name, description }) => ({ name, description })), [{ name: 'alpha', description: 'first' }, { name: 'zeta', description: 'last' }]);
+  for (const entry of catalog) assert.deepEqual(Object.keys(entry).sort(), ['description', 'name', 'revision']);
 });
 
 test('a modified cited file, a forged hash and a missing cited file are refused without the body', async t => {
@@ -115,10 +115,11 @@ test('symbol proofs are unsupported and uppercase declared hashes verify', async
   await writeEntry(root, 'bare_symbol.md', `---\nname: bare_symbol\ndescription: declares a bare unsupported proof\nevidence:\n  - type: symbol\n---\nsecret body\n`);
   await writeEntry(root, 'upper.md', `---\nname: upper\ndescription: uppercase declared digest\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${lower.toUpperCase()}\n---\nopen body\n`);
   const library = await readRoot(root);
-  // A `symbol` item with ad-hoc keys is out of the fixed grammar; a bare one is
-  // known grammar that can never verify. Both refuse without the body.
+  // A `symbol` item with ad-hoc keys is out of the fixed grammar; a bare one no
+  // longer satisfies the strict symbol-proof schema (spec #233) either. Both
+  // refuse as malformed contracts without the body.
   await expectInvalid(await library.read('symbolic'), 'malformed_contract');
-  await expectInvalid(await library.read('bare_symbol'), 'unsupported_proof');
+  await expectInvalid(await library.read('bare_symbol'), 'malformed_contract');
   assert.doesNotMatch(JSON.stringify(await library.read('symbolic')), /secret body/);
   const read = await library.read('upper');
   assert.equal(read.status, 'valid');
@@ -178,7 +179,7 @@ test('a malformed catalogue entry never hides a valid neighbour and a missing ca
   await writeEntry(root, 'broken.md', 'not a knowledge file\n');
   await writeEntry(root, 'good.md', `---\nname: good\ndescription: survives neighbours\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${await proofOf(root, 'main.ts')}\n---\ngood body\n`);
   const library = await readRoot(root);
-  assert.deepEqual(await library.catalog(), [{ name: 'good', description: 'survives neighbours' }]);
+  assert.deepEqual(await library.catalog().then(entries => entries.map(({ name, description }) => ({ name, description }))), [{ name: 'good', description: 'survives neighbours' }]);
   const read = await library.read('good');
   assert.equal((read as { body: string }).body.trim(), 'good body');
   // An entirely absent catalogue directory still serves an empty library.
@@ -193,6 +194,6 @@ test('parseKnowledge refuses without workspace access and the catalogue sits in 
   assert.equal(parseKnowledge('no envelope at all', 'x').status, 'invalid');
   const source = `---\nname: x\ndescription: declared\nevidence:\n  - type: symbol\n---\nbody\n`;
   const parsed = parseKnowledge(source, 'x');
-  assert.equal((parsed as { reason?: string }).reason, 'unsupported_proof');
+  assert.equal((parsed as { reason?: string }).reason, 'malformed_contract');
   assert.equal(knowledgeDirectory('/ws'), join('/ws', '.tours', '.memory', 'knowledge'));
 });

@@ -11,7 +11,7 @@ import {
   loadKnowledgeLibrary,
   parseKnowledge,
   verifyKnowledge,
-  type KnowledgeValidation,
+  type KnowledgeParseResult,
   type SymbolFingerprinter,
   treeSitterSymbolFingerprinter
 } from '../src/index';
@@ -31,7 +31,7 @@ const writeEntry = async (root: string, fileName: string, content: string): Prom
 const symbolProofSource = (sha: string, extra = '') =>
   `---\nname: dispatch_flow\ndescription: How tool calls dispatch\nevidence:\n  - type: symbol\n    path: main.ts\n    symbol: dispatch\n    sha256: ${sha}${extra}\n---\nsecret body\n`;
 
-const expectInvalid = (read: KnowledgeValidation, reason: string): void => {
+const expectInvalid = (read: KnowledgeParseResult, reason: string): void => {
   assert.equal(read.status, 'invalid');
   assert.equal((read as { reason?: string }).reason, reason);
   assert.doesNotMatch(JSON.stringify(read), /secret body/);
@@ -46,7 +46,10 @@ test('a mixed file+symbol entry parses, and its symbol proof reads fail-closed u
   const library = await readRoot(root);
   // the complete symbol proof is contract grammar now: discovery lists it, the
   // read verifies the file proof then refuses on the symbol proof, fail-closed
-  assert.deepEqual(await library.catalog(), [{ name: 'mixed', description: 'file and symbol proofs coexist' }]);
+  assert.deepEqual(
+    (await library.catalog()).map(({ name, description }) => ({ name, description })),
+    [{ name: 'mixed', description: 'file and symbol proofs coexist' }]
+  );
   expectInvalid(await library.read('mixed'), 'symbol_hash_mismatch');
 });
 
@@ -127,7 +130,10 @@ test('existing file-proof entries keep reading exactly as before — no behaviou
   const proof = fileProofHash(await readFile(join(root, 'main.ts')));
   await writeEntry(root, 'plain.md', `---\nname: plain\ndescription: unchanged file proof contract\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${proof}\n---\nplain body\n`);
   const library = await readRoot(root);
-  assert.deepEqual(await library.catalog(), [{ name: 'plain', description: 'unchanged file proof contract' }]);
+  assert.deepEqual(
+    (await library.catalog()).map(({ name, description }) => ({ name, description })),
+    [{ name: 'plain', description: 'unchanged file proof contract' }]
+  );
   const read = await library.read('plain');
   assert.equal(read.status, 'valid');
   assert.equal((read as { body: string }).body, 'plain body\n');
