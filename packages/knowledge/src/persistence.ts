@@ -850,7 +850,12 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
     }
 
     const staged: Array<{ name: string; temp: string; target: string }> = [];
-    const published: string[] = [];
+    // Only the targets this call published by exclusive link can be rolled
+    // back: removing one restores "nothing was published". A `replace`
+    // publishes by renaming over the previous entry, so its target is
+    // terminal — deleting it in a late cleanup would destroy the entry
+    // instead of leaving the previous one in place (spec #232).
+    const rollbackTargets: string[] = [];
     try {
       for (const entry of validated) {
         const temp = join(directory, `.${entry.name}.${randomUUID()}.tmp`);
@@ -862,18 +867,17 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
         // reader sees the old whole file or the new whole file, and a failed
         // rename leaves the previous entry in place.
         await rename(staged[0].temp, staged[0].target);
-        published.push(staged[0].target);
       } else {
         const lateConflicts: KnowledgeNameConflict[] = [];
         for (const item of staged) {
           if (await publish(item.temp, item.target) === 'conflict') {
             lateConflicts.push({ name: item.name, reason: 'name_conflict' });
           } else {
-            published.push(item.target);
+            rollbackTargets.push(item.target);
           }
         }
         if (lateConflicts.length > 0) {
-          await Promise.allSettled(published.map(removeQuietly));
+          await Promise.allSettled(rollbackTargets.map(removeQuietly));
           return { status: 'conflict', conflicts: lateConflicts };
         }
       }
@@ -889,7 +893,9 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
         ? { status: 'replaced', replaced: validated.map(entry => entry.name), warnings }
         : { status: 'saved', saved: validated.map(entry => entry.name), warnings };
     } catch (error) {
-      await Promise.allSettled(published.map(removeQuietly));
+      // A late failure only ever withdraws a publication this call performed
+      // itself, never the target of a completed `replace`.
+      await Promise.allSettled(rollbackTargets.map(removeQuietly));
       throw error;
     } finally {
       await Promise.allSettled(staged.map(item => removeQuietly(item.temp)));
