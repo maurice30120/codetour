@@ -249,6 +249,18 @@ l'extension VS Code, et ils rappellent la commande à lancer quand le CLI
 - L'installation n'écrit aucun serveur MCP dans `mcp.json` : la déclaration
   appartient à l'extension, donc à une seule source.
 
+## Prérequis d'exécution
+
+Le serveur `codetour` est enregistré par l'extension mais **connecté par le MCP
+intégré de Pi**. Un `settings.json` qui le désactive
+(`"extensions": ["-builtin:mcp"]`) laisse l'enregistrement sans connexion et Pi
+signale `MCP server "codetour" is registered, but no loaded extension connects
+MCP servers`. Le diagnostic se fait dans la session avec `/mcp` (le serveur et
+sa source « extension » y figurent) ; `pi mcp list` ne peut pas le montrer, car
+les commandes shell ne chargent pas les extensions. Vérifié sur Pi 1.5.2 :
+`-e builtin:mcp -e ./packages/pi-plugin` + `tool_search` renvoie les sept outils
+`mcp__codetour__*`.
+
 ## Vérification
 
 - `test/pi-plugin-install.test.mjs` — installation dans un `PI_CODING_AGENT_DIR`

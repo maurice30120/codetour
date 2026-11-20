@@ -56,7 +56,12 @@ before concluding they are missing.
    verified catalogue and the entries this run actually read. Never re-read
    every cited source, and never verify an anchor a second time: the MCP
    already validates both.
-7. Only if no CodeTour tool is found after that search, say so and stop: check
-   `pi mcp list` first and recommend a reinstall only if `codetour` is not
-   listed; then give the repair command `codetour --install pi`. A text answer
-   is not a Tour.
+7. Only if no CodeTour tool is found after that search, say so and stop. The
+   CodeTour server is registered by the package's extension, so diagnose it in
+   the session: `/mcp` must list `codetour` with the extension as its source
+   (`pi mcp list` cannot show it, because shell commands do not load
+   extensions). If Pi reports that no loaded extension connects MCP servers,
+   the built-in MCP support is disabled: re-enable it with `pi config`
+   (Built-in → mcp) or drop `-builtin:mcp` from the settings. Recommend a
+   reinstall only if `/mcp` shows no `codetour` server at all, with the repair
+   command `codetour --install pi`. A text answer is not a Tour.

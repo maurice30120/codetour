@@ -89,6 +89,15 @@ absence means "not measured", never "zero".
 
 - A Pi version that supports `registerMcpServer`, `registerCommand`,
   `agent_before_settle` with `continue: true`, and package manifests.
+- **Pi's built-in MCP support must be enabled.** Registered servers are
+  connected by it; a settings file that disables it
+  (`"extensions": ["-builtin:mcp"]`, or `-builtin:mcp` in a project override)
+  leaves the `codetour` server registered but unconnected, and Pi reports
+  `MCP server "codetour" is registered, but no loaded extension connects MCP
+  servers`. Re-enable it with `pi config` (Built-in → mcp) or by removing that
+  entry. Verify a session with `/mcp`: the `codetour` server must be listed with
+  the extension as its source. `pi mcp list` cannot confirm it, because shell
+  commands do not load extensions.
 - `codetour` on `PATH` for a direct `pi install` of this source (the managed
   install writes an absolute launcher).
 - No Node subprocess and no extra hook runtime: everything runs inside Pi.
