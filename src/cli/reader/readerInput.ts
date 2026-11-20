@@ -27,6 +27,8 @@ export interface ReaderKeyState {
   stepCount: number;
   /** One screenful of the Step box, for the paging keys. */
   pageRows: number;
+  /** Whether the Open-in-VS Code collaborator is wired; without it the `o` key stays terminal-owned. */
+  canOpenInVsCode: boolean;
 }
 
 export type ReaderKeyAction =
@@ -37,6 +39,7 @@ export type ReaderKeyAction =
   | { type: "ask-suggestion"; question: string }
   | { type: "navigate"; step: number }
   | { type: "toggle-voice" }
+  | { type: "open-in-vscode" }
   | { type: "scroll"; delta: number }
   | { type: "draft-append"; text: string }
   | { type: "draft-backspace" }
@@ -87,6 +90,12 @@ export function translateKey(state: ReaderKeyState, event: ReaderKeyEvent): Read
     // never reaches this branch — it stayed draft text.
     if (event.ctrl || event.meta || event.alt) return { type: "unhandled" };
     return { type: "toggle-voice" };
+  }
+  if (event.key === "o" && state.canOpenInVsCode) {
+    // The unmodified `o` opens the Tour in VS Code at the active Step; a
+    // modified `o` and an `o` typed in the ask prompt are not the shortcut.
+    if (event.ctrl || event.meta || event.alt) return { type: "unhandled" };
+    return { type: "open-in-vscode" };
   }
   if (event.key === "j" || event.key === "ArrowDown") return { type: "scroll", delta: 1 };
   if (event.key === "k" || event.key === "ArrowUp") return { type: "scroll", delta: -1 };

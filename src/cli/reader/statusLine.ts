@@ -6,7 +6,7 @@ import type { ConversationState, ReaderStatusLine } from "./viewModel";
  * adapter joins and truncates the segments; the order — voice state first,
  * then speech warning, provider and exchange count — is reading behavior
  * the tests pin, because a narrow terminal cuts the least important
- * segments and never the voice state (spec #79).
+ * segments and never the voice state (spec #79, #244).
  */
 
 /** "1 exchange" / "n exchanges", shared by the conversation head meta and the status line. */
@@ -20,6 +20,10 @@ export interface StatusLineInput {
   compactHints: boolean;
   narrationEnabled: boolean;
   speechWarning: string | undefined;
+  /** Whether the Open-in-VS Code collaborator is wired; owns the `o open` hint (ticket #244). */
+  canOpenInVsCode: boolean;
+  /** The latest nonblocking Open-in-VS Code failure, cleared by a later success. */
+  openWarning: string | undefined;
   /** Lowercase provider name, when an agent is installed. */
   providerName: string | undefined;
   exchangeCount: number;
@@ -37,6 +41,7 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
       ? ["←/→ step", "j/k scroll"]
       : ["←/→ previous/next", "j/k scroll", "PgUp/PgDn page"];
     if (hasResponder && !responding) keys.push("a ask");
+    if (input.canOpenInVsCode) keys.push("o open");
     // While an answer streams, quitting would lose it: the same key first
     // interrupts the answer in flight (ADR 0031).
     keys.push(responding ? "q stop" : "q quit");
@@ -46,6 +51,7 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
     input.narrationEnabled ? "VOICE ON" : "VOICE OFF"
   ];
   if (input.speechWarning) rightSegments.push(input.speechWarning);
+  if (input.openWarning) rightSegments.push(input.openWarning);
   if (input.providerName) rightSegments.push(input.providerName.toLowerCase());
   if (input.exchangeCount) rightSegments.push(exchangesLabel(input.exchangeCount));
   return { mode, hints, rightSegments };
