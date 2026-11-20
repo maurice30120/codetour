@@ -1,3 +1,4 @@
+import type { OpenInVsCodeInvoker } from "../openInVscode";
 import { resolveReadonlyStepContext, type ReadonlyStepContext } from "../stepContext";
 import { renderTerminalDescription, TerminalStepRenderError } from "../terminalContent";
 import { railWindow, terminalLayout, type TerminalLayout } from "../terminalLayout";
@@ -80,6 +81,14 @@ export interface ReaderOptions {
   /** The commit file reader grounding diff questions; none by default. */
   readCommitFile?: CommitFileReader;
   /**
+   * The Open-in-VS Code collaborator (ticket #244): composed by the entry
+   * point over the decision module (`src/cli/openInVsCode.ts`), it receives
+   * the view model's facts — the Tour identity, the workspace root and the
+   * active Step — and never blocks the reading; its failure lands on the
+   * status line as an `openWarning`.
+   */
+  openInVsCode?: OpenInVsCodeInvoker;
+  /**
    * Notified after every view-model change the adapter must paint — render
    * commits, key inputs, streaming exchange updates, narration warnings.
    * A navigation keypress notifies nothing until its render commits, exactly
@@ -107,6 +116,9 @@ class TerminalReader implements TourReader {
   private readonly resolveStepContext: StepContextResolver;
   private readonly narration: NarrationPolicy;
   private readonly conversation: TourStepConversation;
+  private readonly openInVsCode: OpenInVsCodeInvoker | undefined;
+  /** The latest nonblocking Open-in-VS Code failure, cleared by a later success. */
+  private openWarning: string | undefined;
 
   private layout: TerminalLayout;
   private terminalRows: number;
@@ -154,6 +166,7 @@ class TerminalReader implements TourReader {
       ((tour, index, width) => renderTerminalDescription(tour, index, this.root, { width }));
     const resolveStepContext = options.resolveStepContext ?? resolveReadonlyStepContext;
     this.resolveStepContext = resolveStepContext;
+    this.openInVsCode = options.openInVsCode;
     this.onViewChange = options.onViewChange;
     this.narration = new NarrationPolicy(
       options.speech,
@@ -167,6 +180,32 @@ class TerminalReader implements TourReader {
       readCommitFile: options.readCommitFile ?? (() => undefined),
       onChange: () => this.notify()
     });
+  }
+
+  /**
+   * The nonblocking Open-in-VS Code invocation (ticket #244): the request
+   * carries the view model's facts; the reading continues while the
+   * opening runs, and its outcome replaces any previous one on the status
+   * line.
+   */
+  private requestOpenInVsCode(): void {
+    if (!this.openInVsCode) return;
+    const invoker = this.openInVsCode;
+    invoker({
+      tourId: this.tour.id,
+      workspaceRoot: this.root,
+      step: this.current
+    }).then(
+      () => {
+        this.openWarning = undefined;
+        this.notify();
+      },
+      (error: unknown) => {
+        this.openWarning = "vscode: " +
+          (error instanceof Error ? error.message : String(error));
+        this.notify();
+      }
+    );
   }
 
   /** The adapter's paint trigger: called after every mutation it must paint. */
@@ -219,6 +258,8 @@ class TerminalReader implements TourReader {
         compactHints: this.layout.compactHints,
         narrationEnabled: narrationState.enabled,
         speechWarning: narrationState.warning,
+        canOpenInVsCode: this.openInVsCode !== undefined,
+        openWarning: this.openWarning,
         providerName: this.conversation.providerName,
         exchangeCount: exchanges.length
       }),
@@ -292,7 +333,8 @@ class TerminalReader implements TourReader {
       suggestions: this.tour.steps[this.current]?.questions ?? [],
       currentStep: this.current,
       stepCount: this.tour.steps.length,
-      pageRows: Math.max(1, this.stepViewportRows)
+      pageRows: Math.max(1, this.stepViewportRows),
+      canOpenInVsCode: this.openInVsCode !== undefined
     }, event);
   }
 
@@ -383,6 +425,11 @@ class TerminalReader implements TourReader {
         break;
       case "toggle-voice":
         this.toggleVoice();
+        break;
+      case "open-in-vscode":
+        // Ticket #244: the opening runs beside the reading, never blocking
+        // the state machine; its outcome lands on the status line.
+        this.requestOpenInVsCode();
         break;
       case "enter-ask-mode":
         this.asking = true;
