@@ -104,11 +104,11 @@ test("the reader opens the model picker on `m` with the models the agent announc
   const picker = reader.getState().picker;
   assert.ok(picker, "the picker is open");
   assert.equal(picker.title, "model");
-  // The agent's own labels and order, the confirmed model marked as current.
+  // The agent's own labels and order, the confirmed model marked effective.
   assert.deepEqual(picker.items, [
-    { label: "Fast", current: false },
-    { label: "Balanced", current: false },
-    { label: "Smart", current: true }
+    { label: "Fast", effective: false },
+    { label: "Balanced", effective: false },
+    { label: "Smart", effective: true }
   ]);
   // The highlighted row is the model the agent confirms right now.
   assert.equal(picker.selected, 2);
@@ -181,7 +181,55 @@ test("a model the agent changes by itself is reflected in the profile and in the
   const picker = reader.getState().picker;
   assert.ok(picker);
   assert.equal(picker.selected, 1, "the picker opens on the model the agent now confirms");
-  assert.deepEqual(picker.items.map(item => item.current), [false, true, false]);
+  assert.deepEqual(picker.items.map(item => item.effective), [false, true, false]);
+  await reader.close();
+});
+
+test("a change the agent makes by itself clears the refusal notice it outdates", async () => {
+  const responder = new ScriptedModelResponder();
+  responder.adopt = false;
+  const reader = harness(responder);
+  await reader.open();
+  reader.pressKey({ key: "m" });
+  reader.pressKey({ key: "ArrowUp" });
+  reader.pressKey({ key: "Enter" });
+  await flushed();
+  assert.ok(reader.getState().status.rightSegments.includes("model: Balanced refused"),
+    "the refusal is visible: " + JSON.stringify(reader.getState().status.rightSegments));
+  // The agent then confirms a model nobody asked for (config_option_update,
+  // ADR 0048): the notice described the previous model state, so it goes.
+  responder.selector = { optionId: "model", value: "fast", values: responder.selector!.values };
+  responder.agent = { agent: "Copilot", model: "fast", effective: true };
+  const state = reader.getState();
+  assert.equal(state.conversation.agent?.model, "fast");
+  assert.ok(!state.status.rightSegments.some(segment => segment.startsWith("model: ")),
+    "a confirmation the reader did not request clears the notice: " +
+    JSON.stringify(state.status.rightSegments));
+  await reader.close();
+});
+
+test("the picker accepts the row it paints when the announced list shrinks underneath it", async () => {
+  const responder = new ScriptedModelResponder();
+  const reader = harness(responder);
+  await reader.open();
+  // The picker opens on the confirmed Smart (row 2 of 3).
+  reader.pressKey({ key: "m" });
+  assert.equal(reader.getState().picker?.selected, 2);
+  // The agent stops announcing two of its models while the overlay is open:
+  // the painted highlight falls back to the only remaining row.
+  responder.selector = {
+    optionId: "model",
+    value: "smart",
+    values: [{ value: "fast", name: "Fast" }]
+  };
+  assert.equal(reader.getState().picker?.selected, 0,
+    "the highlight is clamped against the list the agent announces now");
+  reader.pressKey({ key: "Enter" });
+  await flushed();
+  // Enter accepts the displayed row, not the raw index the list no longer has.
+  assert.deepEqual(responder.requested, ["fast"],
+    "the accepted row is the displayed row");
+  assert.equal(reader.getState().picker, undefined);
   await reader.close();
 });
 

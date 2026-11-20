@@ -348,13 +348,13 @@ test("the composed CLI reader chooses a model among those the agent announces (t
   try {
     await reader.open();
     // The picker lists exactly what the agent announced, the confirmed model
-    // marked current — no catalogue of CodeTour's own.
+    // marked effective — no catalogue of CodeTour's own.
     reader.pressKey({ key: "m" });
     const picker = reader.getState().picker;
     assert.ok(picker, "the picker opens on the composed reader too");
     assert.deepEqual(picker.items, [
-      { label: "GPT-5", current: true },
-      { label: "GPT-6 Luna", current: false }
+      { label: "GPT-5", effective: true },
+      { label: "GPT-6 Luna", effective: false }
     ]);
     reader.pressKey({ key: "ArrowDown" });
     reader.pressKey({ key: "Enter" });

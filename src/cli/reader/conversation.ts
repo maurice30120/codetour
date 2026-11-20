@@ -51,15 +51,16 @@ export class TourStepConversation {
   /**
    * The model selector the answering agent announces right now, with the model
    * it confirms: undefined until a session announces one, so the model picker
-   * never lists values no agent offered (ADR 0048, ticket #266).
+   * never lists values no agent offered (ADR 0048, ticket #266). It travels
+   * through the store, the conversation's owner, exactly like the identity.
    */
   get announcedModel(): AcpModelSelector | undefined {
-    return this.options.responder?.model?.();
+    return this.store.model();
   }
 
   /** Whether the responder accepts a model change at all (ticket #266). */
   get canSelectModel(): boolean {
-    return this.options.responder?.selectModel !== undefined;
+    return this.store.canSelectModel;
   }
 
   /**
@@ -67,7 +68,7 @@ export class TourStepConversation {
    * only once the agent confirms it, which `announcedModel` then reports.
    */
   selectModel(value: string): Promise<void> | void {
-    return this.options.responder?.selectModel?.(value);
+    return this.store.selectModel(value);
   }
 
   /** The Step's exchanges, raw and unpainted, straight from the shared store. */

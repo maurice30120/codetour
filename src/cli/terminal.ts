@@ -6,7 +6,8 @@ import { palette } from "./palette";
 import {
   commitFileReader,
   NO_AGENT_INSTALLED_MESSAGE,
-  openTerminalChat
+  openTerminalChat,
+  type TerminalChatSession
 } from "./stepChatSupport";
 import { fit, tail, wrapLine } from "./terminalLayout";
 import { createOpenInVsCodeInvoker, type OpenInVsCodeInvoker } from "./openInVscode";
@@ -54,6 +55,45 @@ export interface TerminalReaderCompositionOptions {
 }
 
 /**
+ * The Step Chat responder of the terminal's session, adapted to the reader's
+ * `ConversationResponder` port (spec #93).
+ *
+ * Adapted here, at the composition root, so the reading module never sees the
+ * Step Chat contract (ADR 0031). The model picker of ticket #266 exists only
+ * when the answering agent really can change model: `selectModel` is wired
+ * from the responder's own member, so an agent-managed responder leaves the
+ * reader's unmodified `m` key and its hint out instead of offering a request
+ * nobody serves (ADR 0052).
+ */
+export function composeConversationResponder(
+  chat: TerminalChatSession
+): ConversationResponder | undefined {
+  const responder = chat.responder;
+  // No installed Agent Profile means no responder: the reader stays fully
+  // usable without an agent and says so (spec #93).
+  if (!responder) return undefined;
+  const preselection = chat.profile;
+  return {
+    // The responder names the agent the session handshake confirmed; the
+    // first installed candidate is only the preselection before that.
+    identity: () => responder.identity?.() ?? (preselection
+      ? { agent: preselection.name, effective: false }
+      : undefined),
+    // The model picker lists what the answering agent announces, and the
+    // reader's choice is the request the agent applies and confirms.
+    model: () => responder.model?.(),
+    selectModel: typeof responder.selectModel === "function"
+      ? (value: string) => responder.selectModel?.(value)
+      : undefined,
+    answer: (request, events) => responder.answer(request, events),
+    // A stop interrupts the in-flight answer (ADR 0031): the failover
+    // responder cancels its active candidate.
+    cancel: () => responder.cancel?.(),
+    dispose: () => chat.dispose()
+  };
+}
+
+/**
  * The composition root's collaborator wiring (spec #93): the ACP session
  * layer stays behind the Step Chat support seams and is adapted to the
  * reader's responder port; no agent process is started until the first
@@ -68,27 +108,7 @@ export function composeTerminalReader(options: TerminalReaderCompositionOptions)
   const { tour, root } = options;
   const injected = options.collaborators ?? {};
   const chat = injected.responder ? undefined : openTerminalChat(root);
-  const chatResponder = chat?.responder;
-  const preselection = chat?.profile;
-  const responder: ConversationResponder | undefined = injected.responder ??
-    (chatResponder
-      ? {
-        // The responder names the agent the session handshake confirmed; the
-        // first installed candidate is only the preselection before that.
-        identity: () => chatResponder.identity?.() ?? (preselection
-          ? { agent: preselection.name, effective: false }
-          : undefined),
-        // The model picker lists what the answering agent announces, and the
-        // reader's choice is the request the agent applies and confirms.
-        model: () => chatResponder.model?.(),
-        selectModel: (value: string) => chatResponder.selectModel?.(value),
-        answer: (request, events) => chatResponder.answer(request, events),
-        // A stop interrupts the in-flight answer (ADR 0031): the failover
-        // responder cancels its active candidate.
-        cancel: () => chatResponder.cancel?.(),
-        dispose: () => chat?.dispose()
-      }
-      : undefined);
+  const responder = injected.responder ?? (chat ? composeConversationResponder(chat) : undefined);
   return createReader({
     tour,
     root,
@@ -268,7 +288,7 @@ class TermDomSurface {
       `.picker { position: absolute; bottom: 1ch; left: 0; width: 100%; box-sizing: border-box; display: none; flex-direction: column; background-color: ${palette.element}; border-top: 1px solid ${palette.borderStrong}; padding: 0 1ch; }`,
       `.picker-head { color: ${palette.primary}; font-weight: bold; }`,
       `.picker-item { white-space: pre; color: ${palette.text}; }`,
-      `.picker-item.current { color: ${palette.muted}; }`,
+      `.picker-item.effective { color: ${palette.muted}; }`,
       `.picker-item.selected { background-color: ${palette.panel}; color: ${palette.text}; }`,
       `.picker-notice { color: ${palette.muted}; white-space: pre-wrap; }`,
       `.picker-hint { color: ${palette.muted}; white-space: pre; }`,
@@ -685,9 +705,9 @@ class TermDomSurface {
       const row = document.createElement("div");
       row.className = "picker-item" +
         (index === picker.selected ? " selected" : "") +
-        (item.current ? " current" : "");
+        (item.effective ? " effective" : "");
       row.textContent = (index === picker.selected ? "▌ " : "  ") + item.label +
-        (item.current ? " (effective)" : "");
+        (item.effective ? " (effective)" : "");
       this.picker.appendChild(row);
     });
     if (picker.notice) {

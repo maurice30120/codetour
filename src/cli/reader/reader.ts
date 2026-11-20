@@ -122,8 +122,12 @@ class TerminalReader implements TourReader {
   private readonly openInVsCode: OpenInVsCodeInvoker | undefined;
   /** The latest nonblocking Open-in-VS Code failure, cleared by a later success. */
   private openWarning: string | undefined;
-  /** The latest model change the agent did not adopt, cleared by a later confirmed one. */
-  private modelWarning: string | undefined;
+  /**
+   * The latest model change the agent did not adopt, with the model it
+   * confirmed when the request failed: a later confirmation clears it, whether
+   * the reader asked for it or the agent reported its own change (ADR 0052).
+   */
+  private modelWarning: { message: string; confirmed: string | undefined } | undefined;
 
   private layout: TerminalLayout;
   private terminalRows: number;
@@ -224,6 +228,7 @@ class TerminalReader implements TourReader {
   }
 
   getState(): ReaderViewModel {
+    this.reconcileModelWarning();
     const suggestions = this.tour.steps[this.current]?.questions ?? [];
     const exchanges = this.conversation.exchangesFor(this.current);
     const responding = this.conversation.isResponding(this.current);
@@ -275,7 +280,7 @@ class TerminalReader implements TourReader {
         canOpenInVsCode: this.openInVsCode !== undefined,
         canSelectModel: this.conversation.canSelectModel,
         openWarning: this.openWarning,
-        modelWarning: this.modelWarning,
+        modelWarning: this.modelWarning?.message,
         agent,
         exchangeCount: exchanges.length
       }),
@@ -672,6 +677,17 @@ class TerminalReader implements TourReader {
   }
 
   /**
+   * The picker's highlighted row inside the models announced right now, or -1
+   * when there is nothing to choose (ticket #266). One clamp serves the view
+   * model the adapter paints and the row `Enter` accepts: a list that shrinks
+   * while the picker is open can never make the two disagree.
+   */
+  private pickerIndex(values: readonly AcpModelValue[]): number {
+    if (!values.length || !this.picker) return -1;
+    return Math.min(Math.max(this.picker.selected, 0), values.length - 1);
+  }
+
+  /**
    * The model picker overlay while it is open (ticket #266): the models the
    * agent announces right now, the highlighted row, and the explicit notice
    * an agent that announces none gets. The list is read live, so a model the
@@ -681,16 +697,13 @@ class TerminalReader implements TourReader {
     if (!this.picker) return undefined;
     const announced = this.conversation.announcedModel;
     const values = announced?.values ?? [];
-    const selected = values.length
-      ? Math.min(Math.max(this.picker.selected, 0), values.length - 1)
-      : -1;
     return {
       title: "model",
       items: values.map(value => ({
         label: value.name,
-        current: value.value === announced?.value
+        effective: value.value === announced?.value
       })),
-      selected,
+      selected: this.pickerIndex(values),
       notice: values.length
         ? undefined
         : agent?.effective
@@ -707,28 +720,31 @@ class TerminalReader implements TourReader {
    */
   private openModelPicker(): void {
     const announced = this.conversation.announcedModel;
-    const current = announced
+    const effective = announced
       ? announced.values.findIndex(value => value.value === announced.value)
       : -1;
-    this.picker = { selected: Math.max(0, current) };
+    this.picker = { selected: Math.max(0, effective) };
   }
 
   /** Moves the highlighted row by one, clamped inside the announced models. */
   private movePicker(delta: number): void {
     if (!this.picker) return;
-    const count = this.announcedModels().length;
-    if (!count) return;
-    this.picker.selected = Math.min(Math.max(this.picker.selected + delta, 0), count - 1);
+    const values = this.announcedModels();
+    if (!values.length) return;
+    this.picker.selected = Math.min(Math.max(this.picker.selected + delta, 0), values.length - 1);
   }
 
   /**
    * Accepts the highlighted model: the picker closes and the request reaches
-   * the responder, which applies it to the open session. A picker with
-   * nothing to choose has nothing to accept.
+   * the responder, which applies it to the open session. The accepted row is
+   * the row the view model painted, never a stale index; a picker with nothing
+   * to choose has nothing to accept.
    */
   private acceptPicker(): void {
     if (!this.picker) return;
-    const value = this.announcedModels()[this.picker.selected];
+    const values = this.announcedModels();
+    const index = this.pickerIndex(values);
+    const value = index < 0 ? undefined : values[index];
     this.picker = undefined;
     if (!value) return;
     this.requestModel(value);
@@ -748,16 +764,36 @@ class TerminalReader implements TourReader {
       () => {
         const confirmed = this.conversation.announcedModel;
         if (confirmed && confirmed.value !== value.value) {
-          this.modelWarning = "model: " + value.name + " refused";
+          this.modelWarning = {
+            message: "model: " + value.name + " refused",
+            confirmed: confirmed.value
+          };
         }
         this.notify();
       },
       (error: unknown) => {
-        this.modelWarning = "model: " +
-          (error instanceof Error ? error.message : String(error));
+        this.modelWarning = {
+          message: "model: " + (error instanceof Error ? error.message : String(error)),
+          confirmed: this.conversation.announcedModel?.value
+        };
         this.notify();
       }
     );
+  }
+
+  /**
+   * A refusal notice describes one model state: as soon as the agent confirms
+   * another model — including a `config_option_update` nobody here requested
+   * (ADR 0048, ADR 0052) — the notice is stale and is dropped. Every paint
+   * passes through the view model, so the notice never outlives what it is
+   * about.
+   */
+  private reconcileModelWarning(): void {
+    if (!this.modelWarning) return;
+    const confirmed = this.conversation.announcedModel?.value;
+    if (confirmed !== undefined && confirmed !== this.modelWarning.confirmed) {
+      this.modelWarning = undefined;
+    }
   }
 
   /** The rail window around the displayed Step; empty until one is displayed. */

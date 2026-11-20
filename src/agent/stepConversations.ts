@@ -6,6 +6,7 @@ import {
   type StepChatResponder,
   type StepChatToolUse
 } from "./stepChatContract";
+import type { AcpModelSelector } from "./acpModelOptions";
 
 /**
  * The Tour Step Conversation store shared by every playback surface, above
@@ -123,6 +124,29 @@ export class StepConversations {
    */
   identity(): StepChatAgentIdentity | undefined {
     return this.responder?.identity?.();
+  }
+
+  /**
+   * The model selector the answering agent announces right now, with the
+   * value it confirms; undefined until a session announces one (ticket #266).
+   * The store stays the conversation owner, the responder the transport: the
+   * model state is read and requested through the same seam as the identity.
+   */
+  model(): AcpModelSelector | undefined {
+    return this.responder?.model?.();
+  }
+
+  /** Whether the responder accepts a model change at all (ticket #266). */
+  get canSelectModel(): boolean {
+    return this.responder?.selectModel !== undefined;
+  }
+
+  /**
+   * Requests one model change from the answering agent: the request counts
+   * only once the agent confirms it, which {@link model} then reports.
+   */
+  selectModel(value: string): Promise<void> | void {
+    return this.responder?.selectModel?.(value);
   }
 
   /**

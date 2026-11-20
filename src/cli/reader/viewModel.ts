@@ -96,8 +96,8 @@ export interface ReaderComposer {
 export interface ReaderPickerItem {
   /** The model's label, as the agent spells it; untruncated — the adapter fits it. */
   label: string;
-  /** True for the model the agent confirms as effective right now. */
-  current: boolean;
+  /** True for the model the agent confirms as the Effective Model right now. */
+  effective: boolean;
 }
 
 /**
