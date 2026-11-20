@@ -106,6 +106,18 @@ export class StepConversations {
   }
 
   /**
+   * True while any conversation's answer is still streaming: the reader's
+   * agent or model choice is refused until it settles, so no answer is ever
+   * interrupted by a change the reader did not ask for now.
+   */
+  hasAnswerInFlight(): boolean {
+    for (const stored of this.conversations.values()) {
+      if (stored.some(exchange => exchange.pending)) return true;
+    }
+    return false;
+  }
+
+  /**
    * The agent answering the conversations right now, with the preselection
    * before any handshake: what a painter names as the reader's agent.
    */

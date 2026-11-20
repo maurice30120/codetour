@@ -6,6 +6,7 @@ import {
   AGENT_CATALOGUE,
   AgentSelection,
   catalogueProfiles,
+  isSelectable,
   type AgentAvailability,
   type AgentProfile,
   type AgentProfileView
@@ -391,4 +392,126 @@ test("a question waits for the probe, never starts unverified, and a failure nev
     await responder.dispose?.();
     selection.dispose();
   }
+});
+
+test("a profile cannot be chosen by hand when it is not installed", async () => {
+  const probe = scriptedProbe({});
+  const selection = new AgentSelection({
+    profiles: [COPILOT, agentProfile("Vibe", 1, ABSENT)],
+    probe: probe.probe
+  });
+
+  await selection.probeInitial("/workspace");
+
+  // The catalogue still lists it, with its state, but the reader cannot pick
+  // an agent that is not on the machine.
+  selection.select("Vibe");
+  assert.equal(selection.hasExplicitSelection(), false);
+  assert.equal(selection.selectedProfile()?.profile.name, "Copilot");
+  assert.equal(
+    isSelectable(view(selection.profiles(), "Vibe").availability),
+    false
+  );
+  // A name outside the catalogue is ignored as well.
+  selection.select("Not an agent");
+  assert.equal(selection.selectedProfile()?.profile.name, "Copilot");
+  selection.dispose();
+});
+
+test("an unauthenticated or unreachable profile stays selectable by hand", async () => {
+  const probe = scriptedProbe({
+    Copilot: {
+      state: "auth-required",
+      authMethods: [{ id: "copilot-login", name: "Copilot login" }]
+    },
+    Vibe: {
+      state: "connection-error",
+      reason: "The agent did not answer the probe within 5 s."
+    }
+  });
+  const selection = new AgentSelection({
+    profiles: [COPILOT, VIBE],
+    probe: probe.probe
+  });
+
+  await selection.probeInitial("/workspace");
+  // Nothing answered automatically: neither state qualifies.
+  assert.equal(selection.selectedProfile(), undefined);
+
+  // A slow start does not condemn an agent: the reader may still ask it.
+  selection.select("Vibe");
+  assert.equal(selection.explicitSelection()?.profile.name, "Vibe");
+  assert.deepEqual(
+    selection.candidates("/workspace").map(candidate => candidate.name),
+    ["Vibe"]
+  );
+
+  // A profile waiting for authentication is selectable too.
+  selection.select("Copilot");
+  assert.equal(selection.selectedProfile()?.profile.name, "Copilot");
+  assert.deepEqual(
+    selection.candidates("/workspace").map(candidate => candidate.name),
+    ["Copilot"]
+  );
+  selection.dispose();
+});
+
+test("an explicit choice is never replaced and its candidates shrink to it", async () => {
+  const outcomes: Record<string, AgentAvailability> = {
+    Vibe: {
+      state: "connection-error",
+      reason: "The agent did not answer the probe within 5 s."
+    }
+  };
+  const calls: string[] = [];
+  const selection = new AgentSelection({
+    profiles: CATALOGUE,
+    probe: async (profile: AgentProfile) => {
+      calls.push(profile.name);
+      return {
+        availability: outcomes[profile.name] ?? {
+          state: "available" as const,
+          configOptions: []
+        }
+      };
+    }
+  });
+
+  await selection.probeInitial("/workspace");
+  assert.equal(selection.selectedProfile()?.profile.name, "Copilot");
+
+  selection.select("Vibe");
+  assert.equal(selection.selectedProfile()?.profile.name, "Vibe");
+  // An explicit choice answers alone: no other profile may fall through.
+  assert.deepEqual(
+    selection.candidates("/workspace").map(candidate => candidate.name),
+    ["Vibe"]
+  );
+
+  // A refresh probes the whole catalogue (nothing automatic is left to
+  // decide) and finds another profile available: the choice stands.
+  calls.length = 0;
+  await selection.refresh("/workspace");
+  assert.deepEqual(calls, ["Copilot", "Vibe", "Codex", "Claude Code"]);
+  assert.equal(view(selection.profiles(), "Copilot").availability.state, "available");
+  assert.equal(selection.explicitSelection()?.profile.name, "Vibe");
+  assert.deepEqual(
+    selection.candidates("/workspace").map(candidate => candidate.name),
+    ["Vibe"]
+  );
+
+  // Probing the unverified profiles and a settled conversation change
+  // nothing either: only the reader replaces the reader's choice.
+  selection.hasConversationStarted();
+  await selection.probeUnverified("/workspace");
+  assert.equal(selection.selectedProfile()?.profile.name, "Vibe");
+  assert.deepEqual(
+    selection.candidates("/workspace").map(candidate => candidate.name),
+    ["Vibe"]
+  );
+
+  // Nothing survives the panel.
+  selection.dispose();
+  assert.equal(selection.hasExplicitSelection(), false);
+  assert.equal(selection.selectedProfile(), undefined);
 });

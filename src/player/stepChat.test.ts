@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
 import * as nodeModule from "module";
+import * as path from "node:path";
 import { createVscodeHost } from "../test/vscodeHost";
 
 // The Tour Step Conversation base: a question asked under the step
@@ -96,7 +97,7 @@ interface StepChatUpdate {
   }[];
   responding?: boolean;
   agent?: { agent: string; model?: string; effective: boolean };
-  agents?: { name: string; state: string; selected: boolean }[];
+  agents?: { name: string; state: string; selected: boolean; selectable: boolean }[];
   unavailable?: boolean;
 }
 
@@ -800,4 +801,165 @@ test("the conversation names the agent that answers: preselected before the hand
 
   setStepChatResponder(undefined);
   chatPanel().dispose();
+});
+
+/**
+ * A catalogue whose profiles can be probed in process and whose entries never
+ * launch: the profile's command is this Node binary running a script that does
+ * not exist, so a question fails deterministically without any real agent.
+ */
+function unlaunchableCatalogue(workspaceRoot: string) {
+  const { AgentSelection } = require("../agent/agentCatalogue");
+  const calls: string[] = [];
+  const profile = (name: string, rank: number) => ({
+    name,
+    rank,
+    entry: (cwd: string) => ({
+      command: process.execPath,
+      args: [path.join(workspaceRoot, "codetour-absent-agent.js")],
+      cwd
+    })
+  });
+  const selection = new AgentSelection({
+    profiles: [profile("Copilot", 0), profile("Vibe", 1)],
+    probe: async (probed: { name: string }) => {
+      calls.push(probed.name);
+      return { availability: { state: "available" as const, configOptions: [] } };
+    }
+  });
+  return { selection, calls };
+}
+
+function registerUnlaunchableAgents(workspaceRoot: string) {
+  const agents = unlaunchableCatalogue(workspaceRoot);
+  setStepChatAgentSelection(() => agents.selection);
+  return agents;
+}
+
+test("choosing an agent repaints the panel and changes who answers without asking anything", async () => {
+  resetChatState();
+  const agents = registerUnlaunchableAgents("/workspace");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    // The initial probe preselected the highest-ranked available profile and
+    // stopped there: the panel lists the whole catalogue with its states.
+    assert.deepEqual(agents.calls, ["Copilot"]);
+    assert.match(host.panelHtml(), /<option value="Copilot" data-state="available" selected>Copilot — available<\/option>/);
+    assert.match(host.panelHtml(), /<option value="Vibe" data-state="unverified">Vibe — installed, not verified<\/option>/);
+
+    // The reader chooses another agent: the panel repaints over the same
+    // conversations, naming the choice as the agent that answers next.
+    chatPanel().receive({ type: "chooseAgent", agent: "Vibe" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Vibe");
+    const chosen = lastChatUpdate();
+    assert.equal(chosen.agent?.effective, false, "no session was opened yet");
+    assert.deepEqual(
+      chosen.agents?.map(agent => [agent.name, agent.selected]),
+      [["Copilot", false], ["Vibe", true]]
+    );
+    assert.deepEqual(chosen.exchanges, [], "the choice asks nothing");
+    assert.deepEqual(agents.calls, ["Copilot"], "the choice probes nothing");
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("the panel re-probes on request and probes only the unverified profiles when the selector opens", async () => {
+  resetChatState();
+  const agents = registerUnlaunchableAgents("/workspace");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    // The initial probe stopped at the first available profile.
+    assert.deepEqual(agents.calls, ["Copilot"]);
+
+    // Opening the selector verifies the profiles the initial probe left
+    // unverified, and reposts the painted catalogue.
+    chatPanel().receive({ type: "probeUnverified" });
+    await host.waitFor(() => agents.calls.length === 2);
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe"]);
+    assert.equal(
+      lastChatUpdate().agents?.find(agent => agent.name === "Vibe")?.state,
+      "available"
+    );
+
+    // Opening it again probes nothing more: every profile is established.
+    chatPanel().receive({ type: "probeUnverified" });
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe"]);
+
+    // The manual refresh probes the catalogue again, in rank order, and stops
+    // at the first available profile; the reader sees the repainted states.
+    const beforeRefresh = stepChatUpdates().length;
+    chatPanel().receive({ type: "refreshAgents" });
+    await host.waitFor(
+      () => agents.calls.length === 3 && stepChatUpdates().length > beforeRefresh
+    );
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe", "Copilot"]);
+    assert.equal(lastChatUpdate().agent?.agent, "Copilot");
+    assert.equal(
+      lastChatUpdate().agents?.find(agent => agent.name === "Vibe")?.state,
+      "unverified",
+      "the refresh re-establishes the catalogue from the probe"
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("a failed exchange offers Retry and Change agent, and retrying keeps the same agent and exchange", async () => {
+  resetChatState();
+  const agents = registerUnlaunchableAgents("/workspace");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    // The reader chose Vibe: the choice is the only profile a question may
+    // use from now on.
+    chatPanel().receive({ type: "chooseAgent", agent: "Vibe" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Vibe");
+    const probesBefore = agents.calls.length;
+
+    chatPanel().receive({ type: "askQuestion", question: "Pourquoi ça casse ?" });
+    await host.waitFor(
+      () =>
+        lastChatUpdate().responding === false &&
+        lastChatUpdate().exchanges.length === 1
+    );
+    const failed = lastChatUpdate();
+    assert.equal(failed.exchanges[0].failed, true);
+    assert.equal(failed.exchanges[0].question, "Pourquoi ça casse ?");
+    assert.equal(failed.agent?.agent, "Vibe", "the choice is never replaced by a failure");
+    assert.equal(
+      agents.calls.length,
+      probesBefore,
+      "a conversation failure probes nothing"
+    );
+
+    // Retrying asks the same question again, to the same agent, and the
+    // failure stays attached to the exchange that failed.
+    chatPanel().receive({ type: "retryQuestion", question: "Pourquoi ça casse ?" });
+    await host.waitFor(
+      () =>
+        lastChatUpdate().responding === false &&
+        lastChatUpdate().exchanges.length === 2
+    );
+    const retried = lastChatUpdate();
+    assert.equal(retried.exchanges[1].question, "Pourquoi ça casse ?");
+    assert.equal(retried.exchanges[1].failed, true);
+    assert.equal(retried.exchanges[0].failed, true);
+    assert.equal(retried.agent?.agent, "Vibe");
+    assert.equal(agents.calls.length, probesBefore);
+    assert.deepEqual(
+      retried.agents?.map(agent => [agent.name, agent.selected]),
+      [["Copilot", false], ["Vibe", true]]
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
 });

@@ -109,8 +109,17 @@ export type AgentProbe = (
 export interface AgentProfileView {
   profile: AgentProfile;
   availability: AgentAvailability;
-  /** True for the profile that answers by default right now. */
+  /** True for the profile that answers right now. */
   selected: boolean;
+}
+
+/**
+ * True for a profile the reader may pick by hand: everything but a profile
+ * that is not on the machine. A profile waiting for authentication or in
+ * connection error stays selectable — a slow start does not prove it broken.
+ */
+export function isSelectable(availability: AgentAvailability): boolean {
+  return availability.state !== "not-installed";
 }
 
 export interface AgentSelectionOptions {
@@ -131,6 +140,10 @@ export interface AgentSelectionOptions {
  * `not-installed`, `unverified`, `unknown`, `auth-required` and
  * `connection-error` never answer automatically.
  *
+ * The reader's explicit choice replaces that automatic selection for the rest
+ * of the panel: nothing probed, refreshed or failing afterwards ever replaces
+ * it, and a question is only offered to the chosen profile.
+ *
  * Nothing survives the panel: an instance holds no process, and disposing it
  * forgets everything it established.
  */
@@ -139,6 +152,7 @@ export class AgentSelection {
   private readonly probe: AgentProbe;
   private readonly availability = new Map<string, AgentAvailability>();
   private selectedName: string | undefined;
+  private explicitName: string | undefined;
   private settled = false;
   private started = false;
   private probing: Promise<void> | undefined;
@@ -164,12 +178,37 @@ export class AgentSelection {
     return this.profiles().find(view => view.selected);
   }
 
+  /** The profile the reader chose by hand, or undefined while automatic. */
+  explicitSelection(): AgentProfileView | undefined {
+    return this.explicitName === undefined
+      ? undefined
+      : this.profiles().find(view => view.profile.name === this.explicitName);
+  }
+
+  /** True once the reader chose the answering profile by hand. */
+  hasExplicitSelection(): boolean {
+    return this.explicitName !== undefined;
+  }
+
   /**
-   * The profiles a question may try, in order: the selected one first, then —
-   * only before the first answer settled — the other available profiles by
-   * rank, so the initial automatic selection alone may fall through. An
-   * unverified profile never answers, and an explicit or settled selection is
-   * never replaced.
+   * Chooses the answering profile by hand. Any catalogue profile that is not
+   * `not-installed` may be chosen — a profile waiting for authentication or
+   * in connection error included — and the choice is final for the panel.
+   */
+  select(name: string): void {
+    const profile = this.catalogue.find(candidate => candidate.name === name);
+    if (!profile || !isSelectable(this.availabilityOf(profile.name))) {
+      return;
+    }
+    this.explicitName = profile.name;
+    this.selectedName = profile.name;
+  }
+
+  /**
+   * The profiles a question may try, in order: an explicit choice alone,
+   * otherwise the selected one first and then — only before the first answer
+   * settled — the other available profiles by rank, so the initial automatic
+   * selection alone may fall through. An unverified profile never answers.
    */
   candidates(cwd: string): AcpAgentProfile[] {
     const selected = this.selectedProfile();
@@ -179,7 +218,7 @@ export class AgentSelection {
     const candidates = [launchable(selected.profile, cwd)].filter(
       (candidate): candidate is AcpAgentProfile => candidate !== undefined
     );
-    if (this.started) {
+    if (this.hasExplicitSelection() || this.started) {
       return candidates;
     }
     for (const view of this.profiles()) {
@@ -209,13 +248,18 @@ export class AgentSelection {
    * sequentially in rank order, stopping at the first `available` profile.
    */
   probeInitial(cwd: string): Promise<void> {
-    // Re-probing refreshes the states; once the first answer settled, the
-    // profile that answered is never replaced by a later probe.
-    const answered = this.started ? this.selectedName : undefined;
+    // Re-probing refreshes the states; an explicit choice and the profile
+    // that already answered are never replaced by a later probe.
+    const retained = this.explicitName ?? (this.started ? this.selectedName : undefined);
     this.availability.clear();
-    this.selectedName = answered;
+    this.selectedName = retained;
     this.settled = false;
-    const run = this.run(cwd, { classify: true, stopAtFirstAvailable: true });
+    const run = this.run(cwd, {
+      classify: true,
+      // An explicit choice leaves nothing automatic to decide: the whole
+      // catalogue is probed, so every listed state stays honest.
+      stopAtFirstAvailable: !this.hasExplicitSelection()
+    });
     this.probing = run;
     return run;
   }
@@ -250,6 +294,7 @@ export class AgentSelection {
   dispose(): void {
     this.availability.clear();
     this.selectedName = undefined;
+    this.explicitName = undefined;
     this.settled = false;
     this.started = false;
     this.probing = undefined;
@@ -282,7 +327,9 @@ export class AgentSelection {
     }
     this.settled = true;
     this.probing = undefined;
-    if (!this.started) {
+    if (this.explicitName !== undefined) {
+      this.selectedName = this.explicitName;
+    } else if (!this.started) {
       this.selectedName = automaticSelection(this.profiles())?.profile.name;
     }
   }

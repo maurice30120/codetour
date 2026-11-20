@@ -28,7 +28,7 @@ const originalLoad = (nodeModule as unknown as { _load: unknown })._load as (
 };
 
 const { registerPlayerModule } = require("../player");
-const { setStepChatResponder } = require("./stepChat");
+const { setStepChatAgentSelection, setStepChatResponder } = require("./stepChat");
 const { createAcpStepChatResponder } = require("../agent/stepChatAgent");
 
 const fakeAgentScript = path.join(
@@ -104,8 +104,10 @@ interface StepChatUpdate {
     failed?: boolean;
     pending?: boolean;
     interrupted?: boolean;
+    agent?: { agent: string; model?: string; effective: boolean };
   }[];
   responding?: boolean;
+  agent?: { agent: string; model?: string; effective: boolean };
 }
 
 function stepChatUpdates(): StepChatUpdate[] {
@@ -1213,5 +1215,129 @@ test("a fresh question starts after cancelling an ACP agent that never acknowled
     clearTimeout(deadline);
     await responder.dispose();
     await agent.cleanup();
+  }
+});
+
+const { AgentSelection } = require("../agent/agentCatalogue");
+
+/**
+ * Registers the panel's Agent Selection over two catalogue profiles, each
+ * launching its own fake ACP agent: the probe is in process, so no agent is
+ * started before a question, and each agent's log proves who answered.
+ */
+function registerAgentChoice(
+  first: AgentWorkspace,
+  second: AgentWorkspace,
+  firstBehavior?: string
+) {
+  const probed: string[] = [];
+  const selection = new AgentSelection({
+    profiles: [
+      { name: "Copilot", rank: 0, entry: () => fakeAgentEntry(first, firstBehavior) },
+      { name: "Vibe", rank: 1, entry: () => fakeAgentEntry(second) }
+    ],
+    probe: async (profile: { name: string }) => {
+      probed.push(profile.name);
+      return { availability: { state: "available", configOptions: [] } };
+    }
+  });
+  // The panel owns its agents only when no responder is injected: the tests
+  // above inject their own responders and leave them registered.
+  setStepChatResponder(undefined);
+  setStepChatAgentSelection(() => selection);
+  return { selection, probed };
+}
+
+test("choosing another agent keeps the step history and opens a new session for the next question", async () => {
+  resetChatState();
+  const copilot = createAgentWorkspace();
+  const vibe = createAgentWorkspace();
+  const agents = registerAgentChoice(copilot, vibe);
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    chatPanel().receive({ type: "askQuestion", question: "Qui répond d'abord ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+    assert.equal(lastChatUpdate().agent?.agent, "Copilot");
+    assert.equal(lastChatUpdate().agent?.effective, true);
+    await waitForLog(copilot.logPath, found => promptCount(found) === 1);
+
+    // The reader moves the conversation to another agent: the panel keeps the
+    // step's exchange and names the choice as the agent that answers next.
+    chatPanel().receive({ type: "chooseAgent", agent: "Vibe" });
+    await host.waitFor(() => lastChatUpdate().agent?.agent === "Vibe");
+    const chosen = lastChatUpdate();
+    assert.equal(chosen.agent?.effective, false, "no session of the new agent exists yet");
+    assert.equal(chosen.exchanges.length, 1, "the step history stays");
+    assert.equal(chosen.exchanges[0].question, "Qui répond d'abord ?");
+    // Nothing of the previous agent's session reaches the new one: it was
+    // released, and no prompt was sent to it again.
+    assert.equal(promptCount(readLog(copilot.logPath)), 1);
+    assert.deepEqual(readLog(vibe.logPath).filter(row => row.method === "session/prompt"), []);
+
+    // The next question opens a new session on the chosen agent, carrying the
+    // step history of the conversation the reader kept.
+    chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 2);
+    assert.equal(lastChatUpdate().agent?.agent, "Vibe");
+    const answers = await waitForLog(vibe.logPath, found => promptCount(found) === 1);
+    assert.equal(answers.filter(row => row.method === "initialize").length, 1);
+    const blocks = promptBlocks(answers);
+    assert.equal(blocks[0].text, "Et maintenant ?");
+    assert.match(blocks[2].text, /Qui répond d'abord \?/);
+    assert.match(blocks[2].text, /Tour answer, part two\./);
+    // The previous agent answered once and was never asked again.
+    assert.equal(promptCount(readLog(copilot.logPath)), 1);
+    // Each exchange keeps the agent that produced it.
+    const exchanges = lastChatUpdate().exchanges;
+    assert.equal(exchanges[0].agent?.agent, "Copilot");
+    assert.equal(exchanges[1].agent?.agent, "Vibe");
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+    await copilot.cleanup();
+    await vibe.cleanup();
+    agents.selection.dispose();
+  }
+});
+
+test("a choice made while an answer streams is ignored, never interrupting the answer", async () => {
+  resetChatState();
+  const copilot = createAgentWorkspace();
+  const vibe = createAgentWorkspace();
+  // The first agent streams one chunk, then keeps the answer in progress
+  // until the reader stops it: no timing of a real model is involved.
+  const agents = registerAgentChoice(copilot, vibe, "slow");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    chatPanel().receive({ type: "askQuestion", question: "Question longue ?" });
+    await host.waitFor(() =>
+      stepChatUpdates().some(
+        update =>
+          update.responding === true &&
+          update.exchanges[0]?.answerHtml?.includes("Working")
+      )
+    );
+
+    // The reader's choice arrives mid-answer: it is refused, so the answer is
+    // never spliced with another agent's session.
+    chatPanel().receive({ type: "chooseAgent", agent: "Vibe" });
+    await new Promise(resolve => setTimeout(resolve, 200));
+    assert.equal(lastChatUpdate().agent?.agent, "Copilot");
+    assert.equal(agents.selection.selectedProfile()?.profile.name, "Copilot");
+    assert.deepEqual(
+      readLog(vibe.logPath).filter(row => row.method === "session/prompt"),
+      [],
+      "no session of the chosen agent was started by a refused choice"
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+    await copilot.cleanup();
+    await vibe.cleanup();
+    agents.selection.dispose();
   }
 });
