@@ -51,12 +51,27 @@ before concluding they are missing.
    only durable facts (verified invariants, architecture, conventions), never
    details specific to this tour. With zero entries, state why nothing durable
    qualified. Report only what the MCP returned.
-6. Pass the same `runId` to `mcp__codetour__knowledge_list` and
+6. When the generation is over, offer the created Tour through one of its two
+   real openings — and
+   **never answer with a step list, an excerpt or a prose summary in the
+   Tour's place** (no summary substitutes the reader, whatever the choice):
+   - **Terminal** — the real interactive reader of the Tour. The user runs it
+     at the workspace root: `codetour "<Tour title>"`, or
+     `codetour --internal-tour "<tour path>"` when only the Tour file is
+     known. The reader plays in the user's terminal, never an independent
+     window. Do not run it inside this session: it owns the terminal while
+     it plays.
+   - **VS Code** — the Open-in-VS Code contract, the Tour at its step:
+     `code --open-url "vscode://maurice30120.codetour/openTour?tour=<tour path>&step=<step>"`
+     (`step=1` right after generation: the first Step is the active one;
+     the step number is 1-based). Give the command exactly; state nothing
+     about the Tour's content in its place.
+7. Pass the same `runId` to `mcp__codetour__knowledge_list` and
    `mcp__codetour__knowledge_read` when you use them: the MCP then records the
    verified catalogue and the entries this run actually read. Never re-read
    every cited source, and never verify an anchor a second time: the MCP
    already validates both.
-7. Only if no CodeTour tool is found after that search, say so and stop: check
+8. Only if no CodeTour tool is found after that search, say so and stop: check
    `pi mcp list` first and recommend a reinstall only if `codetour` is not
    listed; then give the repair command `codetour --install pi`. A text answer
    is not a Tour.

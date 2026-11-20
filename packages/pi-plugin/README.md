@@ -21,6 +21,7 @@ instead of whatever `codetour` happens to be on `PATH`.
 | `extensions/codetour.ts` | Declares the **existing** `codetour mcp` server, starts a controlled generation from `/codetour`, and hosts the bounded consolidation guard. |
 | `lib/run-log.mjs` | The run-state contract this package reads and the only fields it writes. |
 | `lib/guard.mjs` | The guard decision and the closing line. |
+| `lib/reader.mjs` | The end-of-generation opening dialogue: the real interactive reader (terminal) or the Tour at its active step (VS Code). |
 | `skills/codetour-generate/SKILL.md` | Minimal generation entry point that defers to the served MCP prompt. |
 
 ## One CodeTour MCP server
@@ -68,6 +69,27 @@ handler, in process instead of a subprocess. It reads the run state only:
 
 A session that bypasses `/codetour` (direct skill use, direct MCP calls) creates
 no run state and is therefore unguarded; the MCP results still tell the truth.
+
+## The opening dialogue
+
+When a run closes (the consolidation was assessed), the guard reports the
+closing line and then asks the user how to open the created Tour — never a
+step list or a summary in the Tour's place:
+
+- **Terminal** — the real interactive reader, run at the workspace root:
+  `codetour "<Tour title>"` (or `codetour --internal-tour "<tour path>"`).
+  The reader plays in the user's terminal, always the Playback Surface,
+  never an independent window; the extension hands over the command only and
+  never spawns a process (ticket #242).
+- **VS Code** — `code --open-url "vscode://maurice30120.codetour/openTour?tour=<tour path>&step=<step>"`,
+  the extension's explicit deep-link contract: the Tour at its step, 1-based,
+  the first Step being the active one right after generation. Reusing the
+  window of the already-open workspace, refusing duplicates and the VS Code
+  absent case are ticket #244's; the address delegated here is the contract
+  T5 verifies at merge (ticket #242, amendment).
+
+The ask is once per run; a declined ask hands over nothing and leaves no
+substitute text.
 
 ## Knowledge observability
 
