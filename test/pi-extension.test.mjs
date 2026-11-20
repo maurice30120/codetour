@@ -13,7 +13,15 @@ import { TERMINAL_OPTION, VSCODE_OPTION } from "../packages/pi-plugin/lib/reader
 // the run state. Node strips the TypeScript types, so the shipped file is what
 // runs here.
 
-function fakeHost(execResult = { code: 0, stdout: "", stderr: "", killed: false, truncated: false }, extension = plugin) {
+// A connected session lists the server's tools; Pi registers them as
+// `mcp__<server>__<tool>` once the server connected.
+const CONNECTED_TOOLS = ["mcp__codetour__get_generation_prompt", "mcp__codetour__create_project_tour"];
+
+function fakeHost(
+  execResult = { code: 0, stdout: "", stderr: "", killed: false, truncated: false },
+  extension = plugin,
+  tools = [...CONNECTED_TOOLS]
+) {
   const handlers = new Map();
   const servers = [];
   const commands = new Map();
@@ -23,6 +31,9 @@ function fakeHost(execResult = { code: 0, stdout: "", stderr: "", killed: false,
   const pi = {
     on(event, handler) {
       handlers.set(event, handler);
+    },
+    getAllTools() {
+      return tools.map(tool => ({ name: tool }));
     },
     registerMcpServer(name, config) {
       servers.push({ name, config });
@@ -39,7 +50,7 @@ function fakeHost(execResult = { code: 0, stdout: "", stderr: "", killed: false,
     },
   };
   extension(pi);
-  return { handlers, servers, commands, notifications, sent, executions };
+  return { handlers, servers, commands, notifications, sent, executions, tools };
 }
 
 function fakeContext(workspace) {
@@ -102,6 +113,14 @@ test("session_start registers one workspace-scoped CodeTour server", async () =>
   }
 });
 
+test("the connection check stays passive: no mcp_servers_change handler", async () => {
+  const host = fakeHost();
+  // Handling that event would make CodeTour the extension that connects
+  // registered MCP servers, and Pi would stop reporting that nothing does.
+  assert.equal(host.handlers.has("mcp_servers_change"), false);
+  assert.deepEqual([...host.handlers.keys()].sort(), ["agent_before_settle", "session_start"]);
+});
+
 test("a cancelled selection starts nothing and writes no run state", async () => {
   const { root, workspace } = workspaceWithSpaces();
   try {
@@ -111,6 +130,52 @@ test("a cancelled selection starts nothing and writes no run state", async () =>
     assert.equal(host.sent.length, 0);
     assert.match(context.notifications[0].message, /generation cancelled/);
     assert.equal(runFiles(workspace).length, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an unconnected CodeTour server refuses the generation with the repair steps", async () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const host = fakeHost(undefined, plugin, []);
+    const context = fakeContext(workspace);
+    await host.commands.get("codetour").handler("project", context.ctx);
+    // No choice dialogue, no run state, no skill invocation, no hint that the
+    // generation is operational.
+    assert.equal(context.selects.length, 0);
+    assert.equal(host.sent.length, 0);
+    assert.equal(runFiles(workspace).length, 0);
+    assert.equal(context.notifications.length, 1);
+    const [diagnostic] = context.notifications;
+    assert.equal(diagnostic.level, "error");
+    assert.match(diagnostic.message, /"codetour" MCP server is registered but not connected/);
+    assert.match(diagnostic.message, /mcp__codetour__\*/);
+    assert.match(diagnostic.message, /pi config/);
+    assert.match(diagnostic.message, /-builtin:mcp/);
+    assert.match(diagnostic.message, /\/reload/);
+    assert.match(diagnostic.message, /No run state was created/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a connection that completes later is picked up by the next command", async () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const host = fakeHost(undefined, plugin, []);
+    const context = fakeContext(workspace);
+    await host.commands.get("codetour").handler("project", context.ctx);
+    assert.equal(host.sent.length, 0);
+    assert.equal(runFiles(workspace).length, 0);
+
+    // The server connected meanwhile: the check is read per command, without
+    // polling and without a second registration.
+    host.tools.push(...CONNECTED_TOOLS);
+    await host.commands.get("codetour").handler("project", context.ctx);
+    assert.equal(host.sent.length, 1);
+    assert.match(host.sent[0].text, /^\/skill:codetour-generate type=project runId=/);
+    assert.equal(runFiles(workspace).length, 1);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

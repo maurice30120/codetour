@@ -39,20 +39,43 @@ instead of being declared on every request. A user `mcp.json` entry named
 extension never declares its own server in a file, so a session can never load
 two copies of the tools.
 
+**Registering is not connecting.** Pi's built-in MCP support connects
+registered servers in the background, and the tools of a connected server
+appear as `mcp__codetour__*` in `pi.getAllTools()`. When that support is
+disabled or replaced, the server stays registered and unconnected, and Pi
+reports `MCP server "codetour" is registered, but no loaded extension connects
+MCP servers`. The extension reads the registry passively to detect this: it
+never handles `mcp_servers_change`, because handling that event would make it
+the extension responsible for connecting registered servers and would silence
+Pi's own diagnostic (ticket #265).
+
 ## `/codetour`
 
-`/codetour` collects the two generation choices with `ctx.ui.select`, creates a
-run identity, writes `.tours/.log/codetour-run-<runId>.json`, then delivers
-`/skill:codetour-generate type=… [reviewMode=…] runId=… [request=…]`. The agent
-asks the MCP for the served prompt and creates the Tour itself.
+`/codetour` first verifies that the CodeTour MCP server is connected in this
+session: at least one `mcp__codetour__*` tool must be listed by
+`pi.getAllTools()`, whatever its exposure. Without one it refuses to start and
+prints a diagnostic naming the observed fact, the two causes Pi allows to be
+told apart — the built-in MCP support is disabled or replaced, or the
+connection is still starting — and the repair: `pi config` (Built-in → mcp), or
+remove `-builtin:mcp` from the settings, then `/reload`, and check with `/mcp`
+that `codetour` is listed with the extension as its source. No run state is
+created and the skill is not invoked, so a refused `/codetour` can never be
+mistaken for a started generation. The check is read once per command, never
+polled: a connection that completes later is picked up by the next `/codetour`.
+
+`/codetour` then collects the two generation choices with `ctx.ui.select`,
+creates a run identity, writes `.tours/.log/codetour-run-<runId>.json`, then
+delivers `/skill:codetour-generate type=… [reviewMode=…] runId=… [request=…]`.
+The agent asks the MCP for the served prompt and creates the Tour itself.
 
 Pi exposes MCP **tools** but not MCP **prompts**, so the served prompt is
 obtained with `get_generation_prompt` rather than `prompts/get`. The prompt text
 is the same one the Copilot adapter fetches.
 
-A cancelled choice stops the command with no run state. A failed workspace
-resolution, a failed state write or a refused delivery removes the state and
-reports the error; no fallback prompt exists.
+A cancelled choice stops the command with no run state. An unconnected MCP
+server refuses the command before any choice, with the diagnostic and repair
+steps above. A failed workspace resolution, a failed state write or a refused
+delivery removes the state and reports the error; no fallback prompt exists.
 
 ## The guard
 
@@ -115,7 +138,20 @@ absence means "not measured", never "zero".
 ## Requirements
 
 - A Pi version that supports `registerMcpServer`, `registerCommand`,
-  `agent_before_settle` with `continue: true`, and package manifests.
+  `agent_before_settle` with `continue: true`, `getAllTools()`, and package
+  manifests.
+- **Pi's built-in MCP support must be enabled.** Registered servers are
+  connected by it; a settings file that disables it
+  (`"extensions": ["-builtin:mcp"]`, or `-builtin:mcp` in a project override),
+  or an installed extension that replaces it (such as `pi-mcp-adapter`),
+  leaves the `codetour` server registered but unconnected, and Pi reports
+  `MCP server "codetour" is registered, but no loaded extension connects MCP
+  servers`. `/codetour` refuses to start in that case. Re-enable it with
+  `pi config` (Built-in → mcp) or by removing that entry, then `/reload`.
+  Verify a session with `/mcp`: the `codetour` server must be listed with the
+  extension as its source, and tool search must find the seven
+  `mcp__codetour__*` tools. `pi mcp list` cannot confirm it, because shell
+  commands do not load extensions.
 - `codetour` on `PATH` for a direct `pi install` of this source (the managed
   install writes an absolute launcher).
 - No Node subprocess and no extra hook runtime: everything runs inside Pi.
