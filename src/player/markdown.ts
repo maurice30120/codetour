@@ -4,6 +4,7 @@
 import MarkdownIt = require("markdown-it");
 import sanitizeHtml = require("sanitize-html");
 import type { AgentAvailability } from "../agent/agentCatalogue";
+import type { AcpModelValue } from "../agent/acpModelOptions";
 import type { StepChatAgentIdentity } from "../agent/stepChatContract";
 
 const markdown = new MarkdownIt({
@@ -85,7 +86,12 @@ export interface TourStepChatExchange {
   agent?: StepChatAgentIdentity;
 }
 
-/** One Agent Profile as the conversation area lists it (ADR 0048). */
+/**
+ * One Agent Profile as the conversation area lists it (ADR 0048): the one
+ * shape the painted conversation view and the webview's own repaint share.
+ * The three flags stay optional because a surface may know only some of them;
+ * the conversation view always fills them.
+ */
 export interface TourAgentAvailability {
   name: string;
   state: AgentAvailability["state"];
@@ -97,12 +103,6 @@ export interface TourAgentAvailability {
   selectable?: boolean;
   /** True when the reader can connect this profile from the conversation area. */
   signIn?: boolean;
-}
-
-/** One model value of the Model control, as the agent announces it (ADR 0048). */
-export interface TourModelOption {
-  value: string;
-  name: string;
 }
 
 /** The active step displayed in the single expanded reading view. */
@@ -129,7 +129,7 @@ export interface TourWebviewModel {
   // reader may choose from — and the model the control shows: the one the
   // agent confirmed, or the reader's remembered choice. Empty means the agent
   // manages its own model.
-  chatModels?: TourModelOption[];
+  chatModels?: AcpModelValue[];
   chatModel?: string;
   // True when the initial probe settled and no Agent Profile can answer: the
   // explaining state replaces the composer's use and the Tour stays readable.
@@ -219,7 +219,7 @@ const AGENT_MANAGED_MODEL = "Agent-managed model";
  * composer and the Agent control.
  */
 function renderModelControlsHtml(
-  models: TourModelOption[] | undefined,
+  models: AcpModelValue[] | undefined,
   selected: string | undefined,
   hidden: boolean,
   locked: boolean
@@ -513,16 +513,10 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     // the conversation's agent line with its handshake state.
     const agentCaption = identity => identity.model ? identity.agent + " · " + identity.model : identity.agent;
     const agentLine = identity => "Agent: " + agentCaption(identity) + (identity.effective ? " (effective)" : " (preselected)");
-    // The availability states of the Agent Catalogue, spelled once here and
-    // once in the extension-side painter.
-    const agentStateLabels = {
-      unknown: "unknown",
-      "not-installed": "not installed",
-      unverified: "installed, not verified",
-      "auth-required": "authentication required",
-      available: "available",
-      "connection-error": "connection error"
-    };
+    // The availability states of the Agent Catalogue, spelled once in the
+    // extension-side painter and handed to this script as data: the two
+    // surfaces never keep separate copies of the labels.
+    const agentStateLabels = ${inlineScriptJson(AGENT_STATE_LABELS)};
     const agentStateText = agent => agent.name + " — " + (agentStateLabels[agent.state] ?? "unknown")
       + (agent.detail ? " (" + agent.detail + ")" : "");
     // The two actions of a failed exchange: the same question to the same

@@ -69,6 +69,23 @@ export const AGENT_CATALOGUE: readonly AgentProfile[] = [
   }
 ];
 
+/**
+ * The Agent Catalogue in rank order, as the reader-facing chrome spells it:
+ * `Copilot → Vibe → Pi → Codex → Claude Code` in a parenthetical, or
+ * `Copilot, Vibe, Pi, Codex or Claude Code` in a sentence. The one place the
+ * order of a user-visible list is written.
+ */
+export function agentCatalogueLabel(style: "arrow" | "sentence" = "arrow"): string {
+  const names = [...AGENT_CATALOGUE]
+    .sort((left, right) => left.rank - right.rank)
+    .map(profile => profile.name);
+  return style === "arrow"
+    ? names.join(" → ")
+    : names.length > 1
+      ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`
+      : names.join("");
+}
+
 /** Every launchable catalogue profile for a workspace, in rank order. */
 export function catalogueProfiles(cwd: string): AcpAgentProfile[] {
   return [...AGENT_CATALOGUE]
@@ -412,6 +429,20 @@ export class AgentSelection {
     this.started = true;
   }
 
+  /**
+   * Records that one Agent Profile failed while answering: its availability
+   * becomes a connection error carrying the failure's reason. Nothing is
+   * probed — a conversation failure never starts one — every other cached
+   * state stays as it was, and neither the reader's choice nor the profile
+   * that answers is replaced.
+   */
+  degrade(name: string, reason: string): void {
+    if (!this.catalogue.some(profile => profile.name === name)) {
+      return;
+    }
+    this.availability.set(name, { state: "connection-error", reason });
+  }
+
   /** Forgets everything this panel probed, the reader's model choices included. */
   dispose(): void {
     this.availability.clear();
@@ -533,14 +564,13 @@ function launchable(
 }
 
 /**
- * The automatic selection: Copilot when it is available, otherwise the first
- * available profile by rank. Nothing else qualifies.
+ * The automatic selection: the first available profile by rank — Copilot
+ * whenever it is available, because its rank is 0. Nothing else qualifies.
  */
 function automaticSelection(
   views: readonly AgentProfileView[]
 ): AgentProfileView | undefined {
-  const available = views.filter(view => view.availability.state === "available");
-  return available.find(view => view.profile.name === "Copilot") ?? available[0];
+  return views.find(view => view.availability.state === "available");
 }
 
 /** True when a command is an executable on PATH (or a path to one). */

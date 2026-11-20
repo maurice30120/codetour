@@ -430,6 +430,17 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
       });
       await chunk("Answered from Edit mode.");
       return { stopReason: "end_turn" } as acp.PromptResponse;
+    case "exit-after-answer":
+      // Answers, then dies once the answer is written: the next question finds
+      // a dead transport, which must stay on this agent instead of being
+      // handed to the next profile.
+      await chunk("Tour answer, ");
+      await chunk("part two.");
+      setTimeout(() => {
+        log({ method: "agent-exit", outcome: "after-answer" });
+        process.exit(3);
+      }, 100);
+      return { stopReason: "end_turn" } as acp.PromptResponse;
     case "close-stream-mid-prompt-once":
     case "exit-mid-prompt-once": {
       // The first prompt kills the agent process before answering; the
