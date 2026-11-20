@@ -643,7 +643,7 @@ test("an elicited choice resolves duplicate Tour titles by identity", async () =
 
 test("a bare /codetour presents the existing Tours and reads the chosen one", async () => {
   const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
-  await withRecordingCli(root, async () => {
+  await withReaderTerminal(false, () => withRecordingCli(root, async () => {
     const menus = [];
     const session = {capabilities:{ui:{elicitation:true}},
       ui:{select: async (prompt, choices) => { menus.push([prompt, choices]); return choices[1]; }},
@@ -653,7 +653,7 @@ test("a bare /codetour presents the existing Tours and reads the chosen one", as
     assert.deepEqual(menus, [
       ["Select a CodeTour", ["1. First Tour", "2. Second Tour"]]
     ]);
-  });
+  }));
 });
 
 test("a session without a terminal gets the exact command instead of a reader", async () => {
