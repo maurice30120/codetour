@@ -104,6 +104,10 @@ export const KNOWLEDGE_SAVE_MODES = ['create', 'append', 'replace'] as const;
  */
 export type KnowledgeSaveMode = (typeof KNOWLEDGE_SAVE_MODES)[number];
 
+/** True when `value` names one of the accepted modes: `KNOWLEDGE_SAVE_MODES` is the only list. */
+const isKnowledgeSaveMode = (value: unknown): value is KnowledgeSaveMode =>
+  typeof value === 'string' && (KNOWLEDGE_SAVE_MODES as readonly string[]).includes(value);
+
 /** The documented proposal file: `{"mode"?,"entries":[...]}` and nothing else. */
 export interface KnowledgeProposal {
   mode?: KnowledgeSaveMode;
@@ -454,9 +458,32 @@ function appendedBody(historicalBody: string, addition: string): string {
   return body;
 }
 
+/** The fields that identify one proof, in their one canonical order. */
+const PROOF_KEY_FIELDS = ['type', 'path', 'symbol', 'sha256'] as const;
+
+type ProofKeyField = (typeof PROOF_KEY_FIELDS)[number];
+
+/**
+ * The key of one proof over exactly the requested fields, always in the
+ * canonical order above and one field per line. An absent symbol (a `file`
+ * proof) contributes an empty field; paths, symbol names and hex digests never
+ * contain a newline, so two keys with the same fields cannot collide. The
+ * fields are named at the call site because the two uses identify different
+ * things: an append dedups a proof on its identity `(type, path, symbol)`, a
+ * rewrite matches the `symbol_fallback` trace on `(type, path, sha256)`.
+ */
+function proofKey(proof: KnowledgeProof, fields: readonly ProofKeyField[]): string {
+  const values: Record<ProofKeyField, string> = {
+    type: proof.type,
+    path: proof.path,
+    symbol: proof.type === 'symbol' ? proof.symbol : '',
+    sha256: proof.sha256
+  };
+  return PROOF_KEY_FIELDS.filter(field => fields.includes(field)).map(field => values[field]).join('\n');
+}
+
 /** The deduplication key of a proof: its type, path and, for a symbol, its name. */
-const evidenceKey = (proof: KnowledgeProof): string =>
-  proof.type === 'symbol' ? `symbol\n${proof.path}\n${proof.symbol}` : `file\n${proof.path}`;
+const evidenceKey = (proof: KnowledgeProof): string => proofKey(proof, ['type', 'path', 'symbol']);
 
 type MergedEvidence =
   | { ok: true; evidence: KnowledgeProof[]; added: number }
@@ -748,10 +775,10 @@ function carryFallbackOrigins(entry: KnowledgePersistableEntry, bytes: Buffer): 
   if (historical.status !== 'valid') return;
   const traced = new Set<string>();
   for (const proof of historical.evidence) {
-    if (proof.type === 'file' && proof.origin) traced.add(`file\n${proof.path}\n${proof.sha256}`);
+    if (proof.type === 'file' && proof.origin) traced.add(proofKey(proof, ['type', 'path', 'sha256']));
   }
   entry.evidence = entry.evidence.map(proof =>
-    proof.type === 'file' && traced.has(`file\n${proof.path}\n${proof.sha256}`)
+    proof.type === 'file' && traced.has(proofKey(proof, ['type', 'path', 'sha256']))
       ? { ...proof, origin: 'symbol_fallback' as const }
       : proof
   );
@@ -768,7 +795,7 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
     return { status: 'invalid', rejected: [{ reason: 'malformed_proposal' }] };
   }
   const mode = proposal.mode === undefined ? 'create' : proposal.mode;
-  if (mode !== 'create' && mode !== 'append' && mode !== 'replace') {
+  if (!isKnowledgeSaveMode(mode)) {
     return { status: 'invalid', rejected: [{ reason: 'unknown_mode' }] };
   }
   if (proposal.entries.length === 0) return { status: 'no-op' };

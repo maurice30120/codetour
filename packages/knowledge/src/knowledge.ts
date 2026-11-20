@@ -253,8 +253,6 @@ export const isOutsideWorkspace = (root: string, target: string): boolean => {
   return confined === '..' || confined.startsWith(`..${sep}`) || isAbsolute(confined);
 };
 
-const escapes = isOutsideWorkspace;
-
 /** Outcome of a deterministic symbol fingerprint (spec #233); no cited path or hash value ever leaves with a refusal. */
 export type SymbolFingerprintOutcome =
   | { status: 'ok'; sha256: string }
@@ -278,11 +276,11 @@ type CitedFile =
 const resolveCitedFile = async (realRoot: string, path: string): Promise<CitedFile> => {
   if (isAbsolute(path) || path.includes('\0')) return { status: 'refused', reason: 'path_outside_workspace' };
   const target = resolve(realRoot, path);
-  if (escapes(realRoot, target)) return { status: 'refused', reason: 'path_outside_workspace' };
+  if (isOutsideWorkspace(realRoot, target)) return { status: 'refused', reason: 'path_outside_workspace' };
   let real: string;
   try { real = await realpath(target); }
   catch { return { status: 'refused', reason: 'file_missing' }; }
-  if (escapes(realRoot, real)) return { status: 'refused', reason: 'symlink_escape' };
+  if (isOutsideWorkspace(realRoot, real)) return { status: 'refused', reason: 'symlink_escape' };
   return { status: 'ok', real };
 };
 
@@ -343,11 +341,11 @@ export async function hashWorkspaceSymbol(root: string, path: string, symbol: st
   try { realRoot = await realpath(root); }
   catch { return { status: 'absent', reason: 'file_missing' }; }
   const target = resolve(realRoot, path);
-  if (escapes(realRoot, target)) return { status: 'invalid', reason: 'path_outside_workspace' };
+  if (isOutsideWorkspace(realRoot, target)) return { status: 'invalid', reason: 'path_outside_workspace' };
   let real: string;
   try { real = await realpath(target); }
   catch { return { status: 'absent', reason: 'file_missing' }; }
-  if (escapes(realRoot, real)) return { status: 'invalid', reason: 'symlink_escape' };
+  if (isOutsideWorkspace(realRoot, real)) return { status: 'invalid', reason: 'symlink_escape' };
   let info;
   try { info = await stat(real); }
   catch { return { status: 'absent', reason: 'file_missing' }; }
@@ -387,11 +385,11 @@ export async function hashWorkspaceFile(root: string, path: string): Promise<Kno
   try { realRoot = await realpath(root); }
   catch { return { status: 'absent', reason: 'file_missing' }; }
   const target = resolve(realRoot, path);
-  if (escapes(realRoot, target)) return { status: 'invalid', reason: 'path_outside_workspace' };
+  if (isOutsideWorkspace(realRoot, target)) return { status: 'invalid', reason: 'path_outside_workspace' };
   let real: string;
   try { real = await realpath(target); }
   catch { return { status: 'absent', reason: 'file_missing' }; }
-  if (escapes(realRoot, real)) return { status: 'invalid', reason: 'symlink_escape' };
+  if (isOutsideWorkspace(realRoot, real)) return { status: 'invalid', reason: 'symlink_escape' };
   let info;
   try { info = await stat(real); }
   catch { return { status: 'absent', reason: 'file_missing' }; }
@@ -425,7 +423,7 @@ export interface KnowledgeLibrary {
 export async function loadKnowledgeLibrary(root: string, directory: string, fingerprinter: SymbolFingerprinter = treeSitterSymbolFingerprinter): Promise<KnowledgeLibrary> {
   const realRoot = await realpath(root).catch(() => undefined);
   const realDirectory = realRoot ? await realpath(directory).catch(() => undefined) : undefined;
-  const usable = (): string | undefined => realRoot && realDirectory && !escapes(realRoot, realDirectory) ? realDirectory : undefined;
+  const usable = (): string | undefined => realRoot && realDirectory && !isOutsideWorkspace(realRoot, realDirectory) ? realDirectory : undefined;
   const readEntryFile = async (name: string): Promise<{ status: 'valid'; source: string; revision: string } | { status: 'invalid'; reason: KnowledgeFailureReason }> => {
     // A catalogue name is a safe flat name (the file-name rule), which
     // also keeps every lookup inside the flat catalogue directory.
@@ -435,7 +433,7 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
     let real: string;
     try { real = await realpath(join(dir, `${name}.md`)); }
     catch { return { status: 'invalid', reason: 'unknown_entry' }; }
-    if (escapes(realRoot!, real)) return { status: 'invalid', reason: 'symlink_escape' };
+    if (isOutsideWorkspace(realRoot!, real)) return { status: 'invalid', reason: 'symlink_escape' };
     try {
       const info = await stat(real);
       if (!info.isFile()) return { status: 'invalid', reason: 'unknown_entry' };

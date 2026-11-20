@@ -43,11 +43,3 @@ _Avoid_: Auto model, hidden model
 **Narration Spell Dictionary**:
 The fixed code constant mapping identifier tokens to the letter-by-letter spoken spelling the voice reads in their place.
 _Avoid_: Acronym map, A–Z mapping, word list
-
-**Knowledge Consolidation Operation**:
-One `knowledge_save` call with an explicit `mode`: `create` (default) for a new entry, `append` for adding an addition and merging evidence into one existing entry that still verifies without rewriting its historical body — an entry whose contract no longer holds is refused as `stale_evidence` and the repair is `replace` — or `replace` for rewriting one existing entry in full, valid or invalid. A write is refused when that revision is absent, wrong or stale; every mode runs under one catalogue lock, and readers take none. The decomposition method served with the prompt states which mode applies, restarts from the current code instead of re-reading an invalid body, and claims no semantic consistency: a digest proves unchanged bytes, and the MCP detects no natural-language contradiction.
-_Avoid_: Knowledge upsert, overwrite mode, knowledge merge
-
-**Knowledge Revision**:
-The SHA-256 of one Knowledge Entry's complete Markdown file bytes, exposed as an opaque token by discovery, by a read, by the catalogue projection served with the prompt, and by the Native Knowledge CLI. It is computed without validating the contract, so an entry whose evidence no longer verifies still has one, it reveals nothing of the body, of a cited path or of a source hash, and it moves with any modified byte so a write can be conditioned on the revision an agent actually read.
-_Avoid_: version number, Etag, content hash, entry checksum

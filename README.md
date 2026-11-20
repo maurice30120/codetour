@@ -246,13 +246,17 @@ node "$CODETOUR_ROOT/dist/cli.js" knowledge hash src/main.ts
 node "$CODETOUR_ROOT/dist/cli.js" knowledge save --proposal proposal.json
 ```
 
-`list` verifies each entry and returns names and descriptions of matching valid
-entries; `invalid` reports every refused entry by name and reason, regardless
-of the query. It returns exit 3 when no valid entry matches. Neither list
-contains bodies, cited paths or evidence hashes. `read` returns the Markdown body
-only when every declared proof verifies; otherwise it reports an `invalid`
-reason without the body, a cited path or a hash value. `hash`
-prints the deterministic digest for preparing evidence.
+`list` verifies each entry and returns names, descriptions and each entry's
+Knowledge Revision — the opaque SHA-256 of the entry file bytes — for matching
+valid entries; `invalid` reports every refused entry by name, reason and
+revision, regardless of the query, and `list` returns exit 3 when no valid
+entry matches. Neither list contains bodies, cited paths or evidence hashes:
+the revision is the one token it exposes. `read` returns the same revision and
+the Markdown body only when every declared proof verifies; otherwise it reports
+an `invalid` reason and the revision without the body, a cited path or a hash
+value. `hash` prints the deterministic digest for preparing evidence, and
+`save` takes `--mode` (`create`, `append` or `replace`) and
+`--expected-revision` for the two amend modes.
 
 #### Save a proposal
 
