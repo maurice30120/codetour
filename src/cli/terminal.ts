@@ -53,9 +53,10 @@ export interface TerminalReaderCompositionOptions {
  * The composition root's collaborator wiring (spec #93): the ACP session
  * layer stays behind the Step Chat support seams and is adapted to the
  * reader's responder port; no agent process is started until the first
- * question. Since #104 the session is the ordered failover of ADR 0014 over
- * every installed candidate, and the reading module runs the conversation
- * through the shared StepConversations store above this seam (ADR 0031).
+ * question. Since #104 the session is an ordered failover over every
+ * installed candidate — the terminal keeps it instead of the webview's Agent
+ * selector (ADR 0048) — and the reading module runs the conversation through
+ * the shared StepConversations store above this seam (ADR 0031).
  */
 export function composeTerminalReader(options: TerminalReaderCompositionOptions): TourReader {
   const { tour, root } = options;

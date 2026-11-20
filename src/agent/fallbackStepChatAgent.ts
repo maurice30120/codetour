@@ -1,5 +1,4 @@
-import type { AcpAgentProfile } from "./agentProfiles";
-import { agentProfiles } from "./agentProfiles";
+import { catalogueProfiles, type AcpAgentProfile } from "./agentCatalogue";
 import { createAcpStepChatResponder, type AcpStepChatResponderHooks } from "./stepChatAgent";
 import {
   StepChatAgentUnavailableError,
@@ -7,10 +6,33 @@ import {
   type StepChatResponder
 } from "./stepChatContract";
 
-/** Keeps the first working Agent Profile for the reading session, with ordered failover. */
+/** The hooks of the ordered responder, over the hooks of one profile's responder. */
+export interface FallbackStepChatOptions extends AcpStepChatResponderHooks {
+  /**
+   * Awaited before a question chooses its Agent Profile: the reading panel's
+   * initial Agent Probe is still running, and a question never starts on a
+   * profile it has not verified yet.
+   */
+  whenReady?(): Promise<void>;
+  /**
+   * Called once the first answer settled: the automatic selection is over,
+   * so a later failure retries the same profile instead of falling through.
+   */
+  onConversationStarted?(): void;
+}
+
+/**
+ * Keeps the first answering Agent Profile for the reading session.
+ *
+ * The candidate list is the whole policy: `profilesFor` returns the profiles a
+ * question may try, in order — the current Agent Selection first, and other
+ * profiles only while the initial automatic selection may still fall through
+ * (ADR 0048). A visible answer belongs to one agent, so a question that
+ * already streamed text never splices another one in.
+ */
 export function createFallbackStepChatResponder(
-  profilesFor: (cwd: string) => AcpAgentProfile[] = agentProfiles,
-  hooks: AcpStepChatResponderHooks = {}
+  profilesFor: (cwd: string) => AcpAgentProfile[] = catalogueProfiles,
+  options: FallbackStepChatOptions = {}
 ): StepChatResponder {
   let active: StepChatResponder | undefined;
   let selected = 0;
@@ -32,12 +54,13 @@ export function createFallbackStepChatResponder(
           workspace = request.workspaceRoot;
           await previous?.dispose?.();
         }
+        await options.whenReady?.();
         const profiles = profilesFor(request.workspaceRoot);
         const failed: string[] = [];
         for (; selected < profiles.length; selected++) {
           if (attempt !== generation) throw new Error("Answer interrupted.");
           const profile = profiles[selected];
-          const current = active ?? createAcpStepChatResponder(profile, hooks);
+          const current = active ?? createAcpStepChatResponder(profile, options);
           active = current;
           let streamed = false;
           events?.onActivity?.(`Connecting to ${profile.name}…`);
@@ -71,12 +94,22 @@ export function createFallbackStepChatResponder(
         }
         selected = 0; // A future question retries the ordered list after configuration changes.
         throw new StepChatAgentUnavailableError(
-          `No ACP agent available (Vibe → Copilot → Codex → Claude Code). ${failed.join("\n")}`
+          `No ACP agent available (Copilot → Vibe → Codex → Claude Code). ${failed.join("\n")}`
         );
       });
+      const settled = answer.then(
+        value => {
+          options.onConversationStarted?.();
+          return value;
+        },
+        (error: unknown) => {
+          options.onConversationStarted?.();
+          throw error;
+        }
+      );
       // Rejection must free the queue for the next request as well.
-      pending = answer.then(() => undefined, () => undefined);
-      return answer;
+      pending = settled.then(() => undefined, () => undefined);
+      return settled;
     },
     identity(): StepChatAgentIdentity | undefined {
       const launched = active?.identity?.();

@@ -23,7 +23,7 @@ const originalLoad = (nodeModule as unknown as { _load: unknown })._load as (
 };
 
 const { registerPlayerModule } = require("../player");
-const { setStepChatResponder } = require("./stepChat");
+const { setStepChatAgentSelection, setStepChatResponder } = require("./stepChat");
 
 const tour = {
   id: "file:///workspace/.tours/chat.tour",
@@ -96,6 +96,8 @@ interface StepChatUpdate {
   }[];
   responding?: boolean;
   agent?: { agent: string; model?: string; effective: boolean };
+  agents?: { name: string; state: string; selected: boolean }[];
+  unavailable?: boolean;
 }
 
 function stepChatUpdates(): StepChatUpdate[] {
@@ -345,20 +347,43 @@ test("errors of the responder land in the chat without disturbing the reading", 
   chatPanel().dispose();
 });
 
-test("asking without an injected responder explains it in the chat", async () => {
+test("a panel whose probed catalogue has no usable agent explains it and disables the composer", async () => {
+  const { AgentSelection } = require("../agent/agentCatalogue");
   resetChatState();
-  registerPlayerModule(host.extensionContext);
-  await startTour();
+  // Every Agent Profile is installed but refuses: the initial probe settles
+  // with nothing usable, which no machine-dependent test could guarantee.
+  setStepChatAgentSelection(() => new AgentSelection({
+    probe: async () => ({ availability: { state: "not-installed" } })
+  }));
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
 
-  chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
-  await host.waitFor(() => lastChatUpdate().responding === false);
+    // The probe settled with nothing usable: the panel reposts the probed
+    // catalogue, which disables the composer and shows the explaining state.
+    await host.waitFor(() => lastChatUpdate()?.unavailable === true);
+    const probed = lastChatUpdate();
+    assert.deepEqual(
+      probed.agents?.map(agent => agent.state),
+      ["not-installed", "not-installed", "not-installed", "not-installed"]
+    );
+    assert.equal(probed.agent, undefined, "nothing is preselected");
+    assert.deepEqual(probed.exchanges, []);
+    // The Tour itself stays readable in the panel.
+    assert.match(host.panelHtml(), /<h1>Player entry<\/h1>/);
 
-  const update = lastChatUpdate();
-  assert.equal(update.exchanges[0].question, "Qui répond ?");
-  assert.equal(update.exchanges[0].failed, true);
-  assert.match(update.exchanges[0].answerHtml, /This step's responder is not available/);
+    chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
+    await host.waitFor(() => lastChatUpdate()?.responding === false && lastChatUpdate().exchanges.length === 1);
 
-  chatPanel().dispose();
+    const update = lastChatUpdate();
+    assert.equal(update.exchanges[0].question, "Qui répond ?");
+    assert.equal(update.exchanges[0].failed, true);
+    assert.match(update.exchanges[0].answerHtml, /No ACP agent available/);
+    assert.equal(update.unavailable, true);
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
 });
 
 test("malformed and stale questions never reach the responder", async () => {

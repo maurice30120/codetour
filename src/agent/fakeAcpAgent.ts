@@ -54,12 +54,19 @@ if (behavior === "auth-fail-once") {
   }
 }
 
+// Every launch records its own process id, so a client test can prove that
+// the probe released the process it started. The record's name deliberately
+// avoids the `"boot"` marker the behaviours above use.
+log({ method: "agent-process", pid: process.pid });
+
 /** Safety net: never outlive a broken test run. */
 setTimeout(() => process.exit(0), 120_000).unref();
 process.stdin.on("end", () => process.exit(0));
 
 interface FakeAgentLogRecord {
   method: string;
+  /** The process that wrote the record, for the client's release checks. */
+  pid?: number;
   params?: Record<string, unknown>;
   outcome?: string;
   refused?: { code: number; message: string };
@@ -103,10 +110,32 @@ agent.onRequest(acp.methods.agent.initialize, context => {
   if (authRequired) {
     throw new acp.RequestError(-32001, AUTH_ERROR_MESSAGE);
   }
+  if (behavior === "auth-required" || behavior === "auth-text-only") {
+    // An agent that requires authentication announces how to get one; the
+    // catalogue keeps these methods with the probed state.
+    return {
+      protocolVersion: acp.PROTOCOL_VERSION,
+      agentCapabilities: {},
+      authMethods: [
+        { id: "copilot-login", name: "Copilot login", description: null }
+      ]
+    };
+  }
   return { protocolVersion: acp.PROTOCOL_VERSION, agentCapabilities: {} };
 });
 
 agent.onRequest(acp.methods.agent.session.new, context => {
+  // "auth-required" signals it with the ACP authentication error code, the
+  // only signal the client reads; "auth-text-only" only says it in words, so
+  // a client sniffing the message would be wrong.
+  if (behavior === "auth-required") {
+    log({ method: "session/new", outcome: "auth-required" });
+    throw acp.RequestError.authRequired(undefined, "Connect the account before asking.");
+  }
+  if (behavior === "auth-text-only") {
+    log({ method: "session/new", outcome: "auth-text-only" });
+    throw new acp.RequestError(-32001, AUTH_ERROR_MESSAGE);
+  }
   sessionCwd = context.params.cwd;
   log({
     method: "session/new",

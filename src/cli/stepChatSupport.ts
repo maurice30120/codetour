@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { accessSync, constants } from "node:fs";
-import * as path from "node:path";
-import { agentProfiles, type AcpAgentProfile } from "../agent/agentProfiles";
+import {
+  catalogueProfiles,
+  commandExists,
+  type AcpAgentProfile
+} from "../agent/agentCatalogue";
 import { createFallbackStepChatResponder } from "../agent/fallbackStepChatAgent";
 import type { StepChatContext, StepChatResponder } from "../agent/stepChatContract";
 import type { CodeTour, CodeTourStep } from "../store";
@@ -14,8 +16,9 @@ export interface TerminalChatSession {
    */
   profile?: AcpAgentProfile;
   /**
-   * The Tour Step Conversation responder: one failover policy over every
-   * installed candidate (ADR 0014), shared with the extension's chat.
+   * The Tour Step Conversation responder: one ordered failover over every
+   * installed candidate, as a terminal reader has no Agent selector
+   * (ADR 0048 keeps the interactive selection to the webview).
    */
   responder?: StepChatResponder;
   dispose(): Promise<void>;
@@ -23,10 +26,10 @@ export interface TerminalChatSession {
 
 /**
  * The terminal reader's Tour Step Conversation session. Only installed
- * candidates are tried, in the extension's order, and the ordered failover
- * between them is the single policy of ADR 0014 — the same one the
- * extension's chat uses. Nothing is downloaded and no agent process is
- * started until the reader asks a question.
+ * candidates are tried, in the Agent Catalogue's rank order, and the ordered
+ * failover between them is what the reader gets instead of an Agent selector:
+ * the terminal starts no Agent Probe and no agent process until the reader
+ * asks a question. Nothing is downloaded.
  */
 export function openTerminalChat(
   root: string,
@@ -59,8 +62,8 @@ export function openTerminalChat(
 /**
  * `CODETOUR_ACP_COMMAND` (with `CODETOUR_ACP_ARGS`) runs one explicit ACP
  * command, as the tests and an advanced reader do; `CODETOUR_ACP_PROVIDER`
- * restricts the installed Agent Profiles by name. Otherwise every profile on
- * PATH is a candidate, in the extension's order.
+ * restricts the installed Agent Profiles by name. Otherwise every launchable
+ * profile on PATH is a candidate, in the catalogue's rank order.
  */
 function configuredProfiles(root: string, env: NodeJS.ProcessEnv): AcpAgentProfile[] {
   const command = env.CODETOUR_ACP_COMMAND?.trim();
@@ -75,41 +78,9 @@ function configuredProfiles(root: string, env: NodeJS.ProcessEnv): AcpAgentProfi
     }];
   }
   const only = env.CODETOUR_ACP_PROVIDER?.trim().toLowerCase();
-  const profiles = agentProfiles(root);
+  const profiles = catalogueProfiles(root);
   if (!only) return profiles;
   return profiles.filter(profile => profile.name.toLowerCase().includes(only));
-}
-
-/** True when a command is an executable on PATH (or a path to one). */
-export function commandExists(
-  command: string,
-  env: NodeJS.ProcessEnv = process.env,
-  platform: NodeJS.Platform = process.platform
-): boolean {
-  if (command.includes("/") || command.includes("\\")) {
-    return isExecutable(command, platform);
-  }
-  const extensions = platform === "win32"
-    ? (env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)
-    : [""];
-  for (const directory of (env.PATH ?? "").split(path.delimiter)) {
-    if (!directory) continue;
-    for (const extension of extensions) {
-      if (isExecutable(path.join(directory, command + extension), platform)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function isExecutable(file: string, platform: NodeJS.Platform): boolean {
-  try {
-    accessSync(file, platform === "win32" ? constants.F_OK : constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /**

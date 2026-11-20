@@ -3,6 +3,7 @@
 
 import MarkdownIt = require("markdown-it");
 import sanitizeHtml = require("sanitize-html");
+import type { AgentAvailability } from "../agent/agentCatalogue";
 import type { StepChatAgentIdentity } from "../agent/stepChatContract";
 
 const markdown = new MarkdownIt({
@@ -75,6 +76,16 @@ export interface TourStepChatExchange {
   agent?: StepChatAgentIdentity;
 }
 
+/** One Agent Profile as the conversation area lists it (ADR 0048). */
+export interface TourAgentAvailability {
+  name: string;
+  state: AgentAvailability["state"];
+  /** The authentication methods' names, or the connection error's reason. */
+  detail?: string;
+  /** True for the Agent Profile that answers by default. */
+  selected?: boolean;
+}
+
 /** The active step displayed in the single expanded reading view. */
 export interface TourWebviewModel {
   tourTitle: string;
@@ -92,6 +103,12 @@ export interface TourWebviewModel {
   // The agent answering the step's conversation right now: the effective
   // one after the session handshake, the preselected one before it.
   chatAgent?: StepChatAgentIdentity;
+  // The Agent Catalogue with each profile's probed availability, listed so
+  // the reader sees what CodeTour knows and what state each agent is in.
+  chatAgents?: TourAgentAvailability[];
+  // True when the initial probe settled and no Agent Profile can answer: the
+  // explaining state replaces the composer's use and the Tour stays readable.
+  chatUnavailable?: boolean;
   previousTourTitle?: string;
   nextTourTitle?: string;
   canEdit?: boolean;
@@ -112,6 +129,51 @@ function agentCaption(identity: StepChatAgentIdentity): string {
 function agentLine(identity: StepChatAgentIdentity): string {
   const state = identity.effective ? "effective" : "preselected";
   return `Agent: ${agentCaption(identity)} (${state})`;
+}
+
+/** The state of one Agent Profile, as the conversation area spells it. */
+const AGENT_STATE_LABELS: Record<AgentAvailability["state"], string> = {
+  unknown: "unknown",
+  "not-installed": "not installed",
+  unverified: "installed, not verified",
+  "auth-required": "authentication required",
+  available: "available",
+  "connection-error": "connection error"
+};
+
+/** One catalogue profile with its availability, as the agent line lists it. */
+function agentStateText(agent: TourAgentAvailability): string {
+  const detail = agent.detail ? ` (${agent.detail})` : "";
+  return `${agent.name} — ${AGENT_STATE_LABELS[agent.state] ?? "unknown"}${detail}${
+    agent.selected ? " · selected" : ""
+  }`;
+}
+
+/** The catalogue's availability, escaped like every other displayed value. */
+function renderAgentsHtml(agents: TourAgentAvailability[] | undefined): string {
+  const entries = agents ?? [];
+  return `<p class="step-chat-agents" id="step-chat-agents"${
+    entries.length === 0 ? " hidden" : ""
+  }>${entries
+    .map(
+      agent =>
+        `<span class="step-chat-agent-state" data-state="${escapeHtml(
+          agent.state
+        )}"${agent.selected ? ' data-selected="true"' : ""}>${escapeHtml(
+          agentStateText(agent)
+        )}</span>`
+    )
+    .join("")}</p>`;
+}
+
+/**
+ * The explaining state of a panel whose Agent Catalogue has nothing usable:
+ * the conversation cannot start, and the Tour stays fully readable.
+ */
+function renderUnavailableHtml(unavailable: boolean | undefined): string {
+  return `<p class="step-chat-unavailable" id="step-chat-unavailable" role="status"${
+    unavailable ? "" : " hidden"
+  }>No agent can answer this step right now. Tour reading stays fully available: browse the steps, then install or connect one of the agents above and ask again.</p>`;
 }
 
 /** The disclosure reporting the forbidden tools an answer ran. */
@@ -185,6 +247,15 @@ const READING_STYLES = `
     .step-chat-agent { margin: 0 0 1em; padding: 0 .75em; font-size: 12px; color: var(--vscode-descriptionForeground); }
     .step-chat-agent[hidden] { display: none; }
     .step-chat-agent-caption { display: block; margin-bottom: .35em; font-size: 12px; color: var(--vscode-descriptionForeground); }
+    .step-chat-agents { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 .6em; padding: 0 .75em; font-size: 12px; color: var(--vscode-descriptionForeground); }
+    .step-chat-agents[hidden] { display: none; }
+    .step-chat-agent-state { padding: 1px 6px; border: 1px solid var(--vscode-panel-border); border-radius: 10px; }
+    .step-chat-agent-state[data-state="available"] { color: var(--vscode-testing-iconPassed, var(--vscode-descriptionForeground)); border-color: currentColor; }
+    .step-chat-agent-state[data-state="not-installed"], .step-chat-agent-state[data-state="unknown"] { opacity: .6; }
+    .step-chat-agent-state[data-state="connection-error"] { color: var(--vscode-errorForeground); border-color: currentColor; }
+    .step-chat-agent-state[data-state="auth-required"] { color: var(--vscode-editorWarning-foreground); border-color: currentColor; }
+    .step-chat-unavailable { margin: 0 0 1em; padding: 0 .75em; color: var(--vscode-descriptionForeground); }
+    .step-chat-unavailable[hidden] { display: none; }
     .step-chat-activity { margin-bottom: 1em; color: var(--vscode-descriptionForeground); }
     .step-chat-activity summary { cursor: pointer; }
     .step-chat-forbidden { margin-bottom: 1em; color: var(--vscode-editorWarning-foreground); }
@@ -227,6 +298,9 @@ const READING_STYLES = `
 
 export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): string {
   const position = model.stepNumber + 1;
+  // Nothing can be asked while an answer streams, and nothing can be asked
+  // when no Agent Profile can answer at all.
+  const composerDisabled = model.chatResponding || model.chatUnavailable;
   const anchor = model.anchorLabel
     ? `<p class="anchor">${escapeHtml(model.anchorLabel)}</p>` : "";
   const questions = (model.questions ?? [])
@@ -234,7 +308,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     .slice(0, 4);
   const suggestions = questions.length
     ? `<div class="step-chat-suggestions" id="step-chat-suggestions" role="group" aria-label="Suggested questions">${questions.map(question =>
-        `<button type="button" class="step-chat-submit step-chat-suggestion" data-action="askQuestion" data-question="${escapeHtml(question.trim())}"${model.chatResponding ? " disabled" : ""}>${escapeHtml(question.trim())}</button>`
+        `<button type="button" class="step-chat-submit step-chat-suggestion" data-action="askQuestion" data-question="${escapeHtml(question.trim())}"${composerDisabled ? " disabled" : ""}>${escapeHtml(question.trim())}</button>`
       ).join("")}</div>`
     : "";
   const previousEnabled = model.stepNumber > 0 || !!model.previousTourTitle;
@@ -269,9 +343,11 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     <h1>${escapeHtml(model.stepTitle)}</h1>${anchor}
     ${renderMarkdownToHtml(model.description)}
     <section class="step-chat" aria-label="Step discussion">
+      ${renderAgentsHtml(model.chatAgents)}
       <p class="step-chat-agent" id="step-chat-agent"${
         model.chatAgent ? "" : " hidden"
       }>${model.chatAgent ? escapeHtml(agentLine(model.chatAgent)) : ""}</p>
+      ${renderUnavailableHtml(model.chatUnavailable)}
       <ol class="step-chat-log" id="step-chat-log">${renderStepChatLogHtml(
         model.chatExchanges
       )}</ol>
@@ -281,12 +357,14 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       ${suggestions}
       <form class="step-chat-form" id="step-chat-form">
         <input class="step-chat-input" id="step-chat-input" type="text" autocomplete="off" placeholder="Ask a question about this step…" aria-label="Question about this step"${
-          model.chatResponding ? " disabled" : ""
+          composerDisabled ? " disabled" : ""
         }>
         <button type="submit" class="step-chat-submit" id="step-chat-submit"${
-          model.chatResponding ? " disabled" : ""
+          composerDisabled ? " disabled" : ""
         }>Send</button>
         <button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrupt the current answer"${
+          model.chatUnavailable ? " disabled" : ""
+        }${
           model.chatResponding ? "" : " hidden"
         }>Stop</button>
       </form>
@@ -303,22 +381,56 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     const chatStatus = document.getElementById("step-chat-status");
     const chatStop = document.getElementById("step-chat-stop");
     const chatAgent = document.getElementById("step-chat-agent");
+    const chatAgents = document.getElementById("step-chat-agents");
+    const chatUnavailable = document.getElementById("step-chat-unavailable");
     const suggestionButtons = Array.from(document.getElementById("step-chat-suggestions")?.children || []);
     // One spelling for both surfaces: the agent caption of an answer and
     // the conversation's agent line with its handshake state.
     const agentCaption = identity => identity.model ? identity.agent + " · " + identity.model : identity.agent;
     const agentLine = identity => "Agent: " + agentCaption(identity) + (identity.effective ? " (effective)" : " (preselected)");
+    // The availability states of the Agent Catalogue, spelled once here and
+    // once in the extension-side painter.
+    const agentStateLabels = {
+      unknown: "unknown",
+      "not-installed": "not installed",
+      unverified: "installed, not verified",
+      "auth-required": "authentication required",
+      available: "available",
+      "connection-error": "connection error"
+    };
+    const agentStateText = agent => agent.name + " — " + (agentStateLabels[agent.state] ?? "unknown")
+      + (agent.detail ? " (" + agent.detail + ")" : "") + (agent.selected ? " · selected" : "");
     let chatResponding = ${model.chatResponding === true};
+    let chatCannotAnswer = ${model.chatUnavailable === true};
+    // Nothing is asked while an answer streams, and nothing is asked when no
+    // Agent Profile can answer: the Tour itself stays fully readable.
+    const lockComposer = () => {
+      const locked = chatResponding || chatCannotAnswer;
+      if (chatInput) chatInput.disabled = locked;
+      if (chatSubmit) chatSubmit.disabled = locked;
+      suggestionButtons.forEach(button => { button.disabled = locked; });
+      if (chatStop) { chatStop.hidden = !chatResponding; chatStop.disabled = locked; }
+    };
     const setResponding = responding => {
       chatResponding = responding;
       if (chatStatus) chatStatus.hidden = !responding;
-      if (chatInput) chatInput.disabled = responding;
-      if (chatSubmit) chatSubmit.disabled = responding;
-      suggestionButtons.forEach(button => { button.disabled = responding; });
-      if (chatStop) chatStop.hidden = !responding;
+      lockComposer();
+    };
+    const setUnavailable = unavailable => {
+      chatCannotAnswer = unavailable;
+      if (chatUnavailable) chatUnavailable.hidden = !unavailable;
+      lockComposer();
+    };
+    const setAgents = agents => {
+      if (!chatAgents || !Array.isArray(agents)) return;
+      chatAgents.innerHTML = agents.map(agent =>
+        '<span class="step-chat-agent-state" data-state="' + escapeHtml(agent.state) + '"'
+        + (agent.selected ? ' data-selected="true"' : '') + '>' + escapeHtml(agentStateText(agent)) + '</span>'
+      ).join("");
+      chatAgents.hidden = agents.length === 0;
     };
     const askQuestion = question => {
-      if (chatResponding || !question || !question.trim()) return;
+      if (chatResponding || chatCannotAnswer || !question || !question.trim()) return;
       setResponding(true);
       vscode.postMessage({ type: "askQuestion", question: question.trim(), token: document.body.dataset.token,
         targetTourId: document.body.dataset.tourId, step: Number(document.body.dataset.step) });
@@ -327,7 +439,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       chatForm.addEventListener("submit", event => {
         event.preventDefault();
         const question = (chatInput.value || "").trim();
-        if (!question || chatResponding) return;
+        if (!question || chatResponding || chatCannotAnswer) return;
         chatInput.value = "";
         askQuestion(question);
       });
@@ -335,6 +447,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     window.addEventListener("message", event => {
       const message = event.data;
       if (!message || message.type !== "stepChat" || !Array.isArray(message.exchanges)) return;
+      setAgents(message.agents);
       if (chatAgent) {
         chatAgent.textContent = message.agent ? agentLine(message.agent) : "";
         chatAgent.hidden = !message.agent;
@@ -374,6 +487,9 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       // streams, and the form stays locked so no new question can be sent
       // before the current answer completes.
       setResponding(message.responding === true);
+      // A panel whose catalogue has nothing usable keeps the explaining
+      // state and the locked composer until a probe finds an agent.
+      if (typeof message.unavailable === "boolean") setUnavailable(message.unavailable);
     });
     document.addEventListener("click", event => {
       const button = event.target.closest("button[data-action]");

@@ -7,7 +7,9 @@ import { createTourWebviewHtml } from "./markdown";
 import {
   askTourStepQuestion,
   clearStepChatConversations,
+  closeStepChatAgents,
   getStepChatConversationView,
+  openStepChatAgents,
   stopTourStepQuestion,
   type StepChatConversationView
 } from "./stepChat";
@@ -43,8 +45,22 @@ export function showTourWebview(): void {
       if (view !== current) return;
       view = undefined;
       store.isExpandedViewOpen = false;
-      // The conversations live only as long as the reading webview.
+      // The conversations and the probed agent states live only as long as
+      // the reading webview.
       clearStepChatConversations();
+      closeStepChatAgents();
+    });
+    // Opening the panel probes the Agent Catalogue: the availability it
+    // establishes decides who answers. Once it settled the conversation is
+    // reposted rather than re-rendered, so a probe that answers while the
+    // step is still being rendered never paints the panel ahead of it.
+    openStepChatAgents(active.workspaceRoot?.fsPath ?? "", () => {
+      const rendered = current.rendered;
+      if (view !== current || !rendered) return;
+      void current.panel.webview.postMessage({
+        type: "stepChat",
+        ...getStepChatConversationView(rendered.active.tour.id, rendered.step)
+      });
     });
     current.panel.webview.onDidReceiveMessage(async message => {
       const rendered = current.rendered;
@@ -156,6 +172,8 @@ export async function renderTourStep(): Promise<void> {
     chatExchanges: chat.exchanges,
     chatResponding: chat.responding,
     chatAgent: chat.agent,
+    chatAgents: chat.agents,
+    chatUnavailable: chat.unavailable,
     previousTourTitle: getPreviousTour()?.title,
     nextTourTitle: getNextTour()?.title
   }, token);

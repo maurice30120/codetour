@@ -16,7 +16,8 @@ import type { ReadonlyStepContext } from "../stepContext";
 /**
  * The agent answering Tour Step Conversation questions (ADR 0026, ADR 0031):
  * the ACP failover session layer in production — `openTerminalChat`'s
- * responder over every installed candidate (ADR 0014) — adapted from the
+ * responder over every installed candidate, the terminal having no Agent
+ * selector (ADR 0048) — adapted from the
  * Step chat support module by the composition root. The reader only sees
  * this port; the conversation lifecycle lives in the shared
  * `StepConversations` store above the seam. No agent process is started

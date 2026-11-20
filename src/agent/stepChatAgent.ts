@@ -2,7 +2,7 @@ import type { AcpAgentProcess } from "./acpAgentProcess";
 import { spawnAcpAgent } from "./acpAgentProcess";
 import type { AskSession, TourStepContext } from "./acpSession";
 import { openAskSession } from "./acpSession";
-import type { AcpAgentProfile } from "./agentProfiles";
+import type { AcpAgentProfile } from "./agentCatalogue";
 import {
   StepChatAgentUnavailableError,
   type StepChatAgentIdentity,

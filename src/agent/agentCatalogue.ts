@@ -1,0 +1,387 @@
+import type * as acp from "@agentclientprotocol/sdk";
+import { accessSync, constants } from "node:fs";
+import * as path from "node:path";
+import type { AcpAgentEntry } from "./acpAgentProcess";
+import { vibeAcpEntry } from "./vibeAcpEntry";
+
+/**
+ * The Agent Catalogue: the one owner of the Agent Profiles CodeTour knows,
+ * their probed availability and the current selection (ADR 0048).
+ *
+ * Nothing else decides those rules, and nothing here touches the VS Code API
+ * or starts a process: the Agent Probe is injected, the catalogue is a
+ * versioned constant, and no state outlives the reading panel that asked for
+ * it. The word "provider" is gone from this layer: a profile is a catalogue
+ * entry, a provider would be the instance actually launched.
+ */
+
+/** One Agent Profile of the catalogue, and how it is launched in a workspace. */
+export interface AgentProfile {
+  /** The Agent Profile name, as the reader sees it. */
+  name: string;
+  /**
+   * Explicit, versioned rank: the lowest rank answers first. Rank decides,
+   * never a discovery order and never a remote registry.
+   */
+  rank: number;
+  /**
+   * The ACP entry launching this profile in the given workspace, or
+   * undefined when it cannot be launched here: such a profile reports a
+   * connection error and is never started unrestricted (#253).
+   */
+  entry(cwd: string): AcpAgentEntry | undefined;
+}
+
+/** A launchable Agent Profile, its entry already resolved for one workspace. */
+export interface AcpAgentProfile {
+  name: string;
+  entry: AcpAgentEntry;
+}
+
+/** The versioned catalogue, in explicit rank order. */
+export const AGENT_CATALOGUE: readonly AgentProfile[] = [
+  {
+    name: "Copilot",
+    rank: 0,
+    entry: cwd => ({
+      command: "copilot",
+      args: ["--acp", "--stdio", "--available-tools=view,grep,glob", "--disable-builtin-mcps"],
+      cwd,
+      useDefaultMode: true
+    })
+  },
+  { name: "Vibe", rank: 1, entry: cwd => vibeAcpEntry(cwd) },
+  {
+    name: "Codex",
+    rank: 2,
+    entry: cwd => ({ command: "codex-acp", cwd, modeId: "read-only" })
+  },
+  {
+    name: "Claude Code",
+    rank: 3,
+    entry: cwd => ({ command: "claude-agent-acp", cwd, modeId: "plan" })
+  }
+];
+
+/** Every launchable catalogue profile for a workspace, in rank order. */
+export function catalogueProfiles(cwd: string): AcpAgentProfile[] {
+  return [...AGENT_CATALOGUE]
+    .sort((left, right) => left.rank - right.rank)
+    .flatMap(profile => {
+      const entry = profile.entry(cwd);
+      return entry ? [{ name: profile.name, entry }] : [];
+    });
+}
+
+/**
+ * The availability of one Agent Profile: what the last Agent Probe of the
+ * panel established, or what can be said without probing it.
+ */
+export type AgentAvailability =
+  | { state: "unknown" }
+  | { state: "not-installed" }
+  /** Installed, never probed: visible, never selected automatically. */
+  | { state: "unverified" }
+  | { state: "auth-required"; authMethods: acp.AuthMethod[] }
+  | { state: "available"; configOptions: acp.SessionConfigOption[] }
+  | { state: "connection-error"; reason: string };
+
+/** What one Agent Probe of one profile established. */
+export interface AgentProbeOutcome {
+  availability: AgentAvailability;
+  /** The configuration options the probe's session announced. */
+  configOptions?: acp.SessionConfigOption[];
+  /** The authentication methods the probe's `initialize` announced. */
+  authMethods?: acp.AuthMethod[];
+}
+
+/**
+ * One bounded Agent Probe: `initialize` then `session/new`, disposing the
+ * session as soon as it answers. Injected, so the catalogue's rules are
+ * tested in-process without launching an agent.
+ */
+export type AgentProbe = (
+  profile: AgentProfile,
+  cwd: string
+) => Promise<AgentProbeOutcome>;
+
+/** One catalogue profile as a reading surface displays it. */
+export interface AgentProfileView {
+  profile: AgentProfile;
+  availability: AgentAvailability;
+  /** True for the profile that answers by default right now. */
+  selected: boolean;
+}
+
+export interface AgentSelectionOptions {
+  /** The catalogue to operate on; the versioned one when omitted. */
+  profiles?: readonly AgentProfile[];
+  /** The Agent Probe establishing each profile's availability. */
+  probe: AgentProbe;
+}
+
+/**
+ * The availability, probe cache and current selection of one reading panel
+ * (ADR 0048).
+ *
+ * At panel opening the profiles are probed sequentially in rank order and the
+ * probe stops at the first `available` one; the profiles after it are only
+ * classified by executable presence, without being started. Copilot answers
+ * whenever it is available, otherwise the first available profile by rank;
+ * `not-installed`, `unverified`, `unknown`, `auth-required` and
+ * `connection-error` never answer automatically.
+ *
+ * Nothing survives the panel: an instance holds no process, and disposing it
+ * forgets everything it established.
+ */
+export class AgentSelection {
+  private readonly catalogue: readonly AgentProfile[];
+  private readonly probe: AgentProbe;
+  private readonly availability = new Map<string, AgentAvailability>();
+  private selectedName: string | undefined;
+  private settled = false;
+  private started = false;
+  private probing: Promise<void> | undefined;
+
+  constructor(options: AgentSelectionOptions) {
+    this.catalogue = [...(options.profiles ?? AGENT_CATALOGUE)].sort(
+      (left, right) => left.rank - right.rank
+    );
+    this.probe = options.probe;
+  }
+
+  /** The catalogue with each profile's current availability. */
+  profiles(): readonly AgentProfileView[] {
+    return this.catalogue.map(profile => ({
+      profile,
+      availability: this.availabilityOf(profile.name),
+      selected: profile.name === this.selectedName
+    }));
+  }
+
+  /** The profile that answers by default, or undefined when none is usable. */
+  selectedProfile(): AgentProfileView | undefined {
+    return this.profiles().find(view => view.selected);
+  }
+
+  /**
+   * The profiles a question may try, in order: the selected one first, then —
+   * only before the first answer settled — the other available profiles by
+   * rank, so the initial automatic selection alone may fall through. An
+   * unverified profile never answers, and an explicit or settled selection is
+   * never replaced.
+   */
+  candidates(cwd: string): AcpAgentProfile[] {
+    const selected = this.selectedProfile();
+    if (!selected) {
+      return [];
+    }
+    const candidates = [launchable(selected.profile, cwd)].filter(
+      (candidate): candidate is AcpAgentProfile => candidate !== undefined
+    );
+    if (this.started) {
+      return candidates;
+    }
+    for (const view of this.profiles()) {
+      if (view.selected || view.availability.state !== "available") continue;
+      const candidate = launchable(view.profile, cwd);
+      if (candidate) candidates.push(candidate);
+    }
+    return candidates;
+  }
+
+  /** True once an Agent Probe settled: before that, no state is final. */
+  initialProbeSettled(): boolean {
+    return this.settled;
+  }
+
+  /**
+   * Resolves when the initial Agent Probe settled: a question asked while it
+   * runs waits for it instead of starting on an unverified profile.
+   */
+  whenInitialProbeSettled(): Promise<void> {
+    return this.probing ?? Promise.resolve();
+  }
+
+  /**
+   * Establishes every profile's availability at panel opening: a cheap
+   * classification by executable presence first, then the Agent Probe
+   * sequentially in rank order, stopping at the first `available` profile.
+   */
+  probeInitial(cwd: string): Promise<void> {
+    // Re-probing refreshes the states; once the first answer settled, the
+    // profile that answered is never replaced by a later probe.
+    const answered = this.started ? this.selectedName : undefined;
+    this.availability.clear();
+    this.selectedName = answered;
+    this.settled = false;
+    const run = this.run(cwd, { classify: true, stopAtFirstAvailable: true });
+    this.probing = run;
+    return run;
+  }
+
+  /**
+   * Probes the profiles still `unverified`, once — what opening the agent
+   * selector asks for. The automatic selection follows the refreshed states
+   * while the first answer has not settled; after it, the profile that
+   * answered is kept.
+   */
+  async probeUnverified(cwd: string): Promise<void> {
+    await this.whenInitialProbeSettled();
+    const run = this.run(cwd, { classify: false, stopAtFirstAvailable: false });
+    this.probing = run;
+    await run;
+  }
+
+  /** Clears the panel's cache and probes the catalogue again. */
+  refresh(cwd: string): Promise<void> {
+    return this.probeInitial(cwd);
+  }
+
+  /**
+   * Records that the first answer settled: the automatic selection is over,
+   * so a later failure retries the same profile instead of falling through.
+   */
+  hasConversationStarted(): void {
+    this.started = true;
+  }
+
+  /** Forgets everything this panel probed. */
+  dispose(): void {
+    this.availability.clear();
+    this.selectedName = undefined;
+    this.settled = false;
+    this.started = false;
+    this.probing = undefined;
+  }
+
+  private availabilityOf(name: string): AgentAvailability {
+    return this.availability.get(name) ?? { state: "unknown" };
+  }
+
+  private async run(
+    cwd: string,
+    options: { classify: boolean; stopAtFirstAvailable: boolean }
+  ): Promise<void> {
+    if (options.classify) {
+      // Every profile is classified cheaply first, so the ones after the
+      // first available one already have an honest state without a process.
+      for (const profile of this.catalogue) {
+        this.availability.set(profile.name, classify(profile, cwd));
+      }
+    }
+    for (const profile of this.catalogue) {
+      if (this.availabilityOf(profile.name).state !== "unverified") continue;
+      this.record(profile.name, await this.probeOnce(profile, cwd));
+      if (
+        options.stopAtFirstAvailable &&
+        this.availabilityOf(profile.name).state === "available"
+      ) {
+        break;
+      }
+    }
+    this.settled = true;
+    this.probing = undefined;
+    if (!this.started) {
+      this.selectedName = automaticSelection(this.profiles())?.profile.name;
+    }
+  }
+
+  private async probeOnce(
+    profile: AgentProfile,
+    cwd: string
+  ): Promise<AgentProbeOutcome> {
+    try {
+      return await this.probe(profile, cwd);
+    } catch (error) {
+      return {
+        availability: {
+          state: "connection-error",
+          reason: error instanceof Error ? error.message : String(error)
+        }
+      };
+    }
+  }
+
+  private record(name: string, outcome: AgentProbeOutcome): void {
+    const { availability } = outcome;
+    if (availability.state === "available") {
+      this.availability.set(name, {
+        state: "available",
+        configOptions: outcome.configOptions ?? availability.configOptions
+      });
+    } else if (availability.state === "auth-required") {
+      this.availability.set(name, {
+        state: "auth-required",
+        authMethods: outcome.authMethods ?? availability.authMethods
+      });
+    } else {
+      this.availability.set(name, availability);
+    }
+  }
+}
+
+/** What can be said about a profile without starting it. */
+function classify(profile: AgentProfile, cwd: string): AgentAvailability {
+  const entry = profile.entry(cwd);
+  if (!entry) {
+    return {
+      state: "connection-error",
+      reason: "This agent has no launcher on this platform."
+    };
+  }
+  return commandExists(entry.command)
+    ? { state: "unverified" }
+    : { state: "not-installed" };
+}
+
+function launchable(
+  profile: AgentProfile,
+  cwd: string
+): AcpAgentProfile | undefined {
+  const entry = profile.entry(cwd);
+  return entry ? { name: profile.name, entry } : undefined;
+}
+
+/**
+ * The automatic selection: Copilot when it is available, otherwise the first
+ * available profile by rank. Nothing else qualifies.
+ */
+function automaticSelection(
+  views: readonly AgentProfileView[]
+): AgentProfileView | undefined {
+  const available = views.filter(view => view.availability.state === "available");
+  return available.find(view => view.profile.name === "Copilot") ?? available[0];
+}
+
+/** True when a command is an executable on PATH (or a path to one). */
+export function commandExists(
+  command: string,
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform
+): boolean {
+  if (command.includes("/") || command.includes("\\")) {
+    return isExecutable(command, platform);
+  }
+  const extensions = platform === "win32"
+    ? (env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)
+    : [""];
+  for (const directory of (env.PATH ?? "").split(path.delimiter)) {
+    if (!directory) continue;
+    for (const extension of extensions) {
+      if (isExecutable(path.join(directory, command + extension), platform)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function isExecutable(file: string, platform: NodeJS.Platform): boolean {
+  try {
+    accessSync(file, platform === "win32" ? constants.F_OK : constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
