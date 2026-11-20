@@ -130,5 +130,5 @@ test("the skill ends the generation with the two real openings, never a summary"
   assert.match(skill, /--internal-open-vscode/);
   assert.doesNotMatch(skill, /code --open-url/);
   // No textual summary answers for the reader, whatever the choice.
-  assert.match(skill, /never answer with a step list|never a prose summary|no summary/i);
+  assert.match(skill, /never replace the\s+Tour with a step list/i);
 });

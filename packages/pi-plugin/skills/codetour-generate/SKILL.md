@@ -51,23 +51,14 @@ before concluding they are missing.
    only durable facts (verified invariants, architecture, conventions), never
    details specific to this tour. With zero entries, state why nothing durable
    qualified. Report only what the MCP returned.
-6. When the generation is over, offer the created Tour through one of its two
-   real openings — and
-   **never answer with a step list, an excerpt or a prose summary in the
-   Tour's place** (no summary substitutes the reader, whatever the choice):
-   - **Terminal** — the real interactive reader of the Tour. The user runs it
-     at the workspace root: `codetour "<Tour title>"`, or
-     `codetour --internal-tour "<tour path>"` when only the Tour file is
-     known. The reader plays in the user's terminal, never an independent
-     window. Do not run it inside this session: it owns the terminal while
-     it plays.
-   - **VS Code** — the Open-in-VS Code opening, the Tour at its active step
-     (the first one right after generation): `codetour --internal-open-vscode "<tour path>"`,
-     run by the user at the workspace root. The decision — reusing the
-     already-open window, never duplicating, the VS Code-absent case — is
-     the CLI's. During reading, pressing `o` in the terminal reader performs
-     the same opening at the currently displayed Step. Give the command
-     exactly; state nothing about the Tour's content in its place.
+6. When the generation is over, let the Pi extension offer **Terminal** or
+   **VS Code** for the created Tour when a `runId` was supplied. The extension
+   opens the chosen surface and reports any failure. If there is no `runId`,
+   offer `codetour "<Tour title>"` for the interactive Terminal reader (or
+   `codetour --internal-tour "<tour path>"` without a title) and
+   `codetour --internal-open-vscode "<tour path>"` for VS Code, to run at the
+   workspace root. In either case, never replace the
+   Tour with a step list, excerpt or prose summary.
 7. Pass the same `runId` to `mcp__codetour__knowledge_list` and
    `mcp__codetour__knowledge_read` when you use them: the MCP then records the
    verified catalogue and the entries this run actually read. Never re-read

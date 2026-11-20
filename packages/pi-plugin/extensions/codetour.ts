@@ -188,7 +188,21 @@ export default function codetourPlugin(pi: ExtensionAPI) {
       }
     } else if (choice === VSCODE_OPTION) {
       const command = vscodeCommand(state);
-      if (command) ctx.ui.notify(`Open in VS Code (the Tour at the active step): ${command}`, "info");
+      if (!command) {
+        ctx.ui.notify("CodeTour: the created Tour has no path to open in VS Code.", "warning");
+        return;
+      }
+      const launcher = await resolveLauncher();
+      const args = [...launcher.args];
+      if (args[args.length - 1] === "mcp") args.pop();
+      try {
+        const result = await pi.exec(launcher.command, [...args, "--internal-open-vscode", state.tourPath, ctx.cwd], { cwd: ctx.cwd });
+        if (result.code !== 0) {
+          ctx.ui.notify(`CodeTour: could not open the Tour in VS Code: ${result.stderr.trim() || `exit ${result.code}`}. Run ${command} at the workspace root.`, "warning");
+        }
+      } catch (error) {
+        ctx.ui.notify(`CodeTour: could not open the Tour in VS Code: ${error instanceof Error ? error.message : String(error)}. Run ${command} at the workspace root.`, "warning");
+      }
     }
   }
 

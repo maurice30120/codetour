@@ -85,12 +85,12 @@ step list or a summary in the Tour's place:
   back with the session. A non-interactive session or a failed spawn degrades
   to the documented hand-over command, never a crash (ticket #242, review
   fix F2).
-- **VS Code** — `codetour --internal-open-vscode "<tour path>"`, run at the
+- **VS Code** — the managed launcher executes `--internal-open-vscode "<tour path>"` at the
   workspace root: the Open-in-VS Code contract of ticket #244, the Tour at its
   active step (the first one right after generation). The decision lives once
-  in the CLI's `openInVscode` module (canonical workspace, window detection,
-  no duplicate window, the VS Code-absent case); the dialogue only hands over
-  the command. During reading, pressing `o` in the terminal reader performs
+  in the CLI's `openInVscode` module (canonical workspace and the
+  VS Code-absent case); a failure is reported with a
+  manual command. During reading, pressing `o` in the terminal reader performs
   the same opening at the currently displayed Step.
 
 The ask is once per run; a declined ask hands over nothing and leaves no

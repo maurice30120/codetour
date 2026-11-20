@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import plugin from "../packages/pi-plugin/extensions/codetour.ts";
 import { updateRunState } from "../packages/pi-plugin/lib/run-log.mjs";
 import { TERMINAL_OPTION, VSCODE_OPTION } from "../packages/pi-plugin/lib/reader.mjs";
@@ -12,12 +13,13 @@ import { TERMINAL_OPTION, VSCODE_OPTION } from "../packages/pi-plugin/lib/reader
 // the run state. Node strips the TypeScript types, so the shipped file is what
 // runs here.
 
-function fakeHost() {
+function fakeHost(execResult = { code: 0, stdout: "", stderr: "", killed: false, truncated: false }, extension = plugin) {
   const handlers = new Map();
   const servers = [];
   const commands = new Map();
   const notifications = [];
   const sent = [];
+  const executions = [];
   const pi = {
     on(event, handler) {
       handlers.set(event, handler);
@@ -31,9 +33,13 @@ function fakeHost() {
     sendUserMessage(text, options) {
       sent.push({ text, options });
     },
+    async exec(command, args, options) {
+      executions.push({ command, args, options });
+      return execResult;
+    },
   };
-  plugin(pi);
-  return { handlers, servers, commands, notifications, sent };
+  extension(pi);
+  return { handlers, servers, commands, notifications, sent, executions };
 }
 
 function fakeContext(workspace) {
@@ -303,10 +309,55 @@ test("the VS Code choice delegates to the explicit open-in-VS Code contract", as
       context.ctx
     );
     assert.equal(context.selects.length, 1);
-    const openings = context.notifications.filter(entry => entry.message.includes("--internal-open-vscode"));
-    assert.equal(openings.length, 1);
-    assert.match(openings[0].message, /codetour --internal-open-vscode "\.tours\/payment\.tour"/);
-    assert.match(openings[0].message, /active step/);
+    assert.deepEqual(host.executions, [{
+      command: "codetour",
+      args: ["--internal-open-vscode", ".tours/payment.tour", workspace],
+      options: { cwd: workspace },
+    }]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a failed VS Code opening reports the failure and a manual fallback", async () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const host = fakeHost({ code: 1, stderr: "VS Code unavailable", stdout: "", killed: false, truncated: false });
+    const context = fakeContext(workspace);
+    await host.commands.get("codetour").handler("project", context.ctx);
+    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
+    await updateRunState(workspace, runId, state => ({
+      ...state, tourCreated: true, tourPath: ".tours/payment.tour", tourTitle: null,
+      consolidation: { status: "skipped", at: new Date().toISOString() },
+    }));
+    context.selections.push(VSCODE_OPTION);
+    await host.handlers.get("agent_before_settle")({ entries: [], aborted: false, context: {} }, context.ctx);
+    const warning = context.notifications.find(entry => entry.level === "warning" && entry.message.includes("VS Code unavailable"));
+    assert.ok(warning);
+    assert.match(warning.message, /codetour --internal-open-vscode/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("VS Code uses the installed launcher and preserves paths with spaces", async () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const packageDir = path.join(root, "installed plugin");
+    cpSync(path.resolve("packages/pi-plugin"), packageDir, { recursive: true });
+    writeFileSync(path.join(packageDir, "launcher.json"), JSON.stringify({ command: "/custom node", args: ["/custom cli.js", "mcp"] }));
+    const { default: installed } = await import(pathToFileURL(path.join(packageDir, "extensions/codetour.ts")).href);
+    const host = fakeHost(undefined, installed);
+    const context = fakeContext(workspace);
+    await host.commands.get("codetour").handler("project", context.ctx);
+    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
+    await updateRunState(workspace, runId, state => ({
+      ...state, tourCreated: true, tourPath: ".tours/my tour.tour", tourTitle: null,
+      consolidation: { status: "skipped", at: new Date().toISOString() },
+    }));
+    context.selections.push(VSCODE_OPTION);
+    await host.handlers.get("agent_before_settle")({ entries: [], aborted: false, context: {} }, context.ctx);
+    assert.deepEqual(host.executions, [{ command: "/custom node", args: ["/custom cli.js", "--internal-open-vscode", ".tours/my tour.tour", workspace], options: { cwd: workspace } }]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
