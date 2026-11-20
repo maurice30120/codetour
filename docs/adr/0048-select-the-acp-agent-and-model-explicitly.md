@@ -1,6 +1,6 @@
 # ADR 0048 — Select the ACP agent and model explicitly, from a probed local catalogue
 
-Date: 2026-11-20 · Status: accepted · Spec: #246 · Supersedes: ADR 0014 · Amended by: ADR 0052 (the terminal reader chooses the model)
+Date: 2026-11-20 · Status: accepted · Spec: #246 · Supersedes: ADR 0014 · Amended by: ADR 0052 (the terminal reader chooses the model — it amends two Selection bullets: "the terminal keeps no interactive selection", and "the reader's choice is a request replayed at the next session, never a value forced into the current session", now applied live to the open session)
 
 ## Context
 

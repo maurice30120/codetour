@@ -149,13 +149,16 @@ truncation are painting: the view model never carries them.
 
 **Model picker** (`picker`, `undefined` while it is closed) — the overlay the
 unmodified `m` opens (ADR 0052, ticket #266): a `title`, the announced `items`
-in the agent's order, each with its `label` and a `current` flag for the model
-the agent confirms, the highlighted `selected` row (`-1` when there is nothing
-to choose), the exact `hint` line, and a `notice` for an agent that announces
-no model — `"agent-managed model"` once a handshake confirmed the agent, the
-fact that it has not announced its models yet before that. The list is read
-live from the responder, so a notice disappears the moment a session announces
-values; the overlay, its rows and its highlight are painting.
+in the agent's order, each with its `label` and an `effective` flag for the
+Effective Model the agent confirms, the highlighted `selected` row (`-1` when
+there is nothing to choose; it is clamped against the announced list, and
+`Enter` accepts that same clamped row), the exact `hint` line, and a `notice`
+for an agent that announces no model — `"agent-managed model"` once a
+handshake confirmed the agent, the fact that it has not announced its models
+yet before that. The list is read live from the responder, so a notice
+disappears the moment a session announces values. The overlay, its rows and
+its highlight are painting: one overlay above the status line, palette tokens
+only, no new cell budget in `layout` (ADR 0028 stays untouched).
 
 **Status line** (`status`) — see the next section.
 

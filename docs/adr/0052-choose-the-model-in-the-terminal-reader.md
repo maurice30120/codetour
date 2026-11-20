@@ -45,18 +45,26 @@ only the model.**
   picker opens and says `agent-managed model`. Before the first handshake it
   says the agent has not announced its models yet, so a preselection is never
   presented as a model state.
+- The picker is **one overlay above the status line**, not a new region of the
+  reading layout: it grows upward from the status row and covers whatever it
+  overlaps, paints with the existing palette tokens only, and the cell budget of
+  ADR 0028 is unchanged.
 - Nothing else changes. The Agent Profile is still chosen by the ranked
   failover (ADR 0048); the read-only policy, the Step grounding, the per-Step
-  conversations, the palette and the layout are untouched; and
+  conversations and the palette are untouched; and
   `CODETOUR_ACP_PROVIDER` / `CODETOUR_ACP_COMMAND` keep their escape-hatch role.
 
 ## What this amends in ADR 0048
 
-Only the clause quoted in the Context above. The terminal still selects no
-**agent** — the failover does — and nothing here replaces the environment
-escape hatches; the terminal now selects the **model**, by the rules above.
-Everything else in ADR 0048 (catalogue, availability, probe, selection and
-display rules) stands.
+Two of its Selection bullets, both quoted here. First the clause in the Context
+above ("the terminal keeps no interactive selection"). Then the sentence that
+the reader's choice is "a request replayed at the next session, never a value
+forced into the current session": the terminal now sends that request through
+`session/set_config_option` to the open session and displays only what the agent
+confirms, so the choice is applied live to the open session and remembered
+nowhere beyond it. The terminal still selects no **agent** — the failover does — and
+nothing here replaces the environment escape hatches. Everything else in ADR
+0048 (catalogue, availability, probe, selection and display rules) stands.
 
 ## Considered options
 
@@ -91,10 +99,12 @@ display rules) stands.
   with a fake responder. Nothing new is verified on a real terminal, and the
   real Copilot run that selects `gpt-6-luna` and answers a question about the
   Step stays manual (ticket #266).
-- A dead transport relaunches the Agent Profile with the agent's own default
-  model, because the terminal keeps no model memory. Replaying the choice on
-  the next session of the same Profile is a follow-up, not part of this
-  increment. The reader is never lied to about it — it displays the model the
-  agent confirms, so the reverted choice appears as the agent's own value —
-  but the reader must choose again, and that cost is recorded here rather than
-  left implicit.
+- **The terminal keeps no model memory across sessions.** A dead transport
+  relaunches the Agent Profile with the agent's own default model, and a new
+  reading starts from that default again: nothing of the previous choice
+  survives, unlike the panel, which remembers it per Agent Profile (ADR 0048).
+  Replaying the choice on the next session of the same Profile is a declared
+  follow-up and **is not implemented here**. The reader is never lied to about
+  it — it displays the model the agent confirms, so the reverted choice appears
+  as the agent's own value — but the reader must choose again, and that cost is
+  recorded here rather than left implicit.
