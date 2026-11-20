@@ -45,7 +45,7 @@ The fixed code constant mapping identifier tokens to the letter-by-letter spoken
 _Avoid_: Acronym map, A–Z mapping, word list
 
 **Knowledge Consolidation Operation**:
-One `knowledge_save` call with an explicit `mode`: `create` (default) for a new entry, `append` for adding an addition and merging evidence into one existing entry that still verifies without rewriting its historical body — an entry whose contract no longer holds is refused as `stale_evidence` and the repair is `replace` — or `replace` for rewriting one existing entry in full, valid or invalid. A write is refused when that revision is absent, wrong or stale; every mode runs under one catalogue lock, and readers take none.
+One `knowledge_save` call with an explicit `mode`: `create` (default) for a new entry, `append` for adding an addition and merging evidence into one existing entry that still verifies without rewriting its historical body — an entry whose contract no longer holds is refused as `stale_evidence` and the repair is `replace` — or `replace` for rewriting one existing entry in full, valid or invalid. A write is refused when that revision is absent, wrong or stale; every mode runs under one catalogue lock, and readers take none. The decomposition method served with the prompt states which mode applies, restarts from the current code instead of re-reading an invalid body, and claims no semantic consistency: a digest proves unchanged bytes, and the MCP detects no natural-language contradiction.
 _Avoid_: Knowledge upsert, overwrite mode, knowledge merge
 
 **Knowledge Revision**:
