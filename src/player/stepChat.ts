@@ -16,7 +16,10 @@ import {
   type StepConversationView
 } from "../agent/stepConversations";
 import { getStepDiff, getStepDiffPath } from "./diff";
-import { renderMarkdownToHtml } from "./markdown";
+import {
+  renderMarkdownToHtml,
+  type TourAgentAvailability
+} from "./markdown";
 
 /**
  * The Tour Step Conversation painter of the Expanded Description View
@@ -145,6 +148,13 @@ function composeResponder(selection: AgentSelection): StepChatResponder {
       // never sent to an Agent Profile the panel has not verified.
       whenReady: () => selection.whenInitialProbeSettled(),
       onConversationStarted: () => selection.hasConversationStarted(),
+      // A conversation failure degrades only the profile that failed: no
+      // probe runs, the other cached states stay, and the selector shows the
+      // state the reader would otherwise never see.
+      onProfileFailed: (name, reason) => {
+        selection.degrade(name, reason);
+        agents?.onSettled?.();
+      },
       // Model identifiers belong to one agent: the reader's model choice is
       // remembered per Agent Profile and replayed on each session it opens.
       modelFor: name => ({
@@ -303,23 +313,6 @@ export async function chooseStepChatModel(value: string): Promise<void> {
   current.onSettled?.();
 }
 
-/** One catalogue profile as the webview paints it: serializable, no entry. */
-export interface StepChatAgentView {
-  name: string;
-  state: AgentAvailability["state"];
-  /** The authentication methods' names, or the connection error's reason. */
-  detail?: string;
-  /** True for the Agent Profile that answers right now. */
-  selected: boolean;
-  /** False when the reader may not pick this profile by hand. */
-  selectable: boolean;
-  /**
-   * True when the reader can connect this profile from the conversation area:
-   * it waits for authentication and announced a method CodeTour can use.
-   */
-  signIn: boolean;
-}
-
 function conversationKey(tourId: string, step: number): string {
   return `${tourId}::${step}`;
 }
@@ -353,7 +346,7 @@ export interface StepChatConversationView {
   agent?: StepChatAgentIdentity;
   // The Agent Catalogue with each profile's probed availability; absent when
   // no selection owns the panel (an injected responder).
-  agents?: StepChatAgentView[];
+  agents?: TourAgentAvailability[];
   // True when the initial probe settled and no profile can answer: the
   // composer is disabled and the panel explains it.
   unavailable?: boolean;
@@ -383,7 +376,7 @@ export function getStepChatConversationView(
  * announced as unusable yet.
  */
 function paintAgents(): {
-  agents?: StepChatAgentView[];
+  agents?: TourAgentAvailability[];
   unavailable?: boolean;
 } {
   const selection = agents?.selection;
@@ -454,26 +447,36 @@ function paint(
 }
 
 /**
- * The Model control's values and selection: only the values the selected
+ * The Model control's values and selection: only the values the answering
  * Agent Profile announces, and the model the agent confirmed — or, before a
  * session confirmed one, the reader's remembered choice — or, before the
  * reader chose anything, the value the probe's session announced.
+ *
+ * The agent that answers is the effective one once a session handshake
+ * confirmed it: an initial fall-through may have answered with a profile
+ * other than the preselected one, and its values are the only ones a choice
+ * can reach.
  */
 function paintModel(agent: StepChatAgentIdentity | undefined): {
   modelOptions?: AcpModelValue[];
   model?: string;
 } {
   const selection = agents?.selection;
-  const selected = selection?.selectedProfile();
-  if (!selection || !selected) {
+  if (!selection) {
+    return {};
+  }
+  const name = agent?.effective
+    ? agent.agent
+    : selection.selectedProfile()?.profile.name;
+  if (name === undefined) {
     return {};
   }
   return {
-    modelOptions: [...selection.modelOptions(selected.profile.name)],
+    modelOptions: [...selection.modelOptions(name)],
     model:
       agent?.model ??
-      selection.selectedModel() ??
-      selection.announcedModel(selected.profile.name)
+      selection.modelFor(name) ??
+      selection.announcedModel(name)
   };
 }
 

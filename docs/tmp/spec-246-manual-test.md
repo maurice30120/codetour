@@ -237,6 +237,9 @@ Terminal :
 - [ ] La ligne de statut est cohérente avec le panneau (même agent, même
       modèle).
 - [ ] Avant la première réponse, la mention `(preselected)` est visible.
+- [ ] Après la première réponse, faire mourir le transport de l'agent puis
+      poser une seconde question : elle échoue attachée à cet échange et le
+      lecteur terminal **ne bascule pas** vers un autre profil installé.
 
 ### 6.3 #247 — la disponibilité sondée décide qui répond
 
@@ -267,6 +270,9 @@ Terminal :
       `Change agent` ; les échanges suivants ne sont pas pollués.
 - [ ] `Retry` réessaie le **même** agent ; aucune bascule silencieuse après la
       première question.
+- [ ] Après l'échec, le sélecteur montre ce profil en `connection-error` avec
+      la raison de l'échec, sans avoir sondé : les autres états restent ceux
+      du cache et l'agent sélectionné ne change pas.
 - [ ] `Change agent` ouvre le sélecteur ; changer d'agent conserve l'historique
       de l'étape et la question suivante ouvre une session neuve, sans delta de
       l'ancien agent.
@@ -290,7 +296,8 @@ Terminal :
 ### 6.6 #248 — le modèle annoncé par l'agent
 
 - [ ] Le sélecteur de modèle ne liste que les valeurs annoncées par l'agent
-      sélectionné (jamais un catalogue statique).
+      sélectionné — ou par l'agent effectif quand la sélection initiale a
+      glissé vers un autre profil (jamais un catalogue statique).
 - [ ] Le modèle choisi est mémorisé pour cet agent pendant toute la lecture et
       rejoué à la session suivante (même après une navigation d'étape).
 - [ ] Un changement n'est affiché comme effectif qu'après confirmation par

@@ -1,4 +1,8 @@
-import { catalogueProfiles, type AcpAgentProfile } from "./agentCatalogue";
+import {
+  agentCatalogueLabel,
+  catalogueProfiles,
+  type AcpAgentProfile
+} from "./agentCatalogue";
 import {
   createAcpStepChatResponder,
   type AcpStepChatModelMemory,
@@ -24,6 +28,12 @@ export interface FallbackStepChatOptions extends AcpStepChatResponderHooks {
    */
   onConversationStarted?(): void;
   /**
+   * Called when one Agent Profile failed an answer before producing any text,
+   * with the failure's reason. The reading panel degrades that profile alone;
+   * this responder never probes anything itself.
+   */
+  onProfileFailed?(profileName: string, reason: string): void;
+  /**
    * The reader's model choice for one Agent Profile: each profile's responder
    * replays it on every session it opens. A terminal reader has no selector
    * and passes none.
@@ -34,11 +44,14 @@ export interface FallbackStepChatOptions extends AcpStepChatResponderHooks {
 /**
  * Keeps the first answering Agent Profile for the reading session.
  *
- * The candidate list is the whole policy: `profilesFor` returns the profiles a
- * question may try, in order — the current Agent Selection first, and other
- * profiles only while the initial automatic selection may still fall through
- * (ADR 0048). A visible answer belongs to one agent, so a question that
- * already streamed text never splices another one in.
+ * The candidate list is the whole automatic policy: `profilesFor` returns the
+ * profiles a question may try, in order — the current Agent Selection first,
+ * and other profiles only while the initial automatic selection may still
+ * fall through (ADR 0048). A visible answer belongs to one agent, so a
+ * question that already streamed text never splices another one in. Once an
+ * answer settled with a profile, that profile is the only one later questions
+ * are asked to: its dead transport is retried, never replaced by the next
+ * candidate.
  */
 export function createFallbackStepChatResponder(
   profilesFor: (cwd: string) => AcpAgentProfile[] = catalogueProfiles,
@@ -46,11 +59,18 @@ export function createFallbackStepChatResponder(
 ): StepChatResponder {
   let active: StepChatResponder | undefined;
   let selected = 0;
+  // The profile that answered: from then on a question tries it alone.
+  let answered: AcpAgentProfile | undefined;
   let workspace: string | undefined;
   let generation = 0;
   // Selection, startup and fallback form one operation on the shared session.
   // Queue the whole operation, not just prompts inside an individual profile.
   let pending: Promise<void> = Promise.resolve();
+
+  /** The Agent Profile a question would be asked to, before any session. */
+  function preselection(): AcpAgentProfile | undefined {
+    return answered ?? profilesFor(workspace ?? "")[selected];
+  }
 
   return {
     async answer(request, events) {
@@ -61,15 +81,18 @@ export function createFallbackStepChatResponder(
           const previous = active;
           active = undefined;
           selected = 0;
+          answered = undefined;
           workspace = request.workspaceRoot;
           await previous?.dispose?.();
         }
         await options.whenReady?.();
-        const profiles = profilesFor(request.workspaceRoot);
+        // The profile that already answered is the only candidate: only the
+        // initial automatic selection may fall through to another profile.
+        const profiles = answered ? [answered] : profilesFor(request.workspaceRoot);
         const failed: string[] = [];
-        for (; selected < profiles.length; selected++) {
+        for (let index = answered ? 0 : selected; index < profiles.length; index++) {
           if (attempt !== generation) throw new Error("Answer interrupted.");
-          const profile = profiles[selected];
+          const profile = profiles[index];
           const current = active ?? createAcpStepChatResponder(profile, {
             ...options,
             model: options.modelFor?.(profile.name)
@@ -78,7 +101,7 @@ export function createFallbackStepChatResponder(
           let streamed = false;
           events?.onActivity?.(`Connecting to ${profile.name}…`);
           try {
-            return await current.answer(request, {
+            const answer = await current.answer(request, {
               onAnswerDelta: delta => {
                 if (attempt !== generation) return;
                 streamed ||= delta.length > 0;
@@ -94,20 +117,31 @@ export function createFallbackStepChatResponder(
                 if (attempt === generation) events?.onAgentIdentity?.(identity);
               }
             });
+            // The answer settled with this profile: every later question is
+            // asked to it alone.
+            answered = profile;
+            selected = index;
+            return answer;
           } catch (error) {
             if (attempt !== generation) throw error;
             // A visible answer belongs to one agent; never splice another into it.
             if (streamed) throw error;
-            failed.push(`${profile.name} : ${error instanceof Error ? error.message : String(error)}`);
+            const reason = error instanceof Error ? error.message : String(error);
+            failed.push(`${profile.name} : ${reason}`);
             active = undefined;
             await current.dispose?.();
             if (attempt !== generation) throw error;
-            events?.onActivity?.(`${profile.name} unavailable, trying the next agent…`);
+            options.onProfileFailed?.(profile.name, reason);
+            events?.onActivity?.(index + 1 < profiles.length
+              ? `${profile.name} unavailable, trying the next agent…`
+              : `${profile.name} unavailable.`);
           }
         }
-        selected = 0; // A future question retries the ordered list after configuration changes.
+        // A future question retries the ordered list from its first candidate:
+        // nothing answered, so nothing is sticky yet.
+        selected = 0;
         throw new StepChatAgentUnavailableError(
-          `No ACP agent available (Copilot → Vibe → Pi → Codex → Claude Code). ${failed.join("\n")}`
+          `No ACP agent available (${agentCatalogueLabel("arrow")}). ${failed.join("\n")}`
         );
       });
       const settled = answer.then(
@@ -129,10 +163,10 @@ export function createFallbackStepChatResponder(
       if (launched) {
         return launched;
       }
-      // No agent was launched yet, or the last one was released: the next
-      // candidate of the ordered list is only the preselection. Its entry is
-      // never started here, so the unknown workspace only names it.
-      const candidate = profilesFor(workspace ?? "")[selected];
+      // No agent was launched yet, or the last one was released: the profile
+      // that answered — or else the next candidate of the ordered list — is
+      // only the preselection. Its entry is never started here.
+      const candidate = preselection();
       return candidate
         ? { agent: candidate.name, effective: false }
         : undefined;
@@ -143,8 +177,7 @@ export function createFallbackStepChatResponder(
       }
       // No agent was launched yet: the choice is remembered for the profile
       // that will answer, exactly like the model it would request on open.
-      const candidate = profilesFor(workspace ?? "")[selected];
-      options.modelFor?.(candidate?.name ?? "")?.remember(value);
+      options.modelFor?.(preselection()?.name ?? "")?.remember(value);
     },
     cancel() {
       generation++;
@@ -160,6 +193,7 @@ export function createFallbackStepChatResponder(
       const previous = active;
       active = undefined;
       selected = 0;
+      answered = undefined;
       workspace = undefined;
       pending = Promise.resolve(previous?.dispose?.()).then(() => undefined, () => undefined);
       await pending;

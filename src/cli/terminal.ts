@@ -3,7 +3,11 @@ import { escapeHtml, renderMarkdownToHtml } from "../player/markdown";
 import { NarrationController } from "./narration/NarrationController";
 import { createSystemSpeech } from "./narration/SystemSpeech";
 import { palette } from "./palette";
-import { commitFileReader, openTerminalChat } from "./stepChatSupport";
+import {
+  commitFileReader,
+  NO_AGENT_INSTALLED_MESSAGE,
+  openTerminalChat
+} from "./stepChatSupport";
 import { fit, tail, wrapLine } from "./terminalLayout";
 import { createOpenInVsCodeInvoker, type OpenInVsCodeInvoker } from "./openInVscode";
 import { createReader, type TourReader } from "./reader/reader";
@@ -563,7 +567,7 @@ class TermDomSurface {
       const unavailable = document.createElement("p");
       unavailable.className = "answer-pending";
       unavailable.textContent =
-        "No ACP agent is installed (Copilot CLI, Vibe, Pi, Codex or Claude Code).";
+        NO_AGENT_INSTALLED_MESSAGE;
       this.conversationBody.appendChild(unavailable);
     }
     if (conversation.suggestions.length) {

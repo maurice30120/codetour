@@ -5,7 +5,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { commandExists, type AcpAgentProfile } from "../agent/agentCatalogue";
 import { createAcpStepChatResponder } from "../agent/stepChatAgent";
-import { buildStepChatContext, openTerminalChat } from "./stepChatSupport";
+import {
+  buildStepChatContext,
+  NO_AGENT_INSTALLED_MESSAGE,
+  openTerminalChat
+} from "./stepChatSupport";
 
 const fakeAgent = path.join(__dirname, "../agent/fakeAcpAgent.js");
 
@@ -150,4 +154,13 @@ test("a restored path answers through the real ACP responder", { timeout: 60_000
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("the no-agent explanation spells the catalogue in its rank order", () => {
+  // The terminal names the whole catalogue from the versioned constant, so a
+  // new profile appears there without a second list to maintain.
+  assert.equal(
+    NO_AGENT_INSTALLED_MESSAGE,
+    "No ACP agent is installed (Copilot, Vibe, Pi, Codex or Claude Code)."
+  );
 });

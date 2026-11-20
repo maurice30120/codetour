@@ -108,6 +108,16 @@ interface StepChatUpdate {
   }[];
   responding?: boolean;
   agent?: { agent: string; model?: string; effective: boolean };
+  agents?: {
+    name: string;
+    state: string;
+    detail?: string;
+    selected?: boolean;
+    selectable?: boolean;
+    signIn?: boolean;
+  }[];
+  modelOptions?: { value: string; name: string }[];
+  model?: string;
 }
 
 function stepChatUpdates(): StepChatUpdate[] {
@@ -1479,5 +1489,134 @@ test("a model the agent refuses is never displayed: the agent's own value stays"
   } finally {
     await responder.dispose();
     await agent.cleanup();
+  }
+});
+
+/** A model selector as a probed agent announces it (ADR 0048). */
+function announcedModels(currentValue: string, values: string[]) {
+  return [{
+    id: "model",
+    name: "Model",
+    category: "model",
+    type: "select",
+    currentValue,
+    options: values.map(value => ({ value, name: value.toUpperCase() }))
+  }];
+}
+
+test("the Model control follows the agent that answered after an initial fall-through", async () => {
+  resetChatState();
+  const { AgentSelection } = require("../agent/agentCatalogue");
+  const vibe = createAgentWorkspace();
+  // Copilot is preselected — it is available, rank 0 — but its launch fails,
+  // so Vibe answers the first question. The Model control must list Vibe's
+  // values: Copilot's would be a silent no-op.
+  const probed: string[] = [];
+  const selection = new AgentSelection({
+    profiles: [
+      {
+        name: "Copilot",
+        rank: 0,
+        entry: (cwd: string) => ({
+          command: process.execPath,
+          args: [path.join(vibe.workspace, "codetour-absent-agent.js")],
+          cwd
+        })
+      },
+      { name: "Vibe", rank: 1, entry: () => fakeAgentEntry(vibe, "model-option") }
+    ],
+    probe: async (profile: { name: string }) => {
+      probed.push(profile.name);
+      return {
+        availability: {
+          state: "available" as const,
+          configOptions:
+            profile.name === "Copilot"
+              ? announcedModels("gpt-5", ["gpt-5", "gpt-6"])
+              : announcedModels("balanced", ["fast", "balanced", "smart"])
+        }
+      };
+    }
+  });
+  setStepChatResponder(undefined);
+  setStepChatAgentSelection(() => selection);
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    // Opening the selector verifies the profiles the initial probe left
+    // unverified, so Vibe is a candidate of the initial fall-through.
+    chatPanel().receive({ type: "probeUnverified" });
+    await host.waitFor(() => probed.length === 2);
+    chatPanel().receive({ type: "askQuestion", question: "Quel modèle ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+
+    const update = lastChatUpdate();
+    assert.equal(update.agent?.agent, "Vibe");
+    assert.equal(update.agent?.effective, true);
+    assert.deepEqual(
+      update.modelOptions?.map(option => option.value),
+      ["fast", "balanced", "smart"],
+      "the Model control lists the values of the agent that answered"
+    );
+    assert.equal(update.model, "smart", "the effective model is the one displayed");
+    // The selection itself is untouched: the fall-through belongs to the
+    // initial automatic selection, not to a new explicit choice.
+    assert.equal(selection.selectedProfile()?.profile.name, "Copilot");
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+    selection.dispose();
+    await vibe.cleanup();
+  }
+});
+
+test("a conversation failure degrades only the faulty profile in the selector", async () => {
+  resetChatState();
+  const copilot = createAgentWorkspace();
+  const vibe = createAgentWorkspace();
+  // Copilot cannot select its Ask mode: it fails before any answer text, and
+  // the initial selection falls through to Vibe.
+  const agents = registerAgentChoice(copilot, vibe, "no-ask-mode");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    // Opening the selector verifies Vibe, the profile the initial probe left
+    // unverified: it is the only candidate the initial selection may fall
+    // through to.
+    chatPanel().receive({ type: "probeUnverified" });
+    await host.waitFor(() => agents.probed.length === 2);
+    chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+    assert.equal(lastChatUpdate().agent?.agent, "Vibe");
+    const copilotLaunches = readLog(copilot.logPath).filter(
+      row => row.method === "initialize"
+    ).length;
+
+    // The failed profile is shown in the state that explains it, with its
+    // reason, without a probe; its neighbour keeps the probed state.
+    const listed = lastChatUpdate().agents ?? [];
+    const failed = listed.find(agent => agent.name === "Copilot");
+    assert.equal(failed?.state, "connection-error");
+    assert.ok(failed?.detail, "the failure's reason is displayed");
+    assert.equal(listed.find(agent => agent.name === "Vibe")?.state, "available");
+    assert.deepEqual(agents.probed, ["Copilot", "Vibe"], "a conversation failure probes nothing");
+    assert.equal(agents.selection.selectedProfile()?.profile.name, "Copilot");
+
+    // The following question stays with the agent that answered: the failed
+    // profile is never launched again.
+    chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 2);
+    assert.equal(lastChatUpdate().agent?.agent, "Vibe");
+    assert.equal(promptCount(readLog(vibe.logPath)), 2);
+    assert.equal(
+      readLog(copilot.logPath).filter(row => row.method === "initialize").length,
+      copilotLaunches
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+    await copilot.cleanup();
+    await vibe.cleanup();
+    agents.selection.dispose();
   }
 });

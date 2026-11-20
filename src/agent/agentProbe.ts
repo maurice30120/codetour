@@ -1,5 +1,5 @@
 import * as acp from "@agentclientprotocol/sdk";
-import { spawnAcpAgent } from "./acpAgentProcess";
+import { spawnAcpAgent, type AcpAgentEntry } from "./acpAgentProcess";
 import {
   commandExists,
   type AgentAvailability,
@@ -40,6 +40,59 @@ export interface AgentProbeOptions {
 class ProbeDeadlineError extends Error {}
 
 /**
+ * One bounded ACP transport: the spawned agent, its connection, the deadline
+ * every request races against and the process exit that fails it as soon as
+ * the transport is gone. `phase` is how the deadline and exit failures name
+ * the operation that gave up ("the probe", "the sign in").
+ */
+interface BoundedTransport {
+  connection: acp.ClientConnection;
+  /** Races one request against the deadline and the process exit. */
+  bounded<T>(operation: Promise<T>): Promise<T>;
+  /** Releases the connection and the agent process, whatever happened. */
+  release(): Promise<void>;
+}
+
+function openBoundedTransport(
+  entry: AcpAgentEntry,
+  timeoutMs: number,
+  phase: "the probe" | "the sign in"
+): BoundedTransport {
+  const agent = spawnAcpAgent(entry);
+  const connection = acp.client({ name: "codetour" }).connect(agent.stream);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new ProbeDeadlineError(
+        `The agent did not answer ${phase} within ${deadlineLabel(timeoutMs)}.`
+      )),
+      timeoutMs
+    );
+  });
+  // A transport that dies before answering fails the operation instead of
+  // leaving it on a connection that can never speak again.
+  const exited = agent.exited.then(
+    () => {
+      throw new Error(`The ACP agent exited before ${phase} completed.`);
+    },
+    (error: unknown) => {
+      throw error;
+    }
+  );
+  // Teardown can reject the exit promise before any request raced it.
+  exited.catch(() => undefined);
+  return {
+    connection,
+    bounded: operation => Promise.race([operation, deadline, exited]),
+    async release() {
+      if (timer) clearTimeout(timer);
+      connection.close();
+      await agent.dispose().catch(() => undefined);
+    }
+  };
+}
+
+/**
  * Probes one Agent Profile and classifies what happened:
  * `not-installed` for an absent executable, `auth-required` for the ACP
  * authentication error code, `connection-error` for the deadline and every
@@ -68,41 +121,18 @@ export async function probeAgentProfile(
   }
 
   const timeoutMs = options.timeoutMs ?? AGENT_PROBE_TIMEOUT_MS;
-  const agent = spawnAcpAgent(entry);
-  const connection = acp.client({ name: "codetour" }).connect(agent.stream);
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new ProbeDeadlineError(
-        `The agent did not answer the probe within ${deadlineLabel(timeoutMs)}.`
-      )),
-      timeoutMs
-    );
-  });
-  // A transport that dies before answering fails the probe instead of
-  // leaving it on a connection that can never speak again.
-  const exited = agent.exited.then(
-    () => {
-      throw new Error("The ACP agent exited before answering the probe.");
-    },
-    (error: unknown) => {
-      throw error;
-    }
-  );
-  const bounded = <T>(operation: Promise<T>): Promise<T> =>
-    Promise.race([operation, deadline, exited]);
-
+  const transport = openBoundedTransport(entry, timeoutMs, "the probe");
   let authMethods: acp.AuthMethod[] | undefined;
   try {
-    const initialized = await bounded(
-      connection.agent.request(acp.methods.agent.initialize, {
+    const initialized = await transport.bounded(
+      transport.connection.agent.request(acp.methods.agent.initialize, {
         protocolVersion: acp.PROTOCOL_VERSION,
         clientCapabilities: clientCapabilities()
       })
     );
     authMethods = initialized.authMethods ?? undefined;
-    const session = await bounded(
-      connection.agent.request(acp.methods.agent.session.new, {
+    const session = await transport.bounded(
+      transport.connection.agent.request(acp.methods.agent.session.new, {
         cwd,
         mcpServers: []
       })
@@ -120,9 +150,7 @@ export async function probeAgentProfile(
       authMethods
     };
   } finally {
-    if (timer) clearTimeout(timer);
-    connection.close();
-    await agent.dispose().catch(() => undefined);
+    await transport.release();
   }
 }
 
@@ -147,44 +175,22 @@ export async function authenticateAgentProfile(
     throw new Error("This agent has no launcher on this platform.");
   }
   const timeoutMs = options.timeoutMs ?? AGENT_PROBE_TIMEOUT_MS;
-  const agent = spawnAcpAgent(entry);
-  const connection = acp.client({ name: "codetour" }).connect(agent.stream);
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new ProbeDeadlineError(
-        `The agent did not answer the sign in within ${deadlineLabel(timeoutMs)}.`
-      )),
-      timeoutMs
-    );
-  });
-  // A transport that dies — an entry that cannot even be spawned included —
-  // fails the sign in instead of waiting on a connection that can never speak.
-  const exited = agent.exited.then(
-    () => {
-      throw new Error("The ACP agent exited before the sign in completed.");
-    },
-    (error: unknown) => {
-      throw error;
-    }
-  );
+  const transport = openBoundedTransport(entry, timeoutMs, "the sign in");
   try {
-    await Promise.race([
-      connection.agent
+    await transport.bounded(
+      transport.connection.agent
         .request(acp.methods.agent.initialize, {
           protocolVersion: acp.PROTOCOL_VERSION,
           clientCapabilities: clientCapabilities()
         })
         .then(() =>
-          connection.agent.request(acp.methods.agent.authenticate, { methodId })
-        ),
-      deadline,
-      exited
-    ]);
+          transport.connection.agent.request(acp.methods.agent.authenticate, {
+            methodId
+          })
+        )
+    );
   } finally {
-    if (timer) clearTimeout(timer);
-    connection.close();
-    await agent.dispose().catch(() => undefined);
+    await transport.release();
   }
 }
 

@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import {
+  agentCatalogueLabel,
   catalogueProfiles,
   commandExists,
   type AcpAgentProfile
@@ -8,6 +9,13 @@ import { createFallbackStepChatResponder } from "../agent/fallbackStepChatAgent"
 import type { StepChatContext, StepChatResponder } from "../agent/stepChatContract";
 import type { CodeTour, CodeTourStep } from "../store";
 import type { ReadonlyStepContext } from "./stepContext";
+
+/**
+ * The terminal's explanation when no ACP agent is installed on the machine:
+ * the catalogue, in its rank order, is the only list this sentence spells.
+ */
+export const NO_AGENT_INSTALLED_MESSAGE =
+  `No ACP agent is installed (${agentCatalogueLabel("sentence")}).`;
 
 export interface TerminalChatSession {
   /**

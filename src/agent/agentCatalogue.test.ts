@@ -5,6 +5,7 @@ import * as path from "node:path";
 import {
   AGENT_CATALOGUE,
   AgentSelection,
+  agentCatalogueLabel,
   catalogueProfiles,
   isSelectable,
   type AgentAvailability,
@@ -778,4 +779,50 @@ test("a session that no longer announces the choice drops it, and one that still
   selection.dispose();
   assert.equal(selection.modelFor("Copilot"), undefined);
   assert.deepEqual(selection.modelOptions("Copilot"), []);
+});
+
+test("the catalogue order is spelled once for the reader-facing chrome", () => {
+  // Both user-visible lists derive from the versioned catalogue, so no
+  // surface can drift from the order that decides who answers.
+  assert.equal(
+    agentCatalogueLabel("arrow"),
+    "Copilot → Vibe → Pi → Codex → Claude Code"
+  );
+  assert.equal(
+    agentCatalogueLabel("sentence"),
+    "Copilot, Vibe, Pi, Codex or Claude Code"
+  );
+  assert.equal(agentCatalogueLabel(), agentCatalogueLabel("arrow"));
+});
+
+test("a degraded profile keeps its neighbours, the selection and the probe cache", async () => {
+  const probe = scriptedProbe({});
+  const selection = new AgentSelection({ profiles: CATALOGUE, probe: probe.probe });
+  await selection.probeInitial("/workspace");
+  await selection.probeUnverified("/workspace");
+  assert.deepEqual(probe.calls, ["Copilot", "Vibe", "Codex", "Claude Code"]);
+
+  selection.degrade("Copilot", "The conversation agent connection was lost.");
+  // A name the catalogue does not know changes nothing.
+  selection.degrade("Not an agent", "ignored");
+
+  // Only the profile that failed carries the failure; nothing is probed and
+  // every other cached state stays as the probe left it.
+  const views = selection.profiles();
+  assert.deepEqual(view(views, "Copilot").availability, {
+    state: "connection-error",
+    reason: "The conversation agent connection was lost."
+  });
+  assert.equal(view(views, "Vibe").availability.state, "available");
+  assert.equal(view(views, "Codex").availability.state, "available");
+  assert.equal(view(views, "Claude Code").availability.state, "available");
+  assert.deepEqual(probe.calls, ["Copilot", "Vibe", "Codex", "Claude Code"]);
+  // The selection stays where it was: a failure never moves the reader's
+  // agent, and no profile outside the catalogue was invented.
+  assert.equal(selection.selectedProfile()?.profile.name, "Copilot");
+  assert.deepEqual(
+    selection.candidates("/workspace").map(candidate => candidate.name),
+    ["Copilot", "Vibe", "Codex", "Claude Code"]
+  );
+  selection.dispose();
 });
