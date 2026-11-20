@@ -3,6 +3,7 @@ import { accessSync, constants } from "node:fs";
 import * as path from "node:path";
 import type { AcpAgentEntry } from "./acpAgentProcess";
 import { findModelSelector, type AcpModelValue } from "./acpModelOptions";
+import { piAcpEntry } from "./piReadonlyLauncher";
 import { vibeAcpEntry } from "./vibeAcpEntry";
 
 /**
@@ -52,14 +53,18 @@ export const AGENT_CATALOGUE: readonly AgentProfile[] = [
     })
   },
   { name: "Vibe", rank: 1, entry: cwd => vibeAcpEntry(cwd) },
+  // Pi only ever runs behind CodeTour's read-only launcher (ADR 0049): where
+  // that launcher cannot be provided, the entry is undefined, so the profile
+  // reports a connection error instead of starting an unrestricted Pi.
+  { name: "Pi", rank: 2, entry: cwd => piAcpEntry(cwd) },
   {
     name: "Codex",
-    rank: 2,
+    rank: 3,
     entry: cwd => ({ command: "codex-acp", cwd, modeId: "read-only" })
   },
   {
     name: "Claude Code",
-    rank: 3,
+    rank: 4,
     entry: cwd => ({ command: "claude-agent-acp", cwd, modeId: "plan" })
   }
 ];

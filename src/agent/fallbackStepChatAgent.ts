@@ -107,7 +107,7 @@ export function createFallbackStepChatResponder(
         }
         selected = 0; // A future question retries the ordered list after configuration changes.
         throw new StepChatAgentUnavailableError(
-          `No ACP agent available (Copilot → Vibe → Codex → Claude Code). ${failed.join("\n")}`
+          `No ACP agent available (Copilot → Vibe → Pi → Codex → Claude Code). ${failed.join("\n")}`
         );
       });
       const settled = answer.then(

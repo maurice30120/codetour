@@ -144,13 +144,15 @@ CodeTour tree and status bar track your progress.
 ### Connect a conversation agent
 
 Install and authenticate a supported ACP agent separately, and ensure its
-executable is available on VS Code’s `PATH`. CodeTour tries installed Agent
-Profiles in this order and keeps the first working one for the reading session:
+executable is available on VS Code’s `PATH`. CodeTour probes the installed Agent
+Profiles in this order, preselects the first one that answers, and keeps your
+choice for the reading session:
 
 | Agent Profile | Executable | Selected mode |
 | --- | --- | --- |
-| Vibe | `vibe-acp` | Ask |
 | GitHub Copilot CLI | `copilot --acp --stdio` | Default mode, with tools restricted to `view`, `grep`, and `glob` |
+| Vibe | `vibe-acp` | Ask |
+| Pi | `pi-acp` | Agent default, behind CodeTour’s read-only launcher (tools `read`, `grep`, `find`, `ls`) |
 | Codex ACP | `codex-acp` | read-only |
 | Claude Agent ACP | `claude-agent-acp` | plan |
 
@@ -158,9 +160,19 @@ CodeTour installs no agent automatically. Conversations are designed for reading
 and explanation: the client refuses file writes and terminal requests and checks
 tool permissions. Agent Profile modes are not an operating-system sandbox.
 
-If an agent fails before producing answer text, CodeTour tries the next Agent Profile.
-Once an answer has started, it reports an error without mixing in another agent’s
-response. You can stop an answer in progress.
+`pi-acp` launches `pi` without any tool restriction and offers no way to pass
+one, so CodeTour launches Pi through a small launcher of its own that runs `pi`
+with only the reading and searching tools, through the `PI_ACP_PI_COMMAND`
+variable the adapter honours. The launcher is written under the system
+temporary directory and changes nothing in your Pi configuration; where it
+cannot be provided — on Windows, for example — Pi is listed as a connection
+error instead of running unrestricted. See
+[ADR 0049](docs/adr/0049-restrict-pi-tools-through-a-replacement-launcher.md)
+and the [Pi smoke test](docs/pi-agent-smoke.md).
+
+If an agent fails before producing answer text, CodeTour tries the next Agent
+Profile, unless you picked one. Once an answer has started, it reports an error
+without mixing in another agent’s response. You can stop an answer in progress.
 
 ## Try the standalone readers
 

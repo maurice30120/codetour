@@ -358,7 +358,7 @@ test("errors of the responder land in the chat without disturbing the reading", 
 });
 
 test("a panel whose probed catalogue has no usable agent explains it and disables the composer", async () => {
-  const { AgentSelection } = require("../agent/agentCatalogue");
+  const { AGENT_CATALOGUE, AgentSelection } = require("../agent/agentCatalogue");
   resetChatState();
   // Every Agent Profile is installed but refuses: the initial probe settles
   // with nothing usable, which no machine-dependent test could guarantee.
@@ -373,9 +373,11 @@ test("a panel whose probed catalogue has no usable agent explains it and disable
     // catalogue, which disables the composer and shows the explaining state.
     await host.waitFor(() => lastChatUpdate()?.unavailable === true);
     const probed = lastChatUpdate();
+    // Every catalogued profile is listed, in rank order, with the state the
+    // probe established: the panel shows the catalogue, not a PATH scan.
     assert.deepEqual(
-      probed.agents?.map(agent => agent.state),
-      ["not-installed", "not-installed", "not-installed", "not-installed"]
+      probed.agents?.map(agent => [agent.name, agent.state]),
+      AGENT_CATALOGUE.map((profile: { name: string }) => [profile.name, "not-installed"])
     );
     assert.equal(probed.agent, undefined, "nothing is preselected");
     assert.deepEqual(probed.exchanges, []);

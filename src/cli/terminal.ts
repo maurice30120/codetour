@@ -563,7 +563,7 @@ class TermDomSurface {
       const unavailable = document.createElement("p");
       unavailable.className = "answer-pending";
       unavailable.textContent =
-        "No ACP agent is installed (Vibe, Copilot CLI, Codex or Claude Code).";
+        "No ACP agent is installed (Copilot CLI, Vibe, Pi, Codex or Claude Code).";
       this.conversationBody.appendChild(unavailable);
     }
     if (conversation.suggestions.length) {
