@@ -1341,3 +1341,143 @@ test("a choice made while an answer streams is ignored, never interrupting the a
     agents.selection.dispose();
   }
 });
+
+/** A model memory the test scripts, as the panel's Agent Selection provides it. */
+function scriptedModelMemory(initial?: string) {
+  const state = {
+    requested: initial,
+    remembered: [] as (string | undefined)[],
+    confirmed: [] as (string | undefined)[],
+    offered: [] as string[]
+  };
+  return {
+    state,
+    memory: {
+      modelFor: () => state.requested,
+      remember: (value: string | undefined) => {
+        state.remembered.push(value);
+        state.requested = value;
+      },
+      recordEffective: (value: string | undefined, offered: readonly { value: string }[]) => {
+        state.confirmed.push(value);
+        state.offered.push(offered.map(option => option.value).join(","));
+      }
+    }
+  };
+}
+
+test("the responder replays the reader's remembered model on the session it opens", { timeout: 60_000 }, async () => {
+  const agent = createAgentWorkspace();
+  const memory = scriptedModelMemory("balanced");
+  const responder = createAcpStepChatResponder(
+    { name: "Copilot", entry: fakeAgentEntry(agent, "model-option") },
+    { model: memory.memory }
+  );
+  const announced: { agent: string; model?: string; effective: boolean }[] = [];
+  try {
+    await responder.answer(
+      {
+        question: "Quel modèle ?",
+        context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+        history: [],
+        workspaceRoot: agent.workspace
+      },
+      {
+        onAgentIdentity: (identity: { agent: string; model?: string; effective: boolean }) =>
+          announced.push(identity)
+      }
+    );
+
+    // The requested value reached the agent and its response is what the
+    // reader is told: the effective model, not the request.
+    const requests = await waitForLog(agent.logPath, records =>
+      records.some(record => record.method === "session/set_config_option")
+    );
+    const setConfig = requests.find(
+      record => record.method === "session/set_config_option"
+    );
+    assert.equal((setConfig!.params as { value: string }).value, "balanced");
+    assert.equal(responder.identity().model, "balanced");
+    assert.deepEqual(announced, [{ agent: "Copilot", model: "balanced", effective: true }]);
+    assert.deepEqual(memory.state.confirmed, ["balanced"]);
+    assert.deepEqual(memory.state.offered, ["fast,balanced,smart"]);
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+});
+
+test("a model the reader chooses before any session is remembered, and changed live once one is open", { timeout: 60_000 }, async () => {
+  const agent = createAgentWorkspace();
+  const memory = scriptedModelMemory();
+  const responder = createAcpStepChatResponder(
+    { name: "Copilot", entry: fakeAgentEntry(agent, "model-option") },
+    { model: memory.memory }
+  );
+  try {
+    // No session exists yet: the choice is only remembered for the session
+    // that will open, and no process is started.
+    await responder.selectModel("fast");
+    assert.deepEqual(memory.state.remembered, ["fast"]);
+    assert.deepEqual(readLog(agent.logPath), []);
+
+    await responder.answer({
+      question: "Quel modèle ?",
+      context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+      history: [],
+      workspaceRoot: agent.workspace
+    });
+    // The remembered choice was replayed on the new session.
+    assert.equal(responder.identity().model, "fast");
+
+    // On an open session the change is requested live and confirmed by the
+    // agent; the next session of the profile replays it too.
+    await responder.selectModel("smart");
+    assert.equal(responder.identity().model, "smart");
+    assert.deepEqual(memory.state.remembered, ["fast", "smart"]);
+    assert.deepEqual(memory.state.confirmed, ["fast", "smart"]);
+    const requests = readLog(agent.logPath).filter(
+      record => record.method === "session/set_config_option"
+    );
+    assert.deepEqual(
+      requests.map(record => (record.params as { value: string }).value),
+      ["fast", "smart"]
+    );
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+});
+
+test("a model the agent refuses is never displayed: the agent's own value stays", { timeout: 60_000 }, async () => {
+  const agent = createAgentWorkspace();
+  const memory = scriptedModelMemory("fast");
+  const responder = createAcpStepChatResponder(
+    { name: "Copilot", entry: fakeAgentEntry(agent, "model-refused") },
+    { model: memory.memory }
+  );
+  try {
+    await responder.answer({
+      question: "Quel modèle ?",
+      context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+      history: [],
+      workspaceRoot: agent.workspace
+    });
+    // The agent kept its own model: the reader sees that one, and the panel
+    // records what the session really confirms.
+    assert.equal(responder.identity().model, "smart");
+    assert.deepEqual(memory.state.confirmed, ["smart"]);
+
+    // A live refusal leaves the displayed value untouched too.
+    await responder.selectModel("fast");
+    assert.equal(responder.identity().model, "smart");
+    const requests = readLog(agent.logPath).filter(
+      record => record.method === "session/set_config_option"
+    );
+    assert.equal(requests.length, 2, "both requests reached the agent");
+    assert.ok(requests.every(record => record.outcome === "refused"));
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+});

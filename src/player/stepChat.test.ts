@@ -99,6 +99,8 @@ interface StepChatUpdate {
   agent?: { agent: string; model?: string; effective: boolean };
   agents?: { name: string; state: string; selected: boolean; selectable: boolean }[];
   unavailable?: boolean;
+  modelOptions?: { value: string; name: string }[];
+  model?: string;
 }
 
 function stepChatUpdates(): StepChatUpdate[] {
@@ -808,7 +810,19 @@ test("the conversation names the agent that answers: preselected before the hand
  * launch: the profile's command is this Node binary running a script that does
  * not exist, so a question fails deterministically without any real agent.
  */
-function unlaunchableCatalogue(workspaceRoot: string) {
+/** A model selector as a probed agent announces it. */
+function announcedModel(currentValue: string, values: string[]) {
+  return {
+    id: "model",
+    name: "Model",
+    category: "model",
+    type: "select",
+    currentValue,
+    options: values.map(value => ({ value, name: value.toUpperCase() }))
+  };
+}
+
+function unlaunchableCatalogue(workspaceRoot: string, configOptions: unknown[] = []) {
   const { AgentSelection } = require("../agent/agentCatalogue");
   const calls: string[] = [];
   const profile = (name: string, rank: number) => ({
@@ -824,14 +838,14 @@ function unlaunchableCatalogue(workspaceRoot: string) {
     profiles: [profile("Copilot", 0), profile("Vibe", 1)],
     probe: async (probed: { name: string }) => {
       calls.push(probed.name);
-      return { availability: { state: "available" as const, configOptions: [] } };
+      return { availability: { state: "available" as const, configOptions } };
     }
   });
   return { selection, calls };
 }
 
-function registerUnlaunchableAgents(workspaceRoot: string) {
-  const agents = unlaunchableCatalogue(workspaceRoot);
+function registerUnlaunchableAgents(workspaceRoot: string, configOptions: unknown[] = []) {
+  const agents = unlaunchableCatalogue(workspaceRoot, configOptions);
   setStepChatAgentSelection(() => agents.selection);
   return agents;
 }
@@ -958,6 +972,42 @@ test("a failed exchange offers Retry and Change agent, and retrying keeps the sa
       retried.agents?.map(agent => [agent.name, agent.selected]),
       [["Copilot", false], ["Vibe", true]]
     );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("choosing a model remembers it per agent, repaints the panel and asks nothing", async () => {
+  resetChatState();
+  const agents = registerUnlaunchableAgents("/workspace", [
+    announcedModel("smart", ["fast", "smart"])
+  ]);
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    // The Model control offers only what the probed agent announces, with
+    // the value the agent holds selected.
+    assert.match(
+      host.panelHtml(),
+      /<option value="fast">FAST<\/option><option value="smart" selected>SMART<\/option>/
+    );
+
+    // The reader's choice is remembered for the profile that answers and
+    // repainted; no question is asked by choosing a model.
+    chatPanel().receive({ type: "chooseModel", model: "fast" });
+    await host.waitFor(() => lastChatUpdate()?.model === "fast");
+    assert.equal(agents.selection.modelFor("Copilot"), "fast");
+    assert.deepEqual(lastChatUpdate().exchanges, [], "the choice asks nothing");
+
+    // Each profile keeps its own choice: moving the conversation to another
+    // agent does not carry one agent's model identifiers over.
+    chatPanel().receive({ type: "chooseAgent", agent: "Vibe" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Vibe");
+    assert.equal(agents.selection.modelFor("Copilot"), "fast");
+    assert.equal(agents.selection.modelFor("Vibe"), undefined);
+    assert.equal(lastChatUpdate().model, undefined);
   } finally {
     setStepChatAgentSelection(undefined);
     chatPanel().dispose();

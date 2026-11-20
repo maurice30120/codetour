@@ -140,6 +140,12 @@ export interface StepChatResponder {
    */
   identity?(): StepChatAgentIdentity | undefined;
   /**
+   * Requests a model change for the agent that answers: remembered for the
+   * sessions still to open, and applied live on an open one. The change only
+   * counts once the agent confirms it, which `identity()` then reports.
+   */
+  selectModel?(value: string): void | Promise<void>;
+  /**
    * Releases the responder's agent resources; called when the reading
    * webview closes or the responder is replaced.
    */
