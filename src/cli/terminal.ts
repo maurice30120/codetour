@@ -3,11 +3,16 @@ import { escapeHtml, renderMarkdownToHtml } from "../player/markdown";
 import { NarrationController } from "./narration/NarrationController";
 import { createSystemSpeech } from "./narration/SystemSpeech";
 import { palette } from "./palette";
-import { commitFileReader, openTerminalChat } from "./stepChatSupport";
+import {
+  commitFileReader,
+  NO_AGENT_INSTALLED_MESSAGE,
+  openTerminalChat
+} from "./stepChatSupport";
 import { fit, tail, wrapLine } from "./terminalLayout";
 import { createOpenInVsCodeInvoker, type OpenInVsCodeInvoker } from "./openInVscode";
 import { createReader, type TourReader } from "./reader/reader";
 import type { ConversationResponder } from "./reader/collaborators";
+import { agentIdentityLabel } from "./reader/statusLine";
 import type { ReaderKeyEvent } from "./reader/readerInput";
 import type { ReaderViewModel } from "./reader/viewModel";
 
@@ -52,23 +57,30 @@ export interface TerminalReaderCompositionOptions {
  * The composition root's collaborator wiring (spec #93): the ACP session
  * layer stays behind the Step Chat support seams and is adapted to the
  * reader's responder port; no agent process is started until the first
- * question. Since #104 the session is the ordered failover of ADR 0014 over
- * every installed candidate, and the reading module runs the conversation
- * through the shared StepConversations store above this seam (ADR 0031).
+ * question. Since #104 the session is an ordered failover over every
+ * installed candidate — the terminal keeps it instead of the webview's Agent
+ * selector (ADR 0048) — and the reading module runs the conversation through
+ * the shared StepConversations store above this seam (ADR 0031).
  */
 export function composeTerminalReader(options: TerminalReaderCompositionOptions): TourReader {
   const { tour, root } = options;
   const injected = options.collaborators ?? {};
   const chat = injected.responder ? undefined : openTerminalChat(root);
+  const chatResponder = chat?.responder;
+  const preselection = chat?.profile;
   const responder: ConversationResponder | undefined = injected.responder ??
-    (chat?.responder
+    (chatResponder
       ? {
-        providerName: chat.provider?.name,
-        answer: (request, events) => chat.responder!.answer(request, events),
+        // The responder names the agent the session handshake confirmed; the
+        // first installed candidate is only the preselection before that.
+        identity: () => chatResponder.identity?.() ?? (preselection
+          ? { agent: preselection.name, effective: false }
+          : undefined),
+        answer: (request, events) => chatResponder.answer(request, events),
         // A stop interrupts the in-flight answer (ADR 0031): the failover
         // responder cancels its active candidate.
-        cancel: () => chat.responder!.cancel?.(),
-        dispose: () => chat.dispose()
+        cancel: () => chatResponder.cancel?.(),
+        dispose: () => chat?.dispose()
       }
       : undefined);
   return createReader({
@@ -555,7 +567,7 @@ class TermDomSurface {
       const unavailable = document.createElement("p");
       unavailable.className = "answer-pending";
       unavailable.textContent =
-        "No ACP agent is installed (Vibe, Copilot CLI, Codex or Claude Code).";
+        NO_AGENT_INSTALLED_MESSAGE;
       this.conversationBody.appendChild(unavailable);
     }
     if (conversation.suggestions.length) {
@@ -583,7 +595,11 @@ class TermDomSurface {
       question.textContent = exchange.question;
       const agent = document.createElement("div");
       agent.className = "role role-agent";
-      agent.textContent = "▌ " + (conversation.providerName ?? "agent").toLowerCase();
+      // The role line names the agent the session handshake confirmed, with
+      // its model; before that it says the profile is only preselected.
+      agent.textContent = "▌ " + (conversation.agent
+        ? agentIdentityLabel(conversation.agent)
+        : "agent");
       block.append(asker, question, agent);
       // The stored exchanges are raw (ADR 0031): tool uses and the latest
       // activity line are painted here, exactly as the extension's conversation view

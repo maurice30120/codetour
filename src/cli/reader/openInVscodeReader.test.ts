@@ -132,7 +132,7 @@ test("a failing VS Code opening becomes a nonblocking status-line warning", asyn
 });
 
 test("the open warning sits after the documented fixed precedence segments (spec #240)", () => {
-  // The precedence is fixed: voice, speech warning, provider, exchange
+  // The precedence is fixed: voice, speech warning, Agent Profile, exchange
   // count — the Open-in-VS Code warning takes the last, outermost slot
   // (spec #239 review F3), so a narrow terminal cuts it first and the
   // documented segments stay in order.
@@ -143,14 +143,14 @@ test("the open warning sits after the documented fixed precedence segments (spec
     speechWarning: "voice: slow",
     canOpenInVsCode: true,
     openWarning: "vscode: boom",
-    providerName: "Fake",
+    agent: { agent: "Fake", effective: true },
     exchangeCount: 2
   });
   assert.deepEqual(status.rightSegments, [
-    "VOICE ON", "voice: slow", "fake", "2 exchanges", "vscode: boom"
+    "VOICE ON", "voice: slow", "fake (effective)", "2 exchanges", "vscode: boom"
   ]);
-  // The warning survives the exchange-count-abent case unplaced before the
-  // provider.
+  // The warning survives the exchange-count-absent case unplaced before the
+  // Agent Profile.
   const bare = statusLine({
     conversation: { asking: false, responding: false, hasResponder: false },
     compactHints: true,
@@ -158,16 +158,16 @@ test("the open warning sits after the documented fixed precedence segments (spec
     speechWarning: undefined,
     canOpenInVsCode: true,
     openWarning: "vscode: boom",
-    providerName: undefined,
+    agent: undefined,
     exchangeCount: 0
   });
   assert.deepEqual(bare.rightSegments, ["VOICE OFF", "vscode: boom"]);
 });
 
-test("a failing opening never lands between the voice warning and the provider in the live view model", async () => {
+test("a failing opening never lands between the voice warning and the Agent Profile in the live view model", async () => {
   const collaborator = new ScriptedOpenInVsCode();
   const responder: ConversationResponder = {
-    providerName: "Fake",
+    identity: () => ({ agent: "Fake", effective: false }),
     answer: async () => "Fake answer"
   };
   const reader = harness(collaborator.invoker, responder);
@@ -190,7 +190,7 @@ test("the `o` shortcut is not taken in ask mode", async () => {
   // A responder is wired so `a` owns the keyboard: without one, `a` itself
   // never enters ask mode and the test would prove nothing.
   const responder: ConversationResponder = {
-    providerName: "Fake",
+    identity: () => ({ agent: "Fake", effective: false }),
     answer: async () => "Fake answer"
   };
   const reader = harness(collaborator.invoker, responder);

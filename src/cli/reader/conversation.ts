@@ -1,5 +1,6 @@
 import type { CodeTour } from "../../store";
 import { StepConversations, type StepConversationExchange } from "../../agent/stepConversations";
+import type { StepChatAgentIdentity } from "../../agent/stepChatContract";
 import { buildStepChatContext } from "../stepChatSupport";
 import type { CommitFileReader, ConversationResponder, StepContextResolver } from "./collaborators";
 
@@ -37,9 +38,13 @@ export class TourStepConversation {
     return this.options.responder !== undefined;
   }
 
-  /** The agent's lowercase provider name, for the status line and the role line. */
-  get providerName(): string | undefined {
-    return this.options.responder?.providerName;
+  /**
+   * The agent answering right now, for the status line and the role line:
+   * the effective Agent Profile and model once a handshake confirmed them,
+   * the preselection before that.
+   */
+  get agentIdentity(): StepChatAgentIdentity | undefined {
+    return this.store.identity();
   }
 
   /** The Step's exchanges, raw and unpainted, straight from the shared store. */

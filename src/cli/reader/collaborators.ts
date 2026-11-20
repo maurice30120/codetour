@@ -1,4 +1,8 @@
-import type { StepChatAnswerEvents, StepChatRequest } from "../../agent/stepChatContract";
+import type {
+  StepChatAgentIdentity,
+  StepChatAnswerEvents,
+  StepChatRequest
+} from "../../agent/stepChatContract";
 import type { CodeTour, CodeTourStep } from "../../store";
 import type { ReadonlyStepContext } from "../stepContext";
 
@@ -12,15 +16,21 @@ import type { ReadonlyStepContext } from "../stepContext";
 /**
  * The agent answering Tour Step Conversation questions (ADR 0026, ADR 0031):
  * the ACP failover session layer in production — `openTerminalChat`'s
- * responder over every installed candidate (ADR 0014) — adapted from the
+ * responder over every installed candidate, the terminal having no Agent
+ * selector (ADR 0048) — adapted from the
  * Step chat support module by the composition root. The reader only sees
  * this port; the conversation lifecycle lives in the shared
  * `StepConversations` store above the seam. No agent process is started
  * until the first question.
  */
 export interface ConversationResponder {
-  /** Lowercase provider name for the status line and the agent role line. */
-  readonly providerName: string | undefined;
+  /**
+   * The agent answering right now: the effective Agent Profile once a
+   * session handshake confirmed it, the preselected one before that. The
+   * reader's role line and status line paint this, so the first installed
+   * candidate is never presented as the agent that answered.
+   */
+  identity?(): StepChatAgentIdentity | undefined;
   answer(request: StepChatRequest, events?: StepChatAnswerEvents): Promise<string> | string;
   /**
    * Interrupts the in-flight answer, if any; the store's stop calls it and

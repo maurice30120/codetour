@@ -6,9 +6,15 @@ import { renderPreviewDescription } from "./description";
 import { createTourWebviewHtml } from "./markdown";
 import {
   askTourStepQuestion,
+  chooseStepChatAgent,
+  chooseStepChatModel,
   clearStepChatConversations,
+  closeStepChatAgents,
   getStepChatConversationView,
-  getStepChatExchanges,
+  openStepChatAgents,
+  probeStepChatUnverifiedAgents,
+  refreshStepChatAgents,
+  signInStepChatAgent,
   stopTourStepQuestion,
   type StepChatConversationView
 } from "./stepChat";
@@ -44,8 +50,23 @@ export function showTourWebview(): void {
       if (view !== current) return;
       view = undefined;
       store.isExpandedViewOpen = false;
-      // The conversations live only as long as the reading webview.
+      // The conversations and the probed agent states live only as long as
+      // the reading webview.
       clearStepChatConversations();
+      closeStepChatAgents();
+    });
+    // Opening the panel probes the Agent Catalogue: the availability it
+    // establishes decides who answers. Once it settled — and on every later
+    // change of the panel's agents — the conversation is reposted rather than
+    // re-rendered, so a probe that answers while the step is still being
+    // rendered never paints the panel ahead of it.
+    openStepChatAgents(active.workspaceRoot?.fsPath ?? "", () => {
+      const rendered = current.rendered;
+      if (view !== current || !rendered) return;
+      void current.panel.webview.postMessage({
+        type: "stepChat",
+        ...getStepChatConversationView(rendered.active.tour.id, rendered.step)
+      });
     });
     current.panel.webview.onDidReceiveMessage(async message => {
       const rendered = current.rendered;
@@ -66,8 +87,27 @@ export function showTourWebview(): void {
           }
         } else if (message.type === "openLink" && typeof message.href === "string") {
           await openDescriptionLink(message.href, rendered.active.workspaceRoot);
+        } else if (message.type === "chooseAgent" && typeof message.agent === "string") {
+          // The reader's choice replaces the agent that answers: the current
+          // session is released and the step history kept. A choice made while
+          // an answer streams is ignored, never applied.
+          chooseStepChatAgent(message.agent);
+        } else if (message.type === "chooseModel" && typeof message.model === "string") {
+          // The reader's model for the answering profile: remembered for its
+          // next sessions and applied live on an open one, where only the
+          // agent's confirmation makes it effective.
+          await chooseStepChatModel(message.model);
+        } else if (message.type === "refreshAgents") {
+          await refreshStepChatAgents();
+        } else if (message.type === "probeUnverified") {
+          await probeStepChatUnverifiedAgents();
+        } else if (message.type === "signIn" && typeof message.agent === "string") {
+          // The reader's own request to connect one agent: the terminal command
+          // runs (or the ACP method is called), then only that profile is
+          // probed again. A sign in while an answer streams is ignored.
+          await signInStepChatAgent(message.agent);
         } else if (
-          message.type === "askQuestion" &&
+          (message.type === "askQuestion" || message.type === "retryQuestion") &&
           typeof message.question === "string" &&
           message.question.trim()
         ) {
@@ -146,6 +186,7 @@ export async function renderTourStep(): Promise<void> {
 
   const token = randomBytes(16).toString("base64");
   current.rendered = { active, step: stepNumber, token };
+  const chat = getStepChatConversationView(tour.id, stepNumber);
   current.panel.title = `CodeTour — ${getTourTitle(tour)}`;
   current.panel.webview.html = createTourWebviewHtml({
     tourTitle: getTourTitle(tour), tourId: tour.id, stepNumber,
@@ -153,8 +194,13 @@ export async function renderTourStep(): Promise<void> {
     anchorLabel: getStepAnchorLabel(step), description,
     questions: step.questions,
     canEdit: store.canEditTour,
-    chatExchanges: getStepChatExchanges(tour.id, stepNumber),
-    chatResponding: getStepChatConversationView(tour.id, stepNumber).responding,
+    chatExchanges: chat.exchanges,
+    chatResponding: chat.responding,
+    chatAgent: chat.agent,
+    chatAgents: chat.agents,
+    chatModels: chat.modelOptions,
+    chatModel: chat.model,
+    chatUnavailable: chat.unavailable,
     previousTourTitle: getPreviousTour()?.title,
     nextTourTitle: getNextTour()?.title
   }, token);

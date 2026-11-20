@@ -6,7 +6,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { CodeTour } from "../../store";
 import { loadTour } from "../../store/tourSchema";
-import type { StepChatRequest } from "../../agent/stepChatContract";
+import type { StepChatAgentIdentity, StepChatRequest } from "../../agent/stepChatContract";
 import { NarrationController } from "../narration/NarrationController";
 import type { NarrationEngine } from "../narration/SystemSpeech";
 import type { ConversationResponder } from "./collaborators";
@@ -83,10 +83,14 @@ class ScriptedSpeechEngine implements NarrationEngine {
  * summary) without starting any agent process.
  */
 class ScriptedResponder implements ConversationResponder {
-  readonly providerName = "Fake Agent";
+  readonly agent: StepChatAgentIdentity = { agent: "Fake Agent", effective: true };
   readonly requests: StepChatRequest[] = [];
   readonly answers: string[] = [];
   disposed = false;
+
+  identity(): StepChatAgentIdentity {
+    return this.agent;
+  }
 
   answer(request: StepChatRequest): Promise<string> {
     this.requests.push(request);
@@ -226,7 +230,7 @@ test("the composed CLI reader plays a Tour of this repository end to end on the 
     assert.ok(answered.conversation.hasResponder);
     assert.ok(answered.status.rightSegments.some(segment =>
       segment.toLowerCase().includes("fake agent")),
-      "the status line names the provider: " + answered.status.rightSegments.join(" · "));
+      "the status line names the Agent Profile: " + answered.status.rightSegments.join(" · "));
 
     // Asking for a whole-Tour summary in the conversation does not change
     // what the conversation is fed (ticket #241): the grounding stays the

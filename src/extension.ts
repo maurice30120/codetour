@@ -4,14 +4,15 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { createFallbackStepChatResponder } from "./agent/fallbackStepChatAgent";
+import { AgentSelection } from "./agent/agentCatalogue";
+import { probeAgentProfile } from "./agent/agentProbe";
 import { initializeApi } from "./api";
 import { canonicalWorkspacePath } from "./core/workspacePath";
 import { initializeGitApi } from "./git";
 import { registerLiveShareModule } from "./liveShare";
 import { registerNotebookProvider } from "./notebook";
 import { registerPlayerModule } from "./player";
-import { setStepChatResponder } from "./player/stepChat";
+import { setStepChatAgentSelection } from "./player/stepChat";
 import { registerRecorderModule } from "./recorder";
 import { store } from "./store";
 import {
@@ -125,16 +126,12 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(notebookProvider);
   }
   registerPlayerModule(context);
-  // Tour Step Conversations answer through the ACP session layer, launched
-  // in priority order with the tour's workspace root. Each session verifies
-  // its provider's configured mode before the first prompt.
-  const stepChatResponder = createFallbackStepChatResponder();
-  setStepChatResponder(stepChatResponder);
-  context.subscriptions.push({
-    dispose: () => {
-      void stepChatResponder.dispose?.();
-    }
-  });
+  // Tour Step Conversations answer through the Agent Catalogue the reading
+  // panel probes when it opens (ADR 0048): activation composes the probe, and
+  // the panel owns the selection and its availability for its own lifetime.
+  setStepChatAgentSelection(
+    () => new AgentSelection({ probe: (profile, cwd) => probeAgentProfile(profile, cwd) })
+  );
   registerRecorderModule();
   registerLiveShareModule();
 
