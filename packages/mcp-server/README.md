@@ -529,9 +529,20 @@ For `generate_project_tour`, the composed message is, in this order:
    context, read targetedly, explore gaps only when the Knowledge is
    insufficient, create the Tour with `create_project_tour` (passing `runId`),
    then close consolidation explicitly with `knowledge_save` (zero, one or many
-   entries, passing `runId`) or `knowledge_close_run` for a deliberate skip,
-   and report `created`, `appended`, `replaced`, `no_change`, `completed_zero`,
-   `conflict`, `invalid`, `failed` or `skipped`.
+   entries, passing `runId`) or `knowledge_close_run` for a deliberate skip.
+   The method also states which mode applies, in the contract's own names:
+   `create` for a subject the catalogue does not have; `append` for a short,
+   circumscribed addition to an entry that still verifies; `replace`, carrying
+   that entry's revision, for an invalid entry, a claim the current code
+   contradicts, a needed restructuring or an addition likely to contradict the
+   existing body; and neither when nothing durable qualifies or a doubt stays
+   unresolved, never a fabricated entry. A replacement restarts from the
+   current code and never from a re-read of an invalid body, and the method
+   claims no semantic consistency: a SHA-256 fingerprint proves unchanged
+   bytes, never the truth of the text, and the MCP detects no natural-language
+   contradiction. The agent reports `created`, `appended`, `replaced`,
+   `no_change`, `completed_zero`, `conflict`, `invalid`, `failed` or
+   `skipped`.
 
 The MCP run log lives at `<workspace>/.tours/.log/codetour-run-<runId>.json`.
 `create_*_tour` records `tourCreated`; `knowledge_save`/`knowledge_close_run`
