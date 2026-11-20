@@ -256,8 +256,13 @@ export const KNOWLEDGE_DECOMPOSITION_METHOD = [
   "6. Close consolidation explicitly: after the Tour is created (or after a " +
     "reported creation failure), make one consolidation assessment and call " +
     "`knowledge_save` with the `entries` array — zero, one or several entries — " +
-    "and the same `runId` when one is given. Report exactly one observable " +
-    "outcome: created (with the names `knowledge_save` returned), " +
+    "and the same `runId` when one is given. Choose the operation per entry: " +
+    "`create` for a subject the catalogue does not have, and `mode: \"replace\"` " +
+    "with that entry's revision when an existing entry is invalid, contradicts " +
+    "the current code or needs restructuring — a replace rewrites the whole " +
+    "entry from the code you just read, so never re-read an invalid body to " +
+    "prepare it. Report exactly one observable " +
+    "outcome: created (with the names `knowledge_save` returned), replaced, " +
     "completed_zero for an explicit empty proposal, conflict, invalid or " +
     "failed. If you deliberately cannot make an assessment, call " +
     "`knowledge_close_run` with the `runId` and status skipped instead of " +

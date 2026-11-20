@@ -15,6 +15,12 @@ import { randomUUID } from "node:crypto";
 // cross-process lock, so two generations, a resumed session or a concurrent
 // stop cannot lose each other's fields.
 //
+// The consolidation closure is the MCP server's verdict and stays one object
+// across the save calls of a run: its status is `created`, `replaced`,
+// `completed_zero`, `partial`, `failed` or `skipped`, `created` lists the names
+// the run published and `changed` the existing entries it rewrote (spec #232).
+// Any recorded closure closes the run for the hook, whatever its status.
+//
 // One additive, optional field exists alongside the guarded outcomes: the
 // `metrics` object (spec #223 observability). The adapter writes the
 // preparation facts it alone knows, and the agentStop hook summarizes the

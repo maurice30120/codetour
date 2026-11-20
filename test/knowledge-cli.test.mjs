@@ -734,3 +734,82 @@ test("knowledge save accepts convenience flags and refuses ambiguous or absent i
     rmSync(ws, { recursive: true, force: true });
   }
 });
+
+test("knowledge save exposes the write mode and the expected revision a replace is conditioned on", () => {
+  const ws = workspace("codetour-knowledge-save-replace-");
+  try {
+    writeFileSync(path.join(ws, "main.ts"), "export const start = 1;\n");
+    writeFileSync(path.join(ws, "body.md"), "Convenience body.\n");
+    seedValidWorkspace(ws);
+    const read = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(read.status, 0, read.stderr);
+    const revision = read.json.revision;
+    assert.equal(typeof revision, "string");
+
+    // A proposal file declares the mode and the revision it read.
+    const proposal = writeProposal(ws, {
+      mode: "replace",
+      entries: [{
+        name: "dispatch_flow",
+        description: "Rewritten by the CLI",
+        body: "CLI body.\n",
+        evidence: [{ path: "main.ts" }],
+        expectedRevision: revision
+      }]
+    });
+    const replaced = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(replaced.status, 0, replaced.stderr);
+    assert.equal(replaced.stderr, "");
+    assert.deepEqual(replaced.json, {
+      status: "replaced",
+      workspace: ws,
+      replaced: ["dispatch_flow"],
+      warnings: [{ name: "dispatch_flow", code: "insufficient_backing", distinctEvidencePaths: 1 }]
+    });
+    assert.doesNotMatch(replaced.stdout, /CLI body|sha256|[0-9a-f]{64}/i);
+    const after = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(after.json.body, "CLI body.\n");
+    assert.notEqual(after.json.revision, revision);
+
+    // The convenience flags expose the same mode and revision.
+    const flagged = runCli([
+      "knowledge", "save",
+      "--workspace", ws,
+      "--mode", "replace",
+      "--name", "dispatch_flow",
+      "--description", "Rewritten from flags",
+      "--body-file", "body.md",
+      "--evidence", "main.ts",
+      "--expected-revision", after.json.revision
+    ], { cwd: ws });
+    assert.equal(flagged.status, 0, flagged.stderr);
+    assert.equal(flagged.json.status, "replaced");
+    const flaggedRead = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(flaggedRead.json.body, "Convenience body.\n");
+
+    // A stale revision is the documented conflict: exit 4, file untouched.
+    const stale = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(stale.status, 4, stale.stderr);
+    assert.deepEqual(stale.json, {
+      status: "conflict",
+      workspace: ws,
+      conflicts: [{ name: "dispatch_flow", reason: "revision_conflict" }]
+    });
+    assert.equal(runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws }).json.body, "Convenience body.\n");
+
+    // An unknown mode is a usage error, never a silent `create`.
+    const unknown = runCli([
+      "knowledge", "save", "--workspace", ws, "--mode", "append",
+      "--name", "other_flow", "--description", "d", "--body-file", "body.md", "--evidence", "main.ts"
+    ], { cwd: ws });
+    assert.equal(unknown.status, 2, unknown.stderr);
+    assert.deepEqual(unknown.json, {
+      status: "usage",
+      reason: "unknown_mode",
+      message: '--mode must be "create" or "replace".'
+    });
+    assert.deepEqual(catalogueEntries(ws), ["dispatch_flow.md"]);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});

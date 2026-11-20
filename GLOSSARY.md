@@ -44,6 +44,10 @@ _Avoid_: Auto model, hidden model
 The fixed code constant mapping identifier tokens to the letter-by-letter spoken spelling the voice reads in their place.
 _Avoid_: Acronym map, A–Z mapping, word list
 
+**Knowledge Consolidation Operation**:
+One `knowledge_save` call with an explicit `mode`: `create` (default) for a new entry, `replace` for rewriting one existing entry in full — valid or invalid — against the Knowledge Revision the caller read. A write is refused when that revision is absent, wrong or stale; every mode runs under one catalogue lock, and readers take none.
+_Avoid_: Knowledge upsert, overwrite mode, knowledge merge
+
 **Knowledge Revision**:
 The SHA-256 of one Knowledge Entry's complete Markdown file bytes, exposed as an opaque token by discovery, by a read, by the catalogue projection served with the prompt, and by the Native Knowledge CLI. It is computed without validating the contract, so an entry whose evidence no longer verifies still has one, it reveals nothing of the body, of a cited path or of a source hash, and it moves with any modified byte so a write can be conditioned on the revision an agent actually read.
 _Avoid_: version number, Etag, content hash, entry checksum

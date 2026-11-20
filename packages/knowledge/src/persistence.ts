@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { access, copyFile, link, lstat, mkdir, realpath, unlink, writeFile } from 'node:fs/promises';
+import { access, copyFile, link, lstat, mkdir, open, readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
@@ -8,6 +8,7 @@ import {
   hashWorkspaceSymbol,
   isOutsideWorkspace,
   knowledgeDirectory,
+  knowledgeRevision,
   parseKnowledge,
   readCatalogueCanonicalizer,
   type KnowledgeProof
@@ -26,8 +27,12 @@ import { validateNewKnowledgeName } from './name';
  * A published entry whose evidence cites fewer than two distinct files is
  * still published, but reported under `warnings` instead of passing silently
  * as fully backed (the signal is advisory and names no cited path or hash).
- * Writes are staged in the catalogue directory and published by hard link,
- * which is atomic and can never overwrite an existing entry.
+ * Every mode runs its critical section — entry re-read, revision comparison,
+ * evidence stability re-check, staging file, publication — under one catalogue
+ * lock (ADR 0049). `create` publishes by exclusive hard link, which is atomic
+ * and can never overwrite an existing entry; `replace` rewrites one entry
+ * against the Knowledge Revision the caller read and publishes by atomic
+ * rename, so a reader always sees the previous whole file or the new one.
  */
 
 /** One evidence item as declared by a proposal; `sha256` is optional. */
@@ -37,8 +42,6 @@ export interface KnowledgeProposalFileProof {
   path: string;
   /** Optional declared SHA-256, verified against the cited bytes. */
   sha256?: string;
-  /** Optional trace that this file proof substitutes an unresolvable symbol proof (spec #233: creation only). */
-  origin?: 'symbol_fallback';
 }
 
 /** A requested symbol proof: the engine resolves and fingerprints, the model never computes. */
@@ -59,9 +62,26 @@ export interface KnowledgeProposalEntry {
   evidence: Array<KnowledgeProposalFileProof | KnowledgeProposalSymbolProof>;
 }
 
-/** The documented proposal file: `{"entries":[...]}` and nothing else. */
+/**
+ * One `replace` entry: the whole new contract plus the Knowledge Revision the
+ * caller read. `expectedRevision` is mandatory — a rewrite is a
+ * compare-and-swap, never a last-writer-wins overwrite (spec #232).
+ */
+export interface KnowledgeReplaceProposalEntry extends KnowledgeProposalEntry {
+  expectedRevision: string;
+}
+
+/**
+ * Write mode of one Knowledge Consolidation Operation (spec #232). `create` is
+ * the documented default, so a proposal without `mode` keeps its behaviour;
+ * `replace` rewrites one existing entry in full.
+ */
+export type KnowledgeSaveMode = 'create' | 'replace';
+
+/** The documented proposal file: `{"mode"?,"entries":[...]}` and nothing else. */
 export interface KnowledgeProposal {
-  entries: KnowledgeProposalEntry[];
+  mode?: KnowledgeSaveMode;
+  entries: Array<KnowledgeProposalEntry | KnowledgeReplaceProposalEntry>;
 }
 
 /** A concrete entry ready to serialize, with verified evidence. */
@@ -97,16 +117,25 @@ export type KnowledgeSaveRejectionReason =
   | 'unsupported_language'
   | 'symbol_hash_mismatch'
   | 'engine_changed'
-  | 'unstable_evidence';
+  | 'unstable_evidence'
+  | 'unknown_entry'
+  | 'unknown_mode'
+  | 'mode_requires_single_entry';
 
 export interface KnowledgeSaveRejection {
   name?: string;
   reason: KnowledgeSaveRejectionReason;
 }
 
+/**
+ * A refused publication caused by the catalogue state, not by the proposal:
+ * the name already exists (`create`) or no longer matches the revision that
+ * was read (`replace`, compare-and-swap). Both sort a client-visible
+ * `conflict`, with a reason that says which corrective action applies.
+ */
 export interface KnowledgeNameConflict {
   name: string;
-  reason: 'name_conflict';
+  reason: 'name_conflict' | 'revision_conflict';
 }
 
 /**
@@ -121,6 +150,7 @@ export type KnowledgeSaveWarning =
 
 export type KnowledgeSaveResult =
   | { status: 'saved'; saved: string[]; warnings: KnowledgeSaveWarning[] }
+  | { status: 'replaced'; replaced: string[]; warnings: KnowledgeSaveWarning[] }
   | { status: 'no-op' }
   | { status: 'conflict'; conflicts: KnowledgeNameConflict[] }
   | { status: 'invalid'; rejected: KnowledgeSaveRejection[] };
@@ -147,20 +177,25 @@ export function serializeKnowledgeEntry(entry: KnowledgePersistableEntry): strin
   return `${lines.join('\n')}\n${entry.body}`;
 }
 
-interface ProposalFailure {
-  ok: false;
-  name?: string;
-  reason: KnowledgeSaveRejectionReason;
-}
+/**
+ * One validated entry, or one refusal. A missing `expectedRevision` is not a
+ * malformed proposal: it is a compare-and-swap conflict, so it carries the
+ * name and its own kind and never reaches the `invalid` vocabulary.
+ */
+type ProposalValidation =
+  | { ok: true; entry: KnowledgePersistableEntry; warnings: KnowledgeSaveWarning[]; expectedRevision?: string }
+  | { ok: false; name?: string; reason: KnowledgeSaveRejectionReason }
+  | { ok: false; name: string; reason: 'revision_conflict' };
 
-type ProposalValidation = { ok: true; entry: KnowledgePersistableEntry; warnings: KnowledgeSaveWarning[] } | ProposalFailure;
-
-const failure = (reason: KnowledgeSaveRejectionReason, name?: string): ProposalFailure =>
+const failure = (reason: KnowledgeSaveRejectionReason, name?: string): ProposalValidation =>
   name === undefined ? { ok: false, reason } : { ok: false, name, reason };
 
 const PROVIDED_HASH = /^[0-9a-fA-F]{64}$/;
 
-const EVIDENCE_KEYS = new Set(['type', 'path', 'symbol', 'sha256', 'origin']);
+// `origin` is engine-only (spec #232): a client cannot declare that a file
+// proof substitutes a symbol proof it never suffered, so the key is refused
+// like any other unknown field instead of being copied into the catalogue.
+const EVIDENCE_KEYS = new Set(['type', 'path', 'symbol', 'sha256']);
 
 /**
  * Validate one proposal entry against the read grammar and the workspace, then
@@ -168,16 +203,26 @@ const EVIDENCE_KEYS = new Set(['type', 'path', 'symbol', 'sha256', 'origin']);
  * round-trip through `parseKnowledge` proves the serialized file reads back
  * with exactly the declared name, description, body and normalized evidence.
  */
-async function validateEntry(root: string, raw: unknown, seen: Set<string>): Promise<ProposalValidation> {
+async function validateEntry(root: string, raw: unknown, seen: Set<string>, mode: KnowledgeSaveMode): Promise<ProposalValidation> {
   if (!isRecord(raw)) return failure('malformed_entry');
   const rawName = typeof raw.name === 'string' && raw.name ? raw.name : undefined;
-  if (Object.keys(raw).some(key => !['name', 'description', 'body', 'evidence'].includes(key))) {
+  const entryKeys = mode === 'replace'
+    ? ['name', 'description', 'body', 'evidence', 'expectedRevision']
+    : ['name', 'description', 'body', 'evidence'];
+  if (Object.keys(raw).some(key => !entryKeys.includes(key))) {
     return failure('malformed_entry', rawName);
   }
   if (typeof raw.name !== 'string' || !validateNewKnowledgeName(raw.name).ok) return failure('invalid_name', rawName);
   const name = raw.name;
   if (seen.has(name)) return failure('duplicate_name', name);
   seen.add(name);
+
+  // A rewrite is conditioned on the revision the caller actually read: an
+  // absent token refuses the write instead of guessing the last writer wins.
+  if (mode === 'replace' && (typeof raw.expectedRevision !== 'string' || !raw.expectedRevision)) {
+    return { ok: false, name, reason: 'revision_conflict' };
+  }
+  const expectedRevision = typeof raw.expectedRevision === 'string' && raw.expectedRevision ? raw.expectedRevision : undefined;
 
   if (typeof raw.description !== 'string') return failure('invalid_description', name);
   const description = raw.description.trim();
@@ -216,10 +261,13 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>): Pro
       // resolve — unsupported language, absent or ambiguous symbol — is
       // substituted by a verified file proof, traced in the entry AND
       // reported, never silent (spec #233). Path-safety and engine failures
-      // refuse: substituting would hide a real mistake.
-      const fallbackReason = hashed.status === 'absent' && (hashed.reason === 'symbol_unresolved' || hashed.reason === 'symbol_ambiguous')
+      // refuse: substituting would hide a real mistake. A rewrite cannot add
+      // or drop that trace (spec #232), so `replace` never falls back: an
+      // unresolvable symbol is refused and repairing is done with `file`
+      // proofs.
+      const fallbackReason = mode === 'create' && hashed.status === 'absent' && (hashed.reason === 'symbol_unresolved' || hashed.reason === 'symbol_ambiguous')
         ? hashed.reason
-        : hashed.status === 'invalid' && hashed.reason === 'unsupported_language'
+        : mode === 'create' && hashed.status === 'invalid' && hashed.reason === 'unsupported_language'
           ? 'unsupported_language' as const
           : undefined;
       if (!fallbackReason) {
@@ -232,12 +280,11 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>): Pro
       continue;
     }
     if (requested !== 'file') return failure('unsupported_proof', name);
-    if (item.origin !== undefined && item.origin !== 'symbol_fallback') return failure('malformed_evidence', name);
     const hashed = await hashWorkspaceFile(root, cited);
     if (hashed.status === 'absent') return failure('file_missing', name);
     if (hashed.status === 'invalid') return failure(hashed.reason, name);
     if (declared !== undefined && declared !== hashed.sha256) return failure('file_hash_mismatch', name);
-    evidence.push({ type: 'file', path: hashed.path, sha256: hashed.sha256, origin: item.origin });
+    evidence.push({ type: 'file', path: hashed.path, sha256: hashed.sha256 });
   }
 
   const entry: KnowledgePersistableEntry = { name, description, body, evidence };
@@ -253,7 +300,9 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>): Pro
   )) {
     return failure('malformed_evidence', name);
   }
-  return { ok: true, entry, warnings: fallbacks };
+  return expectedRevision === undefined
+    ? { ok: true, entry, warnings: fallbacks }
+    : { ok: true, entry, warnings: fallbacks, expectedRevision };
 }
 
 const errorCode = (error: unknown): string | undefined =>
@@ -310,6 +359,57 @@ const removeQuietly = async (target: string): Promise<void> => {
 };
 
 /**
+ * The single catalogue lock (spec #232, ADR 0049). It is catalogue-wide and
+ * not per entry because the canonicalizer marker belongs to no entry: a marker
+ * protected by its own conditional lock would be a lock a path can forget.
+ * Readers take no lock at all.
+ */
+export const catalogueLockName = '.catalogue.lock';
+
+const CATALOGUE_LOCK_TIMEOUT_MS = 5000;
+const CATALOGUE_LOCK_STALE_MS = 15000;
+
+const sleep = (milliseconds: number): Promise<void> =>
+  new Promise(resolve => setTimeout(resolve, milliseconds));
+
+/**
+ * Exclusive creation of the catalogue lock in the catalogue directory, with
+ * takeover of a lock left by a crashed writer (age-based, the same pattern as
+ * the Run State lock). Every writer — `create` included — takes it, so the
+ * entry re-read, the revision comparison, the evidence stability re-check,
+ * the temp file and the publication are one critical section.
+ */
+async function acquireCatalogueLock(directory: string): Promise<string> {
+  const lock = join(directory, catalogueLockName);
+  const deadline = Date.now() + CATALOGUE_LOCK_TIMEOUT_MS;
+  for (;;) {
+    try {
+      const handle = await open(lock, 'wx');
+      await handle.close();
+      return lock;
+    } catch (error) {
+      if (errorCode(error) !== 'EEXIST') throw error;
+      const info = await stat(lock).catch(() => undefined);
+      if (info && Date.now() - info.mtimeMs > CATALOGUE_LOCK_STALE_MS) {
+        await removeQuietly(lock);
+        continue;
+      }
+      if (Date.now() >= deadline) throw new Error('The Knowledge catalogue is locked by another writer.');
+      await sleep(25);
+    }
+  }
+}
+
+async function withCatalogueLock<T>(directory: string, action: () => Promise<T>): Promise<T> {
+  const lock = await acquireCatalogueLock(directory);
+  try {
+    return await action();
+  } finally {
+    await removeQuietly(lock);
+  }
+}
+
+/**
  * Deterministic backing signal about published entries, computed from the
  * validated evidence alone: an entry whose published contract cites fewer
  * than two distinct files cannot demonstrate a rule beyond that single path,
@@ -355,10 +455,20 @@ async function evidenceIsStable(root: string, entries: KnowledgePersistableEntry
  * appears, so no failure publishes a subset.
  */
 export async function saveKnowledgeProposal(root: string, proposal: unknown): Promise<KnowledgeSaveResult> {
-  if (!isRecord(proposal) || Object.keys(proposal).some(key => key !== 'entries') || !Array.isArray(proposal.entries)) {
+  if (!isRecord(proposal) || Object.keys(proposal).some(key => key !== 'entries' && key !== 'mode') || !Array.isArray(proposal.entries)) {
     return { status: 'invalid', rejected: [{ reason: 'malformed_proposal' }] };
   }
+  const mode = proposal.mode === undefined ? 'create' : proposal.mode;
+  if (mode !== 'create' && mode !== 'replace') {
+    return { status: 'invalid', rejected: [{ reason: 'unknown_mode' }] };
+  }
   if (proposal.entries.length === 0) return { status: 'no-op' };
+  // The documented `entries` array is the single call form for every mode; a
+  // rewrite is one entry, so a longer array is refused by an explicit reason
+  // instead of a partial multi-replace.
+  if (mode === 'replace' && proposal.entries.length > 1) {
+    return { status: 'invalid', rejected: [{ reason: 'mode_requires_single_entry' }] };
+  }
 
   const realRoot = await realpath(root).catch(() => undefined);
   if (!realRoot) return { status: 'invalid', rejected: [{ reason: 'catalogue_unusable' }] };
@@ -370,42 +480,40 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
   const seen = new Set<string>();
   const validated: KnowledgePersistableEntry[] = [];
   const rejected: KnowledgeSaveRejection[] = [];
+  const revisionConflicts: KnowledgeNameConflict[] = [];
+  const expectedRevisions = new Map<string, string>();
   const fallbackWarnings: KnowledgeSaveWarning[] = [];
   for (const raw of proposal.entries) {
-    const validation = await validateEntry(realRoot, raw, seen);
+    const validation = await validateEntry(realRoot, raw, seen, mode);
     if (validation.ok) {
       validated.push(validation.entry);
       fallbackWarnings.push(...validation.warnings);
+      if (validation.expectedRevision !== undefined) expectedRevisions.set(validation.entry.name, validation.expectedRevision);
+    } else if (validation.reason === 'revision_conflict') {
+      // An absent revision is a compare-and-swap conflict, never a malformed
+      // proposal: the corrective action is to re-read the entry.
+      revisionConflicts.push({ name: validation.name, reason: 'revision_conflict' });
+    } else {
+      rejected.push(validation.name === undefined ? { reason: validation.reason } : { name: validation.name, reason: validation.reason });
     }
-    else rejected.push(validation.name === undefined ? { reason: validation.reason } : { name: validation.name, reason: validation.reason });
   }
+  if (revisionConflicts.length > 0) return { status: 'conflict', conflicts: revisionConflicts };
   if (rejected.length > 0) return { status: 'invalid', rejected };
 
-  const conflicts: KnowledgeNameConflict[] = [];
-  for (const entry of validated) {
-    try {
-      await lstat(join(directory, `${entry.name}.md`));
-      conflicts.push({ name: entry.name, reason: 'name_conflict' });
-    } catch (error) {
-      if (errorCode(error) !== 'ENOENT') return { status: 'invalid', rejected: [{ name: entry.name, reason: 'catalogue_unusable' }] };
+  // `create` refuses an existing name before staging anything. The lock is
+  // taken afterwards and the exclusive-link publication re-checks it, so this
+  // early answer can only save work, never publish over an entry.
+  if (mode === 'create') {
+    const conflicts: KnowledgeNameConflict[] = [];
+    for (const entry of validated) {
+      try {
+        await lstat(join(directory, `${entry.name}.md`));
+        conflicts.push({ name: entry.name, reason: 'name_conflict' });
+      } catch (error) {
+        if (errorCode(error) !== 'ENOENT') return { status: 'invalid', rejected: [{ name: entry.name, reason: 'catalogue_unusable' }] };
+      }
     }
-  }
-  if (conflicts.length > 0) return { status: 'conflict', conflicts };
-
-  // An engine change refuses symbol-proof saves only: file proofs do not
-  // depend on the canonicalizer identity at all (spec #233 / ADR 0046).
-  const hasSymbolProofs = validated.some(entry => entry.evidence.some(proof => proof.type === 'symbol'));
-  if (hasSymbolProofs) {
-    const stored = await readCatalogueCanonicalizer(directory);
-    if (stored && stored !== knowledgeCanonicalizer) {
-      return { status: 'invalid', rejected: [{ reason: 'engine_changed' }] };
-    }
-  }
-
-  // The second read of every cited proof: refuse a proposal whose workspace
-  // moved under it instead of pinning a mid-write fingerprint.
-  if (!(await evidenceIsStable(realRoot, validated))) {
-    return { status: 'invalid', rejected: validated.map(entry => ({ name: entry.name, reason: 'unstable_evidence' as const })) };
+    if (conflicts.length > 0) return { status: 'conflict', conflicts };
   }
 
   try {
@@ -417,42 +525,88 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
     return { status: 'invalid', rejected: [{ reason: 'catalogue_unusable' }] };
   }
 
-  const staged: Array<{ name: string; temp: string; target: string }> = [];
-  const published: string[] = [];
-  try {
-    for (const entry of validated) {
-      const temp = join(directory, `.${entry.name}.${randomUUID()}.tmp`);
-      await writeFile(temp, serializeKnowledgeEntry(entry), { flag: 'wx' });
-      staged.push({ name: entry.name, temp, target: join(directory, `${entry.name}.md`) });
-    }
-    const lateConflicts: KnowledgeNameConflict[] = [];
-    for (const item of staged) {
-      if (await publish(item.temp, item.target) === 'conflict') {
-        lateConflicts.push({ name: item.name, reason: 'name_conflict' });
-      } else {
-        published.push(item.target);
+  // One critical section for the three modes: re-read, revision comparison,
+  // evidence stability re-check, temp file and publication. The canonicalizer
+  // marker is written inside it too, so two symbolic writers can never race it.
+  return withCatalogueLock(directory, async () => {
+    if (mode === 'replace') {
+      const entry = validated[0];
+      const target = join(directory, `${entry.name}.md`);
+      let bytes: Buffer;
+      try {
+        bytes = await readFile(target);
+      } catch (error) {
+        // `replace` rewrites, it never upserts.
+        if (errorCode(error) === 'ENOENT') return { status: 'invalid', rejected: [{ name: entry.name, reason: 'unknown_entry' }] };
+        return { status: 'invalid', rejected: [{ name: entry.name, reason: 'catalogue_unusable' }] };
+      }
+      if (knowledgeRevision(bytes) !== expectedRevisions.get(entry.name)) {
+        return { status: 'conflict', conflicts: [{ name: entry.name, reason: 'revision_conflict' }] };
       }
     }
-    if (lateConflicts.length > 0) {
-      await Promise.allSettled(published.map(removeQuietly));
-      return { status: 'conflict', conflicts: lateConflicts };
-    }
+
+    // An engine change refuses symbol-proof writes only: file proofs do not
+    // depend on the canonicalizer identity at all (spec #233 / ADR 0046). A
+    // repair rewrite carrying `symbol` proofs is refused like a creation;
+    // repairing then uses `file` proofs.
+    const hasSymbolProofs = validated.some(entry => entry.evidence.some(proof => proof.type === 'symbol'));
     if (hasSymbolProofs) {
-      // Stamp the catalogue with the canonicalizer identity that produced its
-      // symbol fingerprints; an existing marker never changes here.
-      const marker = join(directory, catalogueCanonicalizerName);
-      try { await access(marker); }
-      catch { try { await writeFile(marker, `${knowledgeCanonicalizer}\n`); } catch { /* advisory marker only */ } }
+      const stored = await readCatalogueCanonicalizer(directory);
+      if (stored && stored !== knowledgeCanonicalizer) {
+        return { status: 'invalid', rejected: [{ reason: 'engine_changed' }] };
+      }
     }
-    return {
-      status: 'saved',
-      saved: validated.map(entry => entry.name),
-      warnings: [...publishedWarnings(validated), ...fallbackWarnings]
-    };
-  } catch (error) {
-    await Promise.allSettled(published.map(removeQuietly));
-    throw error;
-  } finally {
-    await Promise.allSettled(staged.map(item => removeQuietly(item.temp)));
-  }
+
+    // The second read of every cited proof: refuse a proposal whose workspace
+    // moved under it instead of pinning a mid-write fingerprint.
+    if (!(await evidenceIsStable(realRoot, validated))) {
+      return { status: 'invalid', rejected: validated.map(entry => ({ name: entry.name, reason: 'unstable_evidence' as const })) };
+    }
+
+    const staged: Array<{ name: string; temp: string; target: string }> = [];
+    const published: string[] = [];
+    try {
+      for (const entry of validated) {
+        const temp = join(directory, `.${entry.name}.${randomUUID()}.tmp`);
+        await writeFile(temp, serializeKnowledgeEntry(entry), { flag: 'wx' });
+        staged.push({ name: entry.name, temp, target: join(directory, `${entry.name}.md`) });
+      }
+      if (mode === 'replace') {
+        // Atomic replacement from the temp file, with no prior delete: a
+        // reader sees the old whole file or the new whole file, and a failed
+        // rename leaves the previous entry in place.
+        await rename(staged[0].temp, staged[0].target);
+        published.push(staged[0].target);
+      } else {
+        const lateConflicts: KnowledgeNameConflict[] = [];
+        for (const item of staged) {
+          if (await publish(item.temp, item.target) === 'conflict') {
+            lateConflicts.push({ name: item.name, reason: 'name_conflict' });
+          } else {
+            published.push(item.target);
+          }
+        }
+        if (lateConflicts.length > 0) {
+          await Promise.allSettled(published.map(removeQuietly));
+          return { status: 'conflict', conflicts: lateConflicts };
+        }
+      }
+      if (hasSymbolProofs) {
+        // Stamp the catalogue with the canonicalizer identity that produced its
+        // symbol fingerprints; an existing marker never changes here.
+        const marker = join(directory, catalogueCanonicalizerName);
+        try { await access(marker); }
+        catch { try { await writeFile(marker, `${knowledgeCanonicalizer}\n`); } catch { /* advisory marker only */ } }
+      }
+      const warnings = [...publishedWarnings(validated), ...fallbackWarnings];
+      return mode === 'replace'
+        ? { status: 'replaced', replaced: validated.map(entry => entry.name), warnings }
+        : { status: 'saved', saved: validated.map(entry => entry.name), warnings };
+    } catch (error) {
+      await Promise.allSettled(published.map(removeQuietly));
+      throw error;
+    } finally {
+      await Promise.allSettled(staged.map(item => removeQuietly(item.temp)));
+    }
+  });
 }

@@ -4,6 +4,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { callTool, rmrf, tempDir, withServer, writeFile } from "../helpers/test-utils";
+import { readRunState } from "../../src/run-log";
 
 // The Knowledge tools are exercised through the public MCP stdio seam against
 // a third-party workspace (a temporary directory outside the repository): no
@@ -1012,6 +1013,312 @@ test("the Knowledge tools do not regress Tour creation, prompts or resources", a
       const resources = (await client.listResources()).resources.map((resource) => resource.uri);
       assert.ok(resources.includes("codetour://generate/project-tour"));
       assert.ok(resources.includes("codetour://review/critical-instructions"));
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("knowledge_save replaces an existing entry against the revision that was read", async () => {
+  const root = tempDir("codetour-knowledge-replace-");
+  try {
+    writeFile(root, "src/main.ts", "export const start = 1;\n");
+    writeFile(root, "src/reader.ts", "export const read = () => 1;\n");
+    await withServer(root, async (client) => {
+      const created = await callTool(client, KNOWLEDGE_SAVE, {
+        entries: [
+          {
+            name: "dispatch_flow",
+            description: "Initial description",
+            body: "OLD BODY never served.\n",
+            evidence: [{ path: "src/main.ts" }],
+          },
+        ],
+      });
+      assert.equal(created.structured.status, "created", created.text);
+      const read = await callTool(client, KNOWLEDGE_READ, { name: "dispatch_flow" });
+      const revision = read.structured.revision;
+
+      const replaced = await callTool(client, KNOWLEDGE_SAVE, {
+        mode: "replace",
+        entries: [
+          {
+            name: "dispatch_flow",
+            description: "How dispatch reaches the reader",
+            body: "## Dispatch\n\nNEW BODY.\n",
+            evidence: [{ path: "src/main.ts" }, { path: "src/reader.ts" }],
+            expectedRevision: revision,
+          },
+        ],
+      });
+      assert.equal(replaced.isError, false, replaced.text);
+      assert.deepEqual(replaced.structured, {
+        status: "replaced",
+        workspace: ".",
+        replaced: ["dispatch_flow"],
+        warnings: [],
+      });
+      // Neither the old nor the new body is echoed by the publication result.
+      assert.doesNotMatch(textOf(replaced), /OLD BODY|NEW BODY|sha256|[0-9a-f]{64}/);
+
+      // The entry is now the whole new contract, and it carries a new revision.
+      const after = await callTool(client, KNOWLEDGE_READ, { name: "dispatch_flow" });
+      assert.equal(after.structured.status, "valid");
+      assert.equal(after.structured.body, "## Dispatch\n\nNEW BODY.\n");
+      assert.notEqual(after.structured.revision, revision);
+      const source = fs.readFileSync(
+        path.join(catalogueDirectory(root), "dispatch_flow.md"),
+        "utf8"
+      );
+      assert.match(
+        source,
+        /^---\nname: dispatch_flow\ndescription: How dispatch reaches the reader\nevidence:\n/
+      );
+      assert.match(source, /---\n## Dispatch\n\nNEW BODY\.\n$/);
+      assert.deepEqual(
+        fs.readdirSync(catalogueDirectory(root)).sort(),
+        ["dispatch_flow.md"],
+        "no staging file and no lock file survive the publication"
+      );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("knowledge_save replace refuses a stale revision, an unknown name and a client-supplied origin", async () => {
+  const root = tempDir("codetour-knowledge-replace-refuse-");
+  const runId = "run-replace-refuse-0001";
+  try {
+    const digest = writeWorkspaceFile(root, "src/main.ts", "export const start = 1;\n");
+    writeEntry(root, "dispatch_flow", {
+      description: "Cites a changed file",
+      body: "STALE SECRET BODY\n",
+      evidence: [{ path: "src/main.ts" }],
+    });
+    writeEntry(root, "valid_flow", {
+      description: "Verified entry",
+      body: "Verified body.\n",
+      evidence: [{ path: "src/main.ts", sha256: digest }],
+    });
+    const brokenPath = path.join(catalogueDirectory(root), "dispatch_flow.md");
+    const before = fs.readFileSync(brokenPath);
+    await withServer(root, async (client) => {
+      const listed = await callTool(client, KNOWLEDGE_LIST, {});
+      type Row = { name: string; revision?: string };
+      const broken = (listed.structured.invalid as Row[]).find((row) => row.name === "dispatch_flow");
+      const verified = (listed.structured.entries as Row[]).find((row) => row.name === "valid_flow");
+      assert.ok(broken?.revision && verified?.revision);
+
+      const stale = await callTool(client, KNOWLEDGE_SAVE, {
+        runId,
+        mode: "replace",
+        entries: [
+          {
+            name: "dispatch_flow",
+            description: "Repair attempt with a token that is no longer the file's",
+            body: "Repaired body.\n",
+            evidence: [{ path: "src/main.ts" }],
+            expectedRevision: verified.revision,
+          },
+        ],
+      });
+      assert.equal(stale.isError, true, stale.text);
+      assert.deepEqual(stale.structured.conflicts, [
+        { name: "dispatch_flow", reason: "revision_conflict" },
+      ]);
+      // A stale revision is a failed consolidation, never a success, and the
+      // file keeps the bytes the caller did not see.
+      assert.equal((stale.structured.consolidation as { status: string }).status, "failed");
+      assert.equal((stale.structured.consolidation as { outcome: string }).outcome, "conflict");
+      assert.match(stale.text, /revision/i);
+      assert.doesNotMatch(textOf(stale), /STALE SECRET BODY/);
+      assert.deepEqual(fs.readFileSync(brokenPath), before);
+
+      const absent = await callTool(client, KNOWLEDGE_SAVE, {
+        runId,
+        mode: "replace",
+        entries: [
+          {
+            name: "never_written",
+            description: "replace is not an upsert",
+            body: "Body.\n",
+            evidence: [{ path: "src/main.ts" }],
+            expectedRevision: verified.revision,
+          },
+        ],
+      });
+      assert.equal(absent.isError, true, absent.text);
+      assert.deepEqual(absent.structured.rejected, [
+        { name: "never_written", reason: "unknown_entry" },
+      ]);
+      assert.equal((absent.structured.consolidation as { outcome: string }).outcome, "invalid");
+      assert.equal(fs.existsSync(path.join(catalogueDirectory(root), "never_written.md")), false);
+
+      // `origin` is engine-only: a caller cannot decorate a file proof with a
+      // fallback it never suffered.
+      const faked = await callTool(client, KNOWLEDGE_SAVE, {
+        entries: [
+          {
+            name: "faked_fallback",
+            description: "Declares an engine trace",
+            body: "Body.\n",
+            evidence: [{ path: "src/main.ts", origin: "symbol_fallback" }],
+          },
+        ],
+      });
+      assert.equal(faked.isError, true, faked.text);
+      assert.deepEqual(faked.structured.rejected, [
+        { name: "faked_fallback", reason: "malformed_evidence" },
+      ]);
+
+      const unknownMode = await callTool(client, KNOWLEDGE_SAVE, {
+        mode: "append",
+        entries: [
+          {
+            name: "any_flow",
+            description: "Unknown mode",
+            body: "Body.\n",
+            evidence: [{ path: "src/main.ts" }],
+          },
+        ],
+      });
+      assert.equal(unknownMode.isError, true, unknownMode.text);
+      assert.deepEqual(unknownMode.structured.rejected, [{ reason: "unknown_mode" }]);
+
+      // The invalid entry stays repairable with its own revision, and the
+      // repaired entry reads valid again.
+      const repair = await callTool(client, KNOWLEDGE_SAVE, {
+        runId,
+        mode: "replace",
+        entries: [
+          {
+            name: "dispatch_flow",
+            description: "Repaired from the current code",
+            body: "Repaired body.\n",
+            evidence: [{ path: "src/main.ts" }],
+            expectedRevision: broken.revision,
+          },
+        ],
+      });
+      assert.equal(repair.isError, false, repair.text);
+      assert.equal(repair.structured.status, "replaced");
+      const read = await callTool(client, KNOWLEDGE_READ, { name: "dispatch_flow" });
+      assert.equal(read.structured.status, "valid");
+      assert.equal(read.structured.body, "Repaired body.\n");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+// The Consolidation Closure accumulates facts across the save calls of one
+// run: a replaced name lands in `changed[]`, distinct from `created[]`, and
+// the merge precedence never depends on the order of the calls.
+test("a replace closure records changed names, distinct from created ones, and merges order-independently", async () => {
+  const root = tempDir("codetour-knowledge-replace-closure-");
+  try {
+    const digest = writeWorkspaceFile(root, "src/main.ts", "export const start = 1;\n");
+    const seed = (name: string, body: string): void =>
+      writeEntry(root, name, {
+        description: `Seeded ${name}`,
+        body,
+        evidence: [{ path: "src/main.ts", sha256: digest }],
+      });
+    const replaceArgs = (name: string, revision: string, body: string) => ({
+      mode: "replace",
+      entries: [
+        {
+          name,
+          description: `Rewritten ${name}`,
+          body,
+          evidence: [{ path: "src/main.ts" }],
+          expectedRevision: revision,
+        },
+      ],
+    });
+    const stateOf = (runId: string) => readRunState(fs.realpathSync(root), runId);
+
+    await withServer(root, async (client) => {
+      const revisionOf = async (name: string): Promise<string> =>
+        (await callTool(client, KNOWLEDGE_READ, { name })).structured.revision as string;
+
+      // A run that only rewrites records `replaced` and `changed`.
+      const replaceOnlyRun = "run-replace-only-0001";
+      seed("seeded_flow", "Seed body.\n");
+      const replaced = await callTool(client, KNOWLEDGE_SAVE, {
+        runId: replaceOnlyRun,
+        ...replaceArgs("seeded_flow", await revisionOf("seeded_flow"), "Rewritten body.\n"),
+      });
+      assert.equal(replaced.isError, false, replaced.text);
+      assert.equal(replaced.structured.status, "replaced");
+      const replacedClosure = replaced.structured.consolidation as {
+        status: string;
+        created?: string[];
+        changed: string[];
+        outcome: string;
+      };
+      assert.equal(replacedClosure.status, "replaced");
+      assert.equal(replacedClosure.outcome, "replaced");
+      assert.deepEqual(replacedClosure.changed, ["seeded_flow"]);
+      assert.equal(replacedClosure.created, undefined);
+      const replacedState = await stateOf(replaceOnlyRun);
+      assert.equal(replacedState?.consolidation?.status, "replaced");
+      assert.deepEqual(replacedState?.consolidation?.changed, ["seeded_flow"]);
+
+      // create then replace, and replace then create: the same Run State.
+      for (const order of ["create-first", "replace-first"] as const) {
+        const runId = `run-replace-${order}`;
+        const createdName = `created_flow_${order.replace("-", "_")}`;
+        seed("seeded_flow", "Seed body.\n");
+        const replacement = () =>
+          callTool(client, KNOWLEDGE_SAVE, {
+            runId,
+            ...replaceArgs("seeded_flow", replaceCache, "Rewritten body.\n"),
+          });
+        const creation = () =>
+          callTool(client, KNOWLEDGE_SAVE, {
+            runId,
+            entries: [
+              {
+                name: createdName,
+                description: "Created by this run",
+                body: "Created body.\n",
+                evidence: [{ path: "src/main.ts" }],
+              },
+            ],
+          });
+        const replaceCache = await revisionOf("seeded_flow");
+        const first = order === "create-first" ? await creation() : await replacement();
+        const second = order === "create-first" ? await replacement() : await creation();
+        assert.equal(first.isError, false, first.text);
+        assert.equal(second.isError, false, second.text);
+        const closure = second.structured.consolidation as {
+          status: string;
+          created: string[];
+          changed: string[];
+          outcome: string;
+        };
+        assert.equal(closure.status, "created", `${order}: a creation outranks a rewrite`);
+        assert.deepEqual(closure.created, [createdName], order);
+        assert.deepEqual(closure.changed, ["seeded_flow"], order);
+        assert.equal(closure.outcome, "created", order);
+        const state = await stateOf(runId);
+        assert.deepEqual(state?.consolidation, closure);
+      }
+
+      // A later explicit zero never erases a rewrite that happened.
+      const zeroAfterRun = "run-replace-then-zero";
+      seed("seeded_flow", "Seed body.\n");
+      await callTool(client, KNOWLEDGE_SAVE, {
+        runId: zeroAfterRun,
+        ...replaceArgs("seeded_flow", await revisionOf("seeded_flow"), "Rewritten body.\n"),
+      });
+      const zero = await callTool(client, KNOWLEDGE_SAVE, { runId: zeroAfterRun, entries: [] });
+      assert.equal(zero.isError, false, zero.text);
+      const zeroClosure = zero.structured.consolidation as { status: string; changed: string[] };
+      assert.equal(zeroClosure.status, "replaced");
+      assert.deepEqual(zeroClosure.changed, ["seeded_flow"]);
     });
   } finally {
     rmrf(root);
