@@ -92,6 +92,57 @@ test("createTourWebviewHtml renders the step conversation with escaped questions
   assert.match(html, /<li class="step-chat-answer step-chat-interrupted"><p>Réponse partielle.<\/p>/);
 });
 
+test("createTourWebviewHtml names the answering agent and captions each answer with it", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatAgent: { agent: "Copilot", model: "gpt-5", effective: true },
+      chatExchanges: [
+        {
+          question: "Qui répond ?",
+          answerHtml: "<p>Copilot répond.</p>",
+          agent: { agent: "Copilot", model: "gpt-5", effective: true }
+        },
+        {
+          question: "Et lui ?",
+          answerHtml: "<p>Vibe répond.</p>",
+          agent: { agent: "Vibe", effective: true }
+        }
+      ]
+    },
+    "agent-nonce"
+  );
+
+  // The conversation says which agent answers right now, and whether a
+  // session handshake confirmed it.
+  assert.ok(html.includes(
+    '<p class="step-chat-agent" id="step-chat-agent">Agent: Copilot · gpt-5 (effective)</p>'
+  ));
+  // Each answer is captioned with the agent and model that produced it,
+  // above the answer and inside the same log entry.
+  const firstAnswer = html.indexOf('<span class="step-chat-agent-caption">Copilot · gpt-5</span>');
+  assert.ok(firstAnswer > 0, "the first answer is captioned");
+  assert.ok(html.indexOf("<p>Copilot répond.</p>") > firstAnswer);
+  assert.ok(html.includes(
+    '<span class="step-chat-agent-caption">Vibe</span><p>Vibe répond.</p>'
+  ));
+});
+
+test("createTourWebviewHtml hides the agent line without an agent and marks the preselection", () => {
+  const idle = createTourWebviewHtml(baseModel(), "agent-nonce");
+  assert.ok(idle.includes('<p class="step-chat-agent" id="step-chat-agent" hidden></p>'));
+
+  // No session exists yet: the profile is only preselected, and its name is
+  // escaped like every other value the reader's agent produces.
+  const preselected = createTourWebviewHtml(
+    { ...baseModel(), chatAgent: { agent: 'Vibe "<b>"', effective: false } },
+    "agent-nonce"
+  );
+  assert.ok(preselected.includes(
+    'Agent: Vibe &quot;&lt;b&gt;&quot; (preselected)'
+  ));
+});
+
 test("createTourWebviewHtml reports forbidden tools in a collapsed disclosure above the answer", () => {
   const html = createTourWebviewHtml(
     {
@@ -602,4 +653,63 @@ test("a clicked suggested question is masked until the step renders again", () =
   assert.equal(other.hidden, true);
   assert.equal(suggestions.hidden, true);
   assert.equal(messages.length, 2);
+});
+
+test("the step chat message handler repaints the current agent and the answer captions", () => {
+  const html = createTourWebviewHtml(baseModel(), "agent-nonce");
+  const script = html.match(/<script nonce="agent-nonce">([\s\S]*?)<\/script>/)![1];
+  let messageListener!: (event: unknown) => void;
+  const agentElement = { textContent: "", hidden: true };
+  const chatLog = { innerHTML: "" };
+  const elements: Record<string, unknown> = {
+    "step-chat-agent": agentElement,
+    "step-chat-log": chatLog
+  };
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({ postMessage: () => undefined }),
+    document: {
+      body: { dataset: { token: "agent-nonce", tourId: baseModel().tourId, step: "1" } },
+      addEventListener: () => undefined,
+      getElementById: (id: string) => elements[id] ?? null
+    },
+    window: {
+      addEventListener: (_name: string, listener: (event: unknown) => void) => {
+        messageListener = listener;
+      }
+    }
+  });
+
+  // The handshake confirmed the agent: the line becomes effective and the
+  // answer is captioned with the agent that produced it.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: false,
+      agent: { agent: "Copilot", model: "gpt-5", effective: true },
+      exchanges: [
+        {
+          question: "Qui répond ?",
+          answerHtml: "<p>Copilot répond.</p>",
+          agent: { agent: "Copilot", model: "gpt-5", effective: true }
+        }
+      ]
+    }
+  });
+  assert.equal(agentElement.hidden, false);
+  assert.equal(agentElement.textContent, "Agent: Copilot · gpt-5 (effective)");
+  assert.equal(
+    chatLog.innerHTML,
+    '<li class="step-chat-question">Qui répond ?</li>' +
+      '<li class="step-chat-answer"><span class="step-chat-agent-caption">Copilot · gpt-5</span><p>Copilot répond.</p></li>'
+  );
+
+  // Before any session, the same line names the preselection.
+  messageListener({
+    data: { type: "stepChat", responding: false, agent: { agent: "Vibe", effective: false }, exchanges: [] }
+  });
+  assert.equal(agentElement.textContent, "Agent: Vibe (preselected)");
+
+  // An update without an agent hides the line instead of naming a guess.
+  messageListener({ data: { type: "stepChat", responding: false, exchanges: [] } });
+  assert.equal(agentElement.hidden, true);
 });

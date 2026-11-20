@@ -22,11 +22,13 @@ import { renderMarkdownToHtml } from "./markdown";
  *   step }` interrupts the step's answer in flight: the responder's
  *   exchange is cancelled, the interrupted state is displayed in the
  *   chat and a new question is accepted immediately.
- * - extension → webview: `{ type: "stepChat", exchanges, responding }`
- *   replaces the rendered conversation of the step. Each exchange is a
- *   question with the answer HTML produced by the shared renderer and
- *   sanitizer; a failed exchange carries the error message instead of a
- *   responder answer. The answer streams chunk by chunk: one update per
+ * - extension → webview: `{ type: "stepChat", exchanges, responding,
+ *   agent }` replaces the rendered conversation of the step. Each exchange
+ *   is a question with the answer HTML produced by the shared renderer and
+ *   sanitizer, captioned with the agent that produced it; a failed exchange
+ *   carries the error message instead of a responder answer. `agent` is the
+ *   agent answering right now — the effective Agent Profile once a session
+ *   handshake confirmed it, the preselected one before that. The answer streams chunk by chunk: one update per
  *   received chunk, `responding` true and the latest exchange `pending`
  *   while the answer is in progress, `responding` false once it is
  *   complete. A question is blocked while the step's previous answer is
@@ -40,6 +42,7 @@ import { renderMarkdownToHtml } from "./markdown";
  */
 
 import type {
+  StepChatAgentIdentity,
   StepChatAnswerEvents,
   StepChatContext,
   StepChatDiffSide,
@@ -51,6 +54,7 @@ import type {
 import { StepChatAgentUnavailableError } from "../agent/stepChatContract";
 
 export type {
+  StepChatAgentIdentity,
   StepChatAnswerEvents,
   StepChatContext,
   StepChatDiffSide,
@@ -87,6 +91,8 @@ export interface StepChatExchangeView {
   // True when the reader stopped this answer: the partial answer stays
   // readable, marked as interrupted.
   interrupted?: boolean;
+  // The agent that produced this answer, when the responder named one.
+  agent?: StepChatAgentIdentity;
 }
 
 /** The conversation of a step, with its response-in-progress state. */
@@ -95,14 +101,9 @@ export interface StepChatConversationView {
   // True while the step's latest question is still being answered: new
   // questions are blocked until it turns false.
   responding: boolean;
-}
-
-/** The conversation of a step, as the webview renders it. */
-export function getStepChatExchanges(
-  tourId: string,
-  step: number
-): StepChatExchangeView[] {
-  return getStepChatConversationView(tourId, step).exchanges;
+  // The agent answering the step right now: effective after the session
+  // handshake, preselected before it.
+  agent?: StepChatAgentIdentity;
 }
 
 /** The conversation of a step with its response-in-progress state. */
@@ -110,7 +111,10 @@ export function getStepChatConversationView(
   tourId: string,
   step: number
 ): StepChatConversationView {
-  return paint(conversations.view(conversationKey(tourId, step)));
+  return paint(
+    conversations.view(conversationKey(tourId, step)),
+    conversations.identity()
+  );
 }
 
 /** Forgets every step conversation; called when the reading webview closes. */
@@ -119,7 +123,10 @@ export function clearStepChatConversations(): void {
 }
 
 /** Paints the shared store's raw conversation as the webview renders it. */
-function paint(view: StepConversationView): StepChatConversationView {
+function paint(
+  view: StepConversationView,
+  agent: StepChatAgentIdentity | undefined
+): StepChatConversationView {
   return {
     exchanges: view.exchanges.map(exchange => ({
       question: exchange.question,
@@ -134,9 +141,11 @@ function paint(view: StepConversationView): StepChatConversationView {
       forbiddenTools: exchange.toolUses.filter(tool => tool.forbidden),
       failed: exchange.failed || undefined,
       pending: exchange.pending || undefined,
-      interrupted: exchange.interrupted || undefined
+      interrupted: exchange.interrupted || undefined,
+      agent: exchange.agent
     })),
-    responding: view.responding
+    responding: view.responding,
+    agent
   };
 }
 
@@ -280,7 +289,7 @@ export async function askTourStepQuestion(
     },
     () => onProgress?.(getStepChatConversationView(active.tour.id, active.step))
   );
-  const view = paint(stored);
+  const view = paint(stored, conversations.identity());
   onProgress?.(view);
   return view;
 }
@@ -299,7 +308,10 @@ export function stopTourStepQuestion(
   active: ActiveTour,
   onProgress?: (view: StepChatConversationView) => void
 ): StepChatConversationView {
-  const view = paint(conversations.stop(conversationKey(active.tour.id, active.step)));
+  const view = paint(
+    conversations.stop(conversationKey(active.tour.id, active.step)),
+    conversations.identity()
+  );
   onProgress?.(view);
   return view;
 }

@@ -1,4 +1,8 @@
-import type { StepChatAnswerEvents, StepChatRequest } from "../../agent/stepChatContract";
+import type {
+  StepChatAgentIdentity,
+  StepChatAnswerEvents,
+  StepChatRequest
+} from "../../agent/stepChatContract";
 import type { CodeTour, CodeTourStep } from "../../store";
 import type { ReadonlyStepContext } from "../stepContext";
 
@@ -19,8 +23,13 @@ import type { ReadonlyStepContext } from "../stepContext";
  * until the first question.
  */
 export interface ConversationResponder {
-  /** Lowercase Agent Profile name for the status line and the agent role line. */
-  readonly agentProfileName: string | undefined;
+  /**
+   * The agent answering right now: the effective Agent Profile once a
+   * session handshake confirmed it, the preselected one before that. The
+   * reader's role line and status line paint this, so the first installed
+   * candidate is never presented as the agent that answered.
+   */
+  identity?(): StepChatAgentIdentity | undefined;
   answer(request: StepChatRequest, events?: StepChatAnswerEvents): Promise<string> | string;
   /**
    * Interrupts the in-flight answer, if any; the store's stop calls it and

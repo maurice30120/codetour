@@ -8,6 +8,7 @@ import { fit, tail, wrapLine } from "./terminalLayout";
 import { createOpenInVsCodeInvoker, type OpenInVsCodeInvoker } from "./openInVscode";
 import { createReader, type TourReader } from "./reader/reader";
 import type { ConversationResponder } from "./reader/collaborators";
+import { agentIdentityLabel } from "./reader/statusLine";
 import type { ReaderKeyEvent } from "./reader/readerInput";
 import type { ReaderViewModel } from "./reader/viewModel";
 
@@ -60,15 +61,21 @@ export function composeTerminalReader(options: TerminalReaderCompositionOptions)
   const { tour, root } = options;
   const injected = options.collaborators ?? {};
   const chat = injected.responder ? undefined : openTerminalChat(root);
+  const chatResponder = chat?.responder;
+  const preselection = chat?.profile;
   const responder: ConversationResponder | undefined = injected.responder ??
-    (chat?.responder
+    (chatResponder
       ? {
-        agentProfileName: chat.profile?.name,
-        answer: (request, events) => chat.responder!.answer(request, events),
+        // The responder names the agent the session handshake confirmed; the
+        // first installed candidate is only the preselection before that.
+        identity: () => chatResponder.identity?.() ?? (preselection
+          ? { agent: preselection.name, effective: false }
+          : undefined),
+        answer: (request, events) => chatResponder.answer(request, events),
         // A stop interrupts the in-flight answer (ADR 0031): the failover
         // responder cancels its active candidate.
-        cancel: () => chat.responder!.cancel?.(),
-        dispose: () => chat.dispose()
+        cancel: () => chatResponder.cancel?.(),
+        dispose: () => chat?.dispose()
       }
       : undefined);
   return createReader({
@@ -583,7 +590,11 @@ class TermDomSurface {
       question.textContent = exchange.question;
       const agent = document.createElement("div");
       agent.className = "role role-agent";
-      agent.textContent = "▌ " + (conversation.agentProfileName ?? "agent").toLowerCase();
+      // The role line names the agent the session handshake confirmed, with
+      // its model; before that it says the profile is only preselected.
+      agent.textContent = "▌ " + (conversation.agent
+        ? agentIdentityLabel(conversation.agent)
+        : "agent");
       block.append(asker, question, agent);
       // The stored exchanges are raw (ADR 0031): tool uses and the latest
       // activity line are painted here, exactly as the extension's conversation view

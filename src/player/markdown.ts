@@ -3,6 +3,7 @@
 
 import MarkdownIt = require("markdown-it");
 import sanitizeHtml = require("sanitize-html");
+import type { StepChatAgentIdentity } from "../agent/stepChatContract";
 
 const markdown = new MarkdownIt({
   html: true,
@@ -70,6 +71,8 @@ export interface TourStepChatExchange {
   // True when the reader stopped this question's answer: the partial
   // answer stays readable, marked as interrupted.
   interrupted?: boolean;
+  // The agent that produced this answer, when the responder named one.
+  agent?: StepChatAgentIdentity;
 }
 
 /** The active step displayed in the single expanded reading view. */
@@ -86,9 +89,29 @@ export interface TourWebviewModel {
   // True while the step's latest question is still being answered: the
   // response-in-progress state is visible and the form is locked.
   chatResponding?: boolean;
+  // The agent answering the step's conversation right now: the effective
+  // one after the session handshake, the preselected one before it.
+  chatAgent?: StepChatAgentIdentity;
   previousTourTitle?: string;
   nextTourTitle?: string;
   canEdit?: boolean;
+}
+
+/**
+ * The agent caption of one answer: the Agent Profile that produced it, and
+ * the effective model it confirmed when it announces one.
+ */
+function agentCaption(identity: StepChatAgentIdentity): string {
+  return identity.model ? `${identity.agent} · ${identity.model}` : identity.agent;
+}
+
+/**
+ * The conversation's agent line: who answers, and whether the session
+ * handshake confirmed it or the profile is still only preselected.
+ */
+function agentLine(identity: StepChatAgentIdentity): string {
+  const state = identity.effective ? "effective" : "preselected";
+  return `Agent: ${agentCaption(identity)} (${state})`;
 }
 
 /** The disclosure reporting the forbidden tools an answer ran. */
@@ -114,6 +137,13 @@ function renderForbiddenToolsHtml(exchange: TourStepChatExchange): string {
   return `<details class="step-chat-forbidden"${exchange.pending ? " open" : ""}><summary>${summary}</summary><ul>${items}</ul></details>`;
 }
 
+/** The answer caption naming the agent that produced it, when it is known. */
+function renderAgentCaptionHtml(exchange: TourStepChatExchange): string {
+  return exchange.agent
+    ? `<span class="step-chat-agent-caption">${escapeHtml(agentCaption(exchange.agent))}</span>`
+    : "";
+}
+
 function renderStepChatLogHtml(
   exchanges: TourStepChatExchange[] | undefined
 ): string {
@@ -125,7 +155,7 @@ function renderStepChatLogHtml(
           exchange.failed ? " step-chat-error" : ""
         }${exchange.pending ? " step-chat-pending" : ""}${
           exchange.interrupted ? " step-chat-interrupted" : ""
-        }">${renderForbiddenToolsHtml(exchange)}${exchange.activityHtml ? `<details class="step-chat-activity"${exchange.pending ? " open" : ""}><summary>Model activity</summary>${exchange.activityHtml}</details>` : ""}${exchange.answerHtml}</li>`
+        }">${renderAgentCaptionHtml(exchange)}${renderForbiddenToolsHtml(exchange)}${exchange.activityHtml ? `<details class="step-chat-activity"${exchange.pending ? " open" : ""}><summary>Model activity</summary>${exchange.activityHtml}</details>` : ""}${exchange.answerHtml}</li>`
     )
     .join("");
 }
@@ -152,6 +182,9 @@ const READING_STYLES = `
     .step-chat-answer.step-chat-error { color: var(--vscode-errorForeground); border-left: 3px solid var(--vscode-errorForeground); }
     .step-chat-answer.step-chat-pending { color: var(--vscode-descriptionForeground); }
     .step-chat-interrupted { font-style: italic; }
+    .step-chat-agent { margin: 0 0 1em; padding: 0 .75em; font-size: 12px; color: var(--vscode-descriptionForeground); }
+    .step-chat-agent[hidden] { display: none; }
+    .step-chat-agent-caption { display: block; margin-bottom: .35em; font-size: 12px; color: var(--vscode-descriptionForeground); }
     .step-chat-activity { margin-bottom: 1em; color: var(--vscode-descriptionForeground); }
     .step-chat-activity summary { cursor: pointer; }
     .step-chat-forbidden { margin-bottom: 1em; color: var(--vscode-editorWarning-foreground); }
@@ -236,6 +269,9 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     <h1>${escapeHtml(model.stepTitle)}</h1>${anchor}
     ${renderMarkdownToHtml(model.description)}
     <section class="step-chat" aria-label="Step discussion">
+      <p class="step-chat-agent" id="step-chat-agent"${
+        model.chatAgent ? "" : " hidden"
+      }>${model.chatAgent ? escapeHtml(agentLine(model.chatAgent)) : ""}</p>
       <ol class="step-chat-log" id="step-chat-log">${renderStepChatLogHtml(
         model.chatExchanges
       )}</ol>
@@ -266,7 +302,12 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     const chatSubmit = document.getElementById("step-chat-submit");
     const chatStatus = document.getElementById("step-chat-status");
     const chatStop = document.getElementById("step-chat-stop");
+    const chatAgent = document.getElementById("step-chat-agent");
     const suggestionButtons = Array.from(document.getElementById("step-chat-suggestions")?.children || []);
+    // One spelling for both surfaces: the agent caption of an answer and
+    // the conversation's agent line with its handshake state.
+    const agentCaption = identity => identity.model ? identity.agent + " · " + identity.model : identity.agent;
+    const agentLine = identity => "Agent: " + agentCaption(identity) + (identity.effective ? " (effective)" : " (preselected)");
     let chatResponding = ${model.chatResponding === true};
     const setResponding = responding => {
       chatResponding = responding;
@@ -294,9 +335,16 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     window.addEventListener("message", event => {
       const message = event.data;
       if (!message || message.type !== "stepChat" || !Array.isArray(message.exchanges)) return;
+      if (chatAgent) {
+        chatAgent.textContent = message.agent ? agentLine(message.agent) : "";
+        chatAgent.hidden = !message.agent;
+      }
       const log = document.getElementById("step-chat-log");
       if (log) {
         log.innerHTML = message.exchanges.map(exchange => {
+          const agentCaptionHtml = exchange.agent
+            ? '<span class="step-chat-agent-caption">' + escapeHtml(agentCaption(exchange.agent)) + '</span>'
+            : '';
           const forbiddenTools = exchange.forbiddenTools ?? [];
           const forbiddenHtml = forbiddenTools.length === 0
             ? ""
@@ -316,6 +364,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
               + '</ul></details>';
           return '<li class="step-chat-question">' + escapeHtml(exchange.question) + "</li>" +
           '<li class="step-chat-answer' + (exchange.failed ? " step-chat-error" : "") + (exchange.pending ? " step-chat-pending" : "") + (exchange.interrupted ? " step-chat-interrupted" : "") + '">'
+          + agentCaptionHtml
           + forbiddenHtml
           + (exchange.activityHtml ? '<details class="step-chat-activity"' + (exchange.pending ? ' open' : '') + '><summary>Model activity</summary>' + exchange.activityHtml + '</details>' : '')
           + exchange.answerHtml + "</li>";

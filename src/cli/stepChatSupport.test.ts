@@ -135,11 +135,14 @@ test("a question is grounded in the code or the two diff snapshots on screen", (
 test("a restored path answers through the real ACP responder", { timeout: 60_000 }, async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "codetour-cli-acp-"));
   try {
-    const responder = createAcpStepChatResponder(() => ({
-      command: process.execPath,
-      args: [fakeAgent, path.join(directory, "agent.log")],
-      cwd: directory
-    }));
+    const responder = createAcpStepChatResponder({
+      name: "Copilot",
+      entry: {
+        command: process.execPath,
+        args: [fakeAgent, path.join(directory, "agent.log")],
+        cwd: directory
+      }
+    });
     const answer = await responder.answer({
       question: "Why?",
       context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },

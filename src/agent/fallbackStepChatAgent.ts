@@ -1,7 +1,11 @@
 import type { AcpAgentProfile } from "./agentProfiles";
 import { agentProfiles } from "./agentProfiles";
 import { createAcpStepChatResponder, type AcpStepChatResponderHooks } from "./stepChatAgent";
-import { StepChatAgentUnavailableError, type StepChatResponder } from "./stepChatContract";
+import {
+  StepChatAgentUnavailableError,
+  type StepChatAgentIdentity,
+  type StepChatResponder
+} from "./stepChatContract";
 
 /** Keeps the first working Agent Profile for the reading session, with ordered failover. */
 export function createFallbackStepChatResponder(
@@ -33,7 +37,7 @@ export function createFallbackStepChatResponder(
         for (; selected < profiles.length; selected++) {
           if (attempt !== generation) throw new Error("Answer interrupted.");
           const profile = profiles[selected];
-          const current = active ?? createAcpStepChatResponder(() => profile.entry, hooks);
+          const current = active ?? createAcpStepChatResponder(profile, hooks);
           active = current;
           let streamed = false;
           events?.onActivity?.(`Connecting to ${profile.name}…`);
@@ -49,6 +53,9 @@ export function createFallbackStepChatResponder(
               },
               onActivity: message => {
                 if (attempt === generation) events?.onActivity?.(`${profile.name} — ${message}`);
+              },
+              onAgentIdentity: identity => {
+                if (attempt === generation) events?.onAgentIdentity?.(identity);
               }
             });
           } catch (error) {
@@ -70,6 +77,19 @@ export function createFallbackStepChatResponder(
       // Rejection must free the queue for the next request as well.
       pending = answer.then(() => undefined, () => undefined);
       return answer;
+    },
+    identity(): StepChatAgentIdentity | undefined {
+      const launched = active?.identity?.();
+      if (launched) {
+        return launched;
+      }
+      // No agent was launched yet, or the last one was released: the next
+      // candidate of the ordered list is only the preselection. Its entry is
+      // never started here, so the unknown workspace only names it.
+      const candidate = profilesFor(workspace ?? "")[selected];
+      return candidate
+        ? { agent: candidate.name, effective: false }
+        : undefined;
     },
     cancel() {
       generation++;

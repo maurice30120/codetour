@@ -1,11 +1,13 @@
-import type { AcpAgentEntry, AcpAgentProcess } from "./acpAgentProcess";
+import type { AcpAgentProcess } from "./acpAgentProcess";
 import { spawnAcpAgent } from "./acpAgentProcess";
 import type { AskSession, TourStepContext } from "./acpSession";
 import { openAskSession } from "./acpSession";
+import type { AcpAgentProfile } from "./agentProfiles";
 import {
   StepChatAgentUnavailableError,
+  type StepChatAgentIdentity,
+  type StepChatAnswerEvents,
   type StepChatContext,
-  type StepChatRequest,
   type StepChatResponder
 } from "./stepChatContract";
 
@@ -28,12 +30,21 @@ export interface AcpStepChatResponderHooks {
 }
 
 export interface AcpStepChatResponder extends StepChatResponder {
+  /**
+   * The Agent Profile this responder was launched as: effective while its
+   * session is open, preselected before the handshake and after a release.
+   */
+  identity(): StepChatAgentIdentity;
   /** Cancels any in-flight turn and releases the ACP agent resources. */
   dispose(): Promise<void>;
 }
 
+/**
+ * @param profile the Agent Profile this responder answers as — the name the
+ * reader is told, so it is never a hard-coded label.
+ */
 export function createAcpStepChatResponder(
-  entryFor: (request: StepChatRequest) => AcpAgentEntry,
+  profile: AcpAgentProfile,
   hooks: AcpStepChatResponderHooks = {}
 ): AcpStepChatResponder {
   let session: AskSession | undefined;
@@ -52,17 +63,19 @@ export function createAcpStepChatResponder(
   // that ignores it must not block the reader's next question forever.
   const STOP_SETTLE_TIMEOUT_MS = 10_000;
 
-  async function openSession(request: StepChatRequest): Promise<AskSession> {
+  async function openSession(
+    events?: StepChatAnswerEvents
+  ): Promise<AskSession> {
     if (session) {
       return session;
     }
     if (!opening) {
       const myEpoch = epoch;
-      const entry = entryFor(request);
+      const entry = profile.entry;
       const spawned = spawnAcpAgent(entry);
       agent = spawned;
       hooks.onProcess?.(spawned);
-      opening = openAskSession({ transport: spawned, cwd: entry.cwd, modeId: entry.modeId, useDefaultMode: entry.useDefaultMode, startupTimeoutMs: hooks.startupTimeoutMs }).then(
+      opening = openAskSession({ agentProfileName: profile.name, transport: spawned, cwd: entry.cwd, modeId: entry.modeId, useDefaultMode: entry.useDefaultMode, startupTimeoutMs: hooks.startupTimeoutMs }).then(
         opened => {
           if (myEpoch !== epoch) {
             opened.close().catch(() => undefined);
@@ -71,6 +84,9 @@ export function createAcpStepChatResponder(
             );
           }
           session = opened;
+          // The handshake confirmed which agent answers: the chat stops
+          // naming the preselection.
+          events?.onAgentIdentity?.(opened.identity);
           return opened;
         },
         error => {
@@ -140,7 +156,7 @@ export function createAcpStepChatResponder(
         }
         const myStopEpoch = stopEpoch;
         events?.onActivity?.("Connecting to the agent…");
-        const current = await openSession(request);
+        const current = await openSession(events);
         events?.onActivity?.("Question sent, waiting for the model…");
         // A stop that arrived while the agent was still starting targets
         // this very question: it is never prompted to the agent.
@@ -203,6 +219,11 @@ export function createAcpStepChatResponder(
           answering = undefined;
         }
       }
+    },
+    identity() {
+      // Only an open session confirms the Agent Profile: before the handshake
+      // and after any release the reader has the preselection only.
+      return session?.identity ?? { agent: profile.name, effective: false };
     },
     cancel() {
       if (!session) {

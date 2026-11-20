@@ -92,8 +92,10 @@ interface StepChatUpdate {
     failed?: boolean;
     pending?: boolean;
     interrupted?: boolean;
+    agent?: { agent: string; model?: string; effective: boolean };
   }[];
   responding?: boolean;
+  agent?: { agent: string; model?: string; effective: boolean };
 }
 
 function stepChatUpdates(): StepChatUpdate[] {
@@ -708,6 +710,68 @@ test("forbidden tools are reported live, stay after a stop, and allowed tools st
     }
   ]);
   assert.equal(cancels, 1);
+
+  setStepChatResponder(undefined);
+  chatPanel().dispose();
+});
+
+test("the conversation names the agent that answers: preselected before the handshake, effective after it", async () => {
+  resetChatState();
+  let identity: { agent: string; model?: string; effective: boolean } = {
+    agent: "Copilot",
+    effective: false
+  };
+  setStepChatResponder({
+    identity: () => identity,
+    answer: async (_request: unknown, events?: {
+      onAgentIdentity?: (next: { agent: string; model?: string; effective: boolean }) => void;
+    }) => {
+      // The handshake happens while the answer is produced.
+      identity = { agent: "Copilot", model: "gpt-5", effective: true };
+      events?.onAgentIdentity?.(identity);
+      return "Réponse de **Copilot**.";
+    }
+  });
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  // No session exists yet: the conversation names the preselected profile.
+  assert.match(
+    host.panelHtml(),
+    /<p class="step-chat-agent" id="step-chat-agent">Agent: Copilot \(preselected\)<\/p>/
+  );
+
+  chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
+  await host.waitFor(
+    () =>
+      lastChatUpdate().responding === false &&
+      lastChatUpdate().exchanges.length === 1
+  );
+
+  // The message carries the current identity and the identity of the answer.
+  const update = lastChatUpdate();
+  assert.deepEqual(update.agent, { agent: "Copilot", model: "gpt-5", effective: true });
+  assert.deepEqual(update.exchanges[0].agent, {
+    agent: "Copilot",
+    model: "gpt-5",
+    effective: true
+  });
+
+  // A re-render paints the effective agent and captions the answer with it.
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
+  await host.waitFor(() => host.panelHtml().includes("2 / 3"));
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
+  await host.waitFor(() => host.panelHtml().includes("Qui répond ?"));
+  const html = host.panelHtml();
+  assert.match(
+    html,
+    /<p class="step-chat-agent" id="step-chat-agent">Agent: Copilot · gpt-5 \(effective\)<\/p>/
+  );
+  assert.ok(
+    html.includes('<span class="step-chat-agent-caption">Copilot · gpt-5</span>'),
+    "the answer is captioned with the agent that produced it"
+  );
 
   setStepChatResponder(undefined);
   chatPanel().dispose();

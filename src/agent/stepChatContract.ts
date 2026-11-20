@@ -65,6 +65,22 @@ export interface StepChatToolUse {
 }
 
 /**
+ * The agent answering a Tour Step Conversation, as the reader is told it.
+ *
+ * Before any session exists the reader only has a preselected Agent Profile:
+ * `effective` stays false until the session handshake confirms the profile
+ * that actually answers.
+ */
+export interface StepChatAgentIdentity {
+  /** The Agent Profile name, as the catalogue spells it. */
+  agent: string;
+  /** The effective model the agent confirmed, when it announces one. */
+  model?: string;
+  /** True once a session handshake confirmed this agent answers. */
+  effective: boolean;
+}
+
+/**
  * The conversation's agent could not be launched or its connection broke;
  * the reader may retry with a new question, which relaunches the agent.
  */
@@ -85,6 +101,12 @@ export interface StepChatAnswerEvents {
    * them visible after the answer completes or is stopped.
    */
   onToolUse?(tool: StepChatToolUse): void;
+  /**
+   * Called once the session handshake confirms which agent answers, and
+   * again whenever the effective model changes: each exchange keeps the
+   * identity that produced it.
+   */
+  onAgentIdentity?(identity: StepChatAgentIdentity): void;
 }
 
 /** What the responder receives for a question. */
@@ -111,6 +133,12 @@ export interface StepChatResponder {
    * cancelled answer is ignored by the chat.
    */
   cancel?(): void;
+  /**
+   * The agent answering right now: the effective one once a session
+   * handshake confirmed it, the preselected one before that. Undefined when
+   * no agent is known at all.
+   */
+  identity?(): StepChatAgentIdentity | undefined;
   /**
    * Releases the responder's agent resources; called when the reading
    * webview closes or the responder is replaced.

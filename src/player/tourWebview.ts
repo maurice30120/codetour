@@ -8,7 +8,6 @@ import {
   askTourStepQuestion,
   clearStepChatConversations,
   getStepChatConversationView,
-  getStepChatExchanges,
   stopTourStepQuestion,
   type StepChatConversationView
 } from "./stepChat";
@@ -146,6 +145,7 @@ export async function renderTourStep(): Promise<void> {
 
   const token = randomBytes(16).toString("base64");
   current.rendered = { active, step: stepNumber, token };
+  const chat = getStepChatConversationView(tour.id, stepNumber);
   current.panel.title = `CodeTour — ${getTourTitle(tour)}`;
   current.panel.webview.html = createTourWebviewHtml({
     tourTitle: getTourTitle(tour), tourId: tour.id, stepNumber,
@@ -153,8 +153,9 @@ export async function renderTourStep(): Promise<void> {
     anchorLabel: getStepAnchorLabel(step), description,
     questions: step.questions,
     canEdit: store.canEditTour,
-    chatExchanges: getStepChatExchanges(tour.id, stepNumber),
-    chatResponding: getStepChatConversationView(tour.id, stepNumber).responding,
+    chatExchanges: chat.exchanges,
+    chatResponding: chat.responding,
+    chatAgent: chat.agent,
     previousTourTitle: getPreviousTour()?.title,
     nextTourTitle: getNextTour()?.title
   }, token);

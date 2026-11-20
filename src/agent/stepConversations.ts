@@ -1,5 +1,6 @@
 import {
   StepChatAgentUnavailableError,
+  type StepChatAgentIdentity,
   type StepChatContext,
   type StepChatHistoryEntry,
   type StepChatResponder,
@@ -31,6 +32,9 @@ export interface StepConversationExchange {
   // The tool calls the agent reported while answering, forbidden ones
   // included, keyed by call and updated in place.
   toolUses: StepChatToolUse[];
+  // The agent that produced this answer: the identity the session handshake
+  // confirmed, or the preselection when no session could be opened.
+  agent?: StepChatAgentIdentity;
   // True while the responder is still answering this question.
   pending: boolean;
   // True when the reader stopped this answer: its late completion must
@@ -55,6 +59,7 @@ interface StoredExchange {
   // truncates the thoughts a subsequent delta restores.
   thought: string;
   tools: Map<string, StepChatToolUse>;
+  agent?: StepChatAgentIdentity;
   pending: boolean;
   interrupted: boolean;
   failed: boolean;
@@ -91,12 +96,21 @@ export class StepConversations {
         answer: exchange.answer,
         activity: exchange.activity,
         toolUses: [...exchange.tools.values()],
+        agent: exchange.agent,
         pending: exchange.pending,
         interrupted: exchange.interrupted,
         failed: exchange.failed
       })),
       responding: stored.some(exchange => exchange.pending)
     };
+  }
+
+  /**
+   * The agent answering the conversations right now, with the preselection
+   * before any handshake: what a painter names as the reader's agent.
+   */
+  identity(): StepChatAgentIdentity | undefined {
+    return this.responder?.identity?.();
   }
 
   /**
@@ -154,6 +168,9 @@ export class StepConversations {
       exchange.answer = answer;
       exchange.failed = failed;
       exchange.pending = false;
+      // A failed launch never announced an identity: the agent it tried is
+      // recorded as preselected, never as the one that answered.
+      exchange.agent ??= this.responder?.identity?.();
     };
 
     if (!this.responder) {
@@ -189,6 +206,11 @@ export class StepConversations {
           onActivity: message => {
             if (exchange.interrupted) return;
             exchange.activity = message;
+            onUpdate?.();
+          },
+          onAgentIdentity: identity => {
+            if (exchange.interrupted) return;
+            exchange.agent = identity;
             onUpdate?.();
           },
           onToolUse: tool => {
