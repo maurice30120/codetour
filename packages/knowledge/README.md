@@ -15,13 +15,13 @@ The single deterministic source of the Knowledge contract used by CodeTour:
 - `hashWorkspaceFile(root, path)` — the same confinement rules for preparing evidence.
 - `saveKnowledgeProposal(root, proposal)` — validate a whole proposal, compute or
   verify every SHA-256 proof, then publish
-  `{status:"saved"|"replaced"|"no-op"|"conflict"|"invalid"}`. A `saved` or `replaced`
+  `{status:"saved"|"appended"|"replaced"|"no_change"|"no-op"|"conflict"|"invalid"}`. A `saved` or `replaced`
   result carries advisory `warnings`: one `insufficient_backing` row per published
   entry whose evidence cites fewer than two distinct files, so a thin backing is
   reported instead of passing silently.
   Nothing is written unless every entry is valid; in `create` mode an existing
-  `<name>.md` refuses the whole proposal, and in `replace` mode the named entry
-  must already exist and still carry the revision the caller read.
+  `<name>.md` refuses the whole proposal, and in `append` and `replace` mode the
+  named entry must already exist and still carry the revision the caller read.
 - `serializeKnowledgeEntry(entry)` — the exact catalogue grammar, body preserved verbatim.
 - `validateCanonicalName(name)` — the shared identifier rule for Memory Methods and
   Knowledge entries.
@@ -35,15 +35,27 @@ entry, a duplicate name or an existing entry refuses the whole proposal: no part
 publication, no overwrite, and no staging file left behind.
 
 A proposal may carry a `mode` (ADR 0049): `create` (default) publishes new entries,
-`replace` rewrites one existing entry in full — description, body and evidence —
-against the `expectedRevision` its entry declares, on a valid and on an invalid entry
-alike. A missing, wrong or stale revision is a `conflict` with reason
+`append` enriches one existing entry that still verifies, and `replace` rewrites one
+existing entry in full — description, body and evidence — against the
+`expectedRevision` its entry declares, on a valid and on an invalid entry alike. A missing, wrong or stale revision is a `conflict` with reason
 `revision_conflict` and leaves the file untouched; a name that does not exist is
 `unknown_entry`, because a rewrite is not an upsert. Both modes run their whole
 critical section — entry re-read, revision comparison, evidence stability re-check,
 staging file and publication — under one catalogue lock
 (`.tours/.memory/knowledge/.catalogue.lock`); `create` publishes by exclusive link,
-`replace` by atomic rename, and readers take no lock. `origin` is never an input key:
+`append` and `replace` by atomic rename, and readers take no lock.
+
+An `append` entry is `{name, addition, evidence?, expectedRevision}`: the historical
+body is kept byte for byte, exactly one blank line and the addition are inserted
+verbatim behind it, the historical description is carried and never re-declared, and
+the evidence is merged, deduplicated by `(type, path, symbol)` so a `file` and a
+`symbol` proof may cite the same file. Every historical proof is re-verified: an
+entry that no longer holds is `stale_evidence` — distinct from a caller-supplied
+proof that does not verify — and its repair is `replace`. A blank addition is never
+refused: it is a proof-only append when it brings new evidence, and `no_change`
+otherwise, because `no_change` means only "the body is unchanged and no proof was
+added". `append` never reports `insufficient_backing`: adding a proof on an already
+cited path cannot lower the distinct-path count. `origin` is never an input key:
 the engine alone records that a file proof substitutes a symbol proof it could not
 resolve.
 
