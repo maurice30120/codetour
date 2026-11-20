@@ -371,11 +371,7 @@ test("a panel whose probed catalogue has no usable agent explains it and disable
 
     // The probe settled with nothing usable: the panel reposts the probed
     // catalogue, which disables the composer and shows the explaining state.
-    // The injected probe is immediate, but the repost travels through the
-    // panel's own update cycle: on a loaded CI runner it does not land inside
-    // the 2-second default of the harness, so this wait is given the deadline
-    // a real probe would get.
-    await host.waitFor(() => lastChatUpdate()?.unavailable === true, 15000);
+    await host.waitFor(() => lastChatUpdate()?.unavailable === true);
     const probed = lastChatUpdate();
     // Every catalogued profile is listed, in rank order, with the state the
     // probe established: the panel shows the catalogue, not a PATH scan.
