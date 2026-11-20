@@ -519,39 +519,54 @@ test('append and replace wait for the catalogue lock and publish after the takeo
   });
   const revision = await readRevision(root, 'dispatch_flow');
   const lock = join(knowledgeDirectory(root), catalogueLockName);
-  // The lock is held before the write starts, so the test can never race the
-  // writer for it, and the observation window bounds the claim instead of a
-  // fixed sleep.
-  const observedWhileLocked = async (start: () => Promise<{ status: string }>): Promise<string> => {
-    await writeFile(lock, '');
-    const observed = await Promise.race([
-      start().then(result => `settled:${result.status}`),
-      sleep(250).then(() => 'blocked')
-    ]);
-    await rm(lock, { force: true });
-    return observed;
-  };
-  const rewrite = () => saveKnowledgeProposal(root, {
+  const entry = entryPath(root, 'dispatch_flow');
+
+  // Each phase holds the lock before starting its write, races only the
+  // observation against a bounded window, then releases the lock and awaits
+  // that same write. Keeping the promise is what makes the phase
+  // deterministic: a writer left pending would publish whenever the lock was
+  // released and overwrite the bytes the next assertion reads.
+  await writeFile(lock, '');
+  const rewrite = saveKnowledgeProposal(root, {
     mode: 'replace',
     entries: [{ name: 'dispatch_flow', description: 'rewritten', body: 'Rewritten body.\n', evidence: [{ path: 'main.ts' }, { path: 'reader.ts' }], expectedRevision: revision }]
   });
-
-  assert.equal(await observedWhileLocked(rewrite), 'blocked', 'a rewrite takes the catalogue lock');
   assert.equal(
-    await readFile(entryPath(root, 'dispatch_flow'), 'utf8').then(source => source.includes('Original body.')),
+    await Promise.race([
+      rewrite.then(result => `settled:${result.status}`),
+      sleep(250).then(() => 'blocked')
+    ]),
+    'blocked',
+    'a rewrite takes the catalogue lock'
+  );
+  assert.equal(
+    await readFile(entry, 'utf8').then(source => source.includes('Original body.')),
     true,
     'the historical entry is untouched while the lock is held'
   );
-  assert.equal((await rewrite()).status, 'replaced');
+  await rm(lock, { force: true });
+  assert.equal((await rewrite).status, 'replaced');
+  const replaced = await readFile(entry);
+  assert.match(replaced.toString('utf8'), /^Rewritten body\.$/m, 'the rewrite published its whole new body');
+  assert.doesNotMatch(replaced.toString('utf8'), /Original body\./, 'the rewrite left none of the historical body behind');
 
   // The entry the rewrite published is the one the append now enriches.
-  const rewritten = await readFile(entryPath(root, 'dispatch_flow'));
-  const append = () => saveKnowledgeProposal(root, {
+  await writeFile(lock, '');
+  const append = saveKnowledgeProposal(root, {
     mode: 'append',
-    entries: [{ name: 'dispatch_flow', addition: '## More\n', evidence: [{ path: 'reader.ts' }], expectedRevision: knowledgeRevision(rewritten) }]
+    entries: [{ name: 'dispatch_flow', addition: '## More\n', evidence: [{ path: 'reader.ts' }], expectedRevision: knowledgeRevision(replaced) }]
   });
-  assert.equal(await observedWhileLocked(append), 'blocked', 'an append takes the catalogue lock');
-  assert.deepEqual(await readFile(entryPath(root, 'dispatch_flow')), rewritten, 'the entry is untouched while the lock is held');
-  assert.equal((await append()).status, 'appended');
+  assert.equal(
+    await Promise.race([
+      append.then(result => `settled:${result.status}`),
+      sleep(250).then(() => 'blocked')
+    ]),
+    'blocked',
+    'an append takes the catalogue lock'
+  );
+  assert.deepEqual(await readFile(entry), replaced, 'the entry is untouched while the lock is held');
+  await rm(lock, { force: true });
+  assert.equal((await append).status, 'appended');
+  assert.match(await readFile(entry, 'utf8'), /Rewritten body\.\n\n## More\n$/, 'the append published behind the rewritten body');
   assert.deepEqual(await catalogueFiles(root), ['dispatch_flow.md'], 'no staging file and no lock file survive');
 });
