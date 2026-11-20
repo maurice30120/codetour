@@ -45,6 +45,19 @@ function report(message) {
   process.stderr.write(`CodeTour usage: ${message}\n`);
 }
 
+// Invalid Knowledge entries are a list of actions, so they are always printed
+// in full, one line each, with the machine-readable reason only (ADR 0044).
+function reportKnowledgeDetails(state) {
+  const knowledge = state?.knowledge;
+  if (!knowledge || knowledge.observed !== true) return;
+  if (!Array.isArray(knowledge.invalid)) return;
+  for (const entry of knowledge.invalid) {
+    if (!entry || typeof entry.name !== "string") continue;
+    const reason = typeof entry.reason === "string" ? entry.reason : "invalid";
+    process.stderr.write(`CodeTour knowledge invalid: ${entry.name} — ${reason}\n`);
+  }
+}
+
 const tokens = new Intl.NumberFormat("en-GB");
 
 function formatTokens(usage) {
@@ -68,16 +81,66 @@ function usageReport(state, summary) {
     .filter(Boolean)
     .join(" ");
   const prefix = `run ${state.runId}${label ? ` ${label}` : ""}`;
+  const knowledge = knowledgeClause(state);
   if (summary.observed !== true) {
-    return `${prefix} — usage not observed (${summary.reason || "unavailable"})`;
+    const reason = `usage not observed (${summary.reason || "unavailable"})`;
+    return `${prefix} — ${[reason, knowledge].filter(Boolean).join("; ")}`;
   }
   const parts = [`generation ${formatTokens(summary.windows.generation)}`];
   if (summary.windows.consolidation) {
     parts.push(`consolidation ${formatTokens(summary.windows.consolidation)}`);
   }
   parts.push(`total ${formatTokens(summary.totals)}`);
+  if (knowledge) parts.push(knowledge);
   if (summary.model) parts.push(summary.model);
   return `${prefix} — ${parts.join("; ")}`;
+}
+
+// A bounded list of names, because a catalogue can be large while the line
+// stays readable; the run state keeps every name.
+const KNOWLEDGE_NAME_LIMIT = 10;
+
+function formatNames(names) {
+  const shown = names.slice(0, KNOWLEDGE_NAME_LIMIT);
+  const remaining = names.length - shown.length;
+  return remaining > 0 ? `${shown.join(", ")} and ${remaining} more` : shown.join(", ");
+}
+
+// The Knowledge clause of the closing line (ADR 0045). It reports what the
+// run's own discovery verified and what it actually read; an absent or
+// unobserved block omits the clause instead of claiming an empty catalogue.
+function knowledgeClause(state) {
+  const knowledge = state?.knowledge;
+  if (!knowledge || typeof knowledge !== "object" || knowledge.observed !== true) {
+    return null;
+  }
+  const names = value =>
+    Array.isArray(value) ? value.filter(name => typeof name === "string") : [];
+  const valid = names(knowledge.valid);
+  const invalid = Array.isArray(knowledge.invalid)
+    ? knowledge.invalid.filter(entry => entry && typeof entry.name === "string")
+    : [];
+  const used = names(knowledge.used);
+  const total =
+    Number.isInteger(knowledge.validTotal) && knowledge.validTotal >= valid.length
+      ? knowledge.validTotal
+      : valid.length;
+  const usedText =
+    used.length === 0 ? "0 used" : `${used.length} used (${formatNames(used)})`;
+  return `Knowledge ${total} valid / ${invalid.length} invalid, ${usedText}`;
+}
+
+// The Knowledge sets move independently of the token figures: a listing or a
+// read changes them while the windows stay still. The line is printed when
+// either side changed, never on every stop.
+function knowledgeChanged(previous, next) {
+  const stable = knowledge => {
+    if (!knowledge || typeof knowledge !== "object") return "";
+    const copy = JSON.parse(JSON.stringify(knowledge));
+    delete copy.at;
+    return JSON.stringify(copy);
+  };
+  return stable(previous) !== stable(next);
 }
 
 // The newest snapshot replaces the previous one, so the line is printed only
@@ -152,12 +215,15 @@ async function recordUsageMetrics(workspace, sessionId, states) {
       if (!recorded.updated && recorded.reason && recorded.reason !== "noop") {
         diagnostic(`usage metrics not updated (${recorded.reason})`);
       }
+      const nextState = recorded.state || mine[index];
       if (
         recorded.updated &&
         mine[index].tourCreated === true &&
-        usageChanged(mine[index].metrics?.usage, summary)
+        (usageChanged(mine[index].metrics?.usage, summary) ||
+          knowledgeChanged(mine[index].knowledge, nextState.knowledge))
       ) {
-        report(usageReport(recorded.state || mine[index], summary));
+        report(usageReport(nextState, summary));
+        reportKnowledgeDetails(nextState);
       }
     } catch (error) {
       diagnostic(`could not record usage metrics (${error?.message || error})`);

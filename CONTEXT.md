@@ -120,7 +120,7 @@ One generation started by `/codetour generate` or the controlled adapter's `code
 _Avoid_: session, task, generation attempt
 
 **Run State**:
-The atomic JSON file `<workspace>/.tours/.log/codetour-run-<runId>.json` (spec #223, ticket #228, ADR 0041). It records the run identity, workspace, session, Tour creation, the server-written Consolidation Closure and whether the single continuation was used; an optional `metrics` block records usage (ADR 0042). The adapter creates it, the MCP updates the authenticated outcomes, and the agentStop guard reads it, toggles `continuationUsed` and records the usage snapshot. It contains no Tour or Knowledge content.
+The atomic JSON file `<workspace>/.tours/.log/codetour-run-<runId>.json` (spec #223, ticket #228, ADR 0041). It records the run identity, workspace, session, Tour creation, the server-written Consolidation Closure and whether the single continuation was used; an optional `metrics` block records usage (ADR 0042) and an optional `knowledge` block records the Knowledge Observation (ADR 0045). The adapter creates it, the MCP updates the authenticated outcomes, and the agentStop guard reads it, toggles `continuationUsed` and records the usage snapshot. It contains no Tour or Knowledge content.
 _Avoid_: hook cache, agent memory, transcript
 
 **Run Usage Metrics**:
@@ -130,6 +130,10 @@ _Avoid_: run telemetry claims, token report, cost accounting
 **Pre-Launch Report**:
 The integration display the adapter emits before serving a generation prompt, after any agent-driven choice dialogue (spec #223, ADR 0043): the running adapter file and its origin, the launcher the CLI resolves, the resolved workspace, the installed extension files, the installed plugin (version, cache path, MCP launcher and the build version beside the launcher script) and the user `mcp-config.json` declaration. One problem per hazard (missing plugin, missing launcher, launcher serving another build, a second `codetour` MCP server in the user config, duplicate extension directories) is reported at error level and never stops the run. The same facts are recorded in `metrics.integration`.
 _Avoid_: integration banner, doctor output, gate
+
+**Knowledge Observation**:
+The additive, optional `knowledge` object of a Run State (ADR 0045): what the run's own Knowledge discovery verified and what it actually read. `valid` is the union of verified names across the run's `knowledge_list` calls, `validTotal` the largest catalogue size observed, `complete` true only when one listing was untruncated, `invalid` the latest listing's failing entries with their reasons, and `used` the distinct entries whose body `knowledge_read` served (a refusal is not a use). The MCP server records it when a Knowledge call carries the run identity; it triggers no second scan and never feeds a guard decision, and its absence means "not measured", never "zero".
+_Avoid_: knowledge metrics, validation report, catalogue cache
 
 **Consolidation Closure**:
 The server-written verdict that closes one Generation Run in the Run State: `created`, `completed_zero`, `failed` (with its `outcome`), `skipped`, or the reserved `partial`. `completed_zero` is an explicit assessment with nothing to persist, not an omission; a run with no closure is incomplete and is the only case the agentStop hook may ask to close once.

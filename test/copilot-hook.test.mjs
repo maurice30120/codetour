@@ -458,6 +458,47 @@ test("a created Tour reports its name and consumed tokens on stderr", () => {
   }
 });
 
+test("the closing line reports the Knowledge sets and never changes the decision", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-knowledge-"));
+  const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;
+  process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = sessions;
+  try {
+    // A closed run is inert for the guard: this test proves the additive
+    // Knowledge clause is built from the run state, not from the decision.
+    writeState(workspace, {
+      tourCreated: true,
+      tourPath: ".tours/project.tour",
+      tourTitle: "Tour du projet",
+      consolidation: { status: "created", runId: "run-0123456789abcdef", at: new Date().toISOString() },
+      knowledge: {
+        version: 1,
+        observed: true,
+        at: new Date().toISOString(),
+        listings: 2,
+        valid: ["billing-retry", "auth-refresh"],
+        validTotal: 9,
+        complete: false,
+        invalid: [{ name: "stale-auth", reason: "proof_hash_mismatch" }],
+        used: ["billing-retry", "auth-refresh"]
+      }
+    });
+    const first = runHook(payload({ cwd: workspace }));
+    assert.deepEqual(first.output, {});
+    assert.match(first.stderr, /Knowledge 9 valid \/ 1 invalid, 2 used \(billing-retry, auth-refresh\)/);
+    // Invalid entries are a list of actions: always complete, with the reason.
+    assert.match(first.stderr, /CodeTour knowledge invalid: stale-auth — proof_hash_mismatch/);
+    const second = runHook(payload({ cwd: workspace }));
+    assert.deepEqual(second.output, {});
+    assert.equal((second.stderr.match(/CodeTour usage:/g) || []).length, 0);
+    assert.equal((second.stderr.match(/CodeTour knowledge invalid:/g) || []).length, 0);
+  } finally {
+    if (previousStateDir === undefined) delete process.env.CODETOUR_COPILOT_SESSION_STATE_DIR; else process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = previousStateDir;
+    rmSync(root, { recursive: true, force: true });
+    rmSync(sessions, { recursive: true, force: true });
+  }
+});
+
 test("an unobserved usage snapshot is reported as such, never omitted", () => {
   const { root, workspace } = workspaceWithSpaces();
   const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-unobserved-"));

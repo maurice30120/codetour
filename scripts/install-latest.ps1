@@ -4,6 +4,9 @@
 # ${CODETOUR_REPO:-maurice30120/codetour} — the release assets are the VSIX
 # files the Release workflow builds and attaches in CI — then runs
 # `code --install-extension` on it. Rerun with the same settings to update.
+# When the codetour CLI is on PATH, the script then runs `codetour --install`,
+# which installs the agent integrations of every compatible host (Copilot, Pi)
+# and leaves an absent host alone.
 # Source selection via $env:CODETOUR_TAG (exact release),
 # $env:CODETOUR_CHANNEL = "beta" (accept pre-releases),
 # $env:CODETOUR_VSIX_URL (explicit VSIX), $env:CODETOUR_REPO (fork).
@@ -67,6 +70,16 @@ try {
     & code --install-extension $vsix --force
     if ($LASTEXITCODE -ne 0) {
       throw "VS Code refused to install the downloaded VSIX. Try manually from $releasesUrl with 'Extensions: Install from VSIX...'."
+    }
+    Write-Host "Installing the agent integrations of this machine (codetour --install)..."
+    $codetour = Get-Command codetour -ErrorAction SilentlyContinue
+    if ($codetour) {
+      & codetour --install
+      if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Some agent integrations could not be installed; run 'codetour --agents' for the state and 'codetour --install' to retry."
+      }
+    } else {
+      Write-Warning "The codetour CLI is not on PATH, so no agent integration was installed. Install the standalone CLI, then run: codetour --install"
     }
     Write-Host "Done. Reload the VS Code window to load the installed version."
   } finally {

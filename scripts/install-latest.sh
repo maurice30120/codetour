@@ -5,7 +5,10 @@
 # ${CODETOUR_REPO:-maurice30120/codetour} — the release assets are the VSIX
 # files the Release workflow builds and attaches in CI — then runs
 # `code --install-extension` on it. Running the script again upgrades the
-# installed extension to the selected version. See README.md >>
+# installed extension to the selected version. When the codetour CLI is on
+# PATH, the script then runs `codetour --install`, which installs the agent
+# integrations of every compatible host (Copilot, Pi) and leaves an absent host
+# alone. See README.md >>
 # Install or update with one command.
 #
 # Source selection, relative to the default (latest stable release):
@@ -89,4 +92,11 @@ curl -fSL --retry 3 -o "$vsix_file" "$vsix_url" || fail "Could not download $vsi
 
 printf 'Installing CodeTour IA from %s (release %s)...\n' "$(printf '%s\n' "$vsix_file" | sed 's|.*/||')" "$tag"
 "$code_cmd" --install-extension "$vsix_file" --force || fail "VS Code refused to install the downloaded VSIX. Try manually: download it from $RELEASES_URL and run \"Extensions: Install from VSIX...\"."
+printf 'Installing the agent integrations of this machine (codetour --install)...\n'
+if command -v codetour >/dev/null 2>&1; then
+  codetour --install || printf 'install-latest: some agent integrations could not be installed; run "codetour --agents" for the state and "codetour --install" to retry.\n' >&2
+else
+  printf 'install-latest: the codetour CLI is not on PATH, so no agent integration was installed.\n' >&2
+  printf 'install-latest: install the standalone CLI, then run: codetour --install\n' >&2
+fi
 printf 'Done. Reload the VS Code window to load the installed version.\n'

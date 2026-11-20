@@ -10,6 +10,8 @@ import {
   isValidRunId,
   readRunState,
   recordConsolidation,
+  recordKnowledgeListing,
+  recordKnowledgeRead,
   recordTourCreated,
   type ConsolidationClosure,
   type ConsolidationStatus,
@@ -62,6 +64,7 @@ import {
   KNOWLEDGE_SAVE_TOOL,
   knowledgeCatalogueProjection,
   listKnowledgePage,
+  type KnowledgeCataloguePage,
 } from "./knowledge";
 import { knowledgeDirectory, loadKnowledgeLibrary, saveKnowledgeProposal } from "codetour-knowledge";
 import packageJson from "../package.json";
@@ -247,7 +250,9 @@ function runIdentitySection(runId: string | undefined): string {
     "This identifier belongs to the current CodeTour generation. Pass it as " +
       "`runId` to `create_project_tour` and to `knowledge_save` (or " +
       "`knowledge_close_run`) so the MCP records the creation and " +
-      "consolidation outcomes for this exact run. Do not invent another " +
+      "consolidation outcomes for this exact run. Pass it to `knowledge_list` " +
+      "and `knowledge_read` as well: the MCP then records the verified " +
+      "catalogue and the entries this run actually read. Do not invent another " +
       "identifier.",
     "",
   ].join("\n");
@@ -619,6 +624,12 @@ const knowledgeListInputSchema = knowledgeToolInputSchema
       .unknown()
       .optional()
       .describe("Optional number of matching entries to skip; defaults to 0."),
+    runId: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional CodeTour generation run identity. When present, the verified catalogue page is recorded in the run state (ADR 0045). Observability only: never affects the result."
+      ),
   })
   .passthrough();
 
@@ -628,6 +639,12 @@ const knowledgeReadInputSchema = knowledgeToolInputSchema
       .unknown()
       .optional()
       .describe("Name (identifier) of the Knowledge entry to read."),
+    runId: z
+      .unknown()
+      .optional()
+      .describe(
+        "Optional CodeTour generation run identity. When present, a verified read is recorded in the run state (ADR 0045). Observability only: never affects the result."
+      ),
   })
   .passthrough();
 
@@ -1642,6 +1659,12 @@ async function handleKnowledgeList(
       limit = rawLimit;
     }
   }
+  const runId = withoutBlankRunId(input).runId;
+  if (runId !== undefined && !isValidRunId(runId)) {
+    return knowledgeArgumentError([
+      { path: "runId", message: "must be a CodeTour generation run identity" },
+    ]);
+  }
   if (issues.length > 0) return knowledgeArgumentError(issues);
 
   const page = await listKnowledgePage(
@@ -1649,6 +1672,11 @@ async function handleKnowledgeList(
     rawQuery as string | undefined,
     offset,
     limit
+  );
+  await recordKnowledgeDiscovery(
+    defaultContext.realRoot,
+    runId as string | undefined,
+    page
   );
   const structured = {
     status: page.status,
@@ -1694,12 +1722,24 @@ async function handleKnowledgeRead(
     ]);
   }
 
+  const runId = withoutBlankRunId(workspace.args).runId;
+  if (runId !== undefined && !isValidRunId(runId)) {
+    return knowledgeArgumentError([
+      { path: "runId", message: "must be a CodeTour generation run identity" },
+    ]);
+  }
+
   const library = await loadKnowledgeLibrary(
     workspace.context.root,
     knowledgeDirectory(workspace.context.root)
   );
   const read = await library.read(name);
   if (read.status === "valid") {
+    await recordKnowledgeUse(
+      defaultContext.realRoot,
+      runId as string | undefined,
+      read.name
+    );
     return knowledgeResponse(
       {
         status: "valid",
@@ -1919,6 +1959,49 @@ async function runKindFor(
 ): Promise<"project" | "changes"> {
   const state = await readRunState(root, runId);
   return state?.kind === "changes" ? "changes" : "project";
+}
+
+// Record what discovery already verified for this run (ADR 0045). The page is
+// the answer the agent just received, so this is a recording, never a second
+// scan: no additional hashing, no extra model call. Observability only — a run
+// without identity, a malformed run state or a storage failure never turns a
+// successful Knowledge call into an error.
+async function recordKnowledgeDiscovery(
+  root: string,
+  runId: string | undefined,
+  page: KnowledgeCataloguePage
+): Promise<void> {
+  if (!runId) return;
+  try {
+    const kind = await runKindFor(root, runId);
+    await recordKnowledgeListing(root, runId, kind, {
+      valid: page.entries.map((entry) => entry.name),
+      total: page.total,
+      complete: !page.truncated,
+      invalid: page.invalid.map((entry) => ({
+        name: entry.name,
+        reason: entry.reason,
+      })),
+    });
+  } catch {
+    // Observability is never an authenticated outcome.
+  }
+}
+
+// Record that one verified body was served to this run (ADR 0045). A refused
+// read is not an use and is never recorded.
+async function recordKnowledgeUse(
+  root: string,
+  runId: string | undefined,
+  name: string
+): Promise<void> {
+  if (!runId) return;
+  try {
+    const kind = await runKindFor(root, runId);
+    await recordKnowledgeRead(root, runId, kind, name);
+  } catch {
+    // Observability is never an authenticated outcome.
+  }
 }
 
 // Persist one authenticated closure next to the run identity and expose it in

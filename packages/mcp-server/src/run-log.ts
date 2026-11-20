@@ -31,6 +31,42 @@ const LOCK_SUFFIX = ".lock";
 const LOCK_TIMEOUT_MS = 5000;
 const LOCK_STALE_MS = 15000;
 
+/** Additive Knowledge observation version (ADR 0045). */
+export const RUN_KNOWLEDGE_VERSION = 1;
+
+export interface KnowledgeInvalidObservation {
+  name: string;
+  reason: string;
+}
+
+/**
+ * What the run's own Knowledge discovery returned (ADR 0045). Written only by
+ * the MCP server, only when a Knowledge call carried the run identity: the
+ * block records work already done by verification at discovery (ADR 0044), it
+ * never triggers a second scan. Verified names accumulate as a union because a
+ * targeted `query` listing is a subset of the catalogue the agent could choose
+ * from; the invalid set is the latest listing's, which ADR 0044 always returns
+ * in full; `used` holds the distinct entries whose body `knowledge_read`
+ * actually served.
+ */
+export interface KnowledgeObservation {
+  version: number;
+  observed: true;
+  at: string;
+  /** Number of recorded listings, so a partial view is visible as such. */
+  listings: number;
+  /** Verified entry names seen by this run, deduplicated across listings. */
+  valid: string[];
+  /** Largest `total` observed: the catalogue size, before pagination. */
+  validTotal: number;
+  /** True when one listing covered the whole catalogue untruncated. */
+  complete: boolean;
+  /** The latest listing's invalid set, in full and with its reasons. */
+  invalid: KnowledgeInvalidObservation[];
+  /** Distinct entries whose verified body `knowledge_read` returned. */
+  used: string[];
+}
+
 export type ConsolidationStatus =
   | "completed_zero"
   | "created"
@@ -72,6 +108,13 @@ export interface RunState {
    * verbatim and does not read it.
    */
   metrics?: Record<string, unknown>;
+  /**
+   * Additive observability block written by the MCP server alone (ADR 0045):
+   * the Knowledge sets this run's own discovery verified. Never an
+   * authenticated outcome, never read by a guard, and absent for a run that
+   * never listed the catalogue.
+   */
+  knowledge?: KnowledgeObservation;
 }
 
 export function isValidRunId(runId: unknown): runId is string {
@@ -328,6 +371,87 @@ export function recordConsolidation(
     consolidation: mergeConsolidation(state.consolidation, closure),
     updatedAt: new Date().toISOString(),
   }));
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+/**
+ * Record one Knowledge discovery page for a run (ADR 0045).
+ *
+ * Verified names are unioned across listings and `validTotal` keeps the largest
+ * catalogue size observed; `complete` becomes true as soon as one listing was
+ * untruncated. The invalid set is replaced by the latest listing's, because
+ * ADR 0044 always reports it in full: a later listing is a better answer, and
+ * an entry the run repaired must stop being displayed as broken. A run without
+ * a listing has no block at all, so absence keeps meaning "not measured".
+ */
+export function recordKnowledgeListing(
+  workspace: string,
+  runId: string | undefined,
+  kind: "project" | "changes",
+  listing: {
+    valid: string[];
+    total: number;
+    complete: boolean;
+    invalid: KnowledgeInvalidObservation[];
+  }
+): Promise<RunUpdate> {
+  if (!runId) return Promise.resolve({ persisted: false, reason: "no_run" });
+  return updateRunState(workspace, runId, kind, (state) => {
+    const previous = state.knowledge;
+    return {
+      ...state,
+      knowledge: {
+        version: RUN_KNOWLEDGE_VERSION,
+        observed: true,
+        at: new Date().toISOString(),
+        listings: (previous?.listings ?? 0) + 1,
+        valid: unique([...(previous?.valid ?? []), ...listing.valid]),
+        validTotal: Math.max(previous?.validTotal ?? 0, listing.total),
+        complete: Boolean(previous?.complete) || listing.complete,
+        invalid: listing.invalid.map((entry) => ({
+          name: entry.name,
+          reason: entry.reason,
+        })),
+        used: previous?.used ?? [],
+      },
+      updatedAt: new Date().toISOString(),
+    };
+  });
+}
+
+/**
+ * Record that one verified Knowledge body was served to this run (ADR 0045).
+ * A refusal is not a use: only `status: "valid"` reads are recorded, and names
+ * are deduplicated so the figure counts entries, not calls.
+ */
+export function recordKnowledgeRead(
+  workspace: string,
+  runId: string | undefined,
+  kind: "project" | "changes",
+  name: string
+): Promise<RunUpdate> {
+  if (!runId) return Promise.resolve({ persisted: false, reason: "no_run" });
+  return updateRunState(workspace, runId, kind, (state) => {
+    const previous = state.knowledge;
+    return {
+      ...state,
+      knowledge: {
+        version: RUN_KNOWLEDGE_VERSION,
+        observed: true,
+        at: new Date().toISOString(),
+        listings: previous?.listings ?? 0,
+        valid: previous?.valid ?? [],
+        validTotal: previous?.validTotal ?? 0,
+        complete: previous?.complete ?? false,
+        invalid: previous?.invalid ?? [],
+        used: unique([...(previous?.used ?? []), name]),
+      },
+      updatedAt: new Date().toISOString(),
+    };
+  });
 }
 
 /** Read one run state for diagnostics and tests. */

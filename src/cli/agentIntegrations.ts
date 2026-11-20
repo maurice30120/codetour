@@ -4,6 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import { COPILOT_EXTENSION_FILES } from "./copilot-extension.generated";
 import { COPILOT_PLUGIN_FILES } from "./copilot-plugin.generated";
+import { PI_PLUGIN_FILES } from "./pi-plugin.generated";
 
 // Agent integrations registry (spec: agent-integrations-copilot-codex.md).
 // Every integration owns detection, status, installation, uninstallation and
@@ -29,6 +30,12 @@ export interface AgentIntegration {
   status(): Promise<InstallationStatus>;
   install(): Promise<void>;
   uninstall(): Promise<void>;
+  /**
+   * Why this integration cannot be installed on this machine, or `undefined`
+   * when it can. A detected agent whose prerequisite is missing is skipped
+   * with its reason instead of failing the other agents' installation.
+   */
+  prerequisite?(): Promise<string | undefined>;
 }
 
 const execFileAsync = (executable: string, args: string[]): Promise<string | undefined> =>
@@ -693,6 +700,13 @@ const copilotIntegration: AgentIntegration = {
     console.log("The plugin's agentStop hook asks for at most one consolidation continuation;");
     console.log("hooks disabled means no guard, and the MCP results remain the source of truth.");
   },
+  async prerequisite() {
+    // A managed override writes the plugin files directly; every other path
+    // goes through `copilot plugin install`, which needs the CLI.
+    if (copilotPluginOverride()) return undefined;
+    const detection = await this.detect();
+    return detection.state === "detected" ? undefined : detection.detail;
+  },
   async uninstall() {
     const directory = copilotExtensionDirectory();
     const states = await copilotFileStates(directory);
@@ -742,6 +756,314 @@ const copilotIntegration: AgentIntegration = {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Pi coding agent (spec #236).
+//
+// Pi has no plugin format of its own: an integration is a Pi package (a
+// `package.json` with `pi.extensions` / `pi.skills`) declared in the user
+// settings. The install writes that package into a managed directory and adds
+// its absolute path to `packages[]`, so Pi and `status()` agree on one
+// identity. The generated `launcher.json` records the CLI that performed the
+// install, exactly like the Copilot plugin's `mcp.json` launcher: a session
+// must not be served by whatever `codetour` happens to be on PATH.
+// ---------------------------------------------------------------------------
+
+function piAgentDirectory(): string {
+  return process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), ".pi", "agent");
+}
+
+function piPluginDirectory(): string {
+  return process.env.CODETOUR_PI_PLUGIN_DIR || path.join(piAgentDirectory(), "packages", "codetour-plugin");
+}
+
+function piSettingsPath(): string {
+  // PI_CODING_AGENT_DIR relocates the whole agent directory; the explicit
+  // override exists for tests and unusual layouts.
+  return process.env.CODETOUR_PI_SETTINGS || path.join(piAgentDirectory(), "settings.json");
+}
+
+function piLauncherFile(): { command: string; args: string[] } {
+  // The extension appends `--workspace-root <real cwd>`; the launcher only
+  // names the runtime and the `mcp` subcommand.
+  return codetourPluginLauncher();
+}
+
+function expectedPiPluginFiles(): Record<string, string> {
+  return {
+    ...PI_PLUGIN_FILES,
+    "launcher.json": `${JSON.stringify(piLauncherFile(), null, 2)}\n`,
+  };
+}
+
+async function piFileStates(directory: string): Promise<FileState[]> {
+  const states: FileState[] = [];
+  for (const [name, content] of Object.entries(expectedPiPluginFiles())) {
+    const target = path.join(directory, ...name.split("/"));
+    try {
+      const existing = await fs.readFile(target, "utf8");
+      states.push({ name, state: existing === content ? "current" : "modified" });
+    } catch {
+      states.push({ name, state: "missing" });
+    }
+  }
+  return states;
+}
+
+interface PiSettings {
+  packages?: unknown;
+  [key: string]: unknown;
+}
+
+async function readPiSettings(file: string): Promise<PiSettings> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(file, "utf8");
+  } catch (error) {
+    // Only a missing file means "no user settings yet": the install creates
+    // its own. A permission error or a directory at that path must not be
+    // silently replaced by an empty configuration.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
+    throw new Error(
+      `Could not read ${file} (${error instanceof Error ? error.message : String(error)}). ` +
+      "Fix its path or permissions and run the command again; the file was left untouched so no configured package is lost."
+    );
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      throw new Error("not an object");
+    }
+    return parsed as PiSettings;
+  } catch {
+    throw new Error(
+      `${file} is not a JSON object; fix it before installing so no existing Pi package is lost.`
+    );
+  }
+}
+
+async function writePiSettings(file: string, settings: PiSettings): Promise<void> {
+  try {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+  } catch (error) {
+    throw new Error(
+      `Could not write ${file} (${error instanceof Error ? error.message : String(error)}). ` +
+      "Fix its path or permissions and run the command again."
+    );
+  }
+}
+
+// A `packages` entry is either a source string or an object with a `source`
+// field. Only the exact absolute path this CLI manages counts as "declared":
+// an npm or git source with the same name is someone else's package.
+function piPackageSources(settings: PiSettings): string[] {
+  if (!Array.isArray(settings.packages)) return [];
+  return settings.packages.flatMap((entry) => {
+    if (typeof entry === "string") return [entry];
+    if (typeof entry === "object" && entry !== null) {
+      const source = (entry as { source?: unknown }).source;
+      if (typeof source === "string") return [source];
+    }
+    return [];
+  });
+}
+
+function declaresPiPackage(settings: PiSettings, directory: string): boolean {
+  const target = path.resolve(directory);
+  return piPackageSources(settings).some((source) => {
+    if (!path.isAbsolute(source)) return false;
+    return path.resolve(source) === target;
+  });
+}
+
+function withPiPackage(settings: PiSettings, directory: string): PiSettings {
+  if (declaresPiPackage(settings, directory)) return settings;
+  const packages = Array.isArray(settings.packages) ? [...settings.packages] : [];
+  packages.push(path.resolve(directory));
+  return { ...settings, packages };
+}
+
+function withoutPiPackage(settings: PiSettings, directory: string): PiSettings {
+  if (!Array.isArray(settings.packages)) return settings;
+  const target = path.resolve(directory);
+  const packages = settings.packages.filter((entry) => {
+    if (typeof entry === "string") {
+      return !(path.isAbsolute(entry) && path.resolve(entry) === target);
+    }
+    if (typeof entry === "object" && entry !== null) {
+      const source = (entry as { source?: unknown }).source;
+      if (typeof source === "string" && path.isAbsolute(source)) {
+        return path.resolve(source) !== target;
+      }
+    }
+    return true;
+  });
+  return { ...settings, packages };
+}
+
+// Files in the managed package directory that this CLI did not write. The
+// directory belongs to Pi, but a user may have added notes or patches there: an
+// uninstall refuses rather than deleting them.
+async function piForeignFiles(directory: string): Promise<string[]> {
+  const expected = new Set(Object.keys(expectedPiPluginFiles()));
+  const foreign: string[] = [];
+  const walk = async (current: string, prefix: string): Promise<void> => {
+    let entries;
+    try {
+      entries = await fs.readdir(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) await walk(path.join(current, entry.name), relative);
+      else if (!expected.has(relative)) foreign.push(relative);
+    }
+  };
+  await walk(directory, "");
+  return foreign;
+}
+
+// Remove the directories an uninstall emptied, deepest first: leaving an empty
+// skeleton behind makes the next `status()` report a half-installed package.
+async function pruneEmptyDirectories(directory: string): Promise<void> {
+  let entries;
+  try {
+    entries = await fs.readdir(directory, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory()) await pruneEmptyDirectories(path.join(directory, entry.name));
+  }
+  const remaining = await fs.readdir(directory).catch(() => [] as string[]);
+  if (!remaining.length) await fs.rmdir(directory).catch(() => undefined);
+}
+
+async function writePiManagedFiles(directory: string): Promise<void> {
+  for (const [name, content] of Object.entries(expectedPiPluginFiles())) {
+    const target = path.join(directory, ...name.split("/"));
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, content, "utf8");
+    if ((await fs.readFile(target, "utf8")) !== content) {
+      throw new Error(`Could not verify ${target} after installation.`);
+    }
+  }
+}
+
+const piIntegration: AgentIntegration = {
+  id: "pi",
+  displayName: "Pi coding agent",
+  async detect() {
+    const version = await execFileAsync("pi", ["--version"]);
+    return version
+      ? { state: "detected", detail: firstLine(version) }
+      : { state: "absent", detail: "The 'pi' command was not found on PATH." };
+  },
+  async status() {
+    const directory = piPluginDirectory();
+    const settingsFile = piSettingsPath();
+    const states = await piFileStates(directory);
+    const changed = states.filter((file) => file.state !== "current").map((file) => file.name);
+    let declared: boolean;
+    try {
+      declared = declaresPiPackage(await readPiSettings(settingsFile), directory);
+    } catch (error) {
+      return {
+        state: "incomplete" as const,
+        detail: error instanceof Error ? error.message : String(error),
+      };
+    }
+    if (states.every((file) => file.state === "missing") && !declared) {
+      return {
+        state: "not-installed" as const,
+        detail: `No CodeTour package in ${directory} and no declaration in ${settingsFile}.`,
+      };
+    }
+    if (declared && states.every((file) => file.state === "current")) {
+      return {
+        state: "installed" as const,
+        detail: `The CodeTour package is installed in ${directory} and declared in ${settingsFile}.`,
+      };
+    }
+    if (declared) {
+      return {
+        state: "incomplete" as const,
+        detail:
+          `The CodeTour package is declared in ${settingsFile} but ` +
+          `(${changed.join(", ")}) is missing from ${directory}. ` +
+          "Re-run 'codetour --install pi'.",
+      };
+    }
+    return {
+      state: "outdated" as const,
+      detail:
+        `The CodeTour package in ${directory} differs from this CLI (${changed.join(", ")}) ` +
+        `or is not declared in ${settingsFile}. Re-run 'codetour --install pi' to replace it.`,
+    };
+  },
+  async install() {
+    const directory = piPluginDirectory();
+    const settingsFile = piSettingsPath();
+    // Everything that can refuse the install runs before the first write, so a
+    // failing settings file never leaves half a package behind.
+    const settings = await readPiSettings(settingsFile);
+    const previousStates = await piFileStates(directory);
+    const replaced = previousStates.filter((file) => file.state === "modified").map((file) => file.name);
+    const previousFiles = new Map<string, string | undefined>();
+    for (const name of Object.keys(expectedPiPluginFiles())) {
+      const target = path.join(directory, ...name.split("/"));
+      previousFiles.set(name, await fs.readFile(target, "utf8").catch(() => undefined));
+    }
+    try {
+      await writePiManagedFiles(directory);
+      await writePiSettings(settingsFile, withPiPackage(settings, directory));
+    } catch (error) {
+      for (const [name, content] of previousFiles) {
+        const target = path.join(directory, ...name.split("/"));
+        if (content === undefined) await fs.rm(target, { force: true }).catch(() => undefined);
+        else await fs.writeFile(target, content, "utf8").catch(() => undefined);
+      }
+      await writePiSettings(settingsFile, settings).catch(() => undefined);
+      throw error;
+    }
+    if (replaced.length) {
+      console.log(`Replaced differing package files (${replaced.join(", ")}) in ${directory}.`);
+    }
+    console.log(`Installed the CodeTour Pi package in ${directory}.`);
+    console.log(`Declared it in ${settingsFile} under packages[].`);
+    console.log("Run 'pi list' to confirm the package, then '/codetour' in a session to start a generation.");
+    console.log("The package's agent_before_settle guard asks for at most one consolidation continuation.");
+  },
+  async uninstall() {
+    const directory = piPluginDirectory();
+    const settingsFile = piSettingsPath();
+    const states = await piFileStates(directory);
+    const foreign = [
+      ...states.filter((file) => file.state === "modified").map((file) => file.name),
+      ...(await piForeignFiles(directory)),
+    ];
+    if (foreign.length) {
+      throw new Error(
+        `${foreign.join(", ")} in ${directory} differ from this installation or were not written by it, ` +
+        "and were left untouched. Only files this CLI owns are removed; remove them yourself before uninstalling."
+      );
+    }
+    const settings = await readPiSettings(settingsFile);
+    // Remove the declaration first: a package that stays declared after its
+    // files are gone makes Pi report a failed install at every start.
+    await writePiSettings(settingsFile, withoutPiPackage(settings, directory));
+    for (const file of states) {
+      if (file.state === "current") {
+        await fs.rm(path.join(directory, ...file.name.split("/")), { force: true });
+      }
+    }
+    await pruneEmptyDirectories(directory);
+    console.log(`Removed the CodeTour Pi package from ${directory}.`);
+    console.log(`Removed its declaration from ${settingsFile}.`);
+  },
+};
+
 const VSCODE_EXTENSION_ID = "maurice30120.codetour";
 
 function findVsix(): string | undefined {
@@ -783,6 +1105,17 @@ const vscodeIntegration: AgentIntegration = {
       ? { state: "installed" as const, detail: `Extension ${VSCODE_EXTENSION_ID} is installed.` }
       : { state: "not-installed" as const, detail: `Extension ${VSCODE_EXTENSION_ID} is not installed.` };
   },
+  async prerequisite() {
+    const detection = await this.detect();
+    if (detection.state !== "detected") return detection.detail;
+    if (!findVsix()) {
+      return (
+        "No CodeTour .vsix was found in the current directory or next to the CLI. " +
+        "Package one with 'npm run package' or point CODETOUR_VSIX at it."
+      );
+    }
+    return undefined;
+  },
   async install() {
     const vsix = findVsix();
     if (!vsix) {
@@ -807,10 +1140,139 @@ const vscodeIntegration: AgentIntegration = {
   }
 };
 
-export const agentIntegrations: AgentIntegration[] = [copilotIntegration, vscodeIntegration];
+export const agentIntegrations: AgentIntegration[] = [
+  copilotIntegration,
+  piIntegration,
+  vscodeIntegration,
+];
 
 export function agentIds(): string {
   return agentIntegrations.map(integration => integration.id).join(", ");
+}
+
+export type AgentOutcomeResult =
+  | "installed"
+  | "already-installed"
+  | "uninstalled"
+  | "not-installed"
+  | "skipped"
+  | "failed";
+
+export interface AgentOutcome {
+  id: string;
+  displayName: string;
+  result: AgentOutcomeResult;
+  detail?: string;
+}
+
+export interface AgentBatchReport {
+  outcomes: AgentOutcome[];
+  failed: boolean;
+}
+
+const ALL_AGENTS = "all";
+
+// `CODETOUR_DISABLE_AGENTS` keeps an agent out of a batch install or uninstall:
+// a machine where an agent CLI exists but must not be touched (CI, a shared
+// account, a machine served by another build). An explicit `--install <agent>`
+// ignores it, because naming the agent is the instruction.
+function disabledAgents(): Set<string> {
+  return new Set(
+    (process.env.CODETOUR_DISABLE_AGENTS || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean)
+  );
+}
+
+function selectedIntegrations(id: string | undefined): AgentIntegration[] {
+  if (id && id !== ALL_AGENTS) return [findAgentIntegration(id)];
+  const disabled = disabledAgents();
+  return agentIntegrations.filter((integration) => !disabled.has(integration.id));
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function reportOutcomes(outcomes: AgentOutcome[]): void {
+  console.log("Agent integrations:");
+  for (const outcome of outcomes) {
+    const detail = outcome.detail ? ` (${outcome.detail})` : "";
+    const line = `  ${outcome.id}: ${outcome.result}${detail}`;
+    // A failure is an error, never a note: stdout stays the readable summary,
+    // stderr carries what a caller must not miss.
+    if (outcome.result === "failed") console.error(line);
+    else console.log(line);
+  }
+}
+
+/**
+ * Install one agent, `all` of them, or (with no id) every *compatible* agent.
+ *
+ * Compatibility is "the agent is present and its install prerequisite is
+ * met": an absent agent is skipped with its reason, so a machine without one
+ * CLI never blocks the others. A failing agent does not stop the batch either;
+ * it is reported, and `failed` tells the caller to exit non-zero.
+ */
+export async function installAgents(id?: string): Promise<AgentBatchReport> {
+  const outcomes: AgentOutcome[] = [];
+  const explicit = Boolean(id && id !== ALL_AGENTS);
+  for (const integration of selectedIntegrations(id)) {
+    const base = { id: integration.id, displayName: integration.displayName };
+    try {
+      // A batch installs the agents this machine actually uses; naming one
+      // agent is the instruction, so its missing prerequisite is a failure.
+      if (!explicit) {
+        const detection = await integration.detect();
+        if (detection.state !== "detected") {
+          outcomes.push({ ...base, result: "skipped", detail: detection.detail });
+          continue;
+        }
+      }
+      const reason = await integration.prerequisite?.();
+      if (reason) {
+        outcomes.push({ ...base, result: explicit ? "failed" : "skipped", detail: reason });
+        continue;
+      }
+      const status = await integration.status();
+      if (status.state === "installed") {
+        outcomes.push({ ...base, result: "already-installed", detail: status.detail });
+        continue;
+      }
+      await integration.install();
+      outcomes.push({ ...base, result: "installed" });
+    } catch (error) {
+      outcomes.push({ ...base, result: "failed", detail: messageOf(error) });
+    }
+  }
+  reportOutcomes(outcomes);
+  return { outcomes, failed: outcomes.some((outcome) => outcome.result === "failed") };
+}
+
+/**
+ * Remove one agent, `all` of them, or (with no id) every agent this CLI can
+ * see as installed. Uninstalling does not need the agent CLI to be present:
+ * the files and declarations this CLI wrote are removable without it.
+ */
+export async function uninstallAgents(id?: string): Promise<AgentBatchReport> {
+  const outcomes: AgentOutcome[] = [];
+  for (const integration of selectedIntegrations(id)) {
+    const base = { id: integration.id, displayName: integration.displayName };
+    try {
+      const status = await integration.status();
+      if (status.state === "not-installed") {
+        outcomes.push({ ...base, result: "not-installed", detail: status.detail });
+        continue;
+      }
+      await integration.uninstall();
+      outcomes.push({ ...base, result: "uninstalled" });
+    } catch (error) {
+      outcomes.push({ ...base, result: "failed", detail: messageOf(error) });
+    }
+  }
+  reportOutcomes(outcomes);
+  return { outcomes, failed: outcomes.some((outcome) => outcome.result === "failed") };
 }
 
 export function findAgentIntegration(id: string): AgentIntegration {

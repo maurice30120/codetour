@@ -328,6 +328,27 @@ as they were: a `valid` read or a `saved` proposal proves only that declared
 evidence still matches; it is not a semantic guarantee that the explanation is
 correct or complete.
 
+### Install every compatible agent
+
+`codetour --install` installs the integration of **every host this machine
+actually has**, from one CLI revision, without a checkout or network:
+
+```text
+Agent integrations:
+  copilot: installed
+  pi: installed
+  vscode: skipped (No CodeTour .vsix was found in the current directory or next to the CLI. …)
+```
+
+Compatibility means the host is present and its install prerequisite is met. An
+absent host is **skipped with its reason**, never a fatal error; an agent that
+fails is reported and makes the command exit non-zero without stopping the
+others. `--install <agent>` still names exactly one agent, `--install all` is
+the batch, and `--uninstall` removes every integration this CLI installed.
+`CODETOUR_DISABLE_AGENTS=vscode,pi` keeps agents out of a batch (CI, a shared
+account, a machine served by another build); naming an agent explicitly ignores
+it.
+
 ### Install the Copilot plugin
 
 `codetour --install copilot` installs two surfaces from the same CLI revision,
@@ -384,6 +405,43 @@ consolidation closure is all-or-nothing today, so `partial` is reserved. See
 [ADR 0041](docs/adr/0041-deliver-codetour-as-an-agent-plugins-1-0-plugin-with-one-guarded-run.md)
 and the [plugin README](packages/copilot-plugin/README.md) for the exact file
 format, expiry and outcomes.
+
+### Install the Pi plugin
+
+`codetour --install pi` installs the same integration for the Pi coding agent
+from the same CLI revision, without a checkout or network:
+
+1. the **Pi package** from
+   [`packages/pi-plugin/`](packages/pi-plugin/README.md), embedded in the CLI
+   bundle by `scripts/embed-pi-plugin.js`;
+2. its declaration in `<agent-dir>/settings.json` under `packages[]`, with
+   `<agent-dir>` = `PI_CODING_AGENT_DIR` or `~/.pi/agent`;
+3. a `launcher.json` naming the CLI that performed the install, so a stale
+   `codetour` on `PATH` cannot serve the session.
+
+A direct `pi install ./packages/pi-plugin` installs the same package without
+that launcher. The package declares the existing `codetour mcp` server with
+`pi.registerMcpServer` (`deferred` exposure, real `ctx.cwd` as workspace), ships
+the `codetour-generate` skill rewritten on the `mcp__codetour__*` tool names,
+and hosts the consolidation guard as an `agent_before_settle` handler instead of
+a subprocess hook. `/codetour` collects the two choices with `ctx.ui.select`,
+writes the same run state, and delivers the skill invocation; Pi exposes MCP
+tools but not MCP prompts, so the served prompt is fetched with
+`get_generation_prompt` rather than `prompts/get`.
+
+```sh
+codetour --install pi         # package + declaration
+pi list                       # codetour-pi-plugin, from the managed directory
+pi mcp list                   # the codetour server registered by the extension
+codetour --agents             # integration state and repair command
+```
+
+Both plugins record the same additive `knowledge` block in the run state (ADR
+0045): the verified catalogue the run's own `knowledge_list` returned, the
+invalid entries with their reasons, and the entries its `knowledge_read`
+served. The closing line reports it on both hosts — `ctx.ui.notify` in Pi, one
+clause on the `agentStop` stderr line in Copilot — and an absent block means
+"not measured", never "zero".
 
 ### Try the experimental Copilot adapter
 

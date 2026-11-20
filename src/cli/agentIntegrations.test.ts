@@ -35,6 +35,8 @@ function run(cwd: string, args: string[], env: Record<string, string> = {}) {
       // real `copilot plugin install` is exercised by
       // test/copilot-plugin-install.test.mjs against the installed CLI.
       CODETOUR_COPILOT_PLUGIN_DIR: path.join(cwd, "copilot-plugin"),
+      // Same for Pi: the package and its declaration stay in the workspace.
+      PI_CODING_AGENT_DIR: path.join(cwd, "pi-agent"),
       ...env
     }
   });
@@ -403,6 +405,7 @@ test("the agent diagnostics report a missing plugin and a legacy duplicate", () 
     const agents = run(workspace, ["--agents"]);
     assert.equal(agents.status, 0, agents.stderr);
     assert.match(agents.stdout, /copilot\tGitHub Copilot CLI/);
+    assert.match(agents.stdout, /pi\tPi coding agent/);
     assert.match(agents.stdout, /incomplete/);
     assert.match(agents.stdout, /plugin is missing/);
     assert.match(run(workspace, ["--doctor"]).stdout, /copilot: .*integration incomplete/);
@@ -477,16 +480,85 @@ test("an unsupported agent is explicit and an install works outside a Git worktr
     const unsupported = run(workspace, ["--install", "xxxxx"]);
     assert.notEqual(unsupported.status, 0);
     assert.match(unsupported.stderr, /Unsupported agent: xxxxx/);
-    assert.match(unsupported.stderr, /Available agents: copilot, vscode/);
+    assert.match(unsupported.stderr, /Available agents: copilot, pi, vscode/);
     // --agents reports every registered agent without failing on machines
     // where an agent CLI is missing.
     const agents = run(workspace, ["--agents"]);
     assert.equal(agents.status, 0, agents.stderr);
     assert.match(agents.stdout, /copilot\tGitHub Copilot CLI/);
+    assert.match(agents.stdout, /pi\tPi coding agent/);
     assert.match(agents.stdout, /vscode\tVisual Studio Code/);
     const doctor = run(workspace, ["--doctor"]);
     assert.equal(doctor.status, 0, doctor.stderr);
     assert.match(doctor.stdout, /git/);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("--install with no agent installs every compatible agent and reports the rest", () => {
+  const workspace = temporaryDirectory("codetour-agents-install-all-");
+  try {
+    // VS Code is excluded: a batch must never install an extension into the
+    // developer's real editor from a test.
+    const result = run(workspace, ["--install"], { CODETOUR_DISABLE_AGENTS: "vscode" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /^Agent integrations:$/m);
+    assert.match(result.stdout, /^  copilot: (installed|already-installed|skipped)/m);
+    assert.match(result.stdout, /^  pi: (installed|already-installed|skipped)/m);
+    assert.doesNotMatch(result.stdout, /vscode/, "a disabled agent takes no part in the batch");
+    // Whatever the machine has, a compatible agent was actually installed.
+    if (!/^  (copilot|pi): skipped$/m.test(result.stdout)) {
+      assert.ok(
+        existsSync(path.join(workspace, "copilot-plugin", "plugin.json")) ||
+          existsSync(path.join(workspace, "pi-agent", "packages", "codetour-plugin", "package.json")),
+        "at least one compatible agent must be installed"
+      );
+    }
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("--install all is the same batch as --install with no value", () => {
+  const workspace = temporaryDirectory("codetour-agents-install-all-alias-");
+  try {
+    const result = run(workspace, ["--install", "all"], { CODETOUR_DISABLE_AGENTS: "vscode" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /^Agent integrations:$/m);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("an absent agent is skipped with its reason and does not fail the batch", () => {
+  const workspace = temporaryDirectory("codetour-agents-install-none-");
+  const emptyPath = path.join(workspace, "empty-path");
+  mkdirSync(emptyPath, { recursive: true });
+  try {
+    // No agent CLI is reachable: every integration reports why it is skipped,
+    // and the exit code stays zero because nothing failed.
+    const result = run(workspace, ["--install"], { PATH: emptyPath });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /^  copilot: skipped \(/m);
+    assert.match(result.stdout, /^  pi: skipped \(/m);
+    assert.match(result.stdout, /^  vscode: skipped \(/m);
+    assert.ok(!existsSync(path.join(workspace, "pi-agent", "packages", "codetour-plugin")));
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("--uninstall with no agent removes every integration this CLI installed", () => {
+  const workspace = temporaryDirectory("codetour-agents-uninstall-all-");
+  try {
+    const installed = run(workspace, ["--install"], { CODETOUR_DISABLE_AGENTS: "vscode" });
+    assert.equal(installed.status, 0, installed.stderr);
+    const removed = run(workspace, ["--uninstall"], { CODETOUR_DISABLE_AGENTS: "vscode" });
+    assert.equal(removed.status, 0, removed.stderr);
+    assert.match(removed.stdout, /^  copilot: (uninstalled|not-installed)/m);
+    assert.match(removed.stdout, /^  pi: (uninstalled|not-installed)/m);
+    assert.ok(!existsSync(path.join(workspace, "pi-agent", "packages", "codetour-plugin")));
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }

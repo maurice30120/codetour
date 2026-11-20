@@ -12,7 +12,7 @@ import { discoverToursFromRoot, visibleTours } from "../core/tourDiscovery";
 import { renderDescription } from "codetour-description-renderer";
 import { runMcpCli } from "codetour-mcp";
 import { createStandaloneTourHtml } from "./html";
-import { doctor, findAgentIntegration, listAgents, agentIds } from "./agentIntegrations";
+import { doctor, installAgents, listAgents, uninstallAgents, agentIds } from "./agentIntegrations";
 import { resolveReadonlyStepContext } from "./stepContext";
 import { readTourImages } from "./stepImages";
 import { launchTerminalReader } from "./terminalLauncher";
@@ -25,8 +25,8 @@ const USAGE = "Usage: codetour [tour] [--renderer html|terminal]";
 
 interface Options {
   renderer?: string;
-  install?: string;
-  uninstall?: string;
+  install?: string | boolean;
+  uninstall?: string | boolean;
   agents: boolean;
   doctor: boolean;
   internalListTours: boolean;
@@ -42,8 +42,14 @@ function buildProgram(): Command {
     .description("Read guided Tours of a codebase, and generate them with AI agents.")
     .argument("[title]", "Tour title or Tour file name")
     .option("--renderer <type>", "open the Tour as terminal (default) or html")
-    .option("--install <agent>", "install an agent integration: " + agentIds())
-    .option("--uninstall <agent>", "remove an agent integration installed by this CLI")
+    .option(
+      "--install [agent]",
+      "install an agent integration: " + agentIds() + "; with no value or 'all', every compatible agent"
+    )
+    .option(
+      "--uninstall [agent]",
+      "remove an agent integration installed by this CLI; with no value or 'all', every installed agent"
+    )
     .option("--agents", "list every agent integration and its state")
     .option("--doctor", "diagnose this CLI and every agent integration")
     .option("--internal-list-tours", "print the discoverable Tours as JSON")
@@ -180,6 +186,13 @@ async function openFileInBrowser(file: string): Promise<void> {
   });
 }
 
+// `--install` without a value is `true`: it means "every compatible agent",
+// exactly like the explicit `all`.
+function agentId(value: string | boolean): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return value === "all" ? undefined : value;
+}
+
 async function runWithOptions(options: Options, title: string | undefined): Promise<void> {
   // Agent integrations run before Tour discovery: an installation is a
   // machine-level action, valid outside any Git worktree.
@@ -192,11 +205,13 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
     return;
   }
   if (options.install) {
-    await findAgentIntegration(options.install).install();
+    const report = await installAgents(agentId(options.install));
+    if (report.failed) process.exitCode = 1;
     return;
   }
   if (options.uninstall) {
-    await findAgentIntegration(options.uninstall).uninstall();
+    const report = await uninstallAgents(agentId(options.uninstall));
+    if (report.failed) process.exitCode = 1;
     return;
   }
 
