@@ -1,6 +1,6 @@
 # ADR 0048 — Select the ACP agent and model explicitly, from a probed local catalogue
 
-Date: 2026-11-20 · Status: accepted · Spec: #246 · Supersedes: ADR 0014
+Date: 2026-11-20 · Status: accepted · Spec: #246 · Supersedes: ADR 0014 · Amended by: ADR 0052 (the terminal reader chooses the model)
 
 ## Context
 
