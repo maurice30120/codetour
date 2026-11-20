@@ -1,14 +1,18 @@
 import { constants } from 'node:fs';
-import { copyFile, link, lstat, mkdir, realpath, unlink, writeFile } from 'node:fs/promises';
+import { access, copyFile, link, lstat, mkdir, realpath, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
+  catalogueCanonicalizerName,
   hashWorkspaceFile,
+  hashWorkspaceSymbol,
   isOutsideWorkspace,
   knowledgeDirectory,
   parseKnowledge,
-  type KnowledgeFileProof
+  readCatalogueCanonicalizer,
+  type KnowledgeProof
 } from './knowledge';
+import { knowledgeCanonicalizer } from './symbol-fingerprint';
 import { validateNewKnowledgeName } from './name';
 
 /**
@@ -28,11 +32,23 @@ import { validateNewKnowledgeName } from './name';
 
 /** One evidence item as declared by a proposal; `sha256` is optional. */
 export interface KnowledgeProposalFileProof {
-  /** Only `file` proofs are supported; any other value is refused. */
   type?: 'file';
   /** Workspace-relative path of the cited file. */
   path: string;
   /** Optional declared SHA-256, verified against the cited bytes. */
+  sha256?: string;
+  /** Optional trace that this file proof substitutes an unresolvable symbol proof (spec #233: creation only). */
+  origin?: 'symbol_fallback';
+}
+
+/** A requested symbol proof: the engine resolves and fingerprints, the model never computes. */
+export interface KnowledgeProposalSymbolProof {
+  type: 'symbol';
+  /** Workspace-relative path of the file carrying the cited symbol. */
+  path: string;
+  /** Qualified name of the cited symbol; resolved uniquely or refused. */
+  symbol: string;
+  /** Optional declared fingerprint, verified against the canonical span. */
   sha256?: string;
 }
 
@@ -40,7 +56,7 @@ export interface KnowledgeProposalEntry {
   name: string;
   description: string;
   body: string;
-  evidence: KnowledgeProposalFileProof[];
+  evidence: Array<KnowledgeProposalFileProof | KnowledgeProposalSymbolProof>;
 }
 
 /** The documented proposal file: `{"entries":[...]}` and nothing else. */
@@ -53,7 +69,7 @@ export interface KnowledgePersistableEntry {
   name: string;
   description: string;
   body: string;
-  evidence: KnowledgeFileProof[];
+  evidence: KnowledgeProof[];
 }
 
 /**
@@ -75,7 +91,13 @@ export type KnowledgeSaveRejectionReason =
   | 'path_outside_workspace'
   | 'symlink_escape'
   | 'not_a_file'
-  | 'catalogue_unusable';
+  | 'catalogue_unusable'
+  | 'symbol_unresolved'
+  | 'symbol_ambiguous'
+  | 'unsupported_language'
+  | 'symbol_hash_mismatch'
+  | 'engine_changed'
+  | 'unstable_evidence';
 
 export interface KnowledgeSaveRejection {
   name?: string;
@@ -87,21 +109,15 @@ export interface KnowledgeNameConflict {
   reason: 'name_conflict';
 }
 
-/** Advisory codes about published entries; never a refusal and never a leak. */
-export type KnowledgeSaveWarningCode = 'insufficient_backing';
-
 /**
- * One advisory signal about a published entry: the entry IS published, but its
- * whole verification contract rests on fewer distinct cited files than a rule
- * beyond those files would need. The signal names the entry and reports the
- * count of distinct cited paths — never a path or a hash value.
+ * Advisory signals about published entries; never a refusal and never a
+ * body leak. A fallback signal names the substituted path — at save time
+ * the proposing agent itself just authored that path, so naming it leaks
+ * nothing (spec #233: explicit fallback, never silent).
  */
-export interface KnowledgeSaveWarning {
-  name: string;
-  code: KnowledgeSaveWarningCode;
-  /** Number of distinct cited paths of the published entry. */
-  distinctEvidencePaths: number;
-}
+export type KnowledgeSaveWarning =
+  | { name: string; code: 'insufficient_backing'; distinctEvidencePaths: number }
+  | { name: string; code: 'symbol_proof_fallback'; path: string; reason: 'symbol_unresolved' | 'symbol_ambiguous' | 'unsupported_language' };
 
 export type KnowledgeSaveResult =
   | { status: 'saved'; saved: string[]; warnings: KnowledgeSaveWarning[] }
@@ -120,7 +136,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 export function serializeKnowledgeEntry(entry: KnowledgePersistableEntry): string {
   const lines = ['---', `name: ${entry.name}`, `description: ${entry.description}`, 'evidence:'];
   for (const proof of entry.evidence) {
-    lines.push('  - type: file', `    path: ${proof.path}`, `    sha256: ${proof.sha256}`);
+    if (proof.type === 'symbol') {
+      lines.push('  - type: symbol', `    path: ${proof.path}`, `    symbol: ${proof.symbol}`, `    sha256: ${proof.sha256}`);
+    } else {
+      lines.push('  - type: file', `    path: ${proof.path}`, `    sha256: ${proof.sha256}`);
+      if (proof.origin) lines.push(`    origin: ${proof.origin}`);
+    }
   }
   lines.push('---');
   return `${lines.join('\n')}\n${entry.body}`;
@@ -132,14 +153,14 @@ interface ProposalFailure {
   reason: KnowledgeSaveRejectionReason;
 }
 
-type ProposalValidation = { ok: true; entry: KnowledgePersistableEntry } | ProposalFailure;
+type ProposalValidation = { ok: true; entry: KnowledgePersistableEntry; warnings: KnowledgeSaveWarning[] } | ProposalFailure;
 
 const failure = (reason: KnowledgeSaveRejectionReason, name?: string): ProposalFailure =>
   name === undefined ? { ok: false, reason } : { ok: false, name, reason };
 
 const PROVIDED_HASH = /^[0-9a-fA-F]{64}$/;
 
-const EVIDENCE_KEYS = new Set(['type', 'path', 'sha256']);
+const EVIDENCE_KEYS = new Set(['type', 'path', 'symbol', 'sha256', 'origin']);
 
 /**
  * Validate one proposal entry against the read grammar and the workspace, then
@@ -167,12 +188,12 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>): Pro
 
   if (!Array.isArray(raw.evidence) || raw.evidence.length === 0) return failure('missing_evidence', name);
 
-  const evidence: KnowledgeFileProof[] = [];
+  const evidence: KnowledgeProof[] = [];
+  const fallbacks: KnowledgeSaveWarning[] = [];
   for (const item of raw.evidence) {
     if (!isRecord(item) || Object.keys(item).some(key => !EVIDENCE_KEYS.has(key))) {
       return failure('malformed_evidence', name);
     }
-    if ('type' in item && item.type !== 'file') return failure('unsupported_proof', name);
     const cited = typeof item.path === 'string' ? item.path.trim() : '';
     if (!cited || /[\r\n]/.test(cited)) return failure('malformed_evidence', name);
     let declared: string | undefined;
@@ -180,11 +201,43 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>): Pro
       if (typeof item.sha256 !== 'string' || !PROVIDED_HASH.test(item.sha256)) return failure('malformed_evidence', name);
       declared = item.sha256.toLowerCase();
     }
+    const requested = item.type ?? 'file';
+    if (requested === 'symbol') {
+      // Spec #233: the engine resolves and fingerprints; the model never computes.
+      const symbolName = typeof item.symbol === 'string' ? item.symbol.trim() : '';
+      if (!symbolName) return failure('malformed_evidence', name);
+      const hashed = await hashWorkspaceSymbol(root, cited, symbolName);
+      if (hashed.status === 'ok') {
+        if (declared !== undefined && declared !== hashed.sha256) return failure('symbol_hash_mismatch', name);
+        evidence.push({ type: 'symbol', path: hashed.path, symbol: hashed.symbol, sha256: hashed.sha256 });
+        continue;
+      }
+      // Explicit fallback at creation only: a symbol proof the engine cannot
+      // resolve — unsupported language, absent or ambiguous symbol — is
+      // substituted by a verified file proof, traced in the entry AND
+      // reported, never silent (spec #233). Path-safety and engine failures
+      // refuse: substituting would hide a real mistake.
+      const fallbackReason = hashed.status === 'absent' && (hashed.reason === 'symbol_unresolved' || hashed.reason === 'symbol_ambiguous')
+        ? hashed.reason
+        : hashed.status === 'invalid' && hashed.reason === 'unsupported_language'
+          ? 'unsupported_language' as const
+          : undefined;
+      if (!fallbackReason) {
+        return failure(hashed.status === 'invalid' ? hashed.reason : 'file_missing', name);
+      }
+      const substituted = await hashWorkspaceFile(root, cited);
+      if (substituted.status !== 'ok') return failure(substituted.reason === 'file_missing' ? 'file_missing' : substituted.reason, name);
+      evidence.push({ type: 'file', path: substituted.path, sha256: substituted.sha256, origin: 'symbol_fallback' });
+      fallbacks.push({ name, code: 'symbol_proof_fallback', path: substituted.path, reason: fallbackReason });
+      continue;
+    }
+    if (requested !== 'file') return failure('unsupported_proof', name);
+    if (item.origin !== undefined && item.origin !== 'symbol_fallback') return failure('malformed_evidence', name);
     const hashed = await hashWorkspaceFile(root, cited);
     if (hashed.status === 'absent') return failure('file_missing', name);
     if (hashed.status === 'invalid') return failure(hashed.reason, name);
     if (declared !== undefined && declared !== hashed.sha256) return failure('file_hash_mismatch', name);
-    evidence.push({ type: 'file', path: hashed.path, sha256: hashed.sha256 });
+    evidence.push({ type: 'file', path: hashed.path, sha256: hashed.sha256, origin: item.origin });
   }
 
   const entry: KnowledgePersistableEntry = { name, description, body, evidence };
@@ -196,11 +249,11 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>): Pro
   if (parsed.description !== description) return failure('invalid_description', name);
   if (parsed.body !== body) return failure('invalid_body', name);
   if (parsed.evidence.length !== evidence.length || parsed.evidence.some((proof, index) =>
-    proof.path !== evidence[index].path || proof.sha256 !== evidence[index].sha256
+    proof.type !== evidence[index].type || proof.path !== evidence[index].path || proof.sha256 !== evidence[index].sha256
   )) {
     return failure('malformed_evidence', name);
   }
-  return { ok: true, entry };
+  return { ok: true, entry, warnings: fallbacks };
 }
 
 const errorCode = (error: unknown): string | undefined =>
@@ -274,6 +327,28 @@ function publishedWarnings(entries: KnowledgePersistableEntry[]): KnowledgeSaveW
 }
 
 /**
+ * Second read of every declared evidence (spec #233 decision): publication
+ * hashes each cited proof once during validation and once again right before
+ * staging. A divergence means the workspace changed under the save — the
+ * proposal is refused as unstable instead of pinning a fingerprint captured
+ * mid-write. Deterministic double read, no locks, no watchers.
+ */
+async function evidenceIsStable(root: string, entries: KnowledgePersistableEntry[]): Promise<boolean> {
+  for (const entry of entries) {
+    for (const proof of entry.evidence) {
+      if (proof.type === 'symbol') {
+        const hashed = await hashWorkspaceSymbol(root, proof.path, proof.symbol);
+        if (hashed.status !== 'ok' || hashed.sha256 !== proof.sha256) return false;
+      } else {
+        const hashed = await hashWorkspaceFile(root, proof.path);
+        if (hashed.status !== 'ok' || hashed.sha256 !== proof.sha256) return false;
+      }
+    }
+  }
+  return true;
+}
+
+/**
  * Validate and persist a whole proposal. Validation, duplicate detection and
  * conflict detection all run before the first byte is staged; staging files
  * are removed on every path and publication rolls back if a late conflict
@@ -295,9 +370,13 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
   const seen = new Set<string>();
   const validated: KnowledgePersistableEntry[] = [];
   const rejected: KnowledgeSaveRejection[] = [];
+  const fallbackWarnings: KnowledgeSaveWarning[] = [];
   for (const raw of proposal.entries) {
     const validation = await validateEntry(realRoot, raw, seen);
-    if (validation.ok) validated.push(validation.entry);
+    if (validation.ok) {
+      validated.push(validation.entry);
+      fallbackWarnings.push(...validation.warnings);
+    }
     else rejected.push(validation.name === undefined ? { reason: validation.reason } : { name: validation.name, reason: validation.reason });
   }
   if (rejected.length > 0) return { status: 'invalid', rejected };
@@ -312,6 +391,22 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
     }
   }
   if (conflicts.length > 0) return { status: 'conflict', conflicts };
+
+  // An engine change refuses symbol-proof saves only: file proofs do not
+  // depend on the canonicalizer identity at all (spec #233 / ADR 0046).
+  const hasSymbolProofs = validated.some(entry => entry.evidence.some(proof => proof.type === 'symbol'));
+  if (hasSymbolProofs) {
+    const stored = await readCatalogueCanonicalizer(directory);
+    if (stored && stored !== knowledgeCanonicalizer) {
+      return { status: 'invalid', rejected: [{ reason: 'engine_changed' }] };
+    }
+  }
+
+  // The second read of every cited proof: refuse a proposal whose workspace
+  // moved under it instead of pinning a mid-write fingerprint.
+  if (!(await evidenceIsStable(realRoot, validated))) {
+    return { status: 'invalid', rejected: validated.map(entry => ({ name: entry.name, reason: 'unstable_evidence' as const })) };
+  }
 
   try {
     await mkdir(directory, { recursive: true });
@@ -342,10 +437,17 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
       await Promise.allSettled(published.map(removeQuietly));
       return { status: 'conflict', conflicts: lateConflicts };
     }
+    if (hasSymbolProofs) {
+      // Stamp the catalogue with the canonicalizer identity that produced its
+      // symbol fingerprints; an existing marker never changes here.
+      const marker = join(directory, catalogueCanonicalizerName);
+      try { await access(marker); }
+      catch { try { await writeFile(marker, `${knowledgeCanonicalizer}\n`); } catch { /* advisory marker only */ } }
+    }
     return {
       status: 'saved',
       saved: validated.map(entry => entry.name),
-      warnings: publishedWarnings(validated)
+      warnings: [...publishedWarnings(validated), ...fallbackWarnings]
     };
   } catch (error) {
     await Promise.allSettled(published.map(removeQuietly));

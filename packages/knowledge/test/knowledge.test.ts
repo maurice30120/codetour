@@ -115,10 +115,11 @@ test('symbol proofs are unsupported and uppercase declared hashes verify', async
   await writeEntry(root, 'bare_symbol.md', `---\nname: bare_symbol\ndescription: declares a bare unsupported proof\nevidence:\n  - type: symbol\n---\nsecret body\n`);
   await writeEntry(root, 'upper.md', `---\nname: upper\ndescription: uppercase declared digest\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${lower.toUpperCase()}\n---\nopen body\n`);
   const library = await readRoot(root);
-  // A `symbol` item with ad-hoc keys is out of the fixed grammar; a bare one is
-  // known grammar that can never verify. Both refuse without the body.
+  // A `symbol` item with ad-hoc keys is out of the fixed grammar; a bare one
+  // no longer satisfies the strict symbol-proof schema (spec #233) either.
+  // Both refuse as malformed contracts without the body.
   await expectInvalid(await library.read('symbolic'), 'malformed_contract');
-  await expectInvalid(await library.read('bare_symbol'), 'unsupported_proof');
+  await expectInvalid(await library.read('bare_symbol'), 'malformed_contract');
   assert.doesNotMatch(JSON.stringify(await library.read('symbolic')), /secret body/);
   const read = await library.read('upper');
   assert.equal(read.status, 'valid');
@@ -193,6 +194,7 @@ test('parseKnowledge refuses without workspace access and the catalogue sits in 
   assert.equal(parseKnowledge('no envelope at all', 'x').status, 'invalid');
   const source = `---\nname: x\ndescription: declared\nevidence:\n  - type: symbol\n---\nbody\n`;
   const parsed = parseKnowledge(source, 'x');
-  assert.equal((parsed as { reason?: string }).reason, 'unsupported_proof');
+  // spec #233: an incomplete `symbol` item fails the strict schema up front
+  assert.equal((parsed as { reason?: string }).reason, 'malformed_contract');
   assert.equal(knowledgeDirectory('/ws'), join('/ws', '.tours', '.memory', 'knowledge'));
 });

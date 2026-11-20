@@ -654,7 +654,7 @@ const knowledgeSaveInputSchema = knowledgeToolInputSchema
       .unknown()
       .optional()
       .describe(
-        "The entries array of a Knowledge proposal: zero entries is an explicit completed_zero, one or many entries are validated and published together. Each entry has name, description, body and evidence [{path, sha256?}]."
+        "The entries array of a Knowledge proposal: zero entries is an explicit completed_zero, one or many entries are validated and published together. Each entry has name, description, body and evidence: file proofs [{type: \"file\", path, sha256?}] or symbol proofs [{type: \"symbol\", path, symbol, sha256?}]. A symbol proof can be provided without sha256: the engine resolves the qualified symbol and computes the fingerprint; when it cannot, the save falls back to a verified file proof and reports it in warnings, never silently."
       ),
     runId: z
       .unknown()

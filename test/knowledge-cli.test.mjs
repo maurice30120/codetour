@@ -220,7 +220,7 @@ test("knowledge read refuses malformed, stale, forged, missing, outside, escapin
       outside: "path_outside_workspace",
       absolute: "path_outside_workspace",
       symlink: "symlink_escape",
-      symbolic: "unsupported_proof",
+      symbolic: "malformed_contract",
       malformed: "malformed_contract",
       empty_body: "malformed_contract"
     };
@@ -540,7 +540,7 @@ test("refused evidence publishes nothing and leaves the existing catalogue untou
         { name: "absolute_path", reason: "path_outside_workspace" },
         { name: "escaping_link", reason: "symlink_escape" },
         { name: "directory", reason: "not_a_file" },
-        { name: "symbolic", reason: "unsupported_proof" },
+        { name: "symbolic", reason: "malformed_evidence" },
         { name: "bad_hash_shape", reason: "malformed_evidence" },
         { name: "bad_evidence_item", reason: "malformed_evidence" }
       ]

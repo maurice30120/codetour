@@ -24,7 +24,7 @@ interface EntryFixture {
   description?: string;
   body: string;
   evidence?: Array<{ path: string; sha256?: string }>;
-  symbol?: boolean;
+  symbolProof?: { path: string; symbol: string; sha256?: string };
 }
 
 // Write one Knowledge entry in the documented catalogue grammar. Fixtures are
@@ -38,8 +38,13 @@ function writeEntry(root: string, name: string, fixture: EntryFixture): void {
     `description: ${fixture.description ?? `Description of ${name}`}`,
     "evidence:",
   ];
-  if (fixture.symbol) {
-    lines.push("  - type: symbol");
+  if (fixture.symbolProof) {
+    lines.push(
+      "  - type: symbol",
+      `    path: ${fixture.symbolProof.path}`,
+      `    symbol: ${fixture.symbolProof.symbol}`,
+      `    sha256: ${fixture.symbolProof.sha256 ?? "0".repeat(64)}`
+    );
   } else {
     for (const proof of fixture.evidence ?? []) {
       lines.push(
@@ -93,7 +98,7 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
       writeEntry(root, "symbol_flow", {
         description: "Uses an unsupported proof",
         body: "SECRET BODY symbol\n",
-        symbol: true,
+        symbolProof: { path: "src/main.ts", symbol: "start", sha256: "f".repeat(64) },
       });
 
       const listed = await callTool(client, KNOWLEDGE_LIST, {});
@@ -109,7 +114,7 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
         ],
         invalid: [
           { name: "stale_flow", reason: "file_hash_mismatch" },
-          { name: "symbol_flow", reason: "unsupported_proof" },
+          { name: "symbol_flow", reason: "symbol_hash_mismatch" },
         ],
         total: 1,
         offset: 0,
@@ -126,13 +131,13 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
       );
       assert.deepEqual(filtered.structured.invalid, [
         { name: "stale_flow", reason: "file_hash_mismatch" },
-        { name: "symbol_flow", reason: "unsupported_proof" },
+        { name: "symbol_flow", reason: "symbol_hash_mismatch" },
       ]);
       // The invalid report is independent of the query: the whole broken set
       // stays visible for fixing.
       assert.deepEqual(filtered.structured.invalid, [
         { name: "stale_flow", reason: "file_hash_mismatch" },
-        { name: "symbol_flow", reason: "unsupported_proof" },
+        { name: "symbol_flow", reason: "symbol_hash_mismatch" },
       ]);
 
       const noMatch = await callTool(client, KNOWLEDGE_LIST, { query: "absent-topic" });
@@ -141,11 +146,11 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
       assert.equal(noMatch.structured.total, 0);
       assert.deepEqual(noMatch.structured.invalid, [
         { name: "stale_flow", reason: "file_hash_mismatch" },
-        { name: "symbol_flow", reason: "unsupported_proof" },
+        { name: "symbol_flow", reason: "symbol_hash_mismatch" },
       ]);
       assert.deepEqual(noMatch.structured.invalid, [
         { name: "stale_flow", reason: "file_hash_mismatch" },
-        { name: "symbol_flow", reason: "unsupported_proof" },
+        { name: "symbol_flow", reason: "symbol_hash_mismatch" },
       ]);
 
       // The last page is complete: `truncated` describes what remains after
@@ -157,7 +162,7 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
         entries: [],
         invalid: [
           { name: "stale_flow", reason: "file_hash_mismatch" },
-          { name: "symbol_flow", reason: "unsupported_proof" },
+          { name: "symbol_flow", reason: "symbol_hash_mismatch" },
         ],
         total: 1,
         offset: 1,
@@ -172,7 +177,7 @@ test("knowledge_list reports metadata only and treats an absent catalogue as emp
         entries: [{ name: "dispatch_flow", description: "How tool calls dispatch" }],
         invalid: [
           { name: "stale_flow", reason: "file_hash_mismatch" },
-          { name: "symbol_flow", reason: "unsupported_proof" },
+          { name: "symbol_flow", reason: "symbol_hash_mismatch" },
         ],
         total: 1,
         offset: 0,
@@ -246,7 +251,7 @@ test("knowledge_read refuses stale, missing, unsupported and escaping evidence w
     writeEntry(root, "symbol_flow", {
       description: "Unsupported proof",
       body: "SYMBOL SECRET BODY\n",
-      symbol: true,
+      symbolProof: { path: "src/main.ts", symbol: "start", sha256: "f".repeat(64) },
     });
     writeEntry(root, "escape_flow", {
       description: "Escaping symlink",
@@ -263,7 +268,7 @@ test("knowledge_read refuses stale, missing, unsupported and escaping evidence w
       const cases: Array<[string, string]> = [
         ["stale_flow", "file_hash_mismatch"],
         ["missing_flow", "file_missing"],
-        ["symbol_flow", "unsupported_proof"],
+        ["symbol_flow", "symbol_hash_mismatch"],
         ["escape_flow", "symlink_escape"],
         ["outside_flow", "path_outside_workspace"],
       ];
@@ -635,7 +640,7 @@ test("knowledge_list surfaces invalid catalogue entries for fixing", async () =>
     writeEntry(root, "symbol_flow", {
       description: "Uses an unsupported proof",
       body: "SYMBOL BODY\n",
-      symbol: true,
+      symbolProof: { path: "src/main.ts", symbol: "start", sha256: "f".repeat(64) },
     });
     // A name that contradicts its file stem is a static refusal, not an
     // invisible entry: the stem is reported so the fix points at the file.
@@ -656,7 +661,7 @@ test("knowledge_list surfaces invalid catalogue entries for fixing", async () =>
         invalid: [
           { name: "other_name", reason: "malformed_contract" },
           { name: "stale_flow", reason: "file_hash_mismatch" },
-          { name: "symbol_flow", reason: "unsupported_proof" },
+          { name: "symbol_flow", reason: "symbol_hash_mismatch" },
         ],
         total: 1,
         offset: 0,

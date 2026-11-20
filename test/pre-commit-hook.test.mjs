@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
   appendFileSync,
+  existsSync,
   cpSync,
   mkdirSync,
   mkdtempSync,
@@ -43,6 +44,15 @@ function shareSetup(root, { withBuild = true } = {}) {
       "dir"
     );
   }
+  // the knowledge build resolves its vendored tree-sitter runtime through the
+  // package's node_modules, exactly as in the repository
+  if (!existsSync(path.join(root, "packages", "knowledge", "node_modules"))) {
+    symlinkSync(
+      path.join(repository, "packages", "knowledge", "node_modules"),
+      path.join(root, "packages", "knowledge", "node_modules"),
+      "dir"
+    );
+  }
 }
 
 // A fixture repository holds the tracked files the fast guard reads: the
@@ -72,7 +82,9 @@ function createRepository({ withBuild = true } = {}) {
   // package sources its type check and tests read.
   for (const packageName of ["exploration-poc", "knowledge"]) {
     mkdirSync(path.join(root, "packages", packageName), { recursive: true });
-    for (const entry of ["package.json", "tsconfig.json", "src", "test"]) {
+    const entries = ["package.json", "tsconfig.json", "src", "test"];
+    if (packageName === "knowledge") entries.push("scripts");
+    for (const entry of entries) {
       cpSync(
         path.join(repository, "packages", packageName, entry),
         path.join(root, "packages", packageName, entry),
@@ -83,6 +95,12 @@ function createRepository({ withBuild = true } = {}) {
   symlinkSync(
     path.join(repository, "packages", "exploration-poc", "node_modules"),
     path.join(root, "packages", "exploration-poc", "node_modules"),
+    "dir"
+  );
+  // the knowledge build vendors the tree-sitter runtime through its scripts
+  symlinkSync(
+    path.join(repository, "packages", "knowledge", "node_modules"),
+    path.join(root, "packages", "knowledge", "node_modules"),
     "dir"
   );
   // The conformance spec imports the sandbox by relative path, so the fixture

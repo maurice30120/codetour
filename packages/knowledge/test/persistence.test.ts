@@ -176,7 +176,7 @@ test('invalid evidence refuses the whole proposal without publishing or leaving 
     { name: 'absolute_path', reason: 'path_outside_workspace' },
     { name: 'escaping_link', reason: 'symlink_escape' },
     { name: 'directory', reason: 'not_a_file' },
-    { name: 'symbolic', reason: 'unsupported_proof' },
+    { name: 'symbolic', reason: 'malformed_evidence' },
     { name: 'bad_shape', reason: 'malformed_evidence' },
     { name: 'not_an_object', reason: 'malformed_evidence' }
   ]);

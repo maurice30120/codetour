@@ -4,3 +4,4 @@
 export * from './name';
 export * from './knowledge';
 export * from './persistence';
+export * from './symbol-fingerprint';

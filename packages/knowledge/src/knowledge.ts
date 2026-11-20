@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { z } from 'zod';
 import { validateKnowledgeName } from './name';
+import { knowledgeCanonicalizer, treeSitterSymbolFingerprinter } from './symbol-fingerprint';
 
 /**
  * A Knowledge entry (spec #219): one Markdown file in the `knowledge` memory
@@ -24,11 +25,23 @@ export interface KnowledgeFileProof {
   path: string;
   /** Deterministic SHA-256 of the cited file bytes. */
   sha256: string;
+  /**
+   * How this proof came to be. Absent for deliberate file proofs; set at
+   * creation only when a requested symbol proof was substituted (spec #233:
+   * the fallback exists at creation, never silently at read).
+   */
+  origin?: 'symbol_fallback';
 }
 
-/** `symbol` proofs are part of the catalogue grammar but unsupported by this prototype. */
+/** A `symbol` proof pins the deterministic SHA-256 of the cited symbol's canonical span (spec #233). */
 export interface KnowledgeSymbolProof {
   type: 'symbol';
+  /** Workspace-relative path of the file carrying the symbol. */
+  path: string;
+  /** Qualified name of the cited symbol, resolved uniquely within the cited file. */
+  symbol: string;
+  /** Deterministic SHA-256 of the symbol's canonical (comment- and presentation-stripped) span. */
+  sha256: string;
 }
 
 export type KnowledgeProof = KnowledgeFileProof | KnowledgeSymbolProof;
@@ -50,20 +63,31 @@ export type KnowledgeFailureReason =
   | 'file_hash_mismatch'
   | 'path_outside_workspace'
   | 'symlink_escape'
-  | 'unknown_entry';
+  | 'unknown_entry'
+  | 'symbol_unresolved'
+  | 'symbol_ambiguous'
+  | 'unsupported_language'
+  | 'symbol_hash_mismatch'
+  | 'engine_changed';
 
 /** Outcome of a Knowledge read: the validated Markdown body, or a typed refusal. */
 export type KnowledgeValidation =
-  | { status: 'valid'; name: string; description: string; body: string; evidence: KnowledgeFileProof[] }
+  | { status: 'valid'; name: string; description: string; body: string; evidence: KnowledgeProof[] }
   | { status: 'invalid'; reason: KnowledgeFailureReason };
 
 const fileProofSchema = z.object({
   type: z.literal('file'),
   path: z.string().min(1),
   sha256: z.string().regex(/^[0-9a-fA-F]{64}$/),
+  origin: z.literal('symbol_fallback').optional(),
 }).strict();
 
-const symbolProofSchema = z.object({ type: z.literal('symbol') }).strict();
+const symbolProofSchema = z.object({
+  type: z.literal('symbol'),
+  path: z.string().min(1),
+  symbol: z.string().min(1),
+  sha256: z.string().regex(/^[0-9a-fA-F]{64}$/),
+}).strict();
 
 const proofSchema = z.union([fileProofSchema, symbolProofSchema]);
 
@@ -172,15 +196,15 @@ export function parseKnowledge(source: string, fileName: string): KnowledgeValid
   const { name, description, evidence } = parsed.data;
   if (!validateKnowledgeName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };
   if (name !== fileName.replace(/\.md$/, '')) return { status: 'invalid', reason: 'malformed_contract' };
-  // `symbol` items match the known grammar but can never verify in this
-  // prototype: refuse the entry up front instead of failing at read time.
-  if (evidence.some(proof => proof.type !== 'file')) return { status: 'invalid', reason: 'unsupported_proof' };
+  // Complete `symbol` proofs are part of the contract (spec #233) and verify
+  // at read time; an incomplete one already failed the schema above, so there
+  // is no unsupported proof left to refuse here.
   return {
     status: 'valid',
     name,
     description,
     body,
-    evidence: evidence.filter((proof): proof is KnowledgeFileProof => proof.type === 'file'),
+    evidence,
   };
 }
 
@@ -201,35 +225,65 @@ export const isOutsideWorkspace = (root: string, target: string): boolean => {
 
 const escapes = isOutsideWorkspace;
 
+/** Outcome of a deterministic symbol fingerprint (spec #233); no cited path or hash value ever leaves with a refusal. */
+export type SymbolFingerprintOutcome =
+  | { status: 'ok'; sha256: string }
+  | { status: 'refused'; reason: 'symbol_unresolved' | 'symbol_ambiguous' | 'unsupported_language' | 'engine_changed' };
+
+/**
+ * Deterministic fingerprint of one cited symbol inside ONE resolved file.
+ * Implementations resolve the qualified name uniquely and hash the canonical
+ * (comment- and presentation-stripped) span of that symbol — never a hash of
+ * mere AST node kinds. The module default is fail-closed: until a grammar-
+ * backed canonicalizer is wired, every symbol proof reads as an unsupported
+ * language instead of pretending to verify.
+ */
+export type SymbolFingerprinter = (realRoot: string, realFile: string, proof: KnowledgeSymbolProof) => Promise<SymbolFingerprintOutcome>;
+
+type CitedFile =
+  | { status: 'ok'; real: string }
+  | { status: 'refused'; reason: 'file_missing' | 'path_outside_workspace' | 'symlink_escape' };
+
+/** Shared path-safety of every proof type: confinement, symlink escape, existence. */
+const resolveCitedFile = async (realRoot: string, path: string): Promise<CitedFile> => {
+  if (isAbsolute(path) || path.includes('\0')) return { status: 'refused', reason: 'path_outside_workspace' };
+  const target = resolve(realRoot, path);
+  if (escapes(realRoot, target)) return { status: 'refused', reason: 'path_outside_workspace' };
+  let real: string;
+  try { real = await realpath(target); }
+  catch { return { status: 'refused', reason: 'file_missing' }; }
+  if (escapes(realRoot, real)) return { status: 'refused', reason: 'symlink_escape' };
+  return { status: 'ok', real };
+};
+
 /**
  * Deterministic verification of a parsed Knowledge entry. EVERY declared
- * `file` proof is checked — never a sample — before the body is returned:
- * the declared path must stay inside the workspace, must not escape through a
- * symbolic link, and the cited regular file's bytes must hash to the declared
- * SHA-256. The first failing proof stops the check with its reason; no
- * content, path or hash value ever leaves this module with the refusal.
+ * proof is checked — never a sample — before the body is returned: each cited
+ * path must stay inside the workspace, must not escape through a symbolic
+ * link, and each proof must hash to its declared SHA-256 — the cited file's
+ * bytes for `file`, the symbol's canonical span for `symbol`. The first
+ * failing proof stops the check with its reason; no content, path or hash
+ * value ever leaves this module with the refusal.
  */
-export async function verifyKnowledge(entry: Extract<KnowledgeValidation, { status: 'valid' }>, root: string): Promise<KnowledgeValidation> {
+export async function verifyKnowledge(entry: Extract<KnowledgeValidation, { status: 'valid' }>, root: string, fingerprinter: SymbolFingerprinter = treeSitterSymbolFingerprinter): Promise<KnowledgeValidation> {
   let realRoot: string;
   try { realRoot = await realpath(root); }
   catch { return { status: 'invalid', reason: 'file_missing' }; }
   for (const proof of entry.evidence) {
-    if (proof.type !== 'file') return { status: 'invalid', reason: 'unsupported_proof' };
-    if (isAbsolute(proof.path) || proof.path.includes('\0')) return { status: 'invalid', reason: 'path_outside_workspace' };
-    const target = resolve(realRoot, proof.path);
-    if (escapes(realRoot, target)) return { status: 'invalid', reason: 'path_outside_workspace' };
-    let real: string;
-    try { real = await realpath(target); }
+    const cited = await resolveCitedFile(realRoot, proof.path);
+    if (cited.status === 'refused') return { status: 'invalid', reason: cited.reason };
+    let info;
+    try { info = await stat(cited.real); }
     catch { return { status: 'invalid', reason: 'file_missing' }; }
-    // A symbolic link resolving outside the workspace is refused regardless of the bytes it reaches.
-    if (escapes(realRoot, real)) return { status: 'invalid', reason: 'symlink_escape' };
-    let bytes: Buffer;
-    try {
-      const info = await stat(real);
-      if (!info.isFile()) return { status: 'invalid', reason: 'file_missing' };
-      bytes = await readFile(real);
-    } catch { return { status: 'invalid', reason: 'file_missing' }; }
-    if (!sameHash(proof.sha256, fileProofHash(bytes))) return { status: 'invalid', reason: 'file_hash_mismatch' };
+    if (!info.isFile()) return { status: 'invalid', reason: 'file_missing' };
+    if (proof.type === 'symbol') {
+      const fingerprint = await fingerprinter(realRoot, cited.real, proof);
+      if (fingerprint.status === 'refused') return { status: 'invalid', reason: fingerprint.reason };
+      if (!sameHash(proof.sha256, fingerprint.sha256)) return { status: 'invalid', reason: 'symbol_hash_mismatch' };
+    } else {
+      const bytes = await readFile(cited.real);
+      if (!sameHash(proof.sha256, fileProofHash(bytes))) return { status: 'invalid', reason: 'file_hash_mismatch' };
+    }
   }
   return entry;
 }
@@ -239,6 +293,54 @@ export type KnowledgePathHash =
   | { status: 'ok'; path: string; sha256: string }
   | { status: 'absent'; reason: 'file_missing' }
   | { status: 'invalid'; reason: 'path_outside_workspace' | 'symlink_escape' | 'not_a_file' };
+
+/** Creation-side fingerprint of one cited symbol; the twin of `hashWorkspaceFile`. */
+export type KnowledgeSymbolHash =
+  | { status: 'ok'; path: string; symbol: string; sha256: string }
+  | { status: 'absent'; reason: 'file_missing' | 'symbol_unresolved' | 'symbol_ambiguous' }
+  | { status: 'invalid'; reason: 'path_outside_workspace' | 'symlink_escape' | 'not_a_file' | 'unsupported_language' | 'engine_changed' };
+
+/**
+ * Deterministic fingerprint of one cited symbol through the workspace proof
+ * grammar — the creation-side twin of `hashWorkspaceFile`. An entry whose
+ * verification contract contains symbol proofs must always obtain this value
+ * from the engine, never from the model.
+ */
+export async function hashWorkspaceSymbol(root: string, path: string, symbol: string): Promise<KnowledgeSymbolHash> {
+  if (typeof symbol !== 'string' || !symbol.trim()) return { status: 'absent', reason: 'symbol_unresolved' };
+  if (typeof path !== 'string' || !path || isAbsolute(path) || path.includes('\0')) return { status: 'invalid', reason: 'path_outside_workspace' };
+  let realRoot: string;
+  try { realRoot = await realpath(root); }
+  catch { return { status: 'absent', reason: 'file_missing' }; }
+  const target = resolve(realRoot, path);
+  if (escapes(realRoot, target)) return { status: 'invalid', reason: 'path_outside_workspace' };
+  let real: string;
+  try { real = await realpath(target); }
+  catch { return { status: 'absent', reason: 'file_missing' }; }
+  if (escapes(realRoot, real)) return { status: 'invalid', reason: 'symlink_escape' };
+  let info;
+  try { info = await stat(real); }
+  catch { return { status: 'absent', reason: 'file_missing' }; }
+  if (!info.isFile()) return { status: 'invalid', reason: 'not_a_file' };
+  const fingerprint = await treeSitterSymbolFingerprinter(realRoot, real, { type: 'symbol', path, symbol, sha256: '' });
+  if (fingerprint.status !== 'ok') return fingerprint.reason === 'symbol_unresolved' || fingerprint.reason === 'symbol_ambiguous'
+    ? { status: 'absent', reason: fingerprint.reason }
+    : { status: 'invalid', reason: fingerprint.reason };
+  return { status: 'ok', path: relative(realRoot, real).split(sep).join('/'), symbol, sha256: fingerprint.sha256 };
+}
+
+/**
+ * The catalogue stores the canonicalizer identity that produced its symbol
+ * fingerprints, once, not per proof: an engine change reads as
+ * `engine_changed` (explicit re-anchoring) instead of a false code-change
+ * diagnosis (ADR 0046).
+ */
+export const catalogueCanonicalizerName = '.canonicalizer';
+
+export const readCatalogueCanonicalizer = async (directory: string): Promise<string | undefined> => {
+  try { return (await readFile(join(directory, catalogueCanonicalizerName), 'utf8')).trim() || undefined; }
+  catch { return undefined; }
+};
 
 /**
  * Deterministic hash of one workspace-relative path, using the exact same
@@ -285,7 +387,7 @@ export interface KnowledgeLibrary {
  * and never breaks an ordinary search; every read verifies the whole declared
  * evidence contract before the body is returned.
  */
-export async function loadKnowledgeLibrary(root: string, directory: string): Promise<KnowledgeLibrary> {
+export async function loadKnowledgeLibrary(root: string, directory: string, fingerprinter: SymbolFingerprinter = treeSitterSymbolFingerprinter): Promise<KnowledgeLibrary> {
   const realRoot = await realpath(root).catch(() => undefined);
   const realDirectory = realRoot ? await realpath(directory).catch(() => undefined) : undefined;
   const usable = (): string | undefined => realRoot && realDirectory && !escapes(realRoot, realDirectory) ? realDirectory : undefined;
@@ -336,7 +438,13 @@ export async function loadKnowledgeLibrary(root: string, directory: string): Pro
       if (entryFile.status !== 'valid') return entryFile;
       const parsed = parseKnowledge(entryFile.source, name);
       if (parsed.status !== 'valid') return parsed;
-      return verifyKnowledge(parsed, root);
+      // A stale canonicalizer identity is an engine change, never a code
+      // change: symbol proofs route to explicit re-anchoring (ADR 0046).
+      const marker = await readCatalogueCanonicalizer(usable() ?? '');
+      const engineStale = marker !== undefined && marker !== knowledgeCanonicalizer;
+      return verifyKnowledge(parsed, root, engineStale
+        ? async () => ({ status: 'refused', reason: 'engine_changed' as const })
+        : fingerprinter);
     }
   };
   return library;
