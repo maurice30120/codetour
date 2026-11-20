@@ -6,10 +6,13 @@ import { renderPreviewDescription } from "./description";
 import { createTourWebviewHtml } from "./markdown";
 import {
   askTourStepQuestion,
+  chooseStepChatAgent,
   clearStepChatConversations,
   closeStepChatAgents,
   getStepChatConversationView,
   openStepChatAgents,
+  probeStepChatUnverifiedAgents,
+  refreshStepChatAgents,
   stopTourStepQuestion,
   type StepChatConversationView
 } from "./stepChat";
@@ -51,9 +54,10 @@ export function showTourWebview(): void {
       closeStepChatAgents();
     });
     // Opening the panel probes the Agent Catalogue: the availability it
-    // establishes decides who answers. Once it settled the conversation is
-    // reposted rather than re-rendered, so a probe that answers while the
-    // step is still being rendered never paints the panel ahead of it.
+    // establishes decides who answers. Once it settled — and on every later
+    // change of the panel's agents — the conversation is reposted rather than
+    // re-rendered, so a probe that answers while the step is still being
+    // rendered never paints the panel ahead of it.
     openStepChatAgents(active.workspaceRoot?.fsPath ?? "", () => {
       const rendered = current.rendered;
       if (view !== current || !rendered) return;
@@ -81,8 +85,17 @@ export function showTourWebview(): void {
           }
         } else if (message.type === "openLink" && typeof message.href === "string") {
           await openDescriptionLink(message.href, rendered.active.workspaceRoot);
+        } else if (message.type === "chooseAgent" && typeof message.agent === "string") {
+          // The reader's choice replaces the agent that answers: the current
+          // session is released and the step history kept. A choice made while
+          // an answer streams is ignored, never applied.
+          chooseStepChatAgent(message.agent);
+        } else if (message.type === "refreshAgents") {
+          await refreshStepChatAgents();
+        } else if (message.type === "probeUnverified") {
+          await probeStepChatUnverifiedAgents();
         } else if (
-          message.type === "askQuestion" &&
+          (message.type === "askQuestion" || message.type === "retryQuestion") &&
           typeof message.question === "string" &&
           message.question.trim()
         ) {

@@ -82,8 +82,10 @@ export interface TourAgentAvailability {
   state: AgentAvailability["state"];
   /** The authentication methods' names, or the connection error's reason. */
   detail?: string;
-  /** True for the Agent Profile that answers by default. */
+  /** True for the Agent Profile that answers right now. */
   selected?: boolean;
+  /** False when the reader may not pick this profile by hand. */
+  selectable?: boolean;
 }
 
 /** The active step displayed in the single expanded reading view. */
@@ -141,29 +143,61 @@ const AGENT_STATE_LABELS: Record<AgentAvailability["state"], string> = {
   "connection-error": "connection error"
 };
 
-/** One catalogue profile with its availability, as the agent line lists it. */
+/** One catalogue profile with its availability, as the selector spells it. */
 function agentStateText(agent: TourAgentAvailability): string {
   const detail = agent.detail ? ` (${agent.detail})` : "";
-  return `${agent.name} — ${AGENT_STATE_LABELS[agent.state] ?? "unknown"}${detail}${
-    agent.selected ? " · selected" : ""
-  }`;
+  return `${agent.name} — ${AGENT_STATE_LABELS[agent.state] ?? "unknown"}${detail}`;
 }
 
-/** The catalogue's availability, escaped like every other displayed value. */
-function renderAgentsHtml(agents: TourAgentAvailability[] | undefined): string {
+/**
+ * The Agent control of the conversation area: the whole catalogue with each
+ * profile's state, the answering profile selected and the profiles the reader
+ * may not pick disabled. It is locked while an answer streams, like the
+ * composer, so no answer is ever interrupted by a change of agent.
+ */
+function renderAgentControlsHtml(
+  agents: TourAgentAvailability[] | undefined,
+  locked: boolean
+): string {
   const entries = agents ?? [];
-  return `<p class="step-chat-agents" id="step-chat-agents"${
-    entries.length === 0 ? " hidden" : ""
-  }>${entries
+  const options = entries
     .map(
       agent =>
-        `<span class="step-chat-agent-state" data-state="${escapeHtml(
+        `<option value="${escapeHtml(agent.name)}" data-state="${escapeHtml(
           agent.state
-        )}"${agent.selected ? ' data-selected="true"' : ""}>${escapeHtml(
-          agentStateText(agent)
-        )}</span>`
+        )}"${agent.selected ? " selected" : ""}${
+          agent.selectable === false ? " disabled" : ""
+        }>${escapeHtml(agentStateText(agent))}</option>`
     )
-    .join("")}</p>`;
+    .join("");
+  return `<div class="step-chat-agent-controls" id="step-chat-agent-controls"${
+    entries.length === 0 ? " hidden" : ""
+  }><label class="step-chat-control-label" for="step-chat-agent-select">Agent</label><select class="step-chat-agent-select" id="step-chat-agent-select" aria-label="Agent"${
+    locked ? " disabled" : ""
+  }>${options}</select><button type="button" class="step-chat-agents-refresh" id="step-chat-agents-refresh" data-action="refreshAgents" title="Probe every agent again"${
+    locked ? " disabled" : ""
+  }>Refresh</button></div>`;
+}
+
+/**
+ * The two actions of a failed exchange: ask the same question again to the
+ * same agent, or move the conversation to another one. Both stay disabled
+ * while another answer streams.
+ */
+function renderFailureActionsHtml(
+  exchange: TourStepChatExchange,
+  locked: boolean
+): string {
+  if (!exchange.failed) {
+    return "";
+  }
+  return `<p class="step-chat-failure-actions"><button type="button" class="step-chat-failure" data-action="retryQuestion" data-question="${escapeHtml(
+    exchange.question
+  )}" title="Ask this question again to the same agent"${
+    locked ? " disabled" : ""
+  }>Retry</button><button type="button" class="step-chat-failure" data-action="changeAgent" title="Choose another agent for this step"${
+    locked ? " disabled" : ""
+  }>Change agent</button></p>`;
 }
 
 /**
@@ -207,7 +241,8 @@ function renderAgentCaptionHtml(exchange: TourStepChatExchange): string {
 }
 
 function renderStepChatLogHtml(
-  exchanges: TourStepChatExchange[] | undefined
+  exchanges: TourStepChatExchange[] | undefined,
+  locked: boolean
 ): string {
   return (exchanges ?? [])
     .map(
@@ -217,7 +252,10 @@ function renderStepChatLogHtml(
           exchange.failed ? " step-chat-error" : ""
         }${exchange.pending ? " step-chat-pending" : ""}${
           exchange.interrupted ? " step-chat-interrupted" : ""
-        }">${renderAgentCaptionHtml(exchange)}${renderForbiddenToolsHtml(exchange)}${exchange.activityHtml ? `<details class="step-chat-activity"${exchange.pending ? " open" : ""}><summary>Model activity</summary>${exchange.activityHtml}</details>` : ""}${exchange.answerHtml}</li>`
+        }">${renderAgentCaptionHtml(exchange)}${renderForbiddenToolsHtml(exchange)}${exchange.activityHtml ? `<details class="step-chat-activity"${exchange.pending ? " open" : ""}><summary>Model activity</summary>${exchange.activityHtml}</details>` : ""}${exchange.answerHtml}${renderFailureActionsHtml(
+          exchange,
+          locked
+        )}</li>`
     )
     .join("");
 }
@@ -247,13 +285,19 @@ const READING_STYLES = `
     .step-chat-agent { margin: 0 0 1em; padding: 0 .75em; font-size: 12px; color: var(--vscode-descriptionForeground); }
     .step-chat-agent[hidden] { display: none; }
     .step-chat-agent-caption { display: block; margin-bottom: .35em; font-size: 12px; color: var(--vscode-descriptionForeground); }
-    .step-chat-agents { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 .6em; padding: 0 .75em; font-size: 12px; color: var(--vscode-descriptionForeground); }
-    .step-chat-agents[hidden] { display: none; }
-    .step-chat-agent-state { padding: 1px 6px; border: 1px solid var(--vscode-panel-border); border-radius: 10px; }
-    .step-chat-agent-state[data-state="available"] { color: var(--vscode-testing-iconPassed, var(--vscode-descriptionForeground)); border-color: currentColor; }
-    .step-chat-agent-state[data-state="not-installed"], .step-chat-agent-state[data-state="unknown"] { opacity: .6; }
-    .step-chat-agent-state[data-state="connection-error"] { color: var(--vscode-errorForeground); border-color: currentColor; }
-    .step-chat-agent-state[data-state="auth-required"] { color: var(--vscode-editorWarning-foreground); border-color: currentColor; }
+    .step-chat-agent-controls { display: flex; align-items: center; gap: 6px; margin: 0 0 .6em; padding: 0 .75em; font-size: 12px; color: var(--vscode-descriptionForeground); }
+    .step-chat-agent-controls[hidden] { display: none; }
+    .step-chat-control-label { flex: 0 0 auto; }
+    .step-chat-agent-select { flex: 0 1 auto; min-width: 0; max-width: 60%; padding: 2px 4px; font: inherit; font-size: 12px; color: var(--vscode-dropdown-foreground, var(--vscode-input-foreground)); background: var(--vscode-dropdown-background, var(--vscode-input-background)); border: 1px solid var(--vscode-dropdown-border, var(--vscode-input-border, transparent)); border-radius: 3px; }
+    .step-chat-agents-refresh { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; font: inherit; font-size: 12px; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); cursor: pointer; }
+    .step-chat-agents-refresh:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground); }
+    .step-chat-agent-select:focus-visible, .step-chat-agents-refresh:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+    .step-chat-agent-select:disabled, .step-chat-agents-refresh:disabled { opacity: .55; cursor: default; }
+    .step-chat-failure-actions { display: flex; gap: 6px; margin: .6em 0 0; }
+    .step-chat-failure { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 10px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; font: inherit; font-size: 12px; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); cursor: pointer; }
+    .step-chat-failure:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground); }
+    .step-chat-failure:disabled { opacity: .55; cursor: default; }
+    .step-chat-failure:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
     .step-chat-unavailable { margin: 0 0 1em; padding: 0 .75em; color: var(--vscode-descriptionForeground); }
     .step-chat-unavailable[hidden] { display: none; }
     .step-chat-activity { margin-bottom: 1em; color: var(--vscode-descriptionForeground); }
@@ -343,13 +387,14 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     <h1>${escapeHtml(model.stepTitle)}</h1>${anchor}
     ${renderMarkdownToHtml(model.description)}
     <section class="step-chat" aria-label="Step discussion">
-      ${renderAgentsHtml(model.chatAgents)}
+      ${renderAgentControlsHtml(model.chatAgents, model.chatResponding === true)}
       <p class="step-chat-agent" id="step-chat-agent"${
         model.chatAgent ? "" : " hidden"
       }>${model.chatAgent ? escapeHtml(agentLine(model.chatAgent)) : ""}</p>
       ${renderUnavailableHtml(model.chatUnavailable)}
       <ol class="step-chat-log" id="step-chat-log">${renderStepChatLogHtml(
-        model.chatExchanges
+        model.chatExchanges,
+        model.chatResponding === true
       )}</ol>
       <p class="step-chat-status" id="step-chat-status"${
         model.chatResponding ? "" : " hidden"
@@ -381,7 +426,9 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     const chatStatus = document.getElementById("step-chat-status");
     const chatStop = document.getElementById("step-chat-stop");
     const chatAgent = document.getElementById("step-chat-agent");
-    const chatAgents = document.getElementById("step-chat-agents");
+    const chatAgentControls = document.getElementById("step-chat-agent-controls");
+    const chatAgentSelect = document.getElementById("step-chat-agent-select");
+    const chatAgentsRefresh = document.getElementById("step-chat-agents-refresh");
     const chatUnavailable = document.getElementById("step-chat-unavailable");
     const suggestionButtons = Array.from(document.getElementById("step-chat-suggestions")?.children || []);
     // One spelling for both surfaces: the agent caption of an answer and
@@ -399,17 +446,35 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       "connection-error": "connection error"
     };
     const agentStateText = agent => agent.name + " — " + (agentStateLabels[agent.state] ?? "unknown")
-      + (agent.detail ? " (" + agent.detail + ")" : "") + (agent.selected ? " · selected" : "");
+      + (agent.detail ? " (" + agent.detail + ")" : "");
+    // The two actions of a failed exchange: the same question to the same
+    // agent, or another agent for this step.
+    const failureActionsHtml = (exchange, locked) => exchange.failed
+      ? '<p class="step-chat-failure-actions">'
+        + '<button type="button" class="step-chat-failure" data-action="retryQuestion" data-question="'
+        + escapeHtml(exchange.question) + '" title="Ask this question again to the same agent"'
+        + (locked ? ' disabled' : '') + '>Retry</button>'
+        + '<button type="button" class="step-chat-failure" data-action="changeAgent" title="Choose another agent for this step"'
+        + (locked ? ' disabled' : '') + '>Change agent</button>'
+        + '</p>'
+      : '';
     let chatResponding = ${model.chatResponding === true};
     let chatCannotAnswer = ${model.chatUnavailable === true};
+    // The selector probes the still unverified profiles once per opening.
+    let selectorProbed = false;
     // Nothing is asked while an answer streams, and nothing is asked when no
-    // Agent Profile can answer: the Tour itself stays fully readable.
+    // Agent Profile can answer: the Tour itself stays fully readable. The
+    // Agent control follows the answer, never the other way around.
     const lockComposer = () => {
       const locked = chatResponding || chatCannotAnswer;
       if (chatInput) chatInput.disabled = locked;
       if (chatSubmit) chatSubmit.disabled = locked;
       suggestionButtons.forEach(button => { button.disabled = locked; });
       if (chatStop) { chatStop.hidden = !chatResponding; chatStop.disabled = locked; }
+      // The reader may still pick an agent while nothing can answer: only a
+      // streaming answer locks the choice.
+      if (chatAgentSelect) chatAgentSelect.disabled = chatResponding;
+      if (chatAgentsRefresh) chatAgentsRefresh.disabled = chatResponding;
     };
     const setResponding = responding => {
       chatResponding = responding;
@@ -422,19 +487,40 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       lockComposer();
     };
     const setAgents = agents => {
-      if (!chatAgents || !Array.isArray(agents)) return;
-      chatAgents.innerHTML = agents.map(agent =>
-        '<span class="step-chat-agent-state" data-state="' + escapeHtml(agent.state) + '"'
-        + (agent.selected ? ' data-selected="true"' : '') + '>' + escapeHtml(agentStateText(agent)) + '</span>'
+      if (!chatAgentSelect || !Array.isArray(agents)) return;
+      chatAgentSelect.innerHTML = agents.map(agent =>
+        '<option value="' + escapeHtml(agent.name) + '" data-state="' + escapeHtml(agent.state) + '"'
+        + (agent.selected ? ' selected' : '') + (agent.selectable === false ? ' disabled' : '') + '>'
+        + escapeHtml(agentStateText(agent)) + '</option>'
       ).join("");
-      chatAgents.hidden = agents.length === 0;
+      if (chatAgentControls) chatAgentControls.hidden = agents.length === 0;
     };
-    const askQuestion = question => {
+    const postChatMessage = message => vscode.postMessage({ ...message, token: document.body.dataset.token,
+      targetTourId: document.body.dataset.tourId, step: Number(document.body.dataset.step) });
+    const sendQuestion = (type, question) => {
       if (chatResponding || chatCannotAnswer || !question || !question.trim()) return;
       setResponding(true);
-      vscode.postMessage({ type: "askQuestion", question: question.trim(), token: document.body.dataset.token,
-        targetTourId: document.body.dataset.tourId, step: Number(document.body.dataset.step) });
+      postChatMessage({ type, question: question.trim() });
     };
+    const askQuestion = question => sendQuestion("askQuestion", question);
+    // Opening the selector probes the profiles still installed but never
+    // verified, once; a manual refresh is the only other probe.
+    const probeUnverified = () => {
+      if (chatResponding || selectorProbed) return;
+      selectorProbed = true;
+      postChatMessage({ type: "probeUnverified" });
+    };
+    if (chatAgentSelect) {
+      chatAgentSelect.addEventListener("focus", probeUnverified);
+      chatAgentSelect.addEventListener("pointerdown", probeUnverified);
+      chatAgentSelect.addEventListener("change", () => {
+        // A locked control never changes the agent: no answer is ever
+        // interrupted by a change the reader did not ask for now.
+        if (chatResponding || chatAgentSelect.disabled) return;
+        const agent = chatAgentSelect.value;
+        if (agent) postChatMessage({ type: "chooseAgent", agent });
+      });
+    }
     if (chatForm && chatInput) {
       chatForm.addEventListener("submit", event => {
         event.preventDefault();
@@ -454,6 +540,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       }
       const log = document.getElementById("step-chat-log");
       if (log) {
+        const locked = message.responding === true;
         log.innerHTML = message.exchanges.map(exchange => {
           const agentCaptionHtml = exchange.agent
             ? '<span class="step-chat-agent-caption">' + escapeHtml(agentCaption(exchange.agent)) + '</span>'
@@ -480,7 +567,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
           + agentCaptionHtml
           + forbiddenHtml
           + (exchange.activityHtml ? '<details class="step-chat-activity"' + (exchange.pending ? ' open' : '') + '><summary>Model activity</summary>' + exchange.activityHtml + '</details>' : '')
-          + exchange.answerHtml + "</li>";
+          + exchange.answerHtml + failureActionsHtml(exchange, locked) + "</li>";
         }).join("");
       }
       // The response-in-progress state stays visible while the answer
@@ -507,8 +594,22 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
           }
           return;
         }
-        if (!button.disabled) vscode.postMessage({ type: button.dataset.action, token: document.body.dataset.token,
-          targetTourId: document.body.dataset.tourId, step: Number(document.body.dataset.step) });
+        // A failed exchange asks the same question again to the same agent,
+        // without changing the reader's choice.
+        if (button.dataset.action === "retryQuestion") {
+          if (!button.disabled) sendQuestion("retryQuestion", button.dataset.question);
+          return;
+        }
+        // The other action of a failed exchange moves the reader to the
+        // Agent control: the choice stays the reader's.
+        if (button.dataset.action === "changeAgent") {
+          if (!button.disabled && chatAgentSelect) chatAgentSelect.focus();
+          return;
+        }
+        // A manual refresh is the reader's own way to re-probe the whole
+        // catalogue; opening the selector probes the unverified ones again.
+        if (button.dataset.action === "refreshAgents") selectorProbed = false;
+        if (!button.disabled) postChatMessage({ type: button.dataset.action });
         return;
       }
       const link = event.target.closest("a[href]");

@@ -572,7 +572,12 @@ test("suggested questions are optional, escaped, capped at four and disabled whi
   const html = createTourWebviewHtml({ ...baseModel(), chatResponding: true,
     questions: ['Pourquoi "<script>" ?', "Deux ?", "Trois ?", "Quatre ?", "Cinq ?"]
   }, "nonce");
-  assert.equal((html.match(/data-question=/g) || []).length, 4);
+  // The four kept questions are the four rendered suggestion buttons; a
+  // failed exchange's Retry action is the only other data-question markup.
+  assert.equal(
+    (html.match(/class="step-chat-submit step-chat-suggestion"/g) || []).length,
+    4
+  );
   assert.match(html, /data-question="Pourquoi &quot;&lt;script&gt;&quot; \?" disabled/);
   assert.doesNotMatch(html, /Cinq \?/);
 });
@@ -714,50 +719,148 @@ test("the step chat message handler repaints the current agent and the answer ca
   assert.equal(agentElement.hidden, true);
 });
 
-test("the conversation area names every Agent Profile and its availability state", () => {
+test("the Agent control lists every Agent Profile with its state and disables the ones the reader cannot pick", () => {
   const html = createTourWebviewHtml(
     {
       ...baseModel(),
       chatAgent: { agent: "Copilot", effective: false },
       chatAgents: [
-        { name: "Copilot", state: "available", selected: true },
-        { name: "Vibe", state: "unverified" },
-        { name: "Codex", state: "not-installed" },
+        { name: "Copilot", state: "available", selected: true, selectable: true },
+        { name: "Vibe", state: "unverified", selectable: true },
+        { name: "Codex", state: "not-installed", selectable: false },
         {
           name: "Claude Code",
           state: "auth-required",
-          detail: "Claude login"
+          detail: "Claude login",
+          selectable: true
         },
-        { name: 'Another "<b>"', state: "connection-error", detail: "timed out <5 s>" },
-        { name: "Unknown agent", state: "unknown" }
+        { name: 'Another "<b>"', state: "connection-error", detail: "timed out <5 s>", selectable: true },
+        { name: "Unknown agent", state: "unknown", selectable: true }
       ]
     },
     "agents-nonce"
   );
 
-  // The six states of the Agent Catalogue are painted, in catalogue order,
-  // with the profile that answers marked as such.
-  assert.match(html, /<p class="step-chat-agents" id="step-chat-agents">/);
+  // The whole catalogue is listed, in catalogue order, in one Agent control.
+  assert.match(html, /<div class="step-chat-agent-controls" id="step-chat-agent-controls">/);
+  assert.match(html, /<label class="step-chat-control-label" for="step-chat-agent-select">Agent<\/label>/);
+  assert.match(html, /<select class="step-chat-agent-select" id="step-chat-agent-select" aria-label="Agent">/);
+  // The profile that answers is the selected option, and the profile that is
+  // not installed is listed but disabled: visible, never selectable.
   assert.ok(html.includes(
-    '<span class="step-chat-agent-state" data-state="available" data-selected="true">Copilot — available · selected</span>'
+    '<option value="Copilot" data-state="available" selected>Copilot — available</option>'
   ));
   assert.ok(html.includes(
-    '<span class="step-chat-agent-state" data-state="unverified">Vibe — installed, not verified</span>'
+    '<option value="Codex" data-state="not-installed" disabled>Codex — not installed</option>'
+  ));
+  // A profile waiting for authentication or in connection error stays
+  // selectable by hand.
+  assert.ok(html.includes(
+    '<option value="Claude Code" data-state="auth-required">Claude Code — authentication required (Claude login)</option>'
   ));
   assert.ok(html.includes(
-    '<span class="step-chat-agent-state" data-state="not-installed">Codex — not installed</span>'
+    '<option value="Vibe" data-state="unverified">Vibe — installed, not verified</option>'
   ));
   assert.ok(html.includes(
-    '<span class="step-chat-agent-state" data-state="auth-required">Claude Code — authentication required (Claude login)</span>'
-  ));
-  assert.ok(html.includes(
-    '<span class="step-chat-agent-state" data-state="unknown">Unknown agent — unknown</span>'
+    '<option value="Unknown agent" data-state="unknown">Unknown agent — unknown</option>'
   ));
   // Every name and detail is escaped like the rest of the conversation.
-  assert.ok(html.includes('Another &quot;&lt;b&gt;&quot; — connection error (timed out &lt;5 s&gt;)'));
+  assert.ok(html.includes(
+    '<option value="Another &quot;&lt;b&gt;&quot;" data-state="connection-error">Another &quot;&lt;b&gt;&quot; — connection error (timed out &lt;5 s&gt;)</option>'
+  ));
+  // The manual Refresh of the reader's own probe sits next to the selector.
+  assert.match(html, /<button type="button" class="step-chat-agents-refresh" id="step-chat-agents-refresh" data-action="refreshAgents" title="Probe every agent again">Refresh<\/button>/);
   // An agent can answer: the composer keeps accepting questions.
   assert.match(html, /id="step-chat-unavailable" role="status" hidden>/);
   assert.doesNotMatch(html, /id="step-chat-input"[^>]* disabled/);
+});
+
+test("the Agent control stays quiet without a catalogue and locks with the composer while an answer streams", () => {
+  // No Agent Selection owns the panel (an injected responder): no control.
+  assert.ok(createTourWebviewHtml(baseModel(), "agents-nonce").includes(
+    '<div class="step-chat-agent-controls" id="step-chat-agent-controls" hidden>'
+  ));
+
+  // While an answer streams, the selector and the Refresh are disabled like
+  // the composer: no answer is ever interrupted by a change of agent.
+  const responding = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatResponding: true,
+      chatAgents: [
+        { name: "Copilot", state: "available", selected: true, selectable: true },
+        { name: "Codex", state: "not-installed", selectable: false }
+      ],
+      chatExchanges: [
+        { question: "En flux ?", answerHtml: "<p>Un morceau…</p>", pending: true }
+      ]
+    },
+    "agents-nonce"
+  );
+  assert.match(responding, /id="step-chat-agent-select" aria-label="Agent" disabled>/);
+  assert.match(responding, /id="step-chat-agents-refresh"[^>]* disabled>Refresh<\/button>/);
+  assert.match(responding, /id="step-chat-input"[^>]* disabled/);
+
+  // A panel where nothing can answer still lets the reader pick an agent by
+  // hand: only a streaming answer locks the choice.
+  const unavailable = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatUnavailable: true,
+      chatAgents: [
+        { name: "Copilot", state: "not-installed", selectable: false },
+        { name: "Vibe", state: "connection-error", detail: "timed out", selectable: true }
+      ]
+    },
+    "agents-nonce"
+  );
+  assert.doesNotMatch(unavailable, /id="step-chat-agent-select"[^>]*disabled/);
+  assert.doesNotMatch(unavailable, /id="step-chat-agents-refresh"[^>]*disabled/);
+  assert.match(unavailable, /id="step-chat-input"[^>]* disabled/);
+});
+
+test("a failed exchange carries Retry and Change agent, locked while another answer streams", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatExchanges: [
+        {
+          question: 'Et si "ça" casse ?',
+          answerHtml: "<p>L'agent a échoué.</p>",
+          failed: true
+        }
+      ]
+    },
+    "failure-nonce"
+  );
+
+  // The failure stays attached to its own exchange, with the two actions
+  // the reader decides between.
+  assert.ok(html.includes(
+    '<p class="step-chat-failure-actions"><button type="button" class="step-chat-failure" data-action="retryQuestion" data-question="Et si &quot;ça&quot; casse ?" title="Ask this question again to the same agent">Retry</button>' +
+      '<button type="button" class="step-chat-failure" data-action="changeAgent" title="Choose another agent for this step">Change agent</button></p>'
+  ));
+
+  // While another answer streams, both actions stay disabled.
+  const responding = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatResponding: true,
+      chatExchanges: [
+        { question: "Question en échec ?", answerHtml: "<p>Erreur.</p>", failed: true },
+        { question: "Question en flux ?", answerHtml: "", pending: true }
+      ]
+    },
+    "failure-nonce"
+  );
+  assert.match(
+    responding,
+    /data-action="retryQuestion" data-question="Question en échec \?" title="Ask this question again to the same agent" disabled>Retry<\/button>/
+  );
+  assert.match(
+    responding,
+    /data-action="changeAgent" title="Choose another agent for this step" disabled>Change agent<\/button>/
+  );
 });
 
 test("a panel whose catalogue has nothing usable explains it and disables the composer only", () => {
@@ -789,25 +892,38 @@ test("a panel whose catalogue has nothing usable explains it and disables the co
   assert.match(html, /data-action="previous"/);
 });
 
-test("the step chat message handler repaints the catalogue states and locks the composer", () => {
+test("the step chat message handler repaints the Agent control and locks it with the composer", () => {
   const html = createTourWebviewHtml(
     {
       ...baseModel(),
       questions: ["Pourquoi ?"],
-      chatAgents: [{ name: "Copilot", state: "unverified", selected: true }]
+      chatAgents: [
+        { name: "Copilot", state: "unverified", selected: true, selectable: true }
+      ]
     },
     "agents-nonce"
   );
   const script = html.match(/<script nonce="agents-nonce">([\s\S]*?)<\/script>/)![1];
   let messageListener!: (event: unknown) => void;
-  const agentsLine = { hidden: false, innerHTML: "" };
+  const controls = { hidden: false };
+  const select = {
+    innerHTML: "",
+    value: "Copilot",
+    disabled: false,
+    addEventListener: () => undefined
+  };
+  const refresh = { disabled: false };
   const unavailableNote = { hidden: true };
   const input = { value: "", disabled: false };
   const submitButton = { disabled: false };
   const stopButton = { hidden: true, disabled: false };
+  const chatLog = { innerHTML: "" };
   const suggestion = { disabled: false, hidden: false, dataset: { action: "askQuestion", question: "Pourquoi ?" } };
   const elements: Record<string, unknown> = {
-    "step-chat-agents": agentsLine,
+    "step-chat-log": chatLog,
+    "step-chat-agent-controls": controls,
+    "step-chat-agent-select": select,
+    "step-chat-agents-refresh": refresh,
     "step-chat-unavailable": unavailableNote,
     "step-chat-input": input,
     "step-chat-submit": submitButton,
@@ -828,40 +944,43 @@ test("the step chat message handler repaints the catalogue states and locks the 
     }
   });
 
-  // The probe settled with nothing usable: the states are repainted, the
-  // panel explains itself and the composer is locked.
+  // The probe settled with nothing usable: the whole catalogue is listed with
+  // its states, the panel explains itself and the composer is locked. The
+  // Agent control stays usable, so the reader can still pick an agent by hand.
   messageListener({
     data: {
       type: "stepChat",
       responding: false,
       unavailable: true,
       agents: [
-        { name: "Copilot", state: "not-installed" },
-        { name: 'Vibe "<b>"', state: "connection-error", detail: "did not answer" }
+        { name: "Copilot", state: "not-installed", selectable: false },
+        { name: 'Vibe "<b>"', state: "connection-error", detail: "did not answer", selectable: true }
       ],
       exchanges: []
     }
   });
-  assert.equal(agentsLine.hidden, false);
-  assert.ok(agentsLine.innerHTML.includes(
-    '<span class="step-chat-agent-state" data-state="not-installed">Copilot — not installed</span>'
-  ));
-  assert.ok(agentsLine.innerHTML.includes(
-    "Vibe &quot;&lt;b&gt;&quot; — connection error (did not answer)"
-  ));
+  assert.equal(controls.hidden, false);
+  assert.equal(
+    select.innerHTML,
+    '<option value="Copilot" data-state="not-installed" disabled>Copilot — not installed</option>' +
+      '<option value="Vibe &quot;&lt;b&gt;&quot;" data-state="connection-error">Vibe &quot;&lt;b&gt;&quot; — connection error (did not answer)</option>'
+  );
   assert.equal(unavailableNote.hidden, false);
   assert.equal(input.disabled, true);
   assert.equal(submitButton.disabled, true);
   assert.equal(suggestion.disabled, true);
   assert.equal(stopButton.disabled, true);
+  assert.equal(select.disabled, false);
+  assert.equal(refresh.disabled, false);
 
-  // A later probe found an agent: the states and the composer follow.
+  // A later probe found an agent: the option is selected and the composer
+  // follows.
   messageListener({
     data: {
       type: "stepChat",
       responding: false,
       unavailable: false,
-      agents: [{ name: "Copilot", state: "available", selected: true }],
+      agents: [{ name: "Copilot", state: "available", selected: true, selectable: true }],
       exchanges: []
     }
   });
@@ -869,5 +988,175 @@ test("the step chat message handler repaints the catalogue states and locks the 
   assert.equal(input.disabled, false);
   assert.equal(submitButton.disabled, false);
   assert.equal(suggestion.disabled, false);
-  assert.ok(agentsLine.innerHTML.includes("Copilot — available · selected"));
+  assert.equal(
+    select.innerHTML,
+    '<option value="Copilot" data-state="available" selected>Copilot — available</option>'
+  );
+
+  // While an answer streams the Agent control is locked with the composer,
+  // and the failed-exchange actions of the log are rendered disabled.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: true,
+      agents: [{ name: "Copilot", state: "available", selected: true, selectable: true }],
+      exchanges: [
+        { question: "Question en échec ?", answerHtml: "<p>Erreur.</p>", failed: true },
+        { question: "Question en flux ?", answerHtml: "", pending: true }
+      ]
+    }
+  });
+  assert.equal(select.disabled, true);
+  assert.equal(refresh.disabled, true);
+  assert.match(
+    chatLog.innerHTML,
+    /data-action="retryQuestion" data-question="Question en échec \?" title="Ask this question again to the same agent" disabled>Retry<\/button>/
+  );
+});
+
+test("opening the selector probes the unverified profiles once, and a manual refresh re-probes", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatAgents: [
+        { name: "Copilot", state: "available", selected: true, selectable: true },
+        { name: "Vibe", state: "unverified", selectable: true }
+      ]
+    },
+    "selector-nonce"
+  );
+  const script = html.match(/<script nonce="selector-nonce">([\s\S]*?)<\/script>/)![1];
+  const messages: { type?: string; agent?: string; question?: string }[] = [];
+  let click!: (event: unknown) => void;
+  let select: {
+    innerHTML: string;
+    value: string;
+    disabled: boolean;
+    listeners: Record<string, () => void>;
+    addEventListener: (name: string, listener: () => void) => void;
+    focus: () => void;
+  };
+  let focused = 0;
+  select = {
+    innerHTML: "",
+    value: "Copilot",
+    disabled: false,
+    listeners: {},
+    addEventListener: (name: string, listener: () => void) => {
+      select.listeners[name] = listener;
+    },
+    focus: () => {
+      focused++;
+    }
+  };
+  const refresh = { disabled: false };
+  const elements: Record<string, unknown> = {
+    "step-chat-agent-select": select,
+    "step-chat-agents-refresh": refresh
+  };
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({
+      postMessage: (message: { type?: string }) => messages.push(message)
+    }),
+    document: {
+      body: { dataset: { token: "selector-nonce", tourId: baseModel().tourId, step: "1" } },
+      getElementById: (id: string) => elements[id] ?? null,
+      addEventListener: (_name: string, listener: typeof click) => {
+        click = listener;
+      }
+    },
+    window: { addEventListener: () => undefined }
+  });
+
+  // Opening the selector - by focusing it or by pressing it - probes the
+  // profiles still installed but never verified, once.
+  select.listeners.focus();
+  select.listeners.pointerdown();
+  assert.deepEqual(
+    messages.filter(message => message.type === "probeUnverified").map(message => message.type),
+    ["probeUnverified"]
+  );
+
+  // Picking a profile sends the reader's choice with the step identity.
+  select.value = "Vibe";
+  select.listeners.change();
+  const choose = messages[messages.length - 1] as { type?: string; agent?: string; step?: number };
+  assert.equal(choose.type, "chooseAgent");
+  assert.equal(choose.agent, "Vibe");
+  assert.equal(choose.step, 1);
+
+  // The manual Refresh asks the extension to probe the whole catalogue again,
+  // and the next opening probes the newly unverified profiles once more.
+  click({ target: { closest: () => ({ dataset: { action: "refreshAgents" }, disabled: false }) } });
+  assert.equal(messages[messages.length - 1].type, "refreshAgents");
+  select.listeners.focus();
+  assert.equal(
+    messages.filter(message => message.type === "probeUnverified").length,
+    2
+  );
+
+  // Nothing is probed or chosen while an answer streams: the control is
+  // locked, and the script refuses the change as well.
+  select.disabled = true;
+  const before = messages.length;
+  select.listeners.change();
+  assert.equal(messages.length, before);
+  select.value = "Copilot";
+  select.listeners.change();
+  assert.equal(messages.length, before);
+
+  // The Change agent action of a failed exchange focuses the Agent control
+  // instead of changing anything by itself.
+  click({ target: { closest: () => ({ dataset: { action: "changeAgent" }, disabled: false }) } });
+  assert.equal(focused, 1);
+  assert.equal(messages.length, before);
+});
+
+test("the Retry action of a failed exchange asks the same question to the same agent", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatExchanges: [
+        { question: "Pourquoi ça casse ?", answerHtml: "<p>Erreur.</p>", failed: true }
+      ]
+    },
+    "retry-nonce"
+  );
+  const script = html.match(/<script nonce="retry-nonce">([\s\S]*?)<\/script>/)![1];
+  const messages: unknown[] = [];
+  let click!: (event: unknown) => void;
+  const retry = {
+    disabled: false,
+    hidden: false,
+    dataset: { action: "retryQuestion", question: "Pourquoi ça casse ?" }
+  };
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({
+      postMessage: (message: unknown) => messages.push(message)
+    }),
+    document: {
+      body: { dataset: { token: "retry-nonce", tourId: baseModel().tourId, step: "1" } },
+      getElementById: () => null,
+      addEventListener: (_name: string, listener: typeof click) => {
+        click = listener;
+      }
+    },
+    window: { addEventListener: () => undefined }
+  });
+
+  click({ target: { closest: () => retry } });
+  assert.deepEqual(JSON.parse(JSON.stringify(messages)), [
+    {
+      type: "retryQuestion",
+      question: "Pourquoi ça casse ?",
+      token: "retry-nonce",
+      targetTourId: baseModel().tourId,
+      step: 1
+    }
+  ]);
+
+  // A locked action never reaches the extension.
+  retry.disabled = true;
+  click({ target: { closest: () => retry } });
+  assert.equal(messages.length, 1);
 });

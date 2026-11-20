@@ -4,6 +4,7 @@ import { FS_SCHEME } from "../constants";
 import { getStepFileUri } from "../utils";
 import {
   AgentSelection,
+  isSelectable,
   type AgentAvailability
 } from "../agent/agentCatalogue";
 import { createFallbackStepChatResponder } from "../agent/fallbackStepChatAgent";
@@ -27,6 +28,13 @@ import { renderMarkdownToHtml } from "./markdown";
  *   step }` interrupts the step's answer in flight: the responder's
  *   exchange is cancelled, the interrupted state is displayed in the
  *   chat and a new question is accepted immediately.
+ * - webview → extension: `{ type: "retryQuestion", question, token,
+ *   targetTourId, step }` asks the failed exchange's question again, to the
+ *   same agent: the reader's choice is never replaced by a failure.
+ * - webview → extension: `{ type: "chooseAgent", agent, token,
+ *   targetTourId, step }` makes the chosen Agent Profile answer, and
+ *   `{ type: "refreshAgents", ... }` / `{ type: "probeUnverified", ... }`
+ *   re-probe the catalogue or the profiles still unverified, once.
  * - extension → webview: `{ type: "stepChat", exchanges, responding,
  *   agent }` replaces the rendered conversation of the step. Each exchange
  *   is a question with the answer HTML produced by the shared renderer and
@@ -77,8 +85,15 @@ const conversations = new StepConversations();
  * The reading panel's Agent Selection and the responder over it. Both live
  * as long as the panel: nothing probed survives the webview (ADR 0048).
  */
-let agents: { selection: AgentSelection; responder: StepChatResponder } |
-  undefined;
+let agents:
+  | {
+      selection: AgentSelection;
+      responder: StepChatResponder;
+      workspaceRoot: string;
+      // Reposts the painted conversation whenever the panel's agents change.
+      onSettled?: () => void;
+    }
+  | undefined;
 /** True while a responder was injected instead of the catalogued one. */
 let injectedResponder = false;
 
@@ -108,21 +123,11 @@ export function setStepChatResponder(next?: StepChatResponder): void {
 }
 
 /**
- * Opens the reading panel's Agent Selection: the catalogue, the availability
- * the initial Agent Probe establishes and the agent answering by default.
- *
- * The probe runs sequentially in rank order and stops at the first available
- * profile; `onProbed` reports that it settled, so the reader sees the probed
- * states and the preselected agent instead of provisional ones.
+ * The responder answering a question with the panel's current Agent
+ * Selection: the catalogue alone decides which profile is launched.
  */
-export function openStepChatAgents(
-  workspaceRoot: string,
-  onProbed?: () => void
-): void {
-  closeStepChatAgents();
-  if (injectedResponder || !createSelection) return;
-  const selection = createSelection();
-  const responder = createFallbackStepChatResponder(
+function composeResponder(selection: AgentSelection): StepChatResponder {
+  return createFallbackStepChatResponder(
     cwd => selection.candidates(cwd),
     {
       // A question asked while the initial probe runs waits for it: it is
@@ -131,11 +136,30 @@ export function openStepChatAgents(
       onConversationStarted: () => selection.hasConversationStarted()
     }
   );
-  agents = { selection, responder };
+}
+
+/**
+ * Opens the reading panel's Agent Selection: the catalogue, the availability
+ * the initial Agent Probe establishes and the agent answering by default.
+ *
+ * The probe runs sequentially in rank order and stops at the first available
+ * profile; `onSettled` reports that it settled, so the reader sees the probed
+ * states and the preselected agent instead of provisional ones. The same
+ * callback repaints the panel whenever the panel's agents change afterwards.
+ */
+export function openStepChatAgents(
+  workspaceRoot: string,
+  onSettled?: () => void
+): void {
+  closeStepChatAgents();
+  if (injectedResponder || !createSelection) return;
+  const selection = createSelection();
+  const responder = composeResponder(selection);
+  agents = { selection, responder, workspaceRoot, onSettled };
   conversations.setResponder(responder);
   void selection
     .probeInitial(workspaceRoot)
-    .then(() => onProbed?.(), () => onProbed?.());
+    .then(() => onSettled?.(), () => onSettled?.());
 }
 
 /** Closes the reading panel's Agent Selection: its cache does not outlive it. */
@@ -145,14 +169,59 @@ export function closeStepChatAgents(): void {
   current?.selection.dispose();
 }
 
+/**
+ * Re-probes the whole catalogue on the reader's request: the manual way to
+ * retry after installing or connecting something.
+ */
+export async function refreshStepChatAgents(): Promise<void> {
+  const current = agents;
+  if (!current) return;
+  await current.selection.refresh(current.workspaceRoot);
+  current.onSettled?.();
+}
+
+/**
+ * Probes the profiles still `unverified`, once: what opening the agent
+ * selector asks for. Nothing already established is probed again.
+ */
+export async function probeStepChatUnverifiedAgents(): Promise<void> {
+  const current = agents;
+  if (!current) return;
+  await current.selection.probeUnverified(current.workspaceRoot);
+  current.onSettled?.();
+}
+
+/**
+ * Makes the reader's chosen Agent Profile answer this panel: the current
+ * responder's session is released and a fresh responder is composed over the
+ * same selection and the same conversation store, so the step history stays
+ * and the next question opens a new session. A profile the reader cannot pick
+ * and a choice made while an answer streams are both ignored.
+ */
+export function chooseStepChatAgent(name: string): void {
+  const current = agents;
+  if (!current || conversations.hasAnswerInFlight()) return;
+  const before = current.selection.selectedProfile()?.profile.name;
+  current.selection.select(name);
+  if (current.selection.selectedProfile()?.profile.name === before) return;
+  const responder = composeResponder(current.selection);
+  agents = { ...current, responder };
+  // Replacing the responder releases the previous agent's session; the
+  // conversations it answered stay in the shared store.
+  conversations.setResponder(responder);
+  current.onSettled?.();
+}
+
 /** One catalogue profile as the webview paints it: serializable, no entry. */
 export interface StepChatAgentView {
   name: string;
   state: AgentAvailability["state"];
   /** The authentication methods' names, or the connection error's reason. */
   detail?: string;
-  /** True for the Agent Profile that answers by default. */
+  /** True for the Agent Profile that answers right now. */
   selected: boolean;
+  /** False when the reader may not pick this profile by hand. */
+  selectable: boolean;
 }
 
 function conversationKey(tourId: string, step: number): string {
@@ -223,7 +292,8 @@ function paintAgents(): {
       name: view.profile.name,
       state: view.availability.state,
       detail: availabilityDetail(view.availability),
-      selected: view.selected
+      selected: view.selected,
+      selectable: isSelectable(view.availability)
     })),
     unavailable:
       selection.initialProbeSettled() && selection.selectedProfile() === undefined
