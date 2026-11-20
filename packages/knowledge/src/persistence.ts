@@ -90,12 +90,19 @@ export interface KnowledgeAppendProposalEntry {
 }
 
 /**
+ * The accepted write modes of one Knowledge Consolidation Operation (spec
+ * #232), in documentation order. The vocabulary lives here once: the CLI
+ * validates its `--mode` flag against this list instead of re-declaring it.
+ */
+export const KNOWLEDGE_SAVE_MODES = ['create', 'append', 'replace'] as const;
+
+/**
  * Write mode of one Knowledge Consolidation Operation (spec #232). `create` is
  * the documented default, so a proposal without `mode` keeps its behaviour;
  * `append` enriches one existing valid entry without rewriting its body;
  * `replace` rewrites one existing entry in full.
  */
-export type KnowledgeSaveMode = 'create' | 'append' | 'replace';
+export type KnowledgeSaveMode = (typeof KNOWLEDGE_SAVE_MODES)[number];
 
 /** The documented proposal file: `{"mode"?,"entries":[...]}` and nothing else. */
 export interface KnowledgeProposal {
@@ -150,11 +157,12 @@ export interface KnowledgeSaveRejection {
 
 /**
  * A refused publication caused by the catalogue state, not by the proposal:
- * the name already exists (`create`) or no longer matches the revision that
- * was read (`replace`, compare-and-swap). Both sort a client-visible
- * `conflict`, with a reason that says which corrective action applies.
+ * the name already exists (`create`, `name_conflict`) or no longer matches the
+ * revision that was read (`append`/`replace`, `revision_conflict`,
+ * compare-and-swap). Both sort a client-visible `conflict`, with a reason that
+ * says which corrective action applies.
  */
-export interface KnowledgeNameConflict {
+export interface KnowledgeConflict {
   name: string;
   reason: 'name_conflict' | 'revision_conflict';
 }
@@ -174,9 +182,12 @@ export type KnowledgeSaveResult =
   | { status: 'appended'; appended: string[]; warnings: KnowledgeSaveWarning[] }
   | { status: 'replaced'; replaced: string[]; warnings: KnowledgeSaveWarning[] }
   | { status: 'no-op' }
-  /** The append added nothing literal: no byte of the entry changed. */
+  /**
+   * The append added nothing literally new — a blank addition, or one already
+   * an exact suffix of the body — and no proof: nothing was written.
+   */
   | { status: 'no_change' }
-  | { status: 'conflict'; conflicts: KnowledgeNameConflict[] }
+  | { status: 'conflict'; conflicts: KnowledgeConflict[] }
   | { status: 'invalid'; rejected: KnowledgeSaveRejection[] };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -722,6 +733,30 @@ async function appendToEntry(realRoot: string, directory: string, append: Valida
 }
 
 /**
+ * Carry the historical `symbol_fallback` trace into a rewrite (spec #232):
+ * `replace` may neither add nor remove one. A resulting `file` proof whose
+ * `(type, path, sha256)` is identical to a historical file proof that carried
+ * the trace keeps it verbatim; any other proof carries none, because a changed
+ * path or digest is a new proof. The engine never invents an origin and a
+ * client can never supply one, so this is the only source of the trace in a
+ * rewrite. An entry whose historical contract does not parse offers no
+ * historical proof to match, so the rewrite carries no trace.
+ */
+function carryFallbackOrigins(entry: KnowledgePersistableEntry, bytes: Buffer): void {
+  const historical = parseKnowledge(bytes.toString('utf8'), `${entry.name}.md`);
+  if (historical.status !== 'valid') return;
+  const traced = new Set<string>();
+  for (const proof of historical.evidence) {
+    if (proof.type === 'file' && proof.origin) traced.add(`file\n${proof.path}\n${proof.sha256}`);
+  }
+  entry.evidence = entry.evidence.map(proof =>
+    proof.type === 'file' && traced.has(`file\n${proof.path}\n${proof.sha256}`)
+      ? { ...proof, origin: 'symbol_fallback' as const }
+      : proof
+  );
+}
+
+/**
  * Validate and persist a whole proposal. Validation, duplicate detection and
  * conflict detection all run before the first byte is staged; staging files
  * are removed on every path and publication rolls back if a late conflict
@@ -754,7 +789,7 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
   const validated: KnowledgePersistableEntry[] = [];
   const appends: ValidatedAppend[] = [];
   const rejected: KnowledgeSaveRejection[] = [];
-  const revisionConflicts: KnowledgeNameConflict[] = [];
+  const revisionConflicts: KnowledgeConflict[] = [];
   const expectedRevisions = new Map<string, string>();
   const fallbackWarnings: KnowledgeSaveWarning[] = [];
   for (const raw of proposal.entries) {
@@ -789,7 +824,7 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
   // taken afterwards and the exclusive-link publication re-checks it, so this
   // early answer can only save work, never publish over an entry.
   if (mode === 'create') {
-    const conflicts: KnowledgeNameConflict[] = [];
+    const conflicts: KnowledgeConflict[] = [];
     for (const entry of validated) {
       try {
         await lstat(join(directory, `${entry.name}.md`));
@@ -829,6 +864,7 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
       if (knowledgeRevision(bytes) !== expectedRevisions.get(entry.name)) {
         return { status: 'conflict', conflicts: [{ name: entry.name, reason: 'revision_conflict' }] };
       }
+      carryFallbackOrigins(entry, bytes);
     }
 
     // An engine change refuses symbol-proof writes only: file proofs do not
@@ -868,7 +904,7 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
         // rename leaves the previous entry in place.
         await rename(staged[0].temp, staged[0].target);
       } else {
-        const lateConflicts: KnowledgeNameConflict[] = [];
+        const lateConflicts: KnowledgeConflict[] = [];
         for (const item of staged) {
           if (await publish(item.temp, item.target) === 'conflict') {
             lateConflicts.push({ name: item.name, reason: 'name_conflict' });

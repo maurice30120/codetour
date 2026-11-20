@@ -360,7 +360,68 @@ test('a caller-supplied origin is refused at creation and at rewrite: only the e
     entries: [{ name: 'legacy_rule', description: 'Ruby rule', body: 'Body.\n', evidence: [{ type: 'symbol', path: 'legacy.rb', symbol: 'legacy' }] }]
   });
   assert.equal(fallback.status, 'saved');
+  const traced = await readFile(entryPath(root, 'legacy_rule'), 'utf8');
+  assert.match(traced, /origin: symbol_fallback/);
+
+  // A rewrite is refused the same way: the trace is never an input, so a
+  // rewrite must carry it from history or not at all.
+  assert.deepEqual(await saveKnowledgeProposal(root, {
+    mode: 'replace',
+    entries: [{
+      name: 'legacy_rule',
+      description: 'carries a fallback it never suffered',
+      body: 'Rewritten body.\n',
+      evidence: [{ path: 'legacy.rb', origin: 'symbol_fallback' }],
+      expectedRevision: await readRevision(root, 'legacy_rule')
+    }]
+  }), {
+    status: 'invalid',
+    rejected: [{ name: 'legacy_rule', reason: 'malformed_evidence' }]
+  });
+  assert.equal(await readFile(entryPath(root, 'legacy_rule'), 'utf8'), traced);
+});
+
+test('a rewrite carries a historical symbol fallback trace onto the identical proof and no other', async t => {
+  const root = await realRoot('knowledge-origin-carry-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const original = 'def legacy\nend\n';
+  await writeFile(join(root, 'legacy.rb'), original);
+  // The engine records the trace itself: an unresolvable symbol proof becomes
+  // a verified file proof at creation.
+  const fallback = await saveKnowledgeProposal(root, {
+    entries: [{ name: 'legacy_rule', description: 'Ruby rule', body: 'Body.\n', evidence: [{ type: 'symbol', path: 'legacy.rb', symbol: 'legacy' }] }]
+  });
+  assert.equal(fallback.status, 'saved');
+  const originalSha = sha256(original);
+  const rewrite = (evidence: Array<Record<string, unknown>>, expectedRevision: string) => saveKnowledgeProposal(root, {
+    mode: 'replace',
+    entries: [{ name: 'legacy_rule', description: 'Ruby rule, rewritten', body: 'Rewritten body.\n', evidence, expectedRevision }]
+  });
+  const published = async () => parseKnowledge(await readFile(entryPath(root, 'legacy_rule'), 'utf8'), 'legacy_rule.md');
+
+  // (a) The same proof — identical path and digest — keeps the trace verbatim.
+  assert.equal((await rewrite([{ path: 'legacy.rb', sha256: originalSha }], await readRevision(root, 'legacy_rule'))).status, 'replaced');
+  const kept = await published();
+  assert.equal(kept.status, 'valid');
+  assert.deepEqual(kept.evidence, [{ type: 'file', path: 'legacy.rb', sha256: originalSha, origin: 'symbol_fallback' }]);
   assert.match(await readFile(entryPath(root, 'legacy_rule'), 'utf8'), /origin: symbol_fallback/);
+
+  // (b) A changed digest is a new proof: the trace it described is gone and a
+  // rewrite may not invent one.
+  const changed = 'def legacy\n  :changed\nend\n';
+  await writeFile(join(root, 'legacy.rb'), changed);
+  assert.equal((await rewrite([{ path: 'legacy.rb', sha256: sha256(changed) }], await readRevision(root, 'legacy_rule'))).status, 'replaced');
+  const redigested = await published();
+  assert.equal(redigested.status, 'valid');
+  assert.deepEqual(redigested.evidence, [{ type: 'file', path: 'legacy.rb', sha256: sha256(changed) }]);
+
+  // A changed path with the very same digest is no more the traced proof.
+  await writeFile(join(root, 'other.rb'), changed);
+  assert.equal((await rewrite([{ path: 'other.rb', sha256: sha256(changed) }], await readRevision(root, 'legacy_rule'))).status, 'replaced');
+  const repathed = await published();
+  assert.equal(repathed.status, 'valid');
+  assert.deepEqual(repathed.evidence, [{ type: 'file', path: 'other.rb', sha256: sha256(changed) }]);
+  assert.doesNotMatch(await readFile(entryPath(root, 'legacy_rule'), 'utf8'), /origin:/);
 });
 
 test('engine_changed refuses a rewrite carrying symbol proofs, and no path ever rewrites the marker', async t => {

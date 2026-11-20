@@ -379,7 +379,7 @@ conclusion is observable:
 | --------------- | ----------------------------------------------------------------------- | --------- |
 | `created`       | The entries were published; `created` lists their names. A published entry whose evidence cites fewer than two distinct files additionally appears under `warnings` as one advisory `{name, code: "insufficient_backing", distinctEvidencePaths}` row, so a thin backing is never published silently. | false |
 | `appended`      | One existing entry was enriched; `appended` lists its name. The historical body is kept byte for byte behind exactly one blank line, the addition is inserted verbatim and the evidence is merged. `warnings` is always empty: an append can never introduce `insufficient_backing`. | false |
-| `no_change`     | The append brought nothing literally new — the addition is already the entry's trailing content, or it is blank and adds no evidence. Nothing was written; the closure is `completed_zero`. | false |
+| `no_change`     | The append brought nothing literally new: the addition already is an exact suffix of the body, or it is blank, and it adds no evidence. Nothing was written; the closure is `completed_zero`. | false |
 | `replaced`      | One existing entry was rewritten in full; `replaced` lists its name and `warnings` is recomputed on the rewritten state. The previous body is never returned. | false |
 | `completed_zero`| An explicit empty proposal: a completed consolidation, not an omission.  | false     |
 | `conflict`      | At least one name exists (`name_conflict`) or no longer carries the revision that was read (`revision_conflict`); `conflicts` lists it and nothing was written. | true      |
@@ -402,11 +402,17 @@ re-verified: an entry that no longer holds is `stale_evidence`, oriented to
 `replace`, and the file is untouched. A blank addition is not refused: it is a
 proof-only append when it brings new evidence and `no_change` otherwise.
 
+`append` and `replace` re-emit the frontmatter from the parsed contract — the
+name, the description and the evidence values are preserved while the formatting
+is canonical — and preserve the historical body byte for byte as the read grammar
+parses it, which normalizes CRLF to LF.
+
 An `append` or `replace` of several entries is refused with reason
 `mode_requires_single_entry` and an unrecognized mode with `unknown_mode`: one call
 form, one operation. `origin`
 is never an accepted input: only the engine records that a file proof
-substitutes a symbol proof it could not resolve.
+substitutes a symbol proof it could not resolve, and a rewrite carries that trace
+verbatim onto the identical `(type, path, sha256)` proof only.
 
 A save result never echoes a body, a cited path or a hash value, and it is the
 only evidence that persistence happened: “no file was created” must not be
@@ -418,10 +424,10 @@ also carries `consolidation: {status, runId, at, …}` and
 `invalid` or `internal_error`). `created` and `changed` accumulate the names
 the run's save calls really published and modified, distinct from each other,
 and the status follows a fixed precedence (`created` above `appended` and
-`replaced`, both above `completed_zero`) so it never depends on the order of the
-calls. A `no_change` append closes the run as `completed_zero` while the tool
-result stays `no_change`: a completed consolidation that wrote nothing is not an
-omission.
+`replaced`, both above `completed_zero`, with the `appended`/`replaced` tie broken
+by `replaced`) so it never depends on the order of the calls. A `no_change` append
+closes the run as `completed_zero` while the tool result stays `no_change`: a
+completed consolidation that wrote nothing is not an omission.
 `partial` means the run made several save calls and at least one published
 entries while another was refused or failed: the closure keeps the published
 names and the refusal outcome instead of claiming a plain success.

@@ -61,7 +61,8 @@ handler, in process instead of a subprocess. It reads the run state only:
 
 - inert for an ordinary conversation, another session or workspace, an expired,
   unreadable or corrupt state, a run without a created Tour, or any existing
-  closure (`created`, `completed_zero`, `partial`, `failed`, `skipped`);
+  closure (`created`, `appended`, `replaced`, `completed_zero`, `partial`,
+  `failed`, `skipped`);
 - for one incomplete run it marks `continuationUsed` under the cross-process
   lock and returns one `custom_message` entry with `continue: true`;
 - it never writes Tour or Knowledge content and never infers a closure from

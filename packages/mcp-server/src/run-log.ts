@@ -320,7 +320,9 @@ export function recordTourCreated(
  * explicit zero never degrades to a skip and vice versa). The precedence is a
  * fixed rank, never the call order: two runs that made the same writes produce
  * the same Run State. An append and a rewrite share one rank: both modify an
- * entry that existed, and neither is worth more than the other.
+ * entry that existed, and neither is worth more than the other. That tie is
+ * broken by `replaced` below, so the verdict depends on the statuses alone and
+ * never on which call came first.
  */
 const CONSOLIDATION_RANK: Record<ConsolidationStatus, number> = {
   created: 4,
