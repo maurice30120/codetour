@@ -553,7 +553,7 @@ test("an unresponsive agent fails startup within the deadline", async () => {
 });
 
 
-test("a provider selects its exact read-only mode", async () => {
+test("an agent session selects its exact read-only mode", async () => {
   const workspace = createWorkspace();
   const agent = spawnAcpAgent(fakeAgentEntry(path.join(workspace.workspace, "agent.log"), "read-only-mode"));
   try {

@@ -1,13 +1,14 @@
 import type { AcpAgentEntry } from "./acpAgentProcess";
 import { vibeAcpEntry } from "./vibeAcpEntry";
 
-export interface AcpProvider {
+/** One ACP agent CodeTour knows how to start for a Tour Step Conversation. */
+export interface AcpAgentProfile {
   name: string;
   entry: AcpAgentEntry;
 }
 
 /** Installed executables only: starting a conversation never downloads software. */
-export function acpProviders(cwd: string): AcpProvider[] {
+export function agentProfiles(cwd: string): AcpAgentProfile[] {
   return [
     { name: "Vibe", entry: vibeAcpEntry(cwd) },
     {

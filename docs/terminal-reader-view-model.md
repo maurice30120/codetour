@@ -119,16 +119,16 @@ are painting.
 **Tour Step Conversation** (`conversation`) — the panel title, its `meta`
 (`"no agent"`, `"ready"` or `"n exchanges"` — a display fragment the panel
 head paints verbatim; restructuring it would churn the paint layer
-disproportionately, a stated decision), `hasResponder`, the agent's
-`providerName` (the adapter lowercases it for the role line), the active
-Step's `suggestions` in order (keys 1-9 ask them), the Step's `exchanges`
-(`StepConversationExchange`, raw and unpainted from the shared store of
-ADR 0031: question, streamed `answer`, the latest `activity` line, the
-`toolUses` keyed by call, and the `pending`/`interrupted`/`failed` flags),
-and `responding` while the Step's answer streams — `q`/Escape interrupt it
-and only a second press quits. The exchange lifecycle (store, blocking,
-history, interruption, failure wording) lives in
-`src/agent/stepConversations.ts`; the adapter paints the tool lines
+disproportionately, a stated decision), `hasResponder`, the Agent
+Profile's `agentProfileName` (the adapter lowercases it for the role line),
+the active Step's `suggestions` in order (keys 1-9 ask them), the Step's
+`exchanges` (`StepConversationExchange`, raw and unpainted from the shared
+store of ADR 0031: question, streamed `answer`, the latest `activity`
+line, the `toolUses` keyed by call, and the
+`pending`/`interrupted`/`failed` flags), and `responding` while the Step's
+answer streams — `q`/Escape interrupt it and only a second press quits. The
+exchange lifecycle (store, blocking, history, interruption, failure wording)
+lives in `src/agent/stepConversations.ts`; the adapter paints the tool lines
 (`⚙ refused kind: title`), the activity line, the answer states (streaming
 plain text, settled Markdown, `failed` as the error class, an interrupted
 answer keeps its streamed part plus an "Answer interrupted." line).
@@ -178,7 +178,7 @@ survives truncation:
 
 1. `VOICE ON` / `VOICE OFF` — always present.
 2. The narration `warning` (`"Narration failed: …"`), while one is current.
-3. The agent's provider name, lowercased, when an agent is installed.
+3. The Agent Profile name, lowercased, when an agent is installed.
 4. The exchange count (`"n exchanges"`), when nonzero.
 
 The adapter joins the segments with `" · "` and fits them into

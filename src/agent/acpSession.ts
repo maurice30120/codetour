@@ -225,7 +225,7 @@ function buildPromptBlocks(
 
 /**
  * Opens a session with the ACP agent behind the given transport, selects and
- * verifies its provider mode before any prompt, and returns the conversation.
+ * verifies its agent mode before any prompt, and returns the conversation.
  */
 export function openAskSession(
   options: OpenAskSessionOptions

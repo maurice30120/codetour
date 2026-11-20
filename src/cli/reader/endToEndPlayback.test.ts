@@ -83,7 +83,7 @@ class ScriptedSpeechEngine implements NarrationEngine {
  * summary) without starting any agent process.
  */
 class ScriptedResponder implements ConversationResponder {
-  readonly providerName = "Fake Agent";
+  readonly agentProfileName = "Fake Agent";
   readonly requests: StepChatRequest[] = [];
   readonly answers: string[] = [];
   disposed = false;
@@ -226,7 +226,7 @@ test("the composed CLI reader plays a Tour of this repository end to end on the 
     assert.ok(answered.conversation.hasResponder);
     assert.ok(answered.status.rightSegments.some(segment =>
       segment.toLowerCase().includes("fake agent")),
-      "the status line names the provider: " + answered.status.rightSegments.join(" · "));
+      "the status line names the Agent Profile: " + answered.status.rightSegments.join(" · "));
 
     // Asking for a whole-Tour summary in the conversation does not change
     // what the conversation is fed (ticket #241): the grounding stays the

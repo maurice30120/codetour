@@ -3,7 +3,7 @@ import * as assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AcpProvider } from "../agent/acpProviders";
+import type { AcpAgentProfile } from "../agent/agentProfiles";
 import { createAcpStepChatResponder } from "../agent/stepChatAgent";
 import {
   buildStepChatContext,
@@ -13,16 +13,16 @@ import {
 
 const fakeAgent = path.join(__dirname, "../agent/fakeAcpAgent.js");
 
-function provider(name: string, command: string): AcpProvider {
+function profile(name: string, command: string): AcpAgentProfile {
   return { name, entry: { command, cwd: process.cwd() } };
 }
 
-test("only the installed providers reach the session's responder", async () => {
-  const providers = [provider("Vibe", "vibe-acp"), provider("Copilot", "copilot")];
+test("only the installed Agent Profiles reach the session's responder", async () => {
+  const profiles = [profile("Vibe", "vibe-acp"), profile("Copilot", "copilot")];
   let disposed = 0;
-  let received: AcpProvider[] = [];
+  let received: AcpAgentProfile[] = [];
   const session = openTerminalChat(process.cwd(), {
-    providers,
+    profiles,
     exists: command => command === "copilot",
     createResponder: candidates => {
       received = candidates;
@@ -34,9 +34,9 @@ test("only the installed providers reach the session's responder", async () => {
       };
     }
   });
-  // The missing provider never becomes a candidate of the failover policy.
+  // The missing profile never becomes a candidate of the failover policy.
   assert.deepEqual(received.map(candidate => candidate.name), ["Copilot"]);
-  assert.equal(session.provider?.name, "Copilot");
+  assert.equal(session.profile?.name, "Copilot");
   assert.equal(await session.responder?.answer({
     question: "q", context: { available: false, description: "" }, history: [],
     workspaceRoot: process.cwd()
@@ -45,39 +45,39 @@ test("only the installed providers reach the session's responder", async () => {
   assert.equal(disposed, 1);
 
   const none = openTerminalChat(process.cwd(), {
-    providers, exists: () => false
+    profiles, exists: () => false
   });
   assert.equal(none.responder, undefined);
   await none.dispose();
 });
 
-test("the session's responder failovers between the installed providers by default", async () => {
+test("the session's responder failovers between the installed Agent Profiles by default", async () => {
   // The default responder is the single failover policy of ADR 0014, over
   // the installed candidates in the extension's order.
   const session = openTerminalChat(process.cwd(), {
-    providers: [provider("Vibe", "vibe-acp")],
+    profiles: [profile("Vibe", "vibe-acp")],
     exists: () => true,
     createResponder: undefined
   });
   assert.ok(session.responder);
-  assert.equal(session.provider?.name, "Vibe");
+  assert.equal(session.profile?.name, "Vibe");
   await session.dispose();
 });
 
-test("an explicit ACP command overrides the installed providers", () => {
-  let received: AcpProvider[] = [];
+test("an explicit ACP command overrides the installed Agent Profiles", () => {
+  let received: AcpAgentProfile[] = [];
   const session = openTerminalChat(process.cwd(), {
     env: { CODETOUR_ACP_COMMAND: "/opt/agent", CODETOUR_ACP_ARGS: "--stdio --flag" },
     exists: () => true,
-    createResponder: providers => {
-      received = providers;
+    createResponder: profiles => {
+      received = profiles;
       return { answer: () => "ok" };
     }
   });
   assert.deepEqual(received.map(candidate => candidate.entry.command), ["/opt/agent"]);
-  assert.equal(session.provider?.name, "custom");
-  assert.equal(session.provider?.entry.command, "/opt/agent");
-  assert.deepEqual(session.provider?.entry.args, ["--stdio", "--flag"]);
+  assert.equal(session.profile?.name, "custom");
+  assert.equal(session.profile?.entry.command, "/opt/agent");
+  assert.deepEqual(session.profile?.entry.args, ["--stdio", "--flag"]);
 });
 
 test("a command is found only when it is an executable on PATH", {

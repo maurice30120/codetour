@@ -916,6 +916,28 @@ for (const failingBehavior of ["no-ask-mode", "prompt-fails", "silent-start"]) {
   });
 }
 
+test("the failover chrome announces the next agent in English", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  const responder = createFallbackStepChatResponder(() => [
+    { name: "Vibe", entry: { command: "/missing/codetour-agent", cwd: agent.workspace } },
+    { name: "Copilot", entry: fakeAgentEntry(agent) }
+  ]);
+  const activities: string[] = [];
+  try {
+    const answer = await responder.answer({
+      question: "Chrome ?", workspaceRoot: agent.workspace, history: [],
+      context: { available: false, description: "A tour step" }
+    }, { onActivity: (message: string) => activities.push(message) });
+    assert.match(answer, /Tour answer/);
+    assert.ok(activities.includes("Vibe unavailable, trying the next agent…"),
+      "the failover activity names the Agent Profile in English: " + activities.join(" | "));
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+});
+
 test("ACP fallback reports all failures and can retry after installing an agent", async () => {
   resetChatState();
   const agent = createAgentWorkspace();
@@ -932,6 +954,8 @@ test("ACP fallback reports all failures and can retry after installing an agent"
     for (const name of ["Vibe", "Copilot", "Codex", "Claude Code"]) {
       assert.ok(lastChatUpdate().exchanges[0].answerHtml.includes(name));
     }
+    assert.ok(lastChatUpdate().exchanges[0].answerHtml.includes("No ACP agent available"),
+      "the unavailable error is in English");
     installed = true;
     chatPanel().receive({ type: "askQuestion", question: "Après installation ?" });
     await waitForCompletedAnswer(update => update.exchanges.length === 2);
@@ -956,7 +980,7 @@ test("ACP fallback never replaces an agent after answer text has streamed", asyn
   } finally { chatPanel().dispose(); first.cleanup(); second.cleanup(); }
 });
 
-test("stopping during ACP startup never starts a fallback provider", async () => {
+test("stopping during ACP startup never starts a fallback Agent Profile", async () => {
   resetChatState();
   const first = createAgentWorkspace(); const second = createAgentWorkspace();
   setStepChatResponder(createFallbackStepChatResponder(() => [
@@ -977,7 +1001,7 @@ test("stopping during ACP startup never starts a fallback provider", async () =>
 
 
 for (const workingIndex of [0, 2, 3]) {
-  test(`ACP fallback reaches provider ${workingIndex + 1} in priority order`, async () => {
+  test(`ACP fallback reaches Agent Profile ${workingIndex + 1} in priority order`, async () => {
     resetChatState();
     const agent = createAgentWorkspace();
     const attempted: string[] = [];
@@ -1020,7 +1044,7 @@ test("stopping after the handshake begins prevents timed-out startup from fallin
 });
 
 
-test("concurrent step questions share ordered fallback without skipping the working provider", async () => {
+test("concurrent step questions share ordered fallback without skipping the working Agent Profile", async () => {
   resetChatState();
   const first = createAgentWorkspace();
   const second = createAgentWorkspace();

@@ -12,7 +12,7 @@ import {
 /**
  * The Tour Step Conversation agent: the webview chat's responder built on
  * the ACP session layer. The agent is launched lazily by its installed ACP
- * entry on the first question — a configured ACP provider or the deterministic fake
+ * entry on the first question — a configured Agent Profile or the deterministic fake
  * agent at the same process boundary in tests — kept for the whole reading
  * session, and its Ask mode is selected and verified by the session layer
  * before the first prompt.

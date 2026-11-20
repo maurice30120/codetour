@@ -1,11 +1,11 @@
-import type { AcpProvider } from "./acpProviders";
-import { acpProviders } from "./acpProviders";
+import type { AcpAgentProfile } from "./agentProfiles";
+import { agentProfiles } from "./agentProfiles";
 import { createAcpStepChatResponder, type AcpStepChatResponderHooks } from "./stepChatAgent";
 import { StepChatAgentUnavailableError, type StepChatResponder } from "./stepChatContract";
 
-/** Keeps the first working provider for the reading session, with ordered failover. */
+/** Keeps the first working Agent Profile for the reading session, with ordered failover. */
 export function createFallbackStepChatResponder(
-  providersFor: (cwd: string) => AcpProvider[] = acpProviders,
+  profilesFor: (cwd: string) => AcpAgentProfile[] = agentProfiles,
   hooks: AcpStepChatResponderHooks = {}
 ): StepChatResponder {
   let active: StepChatResponder | undefined;
@@ -13,7 +13,7 @@ export function createFallbackStepChatResponder(
   let workspace: string | undefined;
   let generation = 0;
   // Selection, startup and fallback form one operation on the shared session.
-  // Queue the whole operation, not just prompts inside an individual provider.
+  // Queue the whole operation, not just prompts inside an individual profile.
   let pending: Promise<void> = Promise.resolve();
 
   return {
@@ -28,15 +28,15 @@ export function createFallbackStepChatResponder(
           workspace = request.workspaceRoot;
           await previous?.dispose?.();
         }
-        const providers = providersFor(request.workspaceRoot);
+        const profiles = profilesFor(request.workspaceRoot);
         const failed: string[] = [];
-        for (; selected < providers.length; selected++) {
+        for (; selected < profiles.length; selected++) {
           if (attempt !== generation) throw new Error("Answer interrupted.");
-          const provider = providers[selected];
-          const current = active ?? createAcpStepChatResponder(() => provider.entry, hooks);
+          const profile = profiles[selected];
+          const current = active ?? createAcpStepChatResponder(() => profile.entry, hooks);
           active = current;
           let streamed = false;
-          events?.onActivity?.(`Connecting to ${provider.name}…`);
+          events?.onActivity?.(`Connecting to ${profile.name}…`);
           try {
             return await current.answer(request, {
               onAnswerDelta: delta => {
@@ -48,23 +48,23 @@ export function createFallbackStepChatResponder(
                 if (attempt === generation) events?.onThoughtDelta?.(delta);
               },
               onActivity: message => {
-                if (attempt === generation) events?.onActivity?.(`${provider.name} — ${message}`);
+                if (attempt === generation) events?.onActivity?.(`${profile.name} — ${message}`);
               }
             });
           } catch (error) {
             if (attempt !== generation) throw error;
             // A visible answer belongs to one agent; never splice another into it.
             if (streamed) throw error;
-            failed.push(`${provider.name} : ${error instanceof Error ? error.message : String(error)}`);
+            failed.push(`${profile.name} : ${error instanceof Error ? error.message : String(error)}`);
             active = undefined;
             await current.dispose?.();
             if (attempt !== generation) throw error;
-            events?.onActivity?.(`${provider.name} indisponible, essai de l’agent suivant…`);
+            events?.onActivity?.(`${profile.name} unavailable, trying the next agent…`);
           }
         }
         selected = 0; // A future question retries the ordered list after configuration changes.
         throw new StepChatAgentUnavailableError(
-          `Aucun agent ACP disponible (Vibe → Copilot → Codex → Claude Code). ${failed.join("\n")}`
+          `No ACP agent available (Vibe → Copilot → Codex → Claude Code). ${failed.join("\n")}`
         );
       });
       // Rejection must free the queue for the next request as well.

@@ -11,7 +11,7 @@ export interface AcpAgentEntry {
   args?: string[];
   cwd: string;
   env?: Record<string, string>;
-  /** Exact provider mode id; defaults to Vibe Ask when omitted. */
+  /** Exact agent mode id; defaults to Vibe Ask when omitted. */
   modeId?: string;
   /** Copilot: use its advertised default, with read-only tool filtering. */
   useDefaultMode?: boolean;

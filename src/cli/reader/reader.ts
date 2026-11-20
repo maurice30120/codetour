@@ -247,7 +247,7 @@ class TerminalReader implements TourReader {
             ? exchangesLabel(exchanges.length)
             : "ready",
         hasResponder,
-        providerName: this.conversation.providerName,
+        agentProfileName: this.conversation.agentProfileName,
         suggestions,
         exchanges,
         responding
@@ -260,7 +260,7 @@ class TerminalReader implements TourReader {
         speechWarning: narrationState.warning,
         canOpenInVsCode: this.openInVsCode !== undefined,
         openWarning: this.openWarning,
-        providerName: this.conversation.providerName,
+        agentProfileName: this.conversation.agentProfileName,
         exchangeCount: exchanges.length
       }),
       narration: narrationState,

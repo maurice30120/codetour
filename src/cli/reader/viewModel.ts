@@ -103,8 +103,8 @@ export interface ReaderConversation {
    */
   meta: string;
   hasResponder: boolean;
-  /** The agent's provider name, for the role line; the adapter lowercases it. */
-  providerName: string | undefined;
+  /** The Agent Profile name, for the role line; the adapter lowercases it. */
+  agentProfileName: string | undefined;
   /** Suggested questions of the active Step, in order; keys 1-9 ask them. */
   suggestions: string[];
   /** The raw, unpainted exchanges of the displayed Step, from the shared

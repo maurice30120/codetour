@@ -103,7 +103,7 @@ class FakeDescriptionRenderer {
 
 /** A conversation responder stub: no agent process is ever started. */
 class StubResponder implements ConversationResponder {
-  readonly providerName = "Stub";
+  readonly agentProfileName = "Stub";
   answer(_request: StepChatRequest): Promise<string> {
     return Promise.resolve("Stub answer");
   }
