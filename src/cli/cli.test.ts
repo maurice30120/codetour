@@ -295,32 +295,32 @@ test("the CLI help documents the terminal renderer as the default", () => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("the CLI opens the terminal reader when no renderer is given", {skip: process.platform !== "darwin"}, () => {
+test("the CLI reads in the calling terminal and never opens an independent window", () => {
+  const { root } = fixture();
+  try {
+    // run() spawns the CLI over pipes: no terminal. The default renderer and
+    // the explicit `terminal` renderer must both reject such a host at the
+    // composition root's TTY validation (ticket #241) — never fall back to
+    // an independent terminal window, and never print an opened message.
+    for (const args of [["architecture"], ["architecture", "--renderer", "terminal"]]) {
+      const result = run(root, args);
+      assert.notEqual(result.status, 0, args.join(" "));
+      assert.match(result.stderr, /TermDOM requires an interactive terminal/);
+      assert.doesNotMatch(result.stdout, /CodeTour: opened/);
+    }
+  } finally { rmSync(root, {recursive:true, force:true}); }
+});
+
+test("macOS CLI reports a failing browser launcher", {skip: process.platform !== "darwin"}, () => {
   const { root } = fixture();
   try {
     const bin = path.join(root, "bin"); mkdirSync(bin);
     const launcher = path.join(bin, "open"); writeFileSync(launcher, "#!/bin/sh\nexit 42\n"); chmodSync(launcher, 0o755);
     const env: NodeJS.ProcessEnv = { ...process.env, PATH: bin + path.delimiter + process.env.PATH };
     delete env.CODETOUR_TEST_HTML_OUTPUT;
-    const result = spawnSync(process.execPath, [cli, "architecture"], {cwd: root, encoding: "utf8", env});
+    const result = spawnSync(process.execPath, [cli, "architecture", "--renderer", "html"], {cwd: root, encoding: "utf8", env});
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Terminal launcher failed: 42/);
+    assert.match(result.stderr, /Browser launcher failed: 42/);
     assert.doesNotMatch(result.stdout, /CodeTour: opened/);
-  } finally { rmSync(root, {recursive:true, force:true}); }
-});
-
-test("macOS CLI reports a failing graphical launcher", {skip: process.platform !== "darwin"}, () => {
-  const { root } = fixture();
-  try {
-    const bin = path.join(root, "bin"); mkdirSync(bin);
-    const launcher = path.join(bin, "open"); writeFileSync(launcher, "#!/bin/sh\nexit 42\n"); chmodSync(launcher, 0o755);
-    for (const renderer of ["html", "terminal"]) {
-      const env: NodeJS.ProcessEnv = { ...process.env, PATH: bin + path.delimiter + process.env.PATH };
-      delete env.CODETOUR_TEST_HTML_OUTPUT;
-      const result = spawnSync(process.execPath, [cli, "architecture", "--renderer", renderer], {cwd: root, encoding: "utf8", env});
-      assert.notEqual(result.status, 0);
-      assert.match(result.stderr, /launcher failed: 42/i);
-      assert.doesNotMatch(result.stdout, /CodeTour: opened/);
-    }
   } finally { rmSync(root, {recursive:true, force:true}); }
 });

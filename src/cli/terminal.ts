@@ -22,6 +22,67 @@ import type { ReaderViewModel } from "./reader/viewModel";
  * layout module (ADR 0028). The adapter owns no reading behavior.
  */
 
+/**
+ * The collaborators a host may supply at the composition root; the entry
+ * point composes the platform defaults otherwise. Fakes here make the whole
+ * composition testable in-process at the view-model seam (spec #93, #241).
+ */
+export interface TerminalTourCollaborators {
+  /** The narration controller over the system speech by default. */
+  speech?: NarrationController;
+  /** The conversation responder over the Step Chat failover by default. */
+  responder?: ConversationResponder;
+}
+
+export interface TerminalReaderCompositionOptions {
+  tour: CodeTour;
+  root: string;
+  /** Initial terminal geometry; undefined lets the reader take its defaults. */
+  columns?: number;
+  rows?: number;
+  collaborators?: TerminalTourCollaborators;
+  /** The paint notification the rendering adapter subscribes to. */
+  onViewChange?: () => void;
+}
+
+/**
+ * The composition root's collaborator wiring (spec #93): the ACP session
+ * layer stays behind the Step Chat support seams and is adapted to the
+ * reader's responder port; no agent process is started until the first
+ * question. Since #104 the session is the ordered failover of ADR 0014 over
+ * every installed candidate, and the reading module runs the conversation
+ * through the shared StepConversations store above this seam (ADR 0031).
+ */
+export function composeTerminalReader(options: TerminalReaderCompositionOptions): TourReader {
+  const { tour, root } = options;
+  const injected = options.collaborators ?? {};
+  const chat = injected.responder ? undefined : openTerminalChat(root);
+  const responder: ConversationResponder | undefined = injected.responder ??
+    (chat?.responder
+      ? {
+        providerName: chat.provider?.name,
+        answer: (request, events) => chat.responder!.answer(request, events),
+        // A stop interrupts the in-flight answer (ADR 0031): the failover
+        // responder cancels its active candidate.
+        cancel: () => chat.responder!.cancel?.(),
+        dispose: () => chat.dispose()
+      }
+      : undefined);
+  return createReader({
+    tour,
+    root,
+    columns: options.columns,
+    rows: options.rows,
+    // The speech stack is untouched (spec #93): the entry point composes the
+    // narration controller over the system speech and hands the controller —
+    // the engine seam — to the reader, which keeps only the policy.
+    speech: injected.speech ?? new NarrationController({ engine: createSystemSpeech() }),
+    responder,
+    readCommitFile: commitFileReader(root),
+    onViewChange: options.onViewChange
+  });
+}
+
 /** The TermDOM host, lazily required: plain HTML reading works without it. */
 interface TermDomHost {
   attach(): Promise<void>;
@@ -66,36 +127,12 @@ export async function runTerminalTour(tour: CodeTour, root: string): Promise<voi
     // A transport without fullscreen support still renders inline.
   }
 
-  // The composition root (spec #93): the ACP session layer stays behind the
-  // Step Chat support seams and is adapted to the reader's responder port;
-  // no agent process is started until the first question. Since #104 the
-  // session is the ordered failover of ADR 0014 over every installed
-  // candidate, and the reading module runs the conversation through the
-  // shared StepConversations store above this seam (ADR 0031).
-  const chat = openTerminalChat(root);
-  const responder: ConversationResponder | undefined = chat.responder
-    ? {
-      providerName: chat.provider?.name,
-      answer: (request, events) => chat.responder!.answer(request, events),
-      // A stop interrupts the in-flight answer (ADR 0031): the failover
-      // responder cancels its active candidate.
-      cancel: () => chat.responder!.cancel?.(),
-      dispose: () => chat.dispose()
-    }
-    : undefined;
-
   let surface: TermDomSurface | undefined;
-  const reader = createReader({
+  const reader = composeTerminalReader({
     tour,
     root,
     columns: Math.floor(window.innerWidth || 80),
     rows: Math.floor(window.innerHeight || 24),
-    // The speech stack is untouched (spec #93): the entry point composes the
-    // narration controller over the system speech and hands the controller —
-    // the engine seam — to the reader, which keeps only the policy.
-    speech: new NarrationController({ engine: createSystemSpeech() }),
-    responder,
-    readCommitFile: commitFileReader(root),
     // The adapter paints exactly when the reader says its view model moved.
     onViewChange: () => surface?.paint()
   });

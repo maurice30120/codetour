@@ -15,10 +15,8 @@ import { createStandaloneTourHtml } from "./html";
 import { doctor, installAgents, listAgents, uninstallAgents, agentIds } from "./agentIntegrations";
 import { resolveReadonlyStepContext } from "./stepContext";
 import { readTourImages } from "./stepImages";
-import { launchTerminalReader } from "./terminalLauncher";
 import { runTerminalTour } from "./terminal";
 import { resolveTourSelection } from "./tourResolution";
-import { fileURLToPath } from "node:url";
 import { isKnowledgeInvocation, registerKnowledgeCommand, reportKnowledgeUsageError } from "./knowledge";
 
 const USAGE = "Usage: codetour [tour] [--renderer html|terminal]";
@@ -258,11 +256,12 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
   }
   const tour = selected ?? await pickTour(tours, title);
 
-  // The terminal reader is the default: only an explicit --renderer html
-  // opens the browser page.
+  // The terminal reader is the default and reads in the caller's own
+  // terminal: the agent's terminal is the Playback Surface, never an
+  // independent terminal window (ticket #241). Only an explicit
+  // --renderer html opens the browser page.
   if (options.renderer !== "html") {
-    await launchTerminalReader(fileURLToPath(tour.id), root);
-    console.log("CodeTour: opened independent terminal reader for " + tour.title);
+    await runTerminalTour(tour, root);
     return;
   }
 

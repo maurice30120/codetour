@@ -196,7 +196,8 @@ node "$CODETOUR_ROOT/dist/cli.js" project --renderer terminal
 
 The HTML command opens a browser page; use **Next**, **Previous** and **Finish**
 to check the steps and their code context. The terminal is the default when
-`--renderer` is omitted; it opens an independent terminal window: use
+`--renderer` is omitted; it reads the Tour in the calling terminal itself
+(never an independent terminal window): use
 `n`/`p` or the arrow keys to move between steps, `j`/`k` to scroll, and `q` to
 finish. Check that the explanation and relevant source or diff correspond to
 the same Tour Step in both interfaces. Keep the invoking terminal open if using
