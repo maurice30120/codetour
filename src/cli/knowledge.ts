@@ -93,7 +93,12 @@ interface KnowledgeSaveOptions extends KnowledgeOptions {
   description?: string;
   bodyFile?: string;
   evidence?: string[];
+  mode?: string;
+  expectedRevision?: string;
 }
+
+/** The write modes of a Knowledge Consolidation Operation (spec #232). */
+const SAVE_MODES = new Set(["create", "replace"]);
 
 /** Accumulate a repeatable option, preserving the order the user wrote. */
 function repeatable(value: string, previous: string[]): string[] {
@@ -200,12 +205,20 @@ async function readProposal(file: string): Promise<{ status: "ok"; value: unknow
  * input, never combined. Validation, conflict detection and publication are
  * owned by `saveKnowledgeProposal`, so the CLI cannot diverge from the shared
  * contract: a refusal publishes nothing and an existing entry is preserved.
- * The result carries names only — never a body, a hash or a resolved path.
+ * The mode is `create` (default) or `replace`; a replace is conditioned on the
+ * Knowledge Revision the caller read, so it can repair an entry whose contract
+ * no longer verifies without ever reading its body. The result carries names
+ * only — never a body, a hash or a resolved path.
  */
 async function saveCommand(options: KnowledgeSaveOptions): Promise<void> {
   const resolved = requireWorkspace(await resolveWorkspace(options.workspace));
   if (!resolved) return;
   const { workspace } = resolved;
+
+  if (options.mode !== undefined && !SAVE_MODES.has(options.mode)) {
+    usage("unknown_mode", '--mode must be "create" or "replace".');
+    return;
+  }
 
   const hasProposal = options.proposal !== undefined;
   const hasConvenience = options.name !== undefined || options.description !== undefined ||
@@ -216,6 +229,14 @@ async function saveCommand(options: KnowledgeSaveOptions): Promise<void> {
   }
   if (!hasProposal && !hasConvenience) {
     usage("missing_input", "Pass --proposal, or --name, --description, --body-file and --evidence.");
+    return;
+  }
+  if (hasProposal && options.expectedRevision !== undefined) {
+    usage("ambiguous_input", "Declare expectedRevision inside the proposal entry, not as a flag.");
+    return;
+  }
+  if (!hasProposal && options.expectedRevision !== undefined && options.mode !== "replace") {
+    usage("missing_mode", "--expected-revision only applies to --mode replace.");
     return;
   }
 
@@ -232,6 +253,14 @@ async function saveCommand(options: KnowledgeSaveOptions): Promise<void> {
       return;
     }
     proposal = read.value;
+    if (options.mode !== undefined && proposal !== null && typeof proposal === "object" && !Array.isArray(proposal)) {
+      const record = proposal as Record<string, unknown>;
+      if (record.mode !== undefined && record.mode !== options.mode) {
+        usage("ambiguous_input", "The proposal declares another mode; use either --mode or the proposal's mode.");
+        return;
+      }
+      proposal = { ...record, mode: options.mode };
+    }
   } else {
     if (options.name === undefined || options.description === undefined || options.bodyFile === undefined) {
       usage("missing_entry_field", "Convenience mode requires --name, --description and --body-file.");
@@ -248,11 +277,13 @@ async function saveCommand(options: KnowledgeSaveOptions): Promise<void> {
       return;
     }
     proposal = {
+      ...(options.mode === undefined ? {} : { mode: options.mode }),
       entries: [{
         name: options.name,
         description: options.description,
         body,
-        evidence: (options.evidence ?? []).map(evidence => ({ path: evidence }))
+        evidence: (options.evidence ?? []).map(evidence => ({ path: evidence })),
+        ...(options.expectedRevision === undefined ? {} : { expectedRevision: options.expectedRevision })
       }]
     };
   }
@@ -266,6 +297,20 @@ async function saveCommand(options: KnowledgeSaveOptions): Promise<void> {
         status: "saved",
         workspace,
         saved: result.saved,
+        warnings: result.warnings,
+      },
+      KNOWLEDGE_EXIT.ok
+    );
+    return;
+  }
+  if (result.status === "replaced") {
+    // A rewrite is a modification, never a creation: the CLI reports it with
+    // its own status and keeps naming entries only.
+    emit(
+      {
+        status: "replaced",
+        workspace,
+        replaced: result.replaced,
         warnings: result.warnings,
       },
       KNOWLEDGE_EXIT.ok
@@ -309,7 +354,9 @@ export function registerKnowledgeCommand(program: Command): void {
     .command("save")
     .description("validate and persist a proposal (zero, one or many entries); nothing is written on any refusal")
     .option("--workspace <dir>", "workspace root (defaults to the current directory)")
-    .option("--proposal <file>", 'proposal JSON: {"entries":[{"name","description","body","evidence":[{"path","sha256"?}]}]}')
+    .option("--proposal <file>", 'proposal JSON: {"mode"?,"entries":[{"name","description","body","evidence":[{"path","sha256"?}],"expectedRevision"?}]}')
+    .option("--mode <mode>", 'write mode: "create" (default) or "replace"')
+    .option("--expected-revision <token>", "convenience: Knowledge Revision of a replaced entry; required by --mode replace")
     .option("--name <name>", "convenience: entry name, with --description, --body-file and --evidence")
     .option("--description <text>", "convenience: one-line entry description")
     .option("--body-file <file>", "convenience: Markdown body file, resolved against the workspace")

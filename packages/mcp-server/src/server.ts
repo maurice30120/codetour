@@ -650,11 +650,17 @@ const knowledgeReadInputSchema = knowledgeToolInputSchema
 
 const knowledgeSaveInputSchema = knowledgeToolInputSchema
   .extend({
+    mode: z
+      .unknown()
+      .optional()
+      .describe(
+        'Optional write mode: \"create\" (default) or \"replace\". Create publishes new entries; replace rewrites ONE existing entry in full, valid or invalid, and requires each entry\'s expectedRevision.'
+      ),
     entries: z
       .unknown()
       .optional()
       .describe(
-        "The entries array of a Knowledge proposal: zero entries is an explicit completed_zero, one or many entries are validated and published together. Each entry has name, description, body and evidence: file proofs [{type: \"file\", path, sha256?}] or symbol proofs [{type: \"symbol\", path, symbol, sha256?}]. A symbol proof can be provided without sha256: the engine resolves the qualified symbol and computes the fingerprint; when it cannot, the save falls back to a verified file proof and reports it in warnings, never silently."
+        "The entries array of a Knowledge proposal: zero entries is an explicit completed_zero, one or many entries are validated and published together. Each entry has name, description, body and evidence: file proofs [{type: \"file\", path, sha256?}] or symbol proofs [{type: \"symbol\", path, symbol, sha256?}]. A symbol proof can be provided without sha256: the engine resolves the qualified symbol and computes the fingerprint; when it cannot during a create, the save falls back to a verified file proof and reports it in warnings, never silently. With mode \"replace\", the array holds exactly one entry carrying expectedRevision, the Knowledge Revision that was read."
       ),
     runId: z
       .unknown()
@@ -723,13 +729,25 @@ const KNOWLEDGE_SAVE_DESCRIPTION =
   "An omitted sha256 is computed and a " +
   "declared one is verified against the cited bytes. Every entry is validated " +
   "before anything is written, an existing <name>.md is never overwritten, and " +
-  "any refusal publishes nothing. Results are observable: \"created\" names " +
-  "the published entries, \"completed_zero\" is an explicit empty proposal " +
+  "any refusal publishes nothing. `mode` selects the operation: \"create\" " +
+  "(default) publishes new entries; \"replace\" rewrites ONE existing entry in " +
+  "full — description, body and evidence — against the `expectedRevision` the " +
+  "caller read, so a stale or absent revision is refused instead of " +
+  "overwriting bytes nobody saw. Replace works on an entry whose contract no " +
+  "longer verifies, never returns its previous body, verifies every new proof " +
+  "and refuses a name that does not exist (reason `unknown_entry`); its entry " +
+  "array holds exactly one entry. `origin` is never an input: the engine alone " +
+  "records that a file proof substitutes a symbol proof it could not resolve. " +
+  "Results are observable: \"created\" names " +
+  "the published entries, \"replaced\" names the rewritten one, " +
+  "\"completed_zero\" is an explicit empty proposal " +
   "(a completed consolidation, not a forgotten one), \"conflict\" lists the " +
-  "existing names, \"invalid\" lists the rejections, and \"failed\" reports an " +
+  "existing names or the stale revisions (reason `revision_conflict`), " +
+  "\"invalid\" lists the rejections, and \"failed\" reports an " +
   "unexpected failure. A published result also carries `warnings`: one " +
   "advisory `insufficient_backing` row per published entry whose evidence " +
-  "cites fewer than two distinct files, so a thin backing is never passed " +
+  "cites fewer than two distinct files — recomputed on the rewritten state " +
+  "for a replace — so a thin backing is never passed " +
   "over silently. Never claim persistence that this result does not " +
   "report. runId is optional: omit it when no run identity was given to you. " +
   "In each entry, distinguish the general rules from their exceptions and " +
@@ -1790,6 +1808,24 @@ async function handleKnowledgeRead(
   );
 }
 
+// Advisory backing signal about published entries: the result states loudly
+// when an entry's evidence contract rests on fewer distinct files than a rule
+// beyond them would need. It names published entries only, never a cited path
+// and never a hash value.
+function insufficientBackingNote(
+  warnings: Array<{ name: string }>
+): string {
+  if (warnings.length === 0) return "";
+  return (
+    `\n${warnings.length} published entr${warnings.length === 1 ? "y" : "ies"} ` +
+    `${warnings.length === 1 ? "is" : "are"} insufficiently backed: ` +
+    `${warnings.map((warning) => warning.name).join(", ")} cite${warnings.length === 1 ? "s" : ""} ` +
+    "fewer than two distinct files. Verified evidence proves only that the " +
+    "cited bytes are unchanged: keep these entries scoped to what their " +
+    "cited files support, or complete their evidence before relying on them."
+  );
+}
+
 async function handleKnowledgeSave(
   defaultContext: WorkspaceContext,
   args: unknown
@@ -1812,10 +1848,19 @@ async function handleKnowledgeSave(
       { path: "runId", message: "must be a CodeTour generation run identity" },
     ]);
   }
+  const mode = workspace.args.mode;
+  if (mode !== undefined && typeof mode !== "string") {
+    return knowledgeArgumentError([
+      { path: "mode", message: 'must be "create" or "replace"' },
+    ]);
+  }
 
   let result;
   try {
-    result = await saveKnowledgeProposal(workspace.context.root, { entries });
+    result = await saveKnowledgeProposal(
+      workspace.context.root,
+      mode === undefined ? { entries } : { mode, entries }
+    );
   } catch (error) {
     const response = knowledgeResponse(
       {
@@ -1837,20 +1882,8 @@ async function handleKnowledgeSave(
   }
 
   if (result.status === "saved") {
-    // Advisory backing signals about published entries: an entry is created,
-    // but the result states loudly when its evidence contract rests on fewer
-    // distinct files than a rule beyond them would need — never silently.
-    // The signal carries entry names only, no cited path and no hash value.
     const warnings = result.warnings ?? [];
-    const warningNote =
-      warnings.length === 0
-        ? ""
-        : `\n${warnings.length} published entr${warnings.length === 1 ? "y" : "ies"} ` +
-          `${warnings.length === 1 ? "is" : "are"} insufficiently backed: ` +
-          `${warnings.map((warning) => warning.name).join(", ")} cite${warnings.length === 1 ? "s" : ""} ` +
-          "fewer than two distinct files. Verified evidence proves only that the " +
-          "cited bytes are unchanged: keep these entries scoped to what their " +
-          "cited files support, or complete their evidence before relying on them.";
+    const warningNote = insufficientBackingNote(warnings);
     const response = knowledgeResponse(
       {
         status: "created",
@@ -1869,6 +1902,33 @@ async function handleKnowledgeSave(
     );
     return response;
   }
+  if (result.status === "replaced") {
+    // A rewrite is a modification, never a creation: the outcome names the
+    // replaced entries and the closure records them under `changed`, so a run
+    // audit tells what it created from what it rewrote. The old body is not
+    // echoed, and no cited path or hash value leaves the catalogue.
+    const warnings = result.warnings ?? [];
+    const response = knowledgeResponse(
+      {
+        status: "replaced",
+        workspace: workspace.label,
+        replaced: result.replaced,
+        warnings,
+      },
+      `Replaced ${result.replaced.length} Knowledge entr${result.replaced.length === 1 ? "y" : "ies"}: ` +
+        result.replaced.join(", ") +
+        ". The whole entry — description, body and evidence — was rewritten " +
+        "from the revision that was read; the previous body is gone." +
+        insufficientBackingNote(warnings)
+    );
+    await appendConsolidation(
+      response,
+      defaultContext.realRoot,
+      runId as string | undefined,
+      { status: "replaced", outcome: "replaced", changed: result.replaced }
+    );
+    return response;
+  }
   if (result.status === "no-op") {
     const response = knowledgeResponse(
       { status: "completed_zero", workspace: workspace.label, created: [] },
@@ -1884,14 +1944,25 @@ async function handleKnowledgeSave(
     return response;
   }
   if (result.status === "conflict") {
+    // One conflict vocabulary on the client, two reasons: a `create` name that
+    // already exists, and a `replace` whose revision is no longer the file's.
+    // The reason says which corrective action applies — rename, or re-read.
+    const staleRevision = result.conflicts.some(
+      (conflict) => conflict.reason === "revision_conflict"
+    );
+    const lead = staleRevision
+      ? "Error (KNOWLEDGE_REVISION_CONFLICT): the entry changed since the " +
+        "revision you read; nothing was written and the current file is " +
+        "preserved. Re-read the entry and retry with its current revision."
+      : "Error (KNOWLEDGE_CONFLICT): at least one name already exists; nothing " +
+        "was written and the existing entries are preserved.";
     const response = knowledgeResponse(
       {
         status: "conflict",
         workspace: workspace.label,
         conflicts: result.conflicts,
       },
-      "Error (KNOWLEDGE_CONFLICT): at least one name already exists; nothing " +
-        "was written and the existing entries are preserved.\n" +
+      `${lead}\n` +
         result.conflicts
           .map((conflict) => `- ${conflict.name}: ${conflict.reason}`)
           .join("\n"),
@@ -2033,6 +2104,7 @@ async function appendConsolidation(
     status: ConsolidationStatus;
     outcome?: string;
     created?: string[];
+    changed?: string[];
     reason?: string;
   }
 ): Promise<void> {
@@ -2046,6 +2118,7 @@ async function appendConsolidation(
     runId,
     at: new Date().toISOString(),
     ...(closure.created ? { created: closure.created } : {}),
+    ...(closure.changed ? { changed: closure.changed } : {}),
     ...(closure.outcome ? { outcome: closure.outcome } : {}),
     ...(closure.reason ? { reason: closure.reason } : {}),
   };
