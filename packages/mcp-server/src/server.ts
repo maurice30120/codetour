@@ -1825,15 +1825,20 @@ async function handleKnowledgeSave(
     // distinct files than a rule beyond them would need — never silently.
     // The signal carries entry names only, no cited path and no hash value.
     const warnings = result.warnings ?? [];
+    const backingWarnings = warnings.filter((warning) => warning.code === "insufficient_backing");
+    const fallbackWarnings = warnings.filter((warning) => warning.code === "symbol_proof_fallback");
     const warningNote =
-      warnings.length === 0
+      backingWarnings.length === 0
         ? ""
-        : `\n${warnings.length} published entr${warnings.length === 1 ? "y" : "ies"} ` +
-          `${warnings.length === 1 ? "is" : "are"} insufficiently backed: ` +
-          `${warnings.map((warning) => warning.name).join(", ")} cite${warnings.length === 1 ? "s" : ""} ` +
+        : `\n${backingWarnings.length} published entr${backingWarnings.length === 1 ? "y" : "ies"} ` +
+          `${backingWarnings.length === 1 ? "is" : "are"} insufficiently backed: ` +
+          `${backingWarnings.map((warning) => warning.name).join(", ")} cite${backingWarnings.length === 1 ? "s" : ""} ` +
           "fewer than two distinct files. Verified evidence proves only that the " +
           "cited bytes are unchanged: keep these entries scoped to what their " +
           "cited files support, or complete their evidence before relying on them.";
+    const fallbackNote = fallbackWarnings.map((warning) =>
+      `\nSymbol proof for ${warning.name} fell back to a file proof (${warning.reason}).`
+    ).join("");
     const response = knowledgeResponse(
       {
         status: "created",
@@ -1842,7 +1847,7 @@ async function handleKnowledgeSave(
         warnings,
       },
       `Created ${result.saved.length} Knowledge entr${result.saved.length === 1 ? "y" : "ies"}: ` +
-        result.saved.join(", ") + "." + warningNote
+        result.saved.join(", ") + "." + warningNote + fallbackNote
     );
     await appendConsolidation(
       response,

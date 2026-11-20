@@ -11,6 +11,7 @@ import type { KnowledgeSymbolProof, SymbolFingerprintOutcome, SymbolFingerprinte
 type WtsNode = {
   readonly type: string;
   readonly text: string;
+  readonly hasError: boolean;
   readonly childCount: number;
   child(index: number): WtsNode | null;
   childForFieldName(name: string): WtsNode | null;
@@ -182,6 +183,10 @@ export const treeSitterSymbolFingerprinter: SymbolFingerprinter = async (
   })(tree.rootNode);
   if (candidates.length === 0) return { status: 'refused', reason: 'symbol_unresolved' };
   if (candidates.length > 1) return { status: 'refused', reason: 'symbol_ambiguous' };
+  // Tree-sitter recovers from syntax errors; a recovered span is not a
+  // trustworthy symbol proof even when a declaration was found. Limit this
+  // check to the cited span so unrelated broken code does not invalidate it.
+  if (candidates[0].hasError) return { status: 'refused', reason: 'symbol_unparseable' };
   candidates.sort((a, b) => a.startIndex - b.startIndex);
   return { status: 'ok', sha256: hashText(canonicalSpanText(candidates[0])) };
 };

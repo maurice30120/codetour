@@ -94,6 +94,7 @@ export type KnowledgeSaveRejectionReason =
   | 'catalogue_unusable'
   | 'symbol_unresolved'
   | 'symbol_ambiguous'
+  | 'symbol_unparseable'
   | 'unsupported_language'
   | 'symbol_hash_mismatch'
   | 'engine_changed'
@@ -117,7 +118,7 @@ export interface KnowledgeNameConflict {
  */
 export type KnowledgeSaveWarning =
   | { name: string; code: 'insufficient_backing'; distinctEvidencePaths: number }
-  | { name: string; code: 'symbol_proof_fallback'; path: string; reason: 'symbol_unresolved' | 'symbol_ambiguous' | 'unsupported_language' };
+  | { name: string; code: 'symbol_proof_fallback'; path: string; reason: 'symbol_unresolved' | 'symbol_ambiguous' | 'symbol_unparseable' | 'unsupported_language' };
 
 export type KnowledgeSaveResult =
   | { status: 'saved'; saved: string[]; warnings: KnowledgeSaveWarning[] }
@@ -219,8 +220,8 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>): Pro
       // refuse: substituting would hide a real mistake.
       const fallbackReason = hashed.status === 'absent' && (hashed.reason === 'symbol_unresolved' || hashed.reason === 'symbol_ambiguous')
         ? hashed.reason
-        : hashed.status === 'invalid' && hashed.reason === 'unsupported_language'
-          ? 'unsupported_language' as const
+        : hashed.status === 'invalid' && (hashed.reason === 'unsupported_language' || hashed.reason === 'symbol_unparseable')
+          ? hashed.reason
           : undefined;
       if (!fallbackReason) {
         return failure(hashed.status === 'invalid' ? hashed.reason : 'file_missing', name);

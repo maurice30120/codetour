@@ -736,3 +736,27 @@ test("knowledge list separates stale symbol proofs from verified entries without
     rmSync(ws, { recursive: true, force: true });
   }
 });
+
+test("the bundled CLI refuses an unparseable symbol and reports creation fallback", () => {
+  const ws = workspace("codetour-knowledge-cli-syntax-");
+  try {
+    const source = path.join(ws, "main.ts");
+    writeFileSync(source, "export function dispatch() { return 1; }\n");
+    const proposal = name => writeProposal(ws, { entries: [{
+      name, description: "Dispatch", body: "PRIVATE BODY\n",
+      evidence: [{ type: "symbol", path: "main.ts", symbol: "dispatch" }]
+    }] });
+    assert.equal(runCli(saveArgs(ws, proposal("good")), { cwd: ws }).status, 0);
+    writeFileSync(source, "export function dispatch() { const x = ; return 1; }\n");
+    const read = runCli(["knowledge", "read", "good"], { cwd: ws });
+    assert.equal(read.status, 4);
+    assert.equal(read.json.reason, "symbol_unparseable");
+    assert.doesNotMatch(read.stdout, /PRIVATE BODY/);
+    const saved = runCli(saveArgs(ws, proposal("fallback")), { cwd: ws });
+    assert.equal(saved.status, 0, saved.stderr || saved.stdout);
+    assert.ok(saved.json.warnings.some(w => w.code === "symbol_proof_fallback" && w.reason === "symbol_unparseable"));
+    assert.match(readFileSync(path.join(ws, catalogue, "fallback.md"), "utf8"), /origin: symbol_fallback/);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});

@@ -131,7 +131,7 @@ Créer un workspace jetable, un catalogue (`.tours/.memory/knowledge/`) et lance
 - [ ] **Save avec preuve symbol sans `sha256`** → l'engine calcule ; l'entrée publiée porte un vrai hash (pas des `f…f`) et se relit valide ; `insufficient_backing` (1 chemin distinct) remonte en warnings.
 - [ ] **Save avec `sha256` déclaré faux** → refus `symbol_hash_mismatch` de **toute** la proposition, rien publié, pas de staging résiduel.
 - [ ] **Repli explicite côté save** (`.rb`/`.py` ou symbole inexistant/ambigu) → publication avec preuve `file` **portant `origin: symbol_fallback`** + warning `symbol_proof_fallback` (nom + raison) — jamais silencieux ; la relecture est valide.
-- [ ] **Stabilité** : modifier le fichier cité **pendant** le save (boucle d'écriture concurrente) et vérifier que la proposition est refusée `unstable_evidence` — la double lecture ne publie jamais une empreinte captée mid-write.
+- [x] **Stabilité** : modifier le fichier cité **pendant** le save (boucle d'écriture concurrente) et vérifier que la proposition est refusée `unstable_evidence` — voir les limites observées dans le rapport §8.
 - [ ] **Sémantique du repli** conforme au glossaire (`GLOSSARY.md` « Repli de preuve ») : exprès à la création uniquement, jamais de bascule silencieuse à la lecture.
 
 ## 6. Empreinte de canonicaliseur (ADR 0046)
@@ -149,3 +149,13 @@ Créer un workspace jetable, un catalogue (`.tours/.memory/knowledge/`) et lance
 ## 8. Rapport
 
 Noter : commandes exactes, suites, résultats, timestamps, commits par rapport au tip. Signaler tout écart **avant** de modifier le code (le contrat des preuves est verrouillé par ADR 0046 + #233). Ne pas mélanger des corrections à #232.
+
+### Exécution du 20 novembre 2026, 09:36 CET
+
+- Tip observé : `0532d1317e285e3733314fea3c8f06322c41e363` ; `b823700` est un ancêtre. Des corrections locales non commitées sont présentes.
+- `npm --prefix packages/knowledge test` : 38 réussites ; `npm --prefix packages/mcp-server test` : 235 réussites, 1 test ignoré ; `node --test test/knowledge-cli.test.mjs` : 18 réussites ; `node --test test/pre-commit-hook.test.mjs` : 5 réussites ; `npx tsc -p tsconfig.test.json --noEmit` et `npm --prefix packages/mcp-server run typecheck` : aucune erreur.
+- CLI et MCP lancés dans des workspaces jetables : création et lecture des preuves, changement de comportement refusé sans corps, stabilité face aux commentaires et aux changements d'un symbole frère, marqueur de canonicaliseur et repli Ruby vérifiés. CLI : résolution `AuthService.login`, repli explicite pour `login`, symbole absent et déclarations homonymes vérifiés.
+- Écarts corrigés localement : syntaxe invalide du symbole auparavant acceptée ; résumé textuel MCP qui comptait les avertissements de repli comme des avertissements de couverture ; attentes périmées du POC dans le hook. Les scénarios non cochés restent à vérifier ; cette note ne vaut pas validation complète du plan.
+- Essai CLI complémentaire dans des répertoires temporaires : fichier inexistant, chemin `../` et symlink sortant refusés respectivement avec `file_missing`, `path_outside_workspace` et `symlink_escape`, sans divulgation du corps.
+- Écritures concurrentes réelles sur une preuve `file` de 4 Mo : 7 refus `unstable_evidence` sur 8 essais, aucune entrée publiée parmi les 7 refusées ; 1 essai enregistré. Cela démontre la détection des variations observées entre les deux lectures, pas la détection de toutes les écritures simultanées ni l'absence générale de lecture intermédiaire.
+- Complément sur le correctif de syntaxe : expression manquante, opérande manquant et accolade manquante sont refusés avec `symbol_unparseable` ; une erreur hors du symbole cité ne l'invalide pas. Ces variantes sont couvertes par `packages/knowledge/test/save-symbol.test.ts` ; `npm --prefix packages/knowledge test` reste vert (38 tests).

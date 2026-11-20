@@ -66,6 +66,7 @@ export type KnowledgeFailureReason =
   | 'unknown_entry'
   | 'symbol_unresolved'
   | 'symbol_ambiguous'
+  | 'symbol_unparseable'
   | 'unsupported_language'
   | 'symbol_hash_mismatch'
   | 'engine_changed';
@@ -228,7 +229,7 @@ const escapes = isOutsideWorkspace;
 /** Outcome of a deterministic symbol fingerprint (spec #233); no cited path or hash value ever leaves with a refusal. */
 export type SymbolFingerprintOutcome =
   | { status: 'ok'; sha256: string }
-  | { status: 'refused'; reason: 'symbol_unresolved' | 'symbol_ambiguous' | 'unsupported_language' | 'engine_changed' };
+  | { status: 'refused'; reason: 'symbol_unresolved' | 'symbol_ambiguous' | 'symbol_unparseable' | 'unsupported_language' | 'engine_changed' };
 
 /**
  * Deterministic fingerprint of one cited symbol inside ONE resolved file.
@@ -298,7 +299,7 @@ export type KnowledgePathHash =
 export type KnowledgeSymbolHash =
   | { status: 'ok'; path: string; symbol: string; sha256: string }
   | { status: 'absent'; reason: 'file_missing' | 'symbol_unresolved' | 'symbol_ambiguous' }
-  | { status: 'invalid'; reason: 'path_outside_workspace' | 'symlink_escape' | 'not_a_file' | 'unsupported_language' | 'engine_changed' };
+  | { status: 'invalid'; reason: 'path_outside_workspace' | 'symlink_escape' | 'not_a_file' | 'symbol_unparseable' | 'unsupported_language' | 'engine_changed' };
 
 /**
  * Deterministic fingerprint of one cited symbol through the workspace proof

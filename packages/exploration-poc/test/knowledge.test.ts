@@ -106,7 +106,7 @@ test('a symbolic link staying inside the workspace verifies against the real byt
   assert.equal((read as { body: string }).body.trim(), 'open body');
 });
 
-test('symbol proofs are unsupported and uppercase declared hashes verify', async t => {
+test('incomplete symbol proofs are malformed and uppercase declared hashes verify', async t => {
   const root = await realRoot('knowledge-symbol-');
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, 'main.ts'), 'bytes\n');
@@ -115,10 +115,10 @@ test('symbol proofs are unsupported and uppercase declared hashes verify', async
   await writeEntry(root, 'bare_symbol.md', `---\nname: bare_symbol\ndescription: declares a bare unsupported proof\nevidence:\n  - type: symbol\n---\nsecret body\n`);
   await writeEntry(root, 'upper.md', `---\nname: upper\ndescription: uppercase declared digest\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${lower.toUpperCase()}\n---\nopen body\n`);
   const library = await readRoot(root);
-  // A `symbol` item with ad-hoc keys is out of the fixed grammar; a bare one is
-  // known grammar that can never verify. Both refuse without the body.
+  // Symbol proofs require a path, symbol and fingerprint; incomplete proofs
+  // are malformed and refuse without the body.
   await expectInvalid(await library.read('symbolic'), 'malformed_contract');
-  await expectInvalid(await library.read('bare_symbol'), 'unsupported_proof');
+  await expectInvalid(await library.read('bare_symbol'), 'malformed_contract');
   assert.doesNotMatch(JSON.stringify(await library.read('symbolic')), /secret body/);
   const read = await library.read('upper');
   assert.equal(read.status, 'valid');
@@ -193,6 +193,6 @@ test('parseKnowledge refuses without workspace access and the catalogue sits in 
   assert.equal(parseKnowledge('no envelope at all', 'x').status, 'invalid');
   const source = `---\nname: x\ndescription: declared\nevidence:\n  - type: symbol\n---\nbody\n`;
   const parsed = parseKnowledge(source, 'x');
-  assert.equal((parsed as { reason?: string }).reason, 'unsupported_proof');
+  assert.equal((parsed as { reason?: string }).reason, 'malformed_contract');
   assert.equal(knowledgeDirectory('/ws'), join('/ws', '.tours', '.memory', 'knowledge'));
 });
