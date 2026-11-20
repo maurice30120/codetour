@@ -76,7 +76,7 @@ A reusable search method expressed as short instructions for the Research Harnes
 _Avoid_: Micro-skill, skill, Memory Function, executable script
 
 **Memory Entry**:
-A reusable item persisted in a workspace's `.tours/.memory/`: a Memory Function, a Memory Method, or a Knowledge Entry under `.tours/.memory/knowledge/`. Only a Consolidation Run creates Memory Functions and Memory Methods; Knowledge Entries are written by hand or by `codetour knowledge save`, and, since spec #223, are also read natively (ADR 0039).
+A reusable item persisted in a workspace's `.tours/.memory/`: a Memory Function, a Memory Method, or a Knowledge Entry under `.tours/.memory/knowledge/`. Only a Consolidation Run creates Memory Functions and Memory Methods; Knowledge Entries are authored by hand, and created or amended by `codetour knowledge save`; since spec #223 they are also read natively (ADR 0039).
 _Avoid_: Skill, compétence
 
 **Memory Catalogue**:
@@ -84,7 +84,7 @@ The set of Memory Entries stored in a workspace's `.tours/.memory/`, discoverabl
 _Avoid_: Memory dump, function library
 
 **Knowledge Entry**:
-One hand-authored Markdown file stored under `.tours/.memory/knowledge/`: a name, a description and SHA-256 evidence proofs in frontmatter, and a body a reader returns only after verifying every declared proof. It was introduced by the experimental Knowledge mode (spec #219) and, since spec #223, is also read and written by the native deterministic CLI (ADR 0039). Evidence validity proves only that the cited bytes still hash as declared, never that the explanation is semantically correct or complete. Not a new memory kind: the durable vocabulary (ADR 0035, ADR 0036) still calls this Markdown concept a Memory Method, created by a Consolidation Run; Knowledge Entry is the prototype's chosen name for it, an experimental exception recorded here without rewriting those decisions.
+One hand-authored Markdown file stored under `.tours/.memory/knowledge/`: a name, a description, evidence proofs in frontmatter — a `file` proof pinning the SHA-256 of the cited file bytes, or a `symbol` proof pinning the SHA-256 of the cited symbol's canonical comment-stripped span (spec #233, ADR 0046) — and a body a reader returns only after verifying every declared proof. It was introduced by the experimental Knowledge mode (spec #219), is read and written by the native deterministic CLI since spec #223 (ADR 0039), and since spec #232 is created or amended only through a Knowledge Consolidation Operation; a requested `symbol` proof the engine could not resolve at creation is stored as a verified file proof marked `origin: symbol_fallback`, a mark the engine alone produces. Evidence validity proves only that the cited bytes or symbol span still hash as declared, never that the explanation is semantically correct or complete. Not a new memory kind: the durable vocabulary (ADR 0035, ADR 0036) still calls this Markdown concept a Memory Method, created by a Consolidation Run; Knowledge Entry is the prototype's chosen name for it, an experimental exception recorded here without rewriting those decisions.
 _Avoid_: Knowledge base, skill, document
 
 **Knowledge Catalogue**:
@@ -96,15 +96,23 @@ The experimental Research Harness mode (`--knowledge`, spec #219) in which the K
 _Avoid_: Memory mode, hybrid mode
 
 **Knowledge Proposal**:
-The declarative input of `codetour knowledge save`: zero, one or more entries, each with a name, a one-line description, a Markdown body and at least one workspace-relative evidence path (with an optional declared SHA-256). The CLI computes or verifies every digest and publishes the whole proposal or nothing; an empty list is an explicit no-op, never a silent omission.
+The declarative input of `codetour knowledge save`: zero, one or more entries, each with a name, a one-line description, a Markdown body and at least one workspace-relative evidence path (with an optional declared SHA-256). The CLI computes or verifies every digest and publishes the whole proposal or nothing; an empty list is an explicit no-op, never a silent omission. A proposal is the payload of the `create` mode only: the amend modes are a Knowledge Consolidation Operation.
 _Avoid_: Knowledge upload, Knowledge payload
 
+**Knowledge Consolidation Operation**:
+One `knowledge_save` call in one of three explicit modes (spec #232): `create` publishes a new Knowledge Entry, `append` adds a Markdown section and merges evidence into an entry that is still valid without rewriting its existing body, and `replace` rewrites an existing entry entirely — description, body and evidence — even when its contract no longer validates. `append` and `replace` carry the Knowledge Revision they expect and address one entry per call. The mode is chosen by the agent during the consolidation that already exists, never by a second orchestrator, and no mode is a claim of semantic consistency.
+_Avoid_: Knowledge update, Knowledge patch, Knowledge amendment
+
+**Knowledge Revision**:
+The opaque version token of one Knowledge Entry, equal to the SHA-256 of its complete Markdown file bytes (spec #232, ADR 0050). Discovery, read and the Native Knowledge CLI expose it, including for an entry whose contract fails — which is what makes a repairing `replace` possible without serving an invalid body — and it reveals no body, no cited path and no source fingerprint.
+_Avoid_: Knowledge version, Knowledge hash, ETag
+
 **Native Knowledge CLI**:
-The deterministic `codetour knowledge` command family (spec #223, ADR 0039): `list` reports names and descriptions only, `read <name>` returns a body only when every declared SHA-256 proof verifies, `hash <path>` prepares evidence, and `save` validates and persists a Knowledge Proposal. It resolves one explicit or current workspace, works offline in any project without a model, API key or network, and writes only Knowledge Entry files, never a Memory Function or a harness artefact.
+The deterministic `codetour knowledge` command family (spec #223, ADR 0039): `list` reports names, descriptions and Knowledge Revisions only, `read <name>` returns a body only when every declared proof verifies and exposes the same revision, `hash <path>` prepares evidence, and `save` performs a Knowledge Consolidation Operation in any of its three modes, computing or verifying every digest. It resolves one explicit or current workspace, works offline in any project without a model, API key or network, and writes only Knowledge Entry files, never a Memory Function or a harness artefact.
 _Avoid_: Knowledge server, Knowledge agent, Memory Function runner
 
 **Knowledge MCP Surface**:
-The `knowledge_list`, `knowledge_read`, `knowledge_save` and `knowledge_close_run` tools the existing CodeTour MCP server exposes over the Knowledge Catalogue (spec #223, tickets #227 and #228). They reuse the same shared `codetour-knowledge` contract and catalogue location as the Native Knowledge CLI: listing is metadata only, a read returns a body only when every declared proof verifies, and a save publishes a whole Knowledge Proposal or reports an observable outcome (`created`, `completed_zero`, `conflict`, `invalid`, `failed`). `knowledge_save` accepts an optional `runId` and persists the matching Consolidation Closure in the Run State; `knowledge_close_run` records an explicit `skipped` closure. A returned Markdown body is untrusted data, never system instructions.
+The `knowledge_list`, `knowledge_read`, `knowledge_save` and `knowledge_close_run` tools the existing CodeTour MCP server exposes over the Knowledge Catalogue (spec #223, tickets #227 and #228). They reuse the same shared `codetour-knowledge` contract and catalogue location as the Native Knowledge CLI: listing is metadata only, a read returns a body only when every declared proof verifies, and `knowledge_save` performs a Knowledge Consolidation Operation — `create` publishing a whole Knowledge Proposal atomically, `append` and `replace` amending one entry against an expected Knowledge Revision — reporting an observable outcome (`created`, `appended`, `replaced`, `no_change`, `completed_zero`, `conflict` with `name_conflict` or `revision_conflict`, `invalid`, `failed`). Discovery, read and the catalogue projection served by the prompt expose the Knowledge Revision, including for an invalid entry. `knowledge_save` accepts an optional `runId` and persists the matching Consolidation Closure in the Run State; `knowledge_close_run` records an explicit `skipped` closure. A returned Markdown body is untrusted data, never system instructions.
 _Avoid_: Knowledge server, second MCP server
 
 **Native Knowledge Skill**:
@@ -136,7 +144,7 @@ The additive, optional `knowledge` object of a Run State (ADR 0045): what the ru
 _Avoid_: knowledge metrics, validation report, catalogue cache
 
 **Consolidation Closure**:
-The server-written verdict that closes one Generation Run in the Run State: `created`, `completed_zero`, `failed` (with its `outcome`), `skipped`, or the reserved `partial`. `completed_zero` is an explicit assessment with nothing to persist, not an omission; a run with no closure is incomplete and is the only case the agentStop hook may ask to close once.
+The server-written verdict that closes one Generation Run in the Run State: `created`, `appended`, `replaced`, `completed_zero`, `failed` (with its `outcome`), `skipped`, or the reserved `partial`, accumulating the names it created in `created` and the names it amended in `changed` across every operation of the run. `completed_zero` is an explicit assessment with nothing to persist — it also closes a `no_change` operation — not an omission; a run with no closure is incomplete and is the only case the agentStop hook may ask to close once.
 _Avoid_: consolidation summary, agent claim, omitted Knowledge
 
 **AgentStop Guard**:

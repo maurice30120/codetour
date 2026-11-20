@@ -1,4 +1,12 @@
+---
+status: superseded by ADR 0048
+---
+
 # Fall back between ACP agents using provider-specific modes
+
+> Superseded by ADR 0048: the agent is now chosen explicitly from a ranked,
+> probed catalogue, and only the initial selection may fall through to the next
+> profile. The provider-specific mode policy decided here still applies.
 
 Tour Step Conversations try installed ACP agents in the order Vibe, Copilot, Codex, Claude Code, retaining the first working session until the reading view closes. A failed launch, authentication, handshake, mode negotiation or prompt before the first answer text falls back to the next provider; an interrupted request or a partially streamed answer never does, to avoid unwanted retries and mixed answers. Nothing is installed automatically.
 
