@@ -2,11 +2,12 @@ import type { ConversationState, ReaderStatusLine } from "./viewModel";
 
 /**
  * The status line of the reader as pure data: the mode chip, the key hints
- * and the right-side segments in their fixed precedence (spec #93). The
+ * and the right-side segments in their fixed precedence (spec #93, #240). The
  * adapter joins and truncates the segments; the order — voice state first,
- * then speech warning, provider and exchange count — is reading behavior
- * the tests pin, because a narrow terminal cuts the least important
- * segments and never the voice state (spec #79, #244).
+ * then speech warning, provider, exchange count, and the Open-in-VS Code
+ * warning last (spec #239 review F3) — is reading behavior the tests pin,
+ * because a narrow terminal cuts the least important segments and never the
+ * voice state (spec #79, #244).
  */
 
 /** "1 exchange" / "n exchanges", shared by the conversation head meta and the status line. */
@@ -51,8 +52,10 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
     input.narrationEnabled ? "VOICE ON" : "VOICE OFF"
   ];
   if (input.speechWarning) rightSegments.push(input.speechWarning);
-  if (input.openWarning) rightSegments.push(input.openWarning);
   if (input.providerName) rightSegments.push(input.providerName.toLowerCase());
   if (input.exchangeCount) rightSegments.push(exchangesLabel(input.exchangeCount));
+  // The Open-in-VS Code failure is the outermost, least reading-essential
+  // segment: it preserves the documented fixed precedence of spec #240.
+  if (input.openWarning) rightSegments.push(input.openWarning);
   return { mode, hints, rightSegments };
 }
