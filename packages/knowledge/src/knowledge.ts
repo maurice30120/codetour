@@ -32,9 +32,10 @@ export interface KnowledgeFileProof {
   /** Deterministic SHA-256 of the cited file bytes. */
   sha256: string;
   /**
-   * How this proof came to be. Absent for deliberate file proofs; set at
-   * creation only when a requested symbol proof was substituted (spec #233:
-   * the fallback exists at creation, never silently at read).
+   * How this proof came to be. Absent for deliberate file proofs; set by the
+   * engine alone when a requested symbol proof was substituted (spec #233) and
+   * carried verbatim by a rewrite that reproduces the identical proof (spec
+   * #232). Never an accepted input, never inferred at read.
    */
   origin?: 'symbol_fallback';
 }

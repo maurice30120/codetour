@@ -190,6 +190,47 @@ test('an addition with a carriage return is refused with nothing written', async
   assert.deepEqual(await catalogueFiles(root), ['dispatch_flow.md']);
 });
 
+test('a hand-authored CRLF entry is published as LF with its parsed historical body as an exact prefix', async t => {
+  const root = await realRoot('knowledge-append-crlf-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'main.ts'), 'export const start = 1;\n');
+  // An entry written by hand on Windows: the read grammar normalizes CRLF to
+  // LF, so the parsed historical body is the LF form. An append re-emits the
+  // frontmatter and the body from that parsed contract, and the historical
+  // body stays an exact prefix of the normalized result — deliberate
+  // behaviour, not an accident (spec #232).
+  const handAuthored = [
+    '---',
+    'name: legacy_rule',
+    'description: Written on Windows',
+    'evidence:',
+    '  - type: file',
+    '    path: main.ts',
+    `    sha256: ${sha256('export const start = 1;\n')}`,
+    '---',
+    'Historical body.',
+    ''
+  ].join('\r\n');
+  await mkdir(knowledgeDirectory(root), { recursive: true });
+  await writeFile(entryPath(root, 'legacy_rule'), handAuthored);
+  const revision = await readRevision(root, 'legacy_rule');
+
+  const addition = '## Added\n\nWindows-tolerant section.\n';
+  const result = await append(root, { name: 'legacy_rule', addition, expectedRevision: revision });
+  assert.deepEqual(result, { status: 'appended', appended: ['legacy_rule'], warnings: [] });
+
+  const published = await readFile(entryPath(root, 'legacy_rule'), 'utf8');
+  assert.doesNotMatch(published, /\r/, 'the published file is LF, the only ending the engine writes');
+  const parsed = parseKnowledge(published, 'legacy_rule.md');
+  assert.equal(parsed.status, 'valid');
+  // The historical body as the read grammar parses it — LF, not CRLF — is an
+  // exact prefix, and the name and description are carried unchanged.
+  assert.equal(parsed.name, 'legacy_rule');
+  assert.equal(parsed.description, 'Written on Windows');
+  assert.equal(parsed.body, `Historical body.\n\n${addition}`);
+  assert.ok(parsed.body.startsWith('Historical body.\n'), 'the parsed historical body is preserved as an exact prefix');
+});
+
 test('append refuses an entry whose historical proof no longer verifies as stale_evidence, not as a bad proposal', async t => {
   const root = await realRoot('knowledge-append-stale-');
   t.after(() => rm(root, { recursive: true, force: true }));

@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
 import {
+  KNOWLEDGE_SAVE_MODES,
   knowledgeDirectory,
   loadKnowledgeLibrary,
   hashWorkspaceFile,
@@ -98,11 +99,11 @@ interface KnowledgeSaveOptions extends KnowledgeOptions {
   expectedRevision?: string;
 }
 
-/** The write modes of a Knowledge Consolidation Operation (spec #232). */
-const SAVE_MODES = new Set(["create", "append", "replace"]);
+/** The engine's write-mode vocabulary (spec #232), used as a lookup set. */
+const SAVE_MODES = new Set<string>(KNOWLEDGE_SAVE_MODES);
 
 /** The modes conditioned on the Knowledge Revision the caller read. */
-const REVISION_MODES = new Set(["append", "replace"]);
+const REVISION_MODES = new Set<string>(KNOWLEDGE_SAVE_MODES.filter(mode => mode !== "create"));
 
 /** Accumulate a repeatable option, preserving the order the user wrote. */
 function repeatable(value: string, previous: string[]): string[] {
