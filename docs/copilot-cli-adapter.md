@@ -1,12 +1,14 @@
 # Copilot CLI adapter and plugin (experimental)
 
-`/codetour` starts a generation dialogue with the agent, not an extension menu. The agent uses `ask_user` only for missing choices: **Project Tour** (architecture and execution paths) or **Changes Tour** (explain and review the branch's changes), then **neutral** (factual explanation) or **critical** (explanation and review findings) for a Changes Tour. Labels follow the user's language. Choices already explicit in the command or in natural language are kept: "review my branch critically" needs neither question. Cancelling or declining a required choice stops without generating. Project Tours never ask for a review mode.
+`/codetour` lists the Tours discovered in the session's workspace and reads the one the reader chooses. Generation stays behind its own command word: `/codetour generate` starts a generation dialogue with the agent, not an extension menu. The agent uses `ask_user` only for missing choices: **Project Tour** (architecture and execution paths) or **Changes Tour** (explain and review the branch's changes), then **neutral** (factual explanation) or **critical** (explanation and review findings) for a Changes Tour. Labels follow the user's language. Choices already explicit in the command or in natural language are kept: "review my branch critically" needs neither question. Cancelling or declining a required choice stops without generating. Project Tours never ask for a review mode.
 
-Once the choices are resolved, the agent calls the extension's `codetour_prepare_generation` tool with `type`, `reviewMode` for changes only, and the user's `request`. When `/codetour` supplies a `dialogueId`, the agent passes it unchanged: this single-use, session/workspace-bound identifier retains the dialogue's start for usage attribution, without creating a Run State during the questions. It returns the shared MCP generation prompt with a fresh `runId`, after writing the session-scoped Run State. The agent follows that prompt in the same turn; the tool never calls `session.send` recursively. Both this tool and explicit generation commands use the same guarded preparation. A failed preparation is reported explicitly and stops the generation.
+Once the choices are resolved, the agent calls the extension's `codetour_prepare_generation` tool with `type`, `reviewMode` for changes only, and the user's `request`. When `/codetour generate` supplies a `dialogueId`, the agent passes it unchanged: this single-use, session/workspace-bound identifier retains the dialogue's start for usage attribution, without creating a Run State during the questions. It returns the shared MCP generation prompt with a fresh `runId`, after writing the session-scoped Run State. The agent follows that prompt in the same turn; the tool never calls `session.send` recursively. Both this tool and explicit generation commands use the same guarded preparation. A failed preparation is reported explicitly and stops the generation.
 
 Explicit invocations skip the choices already supplied:
 
 ```text
+/codetour
+/codetour generate
 /codetour generate project
 /codetour generate changes neutral
 /codetour generate changes critical
@@ -15,7 +17,25 @@ Explicit invocations skip the choices already supplied:
 
 A first word after `generate` that is not exactly `project` or `changes` is the start of the orientation phrase. The adapter keeps it verbatim for the agent to resolve the missing choices, so `/codetour generate change the login flow` delegates with the request `change the login flow`. A phrase after an explicit valid type is transmitted verbatim, even when the sentence names a type later. `/codetour "generate"` still reads a Tour with that title, and `/codetour generate` without a type starts the same agent dialogue.
 
-Existing title and renderer invocations still select and open a Tour using the standalone CLI, which owns selection through its resolution contract (`--internal-resolve-tour`): a requested title resolves by exact title or file name, and resolution errors (not found or ambiguous title, empty workspace) reach the user exactly as the CLI reports them. `/codetour --renderer terminal` opens the reader without a title: a workspace holding a single Tour resolves directly; only several discovered Tours elicit a candidate choice through the existing host selection dialog. `generate` is a command word; quote an existing title that starts with it, for example `/codetour "generate"`. Bare `read` remains a Tour title. The default renderer is the terminal; `--renderer html` selects the HTML reader explicitly. If the host lacks interactive elicitation, supply a complete generation command including its orientation, or an existing Tour title.
+Reading uses the standalone CLI, which owns discovery, resolution and the reader. A bare `/codetour` lists the discovered Tours through the CLI (`--internal-list-tours`): a workspace holding several Tours elicits one numbered choice through the host's selection dialog, and a single Tour resolves directly. A requested title resolves by exact title or file name through the CLI's resolution contract (`--internal-resolve-tour`), and resolution errors (not found or ambiguous title, empty workspace) reach the user exactly as the CLI reports them. The chosen Tour is then launched by identity (`--internal-tour-id`), so duplicate titles resolve unambiguously. `generate` is a command word; quote an existing title that starts with it, for example `/codetour "generate"`. Bare `read` remains a Tour title. The default renderer is the terminal; `--renderer html` selects the HTML reader explicitly. If the host lacks interactive elicitation, supply a complete generation command including its orientation, or an existing Tour title.
+
+## Reading in the Copilot session
+
+The terminal reader paints the terminal it is given, so the adapter lends it only the terminal its own process reports (`process.stdin.isTTY && process.stdout.isTTY`). On GitHub Copilot CLI 1.0.114 no extension process reports one.
+
+- The CLI forks every extension as a child process and speaks JSON-RPC over its stdin/stdout: "They run as separate Node.js processes that communicate with the CLI over JSON-RPC via stdio" (`copilot-sdk/docs/extensions.md`), and "stdout is reserved for JSON-RPC" (`docs/agent-author.md`).
+- A probe extension installed on that version recorded `process.stdin.isTTY` and `process.stdout.isTTY` as undefined in print mode and under a PTY parent alike, and its stdin was the CLI's extension bootstrap, never the user's terminal. `/dev/tty` opens from such a child under a PTY parent, but the Copilot TUI keeps owning that terminal's input and painting.
+- The SDK declares no suspend or terminal-handover surface: `CopilotSession` offers `send`, `sendAndWait`, `log`, `abort` and `ui`, and `SessionCapabilities.ui` is `elicitation`, MCP Apps and canvases only (`copilot-sdk/session.d.ts`, `types.d.ts`).
+
+So a Copilot session reads a Tour like this:
+
+1. `/codetour` lists the existing Tours and the host's selection dialog picks one.
+2. The Tour is **not** started in the session, and no start is announced. One warning names the reason and the exact command to run in the user's own shell: `codetour --internal-tour-id "<id>" --renderer terminal`.
+3. Nothing is detached. The adapter used to spawn a reader without a terminal, log `Starting CodeTour: …`, and let the reader die with `TermDOM requires an interactive terminal (TTY)`; it no longer claims a reading it cannot observe.
+
+A host that does report an interactive stdin and stdout takes the other branch: the reader inherits that terminal (`stdio: "inherit"`), the session waits for it, and the adapter reports the reader's real outcome — an info line when it closes cleanly, an error line with the exit code or signal when the reading was interrupted. That branch is exercised by tests against a recording CLI, not against a shipping host.
+
+The decision and its evidence are recorded in [ADR 0051](adr/0051-hand-off-the-terminal-from-a-copilot-session-to-the-codetour-reader.md).
 
 ## Install
 
@@ -163,6 +183,7 @@ node --test test/copilot-adapter.test.mjs test/copilot-hook.test.mjs \
 ```
 
 - fake-host adapter tests pin `prompts/get` → run state → `session.send` ordering, the intact original request and brief, the run identity, no analysis or fallback on missing/unavailable/empty prompt, one resolved workspace, concurrent runs and pruning;
+- the same adapter tests pin the reading contract: a bare `/codetour` presents the discovered Tours and reads the chosen one without starting a generation, a session that reports no terminal gets one warning naming the exact shell command and never a `Starting CodeTour` line or a launched reader, and a session that reports a terminal makes the reader inherit it and reports its real exit code;
 - hook tests cover ordinary conversations, unknown session/workspace, `stop_hook_active`, `completed_zero`, every closure, one block maximum (including three concurrent invocations), two runs, resume, expiry, symlinked paths and storage failures;
 - the real plugin test installs `packages/copilot-plugin` into a temporary `COPILOT_HOME` from a path containing spaces, inspects `plugin list`, `mcp list`, `mcp get` and `skill list`, runs the installed hook from a workspace path containing spaces, then uninstalls and checks the final state. It skips only when `copilot` is absent.
 
@@ -172,6 +193,7 @@ Observed on GitHub Copilot CLI 1.0.106 (bundled runtime 1.0.114), macOS, 19 Nove
 - one `codetour` MCP server process for one session, launched with the session workspace path containing spaces, exposing exactly the six CodeTour tools (prefixed `codetour-` in the session tool catalog);
 - a resumed real session with an incomplete run: the hook blocked once, the re-entry carried `stop_hook_active:true` and was inert, and the agent called `codetour-knowledge_save` with `entries:[]` and the runId; the MCP persisted `completed_zero` and `copilot` printed "Consolidation completed: no Knowledge entries were created or persisted";
 - `copilot -p "/codetour generate …"` does **not** dispatch the extension slash command; the CLI sends the text to the model, which invoked the plugin's `codetour-generate` skill and the MCP prompt instead. That skill path created a real Tour and a Knowledge entry, but it did not create a run state and is therefore unguarded. The adapter's `prompts/get` → state → `session.send` invariant is proven at its fake-host boundary against the compiled CLI; a fully automated real-host `/codetour generate` run remains unverified on this CLI version.
+- the terminal handoff was probed on CLI 1.0.114 with a throwaway user-scoped extension: the extension process reported no TTY in print mode or under a PTY parent, `/dev/tty` was openable only with a PTY parent, and the SDK declares no suspend surface. The same-terminal reading is therefore unavailable there, and the session prints the exact shell command instead. Verified: the host gives extensions no terminal. Manual: running `/codetour` in a live session and copying the printed command into a shell remains a human check, and no host has yet taken the inherited-terminal branch.
 
 A previous probe of the installed extension API is recorded in [the Copilot generation probe](copilot-generation-probe.md). The API remains experimental.
 
