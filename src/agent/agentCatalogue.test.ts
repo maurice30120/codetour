@@ -12,6 +12,7 @@ import {
   type AgentProfileView
 } from "./agentCatalogue";
 import { createFallbackStepChatResponder } from "./fallbackStepChatAgent";
+import { piAcpEntry } from "./piReadonlyLauncher";
 import { StepChatAgentUnavailableError } from "./stepChatContract";
 
 /**
@@ -70,31 +71,83 @@ function view(views: readonly AgentProfileView[], name: string): AgentProfileVie
 }
 
 test("the catalogue is a versioned constant in explicit rank order", () => {
+  // Pi joins between Vibe and Codex, where ADR 0048 puts it: the list is the
+  // versioned rank order, whatever this platform can launch.
   assert.deepEqual(AGENT_CATALOGUE.map(profile => profile.name), [
     "Copilot",
     "Vibe",
+    "Pi",
     "Codex",
     "Claude Code"
   ]);
-  assert.deepEqual(AGENT_CATALOGUE.map(profile => profile.rank), [0, 1, 2, 3]);
-  assert.deepEqual(
-    AGENT_CATALOGUE.map(profile => profile.entry("/workspace")?.command),
-    ["copilot", "vibe-acp", "codex-acp", "claude-agent-acp"]
-  );
+  assert.deepEqual(AGENT_CATALOGUE.map(profile => profile.rank), [0, 1, 2, 3, 4]);
 
-  // Rank, not declaration order, decides the launchable list.
   const launchable = catalogueProfiles("/workspace");
-  assert.deepEqual(launchable.map(profile => profile.name), [
-    "Copilot",
-    "Vibe",
-    "Codex",
-    "Claude Code"
-  ]);
+  const withoutLauncher = process.platform === "win32";
+  // Pi needs the POSIX launcher ADR 0049 ships, so it is listed everywhere
+  // but launchable only where that launcher can be provided.
+  assert.deepEqual(
+    launchable.map(profile => profile.name),
+    withoutLauncher
+      ? ["Copilot", "Vibe", "Codex", "Claude Code"]
+      : ["Copilot", "Vibe", "Pi", "Codex", "Claude Code"]
+  );
+  assert.deepEqual(
+    launchable.map(profile => profile.entry.command),
+    withoutLauncher
+      ? ["copilot", "vibe-acp", "codex-acp", "claude-agent-acp"]
+      : ["copilot", "vibe-acp", "pi-acp", "codex-acp", "claude-agent-acp"]
+  );
   assert.ok(launchable.every(profile => profile.entry.cwd === "/workspace"));
-  assert.ok(launchable[0].entry.args?.includes("--available-tools=view,grep,glob"));
-  assert.equal(launchable[0].entry.useDefaultMode, true);
-  assert.equal(launchable[2].entry.modeId, "read-only");
-  assert.equal(launchable[3].entry.modeId, "plan");
+
+  // Each entry keeps its read-only policy: Copilot filters its tools and uses
+  // its default mode, Codex pins read-only, Claude Code pins plan, and Pi is
+  // launched behind CodeTour's launcher with the agent's own mode.
+  const byName = new Map(launchable.map(profile => [profile.name, profile.entry]));
+  assert.ok(byName.get("Copilot")?.args?.includes("--available-tools=view,grep,glob"));
+  assert.equal(byName.get("Copilot")?.useDefaultMode, true);
+  assert.equal(byName.get("Codex")?.modeId, "read-only");
+  assert.equal(byName.get("Claude Code")?.modeId, "plan");
+  if (!withoutLauncher) {
+    assert.deepEqual(
+      byName.get("Pi")?.env?.PI_ACP_PI_COMMAND,
+      piAcpEntry("/workspace")?.env?.PI_ACP_PI_COMMAND
+    );
+    assert.equal(byName.get("Pi")?.useDefaultMode, true);
+    assert.equal(byName.get("Pi")?.modeId, undefined);
+  }
+});
+
+test("a launcher-less Pi reports a connection error and is never launched", async () => {
+  // The real Pi profile with the one thing this platform cannot give it: a
+  // launcher. It stays listed, it reports a connection error, and nothing it
+  // answers afterwards belongs to a bare `pi` process.
+  const piWithoutLauncher: AgentProfile = {
+    name: "Pi",
+    rank: 1,
+    entry: cwd => piAcpEntry(cwd, { platform: "win32" })
+  };
+  const probe = scriptedProbe({});
+  const selection = new AgentSelection({
+    profiles: [agentProfile("Copilot", 0, ABSENT), piWithoutLauncher, VIBE],
+    probe: probe.probe
+  });
+
+  await selection.probeInitial("/workspace");
+
+  assert.equal(piWithoutLauncher.entry("/workspace"), undefined, "never a bare pi");
+  assert.deepEqual(probe.calls, ["Vibe"], "an unlaunchable Pi is never started");
+  assert.deepEqual(view(selection.profiles(), "Pi").availability, {
+    state: "connection-error",
+    reason: "This agent has no launcher on this platform."
+  });
+  assert.equal(selection.selectedProfile()?.profile.name, "Vibe");
+
+  // Choosing it by hand changes nothing: with no launcher there is no
+  // candidate at all, so no unrestricted Pi can be reached that way either.
+  selection.select("Pi");
+  assert.deepEqual(selection.candidates("/workspace"), []);
+  selection.dispose();
 });
 
 test("the initial probe follows rank order and stops at the first available profile", async () => {
