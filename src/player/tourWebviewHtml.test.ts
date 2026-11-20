@@ -1310,3 +1310,186 @@ test("the Retry action of a failed exchange asks the same question to the same a
   click({ target: { closest: () => retry } });
   assert.equal(messages.length, 1);
 });
+
+test("the Model control lists only the announced model values, and names the agent-managed state", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatAgent: { agent: "Copilot", model: "smart", effective: true },
+      chatAgents: [{ name: "Copilot", state: "available", selected: true, selectable: true }],
+      chatModels: [
+        { value: "fast", name: "Fast" },
+        { value: "smart", name: "Smart" }
+      ],
+      chatModel: "smart"
+    },
+    "model-nonce"
+  );
+
+  // The compact control sits next to the Agent control, offering only the
+  // values the selected agent announces, with the effective one selected.
+  assert.match(html, /<div class="step-chat-model-controls" id="step-chat-model-controls">/);
+  assert.match(html, /<label class="step-chat-control-label" for="step-chat-model-select">Model<\/label>/);
+  assert.match(html, /id="step-chat-model-select" aria-label="Model">/);
+  assert.ok(html.includes('<option value="fast">Fast</option>'));
+  assert.ok(html.includes('<option value="smart" selected>Smart</option>'));
+
+  // An agent that announces no model keeps working and says so: the control
+  // offers nothing to choose and is disabled.
+  const managed = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatAgent: { agent: "Vibe", effective: true },
+      chatAgents: [{ name: "Vibe", state: "available", selected: true, selectable: true }],
+      chatModels: []
+    },
+    "model-nonce"
+  );
+  assert.ok(managed.includes(
+    '<option value="" selected>Agent-managed model</option>'
+  ));
+  assert.match(managed, /id="step-chat-model-select" aria-label="Model" disabled>/);
+
+  // While an answer streams the control is locked, exactly like the Agent
+  // control: no answer is ever interrupted by a change of model.
+  const responding = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatResponding: true,
+      chatAgent: { agent: "Copilot", model: "fast", effective: true },
+      chatAgents: [{ name: "Copilot", state: "available", selected: true, selectable: true }],
+      chatModels: [
+        { value: "fast", name: "Fast" },
+        { value: "smart", name: "Smart" }
+      ],
+      chatModel: "fast"
+    },
+    "model-nonce"
+  );
+  assert.match(responding, /id="step-chat-model-select" aria-label="Model" disabled>/);
+  assert.ok(responding.includes('<option value="fast" selected>Fast</option>'));
+
+  // No Agent Selection owns the panel (an injected responder): no control.
+  assert.ok(createTourWebviewHtml(baseModel(), "model-nonce").includes(
+    '<div class="step-chat-model-controls" id="step-chat-model-controls" hidden>'
+  ));
+});
+
+test("the Model control stores the reader's choice and follows the agent's confirmed model", () => {
+  const html = createTourWebviewHtml(baseModel(), "model-nonce");
+  const script = html.match(/<script nonce="model-nonce">([\s\S]*?)<\/script>/)![1];
+  const messages: Record<string, unknown>[] = [];
+  let messageListener!: (event: unknown) => void;
+  const element = () => {
+    const listeners: Record<string, () => void> = {};
+    return {
+      innerHTML: "",
+      value: "",
+      disabled: false,
+      hidden: true,
+      listeners,
+      addEventListener(name: string, listener: () => void) {
+        listeners[name] = listener;
+      }
+    };
+  };
+  const modelControls = element();
+  const modelSelect = element();
+  const elements: Record<string, unknown> = {
+    "step-chat-model-controls": modelControls,
+    "step-chat-model-select": modelSelect
+  };
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({
+      postMessage: (message: Record<string, unknown>) => messages.push(message)
+    }),
+    document: {
+      body: { dataset: { token: "model-nonce", tourId: baseModel().tourId, step: "1" } },
+      addEventListener: () => undefined,
+      getElementById: (id: string) => elements[id] ?? null
+    },
+    window: {
+      addEventListener: (_name: string, listener: (event: unknown) => void) => {
+        messageListener = listener;
+      }
+    }
+  });
+
+  // The panel starts with a selection: the control becomes visible once the
+  // conversation view carries the announced values.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: false,
+      exchanges: [],
+      modelOptions: [
+        { value: "fast", name: "Fast <fast>" },
+        { value: "smart", name: "Smart" }
+      ],
+      model: "smart"
+    }
+  });
+  assert.equal(modelControls.hidden, false);
+  assert.ok(modelSelect.innerHTML.includes(
+    '<option value="fast">Fast &lt;fast&gt;</option>'
+  ));
+  assert.ok(modelSelect.innerHTML.includes(
+    '<option value="smart" selected>Smart</option>'
+  ));
+  assert.equal(modelSelect.disabled, false);
+
+  // Choosing a value stores the reader's choice with the step identity.
+  modelSelect.value = "fast";
+  modelSelect.listeners.change();
+  assert.deepEqual(messages, [
+    {
+      type: "chooseModel",
+      model: "fast",
+      token: "model-nonce",
+      targetTourId: baseModel().tourId,
+      step: 1
+    }
+  ]);
+
+  // The panel follows what the agent confirms: a later update paints the
+  // agent's model, not the request that was just made.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: false,
+      exchanges: [],
+      modelOptions: [
+        { value: "fast", name: "Fast <fast>" },
+        { value: "smart", name: "Smart" }
+      ],
+      model: "smart"
+    }
+  });
+  assert.ok(modelSelect.innerHTML.includes(
+    '<option value="smart" selected>Smart</option>'
+  ));
+
+  // While an answer streams nothing can be changed, and an agent that
+  // announces no model leaves the agent-managed state disabled.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: true,
+      exchanges: [],
+      modelOptions: [{ value: "fast", name: "Fast" }],
+      model: "fast"
+    }
+  });
+  assert.equal(modelSelect.disabled, true);
+  modelSelect.value = "fast";
+  modelSelect.listeners.change();
+  assert.equal(messages.length, 1, "a streaming answer locks the choice");
+
+  messageListener({
+    data: { type: "stepChat", responding: false, exchanges: [], modelOptions: [] }
+  });
+  assert.equal(modelSelect.disabled, true);
+  assert.ok(modelSelect.innerHTML.includes(
+    '<option value="" selected>Agent-managed model</option>'
+  ));
+});

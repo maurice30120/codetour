@@ -2,6 +2,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import { accessSync, constants } from "node:fs";
 import * as path from "node:path";
 import type { AcpAgentEntry } from "./acpAgentProcess";
+import { findModelSelector, type AcpModelValue } from "./acpModelOptions";
 import { vibeAcpEntry } from "./vibeAcpEntry";
 
 /**
@@ -144,6 +145,12 @@ export interface AgentSelectionOptions {
  * of the panel: nothing probed, refreshed or failing afterwards ever replaces
  * it, and a question is only offered to the chosen profile.
  *
+ * The reader's model choice is remembered per Agent Profile for the life of
+ * the panel and replayed on every session that profile opens, because model
+ * identifiers belong to one agent. It is forgotten as soon as the profile
+ * stops announcing the value, so the selector never shows a model the agent
+ * does not have.
+ *
  * Nothing survives the panel: an instance holds no process, and disposing it
  * forgets everything it established.
  */
@@ -155,6 +162,8 @@ export class AgentSelection {
   private readonly methods = new Map<string, acp.AuthMethod[]>();
   private selectedName: string | undefined;
   private explicitName: string | undefined;
+  /** The reader's model choice per Agent Profile name, for the panel only. */
+  private readonly modelChoices = new Map<string, string>();
   private settled = false;
   private started = false;
   private probing: Promise<void> | undefined;
@@ -205,6 +214,78 @@ export class AgentSelection {
   /** True once the reader chose the answering profile by hand. */
   hasExplicitSelection(): boolean {
     return this.explicitName !== undefined;
+  }
+
+  /**
+   * The reader's model choice for one Agent Profile, or undefined: it is
+   * replayed on every new session of that profile and dropped as soon as the
+   * profile stops announcing the value.
+   */
+  modelFor(name: string): string | undefined {
+    return this.modelChoices.get(name);
+  }
+
+  /** The model chosen for the profile that answers, or undefined. */
+  selectedModel(): string | undefined {
+    const selected = this.selectedName;
+    return selected === undefined ? undefined : this.modelChoices.get(selected);
+  }
+
+  /**
+   * The model one Agent Profile's probed session announced as its current
+   * value, or undefined: the honest preselection before any conversation
+   * session exists, never a model the agent does not have.
+   */
+  announcedModel(name: string): string | undefined {
+    const availability = this.availabilityOf(name);
+    return availability.state === "available"
+      ? findModelSelector(availability.configOptions)?.value
+      : undefined;
+  }
+
+  /**
+   * The model values one Agent Profile's probed availability announces — the
+   * only list the reader may choose from, groups flattened. Empty when the
+   * agent announces no model, or has not been probed yet.
+   */
+  modelOptions(name: string): readonly AcpModelValue[] {
+    const availability = this.availabilityOf(name);
+    return availability.state === "available"
+      ? findModelSelector(availability.configOptions)?.values ?? []
+      : [];
+  }
+
+  /**
+   * Remembers the reader's model choice for one Agent Profile; undefined
+   * forgets it, so the agent decides alone again.
+   */
+  chooseModel(name: string, value: string | undefined): void {
+    if (value === undefined) {
+      this.modelChoices.delete(name);
+    } else {
+      this.modelChoices.set(name, value);
+    }
+  }
+
+  /**
+   * Records what an Agent Profile's open session confirms about its model:
+   * the values the agent announces and the value it holds now. A remembered
+   * choice the profile no longer announces is forgotten — the display follows
+   * the agent — while a choice it does announce is replayed at the next
+   * session, even after the agent switched to another of its values.
+   */
+  recordEffective(
+    name: string,
+    value: string | undefined,
+    offered: readonly AcpModelValue[]
+  ): void {
+    const chosen = this.modelChoices.get(name);
+    if (chosen === undefined || chosen === value) {
+      return;
+    }
+    if (!offered.some(option => option.value === chosen)) {
+      this.modelChoices.delete(name);
+    }
   }
 
   /**
@@ -326,15 +407,30 @@ export class AgentSelection {
     this.started = true;
   }
 
-  /** Forgets everything this panel probed. */
+  /** Forgets everything this panel probed, the reader's model choices included. */
   dispose(): void {
     this.availability.clear();
+    this.modelChoices.clear();
     this.methods.clear();
     this.selectedName = undefined;
     this.explicitName = undefined;
     this.settled = false;
     this.started = false;
     this.probing = undefined;
+  }
+
+  /**
+   * Forgets every model choice an available profile no longer announces. A
+   * profile the probe could not start keeps its choice: its offers are simply
+   * unknown, which is not the same as gone.
+   */
+  private dropUnannouncedModels(): void {
+    for (const [name, chosen] of [...this.modelChoices]) {
+      if (this.availabilityOf(name).state !== "available") continue;
+      if (!this.modelOptions(name).some(option => option.value === chosen)) {
+        this.modelChoices.delete(name);
+      }
+    }
   }
 
   private availabilityOf(name: string): AgentAvailability {
@@ -364,6 +460,7 @@ export class AgentSelection {
     }
     this.settled = true;
     this.probing = undefined;
+    this.dropUnannouncedModels();
     if (this.explicitName !== undefined) {
       this.selectedName = this.explicitName;
     } else if (!this.started) {

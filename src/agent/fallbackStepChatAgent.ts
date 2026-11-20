@@ -1,5 +1,9 @@
 import { catalogueProfiles, type AcpAgentProfile } from "./agentCatalogue";
-import { createAcpStepChatResponder, type AcpStepChatResponderHooks } from "./stepChatAgent";
+import {
+  createAcpStepChatResponder,
+  type AcpStepChatModelMemory,
+  type AcpStepChatResponderHooks
+} from "./stepChatAgent";
 import {
   StepChatAgentUnavailableError,
   type StepChatAgentIdentity,
@@ -19,6 +23,12 @@ export interface FallbackStepChatOptions extends AcpStepChatResponderHooks {
    * so a later failure retries the same profile instead of falling through.
    */
   onConversationStarted?(): void;
+  /**
+   * The reader's model choice for one Agent Profile: each profile's responder
+   * replays it on every session it opens. A terminal reader has no selector
+   * and passes none.
+   */
+  modelFor?(profileName: string): AcpStepChatModelMemory | undefined;
 }
 
 /**
@@ -60,7 +70,10 @@ export function createFallbackStepChatResponder(
         for (; selected < profiles.length; selected++) {
           if (attempt !== generation) throw new Error("Answer interrupted.");
           const profile = profiles[selected];
-          const current = active ?? createAcpStepChatResponder(profile, options);
+          const current = active ?? createAcpStepChatResponder(profile, {
+            ...options,
+            model: options.modelFor?.(profile.name)
+          });
           active = current;
           let streamed = false;
           events?.onActivity?.(`Connecting to ${profile.name}…`);
@@ -123,6 +136,15 @@ export function createFallbackStepChatResponder(
       return candidate
         ? { agent: candidate.name, effective: false }
         : undefined;
+    },
+    async selectModel(value: string) {
+      if (active?.selectModel) {
+        return active.selectModel(value);
+      }
+      // No agent was launched yet: the choice is remembered for the profile
+      // that will answer, exactly like the model it would request on open.
+      const candidate = profilesFor(workspace ?? "")[selected];
+      options.modelFor?.(candidate?.name ?? "")?.remember(value);
     },
     cancel() {
       generation++;

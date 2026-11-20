@@ -7,6 +7,7 @@ import { createTourWebviewHtml } from "./markdown";
 import {
   askTourStepQuestion,
   chooseStepChatAgent,
+  chooseStepChatModel,
   clearStepChatConversations,
   closeStepChatAgents,
   getStepChatConversationView,
@@ -91,6 +92,11 @@ export function showTourWebview(): void {
           // session is released and the step history kept. A choice made while
           // an answer streams is ignored, never applied.
           chooseStepChatAgent(message.agent);
+        } else if (message.type === "chooseModel" && typeof message.model === "string") {
+          // The reader's model for the answering profile: remembered for its
+          // next sessions and applied live on an open one, where only the
+          // agent's confirmation makes it effective.
+          await chooseStepChatModel(message.model);
         } else if (message.type === "refreshAgents") {
           await refreshStepChatAgents();
         } else if (message.type === "probeUnverified") {
@@ -192,6 +198,8 @@ export async function renderTourStep(): Promise<void> {
     chatResponding: chat.responding,
     chatAgent: chat.agent,
     chatAgents: chat.agents,
+    chatModels: chat.modelOptions,
+    chatModel: chat.model,
     chatUnavailable: chat.unavailable,
     previousTourTitle: getPreviousTour()?.title,
     nextTourTitle: getNextTour()?.title

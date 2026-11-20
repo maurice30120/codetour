@@ -125,6 +125,103 @@ let currentModeId = "edit";
 let promptAbort: AbortController | null = null;
 let promptCount = 0;
 let sessionCwd = "";
+// The session configuration options this launch announces: a model selector,
+// other options the client must ignore, or none at all.
+let configOptions: acp.SessionConfigOption[] = modelConfigOptions();
+
+function modelConfigOptions(): acp.SessionConfigOption[] {
+  switch (behavior) {
+    case "model-option":
+    case "model-refused":
+    case "model-notification":
+      return [
+        {
+          id: "model",
+          name: "Model",
+          category: "model",
+          type: "select",
+          currentValue: "smart",
+          // Grouped values: the client flattens the groups.
+          options: <acp.SessionConfigSelectOptions>[
+            {
+              group: "standard",
+              name: "Standard",
+              options: [
+                { value: "fast", name: "Fast" },
+                { value: "balanced", name: "Balanced" }
+              ]
+            },
+            {
+              group: "premium",
+              name: "Premium",
+              options: [{ value: "smart", name: "Smart" }]
+            }
+          ]
+        },
+        {
+          id: "model_config",
+          name: "Model configuration",
+          category: "model_config",
+          type: "select",
+          currentValue: "default",
+          options: [{ value: "default", name: "Default" }]
+        },
+        {
+          id: "thought_level",
+          name: "Thought level",
+          category: "thought_level",
+          type: "select",
+          currentValue: "medium",
+          options: [{ value: "medium", name: "Medium" }]
+        },
+        { id: "web-search", name: "Web search", type: "boolean", currentValue: true }
+      ];
+    case "model-option-by-id":
+      // No category: only the id "model" identifies this selector.
+      return [
+        {
+          id: "model",
+          name: "Model",
+          type: "select",
+          currentValue: "fast",
+          options: [{ value: "fast", name: "Fast" }]
+        }
+      ];
+    case "model-option-absent":
+      // Every option but a model selector: a model configuration, a thought
+      // level and a boolean toggle.
+      return [
+        {
+          id: "model_config",
+          name: "Model configuration",
+          category: "model_config",
+          type: "select",
+          currentValue: "default",
+          options: [{ value: "default", name: "Default" }]
+        },
+        {
+          id: "thought_level",
+          name: "Thought level",
+          category: "thought_level",
+          type: "select",
+          currentValue: "medium",
+          options: [{ value: "medium", name: "Medium" }]
+        },
+        { id: "web-search", name: "Web search", type: "boolean", currentValue: true }
+      ];
+    default:
+      return [];
+  }
+}
+
+/** Applies one value to the fake's configuration options, as an agent would. */
+function applyConfigValue(configId: string, value: acp.SessionConfigValueId | boolean): void {
+  configOptions = configOptions.map(option =>
+    option.id !== configId || option.type !== "select"
+      ? option
+      : { ...option, currentValue: value as acp.SessionConfigValueId }
+  );
+}
 
 agent.onRequest(acp.methods.agent.initialize, context => {
   log({
@@ -226,8 +323,30 @@ agent.onRequest(acp.methods.agent.session.new, context => {
   }
   return {
     sessionId,
-    modes: { availableModes, currentModeId }
+    modes: { availableModes, currentModeId },
+    ...(configOptions.length ? { configOptions } : {})
   };
+});
+
+agent.onRequest(acp.methods.agent.session.setConfigOption, context => {
+  const params = context.params;
+  if (behavior === "model-refused") {
+    // The agent refuses the value: the client must keep the value the agent
+    // already confirms, never display the refused one.
+    log({
+      method: "session/set_config_option",
+      params: params as unknown as Record<string, unknown>,
+      outcome: "refused"
+    });
+    throw new acp.RequestError(-32603, "This model is not available on your plan.");
+  }
+  log({
+    method: "session/set_config_option",
+    params: params as unknown as Record<string, unknown>
+  });
+  applyConfigValue(params.configId, params.value);
+  // The response carries the full set of options and their confirmed values.
+  return { configOptions };
 });
 
 agent.onRequest(acp.methods.agent.authenticate, context => {
@@ -276,6 +395,13 @@ agent.onRequest(acp.methods.agent.session.prompt, async context => {
       sessionUpdate: "agent_message_chunk",
       content: { type: "text", text }
     });
+
+  if (behavior === "model-notification") {
+    // The agent changes model by itself, in the middle of a turn, and reports
+    // the whole set of options: the client must follow the agent's value.
+    applyConfigValue("model", "fast");
+    await notify({ sessionUpdate: "config_option_update", configOptions });
+  }
 
   switch (behavior) {
     case "ignore-cancel-once": {

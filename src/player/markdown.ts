@@ -99,6 +99,12 @@ export interface TourAgentAvailability {
   signIn?: boolean;
 }
 
+/** One model value of the Model control, as the agent announces it (ADR 0048). */
+export interface TourModelOption {
+  value: string;
+  name: string;
+}
+
 /** The active step displayed in the single expanded reading view. */
 export interface TourWebviewModel {
   tourTitle: string;
@@ -119,6 +125,12 @@ export interface TourWebviewModel {
   // The Agent Catalogue with each profile's probed availability, listed so
   // the reader sees what CodeTour knows and what state each agent is in.
   chatAgents?: TourAgentAvailability[];
+  // The model values the selected Agent Profile announces — the only list the
+  // reader may choose from — and the model the control shows: the one the
+  // agent confirmed, or the reader's remembered choice. Empty means the agent
+  // manages its own model.
+  chatModels?: TourModelOption[];
+  chatModel?: string;
   // True when the initial probe settled and no Agent Profile can answer: the
   // explaining state replaces the composer's use and the Tour stays readable.
   chatUnavailable?: boolean;
@@ -194,6 +206,40 @@ function renderAgentControlsHtml(
   }>Refresh</button><button type="button" class="step-chat-sign-in" id="step-chat-sign-in" data-action="signIn" title="Connect this agent"${
     signInUsable ? "" : " hidden"
   }${locked ? " disabled" : ""}>Sign in</button></div>`;
+}
+
+/** The label of the Model control when the agent announces no model at all. */
+const AGENT_MANAGED_MODEL = "Agent-managed model";
+
+/**
+ * The Model control of the conversation area: only the model values the
+ * selected Agent Profile announces, with the effective one selected, and the
+ * agent-managed state when it announces none. It is hidden when no Agent
+ * Selection owns the panel, and locked while an answer streams, like the
+ * composer and the Agent control.
+ */
+function renderModelControlsHtml(
+  models: TourModelOption[] | undefined,
+  selected: string | undefined,
+  hidden: boolean,
+  locked: boolean
+): string {
+  const entries = models ?? [];
+  const options = entries.length === 0
+    ? `<option value="" selected>${AGENT_MANAGED_MODEL}</option>`
+    : entries
+        .map(
+          model =>
+            `<option value="${escapeHtml(model.value)}"${
+              model.value === selected ? " selected" : ""
+            }>${escapeHtml(model.name)}</option>`
+        )
+        .join("");
+  return `<div class="step-chat-model-controls" id="step-chat-model-controls"${
+    hidden ? " hidden" : ""
+  }><label class="step-chat-control-label" for="step-chat-model-select">Model</label><select class="step-chat-model-select" id="step-chat-model-select" aria-label="Model"${
+    locked || entries.length === 0 ? " disabled" : ""
+  }>${options}</select></div>`;
 }
 
 /**
@@ -305,6 +351,11 @@ const READING_STYLES = `
     .step-chat-agent-controls { display: flex; align-items: center; gap: 6px; margin: 0 0 .6em; padding: 0 .75em; font-size: 12px; color: var(--vscode-descriptionForeground); }
     .step-chat-agent-controls[hidden] { display: none; }
     .step-chat-control-label { flex: 0 0 auto; }
+    .step-chat-model-controls { display: flex; align-items: center; gap: 6px; margin: 0 0 .6em; padding: 0 .75em; font-size: 12px; color: var(--vscode-descriptionForeground); }
+    .step-chat-model-controls[hidden] { display: none; }
+    .step-chat-model-select { flex: 0 1 auto; min-width: 0; max-width: 60%; padding: 2px 4px; font: inherit; font-size: 12px; color: var(--vscode-dropdown-foreground, var(--vscode-input-foreground)); background: var(--vscode-dropdown-background, var(--vscode-input-background)); border: 1px solid var(--vscode-dropdown-border, var(--vscode-input-border, transparent)); border-radius: 3px; }
+    .step-chat-model-select:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+    .step-chat-model-select:disabled { opacity: .55; cursor: default; }
     .step-chat-agent-select { flex: 0 1 auto; min-width: 0; max-width: 60%; padding: 2px 4px; font: inherit; font-size: 12px; color: var(--vscode-dropdown-foreground, var(--vscode-input-foreground)); background: var(--vscode-dropdown-background, var(--vscode-input-background)); border: 1px solid var(--vscode-dropdown-border, var(--vscode-input-border, transparent)); border-radius: 3px; }
     .step-chat-agents-refresh, .step-chat-sign-in { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; font: inherit; font-size: 12px; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); cursor: pointer; }
     .step-chat-agents-refresh:hover:not(:disabled), .step-chat-sign-in:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground); }
@@ -406,6 +457,12 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     ${renderMarkdownToHtml(model.description)}
     <section class="step-chat" aria-label="Step discussion">
       ${renderAgentControlsHtml(model.chatAgents, model.chatResponding === true)}
+      ${renderModelControlsHtml(
+        model.chatModels,
+        model.chatModel,
+        (model.chatAgents ?? []).length === 0,
+        model.chatResponding === true
+      )}
       <p class="step-chat-agent" id="step-chat-agent"${
         model.chatAgent ? "" : " hidden"
       }>${model.chatAgent ? escapeHtml(agentLine(model.chatAgent)) : ""}</p>
@@ -448,6 +505,8 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     const chatAgentSelect = document.getElementById("step-chat-agent-select");
     const chatAgentsRefresh = document.getElementById("step-chat-agents-refresh");
     const chatSignIn = document.getElementById("step-chat-sign-in");
+    const chatModelControls = document.getElementById("step-chat-model-controls");
+    const chatModelSelect = document.getElementById("step-chat-model-select");
     const chatUnavailable = document.getElementById("step-chat-unavailable");
     const suggestionButtons = Array.from(document.getElementById("step-chat-suggestions")?.children || []);
     // One spelling for both surfaces: the agent caption of an answer and
@@ -477,8 +536,14 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
         + (locked ? ' disabled' : '') + '>Change agent</button>'
         + '</p>'
       : '';
+    // The agent-managed state names an agent that announces no model: the
+    // reader chooses nothing and the agent alone decides.
+    const agentManagedModel = "${AGENT_MANAGED_MODEL}";
     let chatResponding = ${model.chatResponding === true};
     let chatCannotAnswer = ${model.chatUnavailable === true};
+    let chatModels = ${inlineScriptJson(
+      (model.chatModels ?? []).map(option => ({ value: option.value, name: option.name }))
+    )};
     // The profiles that offer the reader a way to connect them, by name: the
     // Sign in action follows the profile the selector shows.
     let signInAgents = ${inlineScriptJson(
@@ -511,6 +576,9 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       // streaming answer locks the choice.
       if (chatAgentSelect) chatAgentSelect.disabled = chatResponding;
       if (chatAgentsRefresh) chatAgentsRefresh.disabled = chatResponding;
+      // The Model control is locked while an answer streams, and has nothing
+      // to offer when the agent manages its own model.
+      if (chatModelSelect) chatModelSelect.disabled = chatResponding || chatModels.length === 0;
       syncSignIn();
     };
     const setResponding = responding => {
@@ -534,6 +602,22 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       if (chatAgentControls) chatAgentControls.hidden = agents.length === 0;
       syncSignIn();
     };
+    const modelOptionsHtml = (models, selected) => models.length === 0
+      ? '<option value="" selected>' + escapeHtml(agentManagedModel) + '</option>'
+      : models.map(model =>
+          '<option value="' + escapeHtml(model.value) + '"'
+          + (model.value === selected ? ' selected' : '') + '>'
+          + escapeHtml(model.name) + '</option>'
+        ).join("");
+    // The Model control stays visible for as long as an Agent Selection owns
+    // the panel: an agent that announces no model says so instead of hiding.
+    const setModels = (models, selected) => {
+      chatModels = Array.isArray(models) ? models : [];
+      if (chatModelControls) chatModelControls.hidden = false;
+      if (!chatModelSelect) return;
+      chatModelSelect.innerHTML = modelOptionsHtml(chatModels, selected);
+      lockComposer();
+    };
     const postChatMessage = message => vscode.postMessage({ ...message, token: document.body.dataset.token,
       targetTourId: document.body.dataset.tourId, step: Number(document.body.dataset.step) });
     const sendQuestion = (type, question) => {
@@ -549,6 +633,15 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       selectorProbed = true;
       postChatMessage({ type: "probeUnverified" });
     };
+    if (chatModelSelect) {
+      chatModelSelect.addEventListener("change", () => {
+        // A locked control never changes the model: no answer is ever
+        // interrupted by a change the reader did not ask for now.
+        if (chatResponding || chatModelSelect.disabled) return;
+        const model = chatModelSelect.value;
+        if (model) postChatMessage({ type: "chooseModel", model });
+      });
+    }
     if (chatAgentSelect) {
       chatAgentSelect.addEventListener("focus", probeUnverified);
       chatAgentSelect.addEventListener("pointerdown", probeUnverified);
@@ -574,6 +667,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       const message = event.data;
       if (!message || message.type !== "stepChat" || !Array.isArray(message.exchanges)) return;
       setAgents(message.agents);
+      if (Array.isArray(message.modelOptions)) setModels(message.modelOptions, message.model);
       if (chatAgent) {
         chatAgent.textContent = message.agent ? agentLine(message.agent) : "";
         chatAgent.hidden = !message.agent;

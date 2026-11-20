@@ -7,6 +7,7 @@ import {
   isSelectable,
   type AgentAvailability
 } from "../agent/agentCatalogue";
+import type { AcpModelValue } from "../agent/acpModelOptions";
 import { signInPlan, type AgentSignInPlan } from "../agent/agentAuth";
 import { authenticateAgentProfile } from "../agent/agentProbe";
 import { createFallbackStepChatResponder } from "../agent/fallbackStepChatAgent";
@@ -41,8 +42,12 @@ import { renderMarkdownToHtml } from "./markdown";
  *   step }` is the reader's own request to connect that Agent Profile. It is
  *   never sent by CodeTour on its own: no probe and no switch authenticates
  *   anything.
+ * - webview → extension: `{ type: "chooseModel", model, token,
+ *   targetTourId, step }` remembers the reader's model for the answering
+ *   Agent Profile and applies it live when its session is open.
  * - extension → webview: `{ type: "stepChat", exchanges, responding,
- *   agent }` replaces the rendered conversation of the step. Each exchange
+ *   agent, modelOptions, model }` replaces the rendered conversation of the
+ *   step. Each exchange
  *   is a question with the answer HTML produced by the shared renderer and
  *   sanitizer, captioned with the agent that produced it; a failed exchange
  *   carries the error message instead of a responder answer. `agent` is the
@@ -139,7 +144,20 @@ function composeResponder(selection: AgentSelection): StepChatResponder {
       // A question asked while the initial probe runs waits for it: it is
       // never sent to an Agent Profile the panel has not verified.
       whenReady: () => selection.whenInitialProbeSettled(),
-      onConversationStarted: () => selection.hasConversationStarted()
+      onConversationStarted: () => selection.hasConversationStarted(),
+      // Model identifiers belong to one agent: the reader's model choice is
+      // remembered per Agent Profile and replayed on each session it opens.
+      modelFor: name => ({
+        modelFor: () => selection.modelFor(name),
+        remember: value => selection.chooseModel(name, value),
+        recordEffective: (value, offered) => {
+          selection.recordEffective(name, value, offered);
+          // The agent is the only source of truth for the model displayed: a
+          // confirmed value repaints the panel, even one the agent changed by
+          // itself between two questions.
+          agents?.onSettled?.();
+        }
+      })
     }
   );
 }
@@ -272,6 +290,19 @@ export function chooseStepChatAgent(name: string): void {
   current.onSettled?.();
 }
 
+/**
+ * Remembers the reader's model for the Agent Profile that answers: replayed on
+ * every new session of that profile and applied live on an open one, where
+ * only the agent's confirmation makes it effective. A change asked while an
+ * answer streams is ignored, exactly like a change of agent.
+ */
+export async function chooseStepChatModel(value: string): Promise<void> {
+  const current = agents;
+  if (!current || conversations.hasAnswerInFlight()) return;
+  await current.responder.selectModel?.(value);
+  current.onSettled?.();
+}
+
 /** One catalogue profile as the webview paints it: serializable, no entry. */
 export interface StepChatAgentView {
   name: string;
@@ -326,6 +357,13 @@ export interface StepChatConversationView {
   // True when the initial probe settled and no profile can answer: the
   // composer is disabled and the panel explains it.
   unavailable?: boolean;
+  // The model values the selected Agent Profile announces, and the one the
+  // Model control shows: the model the agent confirmed, else the reader's
+  // remembered choice, else the value the probe's session announced. Absent
+  // when no Agent Selection owns the panel, empty when the agent announces no
+  // model.
+  modelOptions?: AcpModelValue[];
+  model?: string;
 }
 
 /** The conversation of a step with its response-in-progress state. */
@@ -410,7 +448,32 @@ function paint(
     })),
     responding: view.responding,
     agent,
-    ...paintAgents()
+    ...paintAgents(),
+    ...paintModel(agent)
+  };
+}
+
+/**
+ * The Model control's values and selection: only the values the selected
+ * Agent Profile announces, and the model the agent confirmed — or, before a
+ * session confirmed one, the reader's remembered choice — or, before the
+ * reader chose anything, the value the probe's session announced.
+ */
+function paintModel(agent: StepChatAgentIdentity | undefined): {
+  modelOptions?: AcpModelValue[];
+  model?: string;
+} {
+  const selection = agents?.selection;
+  const selected = selection?.selectedProfile();
+  if (!selection || !selected) {
+    return {};
+  }
+  return {
+    modelOptions: [...selection.modelOptions(selected.profile.name)],
+    model:
+      agent?.model ??
+      selection.selectedModel() ??
+      selection.announcedModel(selected.profile.name)
   };
 }
 

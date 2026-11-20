@@ -596,3 +596,133 @@ test("an explicit choice is never replaced and its candidates shrink to it", asy
   assert.equal(selection.hasExplicitSelection(), false);
   assert.equal(selection.selectedProfile(), undefined);
 });
+
+/** A model selector as an agent announces it: grouped values, labelled ids. */
+function modelOption(currentValue: string, values: string[]) {
+  return {
+    id: "model",
+    name: "Model",
+    category: "model",
+    type: "select" as const,
+    currentValue,
+    options: [
+      {
+        group: "standard",
+        name: "Standard",
+        options: values.map(value => ({ value, name: value.toUpperCase() }))
+      }
+    ]
+  };
+}
+
+/**
+ * A probe announcing each profile's model values, and nothing else: what an
+ * agent that really offers a choice answers.
+ */
+function modelProbe(offers: Record<string, string[]>) {
+  const calls: string[] = [];
+  return {
+    calls,
+    probe: async (profile: AgentProfile): Promise<{
+      availability: AgentAvailability;
+    }> => {
+      calls.push(profile.name);
+      const values = offers[profile.name] ?? [];
+      return {
+        availability: {
+          state: "available",
+          configOptions: values.length ? [modelOption(values[0], values)] : []
+        }
+      };
+    }
+  };
+}
+
+test("the reader's model choice is remembered per Agent Profile, apart from the agent selection", async () => {
+  const probe = modelProbe({ Copilot: ["fast", "smart"], Vibe: ["vibe-fast", "vibe-smart"] });
+  const selection = new AgentSelection({ profiles: CATALOGUE, probe: probe.probe });
+  await selection.probeInitial("/workspace");
+
+  // The selector lists only what the probed availability announces, groups
+  // flattened.
+  assert.deepEqual(selection.modelOptions("Copilot"), [
+    { value: "fast", name: "FAST" },
+    { value: "smart", name: "SMART" }
+  ]);
+  // An agent that announces no model has nothing to offer.
+  assert.deepEqual(selection.modelOptions("Codex"), []);
+  assert.equal(selection.selectedModel(), undefined);
+  // Before the reader chooses, the probe's announcement is the only model the
+  // panel can honestly name.
+  assert.equal(selection.announcedModel("Copilot"), "fast");
+  assert.equal(selection.announcedModel("Codex"), undefined);
+
+  // Each profile keeps its own choice: model identifiers belong to one agent.
+  selection.chooseModel("Copilot", "smart");
+  selection.chooseModel("Vibe", "vibe-smart");
+  assert.equal(selection.modelFor("Copilot"), "smart");
+  assert.equal(selection.selectedModel(), "smart");
+
+  // Moving the conversation to another agent does not touch either choice.
+  selection.select("Vibe");
+  assert.equal(selection.selectedModel(), "vibe-smart");
+  assert.equal(selection.modelFor("Copilot"), "smart");
+  selection.select("Copilot");
+  assert.equal(selection.selectedModel(), "smart");
+  assert.equal(selection.modelFor("Vibe"), "vibe-smart");
+
+  // Choosing nothing forgets the choice: the agent decides alone again.
+  selection.chooseModel("Copilot", undefined);
+  assert.equal(selection.modelFor("Copilot"), undefined);
+});
+
+test("a model choice the profile stops announcing is dropped on a refresh", async () => {
+  const offers: Record<string, string[]> = { Copilot: ["fast", "smart"] };
+  const probe = modelProbe(offers);
+  const selection = new AgentSelection({ profiles: CATALOGUE, probe: probe.probe });
+  await selection.probeInitial("/workspace");
+
+  selection.chooseModel("Copilot", "smart");
+  assert.equal(selection.modelFor("Copilot"), "smart");
+
+  // The profile still announces the choice: a refresh keeps it.
+  await selection.refresh("/workspace");
+  assert.equal(selection.modelFor("Copilot"), "smart");
+
+  // The profile stops announcing it: the display must never show a model the
+  // agent does not have.
+  offers.Copilot = ["fast"];
+  await selection.refresh("/workspace");
+  assert.equal(selection.modelFor("Copilot"), undefined);
+  selection.dispose();
+});
+
+test("a session that no longer announces the choice drops it, and one that still does keeps it", async () => {
+  const probe = modelProbe({ Copilot: ["fast", "smart"] });
+  const selection = new AgentSelection({ profiles: CATALOGUE, probe: probe.probe });
+  await selection.probeInitial("/workspace");
+  const offered = selection.modelOptions("Copilot");
+
+  selection.chooseModel("Copilot", "smart");
+  // The agent switched to another value by itself but still announces the
+  // reader's choice: it is replayed at the next session.
+  selection.recordEffective("Copilot", "fast", offered);
+  assert.equal(selection.modelFor("Copilot"), "smart");
+
+  // The session confirms the choice itself: it stays remembered.
+  selection.recordEffective("Copilot", "smart", offered);
+  assert.equal(selection.modelFor("Copilot"), "smart");
+
+  // A session that no longer lists the choice drops it: the reader sees the
+  // agent's own value instead of a stale request.
+  selection.recordEffective("Copilot", "fast", [
+    { value: "fast", name: "FAST" }
+  ]);
+  assert.equal(selection.modelFor("Copilot"), undefined);
+
+  // Nothing model-related survives the panel either.
+  selection.chooseModel("Copilot", "smart");
+  selection.dispose();
+  assert.equal(selection.modelFor("Copilot"), undefined);
+  assert.deepEqual(selection.modelOptions("Copilot"), []);
+});

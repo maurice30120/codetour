@@ -3,6 +3,7 @@ import { spawnAcpAgent } from "./acpAgentProcess";
 import type { AskSession, TourStepContext } from "./acpSession";
 import { openAskSession } from "./acpSession";
 import type { AcpAgentProfile } from "./agentCatalogue";
+import type { AcpModelSelector, AcpModelValue } from "./acpModelOptions";
 import {
   StepChatAgentUnavailableError,
   type StepChatAgentIdentity,
@@ -27,14 +28,48 @@ export interface AcpStepChatResponderHooks {
    */
   onProcess?(agent: AcpAgentProcess): void;
   startupTimeoutMs?: number;
+  /**
+   * The reader's model choice for this Agent Profile, as the panel remembers
+   * it: read when a session opens and written back with what the agent
+   * confirms.
+   */
+  model?: AcpStepChatModelMemory;
+}
+
+/**
+ * The reader's model choice for one Agent Profile (ADR 0048): model
+ * identifiers belong to one agent, so the choice is remembered per profile
+ * and replayed on every session it opens.
+ */
+export interface AcpStepChatModelMemory {
+  /** The value the reader chose for this profile, or undefined. */
+  modelFor(): string | undefined;
+  /**
+   * Remembers the reader's choice — made before any session exists — for the
+   * next sessions of this profile; undefined forgets it.
+   */
+  remember(value: string | undefined): void;
+  /**
+   * Records the model an open session confirms, with the values it currently
+   * announces: a choice the agent no longer offers is forgotten, so the
+   * reader is never shown a model the agent does not have.
+   */
+  recordEffective(value: string | undefined, offered: readonly AcpModelValue[]): void;
 }
 
 export interface AcpStepChatResponder extends StepChatResponder {
   /**
-   * The Agent Profile this responder was launched as: effective while its
-   * session is open, preselected before the handshake and after a release.
+   * The Agent Profile this responder was launched as, with the model its
+   * session confirmed: effective while its session is open, preselected
+   * before the handshake and after a release.
    */
   identity(): StepChatAgentIdentity;
+  /**
+   * The reader's model for this Agent Profile: remembered for the sessions
+   * still to open, requested live on an open one. Nothing is displayed as
+   * effective before the agent confirms it.
+   */
+  selectModel(value: string): Promise<void>;
   /** Cancels any in-flight turn and releases the ACP agent resources. */
   dispose(): Promise<void>;
 }
@@ -50,6 +85,9 @@ export function createAcpStepChatResponder(
   let session: AskSession | undefined;
   let agent: AcpAgentProcess | undefined;
   let opening: Promise<AskSession> | undefined;
+  // The events of the answer in flight, if any: the one whose exchange
+  // follows a model the agent changes by itself.
+  let answerEvents: StepChatAnswerEvents | undefined;
   // The answer currently in flight, if any.
   let answering: Promise<unknown> | undefined;
   // Bumped by dispose so a launch racing the close of the reading webview
@@ -75,7 +113,21 @@ export function createAcpStepChatResponder(
       const spawned = spawnAcpAgent(entry);
       agent = spawned;
       hooks.onProcess?.(spawned);
-      opening = openAskSession({ agentProfileName: profile.name, transport: spawned, cwd: entry.cwd, modeId: entry.modeId, useDefaultMode: entry.useDefaultMode, startupTimeoutMs: hooks.startupTimeoutMs }).then(
+      opening = openAskSession({
+        agentProfileName: profile.name,
+        transport: spawned,
+        cwd: entry.cwd,
+        modeId: entry.modeId,
+        useDefaultMode: entry.useDefaultMode,
+        startupTimeoutMs: hooks.startupTimeoutMs,
+        requestedModel: hooks.model?.modelFor(),
+        // The agent is the only source of truth for the model displayed: a
+        // change it reports is followed, whoever asked for it.
+        onModelChange: model => {
+          recordConfirmedModel(model);
+          answerEvents?.onAgentIdentity?.(identityOf(model));
+        }
+      }).then(
         opened => {
           if (myEpoch !== epoch) {
             opened.close().catch(() => undefined);
@@ -84,6 +136,7 @@ export function createAcpStepChatResponder(
             );
           }
           session = opened;
+          recordConfirmedModel(opened.model);
           // The handshake confirmed which agent answers: the chat stops
           // naming the preselection.
           events?.onAgentIdentity?.(opened.identity);
@@ -121,6 +174,20 @@ export function createAcpStepChatResponder(
     ]);
   }
 
+  /** Records the model an open session confirms, with the values it announces. */
+  function recordConfirmedModel(model: AcpModelSelector | undefined): void {
+    hooks.model?.recordEffective(model?.value, model?.values ?? []);
+  }
+
+  /** The identity of this profile's session with the model it confirms. */
+  function identityOf(model: AcpModelSelector | undefined): StepChatAgentIdentity {
+    return {
+      agent: profile.name,
+      ...(model !== undefined ? { model: model.value } : {}),
+      effective: true
+    };
+  }
+
   /** Drops a dead session so the next question relaunches the agent. */
   function releaseBrokenSession(): void {
     const currentSession = session;
@@ -155,6 +222,7 @@ export function createAcpStepChatResponder(
           ]);
         }
         const myStopEpoch = stopEpoch;
+        answerEvents = events;
         events?.onActivity?.("Connecting to the agent…");
         const current = await openSession(events);
         events?.onActivity?.("Question sent, waiting for the model…");
@@ -217,13 +285,29 @@ export function createAcpStepChatResponder(
       } finally {
         if (answering === turn) {
           answering = undefined;
+          // A model the agent changes between answers belongs to the
+          // conversation's agent line, not to the answer already written.
+          answerEvents = undefined;
         }
       }
     },
     identity() {
-      // Only an open session confirms the Agent Profile: before the handshake
-      // and after any release the reader has the preselection only.
+      // Only an open session confirms the Agent Profile and its model: before
+      // the handshake and after any release the reader has the preselection
+      // only.
       return session?.identity ?? { agent: profile.name, effective: false };
+    },
+    async selectModel(value) {
+      // The choice is remembered for this Agent Profile's sessions, before
+      // and after any open one: it is replayed on every new session.
+      hooks.model?.remember(value);
+      const current = session;
+      if (!current) {
+        return;
+      }
+      // A live change counts only when the agent confirms it; a refusal
+      // leaves the agent's own value displayed.
+      recordConfirmedModel(await current.setModel(value));
     },
     cancel() {
       if (!session) {

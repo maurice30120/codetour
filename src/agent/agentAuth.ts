@@ -13,11 +13,14 @@ import type * as acp from "@agentclientprotocol/sdk";
  * `_meta["terminal-auth"]` is the capability an agent gates its terminal
  * authentication method on, so an agent that can only be connected from an
  * interactive terminal has a way to say so. Reading files inside the session
- * workspace is the only other capability the read-only client declares.
+ * workspace is the only other file capability the read-only client declares,
+ * and the session configuration options are announced so an agent exposes the
+ * model it offers (ADR 0048).
  */
 export function clientCapabilities(): acp.ClientCapabilities {
   return {
     fs: { readTextFile: true },
+    session: { configOptions: {} },
     _meta: { "terminal-auth": true }
   };
 }
