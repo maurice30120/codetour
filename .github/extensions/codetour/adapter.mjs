@@ -282,6 +282,28 @@ function parse(raw) {
   return { title: text, renderer };
 }
 
+// The reader paints the terminal it is given, so only a process that reports
+// an interactive stdin and stdout can lend it one.
+function readerTerminal() {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+// The reader inherits this process's own terminal, so it paints the screen the
+// session was using and the session waits for its real exit instead of
+// detaching a process it could never observe (ADR 0051).
+function runReader(selected, renderer, cwd) {
+  const [executable, ...prefix] = command();
+  const child = spawn(executable, [...prefix, "--internal-tour-id", selected.id, "--renderer", renderer],
+    {cwd, stdio: "inherit", windowsHide: true});
+  return {
+    spawned: new Promise((resolve, reject) => {
+      child.once("spawn", resolve);
+      child.once("error", reject);
+    }),
+    exited: new Promise(resolve => child.once("exit", (code, signal) => resolve({code, signal})))
+  };
+}
+
 function runCli(args, cwd, { detached = false } = {}) {
   return new Promise((resolve, reject) => {
     const [executable, ...prefix] = command();
@@ -497,8 +519,35 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
         selected = JSON.parse(await runCli(["--internal-resolve-tour"], cwd));
       }
     }
-    await runCli(["--internal-tour-id", selected.id, "--renderer", renderer], cwd, {detached: true});
+    // The HTML reader needs no terminal: it writes its page and opens it.
+    if (renderer === "html") {
+      await runCli(["--internal-tour-id", selected.id, "--renderer", renderer], cwd, {detached: true});
+      await session.log(`Starting CodeTour: ${selected.title} (${renderer}).`, {level: "info"});
+      return;
+    }
+    // The terminal reader needs the session's own terminal, and Copilot CLI
+    // forks every extension with the JSON-RPC pipes on stdin/stdout (ADR 0051):
+    // no TTY is reported here. A reader that cannot start is never announced;
+    // the user gets the exact command to run instead.
+    if (!readerTerminal()) {
+      await session.log(
+        `CodeTour: '${selected.title}' was not started: this Copilot session has no terminal to lend the reader ` +
+        "(Copilot forks extensions with the JSON-RPC stdio pipes, not the user's TTY; see docs/adr/0051). " +
+        `Read it from your own shell with: codetour --internal-tour-id "${selected.id}" --renderer terminal`,
+        { level: "warning" });
+      return;
+    }
+    const reader = runReader(selected, renderer, cwd);
+    await reader.spawned;
     await session.log(`Starting CodeTour: ${selected.title} (${renderer}).`, {level: "info"});
+    const outcome = await reader.exited;
+    if (outcome.signal) {
+      await session.log(`CodeTour: the reader for '${selected.title}' was interrupted by ${outcome.signal}; the reading may be incomplete.`, {level: "error"});
+    } else if (outcome.code !== 0) {
+      await session.log(`CodeTour: the reader for '${selected.title}' exited with code ${outcome.code}; the reading may be incomplete.`, {level: "error"});
+    } else {
+      await session.log(`CodeTour: '${selected.title}' closed; the terminal is back in your Copilot session.`, {level: "info"});
+    }
   } catch (error) {
     await session.log(`CodeTour: ${error instanceof Error ? error.message : String(error)}`, {level: "error"});
   }
