@@ -49,9 +49,15 @@ export interface KnowledgeInvalidEntry {
   name: string;
   /** Refusal cause; the same vocabulary as `knowledge_read`. */
   reason: KnowledgeFailureReason;
+  /**
+   * Knowledge Revision of the entry file when that file was readable: an
+   * invalid entry stays addressable, so a repair write can be conditioned on
+   * the bytes that failed instead of on a body nobody may read.
+   */
+  revision?: string;
 }
 
-/** One bounded page of catalogue metadata, never a body. */
+/** One bounded page of catalogue metadata (name, description, revision), never a body. */
 export interface KnowledgeCataloguePage {
   /** `empty` means the filtered catalogue has no verified entry; not an error. */
   status: "ok" | "empty";
@@ -100,9 +106,15 @@ export async function listKnowledgePage(
   for (const stem of stems) {
     const read = await library.read(stem);
     if (read.status === "valid") {
-      valid.push({ name: read.name, description: read.description });
-    } else {
+      valid.push({
+        name: read.name,
+        description: read.description,
+        revision: read.revision,
+      });
+    } else if (read.revision === undefined) {
       invalid.push({ name: stem, reason: read.reason });
+    } else {
+      invalid.push({ name: stem, reason: read.reason, revision: read.revision });
     }
   }
   const lowerQuery = query?.toLowerCase();
@@ -128,7 +140,7 @@ export async function listKnowledgePage(
 
 /**
  * The lightweight catalogue projection embedded in the Project Tour prompt:
- * names and one-line descriptions only, bounded by
+ * names, one-line descriptions and revisions only, bounded by
  * `KNOWLEDGE_PROMPT_CATALOGUE_LIMIT`, with explicit truncation and search
  * guidance. An empty catalogue is stated as normal so the agent does not stop
  * or look for another Knowledge source.
@@ -143,7 +155,12 @@ export async function knowledgeCatalogueProjection(root: string): Promise<string
       "entry is verified: its whole declared SHA-256 evidence contract " +
       "matches the cited files, the same check `knowledge_read` runs. " +
       "Verified evidence proves the cited bytes are unchanged, never that " +
-      "the explanation is semantically correct or complete.",
+      "the explanation is semantically correct or complete. Every line " +
+      "carries the entry revision, an opaque token of the entry file bytes: " +
+      "a write is conditioned on the revision you read (compare-and-swap), " +
+      "so a file that changed since is refused instead of silently " +
+      "overwritten, including for an invalid entry whose body must not be " +
+      "read.",
     "",
   ];
   if (page.entries.length === 0 && page.invalid.length === 0) {
@@ -156,14 +173,20 @@ export async function knowledgeCatalogueProjection(root: string): Promise<string
     return lines.join("\n");
   }
   for (const entry of page.entries) {
-    lines.push(`- \`${entry.name}\` — ${entry.description}`);
+    lines.push(
+      `- \`${entry.name}\` — ${entry.description} (revision ${entry.revision})`
+    );
   }
   lines.push("");
   if (page.invalid.length > 0) {
     lines.push(
       "Catalogue entries that failed validation — never rely on them; fix or " +
         "remove them before consolidating:",
-      ...page.invalid.map((entry) => `- \`${entry.name}\` — ${entry.reason}`),
+      ...page.invalid.map((entry) =>
+        entry.revision === undefined
+          ? `- \`${entry.name}\` — ${entry.reason}`
+          : `- \`${entry.name}\` — ${entry.reason} (revision ${entry.revision})`
+      ),
       ""
     );
   }

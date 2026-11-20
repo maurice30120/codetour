@@ -11,11 +11,17 @@ import { knowledgeCanonicalizer, treeSitterSymbolFingerprinter } from './symbol-
  * evidence list; the free-form Markdown body after the closing `---` is what
  * `memory_read` returns once the whole evidence contract has been verified.
  * The name is a safe flat Knowledge name equal to the file name, so
- * discovery presents entries by name and description only.
+ * discovery presents entries by name, description and revision only.
  */
 export interface KnowledgeMetadata {
   name: string;
   description: string;
+  /**
+   * Knowledge Revision of the entry file (ADR 0048): the SHA-256 of its
+   * complete bytes, as an opaque token. Opaque on purpose — nothing of the
+   * body, of a cited path or of a source hash is derivable from it.
+   */
+  revision: string;
 }
 
 /** A `file` proof pins the deterministic SHA-256 of the cited file bytes. */
@@ -70,10 +76,24 @@ export type KnowledgeFailureReason =
   | 'symbol_hash_mismatch'
   | 'engine_changed';
 
-/** Outcome of a Knowledge read: the validated Markdown body, or a typed refusal. */
+/**
+ * Outcome of a Knowledge read: the validated Markdown body with its revision,
+ * or a typed refusal. A refusal carries the revision whenever the entry file
+ * itself was readable — that is what makes an invalid entry repairable without
+ * ever serving its body — and none when there is no entry file to hash
+ * (`unknown_entry`, `symlink_escape`, a malformed name).
+ */
 export type KnowledgeValidation =
-  | { status: 'valid'; name: string; description: string; body: string; evidence: KnowledgeProof[] }
-  | { status: 'invalid'; reason: KnowledgeFailureReason };
+  | { status: 'valid'; name: string; description: string; body: string; evidence: KnowledgeProof[]; revision: string }
+  | { status: 'invalid'; reason: KnowledgeFailureReason; revision?: string };
+
+/**
+ * Static outcome of parsing one Knowledge file: the read outcome minus the
+ * revision, which only the file bytes can supply.
+ */
+export type KnowledgeParseResult =
+  | Omit<Extract<KnowledgeValidation, { status: 'valid' }>, 'revision'>
+  | Extract<KnowledgeValidation, { status: 'invalid' }>;
 
 const fileProofSchema = z.object({
   type: z.literal('file'),
@@ -100,8 +120,16 @@ const frontmatterSchema = z.object({
 /** Location of the Knowledge catalogue inside one workspace. */
 export const knowledgeDirectory = (root: string): string => join(root, '.tours', '.memory', 'knowledge');
 
+/**
+ * Knowledge Revision of one entry file (ADR 0048): the SHA-256 of its complete
+ * bytes. It is computed from the bytes alone, without validating the contract,
+ * so it exists for an entry whose contract is already invalid; it stays
+ * identical while the file is unchanged and changes with any modified byte.
+ */
+export const knowledgeRevision = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
+
 /** Deterministic SHA-256 of the cited file bytes (the preparation helper). */
-export const fileProofHash = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
+export const fileProofHash = (bytes: Buffer): string => knowledgeRevision(bytes);
 
 /** Strip one optional layer of matching single or double quotes from a scalar value. */
 const stripQuotes = (value: string): string => {
@@ -182,7 +210,7 @@ function parseFrontmatter(lines: string[]): Record<string, unknown> | undefined 
  * safe name equal to the file name, or a nonempty-but-unsupported evidence
  * item (`symbol`) are refused here, before any evidence is verified.
  */
-export function parseKnowledge(source: string, fileName: string): KnowledgeValidation {
+export function parseKnowledge(source: string, fileName: string): KnowledgeParseResult {
   const lines = source.split('\n').map(line => line.replace(/\r$/, ''));
   if (lines[0]?.trim() !== '---') return { status: 'invalid', reason: 'malformed_contract' };
   const closing = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
@@ -265,7 +293,7 @@ const resolveCitedFile = async (realRoot: string, path: string): Promise<CitedFi
  * failing proof stops the check with its reason; no content, path or hash
  * value ever leaves this module with the refusal.
  */
-export async function verifyKnowledge(entry: Extract<KnowledgeValidation, { status: 'valid' }>, root: string, fingerprinter: SymbolFingerprinter = treeSitterSymbolFingerprinter): Promise<KnowledgeValidation> {
+export async function verifyKnowledge(entry: Extract<KnowledgeParseResult, { status: 'valid' }>, root: string, fingerprinter: SymbolFingerprinter = treeSitterSymbolFingerprinter): Promise<KnowledgeParseResult> {
   let realRoot: string;
   try { realRoot = await realpath(root); }
   catch { return { status: 'invalid', reason: 'file_missing' }; }
@@ -373,7 +401,7 @@ export async function hashWorkspaceFile(root: string, path: string): Promise<Kno
 }
 
 export interface KnowledgeLibrary {
-  /** Discoverable entries: name and description only, sorted by name. */
+  /** Discoverable entries: name, description and revision only, sorted by name. */
   catalog(): Promise<KnowledgeMetadata[]>;
   /** Catalogue filtered by a literal case-insensitive name/description substring. */
   list(query?: string): Promise<KnowledgeMetadata[]>;
@@ -391,7 +419,7 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
   const realRoot = await realpath(root).catch(() => undefined);
   const realDirectory = realRoot ? await realpath(directory).catch(() => undefined) : undefined;
   const usable = (): string | undefined => realRoot && realDirectory && !escapes(realRoot, realDirectory) ? realDirectory : undefined;
-  const readEntryFile = async (name: string): Promise<{ status: 'valid'; source: string } | { status: 'invalid'; reason: KnowledgeFailureReason }> => {
+  const readEntryFile = async (name: string): Promise<{ status: 'valid'; source: string; revision: string } | { status: 'invalid'; reason: KnowledgeFailureReason }> => {
     // A catalogue name is a safe flat name (the file-name rule), which
     // also keeps every lookup inside the flat catalogue directory.
     if (!validateKnowledgeName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };
@@ -404,7 +432,10 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
     try {
       const info = await stat(real);
       if (!info.isFile()) return { status: 'invalid', reason: 'unknown_entry' };
-      return { status: 'valid', source: (await readFile(real)).toString('utf8') };
+      const bytes = await readFile(real);
+      // The revision hashes the entry file bytes, never the parsed contract:
+      // it exists before, and independently of, every verification.
+      return { status: 'valid', source: bytes.toString('utf8'), revision: knowledgeRevision(bytes) };
     } catch { return { status: 'invalid', reason: 'unknown_entry' }; }
   };
   const library: KnowledgeLibrary = {
@@ -421,7 +452,7 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
           const entryFile = await readEntryFile(stem);
           if (entryFile.status !== 'valid') continue;
           const parsed = parseKnowledge(entryFile.source, stem);
-          if (parsed.status === 'valid') metadata.push({ name: parsed.name, description: parsed.description });
+          if (parsed.status === 'valid') metadata.push({ name: parsed.name, description: parsed.description, revision: entryFile.revision });
         } catch { /* an invalid or unreadable entry never breaks discovery */ }
       }
       return metadata;
@@ -436,15 +467,21 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
       if (typeof name !== 'string' || !validateKnowledgeName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };
       const entryFile = await readEntryFile(name);
       if (entryFile.status !== 'valid') return entryFile;
+      const { revision } = entryFile;
       const parsed = parseKnowledge(entryFile.source, name);
-      if (parsed.status !== 'valid') return parsed;
+      if (parsed.status !== 'valid') return { status: 'invalid', reason: parsed.reason, revision };
       // A stale canonicalizer identity is an engine change, never a code
       // change: symbol proofs route to explicit re-anchoring (ADR 0046).
       const marker = await readCatalogueCanonicalizer(usable() ?? '');
       const engineStale = marker !== undefined && marker !== knowledgeCanonicalizer;
-      return verifyKnowledge(parsed, root, engineStale
+      const verified = await verifyKnowledge(parsed, root, engineStale
         ? async () => ({ status: 'refused', reason: 'engine_changed' as const })
         : fingerprinter);
+      // The revision accompanies every outcome of a readable entry file, a
+      // refusal included: a repair write can be conditioned on what was here.
+      return verified.status === 'valid'
+        ? { ...verified, revision }
+        : { status: 'invalid', reason: verified.reason, revision };
     }
   };
   return library;

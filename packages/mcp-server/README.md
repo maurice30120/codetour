@@ -310,12 +310,16 @@ inside the workspace.
 | `limit`         | number | no       | Page size, 1–200; defaults to 50.                                 |
 | `offset`        | number | no       | Number of matching entries to skip; defaults to 0.                |
 
-Returns metadata only — `entries: [{name, description}]` — never a body,
-evidence, a cited path or a hash. Only verified contracts are listed: discovery
-runs the same evidence verification as `knowledge_read` (ADR 0044). Every
-catalogue entry that fails validation is returned under `invalid: [{name,
-reason}]` — the file stem when no servable name is declared — listed in full
-regardless of the query, so it can be fixed or removed instead of being hidden.
+Returns metadata only — `entries: [{name, description, revision}]` — never a
+body, evidence, a cited path or a hash. `revision` is the entry file's Knowledge
+Revision, an opaque token that stays identical while the file is unchanged and
+moves with any modified byte (ADR 0048). Only verified contracts are listed:
+discovery runs the same evidence verification as `knowledge_read` (ADR 0044).
+Every catalogue entry that fails validation is returned under `invalid: [{name,
+reason, revision?}]` — the file stem when no servable name is declared, and the
+revision whenever the entry file itself was readable, so a repair write can be
+conditioned on it — listed in full regardless of the query, so it can be fixed
+or removed instead of being hidden.
 The name is the identifier. `total` is the
 number of matches in the whole filtered catalogue, and `truncated` is true only
 when matching entries remain after this page
@@ -331,11 +335,15 @@ result with HTTP-style success semantics (`isError` false), not an error.
 | `name`          | string | yes      | Name (identifier) of the entry to read.   |
 | `workspacePath` | string | no       | Directory relative to the workspace root. |
 
-Returns `status: "valid"` with the Markdown `body` and its `evidence` only when
-**every** declared `file` proof verifies: the cited path stays inside the
-workspace, no symbolic link escapes it, and each file's bytes hash to the
-declared SHA-256. Otherwise it returns `status: "invalid"` with one
-machine-readable reason and no body, no cited path and no hash value:
+Returns `status: "valid"` with the Markdown `body`, its `evidence` and the
+entry's `revision` only when **every** declared `file` proof verifies: the cited
+path stays inside the workspace, no symbolic link escapes it, and each file's
+bytes hash to the declared SHA-256. `revision` is the root-level Knowledge
+Revision of the entry file (ADR 0048): a write can be conditioned on it, so a
+file that changed since the read is refused instead of silently overwritten.
+Otherwise it returns `status: "invalid"` with one machine-readable reason, the
+`revision` whenever the entry file was readable, and no body, no cited path and
+no hash value:
 
 | Reason                    | Meaning                                                        |
 | ------------------------- | -------------------------------------------------------------- |

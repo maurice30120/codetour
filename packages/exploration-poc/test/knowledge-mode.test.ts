@@ -46,7 +46,11 @@ test('a Knowledge run discovers entries by name and description and reads one va
         return { toolCalls: [{ id: 'list', name: 'memory_list', arguments: {} }] };
       }
       if (step === 2) {
-        assert.deepEqual(JSON.parse(String(messages.at(-1).content)), [{ name: 'dispatch_flow', description: 'How tool calls dispatch and refuse forgery' }]);
+        // Discovery is metadata only: the entry revision joined that metadata
+        // in spec #232, so the historical harness surfaces it verbatim.
+        const metadata = JSON.parse(String(messages.at(-1).content)) as Array<{ name: string; description: string; revision?: string }>;
+        assert.deepEqual(metadata.map(({ name, description }) => ({ name, description })), [{ name: 'dispatch_flow', description: 'How tool calls dispatch and refuse forgery' }]);
+        assert.equal(typeof metadata[0].revision, 'string');
         return { toolCalls: [{ id: 'read', name: 'memory_read', arguments: { name: 'dispatch_flow' } }] };
       }
       if (step === 3) {
@@ -63,9 +67,12 @@ test('a Knowledge run discovers entries by name and description and reads one va
   assert.deepEqual(available.map(item => item.knowledge?.name), ['dispatch_flow']);
   assert.equal(available[0].knowledge?.status, 'available');
   const listed = result.callTrace.find(item => item.type === 'memory_list');
-  const listedResult = (listed?.result as Array<{ name: string; description: string }>) ?? [];
-  assert.deepEqual(listedResult, [{ name: 'dispatch_flow', description: 'How tool calls dispatch and refuse forgery' }]);
-  assert.deepEqual(Object.keys(listedResult[0]).sort(), ['description', 'name']);
+  const listedResult = (listed?.result as Array<{ name: string; description: string; revision: string }>) ?? [];
+  assert.deepEqual(
+    listedResult.map(({ name, description }) => ({ name, description })),
+    [{ name: 'dispatch_flow', description: 'How tool calls dispatch and refuse forgery' }]
+  );
+  assert.deepEqual(Object.keys(listedResult[0]).sort(), ['description', 'name', 'revision']);
   const read = result.callTrace.find(item => item.type === 'knowledge_read');
   assert.equal(read?.knowledge?.status, 'read');
   assert.equal(read?.knowledge?.name, 'dispatch_flow');

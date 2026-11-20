@@ -34,13 +34,13 @@ test('a valid Knowledge entry is discoverable and its verified body is returned 
   await writeFile(join(root, 'main.ts'), 'export const start = 1;\n');
   await writeEntry(root, 'dispatch_flow.md', `---\n${frontmatter(await proofOf(root, 'main.ts'))}\n---\nBody line one.\n\nBody line two.\n`);
   const library = await readRoot(root);
-  assert.deepEqual(await library.catalog(), [{ name: 'dispatch_flow', description: 'How tool calls dispatch and refuse forgery' }]);
+  assert.deepEqual(await library.catalog().then(entries => entries.map(({ name, description }) => ({ name, description }))), [{ name: 'dispatch_flow', description: 'How tool calls dispatch and refuse forgery' }]);
   const read = await library.read('dispatch_flow');
   assert.equal(read.status, 'valid');
   assert.equal((read as { body: string }).body, 'Body line one.\n\nBody line two.\n');
 });
 
-test('discovery presents name and description only, sorted, without evidence or body', async t => {
+test('discovery presents name, description and revision only, sorted, without evidence or body', async t => {
   const root = await realRoot('knowledge-meta-');
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, 'docs.md'), 'cited bytes\n');
@@ -48,8 +48,55 @@ test('discovery presents name and description only, sorted, without evidence or 
   await writeEntry(root, 'zeta.md', `---\nname: zeta\ndescription: last\nevidence:\n  - type: file\n    path: docs.md\n    sha256: ${proof}\n---\nzeta body\n`);
   await writeEntry(root, 'alpha.md', `---\nname: alpha\ndescription: first\nevidence:\n  - type: file\n    path: docs.md\n    sha256: ${proof}\n---\nalpha body\n`);
   const catalog = await (await readRoot(root)).catalog();
-  assert.deepEqual(catalog, [{ name: 'alpha', description: 'first' }, { name: 'zeta', description: 'last' }]);
-  for (const entry of catalog) assert.deepEqual(Object.keys(entry).sort(), ['description', 'name']);
+  assert.deepEqual(catalog.map(({ name, description }) => ({ name, description })), [{ name: 'alpha', description: 'first' }, { name: 'zeta', description: 'last' }]);
+  for (const entry of catalog) assert.deepEqual(Object.keys(entry).sort(), ['description', 'name', 'revision']);
+});
+
+test('discovery exposes one opaque revision per verified entry, stable until a byte changes', async t => {
+  const root = await realRoot('knowledge-revision-discovery-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'docs.md'), 'cited bytes\n');
+  const proof = await proofOf(root, 'docs.md');
+  const entrySource = (description: string) => `---\nname: first\ndescription: ${description}\nevidence:\n  - type: file\n    path: docs.md\n    sha256: ${proof}\n---\nfirst body\n`;
+  await writeEntry(root, 'first.md', entrySource('first'));
+  const [entry] = await (await readRoot(root)).catalog();
+  // The revision is a token about the entry file: never a body, a cited path
+  // or a source hash, and never the same value.
+  assert.equal(typeof entry.revision, 'string');
+  assert.ok(entry.revision.length > 0);
+  assert.notEqual(entry.revision, proof);
+  assert.doesNotMatch(JSON.stringify(entry), /first body|docs\.md/);
+  // Stable while the entry file is unchanged; a one-byte change moves it.
+  assert.deepEqual(await (await readRoot(root)).catalog(), [entry]);
+  await writeEntry(root, 'first.md', entrySource('firsT'));
+  const [changed] = await (await readRoot(root)).catalog();
+  assert.notEqual(changed.revision, entry.revision);
+});
+
+test('a read exposes the revision, including when the contract no longer verifies', async t => {
+  const root = await realRoot('knowledge-revision-read-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'main.ts'), 'original bytes\n');
+  const proof = await proofOf(root, 'main.ts');
+  const source = (sha256: string) => `---\nname: dispatch_flow\ndescription: How tool calls dispatch\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${sha256}\n---\nbody one\n`;
+  await writeEntry(root, 'dispatch_flow.md', source(proof));
+  const first = await (await readRoot(root)).read('dispatch_flow');
+  assert.equal(first.status, 'valid');
+  assert.equal(typeof (first as { revision: string }).revision, 'string');
+  assert.notEqual((first as { revision: string }).revision, proof);
+  // One changed byte of the entry file: the revision moves even though the
+  // contract stops verifying, so an invalid entry stays repairable.
+  const forged = createHash('sha256').update('forged').digest('hex');
+  await writeEntry(root, 'dispatch_flow.md', source(forged));
+  const refused = await (await readRoot(root)).read('dispatch_flow');
+  await expectInvalid(refused, 'file_hash_mismatch');
+  assert.equal(typeof (refused as { revision?: string }).revision, 'string');
+  assert.notEqual((refused as { revision?: string }).revision, (first as { revision: string }).revision);
+  // No entry file, no revision: an absent or unreadable entry has nothing to
+  // hash, and the refusal stays content-free.
+  const absent = await (await readRoot(root)).read('never_written');
+  await expectInvalid(absent, 'unknown_entry');
+  assert.equal((absent as { revision?: string }).revision, undefined);
 });
 
 test('a modified cited file, a forged hash and a missing cited file are refused without the body', async t => {
@@ -179,7 +226,7 @@ test('a malformed catalogue entry never hides a valid neighbour and a missing ca
   await writeEntry(root, 'broken.md', 'not a knowledge file\n');
   await writeEntry(root, 'good.md', `---\nname: good\ndescription: survives neighbours\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${await proofOf(root, 'main.ts')}\n---\ngood body\n`);
   const library = await readRoot(root);
-  assert.deepEqual(await library.catalog(), [{ name: 'good', description: 'survives neighbours' }]);
+  assert.deepEqual(await library.catalog().then(entries => entries.map(({ name, description }) => ({ name, description }))), [{ name: 'good', description: 'survives neighbours' }]);
   const read = await library.read('good');
   assert.equal((read as { body: string }).body.trim(), 'good body');
   // An entirely absent catalogue directory still serves an empty library.

@@ -127,6 +127,7 @@ async function readCommand(name: string, options: KnowledgeOptions): Promise<voi
       workspace,
       name: read.name,
       description: read.description,
+      revision: read.revision,
       body: read.body,
       evidence: read.evidence.map(proof => ({ path: proof.path, sha256: proof.sha256 }))
     }, KNOWLEDGE_EXIT.ok);
@@ -134,12 +135,22 @@ async function readCommand(name: string, options: KnowledgeOptions): Promise<voi
   }
   // An unknown entry is an absence. Every other refusal is invalid and is
   // reported with its machine-readable reason only: never the body, a cited
-  // path or a hash value.
+  // path or a hash value. Its revision still leaves with the refusal whenever
+  // the entry file was readable: an invalid entry stays repairable.
   if (read.reason === "unknown_entry") {
     emit({ status: "absent", workspace, name }, KNOWLEDGE_EXIT.absent);
     return;
   }
-  emit({ status: "invalid", workspace, name, reason: read.reason }, KNOWLEDGE_EXIT.invalid);
+  emit(
+    {
+      status: "invalid",
+      workspace,
+      name,
+      reason: read.reason,
+      ...(read.revision === undefined ? {} : { revision: read.revision })
+    },
+    KNOWLEDGE_EXIT.invalid
+  );
 }
 
 async function hashCommand(target: string, options: KnowledgeOptions): Promise<void> {
@@ -280,13 +291,13 @@ export function registerKnowledgeCommand(program: Command): void {
     .description("discover, verify, read and save Knowledge entries; deterministic, offline, no model");
   knowledge
     .command("list")
-    .description("list Knowledge entries by name and description only")
+    .description("list Knowledge entries by name, description and revision only")
     .option("--workspace <dir>", "workspace root (defaults to the current directory)")
     .option("--query <text>", "literal case-insensitive name or description filter")
     .action((options: KnowledgeOptions) => runAction(() => listCommand(options)));
   knowledge
     .command("read <name>")
-    .description("read one Knowledge entry after verifying every declared SHA-256 proof")
+    .description("read one Knowledge entry and its revision after verifying every declared SHA-256 proof")
     .option("--workspace <dir>", "workspace root (defaults to the current directory)")
     .action((name: string, options: KnowledgeOptions) => runAction(() => readCommand(name, options)));
   knowledge
