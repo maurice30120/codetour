@@ -7,6 +7,8 @@
  * ACP responder without bundling the extension API.
  */
 
+import type { AcpModelSelector } from "./acpModelOptions";
+
 /** One side of a displayed diff comparison, identified as such. */
 export interface StepChatDiffSide {
   // The tour's declared path for this side's file.
@@ -139,6 +141,12 @@ export interface StepChatResponder {
    * no agent is known at all.
    */
   identity?(): StepChatAgentIdentity | undefined;
+  /**
+   * The model selector the agent announces right now, with the value it
+   * confirms: undefined until a session announces one. The model selector is
+   * the only source of the values a reader may pick (ADR 0048).
+   */
+  model?(): AcpModelSelector | undefined;
   /**
    * Requests a model change for the agent that answers: remembered for the
    * sessions still to open, and applied live on an open one. The change only

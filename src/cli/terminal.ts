@@ -59,8 +59,10 @@ export interface TerminalReaderCompositionOptions {
  * reader's responder port; no agent process is started until the first
  * question. Since #104 the session is an ordered failover over every
  * installed candidate — the terminal keeps it instead of the webview's Agent
- * selector (ADR 0048) — and the reading module runs the conversation through
- * the shared StepConversations store above this seam (ADR 0031).
+ * selector (ADR 0048) — and since ticket #266 it also exposes the models the
+ * answering agent announces so the reader can pick one (ADR 0052). The
+ * reading module runs the conversation through the shared StepConversations
+ * store above this seam (ADR 0031).
  */
 export function composeTerminalReader(options: TerminalReaderCompositionOptions): TourReader {
   const { tour, root } = options;
@@ -76,6 +78,10 @@ export function composeTerminalReader(options: TerminalReaderCompositionOptions)
         identity: () => chatResponder.identity?.() ?? (preselection
           ? { agent: preselection.name, effective: false }
           : undefined),
+        // The model picker lists what the answering agent announces, and the
+        // reader's choice is the request the agent applies and confirms.
+        model: () => chatResponder.model?.(),
+        selectModel: (value: string) => chatResponder.selectModel?.(value),
         answer: (request, events) => chatResponder.answer(request, events),
         // A stop interrupts the in-flight answer (ADR 0031): the failover
         // responder cancels its active candidate.
@@ -196,6 +202,7 @@ class TermDomSurface {
   private readonly mode: HTMLElement;
   private readonly hints: HTMLElement;
   private readonly statusRight: HTMLElement;
+  private readonly picker: HTMLElement;
 
   /** The single alternate-screen restore, shared by every teardown caller. */
   private teardownPromise: Promise<void> | undefined;
@@ -256,6 +263,15 @@ class TermDomSurface {
       `.status-left { display: flex; }`,
       `.mode { color: ${palette.background}; background-color: ${palette.primary}; font-weight: bold; padding: 0 1ch; margin-right: 1ch; }`,
       `.status-right { color: ${palette.muted}; white-space: pre; }`,
+      // The model picker (ticket #266) is an overlay anchored above the status
+      // line: it grows upward from there and covers whatever it overlaps.
+      `.picker { position: absolute; bottom: 1ch; left: 0; width: 100%; box-sizing: border-box; display: none; flex-direction: column; background-color: ${palette.element}; border-top: 1px solid ${palette.borderStrong}; padding: 0 1ch; }`,
+      `.picker-head { color: ${palette.primary}; font-weight: bold; }`,
+      `.picker-item { white-space: pre; color: ${palette.text}; }`,
+      `.picker-item.current { color: ${palette.muted}; }`,
+      `.picker-item.selected { background-color: ${palette.panel}; color: ${palette.text}; }`,
+      `.picker-notice { color: ${palette.muted}; white-space: pre-wrap; }`,
+      `.picker-hint { color: ${palette.muted}; white-space: pre; }`,
       `.anchor { color: ${palette.info}; white-space: pre; margin: 0; }`,
       `h1 { color: ${palette.primary}; font-weight: bold; }`,
       `h2 { color: ${palette.accent}; }`,
@@ -356,7 +372,12 @@ class TermDomSurface {
     this.hints = hints;
     this.statusRight = statusRight;
 
-    document.body.append(topbar, body, status);
+    const picker = document.createElement("div");
+    picker.className = "picker";
+    picker.style.display = "none";
+    this.picker = picker;
+
+    document.body.append(topbar, body, status, picker);
   }
 
   /**
@@ -417,6 +438,7 @@ class TermDomSurface {
     this.paintRail(view);
     this.paintArticle(view);
     this.paintConversation(view);
+    this.paintPicker(view);
     this.paintStatus(view);
     this.reader.onExtentsMeasured({
       stepViewportRows: this.article.clientHeight,
@@ -639,6 +661,45 @@ class TermDomSurface {
       block.appendChild(answer);
       this.conversationBody.appendChild(block);
     }
+  }
+
+  /**
+   * The model picker overlay (ticket #266): the models the answering agent
+   * announces, the highlighted row, and the explicit notice an agent that
+   * announces none gets. Painted only while it is open.
+   */
+  private paintPicker(view: ReaderViewModel): void {
+    const { document } = this;
+    const picker = view.picker;
+    if (!picker) {
+      this.picker.style.display = "none";
+      return;
+    }
+    this.picker.style.display = "flex";
+    this.picker.replaceChildren();
+    const head = document.createElement("div");
+    head.className = "picker-head";
+    head.textContent = picker.title;
+    this.picker.appendChild(head);
+    picker.items.forEach((item, index) => {
+      const row = document.createElement("div");
+      row.className = "picker-item" +
+        (index === picker.selected ? " selected" : "") +
+        (item.current ? " current" : "");
+      row.textContent = (index === picker.selected ? "▌ " : "  ") + item.label +
+        (item.current ? " (effective)" : "");
+      this.picker.appendChild(row);
+    });
+    if (picker.notice) {
+      const notice = document.createElement("div");
+      notice.className = "picker-notice";
+      notice.textContent = picker.notice;
+      this.picker.appendChild(notice);
+    }
+    const hint = document.createElement("div");
+    hint.className = "picker-hint";
+    hint.textContent = picker.hint;
+    this.picker.appendChild(hint);
   }
 
   /** The status line: mode and hints left, precedence-ordered segments right. */

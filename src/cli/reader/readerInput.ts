@@ -29,6 +29,16 @@ export interface ReaderKeyState {
   pageRows: number;
   /** Whether the Open-in-VS Code collaborator is wired; without it the `o` key stays terminal-owned. */
   canOpenInVsCode: boolean;
+  /**
+   * Whether the responder accepts a model change; without it the `m` key stays
+   * terminal-owned (ticket #266).
+   */
+  canSelectModel: boolean;
+  /**
+   * Whether the model picker is up: it is modal, so it owns every unmodified
+   * key until it closes (ticket #266).
+   */
+  pickerOpen: boolean;
 }
 
 export type ReaderKeyAction =
@@ -40,6 +50,11 @@ export type ReaderKeyAction =
   | { type: "navigate"; step: number }
   | { type: "toggle-voice" }
   | { type: "open-in-vscode" }
+  | { type: "open-model-picker" }
+  | { type: "picker-move"; delta: number }
+  | { type: "picker-accept" }
+  | { type: "picker-cancel" }
+  | { type: "picker-ignored" }
   | { type: "scroll"; delta: number }
   | { type: "draft-append"; text: string }
   | { type: "draft-backspace" }
@@ -47,11 +62,31 @@ export type ReaderKeyAction =
   | { type: "cancel-draft" };
 
 /**
- * Dispatch one key exactly as the reader always has: the ask-mode prompt
- * owns the keyboard first, then the reading-mode keys in their fixed order.
+ * Dispatch one key exactly as the reader always has: the open model picker
+ * holds the keyboard first, the ask-mode prompt next, then the reading-mode
+ * keys in their fixed order.
  */
 export function translateKey(state: ReaderKeyState, event: ReaderKeyEvent): ReaderKeyAction {
   const { asking, responding, hasResponder } = state.conversation;
+  // The model picker is modal: while it is up its keys come first, so no
+  // reading key fires underneath it (ticket #266). Modified combinations stay
+  // unhandled — Ctrl+C must still reach the terminal.
+  if (state.pickerOpen) {
+    if (event.ctrl || event.meta || event.alt) return { type: "unhandled" };
+    if (event.key === "ArrowDown" || event.key === "j") {
+      return { type: "picker-move", delta: 1 };
+    }
+    if (event.key === "ArrowUp" || event.key === "k") {
+      return { type: "picker-move", delta: -1 };
+    }
+    if (event.key === "Enter") return { type: "picker-accept" };
+    if (event.key === "Escape" || event.key === "q" || event.key === "m") {
+      return { type: "picker-cancel" };
+    }
+    // A key the picker does not map changes nothing and never reaches the
+    // reading keys: the picker owns the keyboard while it is up.
+    return { type: "picker-ignored" };
+  }
   if (asking) {
     if (event.key === "Enter") return { type: "submit-draft" };
     if (event.key === "Escape") return { type: "cancel-draft" };
@@ -96,6 +131,13 @@ export function translateKey(state: ReaderKeyState, event: ReaderKeyEvent): Read
     // modified `o` and an `o` typed in the ask prompt are not the shortcut.
     if (event.ctrl || event.meta || event.alt) return { type: "unhandled" };
     return { type: "open-in-vscode" };
+  }
+  if (event.key === "m" && state.canSelectModel && !responding) {
+    // The unmodified `m` lists the models the agent announces (ticket #266):
+    // never while an answer streams, so no exchange mixes two models, and
+    // never a modified `m`.
+    if (event.ctrl || event.meta || event.alt) return { type: "unhandled" };
+    return { type: "open-model-picker" };
   }
   if (event.key === "j" || event.key === "ArrowDown") return { type: "scroll", delta: 1 };
   if (event.key === "k" || event.key === "ArrowUp") return { type: "scroll", delta: -1 };
