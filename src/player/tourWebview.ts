@@ -14,6 +14,7 @@ import {
   openStepChatAgents,
   probeStepChatUnverifiedAgents,
   refreshStepChatAgents,
+  signInStepChatAgent,
   stopTourStepQuestion,
   type StepChatConversationView
 } from "./stepChat";
@@ -100,6 +101,11 @@ export function showTourWebview(): void {
           await refreshStepChatAgents();
         } else if (message.type === "probeUnverified") {
           await probeStepChatUnverifiedAgents();
+        } else if (message.type === "signIn" && typeof message.agent === "string") {
+          // The reader's own request to connect one agent: the terminal command
+          // runs (or the ACP method is called), then only that profile is
+          // probed again. A sign in while an answer streams is ignored.
+          await signInStepChatAgent(message.agent);
         } else if (
           (message.type === "askQuestion" || message.type === "retryQuestion") &&
           typeof message.question === "string" &&

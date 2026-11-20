@@ -254,6 +254,87 @@ test("probing the unverified profiles verifies them without re-probing the other
   selection.dispose();
 });
 
+test("signing an agent in re-probes that profile alone and keeps the cached neighbours", async () => {
+  const loginMethods = [{ id: "copilot-login", name: "Copilot login" }];
+  const calls: string[] = [];
+  const selection = new AgentSelection({
+    profiles: [agentProfile("Copilot", 0, INSTALLED), VIBE, CODEX],
+    probe: async (profile: AgentProfile) => {
+      calls.push(profile.name);
+      if (profile.name !== "Copilot") {
+        return { availability: { state: "available" as const, configOptions: [] } };
+      }
+      // Copilot waits for authentication until the reader connects it: the
+      // second probe of that one profile is what a Sign in observes.
+      const first = calls.filter(name => name === "Copilot").length === 1;
+      return first
+        ? {
+            availability: { state: "auth-required" as const, authMethods: loginMethods },
+            authMethods: loginMethods
+          }
+        : { availability: { state: "available" as const, configOptions: [] } };
+    }
+  });
+
+  await selection.probeInitial("/workspace");
+  assert.deepEqual(calls, ["Copilot", "Vibe"], "the initial probe stops at Vibe");
+  assert.equal(selection.selectedProfile()?.profile.name, "Vibe");
+  // The methods the probe announced are kept next to the state.
+  assert.deepEqual(selection.authMethods("Copilot"), loginMethods);
+
+  await selection.probeProfile("Copilot", "/workspace");
+
+  // One profile was probed again: the neighbours were never started a second
+  // time and keep exactly the state the panel established.
+  assert.deepEqual(calls, ["Copilot", "Vibe", "Copilot"]);
+  assert.equal(view(selection.profiles(), "Copilot").availability.state, "available");
+  assert.equal(view(selection.profiles(), "Vibe").availability.state, "available");
+  assert.equal(
+    view(selection.profiles(), "Codex").availability.state,
+    "unverified",
+    "the profile after the first available one was never probed"
+  );
+  // Connecting an agent replaces neither the profile that answers nor the
+  // reader's choice.
+  assert.equal(selection.selectedProfile()?.profile.name, "Vibe");
+  selection.select("Vibe");
+  await selection.probeProfile("Copilot", "/workspace");
+  assert.equal(selection.explicitSelection()?.profile.name, "Vibe");
+  assert.equal(selection.selectedProfile()?.profile.name, "Vibe");
+  selection.dispose();
+  assert.deepEqual(selection.authMethods("Copilot"), [], "nothing survives the panel");
+});
+
+test("a panel with no usable agent gains the profile the reader just connected", async () => {
+  const loginMethods = [{ id: "copilot-login", name: "Copilot login" }];
+  let probes = 0;
+  const selection = new AgentSelection({
+    profiles: [agentProfile("Copilot", 0, INSTALLED), agentProfile("Vibe", 1, ABSENT)],
+    probe: async () =>
+      probes++ === 0
+        ? {
+            availability: { state: "auth-required" as const, authMethods: loginMethods },
+            authMethods: loginMethods
+          }
+        : { availability: { state: "available" as const, configOptions: [] } }
+  });
+
+  await selection.probeInitial("/workspace");
+  assert.equal(selection.selectedProfile(), undefined);
+  assert.deepEqual(selection.candidates("/workspace"), []);
+
+  await selection.probeProfile("Copilot", "/workspace");
+
+  // The reader's own sign in is what makes the panel usable again, and the
+  // profile they connected is the one that answers.
+  assert.equal(selection.selectedProfile()?.profile.name, "Copilot");
+  assert.deepEqual(
+    selection.candidates("/workspace").map(candidate => candidate.name),
+    ["Copilot"]
+  );
+  selection.dispose();
+});
+
 test("a question asked during the initial probe waits for its settlement", async () => {
   let answerProbe: (outcome: { availability: AgentAvailability }) => void = () => undefined;
   let probed = false;

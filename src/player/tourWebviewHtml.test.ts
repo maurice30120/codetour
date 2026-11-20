@@ -775,6 +775,83 @@ test("the Agent control lists every Agent Profile with its state and disables th
   assert.doesNotMatch(html, /id="step-chat-input"[^>]* disabled/);
 });
 
+test("an agent waiting for authentication offers the reader a Sign in action in the availability row", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatAgents: [
+        { name: "Copilot", state: "available", selected: false, selectable: true },
+        {
+          name: "Claude Code",
+          state: "auth-required",
+          detail: "Claude login",
+          selected: true,
+          selectable: true,
+          signIn: true
+        }
+      ]
+    },
+    "sign-in-nonce"
+  );
+
+  // The action belongs to the profile the selector shows, next to Refresh.
+  assert.match(
+    html,
+    /<button type="button" class="step-chat-sign-in" id="step-chat-sign-in" data-action="signIn" title="Connect this agent">Sign in<\/button>/
+  );
+  assert.match(
+    html,
+    /<option value="Claude Code" data-state="auth-required" selected>Claude Code — authentication required \(Claude login\)<\/option>/
+  );
+
+  // A profile that announced no method CodeTour can use has no action: the
+  // reader is never offered a sign in that cannot connect anything.
+  const noMethod = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatAgents: [
+        { name: "Copilot", state: "available", selected: true, selectable: true },
+        {
+          name: "Claude Code",
+          state: "auth-required",
+          detail: "Claude login",
+          selectable: true
+        }
+      ]
+    },
+    "sign-in-nonce"
+  );
+  assert.match(
+    noMethod,
+    /id="step-chat-sign-in" data-action="signIn" title="Connect this agent" hidden>Sign in<\/button>/
+  );
+
+  // While an answer streams the action is locked like the rest of the row, so
+  // no answer is ever interrupted by a connection the reader did not ask for
+  // right now.
+  const responding = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatResponding: true,
+      chatAgents: [
+        {
+          name: "Claude Code",
+          state: "auth-required",
+          detail: "Claude login",
+          selected: true,
+          selectable: true,
+          signIn: true
+        }
+      ]
+    },
+    "sign-in-nonce"
+  );
+  assert.match(
+    responding,
+    /id="step-chat-sign-in" data-action="signIn" title="Connect this agent" disabled>Sign in<\/button>/
+  );
+});
+
 test("the Agent control stays quiet without a catalogue and locks with the composer while an answer streams", () => {
   // No Agent Selection owns the panel (an injected responder): no control.
   assert.ok(createTourWebviewHtml(baseModel(), "agents-nonce").includes(
@@ -1110,6 +1187,79 @@ test("opening the selector probes the unverified profiles once, and a manual ref
   click({ target: { closest: () => ({ dataset: { action: "changeAgent" }, disabled: false }) } });
   assert.equal(focused, 1);
   assert.equal(messages.length, before);
+});
+
+test("the Sign in action asks the extension to connect the profile the selector shows", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatAgents: [
+        { name: "Copilot", state: "available", selected: true, selectable: true },
+        {
+          name: "Claude Code",
+          state: "auth-required",
+          detail: "Claude login",
+          selectable: true,
+          signIn: true
+        }
+      ]
+    },
+    "sign-in-nonce"
+  );
+  const script = html.match(/<script nonce="sign-in-nonce">([\s\S]*?)<\/script>/)![1];
+  const messages: { type?: string; agent?: string; step?: number }[] = [];
+  let click!: (event: unknown) => void;
+  const signIn = { disabled: false, hidden: true };
+  const select = {
+    innerHTML: "",
+    value: "Copilot",
+    disabled: false,
+    addEventListener: () => undefined,
+    focus: () => undefined
+  };
+  const elements: Record<string, unknown> = {
+    "step-chat-agent-select": select,
+    "step-chat-sign-in": signIn
+  };
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({
+      postMessage: (message: { type?: string }) => messages.push(message)
+    }),
+    document: {
+      body: { dataset: { token: "sign-in-nonce", tourId: baseModel().tourId, step: "1" } },
+      getElementById: (id: string) => elements[id] ?? null,
+      addEventListener: (_name: string, listener: typeof click) => {
+        click = listener;
+      }
+    },
+    window: { addEventListener: () => undefined }
+  });
+
+  // The profile that answers offers no sign in: the action starts locked and
+  // clicking it connects nothing.
+  assert.equal(signIn.hidden, true);
+  assert.equal(signIn.disabled, true);
+  click({ target: { closest: () => ({ dataset: { action: "signIn" }, disabled: signIn.disabled }) } });
+  assert.deepEqual(messages, [], "nothing is connected for a profile with no method");
+
+  // Picking the profile that waits for authentication unlocks its action, and
+  // clicking it posts the reader's own sign in for that one agent.
+  select.value = "Claude Code";
+  signIn.disabled = false;
+  click({ target: { closest: () => ({ dataset: { action: "signIn" }, disabled: signIn.disabled }) } });
+  assert.deepEqual(JSON.parse(JSON.stringify(messages)), [
+    {
+      type: "signIn",
+      agent: "Claude Code",
+      token: "sign-in-nonce",
+      targetTourId: baseModel().tourId,
+      step: 1
+    }
+  ]);
+
+  // A locked action never reaches the extension.
+  click({ target: { closest: () => ({ dataset: { action: "signIn" }, disabled: true }) } });
+  assert.equal(messages.length, 1);
 });
 
 test("the Retry action of a failed exchange asks the same question to the same agent", () => {

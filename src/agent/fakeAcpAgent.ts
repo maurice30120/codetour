@@ -54,6 +54,24 @@ if (behavior === "auth-fail-once") {
   }
 }
 
+// The authentication an agent announces and how `session/new` refuses while
+// nobody is connected. "auth-required" and "auth-once" announce a method the
+// agent handles itself through `authenticate`; "auth-once" stops refusing
+// once that method ran, which is what a re-probe observes. "auth-terminal"
+// announces a terminal method instead, and only to a client that says it can
+// run one.
+let sessionAuthRequired = false;
+let terminalAuthEnabled = false;
+if (
+  behavior === "auth-required" ||
+  behavior === "auth-once" ||
+  behavior === "auth-terminal"
+) {
+  sessionAuthRequired =
+    behavior !== "auth-once" || !logContains('"method":"authenticate"');
+  terminalAuthEnabled = behavior === "auth-terminal";
+}
+
 // Every launch records its own process id, so a client test can prove that
 // the probe released the process it started. The record's name deliberately
 // avoids the `"boot"` marker the behaviours above use.
@@ -76,6 +94,15 @@ interface FakeAgentLogRecord {
 
 function log(record: FakeAgentLogRecord): void {
   appendFileSync(logPath, JSON.stringify(record) + "\n");
+}
+
+/** True once an earlier launch recorded the given marker. */
+function logContains(marker: string): boolean {
+  try {
+    return readFileSync(logPath, "utf8").includes(marker);
+  } catch {
+    return false;
+  }
 }
 
 interface PromptContext {
@@ -207,25 +234,65 @@ agent.onRequest(acp.methods.agent.initialize, context => {
   if (authRequired) {
     throw new acp.RequestError(-32001, AUTH_ERROR_MESSAGE);
   }
-  if (behavior === "auth-required" || behavior === "auth-text-only") {
-    // An agent that requires authentication announces how to get one; the
-    // catalogue keeps these methods with the probed state.
-    return {
-      protocolVersion: acp.PROTOCOL_VERSION,
-      agentCapabilities: {},
-      authMethods: [
-        { id: "copilot-login", name: "Copilot login", description: null }
-      ]
-    };
-  }
-  return { protocolVersion: acp.PROTOCOL_VERSION, agentCapabilities: {} };
+  const authMethods = announcedAuthMethods(context.params.clientCapabilities);
+  return {
+    protocolVersion: acp.PROTOCOL_VERSION,
+    agentCapabilities: {},
+    ...(authMethods ? { authMethods } : {})
+  };
 });
+
+/**
+ * The authentication methods this agent offers, given what the client said it
+ * can do. A terminal method is announced only when the client sent the
+ * terminal authentication capability: an agent that can only be connected from
+ * an interactive terminal must not offer a path the client cannot take.
+ */
+function announcedAuthMethods(
+  capabilities: acp.ClientCapabilities | null | undefined
+): acp.AuthMethod[] | undefined {
+  if (terminalAuthEnabled) {
+    if (capabilities?._meta?.["terminal-auth"] !== true) {
+      return undefined;
+    }
+    return [
+      {
+        id: "terminal-login",
+        name: "Fake terminal sign in",
+        type: "terminal",
+        args: [],
+        _meta: {
+          "terminal-auth": {
+            command: "codetour-fake-login",
+            args: ["--connect"],
+            env: { CODETOUR_FAKE_AUTH: "1" },
+            label: "Fake agent sign in"
+          }
+        }
+      }
+    ];
+  }
+  const agentHandled =
+    behavior === "auth-required" ||
+    behavior === "auth-text-only" ||
+    (behavior === "auth-once" && sessionAuthRequired);
+  if (!agentHandled) {
+    return undefined;
+  }
+  // An agent that requires authentication announces how to get one; the
+  // catalogue keeps these methods with the probed state.
+  return [{ id: "copilot-login", name: "Copilot login", description: null }];
+}
 
 agent.onRequest(acp.methods.agent.session.new, context => {
   // "auth-required" signals it with the ACP authentication error code, the
   // only signal the client reads; "auth-text-only" only says it in words, so
   // a client sniffing the message would be wrong.
-  if (behavior === "auth-required") {
+  if (
+    behavior === "auth-required" ||
+    behavior === "auth-terminal" ||
+    (behavior === "auth-once" && sessionAuthRequired)
+  ) {
     log({ method: "session/new", outcome: "auth-required" });
     throw acp.RequestError.authRequired(undefined, "Connect the account before asking.");
   }
@@ -280,6 +347,17 @@ agent.onRequest(acp.methods.agent.session.setConfigOption, context => {
   applyConfigValue(params.configId, params.value);
   // The response carries the full set of options and their confirmed values.
   return { configOptions };
+});
+
+agent.onRequest(acp.methods.agent.authenticate, context => {
+  // The method the agent handles itself. It is logged so a later launch can
+  // observe that the account is connected, and so a test can prove the client
+  // passed the method the reader asked for.
+  log({
+    method: "authenticate",
+    params: context.params as unknown as Record<string, unknown>
+  });
+  return {};
 });
 
 agent.onRequest(acp.methods.agent.session.setMode, async context => {

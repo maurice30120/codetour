@@ -97,7 +97,14 @@ interface StepChatUpdate {
   }[];
   responding?: boolean;
   agent?: { agent: string; model?: string; effective: boolean };
-  agents?: { name: string; state: string; selected: boolean; selectable: boolean }[];
+  agents?: {
+    name: string;
+    state: string;
+    detail?: string;
+    selected: boolean;
+    selectable: boolean;
+    signIn: boolean;
+  }[];
   unavailable?: boolean;
   modelOptions?: { value: string; name: string }[];
   model?: string;
@@ -850,6 +857,64 @@ function registerUnlaunchableAgents(workspaceRoot: string, configOptions: unknow
   return agents;
 }
 
+/** The terminal authentication method the fake agent declares (ADR 0048). */
+const TERMINAL_AUTH_METHODS = [
+  {
+    id: "terminal-login",
+    name: "Sign in from the terminal",
+    type: "terminal",
+    _meta: {
+      "terminal-auth": {
+        command: "codetour-fake-login",
+        args: ["--connect"],
+        env: { CODETOUR_FAKE_AUTH: "1" },
+        label: "Copilot sign in"
+      }
+    }
+  }
+];
+
+/**
+ * A catalogue where Copilot waits for the sign in the reader can ask for and
+ * Vibe answers: both entries point at a script that does not exist, so a
+ * question fails deterministically and no real agent is launched.
+ */
+function signInCatalogue(
+  workspaceRoot: string,
+  authMethods: unknown[],
+  options: { staysWaiting?: boolean } = {}
+) {
+  const { AgentSelection } = require("../agent/agentCatalogue");
+  const calls: string[] = [];
+  const entry = (cwd: string) => ({
+    command: process.execPath,
+    args: [path.join(workspaceRoot, "codetour-absent-agent.js")],
+    cwd
+  });
+  const selection = new AgentSelection({
+    profiles: [
+      { name: "Copilot", rank: 0, entry },
+      { name: "Vibe", rank: 1, entry }
+    ],
+    probe: async (probed: { name: string }) => {
+      calls.push(probed.name);
+      if (probed.name !== "Copilot") {
+        return { availability: { state: "available" as const, configOptions: [] } };
+      }
+      // Copilot waits for authentication until the reader connects it: the
+      // next probe of that one profile is what the Sign in action observes.
+      const connected =
+        calls.filter(name => name === "Copilot").length > 1 &&
+        !options.staysWaiting;
+      return connected
+        ? { availability: { state: "available" as const, configOptions: [] } }
+        : { availability: { state: "auth-required" as const, authMethods }, authMethods };
+    }
+  });
+  setStepChatAgentSelection(() => selection);
+  return { selection, calls };
+}
+
 test("choosing an agent repaints the panel and changes who answers without asking anything", async () => {
   resetChatState();
   const agents = registerUnlaunchableAgents("/workspace");
@@ -918,6 +983,146 @@ test("the panel re-probes on request and probes only the unverified profiles whe
       lastChatUpdate().agents?.find(agent => agent.name === "Vibe")?.state,
       "unverified",
       "the refresh re-establishes the catalogue from the probe"
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("signing in runs the command the agent declares and re-probes only that profile", async () => {
+  resetChatState();
+  const agents = signInCatalogue("/workspace", TERMINAL_AUTH_METHODS);
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    // Copilot waits for authentication and says how to get one; Vibe answers.
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe"]);
+    assert.match(
+      host.panelHtml(),
+      /<option value="Copilot" data-state="auth-required">Copilot — authentication required \(Sign in from the terminal\)<\/option>/
+    );
+    // The profile that answers has nothing to connect, so the action starts
+    // hidden.
+    assert.match(
+      host.panelHtml(),
+      /id="step-chat-sign-in"[^>]* hidden>Sign in<\/button>/
+    );
+
+    // The reader picks the agent they wanted: its sign in becomes available.
+    chatPanel().receive({ type: "chooseAgent", agent: "Copilot" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Copilot");
+    assert.equal(
+      lastChatUpdate().agents!.find(agent => agent.name === "Copilot")!.signIn,
+      true
+    );
+
+    // A failed question leaves a history for the step, which the sign in must
+    // not reset.
+    chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
+    await host.waitFor(
+      () => lastChatUpdate()?.exchanges?.[0]?.failed === true
+    );
+    const before = lastChatUpdate();
+
+    chatPanel().receive({ type: "signIn", agent: "Copilot" });
+    await host.waitFor(() => agents.calls.length === 3);
+
+    // The command the agent declared runs in a VS Code terminal, in the
+    // workspace, and CodeTour types nothing into it.
+    const terminals = host.terminals();
+    assert.equal(terminals.length, 1);
+    const [terminal] = terminals;
+    assert.equal(terminal.name, "Copilot sign in");
+    assert.equal(terminal.shellPath, "codetour-fake-login");
+    assert.deepEqual(terminal.shellArgs, ["--connect"]);
+    assert.deepEqual(terminal.env, { CODETOUR_FAKE_AUTH: "1" });
+    assert.equal(terminal.cwd, "/workspace");
+    assert.equal(terminal.shown, true);
+    assert.deepEqual(terminal.sentText, []);
+
+    // Only the profile the reader connected was probed again, and the panel
+    // repainted it as available.
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe", "Copilot"]);
+    const after = lastChatUpdate();
+    assert.equal(
+      after.agents!.find(agent => agent.name === "Copilot")!.state,
+      "available"
+    );
+    assert.equal(
+      after.agents!.find(agent => agent.name === "Copilot")!.signIn,
+      false
+    );
+
+    // Neither the step history nor the selected agent was reset.
+    assert.deepEqual(after.exchanges, before.exchanges);
+    assert.equal(after.agent?.agent, "Copilot");
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("a profile with no usable authentication method connects nothing", async () => {
+  resetChatState();
+  // The agent says it needs authentication but offers no method CodeTour can
+  // use: the reader is never offered a sign in that cannot connect anything.
+  const agents = signInCatalogue("/workspace", []);
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe"]);
+
+    chatPanel().receive({ type: "chooseAgent", agent: "Copilot" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Copilot");
+    assert.equal(
+      lastChatUpdate().agents!.find(agent => agent.name === "Copilot")!.signIn,
+      false
+    );
+
+    // No terminal, no ACP method and no probe: the action does nothing.
+    const terminalsOpened = host.terminals().length;
+    chatPanel().receive({ type: "signIn", agent: "Copilot" });
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    assert.equal(host.terminals().length, terminalsOpened);
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe"]);
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("the ACP fallback of a sign in opens no terminal, reports its failure and re-probes the profile", async () => {
+  resetChatState();
+  // The agent handles authentication itself: no terminal command is declared,
+  // so the reader's action goes through ACP `authenticate` instead.
+  const agents = signInCatalogue(
+    "/workspace",
+    [{ id: "copilot-login", name: "Copilot login" }],
+    { staysWaiting: true }
+  );
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    chatPanel().receive({ type: "chooseAgent", agent: "Copilot" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Copilot");
+    const terminalsOpened = host.terminals().length;
+
+    chatPanel().receive({ type: "signIn", agent: "Copilot" });
+    await host.waitFor(() => agents.calls.length === 3);
+
+    // An agent-handled method never becomes a terminal command, and the
+    // profile the reader connected is the only one probed again — even though
+    // this entry cannot be launched, which the reader is told.
+    assert.equal(host.terminals().length, terminalsOpened);
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe", "Copilot"]);
+    assert.ok(host.messages.includes("Could not sign in to Copilot."));
+    assert.equal(
+      lastChatUpdate().agents!.find(agent => agent.name === "Copilot")!.state,
+      "auth-required",
+      "a failed connection leaves the real state on display"
     );
   } finally {
     setStepChatAgentSelection(undefined);
