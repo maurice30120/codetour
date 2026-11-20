@@ -76,11 +76,15 @@ When a run closes (the consolidation was assessed), the guard reports the
 closing line and then asks the user how to open the created Tour — never a
 step list or a summary in the Tour's place:
 
-- **Terminal** — the real interactive reader, run at the workspace root:
-  `codetour "<Tour title>"` (or `codetour --internal-tour "<tour path>"`).
-  The reader plays in the user's terminal, always the Playback Surface,
-  never an independent window; the extension hands over the command only and
-  never spawns a process (ticket #242).
+- **Terminal** — the real interactive reader, spawned at once from the
+  managed launcher (the `launcher.json` CLI, not whatever `codetour` happens
+  to be on `PATH`): `codetour --internal-tour "<tour path>"` (or the default
+  reading path on the recorded title). The spawn inherits the session's
+  terminal — always the Playback Surface, never a PTY or an independent
+  window — the extension waits for the reading to end, then the terminal is
+  back with the session. A non-interactive session or a failed spawn degrades
+  to the documented hand-over command, never a crash (ticket #242, review
+  fix F2).
 - **VS Code** — `codetour --internal-open-vscode "<tour path>"`, run at the
   workspace root: the Open-in-VS Code contract of ticket #244, the Tour at its
   active step (the first one right after generation). The decision lives once
