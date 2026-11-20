@@ -11,6 +11,7 @@ import {
   knowledgeRevision,
   parseKnowledge,
   readCatalogueCanonicalizer,
+  verifyKnowledge,
   type KnowledgeProof
 } from './knowledge';
 import { knowledgeCanonicalizer } from './symbol-fingerprint';
@@ -32,7 +33,9 @@ import { validateNewKnowledgeName } from './name';
  * lock (ADR 0049). `create` publishes by exclusive hard link, which is atomic
  * and can never overwrite an existing entry; `replace` rewrites one entry
  * against the Knowledge Revision the caller read and publishes by atomic
- * rename, so a reader always sees the previous whole file or the new one.
+ * rename, so a reader always sees the previous whole file or the new one;
+ * `append` keeps the historical body byte for byte, inserts one addition
+ * verbatim after exactly one blank line and merges the evidence.
  */
 
 /** One evidence item as declared by a proposal; `sha256` is optional. */
@@ -72,16 +75,32 @@ export interface KnowledgeReplaceProposalEntry extends KnowledgeProposalEntry {
 }
 
 /**
+ * One `append` entry: an addition inserted verbatim after the historical body
+ * plus the evidence to merge into it, conditioned on the Knowledge Revision
+ * the caller read. The historical name and description are deliberately not
+ * accepted: an append enriches an entry, it never rewrites what the entry is.
+ */
+export interface KnowledgeAppendProposalEntry {
+  name: string;
+  /** Markdown inserted verbatim after the historical body; never titled or reformatted. */
+  addition: string;
+  /** New proofs to merge, deduplicated by `(type, path, symbol)`; none for a body-only addition. */
+  evidence?: Array<KnowledgeProposalFileProof | KnowledgeProposalSymbolProof>;
+  expectedRevision: string;
+}
+
+/**
  * Write mode of one Knowledge Consolidation Operation (spec #232). `create` is
  * the documented default, so a proposal without `mode` keeps its behaviour;
+ * `append` enriches one existing valid entry without rewriting its body;
  * `replace` rewrites one existing entry in full.
  */
-export type KnowledgeSaveMode = 'create' | 'replace';
+export type KnowledgeSaveMode = 'create' | 'append' | 'replace';
 
 /** The documented proposal file: `{"mode"?,"entries":[...]}` and nothing else. */
 export interface KnowledgeProposal {
   mode?: KnowledgeSaveMode;
-  entries: Array<KnowledgeProposalEntry | KnowledgeReplaceProposalEntry>;
+  entries: Array<KnowledgeProposalEntry | KnowledgeReplaceProposalEntry | KnowledgeAppendProposalEntry>;
 }
 
 /** A concrete entry ready to serialize, with verified evidence. */
@@ -120,7 +139,9 @@ export type KnowledgeSaveRejectionReason =
   | 'unstable_evidence'
   | 'unknown_entry'
   | 'unknown_mode'
-  | 'mode_requires_single_entry';
+  | 'mode_requires_single_entry'
+  /** The historical contract of an `append` target no longer validates; repair it with `replace`. */
+  | 'stale_evidence';
 
 export interface KnowledgeSaveRejection {
   name?: string;
@@ -150,8 +171,11 @@ export type KnowledgeSaveWarning =
 
 export type KnowledgeSaveResult =
   | { status: 'saved'; saved: string[]; warnings: KnowledgeSaveWarning[] }
+  | { status: 'appended'; appended: string[]; warnings: KnowledgeSaveWarning[] }
   | { status: 'replaced'; replaced: string[]; warnings: KnowledgeSaveWarning[] }
   | { status: 'no-op' }
+  /** The append added nothing literal: no byte of the entry changed. */
+  | { status: 'no_change' }
   | { status: 'conflict'; conflicts: KnowledgeNameConflict[] }
   | { status: 'invalid'; rejected: KnowledgeSaveRejection[] };
 
@@ -197,18 +221,94 @@ const PROVIDED_HASH = /^[0-9a-fA-F]{64}$/;
 // like any other unknown field instead of being copied into the catalogue.
 const EVIDENCE_KEYS = new Set(['type', 'path', 'symbol', 'sha256']);
 
+const CREATE_ENTRY_KEYS = ['name', 'description', 'body', 'evidence'];
+const REPLACE_ENTRY_KEYS = [...CREATE_ENTRY_KEYS, 'expectedRevision'];
+const APPEND_ENTRY_KEYS = ['name', 'addition', 'evidence', 'expectedRevision'];
+
+type EvidenceValidation =
+  | { ok: true; evidence: KnowledgeProof[]; warnings: KnowledgeSaveWarning[] }
+  | { ok: false; reason: KnowledgeSaveRejectionReason };
+
 /**
- * Validate one proposal entry against the read grammar and the workspace, then
- * verify its evidence. Every refusal is a single deterministic reason; a
- * round-trip through `parseKnowledge` proves the serialized file reads back
- * with exactly the declared name, description, body and normalized evidence.
+ * Verify every declared proof of one entry against the workspace: the path
+ * stays inside it, no symbolic link escapes it, and each proof hashes to its
+ * declared SHA-256 — or receives the engine-computed one when it declares
+ * none. Only `create` may substitute an unresolvable symbol proof by a traced
+ * file proof; `replace` and `append` refuse it (spec #233, spec #232).
+ */
+async function validateProposalEvidence(
+  root: string,
+  rawEvidence: readonly unknown[],
+  name: string,
+  mode: KnowledgeSaveMode
+): Promise<EvidenceValidation> {
+  const evidence: KnowledgeProof[] = [];
+  const fallbacks: KnowledgeSaveWarning[] = [];
+  for (const item of rawEvidence) {
+    if (!isRecord(item) || Object.keys(item).some(key => !EVIDENCE_KEYS.has(key))) {
+      return { ok: false, reason: 'malformed_evidence' };
+    }
+    const cited = typeof item.path === 'string' ? item.path.trim() : '';
+    if (!cited || /[\r\n]/.test(cited)) return { ok: false, reason: 'malformed_evidence' };
+    let declared: string | undefined;
+    if (item.sha256 !== undefined) {
+      if (typeof item.sha256 !== 'string' || !PROVIDED_HASH.test(item.sha256)) return { ok: false, reason: 'malformed_evidence' };
+      declared = item.sha256.toLowerCase();
+    }
+    const requested = item.type ?? 'file';
+    if (requested === 'symbol') {
+      // Spec #233: the engine resolves and fingerprints; the model never computes.
+      const symbolName = typeof item.symbol === 'string' ? item.symbol.trim() : '';
+      if (!symbolName) return { ok: false, reason: 'malformed_evidence' };
+      const hashed = await hashWorkspaceSymbol(root, cited, symbolName);
+      if (hashed.status === 'ok') {
+        if (declared !== undefined && declared !== hashed.sha256) return { ok: false, reason: 'symbol_hash_mismatch' };
+        evidence.push({ type: 'symbol', path: hashed.path, symbol: hashed.symbol, sha256: hashed.sha256 });
+        continue;
+      }
+      // Explicit fallback at creation only: a symbol proof the engine cannot
+      // resolve — unsupported language, absent or ambiguous symbol — is
+      // substituted by a verified file proof, traced in the entry AND
+      // reported, never silent (spec #233). Path-safety and engine failures
+      // refuse: substituting would hide a real mistake. A write that enriches
+      // or rewrites an existing entry cannot add or drop that trace (spec
+      // #232), so `replace` and `append` never fall back: an unresolvable
+      // symbol is refused and the repair is done with `file` proofs.
+      const fallbackReason = mode === 'create' && hashed.status === 'absent' && (hashed.reason === 'symbol_unresolved' || hashed.reason === 'symbol_ambiguous')
+        ? hashed.reason
+        : mode === 'create' && hashed.status === 'invalid' && hashed.reason === 'unsupported_language'
+          ? 'unsupported_language' as const
+          : undefined;
+      if (!fallbackReason) {
+        return { ok: false, reason: hashed.status === 'invalid' ? hashed.reason : 'file_missing' };
+      }
+      const substituted = await hashWorkspaceFile(root, cited);
+      if (substituted.status !== 'ok') return { ok: false, reason: substituted.reason === 'file_missing' ? 'file_missing' : substituted.reason };
+      evidence.push({ type: 'file', path: substituted.path, sha256: substituted.sha256, origin: 'symbol_fallback' });
+      fallbacks.push({ name, code: 'symbol_proof_fallback', path: substituted.path, reason: fallbackReason });
+      continue;
+    }
+    if (requested !== 'file') return { ok: false, reason: 'unsupported_proof' };
+    const hashed = await hashWorkspaceFile(root, cited);
+    if (hashed.status === 'absent') return { ok: false, reason: 'file_missing' };
+    if (hashed.status === 'invalid') return { ok: false, reason: hashed.reason };
+    if (declared !== undefined && declared !== hashed.sha256) return { ok: false, reason: 'file_hash_mismatch' };
+    evidence.push({ type: 'file', path: hashed.path, sha256: hashed.sha256 });
+  }
+  return { ok: true, evidence, warnings: fallbacks };
+}
+
+/**
+ * Validate one `create`/`replace` proposal entry against the read grammar and
+ * the workspace, then verify its evidence. Every refusal is a single
+ * deterministic reason; a round-trip through `parseKnowledge` proves the
+ * serialized file reads back with exactly the declared name, description,
+ * body and normalized evidence.
  */
 async function validateEntry(root: string, raw: unknown, seen: Set<string>, mode: KnowledgeSaveMode): Promise<ProposalValidation> {
   if (!isRecord(raw)) return failure('malformed_entry');
   const rawName = typeof raw.name === 'string' && raw.name ? raw.name : undefined;
-  const entryKeys = mode === 'replace'
-    ? ['name', 'description', 'body', 'evidence', 'expectedRevision']
-    : ['name', 'description', 'body', 'evidence'];
+  const entryKeys = mode === 'replace' ? REPLACE_ENTRY_KEYS : CREATE_ENTRY_KEYS;
   if (Object.keys(raw).some(key => !entryKeys.includes(key))) {
     return failure('malformed_entry', rawName);
   }
@@ -233,59 +333,9 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>, mode
 
   if (!Array.isArray(raw.evidence) || raw.evidence.length === 0) return failure('missing_evidence', name);
 
-  const evidence: KnowledgeProof[] = [];
-  const fallbacks: KnowledgeSaveWarning[] = [];
-  for (const item of raw.evidence) {
-    if (!isRecord(item) || Object.keys(item).some(key => !EVIDENCE_KEYS.has(key))) {
-      return failure('malformed_evidence', name);
-    }
-    const cited = typeof item.path === 'string' ? item.path.trim() : '';
-    if (!cited || /[\r\n]/.test(cited)) return failure('malformed_evidence', name);
-    let declared: string | undefined;
-    if (item.sha256 !== undefined) {
-      if (typeof item.sha256 !== 'string' || !PROVIDED_HASH.test(item.sha256)) return failure('malformed_evidence', name);
-      declared = item.sha256.toLowerCase();
-    }
-    const requested = item.type ?? 'file';
-    if (requested === 'symbol') {
-      // Spec #233: the engine resolves and fingerprints; the model never computes.
-      const symbolName = typeof item.symbol === 'string' ? item.symbol.trim() : '';
-      if (!symbolName) return failure('malformed_evidence', name);
-      const hashed = await hashWorkspaceSymbol(root, cited, symbolName);
-      if (hashed.status === 'ok') {
-        if (declared !== undefined && declared !== hashed.sha256) return failure('symbol_hash_mismatch', name);
-        evidence.push({ type: 'symbol', path: hashed.path, symbol: hashed.symbol, sha256: hashed.sha256 });
-        continue;
-      }
-      // Explicit fallback at creation only: a symbol proof the engine cannot
-      // resolve — unsupported language, absent or ambiguous symbol — is
-      // substituted by a verified file proof, traced in the entry AND
-      // reported, never silent (spec #233). Path-safety and engine failures
-      // refuse: substituting would hide a real mistake. A rewrite cannot add
-      // or drop that trace (spec #232), so `replace` never falls back: an
-      // unresolvable symbol is refused and repairing is done with `file`
-      // proofs.
-      const fallbackReason = mode === 'create' && hashed.status === 'absent' && (hashed.reason === 'symbol_unresolved' || hashed.reason === 'symbol_ambiguous')
-        ? hashed.reason
-        : mode === 'create' && hashed.status === 'invalid' && hashed.reason === 'unsupported_language'
-          ? 'unsupported_language' as const
-          : undefined;
-      if (!fallbackReason) {
-        return failure(hashed.status === 'invalid' ? hashed.reason : 'file_missing', name);
-      }
-      const substituted = await hashWorkspaceFile(root, cited);
-      if (substituted.status !== 'ok') return failure(substituted.reason === 'file_missing' ? 'file_missing' : substituted.reason, name);
-      evidence.push({ type: 'file', path: substituted.path, sha256: substituted.sha256, origin: 'symbol_fallback' });
-      fallbacks.push({ name, code: 'symbol_proof_fallback', path: substituted.path, reason: fallbackReason });
-      continue;
-    }
-    if (requested !== 'file') return failure('unsupported_proof', name);
-    const hashed = await hashWorkspaceFile(root, cited);
-    if (hashed.status === 'absent') return failure('file_missing', name);
-    if (hashed.status === 'invalid') return failure(hashed.reason, name);
-    if (declared !== undefined && declared !== hashed.sha256) return failure('file_hash_mismatch', name);
-    evidence.push({ type: 'file', path: hashed.path, sha256: hashed.sha256 });
-  }
+  const verified = await validateProposalEvidence(root, raw.evidence, name, mode);
+  if (!verified.ok) return failure(verified.reason, name);
+  const { evidence } = verified;
 
   const entry: KnowledgePersistableEntry = { name, description, body, evidence };
   // The read grammar is the contract: if serialization cannot be read back
@@ -301,9 +351,140 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>, mode
     return failure('malformed_evidence', name);
   }
   return expectedRevision === undefined
-    ? { ok: true, entry, warnings: fallbacks }
-    : { ok: true, entry, warnings: fallbacks, expectedRevision };
+    ? { ok: true, entry, warnings: verified.warnings }
+    : { ok: true, entry, warnings: verified.warnings, expectedRevision };
 }
+
+/** One validated `append` entry: the addition, its new proofs and the revision read. */
+interface ValidatedAppend {
+  name: string;
+  addition: string;
+  evidence: KnowledgeProof[];
+  expectedRevision: string;
+}
+
+type AppendValidation =
+  | ({ ok: true } & ValidatedAppend)
+  | { ok: false; name?: string; reason: KnowledgeSaveRejectionReason }
+  | { ok: false; name: string; reason: 'revision_conflict' };
+
+/**
+ * Validate one `append` entry: the addition, which is the only new text the
+ * operation introduces, and the proofs it merges. The addition obeys the body
+ * controls of a creation — a carriage return would corrupt the file — but a
+ * blank addition is not refused: it is the proof-only enrichment the contract
+ * documents, and `no_change` covers the case where it also brings no proof.
+ */
+async function validateAppendEntry(root: string, raw: unknown, seen: Set<string>): Promise<AppendValidation> {
+  if (!isRecord(raw)) return { ok: false, reason: 'malformed_entry' };
+  const rawName = typeof raw.name === 'string' && raw.name ? raw.name : undefined;
+  if (Object.keys(raw).some(key => !APPEND_ENTRY_KEYS.includes(key))) {
+    return { ok: false, name: rawName, reason: 'malformed_entry' };
+  }
+  if (typeof raw.name !== 'string' || !validateNewKnowledgeName(raw.name).ok) {
+    return { ok: false, name: rawName, reason: 'invalid_name' };
+  }
+  const name = raw.name;
+  if (seen.has(name)) return { ok: false, name, reason: 'duplicate_name' };
+  seen.add(name);
+
+  // An append is a compare-and-swap too: an absent token refuses the write
+  // instead of guessing the last writer wins.
+  if (typeof raw.expectedRevision !== 'string' || !raw.expectedRevision) {
+    return { ok: false, name, reason: 'revision_conflict' };
+  }
+  const expectedRevision = raw.expectedRevision;
+
+  if (typeof raw.addition !== 'string' || raw.addition.includes('\r')) {
+    return { ok: false, name, reason: 'invalid_body' };
+  }
+  const addition = raw.addition;
+
+  // Proof-only append: the addition is optional and may merge nothing at all,
+  // because the historical proofs already back the body.
+  if (raw.evidence === undefined) return { ok: true, name, addition, evidence: [], expectedRevision };
+  if (!Array.isArray(raw.evidence)) return { ok: false, name, reason: 'malformed_evidence' };
+  const verified = await validateProposalEvidence(root, raw.evidence, name, 'append');
+  if (!verified.ok) return { ok: false, name, reason: verified.reason };
+  return { ok: true, name, addition, evidence: verified.evidence, expectedRevision };
+}
+
+/** Number of leading newlines, used to compose the append separator. */
+const leadingNewlines = (text: string): number => {
+  let count = 0;
+  while (count < text.length && text[count] === '\n') count++;
+  return count;
+};
+
+/** Number of trailing newlines, used to compose the append separator. */
+const trailingNewlines = (text: string): number => {
+  let count = 0;
+  let index = text.length - 1;
+  while (index >= 0 && text[index] === '\n') { count++; index--; }
+  return count;
+};
+
+/**
+ * Compose an appended body: the historical body verbatim, a separator that
+ * guarantees at least one blank line and never a second one, then the
+ * addition verbatim. Nothing is normalized, retitled or reformatted, so the
+ * historical body stays an exact prefix of the result; a broken prefix is an
+ * internal error and never a silent refusal.
+ */
+function appendedBody(historicalBody: string, addition: string): string {
+  // A blank addition introduces no text: the body stays byte for byte identical.
+  if (!addition.trim()) return historicalBody;
+  const surrounding = trailingNewlines(historicalBody) + leadingNewlines(addition);
+  const body = `${historicalBody}${'\n'.repeat(Math.max(0, 2 - surrounding))}${addition}`;
+  if (!body.startsWith(historicalBody)) {
+    throw new Error('Knowledge append did not preserve the historical body; nothing was written.');
+  }
+  return body;
+}
+
+/** The deduplication key of a proof: its type, path and, for a symbol, its name. */
+const evidenceKey = (proof: KnowledgeProof): string =>
+  proof.type === 'symbol' ? `symbol\n${proof.path}\n${proof.symbol}` : `file\n${proof.path}`;
+
+type MergedEvidence =
+  | { ok: true; evidence: KnowledgeProof[]; added: number }
+  | { ok: false; reason: 'file_hash_mismatch' | 'symbol_hash_mismatch' };
+
+/**
+ * Merge new proofs into the historical ones, deduplicated by
+ * `(type, path, symbol)`: a `file` and a `symbol` proof may therefore coexist
+ * on one file. Divergence on the same key is a refusal, never an implicit
+ * correction of either side.
+ */
+function mergeEvidence(historical: readonly KnowledgeProof[], added: readonly KnowledgeProof[]): MergedEvidence {
+  const evidence = [...historical];
+  const known = new Map(historical.map(proof => [evidenceKey(proof), proof]));
+  let count = 0;
+  for (const proof of added) {
+    const key = evidenceKey(proof);
+    const existing = known.get(key);
+    if (!existing) {
+      evidence.push(proof);
+      known.set(key, proof);
+      count++;
+      continue;
+    }
+    if (existing.sha256.toLowerCase() !== proof.sha256.toLowerCase()) {
+      return { ok: false, reason: proof.type === 'symbol' ? 'symbol_hash_mismatch' : 'file_hash_mismatch' };
+    }
+  }
+  return { ok: true, evidence, added: count };
+}
+
+/** Compare a serialized evidence list with the one it was serialized from. */
+const sameEvidence = (left: readonly KnowledgeProof[], right: readonly KnowledgeProof[]): boolean =>
+  left.length === right.length && left.every((proof, index) => {
+    const other = right[index];
+    if (proof.type === 'symbol') {
+      return other.type === 'symbol' && proof.path === other.path && proof.symbol === other.symbol && proof.sha256 === other.sha256;
+    }
+    return other.type === 'file' && proof.path === other.path && proof.sha256 === other.sha256 && proof.origin === other.origin;
+  });
 
 const errorCode = (error: unknown): string | undefined =>
   isRecord(error) && typeof error.code === 'string' ? error.code : undefined;
@@ -449,6 +630,98 @@ async function evidenceIsStable(root: string, entries: KnowledgePersistableEntry
 }
 
 /**
+ * The `append` critical section, run under the catalogue lock: re-read the
+ * entry, compare the revision that was read, re-verify the historical
+ * contract and the new proofs, merge the evidence, compose the body and
+ * publish by atomic rename. A refusal writes nothing and leaves no residue.
+ */
+async function appendToEntry(realRoot: string, directory: string, append: ValidatedAppend): Promise<KnowledgeSaveResult> {
+  const { name } = append;
+  const target = join(directory, `${name}.md`);
+  let bytes: Buffer;
+  try {
+    bytes = await readFile(target);
+  } catch (error) {
+    // An append enriches an entry that exists; `create` is the mode that adds
+    // one, so an absent name is not silently promoted to a creation.
+    return errorCode(error) === 'ENOENT'
+      ? { status: 'invalid', rejected: [{ name, reason: 'unknown_entry' }] }
+      : { status: 'invalid', rejected: [{ name, reason: 'catalogue_unusable' }] };
+  }
+  if (knowledgeRevision(bytes) !== append.expectedRevision) {
+    return { status: 'conflict', conflicts: [{ name, reason: 'revision_conflict' }] };
+  }
+
+  // The historical entry has to be true before anything is stacked on it. An
+  // unreadable contract and a proof that no longer verifies are the same
+  // answer here — stale evidence, whose repair is `replace` — and never the
+  // proposal's own evidence reasons: the caller supplied no historical proof.
+  const stale: KnowledgeSaveResult = { status: 'invalid', rejected: [{ name, reason: 'stale_evidence' }] };
+  const historical = parseKnowledge(bytes.toString('utf8'), `${name}.md`);
+  if (historical.status !== 'valid') return stale;
+  // A proof re-cited with another digest is refused as a divergence before the
+  // historical contract is judged: an append may add coverage, never re-anchor
+  // a fingerprint nobody confirmed. A historical proof that merely stopped
+  // verifying is the stale case below.
+  const merged = mergeEvidence(historical.evidence, append.evidence);
+  if (!merged.ok) return { status: 'invalid', rejected: [{ name, reason: merged.reason }] };
+
+  // The resulting entry carries the historical symbol proofs too, so an engine
+  // change refuses the write exactly as it refuses a creation or a rewrite.
+  if (merged.evidence.some(proof => proof.type === 'symbol')) {
+    const stored = await readCatalogueCanonicalizer(directory);
+    if (stored && stored !== knowledgeCanonicalizer) {
+      return { status: 'invalid', rejected: [{ reason: 'engine_changed' }] };
+    }
+  }
+
+  // Every historical proof is re-verified, not only the new ones.
+  const verified = await verifyKnowledge(historical, realRoot);
+  if (verified.status !== 'valid') return stale;
+
+  const body = appendedBody(historical.body, append.addition);
+  // `no_change` is a literal decision only: nothing new in the body and
+  // nothing new in the evidence. No fuzzy deduplication, no judgement.
+  if (merged.added === 0 && (body === historical.body || historical.body.endsWith(append.addition))) {
+    return { status: 'no_change' };
+  }
+
+  const entry: KnowledgePersistableEntry = {
+    name: historical.name,
+    description: historical.description,
+    body,
+    evidence: merged.evidence
+  };
+  // The read grammar stays the only grammar: an appended entry that does not
+  // read back exactly — name, description, body, evidence traces — is refused
+  // instead of published. The historical description is carried, never
+  // re-invented: an append cannot rewrite who the entry is.
+  const roundTrip = parseKnowledge(serializeKnowledgeEntry(entry), `${entry.name}.md`);
+  if (roundTrip.status !== 'valid' || roundTrip.name !== entry.name || roundTrip.description !== entry.description ||
+    roundTrip.body !== body || !sameEvidence(roundTrip.evidence, entry.evidence)) {
+    return { status: 'invalid', rejected: [{ name, reason: 'malformed_entry' }] };
+  }
+  // The second read of every cited proof, historical ones included.
+  if (!(await evidenceIsStable(realRoot, [entry]))) {
+    return { status: 'invalid', rejected: [{ name, reason: 'unstable_evidence' }] };
+  }
+
+  const temp = join(directory, `.${name}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(temp, serializeKnowledgeEntry(entry), { flag: 'wx' });
+    // Atomic replacement from the temp file, with no prior delete: a reader
+    // sees the historical whole file or the appended whole file.
+    await rename(temp, target);
+  } finally {
+    await removeQuietly(temp);
+  }
+  // `append` never introduces `insufficient_backing`: adding a proof on an
+  // already cited path cannot lower the distinct-path count, and a thin entry
+  // was already reported when it was created.
+  return { status: 'appended', appended: [name], warnings: [] };
+}
+
+/**
  * Validate and persist a whole proposal. Validation, duplicate detection and
  * conflict detection all run before the first byte is staged; staging files
  * are removed on every path and publication rolls back if a late conflict
@@ -459,14 +732,14 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
     return { status: 'invalid', rejected: [{ reason: 'malformed_proposal' }] };
   }
   const mode = proposal.mode === undefined ? 'create' : proposal.mode;
-  if (mode !== 'create' && mode !== 'replace') {
+  if (mode !== 'create' && mode !== 'append' && mode !== 'replace') {
     return { status: 'invalid', rejected: [{ reason: 'unknown_mode' }] };
   }
   if (proposal.entries.length === 0) return { status: 'no-op' };
-  // The documented `entries` array is the single call form for every mode; a
-  // rewrite is one entry, so a longer array is refused by an explicit reason
-  // instead of a partial multi-replace.
-  if (mode === 'replace' && proposal.entries.length > 1) {
+  // The documented `entries` array is the single call form for every mode; an
+  // append or a rewrite operates on one entry, so a longer array is refused by
+  // an explicit reason instead of a partial multi-entry write.
+  if (mode !== 'create' && proposal.entries.length > 1) {
     return { status: 'invalid', rejected: [{ reason: 'mode_requires_single_entry' }] };
   }
 
@@ -479,11 +752,23 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
 
   const seen = new Set<string>();
   const validated: KnowledgePersistableEntry[] = [];
+  const appends: ValidatedAppend[] = [];
   const rejected: KnowledgeSaveRejection[] = [];
   const revisionConflicts: KnowledgeNameConflict[] = [];
   const expectedRevisions = new Map<string, string>();
   const fallbackWarnings: KnowledgeSaveWarning[] = [];
   for (const raw of proposal.entries) {
+    if (mode === 'append') {
+      const validation = await validateAppendEntry(realRoot, raw, seen);
+      if (validation.ok) {
+        appends.push(validation);
+      } else if (validation.reason === 'revision_conflict') {
+        revisionConflicts.push({ name: validation.name, reason: 'revision_conflict' });
+      } else {
+        rejected.push(validation.name === undefined ? { reason: validation.reason } : { name: validation.name, reason: validation.reason });
+      }
+      continue;
+    }
     const validation = await validateEntry(realRoot, raw, seen, mode);
     if (validation.ok) {
       validated.push(validation.entry);
@@ -529,6 +814,7 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
   // evidence stability re-check, temp file and publication. The canonicalizer
   // marker is written inside it too, so two symbolic writers can never race it.
   return withCatalogueLock(directory, async () => {
+    if (mode === 'append') return appendToEntry(realRoot, directory, appends[0]);
     if (mode === 'replace') {
       const entry = validated[0];
       const target = join(directory, `${entry.name}.md`);

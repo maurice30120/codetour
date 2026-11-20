@@ -654,13 +654,13 @@ const knowledgeSaveInputSchema = knowledgeToolInputSchema
       .unknown()
       .optional()
       .describe(
-        'Optional write mode: \"create\" (default) or \"replace\". Create publishes new entries; replace rewrites ONE existing entry in full, valid or invalid, and requires each entry\'s expectedRevision.'
+        'Optional write mode: \"create\" (default), \"append\" or \"replace\". Create publishes new entries; append enriches ONE existing valid entry with an addition and merged evidence without rewriting its body; replace rewrites ONE existing entry in full, valid or invalid. Append and replace require the entry\'s expectedRevision.'
       ),
     entries: z
       .unknown()
       .optional()
       .describe(
-        "The entries array of a Knowledge proposal: zero entries is an explicit completed_zero, one or many entries are validated and published together. Each entry has name, description, body and evidence: file proofs [{type: \"file\", path, sha256?}] or symbol proofs [{type: \"symbol\", path, symbol, sha256?}]. A symbol proof can be provided without sha256: the engine resolves the qualified symbol and computes the fingerprint; when it cannot during a create, the save falls back to a verified file proof and reports it in warnings, never silently. With mode \"replace\", the array holds exactly one entry carrying expectedRevision, the Knowledge Revision that was read."
+        "The entries array of a Knowledge proposal: zero entries is an explicit completed_zero, one or many entries are validated and published together. A create or replace entry has name, description, body and evidence: file proofs [{type: \"file\", path, sha256?}] or symbol proofs [{type: \"symbol\", path, symbol, sha256?}]. A symbol proof can be provided without sha256: the engine resolves the qualified symbol and computes the fingerprint; when it cannot during a create, the save falls back to a verified file proof and reports it in warnings, never silently. An append holds exactly one entry {name, addition, evidence?, expectedRevision}: the addition is inserted verbatim after one blank line and the evidence is merged into the historical proofs. With mode \"append\" or \"replace\", the array holds exactly one entry carrying expectedRevision, the Knowledge Revision that was read."
       ),
     runId: z
       .unknown()
@@ -730,16 +730,29 @@ const KNOWLEDGE_SAVE_DESCRIPTION =
   "declared one is verified against the cited bytes. Every entry is validated " +
   "before anything is written, an existing <name>.md is never overwritten, and " +
   "any refusal publishes nothing. `mode` selects the operation: \"create\" " +
-  "(default) publishes new entries; \"replace\" rewrites ONE existing entry in " +
+  "(default) publishes new entries; \"append\" enriches ONE existing entry that " +
+  "still verifies — it inserts `addition` verbatim after the historical body " +
+  "behind exactly one blank line, never rewrites, retitles or reformats that " +
+  "body, never accepts a new description, and merges `evidence` into the " +
+  "historical proofs (deduplicated by type, path and symbol, so a file proof " +
+  "and a symbol proof may cite the same file). Every historical proof is " +
+  "re-verified: an entry whose contract no longer holds is refused (reason " +
+  "`stale_evidence`) and the repair is `replace`. An addition that brings " +
+  "nothing literally new returns \"no_change\" and writes nothing. \"replace\" " +
+  "rewrites ONE existing entry in " +
   "full — description, body and evidence — against the `expectedRevision` the " +
   "caller read, so a stale or absent revision is refused instead of " +
-  "overwriting bytes nobody saw. Replace works on an entry whose contract no " +
+  "overwriting bytes nobody saw. Append and replace are conditioned on that " +
+  "revision and hold exactly one entry each. Replace works on an entry whose " +
+  "contract no " +
   "longer verifies, never returns its previous body, verifies every new proof " +
-  "and refuses a name that does not exist (reason `unknown_entry`); its entry " +
-  "array holds exactly one entry. `origin` is never an input: the engine alone " +
+  "and refuses a name that does not exist (reason `unknown_entry`). " +
+  "`origin` is never an input: the engine alone " +
   "records that a file proof substitutes a symbol proof it could not resolve. " +
   "Results are observable: \"created\" names " +
-  "the published entries, \"replaced\" names the rewritten one, " +
+  "the published entries, \"appended\" names the enriched one, \"replaced\" " +
+  "names the rewritten one, \"no_change\" is a completed assessment that " +
+  "wrote nothing, " +
   "\"completed_zero\" is an explicit empty proposal " +
   "(a completed consolidation, not a forgotten one), \"conflict\" lists the " +
   "existing names or the stale revisions (reason `revision_conflict`), " +
@@ -748,7 +761,8 @@ const KNOWLEDGE_SAVE_DESCRIPTION =
   "advisory `insufficient_backing` row per published entry whose evidence " +
   "cites fewer than two distinct files — recomputed on the rewritten state " +
   "for a replace — so a thin backing is never passed " +
-  "over silently. Never claim persistence that this result does not " +
+  "over silently. An append never reports it: adding a proof on an " +
+  "already cited path cannot lower the distinct-path count. Never claim persistence that this result does not " +
   "report. runId is optional: omit it when no run identity was given to you. " +
   "In each entry, distinguish the general rules from their exceptions and " +
   "state the scope you verified; verify that every claim of the body is " +
@@ -1851,7 +1865,7 @@ async function handleKnowledgeSave(
   const mode = workspace.args.mode;
   if (mode !== undefined && typeof mode !== "string") {
     return knowledgeArgumentError([
-      { path: "mode", message: 'must be "create" or "replace"' },
+      { path: "mode", message: 'must be "create", "append" or "replace"' },
     ]);
   }
 
@@ -1899,6 +1913,49 @@ async function handleKnowledgeSave(
       defaultContext.realRoot,
       runId as string | undefined,
       { status: "created", outcome: "created", created: result.saved }
+    );
+    return response;
+  }
+  if (result.status === "appended") {
+    // An append is a modification too, never a creation: the outcome names the
+    // appended entry and the closure records it under `changed`. The historical
+    // body is neither echoed nor rewritten, and no cited path or hash value
+    // leaves the catalogue.
+    const response = knowledgeResponse(
+      {
+        status: "appended",
+        workspace: workspace.label,
+        appended: result.appended,
+        warnings: result.warnings ?? [],
+      },
+      `Appended to ${result.appended.length} Knowledge entr${result.appended.length === 1 ? "y" : "ies"}: ` +
+        result.appended.join(", ") +
+        ". The historical body was kept byte for byte and the addition was " +
+        "inserted verbatim after one blank line; the evidence was merged."
+    );
+    await appendConsolidation(
+      response,
+      defaultContext.realRoot,
+      runId as string | undefined,
+      { status: "appended", outcome: "appended", changed: result.appended }
+    );
+    return response;
+  }
+  if (result.status === "no_change") {
+    // Nothing literal to add is a completed assessment, not an omission: the
+    // run closes at zero while the tool result stays distinct from it.
+    const response = knowledgeResponse(
+      { status: "no_change", workspace: workspace.label },
+      "No change: the addition brought nothing literally new to the entry — " +
+        "the same text is already its trailing content, or the addition is " +
+        "blank and brings no new evidence. The entry is untouched, and this is " +
+        "a completed consolidation, not a forgotten one."
+    );
+    await appendConsolidation(
+      response,
+      defaultContext.realRoot,
+      runId as string | undefined,
+      { status: "completed_zero", outcome: "no_change", created: [] }
     );
     return response;
   }
@@ -1976,6 +2033,11 @@ async function handleKnowledgeSave(
     );
     return response;
   }
+  // A stale historical entry is not a proposal mistake: the entry itself no
+  // longer validates, so the corrective action is a rewrite, not a retry.
+  const staleEvidence = result.rejected.some(
+    (rejection) => rejection.reason === "stale_evidence"
+  );
   const response = knowledgeResponse(
     {
       status: "invalid",
@@ -1990,7 +2052,13 @@ async function handleKnowledgeSave(
             ? `- ${rejection.reason}`
             : `- ${rejection.name}: ${rejection.reason}`
         )
-        .join("\n"),
+        .join("\n") +
+      (staleEvidence
+        ? "\nAn append only enriches an entry whose historical contract still " +
+          "verifies: this entry no longer does, so its body was not read and " +
+          "nothing was stacked on it. Re-read the current code and rewrite the " +
+          "entry with mode \"replace\" under its current revision."
+        : ""),
     true
   );
   await appendConsolidation(

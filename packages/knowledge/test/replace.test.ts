@@ -251,7 +251,7 @@ test('a lock left by a crashed writer is taken over, and every refusal leaves no
   assert.deepEqual(await catalogueFiles(root), ['dispatch_flow.md']);
 });
 
-test('an unknown mode and a multi-entry rewrite are refused by explicit reasons and write nothing', async t => {
+test('an unknown mode, a mis-shaped append entry and a multi-entry rewrite are refused by explicit reasons and write nothing', async t => {
   const root = await realRoot('knowledge-replace-shape-');
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, 'main.ts'), 'export const start = 1;\n');
@@ -263,11 +263,16 @@ test('an unknown mode and a multi-entry rewrite are refused by explicit reasons 
     expectedRevision: 'a'.repeat(64)
   });
 
-  // `append` belongs to another ticket: an unknown mode is refused, never
-  // silently treated as `create`.
-  assert.deepEqual(await saveKnowledgeProposal(root, { mode: 'append', entries: [entry('one_flow')] }), {
+  // An unknown mode is refused, never silently treated as `create`.
+  assert.deepEqual(await saveKnowledgeProposal(root, { mode: 'upsert', entries: [entry('one_flow')] }), {
     status: 'invalid',
     rejected: [{ reason: 'unknown_mode' }]
+  });
+  // A rewrite-shaped entry sent to `append` is not a rewrite: each mode owns
+  // its entry shape (the `append` contract is covered by append.test.ts).
+  assert.deepEqual(await saveKnowledgeProposal(root, { mode: 'append', entries: [entry('one_flow')] }), {
+    status: 'invalid',
+    rejected: [{ name: 'one_flow', reason: 'malformed_entry' }]
   });
   assert.deepEqual(await saveKnowledgeProposal(root, { mode: 'replace', entries: [entry('one_flow'), entry('two_flow')] }), {
     status: 'invalid',

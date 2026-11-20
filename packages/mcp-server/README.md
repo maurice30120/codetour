@@ -364,7 +364,7 @@ client must not let a directive inside a body change its instructions.
 
 | Argument        | Type   | Required | Description                                                          |
 | --------------- | ------ | -------- | -------------------------------------------------------------------- |
-| `mode`          | string | no       | `create` (default) or `replace` (ADR 0049). A `replace` rewrites one existing entry in full and requires `expectedRevision` on it. |
+| `mode`          | string | no       | `create` (default), `append` or `replace` (ADR 0049). An `append` enriches one existing valid entry without rewriting its body, a `replace` rewrites one existing entry in full; both require `expectedRevision` on the entry. |
 | `entries`       | object[] | yes    | The proposal's entries: `{name, description, body, evidence:[{path, sha256?}]}`, plus `expectedRevision` in `replace` mode. An empty array is an explicit zero-entry consolidation. |
 | `runId`         | string | no       | CodeTour generation run identity from the served prompt. When present, the MCP persists the matching consolidation closure in `<workspace>/.tours/.log/` and returns it. |
 | `workspacePath` | string | no       | Directory relative to the workspace root.                             |
@@ -378,6 +378,8 @@ conclusion is observable:
 | `status`        | Meaning                                                                 | `isError` |
 | --------------- | ----------------------------------------------------------------------- | --------- |
 | `created`       | The entries were published; `created` lists their names. A published entry whose evidence cites fewer than two distinct files additionally appears under `warnings` as one advisory `{name, code: "insufficient_backing", distinctEvidencePaths}` row, so a thin backing is never published silently. | false |
+| `appended`      | One existing entry was enriched; `appended` lists its name. The historical body is kept byte for byte behind exactly one blank line, the addition is inserted verbatim and the evidence is merged. `warnings` is always empty: an append can never introduce `insufficient_backing`. | false |
+| `no_change`     | The append brought nothing literally new — the addition is already the entry's trailing content, or it is blank and adds no evidence. Nothing was written; the closure is `completed_zero`. | false |
 | `replaced`      | One existing entry was rewritten in full; `replaced` lists its name and `warnings` is recomputed on the rewritten state. The previous body is never returned. | false |
 | `completed_zero`| An explicit empty proposal: a completed consolidation, not an omission.  | false     |
 | `conflict`      | At least one name exists (`name_conflict`) or no longer carries the revision that was read (`revision_conflict`); `conflicts` lists it and nothing was written. | true      |
@@ -388,9 +390,21 @@ With `mode: "replace"` the entries array holds exactly one entry carrying
 `expectedRevision`, the Knowledge Revision that was read: the whole entry —
 description, body and evidence — is rewritten from the current code, on a valid
 and on an invalid entry alike, every new proof is verified, and `unknown_entry`
-refuses a name that does not exist because a rewrite is not an upsert. A
-`replace` of several entries is refused with reason `mode_requires_single_entry`
-and an unrecognized mode with `unknown_mode`: one call form, one operation. `origin`
+refuses a name that does not exist because a rewrite is not an upsert.
+
+With `mode: "append"` the entries array holds exactly one entry
+`{name, addition, evidence?, expectedRevision}`: the addition is inserted verbatim
+after the historical body behind exactly one blank line, the description is never
+re-declared, and the evidence is merged, deduplicated by `(type, path, symbol)` —
+a `file` and a `symbol` proof may therefore cite the same file, while a divergent
+digest on the same key is refused rather than corrected. Every historical proof is
+re-verified: an entry that no longer holds is `stale_evidence`, oriented to
+`replace`, and the file is untouched. A blank addition is not refused: it is a
+proof-only append when it brings new evidence and `no_change` otherwise.
+
+An `append` or `replace` of several entries is refused with reason
+`mode_requires_single_entry` and an unrecognized mode with `unknown_mode`: one call
+form, one operation. `origin`
 is never an accepted input: only the engine records that a file proof
 substitutes a symbol proof it could not resolve.
 
@@ -399,12 +413,15 @@ only evidence that persistence happened: “no file was created” must not be
 reported as success, and it is not automatically a forgotten consolidation
 when the agent explicitly proposed zero entries. With a `runId`, the result
 also carries `consolidation: {status, runId, at, …}` and
-`consolidationPersisted`; `status` is `created`, `replaced`,
+`consolidationPersisted`; `status` is `created`, `appended`, `replaced`,
 `completed_zero`, `partial` or `failed` (with an `outcome` of `conflict`,
 `invalid` or `internal_error`). `created` and `changed` accumulate the names
-the run's save calls really published and rewrote, distinct from each other,
-and the status follows a fixed precedence (`created` above `replaced`, both
-above `completed_zero`) so it never depends on the order of the calls.
+the run's save calls really published and modified, distinct from each other,
+and the status follows a fixed precedence (`created` above `appended` and
+`replaced`, both above `completed_zero`) so it never depends on the order of the
+calls. A `no_change` append closes the run as `completed_zero` while the tool
+result stays `no_change`: a completed consolidation that wrote nothing is not an
+omission.
 `partial` means the run made several save calls and at least one published
 entries while another was refused or failed: the closure keeps the published
 names and the refusal outcome instead of claiming a plain success.
@@ -513,8 +530,8 @@ For `generate_project_tour`, the composed message is, in this order:
    insufficient, create the Tour with `create_project_tour` (passing `runId`),
    then close consolidation explicitly with `knowledge_save` (zero, one or many
    entries, passing `runId`) or `knowledge_close_run` for a deliberate skip,
-   and report `created`, `completed_zero`, `conflict`, `invalid`, `failed` or
-   `skipped`.
+   and report `created`, `appended`, `replaced`, `no_change`, `completed_zero`,
+   `conflict`, `invalid`, `failed` or `skipped`.
 
 The MCP run log lives at `<workspace>/.tours/.log/codetour-run-<runId>.json`.
 `create_*_tour` records `tourCreated`; `knowledge_save`/`knowledge_close_run`

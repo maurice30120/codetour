@@ -799,16 +799,146 @@ test("knowledge save exposes the write mode and the expected revision a replace 
 
     // An unknown mode is a usage error, never a silent `create`.
     const unknown = runCli([
-      "knowledge", "save", "--workspace", ws, "--mode", "append",
+      "knowledge", "save", "--workspace", ws, "--mode", "upsert",
       "--name", "other_flow", "--description", "d", "--body-file", "body.md", "--evidence", "main.ts"
     ], { cwd: ws });
     assert.equal(unknown.status, 2, unknown.stderr);
     assert.deepEqual(unknown.json, {
       status: "usage",
       reason: "unknown_mode",
-      message: '--mode must be "create" or "replace".'
+      message: '--mode must be "create", "append" or "replace".'
     });
     assert.deepEqual(catalogueEntries(ws), ["dispatch_flow.md"]);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+// Enriching an entry without rewriting its body (spec #232, ticket #256): the
+// packaged CLI exposes the mode and the revision it is conditioned on.
+
+test("knowledge save appends a section behind the historical body and reports no_change literally", () => {
+  const ws = workspace("codetour-knowledge-append-");
+  try {
+    seedValidWorkspace(ws);
+    writeFileSync(path.join(ws, "addition.md"), "## Exceptions\n\nAppended by the CLI.\n");
+    writeFileSync(path.join(ws, "blank.md"), "   \n");
+    writeFileSync(path.join(ws, "reader.ts"), "export const read = () => 1;\n");
+    const entryFile = path.join(ws, catalogue, "dispatch_flow.md");
+    const historical = readFileSync(entryFile, "utf8");
+    const revision = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws }).json.revision;
+    assert.equal(typeof revision, "string");
+
+    // A proposal file declares the mode, the addition and the revision read.
+    const proposal = writeProposal(ws, {
+      mode: "append",
+      entries: [{
+        name: "dispatch_flow",
+        addition: "## Exceptions\n\nAppended by the CLI.\n",
+        evidence: [{ path: "reader.ts" }],
+        expectedRevision: revision
+      }]
+    });
+    const appended = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(appended.status, 0, appended.stderr);
+    assert.equal(appended.stderr, "");
+    assert.deepEqual(appended.json, {
+      status: "appended",
+      workspace: ws,
+      appended: ["dispatch_flow"],
+      warnings: []
+    });
+    // The result names the entry only: never the body or a hash.
+    assert.doesNotMatch(appended.stdout, /Appended by the CLI|sha256|[0-9a-f]{64}/i);
+
+    const read = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(read.status, 0, read.stderr);
+    assert.equal(read.json.body, "Verified body.\n\n## Exceptions\n\nAppended by the CLI.\n");
+    assert.ok(read.json.body.startsWith("Verified body.\n"), "the historical body is preserved byte for byte");
+    assert.deepEqual(read.json.evidence.map(proof => proof.path), ["main.ts", "reader.ts"]);
+    assert.equal(read.json.description, "How tool calls dispatch");
+    assert.notEqual(historical, readFileSync(entryFile, "utf8"));
+
+    // The convenience flags expose the same mode and revision.
+    writeFileSync(path.join(ws, "addition2.md"), "## Limits\n\nSecond section.\n");
+    const flagged = runCli([
+      "knowledge", "save",
+      "--workspace", ws,
+      "--mode", "append",
+      "--name", "dispatch_flow",
+      "--addition-file", "addition2.md",
+      "--expected-revision", read.json.revision
+    ], { cwd: ws });
+    assert.equal(flagged.status, 0, flagged.stderr);
+    assert.equal(flagged.json.status, "appended");
+    assert.equal(
+      runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws }).json.body,
+      "Verified body.\n\n## Exceptions\n\nAppended by the CLI.\n\n## Limits\n\nSecond section.\n"
+    );
+
+    // A blank addition with no new evidence adds nothing literal: it is a
+    // completed no-op, not a refusal and not a write.
+    const untouched = readFileSync(entryFile);
+    const noChange = runCli([
+      "knowledge", "save",
+      "--workspace", ws,
+      "--mode", "append",
+      "--name", "dispatch_flow",
+      "--addition-file", "blank.md",
+      "--expected-revision", runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws }).json.revision
+    ], { cwd: ws });
+    assert.equal(noChange.status, 0, noChange.stderr);
+    assert.deepEqual(noChange.json, { status: "no_change", workspace: ws });
+    assert.deepEqual(readFileSync(entryFile), untouched);
+
+    // A stale revision is the documented conflict, and the file is untouched.
+    const stale = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(stale.status, 4, stale.stderr);
+    assert.deepEqual(stale.json, {
+      status: "conflict",
+      workspace: ws,
+      conflicts: [{ name: "dispatch_flow", reason: "revision_conflict" }]
+    });
+    assert.deepEqual(readFileSync(entryFile), untouched);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test("knowledge save append refuses an entry whose historical proof no longer verifies", () => {
+  const ws = workspace("codetour-knowledge-append-stale-");
+  try {
+    writeFileSync(path.join(ws, "main.ts"), "export const start = 1;\n");
+    writeFileSync(path.join(ws, "reader.ts"), "export const read = () => 1;\n");
+    writeFileSync(path.join(ws, "addition.md"), "## More\n");
+    const stale = entry("stale_flow", "Cites bytes that moved", [{ path: "main.ts", sha256: "f".repeat(64) }], "STALE BODY never served.\n");
+    writeCatalogueEntry(ws, "stale_flow.md", stale.frontmatter, stale.body);
+    // An unreadable entry still carries the revision of its file, so the
+    // repair write can be conditioned on bytes that were never served.
+    const refusedRead = runCli(["knowledge", "read", "stale_flow"], { cwd: ws });
+    assert.equal(refusedRead.status, 4, refusedRead.stderr);
+    assert.equal(refusedRead.json.status, "invalid");
+    const revision = refusedRead.json.revision;
+    assert.equal(typeof revision, "string");
+
+    const refused = runCli([
+      "knowledge", "save",
+      "--workspace", ws,
+      "--mode", "append",
+      "--name", "stale_flow",
+      "--addition-file", "addition.md",
+      "--evidence", "reader.ts",
+      "--expected-revision", revision
+    ], { cwd: ws });
+    assert.equal(refused.status, 4, refused.stderr);
+    assert.deepEqual(refused.json, {
+      status: "invalid",
+      workspace: ws,
+      rejected: [{ name: "stale_flow", reason: "stale_evidence" }]
+    });
+    assert.doesNotMatch(refused.stdout, /STALE BODY/);
+    assert.match(readFileSync(path.join(ws, catalogue, "stale_flow.md"), "utf8"), /STALE BODY never served\./);
+    assert.deepEqual(catalogueEntries(ws), ["stale_flow.md"]);
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }
