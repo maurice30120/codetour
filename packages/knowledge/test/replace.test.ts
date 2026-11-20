@@ -251,6 +251,66 @@ test('a lock left by a crashed writer is taken over, and every refusal leaves no
   assert.deepEqual(await catalogueFiles(root), ['dispatch_flow.md']);
 });
 
+// Reading, staging and publication are one critical section: a refused rewrite
+// leaves the historical entry byte for byte in place, and a published one
+// leaves the whole new entry. Cleanup only ever withdraws pre-publication
+// artefacts, so no path can delete the entry it was rewriting.
+test('a refused or failed rewrite leaves the entry in place and never a staging file', async t => {
+  const root = await realRoot('knowledge-replace-cleanup-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'main.ts'), 'export const start = 1;\n');
+  await writeFile(join(root, 'reader.ts'), 'export const read = () => 1;\n');
+  await saveKnowledgeProposal(root, {
+    entries: [{ name: 'dispatch_flow', description: 'original', body: 'Original body.\n', evidence: [{ path: 'main.ts' }] }]
+  });
+  const revision = await readRevision(root, 'dispatch_flow');
+  const before = await readFile(entryPath(root, 'dispatch_flow'));
+  const stagedFiles = async (): Promise<string[]> => (await catalogueFiles(root)).filter(name => name.endsWith('.tmp'));
+  const rewrite = (name: string, expectedRevision: string, evidence: Array<{ type?: 'symbol'; path: string; symbol?: string }>) => saveKnowledgeProposal(root, {
+    mode: 'replace',
+    entries: [{ name, description: 'rewritten', body: 'Rewritten body.\n', evidence, expectedRevision }]
+  });
+
+  // A stale token is refused before anything is staged.
+  assert.deepEqual(await rewrite('dispatch_flow', 'a'.repeat(64), [{ path: 'main.ts' }]), {
+    status: 'conflict',
+    conflicts: [{ name: 'dispatch_flow', reason: 'revision_conflict' }]
+  });
+  assert.deepEqual(await readFile(entryPath(root, 'dispatch_flow')), before, 'the previous entry stays in place');
+  assert.deepEqual(await stagedFiles(), []);
+
+  // An unknown name is refused too: `replace` never upserts.
+  assert.deepEqual(await rewrite('never_written', revision, [{ path: 'main.ts' }]), {
+    status: 'invalid',
+    rejected: [{ name: 'never_written', reason: 'unknown_entry' }]
+  });
+  assert.deepEqual(await readFile(entryPath(root, 'dispatch_flow')), before);
+  assert.deepEqual(await stagedFiles(), []);
+
+  // An engine change refuses a symbol-bearing rewrite of the same entry.
+  const marker = join(knowledgeDirectory(root), catalogueCanonicalizerName);
+  await writeFile(marker, 'span@0\n');
+  assert.deepEqual(await rewrite('dispatch_flow', revision, [{ type: 'symbol', path: 'main.ts', symbol: 'start' }]), {
+    status: 'invalid',
+    rejected: [{ reason: 'engine_changed' }]
+  });
+  assert.deepEqual(await readFile(entryPath(root, 'dispatch_flow')), before);
+  assert.equal((await readFile(marker, 'utf8')).trim(), 'span@0');
+  assert.deepEqual(await stagedFiles(), []);
+
+  // A publication leaves the whole new entry and no staging file either.
+  assert.deepEqual(await rewrite('dispatch_flow', revision, [{ path: 'main.ts' }, { path: 'reader.ts' }]), {
+    status: 'replaced',
+    replaced: ['dispatch_flow'],
+    warnings: []
+  });
+  assert.deepEqual(await stagedFiles(), []);
+  assert.equal((await catalogueFiles(root)).filter(name => name !== catalogueCanonicalizerName).length, 1);
+  const published = parseKnowledge(await readFile(entryPath(root, 'dispatch_flow'), 'utf8'), 'dispatch_flow.md');
+  assert.equal(published.status, 'valid');
+  assert.equal((published as { body: string }).body, 'Rewritten body.\n');
+});
+
 test('an unknown mode, a mis-shaped append entry and a multi-entry rewrite are refused by explicit reasons and write nothing', async t => {
   const root = await realRoot('knowledge-replace-shape-');
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -359,22 +419,78 @@ test('create waits for the catalogue lock while readers keep working', async t =
   const lock = join(knowledgeDirectory(root), catalogueLockName);
   await writeFile(lock, '');
 
-  let settled = false;
+  // The write cannot publish while the lock is held. The claim is a race
+  // against a bounded observation window instead of one fixed sleep: no
+  // schedule can make a lock-respecting writer publish here, and a writer
+  // that skipped the lock settles inside the window and is caught.
   const pending = saveKnowledgeProposal(root, {
     entries: [{ name: 'blocked_flow', description: 'Waits for the lock', body: 'Body.\n', evidence: [{ path: 'main.ts' }] }]
-  }).then(result => {
-    settled = true;
-    return result;
   });
-  await sleep(150);
-  assert.equal(settled, false, 'a create takes the catalogue lock instead of publishing beside it');
+  const observed = await Promise.race([
+    pending.then(result => `settled:${result.status}`),
+    sleep(250).then(() => 'blocked')
+  ]);
+  assert.equal(observed, 'blocked', 'a create takes the catalogue lock instead of publishing beside it');
+  // Nothing was staged and nothing was published while the lock was held.
+  assert.deepEqual(await catalogueFiles(root), [catalogueLockName]);
   assert.equal(
     (await readFile(join(root, 'main.ts'), 'utf8')).trim(),
     'export const start = 1;',
     'a concurrent read of the workspace is unaffected: readers take no lock'
   );
 
+  // The lock is released, the same write completes and publishes once.
   await rm(lock, { force: true });
   assert.equal((await pending).status, 'saved');
   assert.deepEqual(await catalogueFiles(root), ['blocked_flow.md']);
+});
+
+// The critical section is catalogue-wide, so every mode takes it: an append and
+// a rewrite wait for the same lock and publish only after the takeover, leaving
+// the historical entry untouched in the meantime.
+test('append and replace wait for the catalogue lock and publish after the takeover', async t => {
+  const root = await realRoot('knowledge-lock-modes-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'main.ts'), 'export const start = 1;\n');
+  await writeFile(join(root, 'reader.ts'), 'export const read = () => 1;\n');
+  await saveKnowledgeProposal(root, {
+    entries: [{ name: 'dispatch_flow', description: 'original', body: 'Original body.\n', evidence: [{ path: 'main.ts' }] }]
+  });
+  const revision = await readRevision(root, 'dispatch_flow');
+  const lock = join(knowledgeDirectory(root), catalogueLockName);
+  // The lock is held before the write starts, so the test can never race the
+  // writer for it, and the observation window bounds the claim instead of a
+  // fixed sleep.
+  const observedWhileLocked = async (start: () => Promise<{ status: string }>): Promise<string> => {
+    await writeFile(lock, '');
+    const observed = await Promise.race([
+      start().then(result => `settled:${result.status}`),
+      sleep(250).then(() => 'blocked')
+    ]);
+    await rm(lock, { force: true });
+    return observed;
+  };
+  const rewrite = () => saveKnowledgeProposal(root, {
+    mode: 'replace',
+    entries: [{ name: 'dispatch_flow', description: 'rewritten', body: 'Rewritten body.\n', evidence: [{ path: 'main.ts' }, { path: 'reader.ts' }], expectedRevision: revision }]
+  });
+
+  assert.equal(await observedWhileLocked(rewrite), 'blocked', 'a rewrite takes the catalogue lock');
+  assert.equal(
+    await readFile(entryPath(root, 'dispatch_flow'), 'utf8').then(source => source.includes('Original body.')),
+    true,
+    'the historical entry is untouched while the lock is held'
+  );
+  assert.equal((await rewrite()).status, 'replaced');
+
+  // The entry the rewrite published is the one the append now enriches.
+  const rewritten = await readFile(entryPath(root, 'dispatch_flow'));
+  const append = () => saveKnowledgeProposal(root, {
+    mode: 'append',
+    entries: [{ name: 'dispatch_flow', addition: '## More\n', evidence: [{ path: 'reader.ts' }], expectedRevision: knowledgeRevision(rewritten) }]
+  });
+  assert.equal(await observedWhileLocked(append), 'blocked', 'an append takes the catalogue lock');
+  assert.deepEqual(await readFile(entryPath(root, 'dispatch_flow')), rewritten, 'the entry is untouched while the lock is held');
+  assert.equal((await append()).status, 'appended');
+  assert.deepEqual(await catalogueFiles(root), ['dispatch_flow.md'], 'no staging file and no lock file survive');
 });

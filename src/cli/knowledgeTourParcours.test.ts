@@ -42,6 +42,18 @@ function runCli(args: string[], cwd: string, env: Record<string, string>) {
   return { ...result, json };
 }
 
+// Discovery carries one opaque Knowledge Revision per row (spec #232, ADR
+// 0048), so a row is its name and description plus that hex token: the shape
+// assertion pins the token and never its value, and no body reaches a listing.
+function metadataRows(entries: unknown): Array<Record<string, unknown>> {
+  return (entries as Array<Record<string, unknown>>).map((row) => {
+    const { revision, ...metadata } = row;
+    assert.equal(typeof revision, "string", "a discovery row carries its Knowledge Revision");
+    assert.match(revision as string, /^[0-9a-f]{64}$/);
+    return metadata;
+  });
+}
+
 // The installation step drives the real Copilot CLI (Agent Plugins 1.0
 // registration); without the binary the parcours cannot exercise it, in line
 // with the skip contract of test/copilot-plugin-install.test.mjs.
@@ -88,7 +100,7 @@ test("a project Tour is built from the Knowledge discovered in the same workspac
     // only, then returns the body because every declared proof verifies.
     const listed = runCli(["knowledge", "list", "--workspace", workspace], workspace, env);
     assert.equal(listed.status, 0, listed.stderr);
-    assert.deepEqual(listed.json.entries, [{ name: "dispatch_flow", description: "How a tool call is dispatched" }]);
+    assert.deepEqual(metadataRows(listed.json.entries), [{ name: "dispatch_flow", description: "How a tool call is dispatched" }]);
     assert.doesNotMatch(listed.stdout, /dispatch returns the tool name/);
 
     const read = runCli(["knowledge", "read", "dispatch_flow", "--workspace", workspace], workspace, env);
@@ -208,13 +220,14 @@ test("a second generation reuses the Knowledge validated by the first and opens 
     // over in memory from generation 1.
     const listed = runCli(["knowledge", "list", "--workspace", workspace], workspace, env);
     assert.equal(listed.status, 0, listed.stderr);
-    assert.deepEqual(listed.json.entries, [{ name: "dispatch_flow", description: "How a tool call is dispatched" }]);
+    assert.deepEqual(metadataRows(listed.json.entries), [{ name: "dispatch_flow", description: "How a tool call is dispatched" }]);
     assert.doesNotMatch(listed.stdout, /dispatch returns the tool name/);
 
     const read = runCli(["knowledge", "read", "dispatch_flow", "--workspace", workspace], workspace, env);
     assert.equal(read.status, 0, read.stderr);
     assert.equal(read.json.status, "valid");
     assert.equal(read.json.body, body);
+    assert.equal(typeof read.json.revision, "string", "a read carries the same opaque token");
     assert.deepEqual(read.json.evidence, [{ path: "src/dispatch.ts", sha256: createHash("sha256").update(source).digest("hex") }]);
 
     // The second Tour is built from the body generation 2 read, not from the
