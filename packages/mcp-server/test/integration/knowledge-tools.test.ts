@@ -937,6 +937,108 @@ test("prompts/get carries every entry revision so a write mode needs no extra ca
   }
 });
 
+// Choosing the consolidation mode (spec #232, ticket #257). The three modes
+// exist since #255 and #256; the served method must teach which one applies,
+// in the contract's own vocabulary. Each test reads the prompt the real MCP
+// server composes: no internals and no test-only seam.
+test("prompts/get teaches the four consolidation cases with the contract's mode names", async () => {
+  const root = tempDir("codetour-knowledge-mode-cases-");
+  try {
+    await withServer(root, async (client) => {
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: { request: "Give me a tour of this project." },
+      });
+      const text = promptText(prompt.messages);
+      // The mode names of the contract, backticked: never a synonym, and
+      // distinct from the `create_project_tour` tool and the `created` status.
+      for (const mode of ["create", "append", "replace"]) {
+        assert.ok(text.includes(`\`${mode}\``), `the method must name the \`${mode}\` mode`);
+      }
+      // 1. A subject the catalogue does not have: create.
+      assert.match(text, /`create` for a subject the catalogue does not have/);
+      // 2. Compatible additional information on an entry that still verifies,
+      //    short and circumscribed: append.
+      assert.match(text, /`append` for compatible additional information/);
+      assert.match(text, /short and circumscribed/);
+      // 3. Invalid entry, contradicted claim, needed restructuring or a risky
+      //    addition: replace.
+      assert.match(text, /`replace`, carrying that entry's revision, when an existing entry is invalid/);
+      assert.match(text, /needs restructuring/);
+      assert.match(text, /likely to contradict the existing body/);
+      // 4. Nothing durable or an unresolved doubt: no fabricated entry.
+      assert.match(text, /nothing durable/);
+      assert.match(text, /never a fabricated Knowledge entry/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("prompts/get orders a restart from the current code and no re-read of an invalid body", async () => {
+  const root = tempDir("codetour-knowledge-mode-restart-");
+  try {
+    await withServer(root, async (client) => {
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: { request: "Give me a tour of this project." },
+      });
+      const text = promptText(prompt.messages);
+      // A replacement is prepared from the code that was just read, not from
+      // the entry being replaced: an invalid body never enters the context.
+      assert.match(text, /restart from the current code/);
+      assert.match(text, /rewrites the whole entry/i);
+      assert.match(text, /never re-read an invalid body/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("prompts/get states that the mode guidance is no proof of semantic consistency", async () => {
+  const root = tempDir("codetour-knowledge-mode-semantics-");
+  try {
+    await withServer(root, async (client) => {
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: { request: "Give me a tour of this project." },
+      });
+      const text = promptText(prompt.messages);
+      // A fingerprint proves unchanged bytes, never the truth of the text, and
+      // no natural-language contradiction is detected by the server.
+      assert.match(text, /not a proof of semantic consistency/);
+      assert.match(text, /SHA-256 fingerprint proves that the cited bytes are unchanged/);
+      assert.match(text, /never that the text is true/);
+      assert.match(text, /detects no contradiction written in natural language/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("the mode guidance adds no second consolidation pass and no second orchestrator", async () => {
+  const root = tempDir("codetour-knowledge-mode-single-pass-");
+  try {
+    await withServer(root, async (client) => {
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: { request: "Give me a tour of this project." },
+      });
+      const text = promptText(prompt.messages);
+      // The consolidation stays one assessment in the single-continuation
+      // design: the mode rule adds a choice, not a loop or a second agent.
+      assert.match(text, /one consolidation assessment/);
+      assert.match(text, /no second consolidation pass/);
+      assert.doesNotMatch(
+        text,
+        /second (?:agent|model|orchestrator)|another (?:agent|model)\b|retry loop|loop until/i
+      );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("prompts/get bounds a large catalogue and points at search and pagination", async () => {
   const root = tempDir("codetour-knowledge-prompt-large-");
   try {
@@ -1731,6 +1833,99 @@ test("an append closure records changed names and outranks an explicit zero", as
       const zeroClosure = zero.structured.consolidation as { status: string; changed: string[] };
       assert.equal(zeroClosure.status, "appended");
       assert.deepEqual(zeroClosure.changed, ["seeded_flow"]);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+// Ticket #257 asks for a real Copilot run producing one create, one append and
+// one replace. A real Copilot session is unavailable in this harness, so the
+// run is simulated at the MCP seam: the three operations under one runId,
+// observed through the Consolidation Closure the Run State keeps.
+test("one run performing create, append and replace closes created with both name lists", async () => {
+  const root = tempDir("codetour-knowledge-three-modes-");
+  const runId = "run-three-modes-0001";
+  try {
+    const digest = writeWorkspaceFile(root, "src/main.ts", "export const start = 1;\n");
+    writeFile(root, "src/reader.ts", "export const read = () => 1;\n");
+    const seed = (name: string, body: string): void =>
+      writeEntry(root, name, {
+        description: `Seeded ${name}`,
+        body,
+        evidence: [{ path: "src/main.ts", sha256: digest }],
+      });
+    await withServer(root, async (client) => {
+      const revisionOf = async (name: string): Promise<string> =>
+        (await callTool(client, KNOWLEDGE_READ, { name })).structured.revision as string;
+
+      // create: a subject the catalogue does not have.
+      const created = await callTool(client, KNOWLEDGE_SAVE, {
+        runId,
+        entries: [
+          {
+            name: "created_flow",
+            description: "Created by this run",
+            body: "Created body.\n",
+            evidence: [{ path: "src/main.ts" }],
+          },
+        ],
+      });
+      assert.equal(created.structured.status, "created", created.text);
+
+      // append: a short compatible addition to an entry that still verifies.
+      seed("appended_flow", "Historical body.\n");
+      const appended = await callTool(client, KNOWLEDGE_SAVE, {
+        runId,
+        mode: "append",
+        entries: [
+          {
+            name: "appended_flow",
+            addition: "## Appended\n\nAppended body.\n",
+            evidence: [{ path: "src/reader.ts" }],
+            expectedRevision: await revisionOf("appended_flow"),
+          },
+        ],
+      });
+      assert.equal(appended.structured.status, "appended", appended.text);
+
+      // replace: an existing entry rewritten in full from the current code.
+      seed("replaced_flow", "Stale body.\n");
+      const replaced = await callTool(client, KNOWLEDGE_SAVE, {
+        runId,
+        mode: "replace",
+        entries: [
+          {
+            name: "replaced_flow",
+            description: "Rewritten from the current code",
+            body: "Rewritten body.\n",
+            evidence: [{ path: "src/main.ts" }, { path: "src/reader.ts" }],
+            expectedRevision: await revisionOf("replaced_flow"),
+          },
+        ],
+      });
+      assert.equal(replaced.structured.status, "replaced", replaced.text);
+
+      // One run, three modes: a creation outranks the modifications, and the
+      // two name lists stay distinct.
+      const closure = replaced.structured.consolidation as {
+        status: string;
+        created: string[];
+        changed: string[];
+        outcome: string;
+      };
+      assert.equal(closure.status, "created");
+      assert.equal(closure.outcome, "created");
+      assert.deepEqual(closure.created, ["created_flow"]);
+      assert.deepEqual([...closure.changed].sort(), ["appended_flow", "replaced_flow"]);
+      assert.deepEqual((await readRunState(fs.realpathSync(root), runId))?.consolidation, closure);
+
+      // The three publications are what the closure says they are.
+      const appendedRead = await callTool(client, KNOWLEDGE_READ, { name: "appended_flow" });
+      assert.equal(appendedRead.structured.body, "Historical body.\n\n## Appended\n\nAppended body.\n");
+      const rewritten = await callTool(client, KNOWLEDGE_READ, { name: "replaced_flow" });
+      assert.equal(rewritten.structured.body, "Rewritten body.\n");
+      assert.equal(rewritten.structured.description, "Rewritten from the current code");
     });
   } finally {
     rmrf(root);
