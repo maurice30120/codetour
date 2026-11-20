@@ -142,7 +142,9 @@ test("the open warning sits after the documented fixed precedence segments (spec
     narrationEnabled: true,
     speechWarning: "voice: slow",
     canOpenInVsCode: true,
+    canSelectModel: false,
     openWarning: "vscode: boom",
+    modelWarning: undefined,
     agent: { agent: "Fake", effective: true },
     exchangeCount: 2
   });
@@ -157,7 +159,9 @@ test("the open warning sits after the documented fixed precedence segments (spec
     narrationEnabled: false,
     speechWarning: undefined,
     canOpenInVsCode: true,
+    canSelectModel: false,
     openWarning: "vscode: boom",
+    modelWarning: undefined,
     agent: undefined,
     exchangeCount: 0
   });

@@ -1,5 +1,6 @@
 import type { CodeTour } from "../../store";
 import { StepConversations, type StepConversationExchange } from "../../agent/stepConversations";
+import type { AcpModelSelector } from "../../agent/acpModelOptions";
 import type { StepChatAgentIdentity } from "../../agent/stepChatContract";
 import { buildStepChatContext } from "../stepChatSupport";
 import type { CommitFileReader, ConversationResponder, StepContextResolver } from "./collaborators";
@@ -45,6 +46,28 @@ export class TourStepConversation {
    */
   get agentIdentity(): StepChatAgentIdentity | undefined {
     return this.store.identity();
+  }
+
+  /**
+   * The model selector the answering agent announces right now, with the model
+   * it confirms: undefined until a session announces one, so the model picker
+   * never lists values no agent offered (ADR 0048, ticket #266).
+   */
+  get announcedModel(): AcpModelSelector | undefined {
+    return this.options.responder?.model?.();
+  }
+
+  /** Whether the responder accepts a model change at all (ticket #266). */
+  get canSelectModel(): boolean {
+    return this.options.responder?.selectModel !== undefined;
+  }
+
+  /**
+   * Requests one model change from the answering agent: the request counts
+   * only once the agent confirms it, which `announcedModel` then reports.
+   */
+  selectModel(value: string): Promise<void> | void {
+    return this.options.responder?.selectModel?.(value);
   }
 
   /** The Step's exchanges, raw and unpainted, straight from the shared store. */

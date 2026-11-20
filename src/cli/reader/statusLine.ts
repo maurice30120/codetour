@@ -38,8 +38,15 @@ export interface StatusLineInput {
   speechWarning: string | undefined;
   /** Whether the Open-in-VS Code collaborator is wired; owns the `o open` hint (ticket #244). */
   canOpenInVsCode: boolean;
+  /** Whether the responder accepts a model change; owns the `m model` hint (ticket #266). */
+  canSelectModel: boolean;
   /** The latest nonblocking Open-in-VS Code failure, cleared by a later success. */
   openWarning: string | undefined;
+  /**
+   * The latest model change the agent did not adopt, cleared by a later
+   * confirmed one (ticket #266). It sits next to the Agent Profile it is about.
+   */
+  modelWarning: string | undefined;
   /** The agent answering right now, when an agent is installed. */
   agent: StepChatAgentIdentity | undefined;
   exchangeCount: number;
@@ -57,6 +64,7 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
       ? ["←/→ step", "j/k scroll"]
       : ["←/→ previous/next", "j/k scroll", "PgUp/PgDn page"];
     if (hasResponder && !responding) keys.push("a ask");
+    if (input.canSelectModel && !responding) keys.push("m model");
     if (input.canOpenInVsCode) keys.push("o open");
     // While an answer streams, quitting would lose it: the same key first
     // interrupts the answer in flight (ADR 0031).
@@ -68,6 +76,10 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
   ];
   if (input.speechWarning) rightSegments.push(input.speechWarning);
   if (input.agent) rightSegments.push(agentIdentityLabel(input.agent));
+  // The model warning describes the agent it follows, so it goes before the
+  // exchange count: a refused model says something about the agent, not about
+  // the conversation's volume.
+  if (input.modelWarning) rightSegments.push(input.modelWarning);
   if (input.exchangeCount) rightSegments.push(exchangesLabel(input.exchangeCount));
   // The Open-in-VS Code failure is the outermost, least reading-essential
   // segment: it preserves the documented fixed precedence of spec #240.
