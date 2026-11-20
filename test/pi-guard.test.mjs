@@ -83,7 +83,7 @@ test("the continuation message names the run and forbids inventing outcomes", ()
 
 test("isClosed treats every recorded status as an assessment", () => {
   assert.equal(isClosed(state()), false);
-  for (const status of ["created", "replaced", "completed_zero", "partial", "failed", "skipped"]) {
+  for (const status of ["created", "appended", "replaced", "completed_zero", "partial", "failed", "skipped"]) {
     assert.equal(isClosed(state({ consolidation: { status, runId: "x", at: "now" } })), true, status);
   }
 });

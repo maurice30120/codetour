@@ -119,7 +119,7 @@ test("a run without a created Tour is inert", () => {
   }
 });
 
-for (const status of ["created", "replaced", "completed_zero", "partial", "failed", "skipped"]) {
+for (const status of ["created", "appended", "replaced", "completed_zero", "partial", "failed", "skipped"]) {
   test(`a ${status} consolidation closure is inert`, () => {
     const { root, workspace } = workspaceWithSpaces();
     try {

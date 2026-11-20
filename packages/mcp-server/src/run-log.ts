@@ -70,6 +70,7 @@ export interface KnowledgeObservation {
 export type ConsolidationStatus =
   | "completed_zero"
   | "created"
+  | "appended"
   | "replaced"
   | "partial"
   | "failed"
@@ -82,9 +83,9 @@ export interface ConsolidationClosure {
   /** Names published by this closure, when the MCP created entries. */
   created?: string[];
   /**
-   * Names this closure modified without creating, when the MCP rewrote an
-   * existing entry (`replace`, spec #232). Distinct from `created` so a run
-   * audit separates what it added from what it changed.
+   * Names this closure modified without creating, when the MCP appended to or
+   * rewrote an existing entry (`append`, `replace`, spec #232). Distinct from
+   * `created` so a run audit separates what it added from what it changed.
    */
   changed?: string[];
   /** The tool-level outcome that produced a non-created closure. */
@@ -314,14 +315,16 @@ export function recordTourCreated(
  * outcome. This never turns a refusal into a success and never hides the
  * entries that were actually written.
  *
- * Between successful closures the precedence is `created` > `replaced` >
- * `completed_zero` (and a deliberate `skipped` ranks last, so an explicit zero
- * never degrades to a skip and vice versa). The precedence is a fixed rank,
- * never the call order: two runs that made the same writes produce the same
- * Run State. An `appended` producer joins that rank when it exists.
+ * Between successful closures the precedence is `created` > `appended` /
+ * `replaced` > `completed_zero` (and a deliberate `skipped` ranks last, so an
+ * explicit zero never degrades to a skip and vice versa). The precedence is a
+ * fixed rank, never the call order: two runs that made the same writes produce
+ * the same Run State. An append and a rewrite share one rank: both modify an
+ * entry that existed, and neither is worth more than the other.
  */
 const CONSOLIDATION_RANK: Record<ConsolidationStatus, number> = {
   created: 4,
+  appended: 3,
   replaced: 3,
   completed_zero: 1,
   skipped: 0,
@@ -332,6 +335,7 @@ const CONSOLIDATION_RANK: Record<ConsolidationStatus, number> = {
 
 const SUCCESS_OUTCOMES = new Set<ConsolidationStatus>([
   "created",
+  "appended",
   "replaced",
   "completed_zero",
   "skipped"
@@ -372,10 +376,16 @@ function mergeConsolidation(
     if (previousRefused && !incomingRefused) return previous;
     return incoming;
   }
+  const incomingRank = CONSOLIDATION_RANK[incoming.status];
+  const previousRank = CONSOLIDATION_RANK[previous.status];
   const status =
-    CONSOLIDATION_RANK[incoming.status] >= CONSOLIDATION_RANK[previous.status]
+    incomingRank > previousRank
       ? incoming.status
-      : previous.status;
+      : incomingRank < previousRank
+        ? previous.status
+        : incoming.status === "replaced" || previous.status === "replaced"
+          ? "replaced"
+          : incoming.status;
   return {
     ...incoming,
     status,
