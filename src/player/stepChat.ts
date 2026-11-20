@@ -148,6 +148,10 @@ function composeResponder(selection: AgentSelection): StepChatResponder {
       // never sent to an Agent Profile the panel has not verified.
       whenReady: () => selection.whenInitialProbeSettled(),
       onConversationStarted: () => selection.hasConversationStarted(),
+      // The profile whose session proved effective is the one the panel
+      // names: an initial fall-through completes its slide here, while an
+      // explicit choice stays the reader's.
+      onAgentAnswered: name => selection.recordAnswer(name),
       // A conversation failure degrades only the profile that failed: no
       // probe runs, the other cached states stay, and the selector shows the
       // state the reader would otherwise never see.

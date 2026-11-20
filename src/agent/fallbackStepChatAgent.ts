@@ -34,6 +34,12 @@ export interface FallbackStepChatOptions extends AcpStepChatResponderHooks {
    */
   onProfileFailed?(profileName: string, reason: string): void;
   /**
+   * Called once an answer settled with an Agent Profile's session, with that
+   * profile's name: the panel's selection follows the profile that really
+   * answered while the reader has not chosen by hand.
+   */
+  onAgentAnswered?(profileName: string): void;
+  /**
    * The reader's model choice for one Agent Profile: each profile's responder
    * replays it on every session it opens. A terminal reader has no selector
    * and passes none.
@@ -118,9 +124,11 @@ export function createFallbackStepChatResponder(
               }
             });
             // The answer settled with this profile: every later question is
-            // asked to it alone.
+            // asked to it alone, and the panel learns which Agent Profile its
+            // session proved effective.
             answered = profile;
             selected = index;
+            options.onAgentAnswered?.(profile.name);
             return answer;
           } catch (error) {
             if (attempt !== generation) throw error;
