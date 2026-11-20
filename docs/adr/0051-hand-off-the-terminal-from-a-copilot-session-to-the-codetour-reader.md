@@ -121,9 +121,12 @@ no-terminal branch, which is the only branch CLI 1.0.114 reaches.
   CLI 1.0.114; the user leaves the session to read. The ticket's second
   acceptance criterion (read in the same session, then get the prompt back) is
   therefore not met on this host, and the docs say so.
-* The inherited-terminal branch is exercised by tests against a recording CLI
-  only. No shipping host passes the guard yet, so its behaviour on a real TUI
-  after the reader exits (repaint, cooked mode, pending input) is unverified.
+* The inherited-terminal branch is covered by tests against a recording CLI,
+  and was run manually under a pseudo-terminal (`script -q /dev/null`) with the
+  real reader: the clean quit logged "closed; the terminal is back in your
+  Copilot session" and a killed reader logged its exit code. No shipping host
+  reports a TTY, so how a real TUI behaves after the reader exits (repaint,
+  cooked mode, pending input) is still unverified in a Copilot session.
 * Choosing a Tour requires host elicitation. A session without it is told to
   name the Tour explicitly, as before.
 * The `/dev/tty` route is not a substitute: opening that device does not
