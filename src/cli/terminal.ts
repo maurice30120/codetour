@@ -5,6 +5,7 @@ import { createSystemSpeech } from "./narration/SystemSpeech";
 import { palette } from "./palette";
 import { commitFileReader, openTerminalChat } from "./stepChatSupport";
 import { fit, tail, wrapLine } from "./terminalLayout";
+import { createOpenInVsCodeInvoker, type OpenInVsCodeInvoker } from "./openInVscode";
 import { createReader, type TourReader } from "./reader/reader";
 import type { ConversationResponder } from "./reader/collaborators";
 import type { ReaderKeyEvent } from "./reader/readerInput";
@@ -32,6 +33,8 @@ export interface TerminalTourCollaborators {
   speech?: NarrationController;
   /** The conversation responder over the Step Chat failover by default. */
   responder?: ConversationResponder;
+  /** The Open-in-VS Code invoker over the decision module by default (ticket #244). */
+  openInVsCode?: OpenInVsCodeInvoker;
 }
 
 export interface TerminalReaderCompositionOptions {
@@ -78,6 +81,10 @@ export function composeTerminalReader(options: TerminalReaderCompositionOptions)
     // the engine seam — to the reader, which keeps only the policy.
     speech: injected.speech ?? new NarrationController({ engine: createSystemSpeech() }),
     responder,
+    // Ticket #244: the default Open-in-VS Code collaborator runs the pure
+    // decision module — canonical workspace, reuse or new window, extension
+    // URI contract — with the real `code` launcher.
+    openInVsCode: injected.openInVsCode ?? createOpenInVsCodeInvoker(),
     readCommitFile: commitFileReader(root),
     onViewChange: options.onViewChange
   });
