@@ -746,7 +746,7 @@
     "webpack-merge": "^5.8.0"
   },
   "scripts": {
-    "build": "npm --prefix packages/description-renderer run build && npm --prefix packages/knowledge run build && npm --prefix packages/mcp-server run build && webpack --mode production && node scripts/prepare-resvg-runtime.js",
+    "build": "npm --prefix packages/description-renderer run build && npm --prefix packages/knowledge run build && npm --prefix packages/mcp-server run build && webpack --mode production && node scripts/prepare-resvg-runtime.js && node scripts/copy-knowledge-vendor.js",
     "check:fast": "npm --prefix packages/knowledge test && tsc -p tsconfig.test.json --noEmit && node --test test/copilot-adapter.test.mjs && npm --prefix packages/exploration-poc run typecheck && npm --prefix packages/exploration-poc test",
     "watch": "webpack --mode development --watch",
     "package": "node scripts/package-extension.js",

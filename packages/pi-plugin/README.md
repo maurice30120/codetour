@@ -39,20 +39,46 @@ instead of being declared on every request. A user `mcp.json` entry named
 extension never declares its own server in a file, so a session can never load
 two copies of the tools.
 
+**Registering is not connecting.** Pi's built-in MCP support connects
+registered servers in the background, and the tools of a connected server
+appear as `mcp__codetour__*` in `pi.getAllTools()`. When that support is
+disabled or replaced, the server stays registered and unconnected, and Pi
+reports `MCP server "codetour" is registered, but no loaded extension connects
+MCP servers`. The extension reads the registry passively to detect this: it
+never handles `mcp_servers_change`, because handling that event would make it
+the extension responsible for connecting registered servers and would silence
+Pi's own diagnostic (ticket #265).
+
 ## `/codetour`
 
-`/codetour` collects the two generation choices with `ctx.ui.select`, creates a
-run identity, writes `.tours/.log/codetour-run-<runId>.json`, then delivers
-`/skill:codetour-generate type=… [reviewMode=…] runId=… [request=…]`. The agent
-asks the MCP for the served prompt and creates the Tour itself.
+`/codetour` first verifies that the CodeTour MCP server is connected in this
+session: at least one `mcp__codetour__*` tool must be listed by
+`pi.getAllTools()`, whatever its exposure. Without one it refuses to start and
+prints a diagnostic naming the observed fact, the two causes Pi allows to be
+told apart — the built-in MCP support is disabled or replaced, or the
+connection is still starting — and the repair: `pi config` (Built-in → mcp), or
+remove `-builtin:mcp` from the settings, then `/reload`, and check with `/mcp`
+that `codetour` is listed with the extension as its source and that tool search
+finds the seven `mcp__codetour__*` tools. This paragraph is the single
+authoritative statement of that repair: the skill and the spec point here
+rather than restating it. No run state is created and the skill is not invoked,
+so a refused `/codetour` can never be mistaken for a started generation. The
+check is read once per command, never polled: a connection that completes later
+is picked up by the next `/codetour`.
+
+`/codetour` then collects the two generation choices with `ctx.ui.select`,
+creates a run identity, writes `.tours/.log/codetour-run-<runId>.json`, then
+delivers `/skill:codetour-generate type=… [reviewMode=…] runId=… [request=…]`.
+The agent asks the MCP for the served prompt and creates the Tour itself.
 
 Pi exposes MCP **tools** but not MCP **prompts**, so the served prompt is
 obtained with `get_generation_prompt` rather than `prompts/get`. The prompt text
 is the same one the Copilot adapter fetches.
 
-A cancelled choice stops the command with no run state. A failed workspace
-resolution, a failed state write or a refused delivery removes the state and
-reports the error; no fallback prompt exists.
+A cancelled choice stops the command with no run state. An unconnected MCP
+server refuses the command before any choice, with the diagnostic and repair
+steps above. A failed workspace resolution, a failed state write or a refused
+delivery removes the state and reports the error; no fallback prompt exists.
 
 ## The guard
 
@@ -77,17 +103,21 @@ When a run closes (the consolidation was assessed), the guard reports the
 closing line and then asks the user how to open the created Tour — never a
 step list or a summary in the Tour's place:
 
-- **Terminal** — the real interactive reader, run at the workspace root:
-  `codetour "<Tour title>"` (or `codetour --internal-tour "<tour path>"`).
-  The reader plays in the user's terminal, always the Playback Surface,
-  never an independent window; the extension hands over the command only and
-  never spawns a process (ticket #242).
-- **VS Code** — `codetour --internal-open-vscode "<tour path>"`, run at the
+- **Terminal** — the real interactive reader, spawned at once from the
+  managed launcher (the `launcher.json` CLI, not whatever `codetour` happens
+  to be on `PATH`): `codetour --internal-tour "<tour path>"` (or the default
+  reading path on the recorded title). The spawn inherits the session's
+  terminal — always the Playback Surface, never a PTY or an independent
+  window — the extension waits for the reading to end, then the terminal is
+  back with the session. A non-interactive session or a failed spawn degrades
+  to the documented hand-over command, never a crash (ticket #242, review
+  fix F2).
+- **VS Code** — the managed launcher executes `--internal-open-vscode "<tour path>"` at the
   workspace root: the Open-in-VS Code contract of ticket #244, the Tour at its
   active step (the first one right after generation). The decision lives once
-  in the CLI's `openInVscode` module (canonical workspace, window detection,
-  no duplicate window, the VS Code-absent case); the dialogue only hands over
-  the command. During reading, pressing `o` in the terminal reader performs
+  in the CLI's `openInVscode` module (canonical workspace and the
+  VS Code-absent case); a failure is reported with a
+  manual command. During reading, pressing `o` in the terminal reader performs
   the same opening at the currently displayed Step.
 
 The ask is once per run; a declined ask hands over nothing and leaves no
@@ -112,7 +142,17 @@ absence means "not measured", never "zero".
 ## Requirements
 
 - A Pi version that supports `registerMcpServer`, `registerCommand`,
-  `agent_before_settle` with `continue: true`, and package manifests.
+  `agent_before_settle` with `continue: true`, `getAllTools()`, and package
+  manifests.
+- **Pi's built-in MCP support must be enabled.** Registered servers are
+  connected by it; a settings file that disables it
+  (`"extensions": ["-builtin:mcp"]`, or `-builtin:mcp` in a project override),
+  or an installed extension that replaces it (such as `pi-mcp-adapter`),
+  leaves the `codetour` server registered but unconnected, and Pi reports
+  `MCP server "codetour" is registered, but no loaded extension connects MCP
+  servers`. `/codetour` refuses to start in that case; the diagnostic and its
+  repair are stated once, in [`/codetour`](#codetour) above. `pi mcp list`
+  cannot confirm a connection, because shell commands do not load extensions.
 - `codetour` on `PATH` for a direct `pi install` of this source (the managed
   install writes an absolute launcher).
 - No Node subprocess and no extra hook runtime: everything runs inside Pi.

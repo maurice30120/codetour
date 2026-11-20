@@ -30,7 +30,7 @@ import { validateNewKnowledgeName } from './name';
  * as fully backed (the signal is advisory and names no cited path or hash).
  * Every mode runs its critical section — entry re-read, revision comparison,
  * evidence stability re-check, staging file, publication — under one catalogue
- * lock (ADR 0049). `create` publishes by exclusive hard link, which is atomic
+ * lock (ADR 0050). `create` publishes by exclusive hard link, which is atomic
  * and can never overwrite an existing entry; `replace` rewrites one entry
  * against the Knowledge Revision the caller read and publishes by atomic
  * rename, so a reader always sees the previous whole file or the new one;
@@ -140,6 +140,7 @@ export type KnowledgeSaveRejectionReason =
   | 'catalogue_unusable'
   | 'symbol_unresolved'
   | 'symbol_ambiguous'
+  | 'symbol_unparseable'
   | 'unsupported_language'
   | 'symbol_hash_mismatch'
   | 'engine_changed'
@@ -175,7 +176,7 @@ export interface KnowledgeConflict {
  */
 export type KnowledgeSaveWarning =
   | { name: string; code: 'insufficient_backing'; distinctEvidencePaths: number }
-  | { name: string; code: 'symbol_proof_fallback'; path: string; reason: 'symbol_unresolved' | 'symbol_ambiguous' | 'unsupported_language' };
+  | { name: string; code: 'symbol_proof_fallback'; path: string; reason: 'symbol_unresolved' | 'symbol_ambiguous' | 'symbol_unparseable' | 'unsupported_language' };
 
 export type KnowledgeSaveResult =
   | { status: 'saved'; saved: string[]; warnings: KnowledgeSaveWarning[] }
@@ -287,8 +288,8 @@ async function validateProposalEvidence(
       // symbol is refused and the repair is done with `file` proofs.
       const fallbackReason = mode === 'create' && hashed.status === 'absent' && (hashed.reason === 'symbol_unresolved' || hashed.reason === 'symbol_ambiguous')
         ? hashed.reason
-        : mode === 'create' && hashed.status === 'invalid' && hashed.reason === 'unsupported_language'
-          ? 'unsupported_language' as const
+        : mode === 'create' && hashed.status === 'invalid' && (hashed.reason === 'unsupported_language' || hashed.reason === 'symbol_unparseable')
+          ? hashed.reason
           : undefined;
       if (!fallbackReason) {
         return { ok: false, reason: hashed.status === 'invalid' ? hashed.reason : 'file_missing' };
@@ -551,7 +552,7 @@ const removeQuietly = async (target: string): Promise<void> => {
 };
 
 /**
- * The single catalogue lock (spec #232, ADR 0049). It is catalogue-wide and
+ * The single catalogue lock (spec #232, ADR 0050). It is catalogue-wide and
  * not per entry because the canonicalizer marker belongs to no entry: a marker
  * protected by its own conditional lock would be a lock a path can forget.
  * Readers take no lock at all.

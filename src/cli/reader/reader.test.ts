@@ -1,7 +1,11 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CodeTour, CodeTourStep } from "../../store";
-import type { StepChatAnswerEvents, StepChatRequest } from "../../agent/stepChatContract";
+import type {
+  StepChatAgentIdentity,
+  StepChatAnswerEvents,
+  StepChatRequest
+} from "../../agent/stepChatContract";
 import { NarrationController } from "../narration/NarrationController";
 import type { NarrationEngine } from "../narration/SystemSpeech";
 import type { ConversationResponder, CommitFileReader, DescriptionRenderer, StepContextResolver } from "./collaborators";
@@ -91,13 +95,18 @@ class FakeDescriptionRenderer {
 
 /** A conversation responder the test scripts; no ACP agent process is started. */
 class FakeResponder implements ConversationResponder {
-  readonly providerName = "Fake";
+  /** What the responder reports as the agent answering right now. */
+  agent: StepChatAgentIdentity | undefined = { agent: "Fake", effective: false };
   readonly requests: StepChatRequest[] = [];
   cancellations = 0;
   disposed = false;
   /** The answer the next question resolves with; the test can override it. */
   nextAnswer: (request: StepChatRequest, events?: StepChatAnswerEvents) => Promise<string> =
     async () => "Fake answer";
+
+  identity(): StepChatAgentIdentity | undefined {
+    return this.agent;
+  }
 
   answer(request: StepChatRequest, events?: StepChatAnswerEvents): Promise<string> {
     this.requests.push(request);
@@ -674,8 +683,8 @@ test("a wide terminal spells the hints out and an agent adds the ask hint", asyn
   const status = reader.getState().status;
   assert.equal(status.mode, "READ");
   assert.equal(status.hints, " ←/→ previous/next · j/k scroll · PgUp/PgDn page · a ask · q quit");
-  // The right segments: the voice state first, then the provider.
-  assert.deepEqual(status.rightSegments, ["VOICE OFF", "fake"]);
+  // The right segments: the voice state first, then the agent.
+  assert.deepEqual(status.rightSegments, ["VOICE OFF", "fake (preselected)"]);
 });
 
 test("the voice state leads the right segments and no agent paints only it", async () => {
@@ -908,6 +917,7 @@ test("a question without an agent fails the exchange with the guidance", async (
     answer: "This step's responder is not available. Tour reading stays usable.",
     activity: undefined,
     toolUses: [],
+    agent: undefined,
     pending: false,
     interrupted: false,
     failed: true
@@ -941,8 +951,8 @@ test("an answer streams into the exchange, reports tools and completes", async (
   assert.equal(state.conversation.exchanges[0].activity, "thinking");
   assert.deepEqual(state.conversation.exchanges[0].toolUses, []);
   assert.equal(state.conversation.meta, "1 exchange");
-  // The status line gains the exchange count after the voice state and the provider.
-  assert.deepEqual(state.status.rightSegments, ["VOICE OFF", "fake", "1 exchange"]);
+  // The status line gains the exchange count after the voice state and the agent.
+  assert.deepEqual(state.status.rightSegments, ["VOICE OFF", "fake (preselected)", "1 exchange"]);
 });
 
 test("a streaming answer paints WAIT mode and hides the ask hint", async () => {
@@ -1239,6 +1249,8 @@ test("a question begins a pending exchange before the agent is contacted", async
     answer: "",
     activity: undefined,
     toolUses: [],
+    // The agent is not named before its handshake confirms one.
+    agent: undefined,
     pending: true,
     interrupted: false,
     failed: false
@@ -1608,15 +1620,44 @@ test("a second close awaits the first one's disposal", async () => {
   assert.equal(second, first);
 });
 
-test("the conversation panel carries the provider name for the agent role line", async () => {
+test("the conversation panel names the agent answering, preselected before the handshake", async () => {
   const responder = new FakeResponder();
   const painted = paintHarness(
     [{ title: "First", description: "Hello" }],
     { responder }
   );
   await openPainted(painted);
-  assert.equal(painted.reader.getState().conversation.providerName, "Fake");
+  // No session exists yet: the responder only has a preselected profile.
+  assert.deepEqual(painted.reader.getState().conversation.agent, {
+    agent: "Fake",
+    effective: false
+  });
+
   const bare = paintHarness([{ title: "First", description: "Hello" }]);
   await openPainted(bare);
-  assert.equal(bare.reader.getState().conversation.providerName, undefined);
+  assert.equal(bare.reader.getState().conversation.agent, undefined);
+});
+
+test("the panel and the status line follow the effective agent once the handshake confirmed it", async () => {
+  const responder = new FakeResponder();
+  const { reader, descriptions } = harness(
+    [{ title: "Only", description: "Hello" }],
+    { responder, columns: 130 }
+  );
+  const opening = reader.open();
+  descriptions.commit(0, "<p>only</p>");
+  await opening;
+  // Before the handshake the reader has the preselection only.
+  assert.deepEqual(reader.getState().status.rightSegments, ["VOICE OFF", "fake (preselected)"]);
+
+  // The session handshake confirms another Agent Profile and its model: the
+  // panel and the status line both name the agent that really answers.
+  responder.agent = { agent: "Copilot", model: "gpt-5", effective: true };
+  const state = reader.getState();
+  assert.deepEqual(state.conversation.agent, {
+    agent: "Copilot",
+    model: "gpt-5",
+    effective: true
+  });
+  assert.deepEqual(state.status.rightSegments, ["VOICE OFF", "copilot · gpt-5 (effective)"]);
 });

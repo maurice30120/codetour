@@ -4,12 +4,8 @@ import { pathToFileURL } from "url";
 import { loadTour } from "../store/tourSchema";
 import {
   canonicalWorkspacePath,
-  executeOpenInVsCodePlan,
-  planOpenInVsCode,
-  relativeTourPath,
-  detectOpenVsCodeWindows,
-  isVsCodeReachable,
-  type OpenExecutionDeps
+  openTourInVsCode,
+  type OpenInVsCodeCompositionDeps
 } from "./openInVscode";
 
 /**
@@ -18,23 +14,16 @@ import {
  *
  * The end-of-generation dialogue of the Pi plugin hands this command over, so
  * the "VS Code" choice walks the same real opening as the reading flow — the
- * T5 decision module is reused as-is (canonical workspace, best-effort window
- * detection, plan, executor), and this runner only debouches it, exactly like
+ * T5 decision module is reused as-is (canonical workspace, plan, executor),
+ * and this runner only debouches it, exactly like
  * `--internal-tour` debouches the reader composition. The active Step after a
  * generation is the first one.
  *
- * The Windows detection, the reachability probe and the plan executor are
+ * The reachability probe and the plan executor are
  * injectable seams: the tests drive this runner in-process with fakes, no
  * PTY and no real `code` process.
  */
-export interface InternalOpenVscodeDeps {
-  /** The canonical workspaces already open in running VS Code windows. */
-  openWindows?: () => Promise<string[]>;
-  /** Whether the `code` CLI answers. */
-  vscodeAvailable?: () => Promise<boolean>;
-  /** The execution seams of the plan executor. */
-  execution?: Partial<OpenExecutionDeps>;
-}
+export type InternalOpenVscodeDeps = OpenInVsCodeCompositionDeps;
 
 export async function runInternalOpenVsCode(args: string[], deps?: InternalOpenVscodeDeps): Promise<void> {
   if (args.length < 1 || args.length > 2) {
@@ -50,16 +39,5 @@ export async function runInternalOpenVsCode(args: string[], deps?: InternalOpenV
     await fs.readFile(tourFile, "utf8"),
     pathToFileURL(tourFile).toString()
   ).id;
-  const [openWindows, vscodeAvailable] = await Promise.all([
-    deps?.openWindows ? deps.openWindows() : detectOpenVsCodeWindows(),
-    deps?.vscodeAvailable ? deps.vscodeAvailable() : isVsCodeReachable()
-  ]);
-  const plan = planOpenInVsCode({
-    workspace,
-    tourPath: relativeTourPath(tourId, workspace),
-    step: 0,
-    openWindows,
-    vscodeAvailable
-  });
-  await executeOpenInVsCodePlan(plan, deps?.execution);
+  await openTourInVsCode({ workspaceRoot: workspace, tourId, step: 0 }, deps);
 }

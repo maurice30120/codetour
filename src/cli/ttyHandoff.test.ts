@@ -125,7 +125,12 @@ test("an interactive session suspends itself before the reader starts, then resu
   // then the reader's options — the session's argv is preserved in order.
   assert.equal(calls[0].command, process.execPath);
   assert.match(String(calls[0].args[0]), /dist[\/]cli\.js$/);
-  assert.deepEqual(calls[0].args.slice(1), ["--internal-tour", "samples/demo.tour", process.cwd(), "--experimental-tty-handoff"]);
+  // The handoff flag NEVER travels to the child (review F1): the child runs
+  // the internal reading path, bare; a flag without a value reaches Commander
+  // as `true` and made the child crash with `TypeError: boolean true is not
+  // iterable` before it ever read the Tour.
+  assert.deepEqual(calls[0].args.slice(1), ["--internal-tour", "samples/demo.tour", process.cwd()]);
+  assert.ok(!calls[0].args.includes("--experimental-tty-handoff"));
 });
 
 test("an interrupted reader still returns the terminal to the session exactly once", async () => {
@@ -184,7 +189,8 @@ test("the handoff runs the reader inside the same terminal, without opening one"
   assert.deepEqual(calls[0].args.slice(1, 4), [
     "--internal-tour", path.join("samples", "demo.tour"), before
   ]);
-  assert.ok(calls[0].args.includes("--experimental-tty-handoff"));
+  // No handoff flag in the child's command line (review F1).
+  assert.ok(!calls[0].args.includes("--experimental-tty-handoff"));
   // One suspend, one resume — the handoff's own, token-consistent.
   assert.equal(session.suspends.length, 1);
   assert.equal(session.resumes.length, 1);

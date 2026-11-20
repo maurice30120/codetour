@@ -28,7 +28,7 @@ const originalLoad = (nodeModule as unknown as { _load: unknown })._load as (
 };
 
 const { registerPlayerModule } = require("../player");
-const { setStepChatResponder } = require("./stepChat");
+const { setStepChatAgentSelection, setStepChatResponder } = require("./stepChat");
 const { createAcpStepChatResponder } = require("../agent/stepChatAgent");
 
 const fakeAgentScript = path.join(
@@ -104,8 +104,20 @@ interface StepChatUpdate {
     failed?: boolean;
     pending?: boolean;
     interrupted?: boolean;
+    agent?: { agent: string; model?: string; effective: boolean };
   }[];
   responding?: boolean;
+  agent?: { agent: string; model?: string; effective: boolean };
+  agents?: {
+    name: string;
+    state: string;
+    detail?: string;
+    selected?: boolean;
+    selectable?: boolean;
+    signIn?: boolean;
+  }[];
+  modelOptions?: { value: string; name: string }[];
+  model?: string;
 }
 
 function stepChatUpdates(): StepChatUpdate[] {
@@ -195,7 +207,7 @@ function registerAcpResponder(
   behavior?: string
 ) {
   setStepChatResponder(
-    createAcpStepChatResponder(() => fakeAgentEntry(agent, behavior))
+    createAcpStepChatResponder({ name: "Fake agent", entry: fakeAgentEntry(agent, behavior) })
   );
 }
 
@@ -370,11 +382,14 @@ test("a missing agent entry reports the launch failure in the chat and the reade
   resetChatState();
   const agent = createAgentWorkspace();
   setStepChatResponder(
-    createAcpStepChatResponder(() => ({
-      command: "codetour-no-such-acp-agent",
-      args: [],
-      cwd: agent.workspace
-    }))
+    createAcpStepChatResponder({
+      name: "Fake agent",
+      entry: {
+        command: "codetour-no-such-acp-agent",
+        args: [],
+        cwd: agent.workspace
+      }
+    })
   );
 
   registerPlayerModule(host.extensionContext);
@@ -470,12 +485,51 @@ test(`a lost agent connection lands in the chat and the next question relaunches
 });
 }
 
+test("the responder names its Agent Profile as effective only once the handshake confirms it", { timeout: 60_000 }, async () => {
+  const agent = createAgentWorkspace();
+  const announced: { agent: string; model?: string; effective: boolean }[] = [];
+  const responder = createAcpStepChatResponder({
+    name: "Copilot",
+    entry: fakeAgentEntry(agent)
+  });
+  const request = {
+    question: "Qui répond ?",
+    context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+    history: [],
+    workspaceRoot: agent.workspace
+  };
+  try {
+    // Nothing has been launched yet: the profile is only preselected.
+    assert.equal(responder.identity().agent, "Copilot");
+    assert.equal(responder.identity().effective, false);
+
+    await responder.answer(request, {
+      onAgentIdentity: (identity: { agent: string; model?: string; effective: boolean }) =>
+        announced.push(identity)
+    });
+
+    // The handshake confirmed the profile once, and it stays effective for
+    // the session it opened.
+    assert.deepEqual(announced.map(identity => [identity.agent, identity.effective]), [
+      ["Copilot", true]
+    ]);
+    assert.equal(responder.identity().agent, "Copilot");
+    assert.equal(responder.identity().effective, true);
+    assert.equal(responder.identity().model, undefined);
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+  // The released responder no longer answers as an effective agent.
+  assert.equal(responder.identity().effective, false);
+});
+
 test("closing the reading webview releases the ACP agent process", async () => {
   resetChatState();
   const agent = createAgentWorkspace();
   const processes: { exited: Promise<unknown> }[] = [];
   setStepChatResponder(
-    createAcpStepChatResponder(() => fakeAgentEntry(agent), {
+    createAcpStepChatResponder({ name: "Fake agent", entry: fakeAgentEntry(agent) }, {
       onProcess: (spawned: { exited: Promise<unknown> }) =>
         processes.push(spawned)
     })
@@ -916,6 +970,58 @@ for (const failingBehavior of ["no-ask-mode", "prompt-fails", "silent-start"]) {
   });
 }
 
+test("the failover responder preselects its first candidate and names the agent that really answers", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  const responder = createFallbackStepChatResponder(() => [
+    { name: "Vibe", entry: { command: "/missing/codetour-agent", cwd: agent.workspace } },
+    { name: "Copilot", entry: fakeAgentEntry(agent) }
+  ]);
+  try {
+    // Before any question the first candidate is only the preselection.
+    assert.equal(responder.identity()?.agent, "Vibe");
+    assert.equal(responder.identity()?.effective, false);
+
+    const announced: string[] = [];
+    const answer = await responder.answer({
+      question: "Qui répond ?", workspaceRoot: agent.workspace, history: [],
+      context: { available: false, description: "A tour step" }
+    }, { onAgentIdentity: (identity: { agent: string }) => announced.push(identity.agent) });
+    assert.match(answer, /Tour answer/);
+
+    // The failing candidate never answers: the handshake that confirmed the
+    // agent is the one of the profile that actually produced the answer.
+    assert.deepEqual(announced, ["Copilot"]);
+    assert.equal(responder.identity()?.agent, "Copilot");
+    assert.equal(responder.identity()?.effective, true);
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+});
+
+test("the failover chrome announces the next agent in English", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  const responder = createFallbackStepChatResponder(() => [
+    { name: "Vibe", entry: { command: "/missing/codetour-agent", cwd: agent.workspace } },
+    { name: "Copilot", entry: fakeAgentEntry(agent) }
+  ]);
+  const activities: string[] = [];
+  try {
+    const answer = await responder.answer({
+      question: "Chrome ?", workspaceRoot: agent.workspace, history: [],
+      context: { available: false, description: "A tour step" }
+    }, { onActivity: (message: string) => activities.push(message) });
+    assert.match(answer, /Tour answer/);
+    assert.ok(activities.includes("Vibe unavailable, trying the next agent…"),
+      "the failover activity names the Agent Profile in English: " + activities.join(" | "));
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+});
+
 test("ACP fallback reports all failures and can retry after installing an agent", async () => {
   resetChatState();
   const agent = createAgentWorkspace();
@@ -932,6 +1038,8 @@ test("ACP fallback reports all failures and can retry after installing an agent"
     for (const name of ["Vibe", "Copilot", "Codex", "Claude Code"]) {
       assert.ok(lastChatUpdate().exchanges[0].answerHtml.includes(name));
     }
+    assert.ok(lastChatUpdate().exchanges[0].answerHtml.includes("No ACP agent available"),
+      "the unavailable error is in English");
     installed = true;
     chatPanel().receive({ type: "askQuestion", question: "Après installation ?" });
     await waitForCompletedAnswer(update => update.exchanges.length === 2);
@@ -956,7 +1064,7 @@ test("ACP fallback never replaces an agent after answer text has streamed", asyn
   } finally { chatPanel().dispose(); first.cleanup(); second.cleanup(); }
 });
 
-test("stopping during ACP startup never starts a fallback provider", async () => {
+test("stopping during ACP startup never starts a fallback Agent Profile", async () => {
   resetChatState();
   const first = createAgentWorkspace(); const second = createAgentWorkspace();
   setStepChatResponder(createFallbackStepChatResponder(() => [
@@ -977,7 +1085,7 @@ test("stopping during ACP startup never starts a fallback provider", async () =>
 
 
 for (const workingIndex of [0, 2, 3]) {
-  test(`ACP fallback reaches provider ${workingIndex + 1} in priority order`, async () => {
+  test(`ACP fallback reaches Agent Profile ${workingIndex + 1} in priority order`, async () => {
     resetChatState();
     const agent = createAgentWorkspace();
     const attempted: string[] = [];
@@ -1020,7 +1128,7 @@ test("stopping after the handshake begins prevents timed-out startup from fallin
 });
 
 
-test("concurrent step questions share ordered fallback without skipping the working provider", async () => {
+test("concurrent step questions share ordered fallback without skipping the working Agent Profile", async () => {
   resetChatState();
   const first = createAgentWorkspace();
   const second = createAgentWorkspace();
@@ -1117,5 +1225,463 @@ test("a fresh question starts after cancelling an ACP agent that never acknowled
     clearTimeout(deadline);
     await responder.dispose();
     await agent.cleanup();
+  }
+});
+
+const { AgentSelection } = require("../agent/agentCatalogue");
+
+/**
+ * Registers the panel's Agent Selection over two catalogue profiles, each
+ * launching its own fake ACP agent: the probe is in process, so no agent is
+ * started before a question, and each agent's log proves who answered.
+ */
+function registerAgentChoice(
+  first: AgentWorkspace,
+  second: AgentWorkspace,
+  firstBehavior?: string
+) {
+  const probed: string[] = [];
+  const selection = new AgentSelection({
+    profiles: [
+      { name: "Copilot", rank: 0, entry: () => fakeAgentEntry(first, firstBehavior) },
+      { name: "Vibe", rank: 1, entry: () => fakeAgentEntry(second) }
+    ],
+    probe: async (profile: { name: string }) => {
+      probed.push(profile.name);
+      return { availability: { state: "available", configOptions: [] } };
+    }
+  });
+  // The panel owns its agents only when no responder is injected: the tests
+  // above inject their own responders and leave them registered.
+  setStepChatResponder(undefined);
+  setStepChatAgentSelection(() => selection);
+  return { selection, probed };
+}
+
+test("choosing another agent keeps the step history and opens a new session for the next question", async () => {
+  resetChatState();
+  const copilot = createAgentWorkspace();
+  const vibe = createAgentWorkspace();
+  const agents = registerAgentChoice(copilot, vibe);
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    chatPanel().receive({ type: "askQuestion", question: "Qui répond d'abord ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+    assert.equal(lastChatUpdate().agent?.agent, "Copilot");
+    assert.equal(lastChatUpdate().agent?.effective, true);
+    await waitForLog(copilot.logPath, found => promptCount(found) === 1);
+
+    // The reader moves the conversation to another agent: the panel keeps the
+    // step's exchange and names the choice as the agent that answers next.
+    chatPanel().receive({ type: "chooseAgent", agent: "Vibe" });
+    await host.waitFor(() => lastChatUpdate().agent?.agent === "Vibe");
+    const chosen = lastChatUpdate();
+    assert.equal(chosen.agent?.effective, false, "no session of the new agent exists yet");
+    assert.equal(chosen.exchanges.length, 1, "the step history stays");
+    assert.equal(chosen.exchanges[0].question, "Qui répond d'abord ?");
+    // Nothing of the previous agent's session reaches the new one: it was
+    // released, and no prompt was sent to it again.
+    assert.equal(promptCount(readLog(copilot.logPath)), 1);
+    assert.deepEqual(readLog(vibe.logPath).filter(row => row.method === "session/prompt"), []);
+
+    // The next question opens a new session on the chosen agent, carrying the
+    // step history of the conversation the reader kept.
+    chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 2);
+    assert.equal(lastChatUpdate().agent?.agent, "Vibe");
+    const answers = await waitForLog(vibe.logPath, found => promptCount(found) === 1);
+    assert.equal(answers.filter(row => row.method === "initialize").length, 1);
+    const blocks = promptBlocks(answers);
+    assert.equal(blocks[0].text, "Et maintenant ?");
+    assert.match(blocks[2].text, /Qui répond d'abord \?/);
+    assert.match(blocks[2].text, /Tour answer, part two\./);
+    // The previous agent answered once and was never asked again.
+    assert.equal(promptCount(readLog(copilot.logPath)), 1);
+    // Each exchange keeps the agent that produced it.
+    const exchanges = lastChatUpdate().exchanges;
+    assert.equal(exchanges[0].agent?.agent, "Copilot");
+    assert.equal(exchanges[1].agent?.agent, "Vibe");
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+    await copilot.cleanup();
+    await vibe.cleanup();
+    agents.selection.dispose();
+  }
+});
+
+test("a choice made while an answer streams is ignored, never interrupting the answer", async () => {
+  resetChatState();
+  const copilot = createAgentWorkspace();
+  const vibe = createAgentWorkspace();
+  // The first agent streams one chunk, then keeps the answer in progress
+  // until the reader stops it: no timing of a real model is involved.
+  const agents = registerAgentChoice(copilot, vibe, "slow");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    chatPanel().receive({ type: "askQuestion", question: "Question longue ?" });
+    await host.waitFor(() =>
+      stepChatUpdates().some(
+        update =>
+          update.responding === true &&
+          update.exchanges[0]?.answerHtml?.includes("Working")
+      )
+    );
+
+    // The reader's choice arrives mid-answer: it is refused, so the answer is
+    // never spliced with another agent's session.
+    chatPanel().receive({ type: "chooseAgent", agent: "Vibe" });
+    await new Promise(resolve => setTimeout(resolve, 200));
+    assert.equal(lastChatUpdate().agent?.agent, "Copilot");
+    assert.equal(agents.selection.selectedProfile()?.profile.name, "Copilot");
+    assert.deepEqual(
+      readLog(vibe.logPath).filter(row => row.method === "session/prompt"),
+      [],
+      "no session of the chosen agent was started by a refused choice"
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+    await copilot.cleanup();
+    await vibe.cleanup();
+    agents.selection.dispose();
+  }
+});
+
+/** A model memory the test scripts, as the panel's Agent Selection provides it. */
+function scriptedModelMemory(initial?: string) {
+  const state = {
+    requested: initial,
+    remembered: [] as (string | undefined)[],
+    confirmed: [] as (string | undefined)[],
+    offered: [] as string[]
+  };
+  return {
+    state,
+    memory: {
+      modelFor: () => state.requested,
+      remember: (value: string | undefined) => {
+        state.remembered.push(value);
+        state.requested = value;
+      },
+      recordEffective: (value: string | undefined, offered: readonly { value: string }[]) => {
+        state.confirmed.push(value);
+        state.offered.push(offered.map(option => option.value).join(","));
+      }
+    }
+  };
+}
+
+test("the responder replays the reader's remembered model on the session it opens", { timeout: 60_000 }, async () => {
+  const agent = createAgentWorkspace();
+  const memory = scriptedModelMemory("balanced");
+  const responder = createAcpStepChatResponder(
+    { name: "Copilot", entry: fakeAgentEntry(agent, "model-option") },
+    { model: memory.memory }
+  );
+  const announced: { agent: string; model?: string; effective: boolean }[] = [];
+  try {
+    await responder.answer(
+      {
+        question: "Quel modèle ?",
+        context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+        history: [],
+        workspaceRoot: agent.workspace
+      },
+      {
+        onAgentIdentity: (identity: { agent: string; model?: string; effective: boolean }) =>
+          announced.push(identity)
+      }
+    );
+
+    // The requested value reached the agent and its response is what the
+    // reader is told: the effective model, not the request.
+    const requests = await waitForLog(agent.logPath, records =>
+      records.some(record => record.method === "session/set_config_option")
+    );
+    const setConfig = requests.find(
+      record => record.method === "session/set_config_option"
+    );
+    assert.equal((setConfig!.params as { value: string }).value, "balanced");
+    assert.equal(responder.identity().model, "balanced");
+    assert.deepEqual(announced, [{ agent: "Copilot", model: "balanced", effective: true }]);
+    assert.deepEqual(memory.state.confirmed, ["balanced"]);
+    assert.deepEqual(memory.state.offered, ["fast,balanced,smart"]);
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+});
+
+test("a model the reader chooses before any session is remembered, and changed live once one is open", { timeout: 60_000 }, async () => {
+  const agent = createAgentWorkspace();
+  const memory = scriptedModelMemory();
+  const responder = createAcpStepChatResponder(
+    { name: "Copilot", entry: fakeAgentEntry(agent, "model-option") },
+    { model: memory.memory }
+  );
+  try {
+    // No session exists yet: the choice is only remembered for the session
+    // that will open, and no process is started.
+    await responder.selectModel("fast");
+    assert.deepEqual(memory.state.remembered, ["fast"]);
+    assert.deepEqual(readLog(agent.logPath), []);
+
+    await responder.answer({
+      question: "Quel modèle ?",
+      context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+      history: [],
+      workspaceRoot: agent.workspace
+    });
+    // The remembered choice was replayed on the new session.
+    assert.equal(responder.identity().model, "fast");
+
+    // On an open session the change is requested live and confirmed by the
+    // agent; the next session of the profile replays it too.
+    await responder.selectModel("smart");
+    assert.equal(responder.identity().model, "smart");
+    assert.deepEqual(memory.state.remembered, ["fast", "smart"]);
+    assert.deepEqual(memory.state.confirmed, ["fast", "smart"]);
+    const requests = readLog(agent.logPath).filter(
+      record => record.method === "session/set_config_option"
+    );
+    assert.deepEqual(
+      requests.map(record => (record.params as { value: string }).value),
+      ["fast", "smart"]
+    );
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+});
+
+test("a model the agent refuses is never displayed: the agent's own value stays", { timeout: 60_000 }, async () => {
+  const agent = createAgentWorkspace();
+  const memory = scriptedModelMemory("fast");
+  const responder = createAcpStepChatResponder(
+    { name: "Copilot", entry: fakeAgentEntry(agent, "model-refused") },
+    { model: memory.memory }
+  );
+  try {
+    await responder.answer({
+      question: "Quel modèle ?",
+      context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+      history: [],
+      workspaceRoot: agent.workspace
+    });
+    // The agent kept its own model: the reader sees that one, and the panel
+    // records what the session really confirms.
+    assert.equal(responder.identity().model, "smart");
+    assert.deepEqual(memory.state.confirmed, ["smart"]);
+
+    // A live refusal leaves the displayed value untouched too.
+    await responder.selectModel("fast");
+    assert.equal(responder.identity().model, "smart");
+    const requests = readLog(agent.logPath).filter(
+      record => record.method === "session/set_config_option"
+    );
+    assert.equal(requests.length, 2, "both requests reached the agent");
+    assert.ok(requests.every(record => record.outcome === "refused"));
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+});
+
+/** A model selector as a probed agent announces it (ADR 0048). */
+function announcedModels(currentValue: string, values: string[]) {
+  return [{
+    id: "model",
+    name: "Model",
+    category: "model",
+    type: "select",
+    currentValue,
+    options: values.map(value => ({ value, name: value.toUpperCase() }))
+  }];
+}
+
+test("the Model control follows the agent that answered after an initial fall-through", async () => {
+  resetChatState();
+  const { AgentSelection } = require("../agent/agentCatalogue");
+  const vibe = createAgentWorkspace();
+  // Copilot is preselected — it is available, rank 0 — but its launch fails,
+  // so Vibe answers the first question. The Model control must list Vibe's
+  // values: Copilot's would be a silent no-op.
+  const probed: string[] = [];
+  const selection = new AgentSelection({
+    profiles: [
+      {
+        name: "Copilot",
+        rank: 0,
+        entry: (cwd: string) => ({
+          command: process.execPath,
+          args: [path.join(vibe.workspace, "codetour-absent-agent.js")],
+          cwd
+        })
+      },
+      { name: "Vibe", rank: 1, entry: () => fakeAgentEntry(vibe, "model-option") }
+    ],
+    probe: async (profile: { name: string }) => {
+      probed.push(profile.name);
+      return {
+        availability: {
+          state: "available" as const,
+          configOptions:
+            profile.name === "Copilot"
+              ? announcedModels("gpt-5", ["gpt-5", "gpt-6"])
+              : announcedModels("balanced", ["fast", "balanced", "smart"])
+        }
+      };
+    }
+  });
+  setStepChatResponder(undefined);
+  setStepChatAgentSelection(() => selection);
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    // Opening the selector verifies the profiles the initial probe left
+    // unverified, so Vibe is a candidate of the initial fall-through.
+    chatPanel().receive({ type: "probeUnverified" });
+    await host.waitFor(() => probed.length === 2);
+    chatPanel().receive({ type: "askQuestion", question: "Quel modèle ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+
+    const update = lastChatUpdate();
+    assert.equal(update.agent?.agent, "Vibe");
+    assert.equal(update.agent?.effective, true);
+    assert.deepEqual(
+      update.modelOptions?.map(option => option.value),
+      ["fast", "balanced", "smart"],
+      "the Model control lists the values of the agent that answered"
+    );
+    assert.equal(update.model, "smart", "the effective model is the one displayed");
+    // The initial selection completed its slide: the panel names the profile
+    // that answered, without the reader having chosen anything.
+    assert.equal(selection.selectedProfile()?.profile.name, "Vibe");
+    assert.equal(selection.hasExplicitSelection(), false);
+    assert.equal(
+      update.agents?.find(agent => agent.name === "Vibe")?.selected,
+      true
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+    selection.dispose();
+    await vibe.cleanup();
+  }
+});
+
+test("a conversation failure degrades only the faulty profile in the selector", async () => {
+  resetChatState();
+  const copilot = createAgentWorkspace();
+  const vibe = createAgentWorkspace();
+  // Copilot cannot select its Ask mode: it fails before any answer text, and
+  // the initial selection falls through to Vibe.
+  const agents = registerAgentChoice(copilot, vibe, "no-ask-mode");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    // Opening the selector verifies Vibe, the profile the initial probe left
+    // unverified: it is the only candidate the initial selection may fall
+    // through to.
+    chatPanel().receive({ type: "probeUnverified" });
+    await host.waitFor(() => agents.probed.length === 2);
+    chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+    assert.equal(lastChatUpdate().agent?.agent, "Vibe");
+    const copilotLaunches = readLog(copilot.logPath).filter(
+      row => row.method === "initialize"
+    ).length;
+
+    // The failed profile is shown in the state that explains it, with its
+    // reason, without a probe; its neighbour keeps the probed state.
+    const listed = lastChatUpdate().agents ?? [];
+    const failed = listed.find(agent => agent.name === "Copilot");
+    assert.equal(failed?.state, "connection-error");
+    assert.ok(failed?.detail, "the failure's reason is displayed");
+    assert.equal(listed.find(agent => agent.name === "Vibe")?.state, "available");
+    assert.deepEqual(agents.probed, ["Copilot", "Vibe"], "a conversation failure probes nothing");
+    // The failed profile is degraded, but the selection follows the profile
+    // whose session answered: the initial selection's slide, not a choice.
+    assert.equal(agents.selection.selectedProfile()?.profile.name, "Vibe");
+    assert.equal(agents.selection.hasExplicitSelection(), false);
+
+    // The following question stays with the agent that answered: the failed
+    // profile is never launched again.
+    chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 2);
+    assert.equal(lastChatUpdate().agent?.agent, "Vibe");
+    assert.equal(promptCount(readLog(vibe.logPath)), 2);
+    assert.equal(
+      readLog(copilot.logPath).filter(row => row.method === "initialize").length,
+      copilotLaunches
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+    await copilot.cleanup();
+    await vibe.cleanup();
+    agents.selection.dispose();
+  }
+});
+
+test("the selector follows the agent that answered, and choosing the failed one is a real change", async () => {
+  resetChatState();
+  const copilot = createAgentWorkspace();
+  const vibe = createAgentWorkspace();
+  // Copilot is preselected (rank 0 and available) but cannot select its Ask
+  // mode: it fails before any answer text.
+  const agents = registerAgentChoice(copilot, vibe, "no-ask-mode");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    chatPanel().receive({ type: "probeUnverified" });
+    await host.waitFor(() => agents.probed.length === 2);
+
+    chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+    const answered = lastChatUpdate();
+    assert.equal(answered.agent?.agent, "Vibe");
+    assert.equal(answered.agent?.effective, true);
+
+    // The selector names the profile whose session answered — the initial
+    // selection completing its slide — and lists the failed preselection with
+    // the state that explains it.
+    assert.equal(answered.agents?.find(agent => agent.name === "Vibe")?.selected, true);
+    assert.equal(answered.agents?.find(agent => agent.name === "Copilot")?.selected, false);
+    assert.equal(
+      answered.agents?.find(agent => agent.name === "Copilot")?.state,
+      "connection-error"
+    );
+    assert.equal(agents.selection.selectedProfile()?.profile.name, "Vibe");
+    assert.equal(agents.selection.hasExplicitSelection(), false);
+
+    // Choosing the failed profile is a real change, not a no-op: the next
+    // question is asked to it, fails attached to that exchange, and is never
+    // handed to the agent that had answered.
+    chatPanel().receive({ type: "chooseAgent", agent: "Copilot" });
+    await host.waitFor(() => lastChatUpdate().agent?.agent === "Copilot");
+    assert.equal(lastChatUpdate().agent?.effective, false, "no session was opened yet");
+    assert.equal(agents.selection.selectedProfile()?.profile.name, "Copilot");
+    assert.equal(agents.selection.hasExplicitSelection(), true);
+
+    chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 2);
+    assert.equal(lastChatUpdate().exchanges[1].failed, true);
+    assert.equal(
+      promptCount(readLog(vibe.logPath)),
+      1,
+      "the agent that answered is never asked again after the reader changed agent"
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+    await copilot.cleanup();
+    await vibe.cleanup();
+    agents.selection.dispose();
   }
 });

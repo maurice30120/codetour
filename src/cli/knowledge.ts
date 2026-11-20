@@ -115,14 +115,14 @@ async function listCommand(options: KnowledgeOptions): Promise<void> {
   if (!resolved) return;
   const { workspace } = resolved;
   const library = await loadKnowledgeLibrary(workspace, knowledgeDirectory(workspace));
-  const entries = await library.list(options.query);
+  const { entries, invalid } = await library.verifiedList(options.query);
   // An absent or empty catalogue is an absence, not a failure: native
   // exploration continues without Knowledge.
   if (entries.length === 0) {
-    emit({ status: "empty", workspace, entries }, KNOWLEDGE_EXIT.absent);
+    emit({ status: "empty", workspace, entries, invalid }, KNOWLEDGE_EXIT.absent);
     return;
   }
-  emit({ status: "ok", workspace, entries }, KNOWLEDGE_EXIT.ok);
+  emit({ status: "ok", workspace, entries, invalid }, KNOWLEDGE_EXIT.ok);
 }
 
 async function readCommand(name: string, options: KnowledgeOptions): Promise<void> {

@@ -24,7 +24,7 @@ import {
   VSCODE_OPTION,
   openingOptions,
   openingQuestion,
-  readerCommand,
+  playInTerminal,
   vscodeCommand,
 } from "../lib/reader.mjs";
 
@@ -41,6 +41,7 @@ import {
 // carries its own copy of the run-state contract in `lib/run-log.mjs`.
 
 const SERVER_NAME = "codetour";
+const MCP_TOOL_PREFIX = `mcp__${SERVER_NAME}__`;
 const PACKAGE_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const SKILL_COMMAND = "/skill:codetour-generate";
 
@@ -84,6 +85,47 @@ async function realWorkspace(cwd: string): Promise<string | undefined> {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Whether this session really carries the CodeTour MCP tools.
+ *
+ * Registering the server is not connecting it: Pi's built-in MCP support
+ * connects registered servers in the background, and a connected server's
+ * tools are registered as `mcp__<server>__<tool>` (`getAllTools()` lists them
+ * whatever their exposure, and a withdrawn tool becomes `hidden`). A
+ * registered server without a tool is therefore either still connecting or
+ * never connected, because the built-in support is disabled or replaced.
+ *
+ * Reading the tool registry is deliberately passive: handling
+ * `mcp_servers_change` would mark this extension as the one that connects
+ * registered servers and would suppress Pi's own diagnostic instead of
+ * reporting the real cause.
+ */
+function codeTourToolsPresent(pi: ExtensionAPI): boolean {
+  return pi.getAllTools().some((tool) => tool.name.startsWith(MCP_TOOL_PREFIX));
+}
+
+/**
+ * The diagnostic of a registered but unconnected server (ticket #265): the
+ * observed fact, the two causes Pi allows to be told apart — a disabled or
+ * replaced built-in MCP support, or a connection that is still starting — and
+ * the repair, so a refused run never reads as an operational one.
+ */
+function mcpNotConnectedMessage(): string {
+  return [
+    `CodeTour: the "${SERVER_NAME}" MCP server is registered but not connected in this session ` +
+      `(none of its ${MCP_TOOL_PREFIX}* tools exist), so no generation can start.`,
+    "Pi's built-in MCP support connects registered servers; when it is disabled or replaced " +
+      "(Built-in \u2192 mcp off in `pi config`, `-builtin:mcp` in the settings, or another " +
+      "extension handling MCP such as `pi-mcp-adapter`), the server stays registered and " +
+      "unconnected and Pi reports that no loaded extension connects MCP servers.",
+    "Repair: enable the built-in MCP support with `pi config` (Built-in \u2192 mcp) or remove " +
+      "`-builtin:mcp` from the settings, then `/reload`; `/mcp` must list `codetour` connected " +
+      "with this extension as its source (if it lists it as disabled, enable it there).",
+    "If the profile is clean, the connection may still be starting: run /codetour again in a " +
+      "moment. No run state was created.",
+  ].join(" ");
 }
 
 interface GenerationChoices {
@@ -162,17 +204,47 @@ export default function codetourPlugin(pi: ExtensionAPI) {
     if (!question) return;
     const choice = await ctx.ui.select(question, openingOptions());
     if (choice === TERMINAL_OPTION) {
-      const command = readerCommand(state);
-      if (command) {
+      // The real reader opens immediately (review F2): the launcher CLI is
+      // spawned with inherited stdio — this very terminal, never an
+      // independent window — and the call returns only when the reading ends,
+      // which hands the terminal back to the session. A non-interactive
+      // session or a failed spawn degrades to the documented hand-over
+      // command, never a crash and never a summary in the Tour's place.
+      const outcome = await playInTerminal(state, await resolveLauncher());
+      if (outcome.degraded && outcome.command) {
         ctx.ui.notify(
-          `Run ${command} at the workspace root — the reader plays in this ` +
-            "terminal, never an independent window.",
-          "info"
+          outcome.reason
+            ? `CodeTour: ${outcome.reason} Run ${outcome.command} at the ` +
+              `workspace root — the reader plays in this terminal, never an ` +
+              "independent window."
+            : `Run ${outcome.command} at the workspace root — the reader plays ` +
+              "in this terminal, never an independent window.",
+          "warning"
+        );
+      } else if (outcome.played && outcome.exitCode !== 0) {
+        ctx.ui.notify(
+          `CodeTour: the reader ended (${outcome.signal || outcome.exitCode}); ` +
+            "the terminal is back with your session.",
+          "warning"
         );
       }
     } else if (choice === VSCODE_OPTION) {
       const command = vscodeCommand(state);
-      if (command) ctx.ui.notify(`Open in VS Code (the Tour at the active step): ${command}`, "info");
+      if (!command) {
+        ctx.ui.notify("CodeTour: the created Tour has no path to open in VS Code.", "warning");
+        return;
+      }
+      const launcher = await resolveLauncher();
+      const args = [...launcher.args];
+      if (args[args.length - 1] === "mcp") args.pop();
+      try {
+        const result = await pi.exec(launcher.command, [...args, "--internal-open-vscode", state.tourPath, ctx.cwd], { cwd: ctx.cwd });
+        if (result.code !== 0) {
+          ctx.ui.notify(`CodeTour: could not open the Tour in VS Code: ${result.stderr.trim() || `exit ${result.code}`}. Run ${command} at the workspace root.`, "warning");
+        }
+      } catch (error) {
+        ctx.ui.notify(`CodeTour: could not open the Tour in VS Code: ${error instanceof Error ? error.message : String(error)}. Run ${command} at the workspace root.`, "warning");
+      }
     }
   }
 
@@ -235,6 +307,10 @@ export default function codetourPlugin(pi: ExtensionAPI) {
   pi.registerCommand("codetour", {
     description: "Start a CodeTour Project Tour or Changes Tour",
     handler: async (rawArgs, ctx) => {
+      if (!codeTourToolsPresent(pi)) {
+        ctx.ui.notify(mcpNotConnectedMessage(), "error");
+        return;
+      }
       const choices = parseChoices(rawArgs);
       let type = choices.type;
       if (!type) {

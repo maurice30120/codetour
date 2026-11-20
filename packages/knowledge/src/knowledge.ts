@@ -17,7 +17,7 @@ export interface KnowledgeMetadata {
   name: string;
   description: string;
   /**
-   * Knowledge Revision of the entry file (ADR 0048): the SHA-256 of its
+   * Knowledge Revision of the entry file (ADR 0053): the SHA-256 of its
    * complete bytes, as an opaque token. Opaque on purpose — nothing of the
    * body, of a cited path or of a source hash is derivable from it.
    */
@@ -73,6 +73,7 @@ export type KnowledgeFailureReason =
   | 'unknown_entry'
   | 'symbol_unresolved'
   | 'symbol_ambiguous'
+  | 'symbol_unparseable'
   | 'unsupported_language'
   | 'symbol_hash_mismatch'
   | 'engine_changed';
@@ -122,7 +123,7 @@ const frontmatterSchema = z.object({
 export const knowledgeDirectory = (root: string): string => join(root, '.tours', '.memory', 'knowledge');
 
 /**
- * Knowledge Revision of one entry file (ADR 0048): the SHA-256 of its complete
+ * Knowledge Revision of one entry file (ADR 0053): the SHA-256 of its complete
  * bytes. It is computed from the bytes alone, without validating the contract,
  * so it exists for an entry whose contract is already invalid; it stays
  * identical while the file is unchanged and changes with any modified byte.
@@ -257,7 +258,7 @@ const escapes = isOutsideWorkspace;
 /** Outcome of a deterministic symbol fingerprint (spec #233); no cited path or hash value ever leaves with a refusal. */
 export type SymbolFingerprintOutcome =
   | { status: 'ok'; sha256: string }
-  | { status: 'refused'; reason: 'symbol_unresolved' | 'symbol_ambiguous' | 'unsupported_language' | 'engine_changed' };
+  | { status: 'refused'; reason: 'symbol_unresolved' | 'symbol_ambiguous' | 'symbol_unparseable' | 'unsupported_language' | 'engine_changed' };
 
 /**
  * Deterministic fingerprint of one cited symbol inside ONE resolved file.
@@ -327,7 +328,7 @@ export type KnowledgePathHash =
 export type KnowledgeSymbolHash =
   | { status: 'ok'; path: string; symbol: string; sha256: string }
   | { status: 'absent'; reason: 'file_missing' | 'symbol_unresolved' | 'symbol_ambiguous' }
-  | { status: 'invalid'; reason: 'path_outside_workspace' | 'symlink_escape' | 'not_a_file' | 'unsupported_language' | 'engine_changed' };
+  | { status: 'invalid'; reason: 'path_outside_workspace' | 'symlink_escape' | 'not_a_file' | 'symbol_unparseable' | 'unsupported_language' | 'engine_changed' };
 
 /**
  * Deterministic fingerprint of one cited symbol through the workspace proof
@@ -406,6 +407,11 @@ export interface KnowledgeLibrary {
   catalog(): Promise<KnowledgeMetadata[]>;
   /** Catalogue filtered by a literal case-insensitive name/description substring. */
   list(query?: string): Promise<KnowledgeMetadata[]>;
+  /** Verified metadata and all refusals, independent of the query. */
+  verifiedList(query?: string): Promise<{
+    entries: KnowledgeMetadata[];
+    invalid: { name: string; reason: KnowledgeFailureReason; revision?: string }[];
+  }>;
   /** Deterministic read: verifies the whole declared evidence contract first. */
   read(name: string): Promise<KnowledgeValidation>;
 }
@@ -463,6 +469,31 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
       if (!query) return entries;
       const lowerQuery = query.toLowerCase();
       return entries.filter(entry => `${entry.name} ${entry.description}`.toLowerCase().includes(lowerQuery));
+    },
+    verifiedList: async query => {
+      const dir = usable();
+      let files: string[] = [];
+      if (dir) {
+        try { files = (await readdir(dir)).filter(file => file.endsWith('.md')).sort(); }
+        catch { /* A missing or unreadable catalogue is empty. */ }
+      }
+      const entries: KnowledgeMetadata[] = [];
+      const invalid: { name: string; reason: KnowledgeFailureReason; revision?: string }[] = [];
+      const lowerQuery = query?.toLowerCase();
+      for (const file of files) {
+        const name = file.slice(0, -3);
+        const entry = await library.read(name);
+        if (entry.status === 'valid') {
+          if (!lowerQuery || `${entry.name} ${entry.description}`.toLowerCase().includes(lowerQuery)) {
+            entries.push({ name: entry.name, description: entry.description, revision: entry.revision });
+          }
+        } else if (entry.revision === undefined) {
+          invalid.push({ name, reason: entry.reason });
+        } else {
+          invalid.push({ name, reason: entry.reason, revision: entry.revision });
+        }
+      }
+      return { entries, invalid };
     },
     read: async name => {
       if (typeof name !== 'string' || !validateKnowledgeName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };

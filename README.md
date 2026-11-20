@@ -144,23 +144,35 @@ CodeTour tree and status bar track your progress.
 ### Connect a conversation agent
 
 Install and authenticate a supported ACP agent separately, and ensure its
-executable is available on VS Code’s `PATH`. CodeTour tries installed providers
-in this order and keeps the first working one for the reading session:
+executable is available on VS Code’s `PATH`. CodeTour probes the installed Agent
+Profiles in this order, preselects the first one that answers, and keeps your
+choice for the reading session:
 
-| Provider | Executable | Selected mode |
+| Agent Profile | Executable | Selected mode |
 | --- | --- | --- |
-| Vibe | `vibe-acp` | Ask |
 | GitHub Copilot CLI | `copilot --acp --stdio` | Default mode, with tools restricted to `view`, `grep`, and `glob` |
+| Vibe | `vibe-acp` | Ask |
+| Pi | `pi-acp` | Agent default, behind CodeTour’s read-only launcher (tools `read`, `grep`, `find`, `ls`) |
 | Codex ACP | `codex-acp` | read-only |
 | Claude Agent ACP | `claude-agent-acp` | plan |
 
 CodeTour installs no agent automatically. Conversations are designed for reading
 and explanation: the client refuses file writes and terminal requests and checks
-tool permissions. Provider modes are not an operating-system sandbox.
+tool permissions. Agent Profile modes are not an operating-system sandbox.
 
-If an agent fails before producing answer text, CodeTour tries the next provider.
-Once an answer has started, it reports an error without mixing in another agent’s
-response. You can stop an answer in progress.
+`pi-acp` launches `pi` without any tool restriction and offers no way to pass
+one, so CodeTour launches Pi through a small launcher of its own that runs `pi`
+with only the reading and searching tools, through the `PI_ACP_PI_COMMAND`
+variable the adapter honours. The launcher is written under the system
+temporary directory and changes nothing in your Pi configuration; where it
+cannot be provided — on Windows, for example — Pi is listed as a connection
+error instead of running unrestricted. See
+[ADR 0049](docs/adr/0049-restrict-pi-tools-through-a-replacement-launcher.md)
+and the [Pi smoke test](docs/pi-agent-smoke.md).
+
+If an agent fails before producing answer text, CodeTour tries the next Agent
+Profile, unless you picked one. Once an answer has started, it reports an error
+without mixing in another agent’s response. You can stop an answer in progress.
 
 ## Try the standalone readers
 
@@ -234,9 +246,12 @@ node "$CODETOUR_ROOT/dist/cli.js" knowledge hash src/main.ts
 node "$CODETOUR_ROOT/dist/cli.js" knowledge save --proposal proposal.json
 ```
 
-`list` returns names and descriptions only. `read` returns the Markdown body
-only when every declared file proof matches its SHA-256; otherwise it reports
-an `invalid` reason without the body, a cited path or a hash value. `hash`
+`list` verifies each entry and returns names and descriptions of matching valid
+entries; `invalid` reports every refused entry by name and reason, regardless
+of the query. It returns exit 3 when no valid entry matches. Neither list
+contains bodies, cited paths or evidence hashes. `read` returns the Markdown body
+only when every declared proof verifies; otherwise it reports an `invalid`
+reason without the body, a cited path or a hash value. `hash`
 prints the deterministic digest for preparing evidence.
 
 #### Save a proposal

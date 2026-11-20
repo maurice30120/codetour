@@ -6,7 +6,6 @@ import type {
   KnowledgeFailureReason,
   KnowledgeMetadata,
 } from "codetour-knowledge";
-import { readdir } from "node:fs/promises";
 
 // The Knowledge surface of the existing CodeTour MCP server (spec #223,
 // ticket #227): the same shared contract as the native `codetour knowledge`
@@ -92,37 +91,7 @@ export async function listKnowledgePage(
   limit: number
 ): Promise<KnowledgeCataloguePage> {
   const library = await loadKnowledgeLibrary(root, knowledgeDirectory(root));
-  let stems: string[];
-  try {
-    stems = (await readdir(knowledgeDirectory(root)))
-      .filter((file) => file.endsWith(".md"))
-      .map((file) => file.slice(0, -3))
-      .sort();
-  } catch {
-    stems = [];
-  }
-  const valid: KnowledgeMetadata[] = [];
-  const invalid: KnowledgeInvalidEntry[] = [];
-  for (const stem of stems) {
-    const read = await library.read(stem);
-    if (read.status === "valid") {
-      valid.push({
-        name: read.name,
-        description: read.description,
-        revision: read.revision,
-      });
-    } else if (read.revision === undefined) {
-      invalid.push({ name: stem, reason: read.reason });
-    } else {
-      invalid.push({ name: stem, reason: read.reason, revision: read.revision });
-    }
-  }
-  const lowerQuery = query?.toLowerCase();
-  const matches = lowerQuery
-    ? valid.filter((entry) =>
-        `${entry.name} ${entry.description}`.toLowerCase().includes(lowerQuery)
-      )
-    : valid;
+  const { entries: matches, invalid } = await library.verifiedList(query);
   const entries = matches.slice(offset, offset + limit);
   return {
     status: matches.length === 0 ? "empty" : "ok",

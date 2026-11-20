@@ -7,7 +7,7 @@ The single deterministic source of the Knowledge contract used by CodeTour:
 - `knowledgeRevision(bytes)` — the Knowledge Revision: the SHA-256 of an entry
   file's complete bytes, as an opaque token. It is computed without validating
   the contract, so an entry whose evidence no longer verifies still has one, and
-  `catalog()`, `list(query)` and `read(name)` expose it (ADR 0048).
+  `catalog()`, `list(query)` and `read(name)` expose it (ADR 0053).
 - `verifyKnowledge(entry, root)` — every declared `file` proof must stay inside the
   workspace, avoid symlink escapes and match its SHA-256 before the body is returned.
 - `loadKnowledgeLibrary(root, directory)` — `catalog()`, `list(query)` and `read(name)`
@@ -34,7 +34,7 @@ normalized. Every entry is validated before the first byte is staged, so an inva
 entry, a duplicate name or an existing entry refuses the whole proposal: no partial
 publication, no overwrite, and no staging file left behind.
 
-A proposal may carry a `mode` (ADR 0049): `create` (default) publishes new entries,
+A proposal may carry a `mode` (ADR 0050): `create` (default) publishes new entries,
 `append` enriches one existing entry that still verifies, and `replace` rewrites one
 existing entry in full — description, body and evidence — against the
 `expectedRevision` its entry declares, on a valid and on an invalid entry alike. A missing, wrong or stale revision is a `conflict` with reason

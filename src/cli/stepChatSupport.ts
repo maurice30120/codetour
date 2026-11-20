@@ -1,18 +1,33 @@
 import { execFileSync } from "node:child_process";
-import { accessSync, constants } from "node:fs";
-import * as path from "node:path";
-import { acpProviders, type AcpProvider } from "../agent/acpProviders";
+import {
+  agentCatalogueLabel,
+  catalogueProfiles,
+  commandExists,
+  type AcpAgentProfile
+} from "../agent/agentCatalogue";
 import { createFallbackStepChatResponder } from "../agent/fallbackStepChatAgent";
 import type { StepChatContext, StepChatResponder } from "../agent/stepChatContract";
 import type { CodeTour, CodeTourStep } from "../store";
 import type { ReadonlyStepContext } from "./stepContext";
 
+/**
+ * The terminal's explanation when no ACP agent is installed on the machine:
+ * the catalogue, in its rank order, is the only list this sentence spells.
+ */
+export const NO_AGENT_INSTALLED_MESSAGE =
+  `No ACP agent is installed (${agentCatalogueLabel("sentence")}).`;
+
 export interface TerminalChatSession {
-  /** The first installed candidate, as the panel names the agent. */
-  provider?: AcpProvider;
   /**
-   * The Tour Step Conversation responder: one failover policy over every
-   * installed candidate (ADR 0014), shared with the extension's chat.
+   * The first installed Agent Profile: only the preselection the panel names
+   * until a session handshake confirms the agent that really answers.
+   */
+  profile?: AcpAgentProfile;
+  /**
+   * The Tour Step Conversation responder: one ordered failover over every
+   * installed candidate, as a terminal reader has no Agent selector (ADR 0048
+   * keeps the Agent choice to the webview; since ticket #266 the terminal
+   * picks the model among the values the answering agent announces).
    */
   responder?: StepChatResponder;
   dispose(): Promise<void>;
@@ -20,32 +35,33 @@ export interface TerminalChatSession {
 
 /**
  * The terminal reader's Tour Step Conversation session. Only installed
- * candidates are tried, in the extension's order, and the ordered failover
- * between them is the single policy of ADR 0014 — the same one the
- * extension's chat uses. Nothing is downloaded and no provider is started
- * until the reader asks a question.
+ * candidates are tried, in the Agent Catalogue's rank order, and the ordered
+ * failover between them is what the reader gets instead of an Agent selector:
+ * the terminal starts no Agent Probe and no agent process until the reader
+ * asks a question. Nothing is downloaded. The models the answering agent
+ * announces are what the reading module's model picker lists (ticket #266).
  */
 export function openTerminalChat(
   root: string,
   options: {
-    providers?: AcpProvider[];
+    profiles?: AcpAgentProfile[];
     exists?: (command: string) => boolean;
-    createResponder?: (providers: AcpProvider[]) => StepChatResponder;
+    createResponder?: (profiles: AcpAgentProfile[]) => StepChatResponder;
     env?: NodeJS.ProcessEnv;
   } = {}
 ): TerminalChatSession {
   const env = options.env ?? process.env;
   const exists = options.exists ?? commandExists;
-  const providers = (options.providers ?? configuredProviders(root, env))
-    .filter(candidate => exists(candidate.entry.command));
-  if (!providers.length) {
+  const profiles = (options.profiles ?? configuredProfiles(root, env))
+    .filter(profile => exists(profile.entry.command));
+  if (!profiles.length) {
     return { dispose: async () => undefined };
   }
   const create = options.createResponder ??
-    ((candidates: AcpProvider[]) => createFallbackStepChatResponder(() => candidates));
-  const responder = create(providers);
+    ((candidates: AcpAgentProfile[]) => createFallbackStepChatResponder(() => candidates));
+  const responder = create(profiles);
   return {
-    provider: providers[0],
+    profile: profiles[0],
     responder,
     async dispose() {
       await responder.dispose?.();
@@ -56,10 +72,10 @@ export function openTerminalChat(
 /**
  * `CODETOUR_ACP_COMMAND` (with `CODETOUR_ACP_ARGS`) runs one explicit ACP
  * command, as the tests and an advanced reader do; `CODETOUR_ACP_PROVIDER`
- * restricts the installed providers by name. Otherwise every provider on
- * PATH is a candidate, in the extension's order.
+ * restricts the installed Agent Profiles by name. Otherwise every launchable
+ * profile on PATH is a candidate, in the catalogue's rank order.
  */
-function configuredProviders(root: string, env: NodeJS.ProcessEnv): AcpProvider[] {
+function configuredProfiles(root: string, env: NodeJS.ProcessEnv): AcpAgentProfile[] {
   const command = env.CODETOUR_ACP_COMMAND?.trim();
   if (command) {
     return [{
@@ -72,41 +88,9 @@ function configuredProviders(root: string, env: NodeJS.ProcessEnv): AcpProvider[
     }];
   }
   const only = env.CODETOUR_ACP_PROVIDER?.trim().toLowerCase();
-  const providers = acpProviders(root);
-  if (!only) return providers;
-  return providers.filter(candidate => candidate.name.toLowerCase().includes(only));
-}
-
-/** True when a command is an executable on PATH (or a path to one). */
-export function commandExists(
-  command: string,
-  env: NodeJS.ProcessEnv = process.env,
-  platform: NodeJS.Platform = process.platform
-): boolean {
-  if (command.includes("/") || command.includes("\\")) {
-    return isExecutable(command, platform);
-  }
-  const extensions = platform === "win32"
-    ? (env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)
-    : [""];
-  for (const directory of (env.PATH ?? "").split(path.delimiter)) {
-    if (!directory) continue;
-    for (const extension of extensions) {
-      if (isExecutable(path.join(directory, command + extension), platform)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function isExecutable(file: string, platform: NodeJS.Platform): boolean {
-  try {
-    accessSync(file, platform === "win32" ? constants.F_OK : constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
+  const profiles = catalogueProfiles(root);
+  if (!only) return profiles;
+  return profiles.filter(profile => profile.name.toLowerCase().includes(only));
 }
 
 /**

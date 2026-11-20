@@ -92,6 +92,34 @@ test('an unresolvable symbol proof falls back to a traced file proof with an exp
   assert.equal(read.status, 'valid');
 });
 
+test('a symbol with syntax errors falls back at creation and is refused on later symbol reads', async t => {
+  const root = await realRoot('symbol-syntax-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const file = join(root, 'main.ts');
+  const valid = 'export function dispatch() { return 1; }\n';
+  await writeFile(file, valid);
+  const proposal = (name: string) => ({ entries: [{ name, description: 'dispatch', body: 'Secret body.\n', evidence: [{ type: 'symbol' as const, path: 'main.ts', symbol: 'dispatch' }] }] });
+  expectStatus(await saveKnowledgeProposal(root, proposal('good')), 'saved');
+  for (const invalid of [
+    'export function dispatch() { const x = ; return 1; }\n',
+    'export function dispatch() { return (1 + ); }\n',
+    'export function dispatch() { return 1;\n'
+  ]) {
+    await writeFile(file, invalid);
+    const read = await (await loadKnowledgeLibrary(root, knowledgeDirectory(root))).read('good');
+    // The refusal carries the entry revision (spec #232), so a repair can be
+    // conditioned on the bytes that failed; the rest of the shape is exact.
+    const { revision, ...shape } = read as { revision?: string } & Record<string, unknown>;
+    assert.equal(typeof revision, 'string');
+    assert.deepEqual(shape, { status: 'invalid', reason: 'symbol_unparseable' });
+  }
+  const fallback = expectStatus(await saveKnowledgeProposal(root, proposal('fallback')), 'saved');
+  assert.ok(fallback.warnings?.some(warning => warning.code === 'symbol_proof_fallback' && warning.reason === 'symbol_unparseable'));
+  assert.match(await readFile(join(knowledgeDirectory(root), 'fallback.md'), 'utf8'), /origin: symbol_fallback/);
+  await writeFile(file, valid + 'const unrelated = ;\n');
+  assert.equal((await (await loadKnowledgeLibrary(root, knowledgeDirectory(root))).read('good')).status, 'valid');
+});
+
 test('a stale canonicalizer marker routes symbol-proof saves to engine_changed without touching file proofs', async t => {
   const root = await realRoot('symbol-enginestale-');
   t.after(() => rm(root, { recursive: true, force: true }));

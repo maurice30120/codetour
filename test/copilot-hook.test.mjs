@@ -207,19 +207,19 @@ test("two concurrent hook invocations produce at most one block", async () => {
 test("two runs in one session each get their own single continuation", () => {
   const { root, workspace } = workspaceWithSpaces();
   try {
-    // Relative times: the hook ignores a run state older than 24 hours, so a
-    // fixed calendar date would make this test expire on its own.
+    const olderTime = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const newerTime = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const older = writeState(workspace, {
       runId: "run-aaaaaaaaaaaaaaaa",
       tourCreated: true,
-      at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+      at: olderTime,
+      updatedAt: olderTime
     });
     const newer = writeState(workspace, {
       runId: "run-bbbbbbbbbbbbbbbb",
       tourCreated: true,
-      at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
+      at: newerTime,
+      updatedAt: newerTime
     });
     const first = runHook(payload({ cwd: workspace }));
     assert.equal(first.output.decision, "block");

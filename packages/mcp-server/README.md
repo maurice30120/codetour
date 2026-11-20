@@ -313,7 +313,7 @@ inside the workspace.
 Returns metadata only — `entries: [{name, description, revision}]` — never a
 body, evidence, a cited path or a hash. `revision` is the entry file's Knowledge
 Revision, an opaque token that stays identical while the file is unchanged and
-moves with any modified byte (ADR 0048). Only verified contracts are listed:
+moves with any modified byte (ADR 0053). Only verified contracts are listed:
 discovery runs the same evidence verification as `knowledge_read` (ADR 0044).
 Every catalogue entry that fails validation is returned under `invalid: [{name,
 reason, revision?}]` — the file stem when no servable name is declared, and the
@@ -339,7 +339,7 @@ Returns `status: "valid"` with the Markdown `body`, its `evidence` and the
 entry's `revision` only when **every** declared `file` proof verifies: the cited
 path stays inside the workspace, no symbolic link escapes it, and each file's
 bytes hash to the declared SHA-256. `revision` is the root-level Knowledge
-Revision of the entry file (ADR 0048): a write can be conditioned on it, so a
+Revision of the entry file (ADR 0053): a write can be conditioned on it, so a
 file that changed since the read is refused instead of silently overwritten.
 Otherwise it returns `status: "invalid"` with one machine-readable reason, the
 `revision` whenever the entry file was readable, and no body, no cited path and
@@ -364,7 +364,7 @@ client must not let a directive inside a body change its instructions.
 
 | Argument        | Type   | Required | Description                                                          |
 | --------------- | ------ | -------- | -------------------------------------------------------------------- |
-| `mode`          | string | no       | `create` (default), `append` or `replace` (ADR 0049). An `append` enriches one existing valid entry without rewriting its body, a `replace` rewrites one existing entry in full; both require `expectedRevision` on the entry. |
+| `mode`          | string | no       | `create` (default), `append` or `replace` (ADR 0050). An `append` enriches one existing valid entry without rewriting its body, a `replace` rewrites one existing entry in full; both require `expectedRevision` on the entry. |
 | `entries`       | object[] | yes    | The proposal's entries: `{name, description, body, evidence:[{path, sha256?}]}`, plus `expectedRevision` in `replace` mode. An empty array is an explicit zero-entry consolidation. |
 | `runId`         | string | no       | CodeTour generation run identity from the served prompt. When present, the MCP persists the matching consolidation closure in `<workspace>/.tours/.log/` and returns it. |
 | `workspacePath` | string | no       | Directory relative to the workspace root.                             |

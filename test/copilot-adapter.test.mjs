@@ -17,6 +17,22 @@ function processIsRunning(pid) {
   }
 }
 
+// The adapter decides from its own process whether a terminal can be lent to
+// the reader, exactly as Copilot forks an extension (ADR 0051). Tests pin that
+// reported state instead of depending on how the runner was started.
+async function withReaderTerminal(reported, run) {
+  const stdinIsTTY = process.stdin.isTTY;
+  const stdoutIsTTY = process.stdout.isTTY;
+  process.stdin.isTTY = reported;
+  process.stdout.isTTY = reported;
+  try {
+    return await run();
+  } finally {
+    process.stdin.isTTY = stdinIsTTY;
+    process.stdout.isTTY = stdoutIsTTY;
+  }
+}
+
 function writeTrackedReaderWrapper(file) {
   writeFileSync(file, [
     'const { spawnSync } = require("node:child_process");',
@@ -62,13 +78,17 @@ function writeRecordingMcpWrapper(file) {
 
 function writeRendererRecordingWrapper(file) {
   // Records the reader launch arguments instead of running the real CLI: the
-  // terminal renderer would otherwise open a window during the test run.
+  // terminal renderer would otherwise open a window during the test run. The
+  // recorded process then ends the way the test asks: an exit code, or the
+  // signal a killed reader reports.
   writeFileSync(file, [
     'const { spawnSync } = require("node:child_process");',
     'const { appendFileSync } = require("node:fs");',
     'if (process.argv.includes("--internal-tour-id")) {',
     '  appendFileSync(process.env.CODETOUR_TEST_RECORDED_ARGS, JSON.stringify(process.argv.slice(2)) + "\\n");',
-    '  process.exit(0);',
+    '  const signal = process.env.CODETOUR_TEST_READER_SIGNAL;',
+    '  if (signal) process.kill(process.pid, signal);',
+    '  process.exit(Number(process.env.CODETOUR_TEST_READER_EXIT || 0));',
     '}',
     'const result = spawnSync(process.execPath, [process.env.CODETOUR_REAL_CLI, ...process.argv.slice(2)], { stdio: "inherit" });',
     'process.exit(result.status ?? 1);'
@@ -232,7 +252,7 @@ test("an incomplete generation delegates missing choices to the agent without ex
     },
     send: async options => sent.push(options),
     log: collectLogs().log
-  }, "");
+  }, "generate");
   assert.equal(sent.length, 1);
   assert.equal(sent[0].mode, "immediate");
   assert.match(sent[0].prompt, /ask_user/);
@@ -625,9 +645,90 @@ test("an elicited choice resolves duplicate Tour titles by identity", async () =
   });
 });
 
+test("a bare /codetour presents the existing Tours and reads the chosen one", async () => {
+  const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
+  await withReaderTerminal(false, () => withRecordingCli(root, async () => {
+    const menus = [];
+    const session = {capabilities:{ui:{elicitation:true}},
+      ui:{select: async (prompt, choices) => { menus.push([prompt, choices]); return choices[1]; }},
+      send: async () => assert.fail("a bare read command never starts a generation"),
+      log: async () => {}};
+    await runCodeTourCommand(session, "", root);
+    assert.deepEqual(menus, [
+      ["Select a CodeTour", ["1. First Tour", "2. Second Tour"]]
+    ]);
+  }));
+});
+
+test("a session without a terminal gets the exact command instead of a reader", async () => {
+  const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
+  await withReaderTerminal(false, () => withRecordingCli(root, async recorded => {
+    const logs = [];
+    const session = {capabilities:{ui:{elicitation:true}},
+      ui:{select: async () => "1. First Tour"},
+      log: async message => logs.push(message)};
+    await runCodeTourCommand(session, "", root);
+    const output = logs.join("\n");
+    assert.ok(!existsSync(recorded), "a reader without a terminal must not be started at all");
+    assert.doesNotMatch(output, /Starting CodeTour/, "a reader that did not start is never announced");
+    assert.match(output, /'First Tour' was not started/);
+    // The command only works in the workspace worktree: the sentence names it.
+    assert.match(output, /at the workspace root \(/);
+    assert.ok(output.includes(realpathSync(root)),
+      "the workspace root is named: " + output);
+    assert.match(output, /codetour --internal-tour-id "file:\/\/[^"]+a\.tour" --renderer terminal/);
+  }));
+});
+
+test("a reported terminal lends itself to the reader and its real exit is reported", async () => {
+  const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
+  await withReaderTerminal(true, () => withRecordingCli(root, async recorded => {
+    const logs = [];
+    const session = {capabilities:{}, log: async message => logs.push(message)};
+    await runCodeTourCommand(session, "First Tour", root);
+    const calls = await recordedReaderArgs(recorded);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0][0], "--internal-tour-id");
+    assert.match(logs.join("\n"), /Starting CodeTour: First Tour \(terminal\)\./);
+    assert.match(logs.join("\n"), /the reader for 'First Tour' exited with code 7/);
+  }, {readerExit: 7}));
+});
+
+// A signal is not an exit code: the killed reader reports no code at all, and
+// the adapter must say what actually happened. Windows has no POSIX signals, so
+// the terminating branch cannot be observed there.
+test("a reader killed by a signal is reported with the signal, not an exit code", {
+  skip: process.platform === "win32"
+}, async () => {
+  const root = createTourWorkspace([["a", "First Tour"]]);
+  await withReaderTerminal(true, () => withRecordingCli(root, async recorded => {
+    const logs = [];
+    const session = {capabilities:{}, log: async message => logs.push(message)};
+    await runCodeTourCommand(session, "First Tour", root);
+    await recordedReaderArgs(recorded);
+    const output = logs.join("\n");
+    assert.match(output, /the reader for 'First Tour' was interrupted by SIGTERM; the reading may be incomplete\./);
+    assert.doesNotMatch(output, /exited with code/,
+      "a killed reader has no exit code to report: " + output);
+    assert.doesNotMatch(output, /closed; the terminal is back/);
+  }, {readerSignal: "SIGTERM"}));
+});
+
+test("a reader that closes cleanly returns the terminal to the session", async () => {
+  const root = createTourWorkspace([["a", "First Tour"]]);
+  await withReaderTerminal(true, () => withRecordingCli(root, async recorded => {
+    const logs = [];
+    const session = {capabilities:{}, log: async message => logs.push(message)};
+    await runCodeTourCommand(session, "", root);
+    await recordedReaderArgs(recorded);
+    assert.match(logs.join("\n"), /Starting CodeTour: First Tour \(terminal\)\./);
+    assert.match(logs.join("\n"), /'First Tour' closed; the terminal is back in your Copilot session\./);
+  }));
+});
+
 test("the Tour list reuses the adapter's numbered selection menu", async () => {
   const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
-  await withRecordingCli(root, async recorded => {
+  await withReaderTerminal(true, () => withRecordingCli(root, async recorded => {
     const menus = [];
     const session = {capabilities:{ui:{elicitation:true}},
       ui:{select: async (prompt, choices) => {
@@ -642,7 +743,7 @@ test("the Tour list reuses the adapter's numbered selection menu", async () => {
     const calls = await recordedReaderArgs(recorded);
     assert.equal(calls.length, 1);
     assert.deepEqual(calls[0].slice(-2), ["--renderer", "terminal"]);
-  });
+  }));
 });
 
 test("cancelling Tour selection never launches a reader", async () => {
@@ -659,27 +760,35 @@ test("cancelling Tour selection never launches a reader", async () => {
   });
 });
 
-async function withRecordingCli(root, run) {
+async function withRecordingCli(root, run, {readerExit, readerSignal} = {}) {
   const previousCli = process.env.CODETOUR_CLI;
   const previousRealCli = process.env.CODETOUR_REAL_CLI;
   const previousRecorded = process.env.CODETOUR_TEST_RECORDED_ARGS;
+  const previousReaderExit = process.env.CODETOUR_TEST_READER_EXIT;
+  const previousReaderSignal = process.env.CODETOUR_TEST_READER_SIGNAL;
   const recorded = path.join(root, "renderer-args.jsonl");
   writeRendererRecordingWrapper(path.join(root, "renderer-wrapper.js"));
   process.env.CODETOUR_CLI = path.join(root, "renderer-wrapper.js");
   process.env.CODETOUR_REAL_CLI = path.resolve("dist/cli.js");
   process.env.CODETOUR_TEST_RECORDED_ARGS = recorded;
+  if (readerExit === undefined) delete process.env.CODETOUR_TEST_READER_EXIT;
+  else process.env.CODETOUR_TEST_READER_EXIT = String(readerExit);
+  if (readerSignal === undefined) delete process.env.CODETOUR_TEST_READER_SIGNAL;
+  else process.env.CODETOUR_TEST_READER_SIGNAL = readerSignal;
   try {
     return await run(recorded);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
     if (previousRealCli === undefined) delete process.env.CODETOUR_REAL_CLI; else process.env.CODETOUR_REAL_CLI = previousRealCli;
     if (previousRecorded === undefined) delete process.env.CODETOUR_TEST_RECORDED_ARGS; else process.env.CODETOUR_TEST_RECORDED_ARGS = previousRecorded;
+    if (previousReaderExit === undefined) delete process.env.CODETOUR_TEST_READER_EXIT; else process.env.CODETOUR_TEST_READER_EXIT = previousReaderExit;
+    if (previousReaderSignal === undefined) delete process.env.CODETOUR_TEST_READER_SIGNAL; else process.env.CODETOUR_TEST_READER_SIGNAL = previousReaderSignal;
     try {
       rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
     } catch (error) {
-      // The detached recording reader may still hold the workspace as its cwd;
-      // Windows refuses to delete such a directory even after retries. The
-      // recorded launch is the contract under test, not the temp cleanup.
+      // A just-exited reader may still hold the workspace as its cwd; Windows
+      // refuses to delete such a directory even after retries. The recorded
+      // launch is the contract under test, not the temp cleanup.
       if (process.platform !== "win32") throw error;
     }
   }
@@ -700,7 +809,7 @@ const rendererForwardingCases = [
 for (const [label, command, renderer] of rendererForwardingCases) {
   test(`${label} to the CLI`, async () => {
     const root = createTourWorkspace([["a", "First Tour"]]);
-    await withRecordingCli(root, async recorded => {
+    await withReaderTerminal(true, () => withRecordingCli(root, async recorded => {
       const messages = [];
       await runCodeTourCommand({capabilities:{}, log: async message => messages.push(message)}, command, root);
       const calls = await recordedReaderArgs(recorded);
@@ -709,7 +818,7 @@ for (const [label, command, renderer] of rendererForwardingCases) {
       assert.equal(flag, "--renderer");
       assert.equal(value, renderer);
       assert.match(messages.join("\n"), new RegExp(`Starting CodeTour: First Tour \\(${renderer}\\)\\.`));
-    });
+    }));
   });
 }
 

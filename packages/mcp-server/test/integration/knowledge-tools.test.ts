@@ -513,6 +513,59 @@ test("knowledge_save flags insufficiently backed entries instead of publishing t
   }
 });
 
+test("knowledge_save reports symbol fallback separately from insufficient backing", async () => {
+  const root = tempDir("codetour-knowledge-fallback-");
+  try {
+    writeFile(root, "src/main.rb", "def dispatch; 1; end\n");
+    writeFile(root, "src/other.ts", "export const other = 1;\n");
+    await withServer(root, async client => {
+      const created = await callTool(client, KNOWLEDGE_SAVE, {
+        entries: [{
+          name: "ruby_flow", description: "Ruby dispatch", body: "Reference body.\n",
+          evidence: [{ type: "symbol", path: "src/main.rb", symbol: "dispatch" }, { path: "src/other.ts" }],
+        }],
+      });
+      assert.equal(created.structured.status, "created");
+      assert.deepEqual(created.structured.warnings, [
+        { name: "ruby_flow", code: "symbol_proof_fallback", path: "src/main.rb", reason: "unsupported_language" },
+      ]);
+      assert.match(created.text, /ruby_flow fell back to a file proof \(unsupported_language\)/);
+      assert.doesNotMatch(created.text, /insufficiently backed|src\/main\.rb|[0-9a-f]{64}/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("knowledge tools refuse an unparseable symbol on read and report creation fallback", async () => {
+  const root = tempDir("codetour-knowledge-syntax-");
+  try {
+    writeFile(root, "main.ts", "export function dispatch() { return 1; }\n");
+    await withServer(root, async client => {
+      const entry = (name: string) => ({ name, description: "Dispatch", body: "SECRET BODY", evidence: [{ type: "symbol", path: "main.ts", symbol: "dispatch" }] });
+      const saved = await callTool(client, KNOWLEDGE_SAVE, { entries: [entry("good")] });
+      assert.equal(saved.structured.status, "created");
+      writeFile(root, "main.ts", "export function dispatch() { const x = ; return 1; }\n");
+      const read = await callTool(client, KNOWLEDGE_READ, { name: "good" });
+      assert.equal(read.structured.reason, "symbol_unparseable");
+      // An invalid entry still exposes the revision of its file bytes (spec
+      // #232) so a repair can be conditioned on it; nothing else leaves.
+      const revision = read.structured.revision as string;
+      assert.equal(typeof revision, "string");
+      assert.doesNotMatch(
+        textOf(read).split(revision).join(""),
+        /SECRET BODY|main\.ts|[0-9a-f]{64}/
+      );
+      const fallback = await callTool(client, KNOWLEDGE_SAVE, { entries: [entry("fallback")] });
+      assert.equal(fallback.structured.status, "created");
+      assert.match(fallback.text, /fallback fell back to a file proof \(symbol_unparseable\)/);
+      assert.match(fs.readFileSync(path.join(catalogueDirectory(root), "fallback.md"), "utf8"), /origin: symbol_fallback/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("knowledge_save and knowledge_read accept a hyphenated Knowledge name", async () => {
   const root = tempDir("codetour-knowledge-hyphen-");
   try {

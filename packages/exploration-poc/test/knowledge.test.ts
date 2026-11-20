@@ -106,7 +106,7 @@ test('a symbolic link staying inside the workspace verifies against the real byt
   assert.equal((read as { body: string }).body.trim(), 'open body');
 });
 
-test('symbol proofs are unsupported and uppercase declared hashes verify', async t => {
+test('incomplete symbol proofs are malformed and uppercase declared hashes verify', async t => {
   const root = await realRoot('knowledge-symbol-');
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, 'main.ts'), 'bytes\n');
@@ -115,9 +115,8 @@ test('symbol proofs are unsupported and uppercase declared hashes verify', async
   await writeEntry(root, 'bare_symbol.md', `---\nname: bare_symbol\ndescription: declares a bare unsupported proof\nevidence:\n  - type: symbol\n---\nsecret body\n`);
   await writeEntry(root, 'upper.md', `---\nname: upper\ndescription: uppercase declared digest\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${lower.toUpperCase()}\n---\nopen body\n`);
   const library = await readRoot(root);
-  // A `symbol` item with ad-hoc keys is out of the fixed grammar; a bare one no
-  // longer satisfies the strict symbol-proof schema (spec #233) either. Both
-  // refuse as malformed contracts without the body.
+  // Symbol proofs require a path, symbol and fingerprint; incomplete proofs
+  // are malformed and refuse without the body.
   await expectInvalid(await library.read('symbolic'), 'malformed_contract');
   await expectInvalid(await library.read('bare_symbol'), 'malformed_contract');
   assert.doesNotMatch(JSON.stringify(await library.read('symbolic')), /secret body/);

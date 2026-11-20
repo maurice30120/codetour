@@ -3,11 +3,17 @@ import { escapeHtml, renderMarkdownToHtml } from "../player/markdown";
 import { NarrationController } from "./narration/NarrationController";
 import { createSystemSpeech } from "./narration/SystemSpeech";
 import { palette } from "./palette";
-import { commitFileReader, openTerminalChat } from "./stepChatSupport";
+import {
+  commitFileReader,
+  NO_AGENT_INSTALLED_MESSAGE,
+  openTerminalChat,
+  type TerminalChatSession
+} from "./stepChatSupport";
 import { fit, tail, wrapLine } from "./terminalLayout";
 import { createOpenInVsCodeInvoker, type OpenInVsCodeInvoker } from "./openInVscode";
 import { createReader, type TourReader } from "./reader/reader";
 import type { ConversationResponder } from "./reader/collaborators";
+import { agentIdentityLabel } from "./reader/statusLine";
 import type { ReaderKeyEvent } from "./reader/readerInput";
 import type { ReaderViewModel } from "./reader/viewModel";
 
@@ -49,28 +55,60 @@ export interface TerminalReaderCompositionOptions {
 }
 
 /**
+ * The Step Chat responder of the terminal's session, adapted to the reader's
+ * `ConversationResponder` port (spec #93).
+ *
+ * Adapted here, at the composition root, so the reading module never sees the
+ * Step Chat contract (ADR 0031). The model picker of ticket #266 exists only
+ * when the answering agent really can change model: `selectModel` is wired
+ * from the responder's own member, so an agent-managed responder leaves the
+ * reader's unmodified `m` key and its hint out instead of offering a request
+ * nobody serves (ADR 0052).
+ */
+export function composeConversationResponder(
+  chat: TerminalChatSession
+): ConversationResponder | undefined {
+  const responder = chat.responder;
+  // No installed Agent Profile means no responder: the reader stays fully
+  // usable without an agent and says so (spec #93).
+  if (!responder) return undefined;
+  const preselection = chat.profile;
+  return {
+    // The responder names the agent the session handshake confirmed; the
+    // first installed candidate is only the preselection before that.
+    identity: () => responder.identity?.() ?? (preselection
+      ? { agent: preselection.name, effective: false }
+      : undefined),
+    // The model picker lists what the answering agent announces, and the
+    // reader's choice is the request the agent applies and confirms.
+    model: () => responder.model?.(),
+    selectModel: typeof responder.selectModel === "function"
+      ? (value: string) => responder.selectModel?.(value)
+      : undefined,
+    answer: (request, events) => responder.answer(request, events),
+    // A stop interrupts the in-flight answer (ADR 0031): the failover
+    // responder cancels its active candidate.
+    cancel: () => responder.cancel?.(),
+    dispose: () => chat.dispose()
+  };
+}
+
+/**
  * The composition root's collaborator wiring (spec #93): the ACP session
  * layer stays behind the Step Chat support seams and is adapted to the
  * reader's responder port; no agent process is started until the first
- * question. Since #104 the session is the ordered failover of ADR 0014 over
- * every installed candidate, and the reading module runs the conversation
- * through the shared StepConversations store above this seam (ADR 0031).
+ * question. Since #104 the session is an ordered failover over every
+ * installed candidate — the terminal keeps it instead of the webview's Agent
+ * selector (ADR 0048) — and since ticket #266 it also exposes the models the
+ * answering agent announces so the reader can pick one (ADR 0052). The
+ * reading module runs the conversation through the shared StepConversations
+ * store above this seam (ADR 0031).
  */
 export function composeTerminalReader(options: TerminalReaderCompositionOptions): TourReader {
   const { tour, root } = options;
   const injected = options.collaborators ?? {};
   const chat = injected.responder ? undefined : openTerminalChat(root);
-  const responder: ConversationResponder | undefined = injected.responder ??
-    (chat?.responder
-      ? {
-        providerName: chat.provider?.name,
-        answer: (request, events) => chat.responder!.answer(request, events),
-        // A stop interrupts the in-flight answer (ADR 0031): the failover
-        // responder cancels its active candidate.
-        cancel: () => chat.responder!.cancel?.(),
-        dispose: () => chat.dispose()
-      }
-      : undefined);
+  const responder = injected.responder ?? (chat ? composeConversationResponder(chat) : undefined);
   return createReader({
     tour,
     root,
@@ -184,6 +222,7 @@ class TermDomSurface {
   private readonly mode: HTMLElement;
   private readonly hints: HTMLElement;
   private readonly statusRight: HTMLElement;
+  private readonly picker: HTMLElement;
 
   /** The single alternate-screen restore, shared by every teardown caller. */
   private teardownPromise: Promise<void> | undefined;
@@ -244,6 +283,15 @@ class TermDomSurface {
       `.status-left { display: flex; }`,
       `.mode { color: ${palette.background}; background-color: ${palette.primary}; font-weight: bold; padding: 0 1ch; margin-right: 1ch; }`,
       `.status-right { color: ${palette.muted}; white-space: pre; }`,
+      // The model picker (ticket #266) is an overlay anchored above the status
+      // line: it grows upward from there and covers whatever it overlaps.
+      `.picker { position: absolute; bottom: 1ch; left: 0; width: 100%; box-sizing: border-box; display: none; flex-direction: column; background-color: ${palette.element}; border-top: 1px solid ${palette.borderStrong}; padding: 0 1ch; }`,
+      `.picker-head { color: ${palette.primary}; font-weight: bold; }`,
+      `.picker-item { white-space: pre; color: ${palette.text}; }`,
+      `.picker-item.effective { color: ${palette.muted}; }`,
+      `.picker-item.selected { background-color: ${palette.panel}; color: ${palette.text}; }`,
+      `.picker-notice { color: ${palette.muted}; white-space: pre-wrap; }`,
+      `.picker-hint { color: ${palette.muted}; white-space: pre; }`,
       `.anchor { color: ${palette.info}; white-space: pre; margin: 0; }`,
       `h1 { color: ${palette.primary}; font-weight: bold; }`,
       `h2 { color: ${palette.accent}; }`,
@@ -344,7 +392,12 @@ class TermDomSurface {
     this.hints = hints;
     this.statusRight = statusRight;
 
-    document.body.append(topbar, body, status);
+    const picker = document.createElement("div");
+    picker.className = "picker";
+    picker.style.display = "none";
+    this.picker = picker;
+
+    document.body.append(topbar, body, status, picker);
   }
 
   /**
@@ -405,6 +458,7 @@ class TermDomSurface {
     this.paintRail(view);
     this.paintArticle(view);
     this.paintConversation(view);
+    this.paintPicker(view);
     this.paintStatus(view);
     this.reader.onExtentsMeasured({
       stepViewportRows: this.article.clientHeight,
@@ -555,7 +609,7 @@ class TermDomSurface {
       const unavailable = document.createElement("p");
       unavailable.className = "answer-pending";
       unavailable.textContent =
-        "No ACP agent is installed (Vibe, Copilot CLI, Codex or Claude Code).";
+        NO_AGENT_INSTALLED_MESSAGE;
       this.conversationBody.appendChild(unavailable);
     }
     if (conversation.suggestions.length) {
@@ -583,7 +637,11 @@ class TermDomSurface {
       question.textContent = exchange.question;
       const agent = document.createElement("div");
       agent.className = "role role-agent";
-      agent.textContent = "▌ " + (conversation.providerName ?? "agent").toLowerCase();
+      // The role line names the agent the session handshake confirmed, with
+      // its model; before that it says the profile is only preselected.
+      agent.textContent = "▌ " + (conversation.agent
+        ? agentIdentityLabel(conversation.agent)
+        : "agent");
       block.append(asker, question, agent);
       // The stored exchanges are raw (ADR 0031): tool uses and the latest
       // activity line are painted here, exactly as the extension's conversation view
@@ -623,6 +681,45 @@ class TermDomSurface {
       block.appendChild(answer);
       this.conversationBody.appendChild(block);
     }
+  }
+
+  /**
+   * The model picker overlay (ticket #266): the models the answering agent
+   * announces, the highlighted row, and the explicit notice an agent that
+   * announces none gets. Painted only while it is open.
+   */
+  private paintPicker(view: ReaderViewModel): void {
+    const { document } = this;
+    const picker = view.picker;
+    if (!picker) {
+      this.picker.style.display = "none";
+      return;
+    }
+    this.picker.style.display = "flex";
+    this.picker.replaceChildren();
+    const head = document.createElement("div");
+    head.className = "picker-head";
+    head.textContent = picker.title;
+    this.picker.appendChild(head);
+    picker.items.forEach((item, index) => {
+      const row = document.createElement("div");
+      row.className = "picker-item" +
+        (index === picker.selected ? " selected" : "") +
+        (item.effective ? " effective" : "");
+      row.textContent = (index === picker.selected ? "▌ " : "  ") + item.label +
+        (item.effective ? " (effective)" : "");
+      this.picker.appendChild(row);
+    });
+    if (picker.notice) {
+      const notice = document.createElement("div");
+      notice.className = "picker-notice";
+      notice.textContent = picker.notice;
+      this.picker.appendChild(notice);
+    }
+    const hint = document.createElement("div");
+    hint.className = "picker-hint";
+    hint.textContent = picker.hint;
+    this.picker.appendChild(hint);
   }
 
   /** The status line: mode and hints left, precedence-ordered segments right. */

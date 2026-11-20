@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
 import * as nodeModule from "module";
+import * as path from "node:path";
 import { createVscodeHost } from "../test/vscodeHost";
 
 // The Tour Step Conversation base: a question asked under the step
@@ -23,7 +24,7 @@ const originalLoad = (nodeModule as unknown as { _load: unknown })._load as (
 };
 
 const { registerPlayerModule } = require("../player");
-const { setStepChatResponder } = require("./stepChat");
+const { setStepChatAgentSelection, setStepChatResponder } = require("./stepChat");
 
 const tour = {
   id: "file:///workspace/.tours/chat.tour",
@@ -92,8 +93,21 @@ interface StepChatUpdate {
     failed?: boolean;
     pending?: boolean;
     interrupted?: boolean;
+    agent?: { agent: string; model?: string; effective: boolean };
   }[];
   responding?: boolean;
+  agent?: { agent: string; model?: string; effective: boolean };
+  agents?: {
+    name: string;
+    state: string;
+    detail?: string;
+    selected: boolean;
+    selectable: boolean;
+    signIn: boolean;
+  }[];
+  unavailable?: boolean;
+  modelOptions?: { value: string; name: string }[];
+  model?: string;
 }
 
 function stepChatUpdates(): StepChatUpdate[] {
@@ -343,20 +357,45 @@ test("errors of the responder land in the chat without disturbing the reading", 
   chatPanel().dispose();
 });
 
-test("asking without an injected responder explains it in the chat", async () => {
+test("a panel whose probed catalogue has no usable agent explains it and disables the composer", async () => {
+  const { AGENT_CATALOGUE, AgentSelection } = require("../agent/agentCatalogue");
   resetChatState();
-  registerPlayerModule(host.extensionContext);
-  await startTour();
+  // Every Agent Profile is installed but refuses: the initial probe settles
+  // with nothing usable, which no machine-dependent test could guarantee.
+  setStepChatAgentSelection(() => new AgentSelection({
+    probe: async () => ({ availability: { state: "not-installed" } })
+  }));
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
 
-  chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
-  await host.waitFor(() => lastChatUpdate().responding === false);
+    // The probe settled with nothing usable: the panel reposts the probed
+    // catalogue, which disables the composer and shows the explaining state.
+    await host.waitFor(() => lastChatUpdate()?.unavailable === true);
+    const probed = lastChatUpdate();
+    // Every catalogued profile is listed, in rank order, with the state the
+    // probe established: the panel shows the catalogue, not a PATH scan.
+    assert.deepEqual(
+      probed.agents?.map(agent => [agent.name, agent.state]),
+      AGENT_CATALOGUE.map((profile: { name: string }) => [profile.name, "not-installed"])
+    );
+    assert.equal(probed.agent, undefined, "nothing is preselected");
+    assert.deepEqual(probed.exchanges, []);
+    // The Tour itself stays readable in the panel.
+    assert.match(host.panelHtml(), /<h1>Player entry<\/h1>/);
 
-  const update = lastChatUpdate();
-  assert.equal(update.exchanges[0].question, "Qui répond ?");
-  assert.equal(update.exchanges[0].failed, true);
-  assert.match(update.exchanges[0].answerHtml, /This step's responder is not available/);
+    chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
+    await host.waitFor(() => lastChatUpdate()?.responding === false && lastChatUpdate().exchanges.length === 1);
 
-  chatPanel().dispose();
+    const update = lastChatUpdate();
+    assert.equal(update.exchanges[0].question, "Qui répond ?");
+    assert.equal(update.exchanges[0].failed, true);
+    assert.match(update.exchanges[0].answerHtml, /No ACP agent available/);
+    assert.equal(update.unavailable, true);
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
 });
 
 test("malformed and stale questions never reach the responder", async () => {
@@ -711,4 +750,473 @@ test("forbidden tools are reported live, stay after a stop, and allowed tools st
 
   setStepChatResponder(undefined);
   chatPanel().dispose();
+});
+
+test("the conversation names the agent that answers: preselected before the handshake, effective after it", async () => {
+  resetChatState();
+  let identity: { agent: string; model?: string; effective: boolean } = {
+    agent: "Copilot",
+    effective: false
+  };
+  setStepChatResponder({
+    identity: () => identity,
+    answer: async (_request: unknown, events?: {
+      onAgentIdentity?: (next: { agent: string; model?: string; effective: boolean }) => void;
+    }) => {
+      // The handshake happens while the answer is produced.
+      identity = { agent: "Copilot", model: "gpt-5", effective: true };
+      events?.onAgentIdentity?.(identity);
+      return "Réponse de **Copilot**.";
+    }
+  });
+
+  registerPlayerModule(host.extensionContext);
+  await startTour();
+
+  // No session exists yet: the conversation names the preselected profile.
+  assert.match(
+    host.panelHtml(),
+    /<p class="step-chat-agent" id="step-chat-agent">Agent: Copilot \(preselected\)<\/p>/
+  );
+
+  chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
+  await host.waitFor(
+    () =>
+      lastChatUpdate().responding === false &&
+      lastChatUpdate().exchanges.length === 1
+  );
+
+  // The message carries the current identity and the identity of the answer.
+  const update = lastChatUpdate();
+  assert.deepEqual(update.agent, { agent: "Copilot", model: "gpt-5", effective: true });
+  assert.deepEqual(update.exchanges[0].agent, {
+    agent: "Copilot",
+    model: "gpt-5",
+    effective: true
+  });
+
+  // A re-render paints the effective agent and captions the answer with it.
+  await host.vscode.commands.executeCommand("codetourIA.nextTourStep");
+  await host.waitFor(() => host.panelHtml().includes("2 / 3"));
+  await host.vscode.commands.executeCommand("codetourIA.previousTourStep");
+  await host.waitFor(() => host.panelHtml().includes("Qui répond ?"));
+  const html = host.panelHtml();
+  assert.match(
+    html,
+    /<p class="step-chat-agent" id="step-chat-agent">Agent: Copilot · gpt-5 \(effective\)<\/p>/
+  );
+  assert.ok(
+    html.includes('<span class="step-chat-agent-caption">Copilot · gpt-5</span>'),
+    "the answer is captioned with the agent that produced it"
+  );
+
+  setStepChatResponder(undefined);
+  chatPanel().dispose();
+});
+
+/**
+ * A catalogue whose profiles can be probed in process and whose entries never
+ * launch: the profile's command is this Node binary running a script that does
+ * not exist, so a question fails deterministically without any real agent.
+ */
+/** A model selector as a probed agent announces it. */
+function announcedModel(currentValue: string, values: string[]) {
+  return {
+    id: "model",
+    name: "Model",
+    category: "model",
+    type: "select",
+    currentValue,
+    options: values.map(value => ({ value, name: value.toUpperCase() }))
+  };
+}
+
+function unlaunchableCatalogue(workspaceRoot: string, configOptions: unknown[] = []) {
+  const { AgentSelection } = require("../agent/agentCatalogue");
+  const calls: string[] = [];
+  const profile = (name: string, rank: number) => ({
+    name,
+    rank,
+    entry: (cwd: string) => ({
+      command: process.execPath,
+      args: [path.join(workspaceRoot, "codetour-absent-agent.js")],
+      cwd
+    })
+  });
+  const selection = new AgentSelection({
+    profiles: [profile("Copilot", 0), profile("Vibe", 1)],
+    probe: async (probed: { name: string }) => {
+      calls.push(probed.name);
+      return { availability: { state: "available" as const, configOptions } };
+    }
+  });
+  return { selection, calls };
+}
+
+function registerUnlaunchableAgents(workspaceRoot: string, configOptions: unknown[] = []) {
+  const agents = unlaunchableCatalogue(workspaceRoot, configOptions);
+  setStepChatAgentSelection(() => agents.selection);
+  return agents;
+}
+
+/** The terminal authentication method the fake agent declares (ADR 0048). */
+const TERMINAL_AUTH_METHODS = [
+  {
+    id: "terminal-login",
+    name: "Sign in from the terminal",
+    type: "terminal",
+    _meta: {
+      "terminal-auth": {
+        command: "codetour-fake-login",
+        args: ["--connect"],
+        env: { CODETOUR_FAKE_AUTH: "1" },
+        label: "Copilot sign in"
+      }
+    }
+  }
+];
+
+/**
+ * A catalogue where Copilot waits for the sign in the reader can ask for and
+ * Vibe answers: both entries point at a script that does not exist, so a
+ * question fails deterministically and no real agent is launched.
+ */
+function signInCatalogue(
+  workspaceRoot: string,
+  authMethods: unknown[],
+  options: { staysWaiting?: boolean } = {}
+) {
+  const { AgentSelection } = require("../agent/agentCatalogue");
+  const calls: string[] = [];
+  const entry = (cwd: string) => ({
+    command: process.execPath,
+    args: [path.join(workspaceRoot, "codetour-absent-agent.js")],
+    cwd
+  });
+  const selection = new AgentSelection({
+    profiles: [
+      { name: "Copilot", rank: 0, entry },
+      { name: "Vibe", rank: 1, entry }
+    ],
+    probe: async (probed: { name: string }) => {
+      calls.push(probed.name);
+      if (probed.name !== "Copilot") {
+        return { availability: { state: "available" as const, configOptions: [] } };
+      }
+      // Copilot waits for authentication until the reader connects it: the
+      // next probe of that one profile is what the Sign in action observes.
+      const connected =
+        calls.filter(name => name === "Copilot").length > 1 &&
+        !options.staysWaiting;
+      return connected
+        ? { availability: { state: "available" as const, configOptions: [] } }
+        : { availability: { state: "auth-required" as const, authMethods }, authMethods };
+    }
+  });
+  setStepChatAgentSelection(() => selection);
+  return { selection, calls };
+}
+
+test("choosing an agent repaints the panel and changes who answers without asking anything", async () => {
+  resetChatState();
+  const agents = registerUnlaunchableAgents("/workspace");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    // The initial probe preselected the highest-ranked available profile and
+    // stopped there: the panel lists the whole catalogue with its states.
+    assert.deepEqual(agents.calls, ["Copilot"]);
+    assert.match(host.panelHtml(), /<option value="Copilot" data-state="available" selected>Copilot — available<\/option>/);
+    assert.match(host.panelHtml(), /<option value="Vibe" data-state="unverified">Vibe — installed, not verified<\/option>/);
+
+    // The reader chooses another agent: the panel repaints over the same
+    // conversations, naming the choice as the agent that answers next.
+    chatPanel().receive({ type: "chooseAgent", agent: "Vibe" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Vibe");
+    const chosen = lastChatUpdate();
+    assert.equal(chosen.agent?.effective, false, "no session was opened yet");
+    assert.deepEqual(
+      chosen.agents?.map(agent => [agent.name, agent.selected]),
+      [["Copilot", false], ["Vibe", true]]
+    );
+    assert.deepEqual(chosen.exchanges, [], "the choice asks nothing");
+    assert.deepEqual(agents.calls, ["Copilot"], "the choice probes nothing");
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("the panel re-probes on request and probes only the unverified profiles when the selector opens", async () => {
+  resetChatState();
+  const agents = registerUnlaunchableAgents("/workspace");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    // The initial probe stopped at the first available profile.
+    assert.deepEqual(agents.calls, ["Copilot"]);
+
+    // Opening the selector verifies the profiles the initial probe left
+    // unverified, and reposts the painted catalogue.
+    chatPanel().receive({ type: "probeUnverified" });
+    await host.waitFor(() => agents.calls.length === 2);
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe"]);
+    assert.equal(
+      lastChatUpdate().agents?.find(agent => agent.name === "Vibe")?.state,
+      "available"
+    );
+
+    // Opening it again probes nothing more: every profile is established.
+    chatPanel().receive({ type: "probeUnverified" });
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe"]);
+
+    // The manual refresh probes the catalogue again, in rank order, and stops
+    // at the first available profile; the reader sees the repainted states.
+    const beforeRefresh = stepChatUpdates().length;
+    chatPanel().receive({ type: "refreshAgents" });
+    await host.waitFor(
+      () => agents.calls.length === 3 && stepChatUpdates().length > beforeRefresh
+    );
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe", "Copilot"]);
+    assert.equal(lastChatUpdate().agent?.agent, "Copilot");
+    assert.equal(
+      lastChatUpdate().agents?.find(agent => agent.name === "Vibe")?.state,
+      "unverified",
+      "the refresh re-establishes the catalogue from the probe"
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("signing in runs the command the agent declares and re-probes only that profile", async () => {
+  resetChatState();
+  const agents = signInCatalogue("/workspace", TERMINAL_AUTH_METHODS);
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    // Copilot waits for authentication and says how to get one; Vibe answers.
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe"]);
+    assert.match(
+      host.panelHtml(),
+      /<option value="Copilot" data-state="auth-required">Copilot — authentication required \(Sign in from the terminal\)<\/option>/
+    );
+    // The profile that answers has nothing to connect, so the action starts
+    // hidden.
+    assert.match(
+      host.panelHtml(),
+      /id="step-chat-sign-in"[^>]* hidden>Sign in<\/button>/
+    );
+
+    // The reader picks the agent they wanted: its sign in becomes available.
+    chatPanel().receive({ type: "chooseAgent", agent: "Copilot" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Copilot");
+    assert.equal(
+      lastChatUpdate().agents!.find(agent => agent.name === "Copilot")!.signIn,
+      true
+    );
+
+    // A failed question leaves a history for the step, which the sign in must
+    // not reset.
+    chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
+    await host.waitFor(
+      () => lastChatUpdate()?.exchanges?.[0]?.failed === true
+    );
+    const before = lastChatUpdate();
+
+    chatPanel().receive({ type: "signIn", agent: "Copilot" });
+    await host.waitFor(() => agents.calls.length === 3);
+
+    // The command the agent declared runs in a VS Code terminal, in the
+    // workspace, and CodeTour types nothing into it.
+    const terminals = host.terminals();
+    assert.equal(terminals.length, 1);
+    const [terminal] = terminals;
+    assert.equal(terminal.name, "Copilot sign in");
+    assert.equal(terminal.shellPath, "codetour-fake-login");
+    assert.deepEqual(terminal.shellArgs, ["--connect"]);
+    assert.deepEqual(terminal.env, { CODETOUR_FAKE_AUTH: "1" });
+    assert.equal(terminal.cwd, "/workspace");
+    assert.equal(terminal.shown, true);
+    assert.deepEqual(terminal.sentText, []);
+
+    // Only the profile the reader connected was probed again, and the panel
+    // repainted it as available.
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe", "Copilot"]);
+    const after = lastChatUpdate();
+    assert.equal(
+      after.agents!.find(agent => agent.name === "Copilot")!.state,
+      "available"
+    );
+    assert.equal(
+      after.agents!.find(agent => agent.name === "Copilot")!.signIn,
+      false
+    );
+
+    // Neither the step history nor the selected agent was reset.
+    assert.deepEqual(after.exchanges, before.exchanges);
+    assert.equal(after.agent?.agent, "Copilot");
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("a profile with no usable authentication method connects nothing", async () => {
+  resetChatState();
+  // The agent says it needs authentication but offers no method CodeTour can
+  // use: the reader is never offered a sign in that cannot connect anything.
+  const agents = signInCatalogue("/workspace", []);
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe"]);
+
+    chatPanel().receive({ type: "chooseAgent", agent: "Copilot" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Copilot");
+    assert.equal(
+      lastChatUpdate().agents!.find(agent => agent.name === "Copilot")!.signIn,
+      false
+    );
+
+    // No terminal, no ACP method and no probe: the action does nothing.
+    const terminalsOpened = host.terminals().length;
+    chatPanel().receive({ type: "signIn", agent: "Copilot" });
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    assert.equal(host.terminals().length, terminalsOpened);
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe"]);
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("the ACP fallback of a sign in opens no terminal, reports its failure and re-probes the profile", async () => {
+  resetChatState();
+  // The agent handles authentication itself: no terminal command is declared,
+  // so the reader's action goes through ACP `authenticate` instead.
+  const agents = signInCatalogue(
+    "/workspace",
+    [{ id: "copilot-login", name: "Copilot login" }],
+    { staysWaiting: true }
+  );
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    chatPanel().receive({ type: "chooseAgent", agent: "Copilot" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Copilot");
+    const terminalsOpened = host.terminals().length;
+
+    chatPanel().receive({ type: "signIn", agent: "Copilot" });
+    await host.waitFor(() => agents.calls.length === 3);
+
+    // An agent-handled method never becomes a terminal command, and the
+    // profile the reader connected is the only one probed again — even though
+    // this entry cannot be launched, which the reader is told.
+    assert.equal(host.terminals().length, terminalsOpened);
+    assert.deepEqual(agents.calls, ["Copilot", "Vibe", "Copilot"]);
+    assert.ok(host.messages.includes("Could not sign in to Copilot."));
+    assert.equal(
+      lastChatUpdate().agents!.find(agent => agent.name === "Copilot")!.state,
+      "auth-required",
+      "a failed connection leaves the real state on display"
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("a failed exchange offers Retry and Change agent, and retrying keeps the same agent and exchange", async () => {
+  resetChatState();
+  const agents = registerUnlaunchableAgents("/workspace");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    // The reader chose Vibe: the choice is the only profile a question may
+    // use from now on.
+    chatPanel().receive({ type: "chooseAgent", agent: "Vibe" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Vibe");
+    const probesBefore = agents.calls.length;
+
+    chatPanel().receive({ type: "askQuestion", question: "Pourquoi ça casse ?" });
+    await host.waitFor(
+      () =>
+        lastChatUpdate().responding === false &&
+        lastChatUpdate().exchanges.length === 1
+    );
+    const failed = lastChatUpdate();
+    assert.equal(failed.exchanges[0].failed, true);
+    assert.equal(failed.exchanges[0].question, "Pourquoi ça casse ?");
+    assert.equal(failed.agent?.agent, "Vibe", "the choice is never replaced by a failure");
+    assert.equal(
+      agents.calls.length,
+      probesBefore,
+      "a conversation failure probes nothing"
+    );
+
+    // Retrying asks the same question again, to the same agent, and the
+    // failure stays attached to the exchange that failed.
+    chatPanel().receive({ type: "retryQuestion", question: "Pourquoi ça casse ?" });
+    await host.waitFor(
+      () =>
+        lastChatUpdate().responding === false &&
+        lastChatUpdate().exchanges.length === 2
+    );
+    const retried = lastChatUpdate();
+    assert.equal(retried.exchanges[1].question, "Pourquoi ça casse ?");
+    assert.equal(retried.exchanges[1].failed, true);
+    assert.equal(retried.exchanges[0].failed, true);
+    assert.equal(retried.agent?.agent, "Vibe");
+    assert.equal(agents.calls.length, probesBefore);
+    assert.deepEqual(
+      retried.agents?.map(agent => [agent.name, agent.selected]),
+      [["Copilot", false], ["Vibe", true]]
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
+});
+
+test("choosing a model remembers it per agent, repaints the panel and asks nothing", async () => {
+  resetChatState();
+  const agents = registerUnlaunchableAgents("/workspace", [
+    announcedModel("smart", ["fast", "smart"])
+  ]);
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+
+    // The Model control offers only what the probed agent announces, with
+    // the value the agent holds selected.
+    assert.match(
+      host.panelHtml(),
+      /<option value="fast">FAST<\/option><option value="smart" selected>SMART<\/option>/
+    );
+
+    // The reader's choice is remembered for the profile that answers and
+    // repainted; no question is asked by choosing a model.
+    chatPanel().receive({ type: "chooseModel", model: "fast" });
+    await host.waitFor(() => lastChatUpdate()?.model === "fast");
+    assert.equal(agents.selection.modelFor("Copilot"), "fast");
+    assert.deepEqual(lastChatUpdate().exchanges, [], "the choice asks nothing");
+
+    // Each profile keeps its own choice: moving the conversation to another
+    // agent does not carry one agent's model identifiers over.
+    chatPanel().receive({ type: "chooseAgent", agent: "Vibe" });
+    await host.waitFor(() => lastChatUpdate()?.agent?.agent === "Vibe");
+    assert.equal(agents.selection.modelFor("Copilot"), "fast");
+    assert.equal(agents.selection.modelFor("Vibe"), undefined);
+    assert.equal(lastChatUpdate().model, undefined);
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+  }
 });

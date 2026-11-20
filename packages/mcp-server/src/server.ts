@@ -1897,7 +1897,12 @@ async function handleKnowledgeSave(
 
   if (result.status === "saved") {
     const warnings = result.warnings ?? [];
-    const warningNote = insufficientBackingNote(warnings);
+    const backingWarnings = warnings.filter((warning) => warning.code === "insufficient_backing");
+    const fallbackWarnings = warnings.filter((warning) => warning.code === "symbol_proof_fallback");
+    const warningNote = insufficientBackingNote(backingWarnings);
+    const fallbackNote = fallbackWarnings
+      .map((warning) => `\nSymbol proof for ${warning.name} fell back to a file proof (${warning.reason}).`)
+      .join("");
     const response = knowledgeResponse(
       {
         status: "created",
@@ -1906,7 +1911,7 @@ async function handleKnowledgeSave(
         warnings,
       },
       `Created ${result.saved.length} Knowledge entr${result.saved.length === 1 ? "y" : "ies"}: ` +
-        result.saved.join(", ") + "." + warningNote
+        result.saved.join(", ") + "." + warningNote + fallbackNote
     );
     await appendConsolidation(
       response,

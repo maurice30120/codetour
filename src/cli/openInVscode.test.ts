@@ -3,7 +3,6 @@ import { test } from "node:test";
 import {
   buildTourOpenUri,
   canonicalWorkspacePath,
-  detectOpenVsCodeWindows,
   executeOpenInVsCodePlan,
   planOpenInVsCode
 } from "./openInVscode";
@@ -53,7 +52,6 @@ test("planOpenInVsCode reports an unavailable VS Code as a defined error", () =>
     workspace: "/repo",
     tourPath: ".tours/onboarding.tour",
     step: 2,
-    openWindows: [],
     vscodeAvailable: false
   });
   assert.deepEqual(plan, {
@@ -63,77 +61,27 @@ test("planOpenInVsCode reports an unavailable VS Code as a defined error", () =>
   });
 });
 
-test("planOpenInVsCode opens a new window when the workspace is not open", () => {
+test("planOpenInVsCode targets the workspace before the Tour URI", () => {
   const plan = planOpenInVsCode({
     workspace: "/repo",
     tourPath: ".tours/onboarding.tour",
     step: 2,
-    openWindows: [],
     vscodeAvailable: true
   });
-  // Scenario (b): the folder opens first, then the Tour URI; the URI is the
-  // only invocation that carries the Tour, so no window ever opens twice.
+  // The workspace is requested first, followed by the Tour URI.
   assert.deepEqual(plan, {
     kind: "launch",
-    scenario: "new-window",
     invocations: [
       { command: "code", args: ["/repo"] },
       {
         command: "code",
         args: [
           "--open-url",
-          "vscode://maurice30120.codetour/openTour?tour=.tours%2Fonboarding.tour&step=3"
+          "vscode://maurice30120.codetour/openTour?tour=.tours%2Fonboarding.tour&step=3&workspace=%2Frepo"
         ]
       }
     ]
   });
-});
-
-test("planOpenInVsCode reuses the window holding the workspace", () => {
-  // Scenario (a): the URI alone reaches the existing window; no folder
-  // opening, no duplicate window.
-  const plan = planOpenInVsCode({
-    workspace: "/repo",
-    tourPath: ".tours/onboarding.tour",
-    step: 2,
-    openWindows: ["/repo"],
-    vscodeAvailable: true
-  });
-  assert.deepEqual(plan, {
-    kind: "launch",
-    scenario: "reuse-window",
-    invocations: [
-      {
-        command: "code",
-        args: [
-          "--open-url",
-          "vscode://maurice30120.codetour/openTour?tour=.tours%2Fonboarding.tour&step=3"
-        ]
-      }
-    ]
-  });
-});
-
-test("planOpenInVsCode with several windows on the workspace never opens a new one", () => {
-  const plan = planOpenInVsCode({
-    workspace: "/repo",
-    tourPath: ".tours/onboarding.tour",
-    step: 2,
-    openWindows: ["/repo", "/repo"],
-    vscodeAvailable: true
-  });
-  // Defined behavior for several matching windows: the URI alone is sent (VS
-  // Code routes it to one of them), and no invocation names the folder, so
-  // the plan cannot create a duplicate window.
-  assert.equal(plan.kind, "launch");
-  assert.ok(plan.kind === "launch");
-  assert.equal(plan.scenario, "multiple-windows");
-  for (const invocation of plan.invocations) {
-    assert.deepEqual(invocation.args, [
-      "--open-url",
-      "vscode://maurice30120.codetour/openTour?tour=.tours%2Fonboarding.tour&step=3"
-    ]);
-  }
 });
 
 test("executeOpenInVsCodePlan runs the invocations in order and waits between them", async () => {
@@ -143,7 +91,6 @@ test("executeOpenInVsCodePlan runs the invocations in order and waits between th
     workspace: "/repo",
     tourPath: ".tours/onboarding.tour",
     step: 2,
-    openWindows: [],
     vscodeAvailable: true
   });
   await executeOpenInVsCodePlan(plan, {
@@ -157,8 +104,7 @@ test("executeOpenInVsCodePlan runs the invocations in order and waits between th
   assert.equal(spawned.length, 2);
   assert.equal(spawned[0], "code /repo");
   assert.ok(spawned[1]!.startsWith("code --open-url"));
-  // The settle delay separates the two invocations of the new-window
-  // scenario and runs nowhere else.
+  // The settle delay separates the two invocations.
   assert.deepEqual(delays, [2000]);
 });
 
@@ -167,7 +113,6 @@ test("executeOpenInVsCodePlan maps a failed launcher to a defined message", asyn
     workspace: "/repo",
     tourPath: ".tours/onboarding.tour",
     step: 2,
-    openWindows: [],
     vscodeAvailable: true
   });
   await assert.rejects(
@@ -181,26 +126,4 @@ test("executeOpenInVsCodePlan maps a failed launcher to a defined message", asyn
     }),
     /Visual Studio Code is not reachable/
   );
-});
-
-test("detectOpenVsCodeWindows decodes the workspace folders of running windows", async () => {
-  const seen: string[] = [];
-  const windows = await detectOpenVsCodeWindows({
-    storageRoot: "/support/Code/User/workspaceStorage",
-    listDirectories: async root => {
-      seen.push(root);
-      return ["hash-one", "hash-two", "hash-three"];
-    },
-    readFile: async filePath => {
-      if (filePath.endsWith("hash-two/workspace.json")) {
-        // A corrupt storage entry is ignored: best-effort detection.
-        return "{not json";
-      }
-      return filePath.endsWith("hash-one/workspace.json")
-        ? JSON.stringify({ folder: "file:///repo" })
-        : JSON.stringify({ folder: "file:///gone%20repo" });
-    }
-  });
-  assert.deepEqual(seen, ["/support/Code/User/workspaceStorage"]);
-  assert.deepEqual(windows, ["/repo", "/gone repo"]);
 });

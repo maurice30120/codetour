@@ -4,6 +4,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 
+import * as acp from "@agentclientprotocol/sdk";
+
 import type { AcpAgentEntry } from "./acpAgentProcess";
 import { spawnAcpAgent } from "./acpAgentProcess";
 import { openAskSession } from "./acpSession";
@@ -82,6 +84,7 @@ test("an Ask mode is also selected by name when its id differs", async () => {
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "ask-mode-by-name"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -118,6 +121,7 @@ test("a mode change away from Ask is detected and the next question is refused",
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "mode-drift"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -156,7 +160,7 @@ test("a session refuses to open without an Ask mode", async () => {
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "no-ask-mode"));
   try {
     await assert.rejects(
-      openAskSession({ transport: agent, cwd: workspace.workspace }),
+      openAskSession({ agentProfileName: "Copilot", transport: agent, cwd: workspace.workspace }),
       /does not offer an Ask mode/
     );
   } finally {
@@ -175,7 +179,7 @@ test("a session fails fast when the ACP entry exits at launch", async () => {
     });
     try {
       await assert.rejects(
-        openAskSession({ transport: agent, cwd: workspace.workspace }),
+        openAskSession({ agentProfileName: "Copilot", transport: agent, cwd: workspace.workspace }),
         /before the session could start|ENOENT/
       );
     } finally {
@@ -192,6 +196,7 @@ test("closing the session interrupts the in-flight turn and releases the agent p
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "slow"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -239,6 +244,7 @@ test("the client refuses write and terminal requests and verifies the tools the 
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "rogue"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -315,6 +321,7 @@ test("read-only tool use is granted once, served inside the workspace only, and 
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "permission-read"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -380,6 +387,7 @@ test("cancelling interrupts an in-flight answer and frees the session for the ne
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "slow"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -433,6 +441,7 @@ test("a prompt carries the tour step context and receives the complete answer", 
   const agent = spawnAcpAgent(fakeAgentEntry(logPath));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -489,6 +498,7 @@ test("an ask session starts the ACP entry, advertises no write or terminal capab
   const agent = spawnAcpAgent(fakeAgentEntry(logPath));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -533,6 +543,39 @@ test("an ask session starts the ACP entry, advertises no write or terminal capab
 });
 
 
+test("an ask session announces the terminal authentication capability, like the probe", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  // An agent whose only path to a connection is the terminal method it gates
+  // on the capability: it refuses this session with the ACP authentication
+  // error code, so what the session announced is what can be observed.
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "auth-terminal"));
+  try {
+    await assert.rejects(
+      openAskSession({
+        agentProfileName: "Copilot",
+        transport: agent,
+        cwd: workspace.workspace
+      }),
+      (error: acp.RequestError) => error.code === -32000
+    );
+
+    const records = await waitForLog(logPath, found =>
+      found.some(record => record.method === "initialize")
+    );
+    const initialize = records.find(record => record.method === "initialize")!;
+    const capabilities = initialize.params?.clientCapabilities as {
+      _meta?: Record<string, unknown>;
+    };
+    // Without this capability the agent has no way to offer the terminal
+    // method the reader's Sign in action runs.
+    assert.deepEqual(capabilities._meta, { "terminal-auth": true });
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
 test("an unresponsive agent fails startup within the deadline", async () => {
   const workspace = createWorkspace();
   const agent = spawnAcpAgent(fakeAgentEntry(path.join(workspace.workspace, "agent.log"), "silent-start"));
@@ -540,7 +583,7 @@ test("an unresponsive agent fails startup within the deadline", async () => {
     let deadline: ReturnType<typeof setTimeout> | undefined;
     try {
       await assert.rejects(Promise.race([
-        openAskSession({ transport: agent, cwd: workspace.workspace, startupTimeoutMs: 100 }),
+        openAskSession({ agentProfileName: "Copilot", transport: agent, cwd: workspace.workspace, startupTimeoutMs: 100 }),
         new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error("startup hung")), 1000); })
       ]), /exceeded the ACP connection timeout/i);
     } finally {
@@ -553,11 +596,11 @@ test("an unresponsive agent fails startup within the deadline", async () => {
 });
 
 
-test("a provider selects its exact read-only mode", async () => {
+test("an agent session selects its exact read-only mode", async () => {
   const workspace = createWorkspace();
   const agent = spawnAcpAgent(fakeAgentEntry(path.join(workspace.workspace, "agent.log"), "read-only-mode"));
   try {
-    const session = await openAskSession({ transport: agent, cwd: workspace.workspace, modeId: "read-only" });
+    const session = await openAskSession({ agentProfileName: "Copilot", transport: agent, cwd: workspace.workspace, modeId: "read-only" });
     assert.equal(session.modeId, "read-only");
     const result = await session.prompt("Explain", { filePath: "anchor.js", description: "Constants", code: "const first = 1;" });
     assert.match(result.message, /Tour answer/);
@@ -572,7 +615,7 @@ for (const behavior of ["default", "rogue"]) {
     const logPath = path.join(workspace.workspace, "agent.log");
     const agent = spawnAcpAgent(fakeAgentEntry(logPath, behavior));
     try {
-      const session = await openAskSession({ transport: agent, cwd: workspace.workspace,
+      const session = await openAskSession({ agentProfileName: "Copilot", transport: agent, cwd: workspace.workspace,
         useDefaultMode: true });
       assert.equal(session.modeId, "edit");
       const outcome = await session.prompt("Explain", { filePath: "anchor.js", description: "Constants", code: "const first = 1;" });
@@ -587,3 +630,270 @@ for (const behavior of ["default", "rogue"]) {
     } finally { await agent.dispose(); workspace.cleanup(); }
   });
 }
+
+/** Waits for a state the session layer settles asynchronously. */
+async function waitFor(predicate: () => boolean, what: string): Promise<void> {
+  const deadline = Date.now() + 10_000;
+  while (!predicate()) {
+    if (Date.now() > deadline) {
+      throw new Error(`Timed out waiting for ${what}`);
+    }
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+}
+
+/** The configuration-option requests the fake agent received, oldest first. */
+function configRequests(logPath: string): FakeAgentLogRecord[] {
+  return readLog(logPath).filter(
+    record => record.method === "session/set_config_option"
+  );
+}
+
+test("the configOptions capability is announced and the model a session announces is read", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "model-option"));
+  try {
+    const session = await openAskSession({
+      agentProfileName: "Copilot",
+      transport: agent,
+      cwd: workspace.workspace
+    });
+    try {
+      // Only the option of category "model" is the selector; its grouped
+      // values are flattened, and the model configuration, the thought level
+      // and the boolean toggle are ignored.
+      assert.deepEqual(session.model, {
+        optionId: "model",
+        value: "smart",
+        values: [
+          { value: "fast", name: "Fast" },
+          { value: "balanced", name: "Balanced" },
+          { value: "smart", name: "Smart" }
+        ]
+      });
+      assert.deepEqual(session.identity, {
+        agent: "Copilot",
+        model: "smart",
+        effective: true
+      });
+
+      // The client announced the capability that makes an agent expose its
+      // configuration options at all.
+      const initialize = readLog(logPath).find(
+        record => record.method === "initialize"
+      )!;
+      const capabilities = (initialize.params as {
+        clientCapabilities: {
+          fs?: { readTextFile?: boolean };
+          session?: { configOptions?: unknown };
+        };
+      }).clientCapabilities;
+      assert.equal(capabilities.fs?.readTextFile, true);
+      assert.deepEqual(capabilities.session, { configOptions: {} });
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
+test("a model selector is also recognised by its id, and an agent without one announces no model", async () => {
+  const byIdWorkspace = createWorkspace();
+  const byIdLog = path.join(byIdWorkspace.workspace, "agent.log");
+  const byId = spawnAcpAgent(fakeAgentEntry(byIdLog, "model-option-by-id"));
+  try {
+    const session = await openAskSession({
+      agentProfileName: "Vibe",
+      transport: byId,
+      cwd: byIdWorkspace.workspace
+    });
+    try {
+      // No category: the id "model" alone identifies the selector.
+      assert.deepEqual(session.model, {
+        optionId: "model",
+        value: "fast",
+        values: [{ value: "fast", name: "Fast" }]
+      });
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await byId.dispose();
+    byIdWorkspace.cleanup();
+  }
+
+  const absentWorkspace = createWorkspace();
+  const absent = spawnAcpAgent(
+    fakeAgentEntry(path.join(absentWorkspace.workspace, "agent.log"), "model-option-absent")
+  );
+  try {
+    const session = await openAskSession({
+      agentProfileName: "Vibe",
+      transport: absent,
+      cwd: absentWorkspace.workspace
+    });
+    try {
+      // A model configuration, a thought level and a boolean toggle are not
+      // models: the agent manages its own model, and the reader is told none.
+      assert.equal(session.model, undefined);
+      assert.deepEqual(session.identity, { agent: "Vibe", effective: true });
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await absent.dispose();
+    absentWorkspace.cleanup();
+  }
+});
+
+test("a requested model the agent offers is confirmed by set_config_option on the new session", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "model-option"));
+  try {
+    const session = await openAskSession({
+      agentProfileName: "Copilot",
+      transport: agent,
+      cwd: workspace.workspace,
+      requestedModel: "balanced"
+    });
+    try {
+      // The response of the agent, not the request, is the confirmed state.
+      assert.equal(session.model?.value, "balanced");
+      assert.equal(session.identity.model, "balanced");
+
+      const requests = configRequests(logPath);
+      assert.equal(requests.length, 1);
+      assert.equal(
+        (requests[0].params as { configId: string }).configId,
+        "model"
+      );
+      assert.equal((requests[0].params as { value: string }).value, "balanced");
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
+test("a requested model the agent does not offer is asked nothing and keeps the agent's value", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "model-option"));
+  try {
+    const session = await openAskSession({
+      agentProfileName: "Copilot",
+      transport: agent,
+      cwd: workspace.workspace,
+      requestedModel: "ghost-model"
+    });
+    try {
+      assert.equal(session.model?.value, "smart");
+      assert.equal(session.identity.model, "smart");
+      assert.deepEqual(
+        configRequests(logPath),
+        [],
+        "an unknown value is never sent to the agent"
+      );
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
+
+test("a live model change counts only once the agent confirms it; a refusal keeps the agent's value", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "model-option"));
+  try {
+    const session = await openAskSession({
+      agentProfileName: "Copilot",
+      transport: agent,
+      cwd: workspace.workspace
+    });
+    try {
+      const confirmed = await session.setModel("fast");
+      assert.equal(confirmed?.value, "fast");
+      assert.equal(session.model?.value, "fast");
+      assert.equal(session.identity.model, "fast");
+
+      // An unknown value sends nothing at all.
+      const before = configRequests(logPath).length;
+      const unchanged = await session.setModel("ghost-model");
+      assert.equal(unchanged?.value, "fast");
+      assert.equal(configRequests(logPath).length, before);
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+
+  const refusedWorkspace = createWorkspace();
+  const refusedLog = path.join(refusedWorkspace.workspace, "agent.log");
+  const refused = spawnAcpAgent(fakeAgentEntry(refusedLog, "model-refused"));
+  try {
+    const session = await openAskSession({
+      agentProfileName: "Copilot",
+      transport: refused,
+      cwd: refusedWorkspace.workspace
+    });
+    try {
+      // The agent refused: the reader keeps the value the agent confirms.
+      const state = await session.setModel("fast");
+      assert.equal(state?.value, "smart");
+      assert.equal(session.identity.model, "smart");
+      const refusedRequests = configRequests(refusedLog);
+      assert.equal(refusedRequests.length, 1);
+      assert.equal(refusedRequests[0].outcome, "refused");
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await refused.dispose();
+    refusedWorkspace.cleanup();
+  }
+});
+
+test("a model change the agent reports by itself is followed", async () => {
+  const workspace = createWorkspace();
+  const agent = spawnAcpAgent(
+    fakeAgentEntry(path.join(workspace.workspace, "agent.log"), "model-notification")
+  );
+  try {
+    const announced: (string | undefined)[] = [];
+    const session = await openAskSession({
+      agentProfileName: "Copilot",
+      transport: agent,
+      cwd: workspace.workspace,
+      onModelChange: model => announced.push(model?.value)
+    });
+    try {
+      assert.equal(session.model?.value, "smart");
+      await session.prompt("Question", {
+        filePath: "anchor.js",
+        description: "Two constants",
+        code: "const first = 1;"
+      });
+      // The agent changed model mid-turn and reported the full options: the
+      // session names the value the agent holds, not the one it announced.
+      await waitFor(() => session.model?.value === "fast", "the model update");
+      assert.deepEqual(announced, ["fast"]);
+      assert.equal(session.identity.model, "fast");
+    } finally {
+      await session.close();
+    }
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});

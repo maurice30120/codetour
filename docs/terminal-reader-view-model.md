@@ -70,7 +70,10 @@ from the composition root (`runTerminalTour` in `src/cli/terminal.ts`):
   (ADR 0029).
 - **Conversation responder** (`ConversationResponder`): the agent answering
   Tour Step Conversation questions, adapted from the Step Chat support
-  seams. Absent by design: the reader stays fully usable without an agent.
+  seams. It also exposes the model selector the answering agent announces
+  (`model()`) and the request that changes it (`selectModel()`), which the
+  model picker consumes (ADR 0052). Absent by design: the reader stays fully
+  usable without an agent.
 - **Description renderer** (`DescriptionRenderer`): renders one Step's
   description to sanitized terminal HTML at a given text width. Async — the
   await that makes renders versioned.
@@ -119,16 +122,20 @@ are painting.
 **Tour Step Conversation** (`conversation`) — the panel title, its `meta`
 (`"no agent"`, `"ready"` or `"n exchanges"` — a display fragment the panel
 head paints verbatim; restructuring it would churn the paint layer
-disproportionately, a stated decision), `hasResponder`, the agent's
-`providerName` (the adapter lowercases it for the role line), the active
-Step's `suggestions` in order (keys 1-9 ask them), the Step's `exchanges`
-(`StepConversationExchange`, raw and unpainted from the shared store of
-ADR 0031: question, streamed `answer`, the latest `activity` line, the
-`toolUses` keyed by call, and the `pending`/`interrupted`/`failed` flags),
-and `responding` while the Step's answer streams — `q`/Escape interrupt it
-and only a second press quits. The exchange lifecycle (store, blocking,
-history, interruption, failure wording) lives in
-`src/agent/stepConversations.ts`; the adapter paints the tool lines
+disproportionately, a stated decision), `hasResponder`, `agent` — the agent
+answering the panel as a `StepChatAgentIdentity | undefined`: the Agent
+Profile name, its effective `model` when the agent announces one, and
+`effective`, false until a session handshake confirmed the profile — the
+active Step's `suggestions` in order (keys 1-9 ask them), the Step's
+`exchanges` (`StepConversationExchange`, raw and unpainted from the shared
+store of ADR 0031: question, streamed `answer`, the latest `activity`
+line, the `toolUses` keyed by call, and the
+`pending`/`interrupted`/`failed` flags), and `responding` while the Step's
+answer streams — `q`/Escape interrupt it and only a second press quits. The
+exchange lifecycle (store, blocking, history, interruption, failure wording)
+lives in `src/agent/stepConversations.ts`; the adapter paints the role line from
+`agentIdentityLabel` — the agent in the reader's lowercase chrome, its model
+when known, and `(effective)` or `(preselected)` — the tool lines
 (`⚙ refused kind: title`), the activity line, the answer states (streaming
 plain text, settled Markdown, `failed` as the error class, an interrupted
 answer keeps its streamed part plus an "Answer interrupted." line).
@@ -139,6 +146,19 @@ and the `prompt` notices before fitting — the idle, responding and
 unavailable texts; empty while asking, where the adapter paints the draft
 with its `▌` caret, tailed so the caret stays visible. The caret and its
 truncation are painting: the view model never carries them.
+
+**Model picker** (`picker`, `undefined` while it is closed) — the overlay the
+unmodified `m` opens (ADR 0052, ticket #266): a `title`, the announced `items`
+in the agent's order, each with its `label` and an `effective` flag for the
+Effective Model the agent confirms, the highlighted `selected` row (`-1` when
+there is nothing to choose; it is clamped against the announced list, and
+`Enter` accepts that same clamped row), the exact `hint` line, and a `notice`
+for an agent that announces no model — `"agent-managed model"` once a
+handshake confirmed the agent, the fact that it has not announced its models
+yet before that. The list is read live from the responder, so a notice
+disappears the moment a session announces values. The overlay, its rows and
+its highlight are painting: one overlay above the status line, palette tokens
+only, no new cell budget in `layout` (ADR 0028 stays untouched).
 
 **Status line** (`status`) — see the next section.
 
@@ -178,8 +198,15 @@ survives truncation:
 
 1. `VOICE ON` / `VOICE OFF` — always present.
 2. The narration `warning` (`"Narration failed: …"`), while one is current.
-3. The agent's provider name, lowercased, when an agent is installed.
-4. The exchange count (`"n exchanges"`), when nonzero.
+3. The agent answering, when an agent is installed: `agentIdentityLabel`, the
+   Agent Profile in the reader's lowercase chrome followed by its model when
+   the agent announces one, then `(effective)` once a session handshake
+   confirmed it or `(preselected)` before — e.g. `copilot · gpt-5 (effective)`
+   or `vibe (preselected)`.
+4. The model warning (`"model: … refused"`), while one is current: the last
+   model change the agent did not adopt (ADR 0052). It sits beside the Agent
+   Profile it is about, before the exchange count.
+5. The exchange count (`"n exchanges"`), when nonzero.
 
 The adapter joins the segments with `" · "` and fits them into
 `layout.statusRightWidth` — the layout module computes the budget: the mode
@@ -206,10 +233,17 @@ deletes. In reading mode:
 - `j`/`↓` scroll one row down, `k`/`↑` one row up, `PgDn`/Space one screenful
   down, `PgUp` one screenful up;
 - `a` enters ask mode when an agent is installed and no answer streams;
+- `m` opens the model picker when the responder accepts a model change and no
+  answer streams — see below;
 - digits `1`-`9` ask the matching suggested question of the active Step,
   ignored while an answer streams;
 - `q` (or `Escape`) interrupts the Step's answer in flight while one
   streams (ADR 0031), and quits the reader otherwise.
+
+While the model picker is open it owns every unmodified key (ADR 0052): `↓`/`j`
+and `↑`/`k` move the highlight, `Enter` accepts, `Escape`, `q` or `m` cancel, and
+any other key changes nothing — no reading key fires underneath the overlay.
+Modified combinations stay unhandled, so Ctrl+C still reaches the terminal.
 
 ## Scroll and resize semantics
 

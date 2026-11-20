@@ -1,4 +1,6 @@
 import type { OpenInVsCodeInvoker } from "../openInVscode";
+import type { AcpModelValue } from "../../agent/acpModelOptions";
+import type { StepChatAgentIdentity } from "../../agent/stepChatContract";
 import { resolveReadonlyStepContext, type ReadonlyStepContext } from "../stepContext";
 import { renderTerminalDescription, TerminalStepRenderError } from "../terminalContent";
 import { railWindow, terminalLayout, type TerminalLayout } from "../terminalLayout";
@@ -19,6 +21,7 @@ import type {
   ReaderComposer,
   ReaderExtents,
   ReaderFatal,
+  ReaderPicker,
   ReaderRailItem,
   ReaderRailWindow,
   ReaderSourceSection,
@@ -119,6 +122,12 @@ class TerminalReader implements TourReader {
   private readonly openInVsCode: OpenInVsCodeInvoker | undefined;
   /** The latest nonblocking Open-in-VS Code failure, cleared by a later success. */
   private openWarning: string | undefined;
+  /**
+   * The latest model change the agent did not adopt, with the model it
+   * confirmed when the request failed: a later confirmation clears it, whether
+   * the reader asked for it or the agent reported its own change (ADR 0052).
+   */
+  private modelWarning: { message: string; confirmed: string | undefined } | undefined;
 
   private layout: TerminalLayout;
   private terminalRows: number;
@@ -143,6 +152,11 @@ class TerminalReader implements TourReader {
 
   private asking = false;
   private draft = "";
+  /**
+   * The open model picker and its highlighted row (ticket #266); undefined
+   * while it is closed. It owns the keyboard until it closes.
+   */
+  private picker: { selected: number } | undefined;
 
   private stepScrollTop = 0;
   private stepViewportRows = 0;
@@ -214,10 +228,14 @@ class TerminalReader implements TourReader {
   }
 
   getState(): ReaderViewModel {
+    this.reconcileModelWarning();
     const suggestions = this.tour.steps[this.current]?.questions ?? [];
     const exchanges = this.conversation.exchangesFor(this.current);
     const responding = this.conversation.isResponding(this.current);
     const hasResponder = this.conversation.hasResponder;
+    // The agent answering right now, painted by the panel's role line and
+    // by the status line alike.
+    const agent = this.conversation.agentIdentity;
     // The conversation state every status and composer decision shares.
     const conversation: ConversationState = {
       asking: this.asking,
@@ -247,20 +265,23 @@ class TerminalReader implements TourReader {
             ? exchangesLabel(exchanges.length)
             : "ready",
         hasResponder,
-        providerName: this.conversation.providerName,
+        agent,
         suggestions,
         exchanges,
         responding
       },
       composer: this.composer(conversation, suggestions),
+      picker: this.modelPicker(agent),
       status: statusLine({
         conversation,
         compactHints: this.layout.compactHints,
         narrationEnabled: narrationState.enabled,
         speechWarning: narrationState.warning,
         canOpenInVsCode: this.openInVsCode !== undefined,
+        canSelectModel: this.conversation.canSelectModel,
         openWarning: this.openWarning,
-        providerName: this.conversation.providerName,
+        modelWarning: this.modelWarning?.message,
+        agent,
         exchangeCount: exchanges.length
       }),
       narration: narrationState,
@@ -334,7 +355,9 @@ class TerminalReader implements TourReader {
       currentStep: this.current,
       stepCount: this.tour.steps.length,
       pageRows: Math.max(1, this.stepViewportRows),
-      canOpenInVsCode: this.openInVsCode !== undefined
+      canOpenInVsCode: this.openInVsCode !== undefined,
+      canSelectModel: this.conversation.canSelectModel,
+      pickerOpen: this.picker !== undefined
     }, event);
   }
 
@@ -430,6 +453,21 @@ class TerminalReader implements TourReader {
         // Ticket #244: the opening runs beside the reading, never blocking
         // the state machine; its outcome lands on the status line.
         this.requestOpenInVsCode();
+        break;
+      case "open-model-picker":
+        this.openModelPicker();
+        break;
+      case "picker-move":
+        this.movePicker(action.delta);
+        break;
+      case "picker-accept":
+        this.acceptPicker();
+        break;
+      case "picker-cancel":
+        this.picker = undefined;
+        break;
+      case "picker-ignored":
+        // The picker owns the keyboard: a key it does not map changes nothing.
         break;
       case "enter-ask-mode":
         this.asking = true;
@@ -631,6 +669,131 @@ class TerminalReader implements TourReader {
             ? "a ask · 1-" + Math.min(4, suggestions.length) + " suggestion"
             : "a ask";
     return { mode, draft: this.draft, hint, prompt };
+  }
+
+  /** The values the answering agent announces right now; empty when it announces none. */
+  private announcedModels(): AcpModelValue[] {
+    return this.conversation.announcedModel?.values ?? [];
+  }
+
+  /**
+   * The picker's highlighted row inside the models announced right now, or -1
+   * when there is nothing to choose (ticket #266). One clamp serves the view
+   * model the adapter paints and the row `Enter` accepts: a list that shrinks
+   * while the picker is open can never make the two disagree.
+   */
+  private pickerIndex(values: readonly AcpModelValue[]): number {
+    if (!values.length || !this.picker) return -1;
+    return Math.min(Math.max(this.picker.selected, 0), values.length - 1);
+  }
+
+  /**
+   * The model picker overlay while it is open (ticket #266): the models the
+   * agent announces right now, the highlighted row, and the explicit notice
+   * an agent that announces none gets. The list is read live, so a model the
+   * agent stops offering never stays on screen.
+   */
+  private modelPicker(agent: StepChatAgentIdentity | undefined): ReaderPicker | undefined {
+    if (!this.picker) return undefined;
+    const announced = this.conversation.announcedModel;
+    const values = announced?.values ?? [];
+    return {
+      title: "model",
+      items: values.map(value => ({
+        label: value.name,
+        effective: value.value === announced?.value
+      })),
+      selected: this.pickerIndex(values),
+      notice: values.length
+        ? undefined
+        : agent?.effective
+          ? "agent-managed model"
+          : "the agent has not announced its models yet",
+      hint: values.length ? " enter choose · esc cancel" : " esc close"
+    };
+  }
+
+  /**
+   * Opens the model picker on the model the agent confirms (ticket #266).
+   * Nothing is started here: the list is what an open session announced, and
+   * before any session the overlay says so rather than inventing values.
+   */
+  private openModelPicker(): void {
+    const announced = this.conversation.announcedModel;
+    const effective = announced
+      ? announced.values.findIndex(value => value.value === announced.value)
+      : -1;
+    this.picker = { selected: Math.max(0, effective) };
+  }
+
+  /** Moves the highlighted row by one, clamped inside the announced models. */
+  private movePicker(delta: number): void {
+    if (!this.picker) return;
+    const values = this.announcedModels();
+    if (!values.length) return;
+    this.picker.selected = Math.min(Math.max(this.picker.selected + delta, 0), values.length - 1);
+  }
+
+  /**
+   * Accepts the highlighted model: the picker closes and the request reaches
+   * the responder, which applies it to the open session. The accepted row is
+   * the row the view model painted, never a stale index; a picker with nothing
+   * to choose has nothing to accept.
+   */
+  private acceptPicker(): void {
+    if (!this.picker) return;
+    const values = this.announcedModels();
+    const index = this.pickerIndex(values);
+    const value = index < 0 ? undefined : values[index];
+    this.picker = undefined;
+    if (!value) return;
+    this.requestModel(value);
+  }
+
+  /**
+   * Requests one model change (ticket #266): the choice is a request the agent
+   * confirms, and only a confirmation is displayed (ADR 0048). A value the
+   * agent did not adopt becomes a visible status-line warning, because a
+   * silent no-op would leave the reader believing a model it never got.
+   */
+  private requestModel(value: AcpModelValue): void {
+    if (!this.conversation.canSelectModel) return;
+    this.modelWarning = undefined;
+    this.notify();
+    void Promise.resolve(this.conversation.selectModel(value.value)).then(
+      () => {
+        const confirmed = this.conversation.announcedModel;
+        if (confirmed && confirmed.value !== value.value) {
+          this.modelWarning = {
+            message: "model: " + value.name + " refused",
+            confirmed: confirmed.value
+          };
+        }
+        this.notify();
+      },
+      (error: unknown) => {
+        this.modelWarning = {
+          message: "model: " + (error instanceof Error ? error.message : String(error)),
+          confirmed: this.conversation.announcedModel?.value
+        };
+        this.notify();
+      }
+    );
+  }
+
+  /**
+   * A refusal notice describes one model state: as soon as the agent confirms
+   * another model — including a `config_option_update` nobody here requested
+   * (ADR 0048, ADR 0052) — the notice is stale and is dropped. Every paint
+   * passes through the view model, so the notice never outlives what it is
+   * about.
+   */
+  private reconcileModelWarning(): void {
+    if (!this.modelWarning) return;
+    const confirmed = this.conversation.announcedModel?.value;
+    if (confirmed !== undefined && confirmed !== this.modelWarning.confirmed) {
+      this.modelWarning = undefined;
+    }
   }
 
   /** The rail window around the displayed Step; empty until one is displayed. */

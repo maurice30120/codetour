@@ -10,7 +10,7 @@ import {
 import { rmrf, tempDir } from "../helpers/test-utils";
 
 // The Consolidation Closure accumulates the facts of every save call of one
-// Generation Run (spec #232, ADR 0049). `created` and `changed` are unions of
+// Generation Run (spec #232, ADR 0050). `created` and `changed` are unions of
 // names actually published and modified, and the status follows a fixed
 // precedence, so the Run State is a function of the set of write outcomes —
 // never of the order the agent happened to make them in. A refusal is never

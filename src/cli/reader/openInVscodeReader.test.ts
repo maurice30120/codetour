@@ -5,6 +5,7 @@ import { loadTour } from "../../store/tourSchema";
 import { NarrationController } from "../narration/NarrationController";
 import type { NarrationEngine } from "../narration/SystemSpeech";
 import { createReader, type TourReader } from "./reader";
+import { statusLine } from "./statusLine";
 import type { ConversationResponder } from "./collaborators";
 import type { OpenInVsCodeRequest } from "../openInVscode";
 
@@ -130,12 +131,70 @@ test("a failing VS Code opening becomes a nonblocking status-line warning", asyn
   await reader.close();
 });
 
+test("the open warning sits after the documented fixed precedence segments (spec #240)", () => {
+  // The precedence is fixed: voice, speech warning, Agent Profile, exchange
+  // count — the Open-in-VS Code warning takes the last, outermost slot
+  // (spec #239 review F3), so a narrow terminal cuts it first and the
+  // documented segments stay in order.
+  const status = statusLine({
+    conversation: { asking: false, responding: false, hasResponder: true },
+    compactHints: false,
+    narrationEnabled: true,
+    speechWarning: "voice: slow",
+    canOpenInVsCode: true,
+    canSelectModel: false,
+    openWarning: "vscode: boom",
+    modelWarning: undefined,
+    agent: { agent: "Fake", effective: true },
+    exchangeCount: 2
+  });
+  assert.deepEqual(status.rightSegments, [
+    "VOICE ON", "voice: slow", "fake (effective)", "2 exchanges", "vscode: boom"
+  ]);
+  // The warning survives the exchange-count-absent case unplaced before the
+  // Agent Profile.
+  const bare = statusLine({
+    conversation: { asking: false, responding: false, hasResponder: false },
+    compactHints: true,
+    narrationEnabled: false,
+    speechWarning: undefined,
+    canOpenInVsCode: true,
+    canSelectModel: false,
+    openWarning: "vscode: boom",
+    modelWarning: undefined,
+    agent: undefined,
+    exchangeCount: 0
+  });
+  assert.deepEqual(bare.rightSegments, ["VOICE OFF", "vscode: boom"]);
+});
+
+test("a failing opening never lands between the voice warning and the Agent Profile in the live view model", async () => {
+  const collaborator = new ScriptedOpenInVsCode();
+  const responder: ConversationResponder = {
+    identity: () => ({ agent: "Fake", effective: false }),
+    answer: async () => "Fake answer"
+  };
+  const reader = harness(collaborator.invoker, responder);
+  await reader.open();
+  reader.pressKey({ key: "o" });
+  await flushed();
+  collaborator.settle(0, new Error("boom"));
+  await flushed();
+  await reader.ask("why?");
+  const segments = reader.getState().status.rightSegments;
+  const openIndex = segments.findIndex(segment => segment.startsWith("vscode: "));
+  const exchangeIndex = segments.findIndex(segment => /exchange/.test(segment));
+  assert.ok(openIndex > exchangeIndex,
+    "the open warning is cut before the exchange count: " + JSON.stringify(segments));
+  await reader.close();
+});
+
 test("the `o` shortcut is not taken in ask mode", async () => {
   const collaborator = new ScriptedOpenInVsCode();
   // A responder is wired so `a` owns the keyboard: without one, `a` itself
   // never enters ask mode and the test would prove nothing.
   const responder: ConversationResponder = {
-    providerName: "Fake",
+    identity: () => ({ agent: "Fake", effective: false }),
     answer: async () => "Fake answer"
   };
   const reader = harness(collaborator.invoker, responder);
