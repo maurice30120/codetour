@@ -65,17 +65,22 @@ test("the extension declares one MCP server and never generates a Tour itself", 
   assert.doesNotMatch(extension, /saveKnowledgeProposal/);
 });
 
-test("the closing offer asks for the real reader or VS Code, and never spawns it", () => {
+test("the closing offer opens the real reader or asks for VS Code; the spawn lives in lib/reader.mjs", () => {
   const extension = source("extensions/codetour.ts");
   // The end of generation asks the user (ticket #242): the real interactive
-  // reader of the created Tour, or the Tour at its active step in VS Code
-  // (compressed through the explicit uri contract, ticket #244). The decision
-  // logic is the pure module lib/reader.mjs; the extension only asks and
-  // hands over the exact command.
-  for (const word of ["openingOptions", "openingQuestion", "readerCommand", "vscodeCommand"]) {
+  // reader of the created Tour — spawned immediately, in the same terminal
+  // (review F2) — or the Tour at its active step in VS Code (compressed
+  // through the explicit uri contract, ticket #244). The decision logic AND
+  // the reader spawn live in the lib/reader.mjs module; the extension only
+  // asks and debouches the outcome.
+  for (const word of ["openingOptions", "openingQuestion", "playInTerminal", "vscodeCommand"]) {
     assert.ok(extension.includes(word), `the extension must consume lib/reader.mjs (${word})`);
   }
-  assert.doesNotMatch(extension, /child_process|spawn\(/, "the extension must not spawn the reader");
+  assert.doesNotMatch(
+    extension,
+    /child_process|spawn\(/,
+    "the extension must not spawn the reader itself"
+  );
   const reader = source("lib/reader.mjs");
   assert.match(reader, /codetour --internal-tour/);
   assert.match(reader, /--internal-open-vscode/);
