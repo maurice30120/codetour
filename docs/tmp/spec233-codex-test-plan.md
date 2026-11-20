@@ -79,7 +79,8 @@ JSON
 npm run cli -- knowledge save --workspace "$WS" --proposal /tmp/proposal.json
 ```
 
-- [ ] ⚠️ **Écart de surface connu (pas une régression #233)** : le CLI (`dist/cli.js`, bundle webpack) n'a pas le canonicaliseur tree-sitter de branché — un save avec preuve symbol aboutit au **repli tracé** : `saved` + warning `symbol_proof_fallback` (raison `unsupported_language`), preuve `file` publiée avec `origin: symbol_fallback`, et **pas de marqueur** `.canonicalizer` (aucune empreinte symbol publiée). Le contrat est respecté (repli explicite, jamais silencieux). La capacité réelle de calcul d'empreinte symbol s'observe sur le serveur MCP (§3.3) et le paquet (§1). À tracker comme surface à brancher (issue dédiée), PAS à corriger dans cette campagne.
+- [ ] ✅ **Le CLI calcule l'empreinte symbol lui-même** (fix du 20/11 `createRequire` + vendor copié à `dist/vendor` au build racine) : un save avec preuve symbol publie une VRAIE preuve `type: symbol` (pas de repli, pas de warning `symbol_proof_fallback`) et estampille `.canonicalizer` = `span@1`.
+- [ ] **Résolu par le test automatisé** `test/knowledge-cli.test.mjs` « the bundled CLI computes symbol fingerprints itself » (16/16) : la régression du bundle webpack (require dynamique hors du graphe) doit casser ce test.
 - [ ] `npm run cli -- knowledge read dispatch_flow --workspace "$WS"` → le corps revient.
 - [ ] Churn présentationnel sur `src/main.ts` (commentaires/reindentation) → lecture **toujours** valide.
 - [ ] Changement de comportement (`ok:` → `ko:`) → lecture refusée `symbol_hash_mismatch`,corps absent de la sortie.

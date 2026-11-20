@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+import { createRequire } from 'node:module';
 import type { KnowledgeSymbolProof, SymbolFingerprintOutcome, SymbolFingerprinter } from './knowledge';
 
 // Type-only dependency: erased at build time, so this module never loads
@@ -61,7 +63,7 @@ const extensionOf = (file: string): string | undefined => {
 let runtime: Promise<WtsParserClass> | undefined;
 const loadRuntime = (): Promise<WtsParserClass> => (runtime ??= (async () => {
   try {
-    const Parser = require(vendorPath('tree-sitter.js')) as WtsParserClass;
+    const Parser = nodeRequire(vendorPath('tree-sitter.js')) as WtsParserClass;
     await Parser.init({ locateFile: (file) => vendorPath(basename(file)) });
     return Parser;
   } catch (error) {
@@ -73,7 +75,23 @@ const loadRuntime = (): Promise<WtsParserClass> => (runtime ??= (async () => {
 // Vendored runtime and grammars travel inside the package itself (dist/vendor
 // is copied with dist/src everywhere the package is staged or packed), so
 // resolution never depends on a hoisted or nested node_modules layout.
-const vendorPath = (name: string): string => join(__dirname, '..', 'vendor', name);
+// Two package layouts carry the vendor payload: the tsc build
+// (dist/src/*, vendor at dist/vendor) and the webpack bundles (dist/*.js,
+// vendor at dist/vendor with __dirname already on dist). Resolve the first
+// existing candidate per runtime layout (agent-created caches excluded).
+const vendorPath = (name: string): string => {
+  for (const candidate of [join(__dirname, '..', 'vendor', name), join(__dirname, 'vendor', name)]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return join(__dirname, '..', 'vendor', name);
+};
+
+// The real Node require, not the bundler's: webpack inlines this module into
+// dist/cli.js, dist/extension-node.js and dist/mcp-server.js (all sharing the
+// dist/ root where the build copies the vendored runtime), and a dynamic
+// require inside a bundle goes through webpack's resolver and fails at
+// runtime. createRequire bypasses the static graph in every layout.
+const nodeRequire = createRequire(__filename);
 
 const languages = new Map<string, Promise<WtsLanguage>>();
 const loadLanguage = (wasm: string): Promise<WtsLanguage> => {
