@@ -1,5 +1,5 @@
 import { execFile, spawn } from "child_process";
-import { promises as fs } from "fs";
+import { promises as fs, realpathSync } from "fs";
 import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -52,7 +52,7 @@ export function canonicalWorkspacePath(
 }
 
 function tryRealpath(value: string): string {
-  return require("fs").realpathSync(value) as string;
+  return realpathSync(value);
 }
 
 function stripTrailingSeparator(value: string): string {
@@ -315,19 +315,41 @@ export type OpenInVsCodeInvoker = (request: OpenInVsCodeRequest) => Promise<void
 export function createOpenInVsCodeInvoker(deps?: {
   execution?: Partial<OpenExecutionDeps>;
 }): OpenInVsCodeInvoker {
-  return async request => {
-    const workspace = canonicalWorkspacePath(request.workspaceRoot);
-    const [openWindows, vscodeAvailable] = await Promise.all([
-      detectOpenVsCodeWindows(),
-      isVsCodeReachable()
-    ]);
-    const plan = planOpenInVsCode({
-      workspace,
-      tourPath: relativeTourPath(request.tourId, workspace),
-      step: request.step,
-      openWindows,
-      vscodeAvailable
-    });
-    await executeOpenInVsCodePlan(plan, deps?.execution);
-  };
+  return request => openTourInVsCode(request, deps?.execution ? { execution: deps.execution } : undefined);
+}
+
+/**
+ * The one opening composition every surface walks (review S3): canonical
+ * workspace, best-effort window detection and `code` reachability in
+ * parallel, the plan, then its execution through the OS. The reader's
+ * invoker and the `--internal-open-vscode` runner are two debouches of this
+ * single sequence, never two copies of it.
+ */
+export async function openTourInVsCode(
+  request: OpenInVsCodeRequest,
+  deps?: OpenInVsCodeCompositionDeps
+): Promise<void> {
+  const workspace = canonicalWorkspacePath(request.workspaceRoot);
+  const [openWindows, vscodeAvailable] = await Promise.all([
+    deps?.openWindows ? deps.openWindows() : detectOpenVsCodeWindows(),
+    deps?.vscodeAvailable ? deps.vscodeAvailable() : isVsCodeReachable()
+  ]);
+  const plan = planOpenInVsCode({
+    workspace,
+    tourPath: relativeTourPath(request.tourId, workspace),
+    step: request.step,
+    openWindows,
+    vscodeAvailable
+  });
+  await executeOpenInVsCodePlan(plan, deps?.execution);
+}
+
+/** The injectable seams of the shared opening composition; fakes test it. */
+export interface OpenInVsCodeCompositionDeps {
+  /** The canonical workspaces already open in running VS Code windows. */
+  openWindows?: () => Promise<string[]>;
+  /** Whether the `code` CLI answers. */
+  vscodeAvailable?: () => Promise<boolean>;
+  /** The execution seams of the plan executor. */
+  execution?: Partial<OpenExecutionDeps>;
 }
