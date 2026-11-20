@@ -6,6 +6,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { CodeTour } from "../../store";
 import { loadTour } from "../../store/tourSchema";
+import type { AcpModelSelector } from "../../agent/acpModelOptions";
 import type { StepChatAgentIdentity, StepChatRequest } from "../../agent/stepChatContract";
 import { NarrationController } from "../narration/NarrationController";
 import type { NarrationEngine } from "../narration/SystemSpeech";
@@ -83,13 +84,34 @@ class ScriptedSpeechEngine implements NarrationEngine {
  * summary) without starting any agent process.
  */
 class ScriptedResponder implements ConversationResponder {
-  readonly agent: StepChatAgentIdentity = { agent: "Fake Agent", effective: true };
+  agent: StepChatAgentIdentity = { agent: "Fake Agent", effective: true };
   readonly requests: StepChatRequest[] = [];
   readonly answers: string[] = [];
   disposed = false;
+  /** The model values the agent announces, and the one it confirms (ADR 0048). */
+  selector: AcpModelSelector | undefined = {
+    optionId: "model",
+    value: "gpt-5",
+    values: [
+      { value: "gpt-5", name: "GPT-5" },
+      { value: "gpt-6-luna", name: "GPT-6 Luna" }
+    ]
+  };
+  /** Every model value the reader requested, in order. */
+  readonly models: string[] = [];
 
   identity(): StepChatAgentIdentity {
     return this.agent;
+  }
+
+  model(): AcpModelSelector | undefined {
+    return this.selector;
+  }
+
+  selectModel(value: string): void {
+    this.models.push(value);
+    this.selector = this.selector ? { ...this.selector, value } : undefined;
+    this.agent = { ...this.agent, model: value };
   }
 
   answer(request: StepChatRequest): Promise<string> {
@@ -314,5 +336,39 @@ test("the composed CLI reader carries a diff Step's real diff onto the view mode
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the composed CLI reader chooses a model among those the agent announces (ticket #266)", async () => {
+  const tour = loadTour(JSON.stringify({
+    title: "Model tour",
+    steps: [{ file: "src/cli/reader/reader.ts", line: 1, description: "Anchored Step" }]
+  }), "test://model-tour");
+  const { reader, responder } = compose(tour, projectRoot, 100, 30);
+  try {
+    await reader.open();
+    // The picker lists exactly what the agent announced, the confirmed model
+    // marked current — no catalogue of CodeTour's own.
+    reader.pressKey({ key: "m" });
+    const picker = reader.getState().picker;
+    assert.ok(picker, "the picker opens on the composed reader too");
+    assert.deepEqual(picker.items, [
+      { label: "GPT-5", current: true },
+      { label: "GPT-6 Luna", current: false }
+    ]);
+    reader.pressKey({ key: "ArrowDown" });
+    reader.pressKey({ key: "Enter" });
+    // The request reached the responder, and the confirmed model is displayed.
+    assert.deepEqual(responder.models, ["gpt-6-luna"]);
+    const state = reader.getState();
+    assert.equal(state.picker, undefined);
+    assert.deepEqual(state.conversation.agent,
+      { agent: "Fake Agent", model: "gpt-6-luna", effective: true });
+    assert.ok(state.status.rightSegments.includes("fake agent · gpt-6-luna (effective)"),
+      "the status line names the confirmed model: " + JSON.stringify(state.status.rightSegments));
+    assert.ok(state.status.hints.includes("m model"),
+      "the composed reader advertises the key: " + state.status.hints);
+  } finally {
+    await reader.close();
   }
 });
