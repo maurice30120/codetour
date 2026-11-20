@@ -16,10 +16,15 @@ import { doctor, installAgents, listAgents, uninstallAgents, agentIds } from "./
 import { resolveReadonlyStepContext } from "./stepContext";
 import { readTourImages } from "./stepImages";
 import { runTerminalTour } from "./terminal";
+import { defaultTerminalSession, handOffTtyToTourReader } from "./ttyHandoff";
 import { resolveTourSelection } from "./tourResolution";
 import { isKnowledgeInvocation, registerKnowledgeCommand, reportKnowledgeUsageError } from "./knowledge";
 
 const USAGE = "Usage: codetour [tour] [--renderer html|terminal]";
+
+// The experimental TTY handoff flag (spike, ticket #243): variadic so the
+// optional workspace root can follow the Tour file.
+const HANDOFF_OPTION = "--experimental-tty-handoff [paths...]";
 
 interface Options {
   renderer?: string;
@@ -30,7 +35,8 @@ interface Options {
   internalListTours: boolean;
   internalResolveTour?: string | boolean;
   internalTourId?: string;
-  internalTour?: string[]; }
+  internalTour?: string[];
+  experimentalTtyHandoff?: string[]; }
 
 function buildProgram(): Command {
   const command = new Command()
@@ -54,6 +60,11 @@ function buildProgram(): Command {
     .option("--internal-resolve-tour [title]", "resolve a Tour by title or file name and print its identity as JSON")
     .option("--internal-tour-id <id>", "open the Tour with this discovered identity")
     .option("--internal-tour <args...>", "internal: run the terminal reader on a Tour file")
+    .option(
+      HANDOFF_OPTION,
+      "experimental: hand this terminal's control to the Tour reader, " +
+        "then return it to the agent session (prototype, ticket #243)"
+    )
     .action(async (title: string | undefined, options: Options) => runWithOptions(options, title))
     .exitOverride()
     // The mapped messages in toCliError are the CLI's error contract; the
@@ -192,6 +203,30 @@ function agentId(value: string | boolean): string | undefined {
 }
 
 async function runWithOptions(options: Options, title: string | undefined): Promise<void> {
+  // The experimental TTY handoff (spike, ticket #243) runs before everything
+  // else and never reaches the standard reading path: the session's terminal
+  // is lent to the full terminal reader, then returned to the session.
+  if (options.experimentalTtyHandoff) {
+    const [handoffTour, handoffRoot] = options.experimentalTtyHandoff;
+    if (!handoffTour) {
+      throw new Error("The experimental TTY handoff requires a Tour file path.");
+    }
+    console.log("CodeTour (experimental): handing this terminal's control to the Tour reader;");
+    console.log("CodeTour (experimental): leave the Tour to return control to your session.");
+    const handoff = await handOffTtyToTourReader(
+      { tourPath: handoffTour, workspaceRoot: handoffRoot },
+      { session: defaultTerminalSession() }
+    );
+    if (handoff.reason) console.error("CodeTour (experimental): " + handoff.reason);
+    if (handoff.handedOff) {
+      console.log("CodeTour (experimental): terminal returned to the session.");
+    }
+    if (handoff.interrupted || (handoff.spawned && handoff.exitCode !== 0)) {
+      process.exitCode = handoff.exitCode ?? 1;
+    }
+    return;
+  }
+
   // Agent integrations run before Tour discovery: an installation is a
   // machine-level action, valid outside any Git worktree.
   if (options.agents) {
