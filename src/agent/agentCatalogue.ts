@@ -430,6 +430,24 @@ export class AgentSelection {
   }
 
   /**
+   * Records the Agent Profile whose session became effective for an answer:
+   * while the reader has not chosen by hand, the selection follows it — the
+   * initial automatic selection completing its slide to the profile that
+   * really answered. An explicit choice is never replaced, and the panel's
+   * conversation counts as started from then on.
+   */
+  recordAnswer(name: string): void {
+    this.started = true;
+    if (this.explicitName !== undefined) {
+      return;
+    }
+    if (!this.catalogue.some(profile => profile.name === name)) {
+      return;
+    }
+    this.selectedName = name;
+  }
+
+  /**
    * Records that one Agent Profile failed while answering: its availability
    * becomes a connection error carrying the failure's reason. Nothing is
    * probed — a conversation failure never starts one — every other cached

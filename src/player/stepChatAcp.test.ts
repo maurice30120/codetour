@@ -1559,9 +1559,14 @@ test("the Model control follows the agent that answered after an initial fall-th
       "the Model control lists the values of the agent that answered"
     );
     assert.equal(update.model, "smart", "the effective model is the one displayed");
-    // The selection itself is untouched: the fall-through belongs to the
-    // initial automatic selection, not to a new explicit choice.
-    assert.equal(selection.selectedProfile()?.profile.name, "Copilot");
+    // The initial selection completed its slide: the panel names the profile
+    // that answered, without the reader having chosen anything.
+    assert.equal(selection.selectedProfile()?.profile.name, "Vibe");
+    assert.equal(selection.hasExplicitSelection(), false);
+    assert.equal(
+      update.agents?.find(agent => agent.name === "Vibe")?.selected,
+      true
+    );
   } finally {
     setStepChatAgentSelection(undefined);
     chatPanel().dispose();
@@ -1600,7 +1605,10 @@ test("a conversation failure degrades only the faulty profile in the selector", 
     assert.ok(failed?.detail, "the failure's reason is displayed");
     assert.equal(listed.find(agent => agent.name === "Vibe")?.state, "available");
     assert.deepEqual(agents.probed, ["Copilot", "Vibe"], "a conversation failure probes nothing");
-    assert.equal(agents.selection.selectedProfile()?.profile.name, "Copilot");
+    // The failed profile is degraded, but the selection follows the profile
+    // whose session answered: the initial selection's slide, not a choice.
+    assert.equal(agents.selection.selectedProfile()?.profile.name, "Vibe");
+    assert.equal(agents.selection.hasExplicitSelection(), false);
 
     // The following question stays with the agent that answered: the failed
     // profile is never launched again.
@@ -1611,6 +1619,63 @@ test("a conversation failure degrades only the faulty profile in the selector", 
     assert.equal(
       readLog(copilot.logPath).filter(row => row.method === "initialize").length,
       copilotLaunches
+    );
+  } finally {
+    setStepChatAgentSelection(undefined);
+    chatPanel().dispose();
+    await copilot.cleanup();
+    await vibe.cleanup();
+    agents.selection.dispose();
+  }
+});
+
+test("the selector follows the agent that answered, and choosing the failed one is a real change", async () => {
+  resetChatState();
+  const copilot = createAgentWorkspace();
+  const vibe = createAgentWorkspace();
+  // Copilot is preselected (rank 0 and available) but cannot select its Ask
+  // mode: it fails before any answer text.
+  const agents = registerAgentChoice(copilot, vibe, "no-ask-mode");
+  try {
+    registerPlayerModule(host.extensionContext);
+    await startTour();
+    chatPanel().receive({ type: "probeUnverified" });
+    await host.waitFor(() => agents.probed.length === 2);
+
+    chatPanel().receive({ type: "askQuestion", question: "Qui répond ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 1);
+    const answered = lastChatUpdate();
+    assert.equal(answered.agent?.agent, "Vibe");
+    assert.equal(answered.agent?.effective, true);
+
+    // The selector names the profile whose session answered — the initial
+    // selection completing its slide — and lists the failed preselection with
+    // the state that explains it.
+    assert.equal(answered.agents?.find(agent => agent.name === "Vibe")?.selected, true);
+    assert.equal(answered.agents?.find(agent => agent.name === "Copilot")?.selected, false);
+    assert.equal(
+      answered.agents?.find(agent => agent.name === "Copilot")?.state,
+      "connection-error"
+    );
+    assert.equal(agents.selection.selectedProfile()?.profile.name, "Vibe");
+    assert.equal(agents.selection.hasExplicitSelection(), false);
+
+    // Choosing the failed profile is a real change, not a no-op: the next
+    // question is asked to it, fails attached to that exchange, and is never
+    // handed to the agent that had answered.
+    chatPanel().receive({ type: "chooseAgent", agent: "Copilot" });
+    await host.waitFor(() => lastChatUpdate().agent?.agent === "Copilot");
+    assert.equal(lastChatUpdate().agent?.effective, false, "no session was opened yet");
+    assert.equal(agents.selection.selectedProfile()?.profile.name, "Copilot");
+    assert.equal(agents.selection.hasExplicitSelection(), true);
+
+    chatPanel().receive({ type: "askQuestion", question: "Et maintenant ?" });
+    await waitForCompletedAnswer(update => update.exchanges.length === 2);
+    assert.equal(lastChatUpdate().exchanges[1].failed, true);
+    assert.equal(
+      promptCount(readLog(vibe.logPath)),
+      1,
+      "the agent that answered is never asked again after the reader changed agent"
     );
   } finally {
     setStepChatAgentSelection(undefined);

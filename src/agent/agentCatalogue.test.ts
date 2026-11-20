@@ -826,3 +826,40 @@ test("a degraded profile keeps its neighbours, the selection and the probe cache
   );
   selection.dispose();
 });
+
+test("the selection follows the profile that answered, without branding it a choice", async () => {
+  const probe = scriptedProbe({});
+  const selection = new AgentSelection({ profiles: CATALOGUE, probe: probe.probe });
+  await selection.probeInitial("/workspace");
+  await selection.probeUnverified("/workspace");
+  assert.equal(selection.selectedProfile()?.profile.name, "Copilot");
+
+  // The initial selection slides: another profile's session proved effective,
+  // so it is the one the panel names from now on.
+  selection.recordAnswer("Vibe");
+  assert.equal(selection.selectedProfile()?.profile.name, "Vibe");
+  assert.equal(selection.hasExplicitSelection(), false, "the reader chose nothing");
+  // The conversation has started: only the profile that answered may answer.
+  assert.deepEqual(
+    selection.candidates("/workspace").map(candidate => candidate.name),
+    ["Vibe"]
+  );
+  // A later probe keeps the profile that answered: a refresh never replaces
+  // the agent the reader has been talking to.
+  await selection.refresh("/workspace");
+  assert.equal(selection.selectedProfile()?.profile.name, "Vibe");
+  selection.dispose();
+});
+
+test("recording an answer never replaces the reader's explicit choice", async () => {
+  const probe = scriptedProbe({});
+  const selection = new AgentSelection({ profiles: CATALOGUE, probe: probe.probe });
+  await selection.probeInitial("/workspace");
+
+  selection.select("Codex");
+  assert.equal(selection.hasExplicitSelection(), true);
+  selection.recordAnswer("Vibe");
+  // A session that answered elsewhere never moves a choice the reader made.
+  assert.equal(selection.selectedProfile()?.profile.name, "Codex");
+  selection.dispose();
+});

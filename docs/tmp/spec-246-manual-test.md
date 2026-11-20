@@ -257,6 +257,10 @@ Terminal :
       entièrement navigable.
 - [ ] Un agent lent > 5 s est `connection-error` : écarté de la sélection
       automatique mais sélectionnable à la main.
+- [ ] Le profil présélectionné échoue avant tout texte et un autre profil
+      disponible répond : la sélection glisse sur le profil qui a répondu, le
+      sélecteur et la ligne `Agent:` nomment le même agent, et le profil en
+      échec reste listé avec son état.
 
 ### 6.4 #249 — le choix de l'agent tient
 
@@ -272,7 +276,11 @@ Terminal :
       première question.
 - [ ] Après l'échec, le sélecteur montre ce profil en `connection-error` avec
       la raison de l'échec, sans avoir sondé : les autres états restent ceux
-      du cache et l'agent sélectionné ne change pas.
+      du cache, et l'échec ne déplace pas la sélection à lui seul (elle ne
+      suit que le profil dont la session a répondu).
+- [ ] Choisir ensuite le profil présélectionné qui a échoué est un **vrai**
+      changement : la question suivante repart sur lui et échoue attachée à
+      son échange, au lieu d'être confiée à l'agent qui avait répondu.
 - [ ] `Change agent` ouvre le sélecteur ; changer d'agent conserve l'historique
       de l'étape et la question suivante ouvre une session neuve, sans delta de
       l'ancien agent.
