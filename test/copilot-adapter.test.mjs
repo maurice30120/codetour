@@ -232,7 +232,7 @@ test("an incomplete generation delegates missing choices to the agent without ex
     },
     send: async options => sent.push(options),
     log: collectLogs().log
-  }, "");
+  }, "generate");
   assert.equal(sent.length, 1);
   assert.equal(sent[0].mode, "immediate");
   assert.match(sent[0].prompt, /ask_user/);
@@ -622,6 +622,21 @@ test("an elicited choice resolves duplicate Tour titles by identity", async () =
     assert.match(html, /Second duplicate/);
     assert.doesNotMatch(html, /First duplicate/);
     assert.match(messages.join("\n"), /Starting CodeTour: Shared Tour \(html\)/);
+  });
+});
+
+test("a bare /codetour presents the existing Tours and reads the chosen one", async () => {
+  const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
+  await withRecordingCli(root, async () => {
+    const menus = [];
+    const session = {capabilities:{ui:{elicitation:true}},
+      ui:{select: async (prompt, choices) => { menus.push([prompt, choices]); return choices[1]; }},
+      send: async () => assert.fail("a bare read command never starts a generation"),
+      log: async () => {}};
+    await runCodeTourCommand(session, "", root);
+    assert.deepEqual(menus, [
+      ["Select a CodeTour", ["1. First Tour", "2. Second Tour"]]
+    ]);
   });
 });
 

@@ -423,9 +423,10 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
     // generate [project|changes] [neutral|critical] followed by an optional
     // free phrase from the user: the Tour orientation, written in the user's
     // language. The phrase travels to the composed generation prompt as is;
-    // the adapter interprets nothing in it.
+    // the adapter interprets nothing in it. Generation is only ever the
+    // `generate` word: a bare /codetour reads the existing Tours.
     const explicit = input.match(/^generate(?:\s+(project|changes)(?:\s+(neutral|critical))?)?(?:\s+(\S.*))?$/);
-    if (!input || (explicit && (!explicit[1] || (explicit[1] === "changes" && !explicit[2])))) {
+    if (explicit && (!explicit[1] || (explicit[1] === "changes" && !explicit[2]))) {
       const workspace = resolveWorkspace(cwd);
       if (typeof session.send !== "function") throw new Error("This Copilot host cannot send a generation request to its agent.");
       const dialogueId = randomUUID();
