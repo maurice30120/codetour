@@ -37,6 +37,25 @@ export interface TtyHandoffResult {
   durationMs: number;
 }
 
+/**
+ * Every return path fills the same 8-field result (review F2/S4): one base
+ * keeps the `exitCode`/`signal`/`interrupted`/`resumed` semantics from
+ * drifting between the refusal, the failure and the completed-run paths.
+ */
+function handoffResult(startedAt: number, fields?: Partial<TtyHandoffResult>): TtyHandoffResult {
+  const set = fields ?? {};
+  return {
+    handedOff: set.handedOff ?? true,
+    spawned: set.spawned ?? false,
+    exitCode: set.exitCode ?? null,
+    signal: set.signal ?? null,
+    interrupted: set.interrupted ?? false,
+    resumed: set.resumed ?? false,
+    ...(set.reason === undefined ? {} : { reason: set.reason }),
+    durationMs: Date.now() - startedAt
+  };
+}
+
 /** The single flag of the experimental handoff, reused by the CLI entry. */
 export const HANDOFF_FLAG = "--experimental-tty-handoff";
 
@@ -106,19 +125,13 @@ export async function handOffTtyToTourReader(
   const startedAt = Date.now();
   const session = options.session;
   if (!session.interactive()) {
-    return {
+    return handoffResult(startedAt, {
       handedOff: false,
-      spawned: false,
-      exitCode: null,
-      signal: null,
-      interrupted: false,
-      resumed: false,
-      durationMs: Date.now() - startedAt,
       reason:
         "This session terminal is not interactive (no TTY): " +
         "the reader cannot take control. Run 'codetour' from an interactive " +
         "Copilot CLI session instead."
-    };
+    });
   }
 
   // From here the session owns the terminal only until resume() is called.
@@ -130,9 +143,12 @@ export async function handOffTtyToTourReader(
   // the module itself is compiled either beside it or under dist/test.
   const command = process.execPath;
   const entry = resolveCliEntry();
+  // The child runs the internal reading path and nothing else: the handoff
+  // flag NEVER travels to the child (review F1). A variadic flag without a
+  // value reaches Commander as `true` and made the child crash with
+  // `TypeError: boolean true is not iterable` before it ever read the Tour.
   const args = ["--internal-tour", request.tourPath];
   if (request.workspaceRoot !== undefined) args.push(request.workspaceRoot);
-  args.push(HANDOFF_FLAG);
 
   let exitCode: number | null = null;
   let signal: NodeJS.Signals | null = null;
@@ -149,19 +165,13 @@ export async function handOffTtyToTourReader(
     // paths leave the result below unchanged and the terminal returned.
     const spawnError = (child as { spawnError?: unknown }).spawnError;
     if (spawnError !== undefined) {
-      return {
-        handedOff: true,
-        spawned: false,
-        exitCode,
-        signal,
-        interrupted,
+      return handoffResult(startedAt, {
         // The finally below still returns the terminal to its session.
         resumed: true,
-        durationMs: Date.now() - startedAt,
         reason:
           "The experimental reader could not be started in this terminal (" +
           (spawnError instanceof Error ? spawnError.message : String(spawnError)) + ")."
-      };
+      });
     }
     spawned = true;
     // The reader's end is an exit event or an error event (a crashed reader
@@ -181,20 +191,18 @@ export async function handOffTtyToTourReader(
         (childError instanceof Error ? childError.message : String(childError)) + ").";
     }
   } catch (error) {
-    return {
-      handedOff: true,
+    return handoffResult(startedAt, {
       spawned,
       exitCode,
       signal,
       interrupted,
       // The finally below still returns the terminal to its session.
       resumed: true,
-      durationMs: Date.now() - startedAt,
       reason:
         childInterruptReason ??
         ("The experimental reader could not be started in this terminal (" +
         (error instanceof Error ? error.message : String(error)) + ").")
-    };
+    });
   } finally {
     // The safe return happens whatever the reader's outcome: success, a
     // non-zero exit, or a kill by signal. Exactly one resume, with the token
@@ -202,14 +210,12 @@ export async function handOffTtyToTourReader(
     session.resume(token);
     session.restoreTerminalState();
   }
-  return {
-    handedOff: true,
+  return handoffResult(startedAt, {
     spawned,
     exitCode,
     signal,
     interrupted,
     resumed: true,
-    durationMs: Date.now() - startedAt,
     ...(childInterruptReason ? { reason: childInterruptReason } : {})
-  };
+  });
 }

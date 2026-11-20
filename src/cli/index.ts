@@ -17,15 +17,17 @@ import { resolveReadonlyStepContext } from "./stepContext";
 import { readTourImages } from "./stepImages";
 import { runTerminalTour } from "./terminal";
 import { runInternalOpenVsCode } from "./internalOpenVscode";
-import { defaultTerminalSession, handOffTtyToTourReader } from "./ttyHandoff";
+import { defaultTerminalSession, handOffTtyToTourReader, HANDOFF_FLAG } from "./ttyHandoff";
 import { resolveTourSelection } from "./tourResolution";
 import { isKnowledgeInvocation, registerKnowledgeCommand, reportKnowledgeUsageError } from "./knowledge";
 
 const USAGE = "Usage: codetour [tour] [--renderer html|terminal]";
 
 // The experimental TTY handoff flag (spike, ticket #243): variadic so the
-// optional workspace root can follow the Tour file.
-const HANDOFF_OPTION = "--experimental-tty-handoff [paths...]";
+// optional workspace root can follow the Tour file. The flag itself is
+// spelled once, in the shared constant (review S2); this option spec only
+// adds the value shape.
+const HANDOFF_OPTION = HANDOFF_FLAG + " [paths...]";
 
 interface Options {
   renderer?: string;
@@ -210,6 +212,14 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
   // else and never reaches the standard reading path: the session's terminal
   // is lent to the full terminal reader, then returned to the session.
   if (options.experimentalTtyHandoff) {
+    // Commander maps a variadic option without a value to `true`: treating
+    // the bare flag as the argument list crashed with
+    // `TypeError: boolean true is not iterable` before the Tour was ever
+    // read (review F1). The flag is never propagated to the spawned reader
+    // (`ttyHandoff.ts`), so this guard only receives that bare form.
+    if (!Array.isArray(options.experimentalTtyHandoff)) {
+      throw new Error("The experimental TTY handoff requires a Tour file path.");
+    }
     const [handoffTour, handoffRoot] = options.experimentalTtyHandoff;
     if (!handoffTour) {
       throw new Error("The experimental TTY handoff requires a Tour file path.");
