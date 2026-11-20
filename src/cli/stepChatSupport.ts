@@ -24,22 +24,19 @@ export interface TerminalChatSession {
    */
   profile?: AcpAgentProfile;
   /**
-   * The Tour Step Conversation responder: one ordered failover over every
-   * installed candidate, as a terminal reader has no Agent selector (ADR 0048
-   * keeps the Agent choice to the webview; since ticket #266 the terminal
-   * picks the model among the values the answering agent announces).
+   * The Tour Step Conversation responder: automatic failover until the reader
+   * chooses an installed Agent Profile.
    */
   responder?: StepChatResponder;
+  agentNames?: readonly string[];
+  selectAgent?(name: string): Promise<void>;
   dispose(): Promise<void>;
 }
 
 /**
  * The terminal reader's Tour Step Conversation session. Only installed
- * candidates are tried, in the Agent Catalogue's rank order, and the ordered
- * failover between them is what the reader gets instead of an Agent selector:
- * the terminal starts no Agent Probe and no agent process until the reader
- * asks a question. Nothing is downloaded. The models the answering agent
- * announces are what the reading module's model picker lists (ticket #266).
+ * candidates are tried, in rank order until a manual Agent Profile choice.
+ * The reader starts a session when it opens the model picker or asks a question.
  */
 export function openTerminalChat(
   root: string,
@@ -57,12 +54,19 @@ export function openTerminalChat(
   if (!profiles.length) {
     return { dispose: async () => undefined };
   }
-  const create = options.createResponder ??
-    ((candidates: AcpAgentProfile[]) => createFallbackStepChatResponder(() => candidates));
-  const responder = create(profiles);
+  let chosen: AcpAgentProfile | undefined;
+  const responder = options.createResponder?.(profiles) ??
+    createFallbackStepChatResponder(() => chosen ? [chosen] : profiles);
   return {
-    profile: profiles[0],
+    get profile() { return chosen ?? profiles[0]; },
     responder,
+    agentNames: profiles.map(profile => profile.name),
+    async selectAgent(name) {
+      const profile = profiles.find(candidate => candidate.name === name);
+      if (!profile || profile === chosen) return;
+      chosen = profile;
+      await responder.dispose?.();
+    },
     async dispose() {
       await responder.dispose?.();
     }

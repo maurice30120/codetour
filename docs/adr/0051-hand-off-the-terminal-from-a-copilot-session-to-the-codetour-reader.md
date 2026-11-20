@@ -98,7 +98,7 @@ terminal on this host.** The suspend-then-resume lease of the Decision above
 cannot be minted by a process that never owned the terminal, so the product
 path does not claim it. What the installed adapter does instead (ticket #264):
 
-1. a bare `/codetour` lists the discovered Tours through the CLI
+1. **Lire** in `/codetour` or the direct `/codetour read` command lists the discovered Tours through the CLI
    (`--internal-list-tours`) and elicits one numbered choice through the
    host's selection dialog; generation stays behind `/codetour generate`;
 2. the chosen Tour is launched by identity (`--internal-tour-id`) only when
@@ -115,6 +115,16 @@ path does not claim it. What the installed adapter does instead (ticket #264):
 The former `Starting CodeTour: …` line announced a detached process that died
 with `TermDOM requires an interactive terminal (TTY)`. It is gone from the
 no-terminal branch, which is the only branch CLI 1.0.114 reaches.
+
+### Default renderer in Copilot
+
+The terminal is preferred. When the extension has no TTY, **Lire** uses the
+existing Open in VS Code surface. An explicit `--renderer terminal` request
+shows the exact shell command, as does a failed VS Code launch. The user can
+open an interactive shell in the original terminal with Copilot's `$`
+shortcut, which was verified on 1.0.114 with and without `--experimental`.
+This is a user shortcut. The extension still has no terminal to lend.
+[GitHub Copilot CLI shortcuts](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#global-shortcuts-in-the-interactive-interface)
 
 ### Limits of this update
 

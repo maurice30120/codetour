@@ -107,9 +107,9 @@ export interface ReaderPickerItem {
  * only paints it.
  */
 export interface ReaderPicker {
-  /** The overlay head: "model". */
+  /** The overlay heading. */
   title: string;
-  /** The announced models in the agent's order; empty when it announces none. */
+  /** The available Agent Profiles or the models announced by the agent. */
   items: ReaderPickerItem[];
   /** The highlighted row; -1 when there is nothing to choose. */
   selected: number;

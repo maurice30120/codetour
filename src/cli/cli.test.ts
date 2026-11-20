@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync, existsSync, realpathSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
@@ -70,6 +70,33 @@ test("the CLI selects from multiple Tours using its numbered prompt", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Select an existing CodeTour/);
     assert.match(readFileSync(output, "utf8"), /Other/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the VS Code renderer opens a named Tour from a nested directory without a TTY", {
+  skip: process.platform === "win32"
+}, () => {
+  const { root } = fixture();
+  try {
+    const bin = path.join(root, "bin");
+    mkdirSync(bin);
+    const code = path.join(bin, "code");
+    const invocations = path.join(root, "code.log");
+    writeFileSync(code, '#!/bin/sh\nif [ "$1" = --version ]; then echo 1.147.0; else printf "%s\\n" "$@" >> "$CODETOUR_CODE_LOG"; fi\n');
+    chmodSync(code, 0o755);
+    const result = spawnSync(process.execPath, [cli, "architecture", "--renderer", "vscode"], {
+      cwd: path.join(root, "nested", "deep"),
+      encoding: "utf8",
+      env: { ...process.env, PATH: bin + path.delimiter + process.env.PATH, CODETOUR_CODE_LOG: invocations }
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const [workspace, flag, uri] = readFileSync(invocations, "utf8").trim().split("\n");
+    assert.equal(workspace, realpathSync(root));
+    assert.equal(flag, "--open-url");
+    assert.equal(new URL(uri).searchParams.get("tour"), ".tours/architecture.tour");
+    assert.equal(new URL(uri).searchParams.get("step"), "1");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -313,7 +340,7 @@ test("the CLI help documents the terminal renderer as the default", () => {
   try {
     const result = run(root, ["--help"]);
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /--renderer <type>\s+open the Tour as terminal \(default\) or html/);
+    assert.match(result.stdout, /--renderer <type>\s+open the Tour as terminal \(default\), html, or vscode/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

@@ -1,23 +1,20 @@
 # Copilot CLI adapter and plugin (experimental)
 
-`/codetour` lists the Tours discovered in the session's workspace and reads the one the reader chooses. Generation stays behind its own command word: `/codetour generate` starts a generation dialogue with the agent, not an extension menu. The agent uses `ask_user` only for missing choices: **Project Tour** (architecture and execution paths) or **Changes Tour** (explain and review the branch's changes), then **neutral** (factual explanation) or **critical** (explanation and review findings) for a Changes Tour. Labels follow the user's language. Choices already explicit in the command or in natural language are kept: "review my branch critically" needs neither question. Cancelling or declining a required choice stops without generating. Project Tours never ask for a review mode.
+`/codetour` opens the native Copilot menu **Générer / Lire**. **Générer** offers a Project Tour, a neutral Changes Tour, or a critical Changes Tour. **Lire** opens the Tour picker. The adapter handles choices and orientation through the host UI. It sends the prepared generation prompt after confirmation. Cancelling a menu or the orientation input leaves the model and Run State untouched.
 
-Once the choices are resolved, the agent calls the extension's `codetour_prepare_generation` tool with `type`, `reviewMode` for changes only, and the user's `request`. When `/codetour generate` supplies a `dialogueId`, the agent passes it unchanged: this single-use, session/workspace-bound identifier retains the dialogue's start for usage attribution, without creating a Run State during the questions. It returns the shared MCP generation prompt with a fresh `runId`, after writing the session-scoped Run State. The agent follows that prompt in the same turn; the tool never calls `session.send` recursively. Both this tool and explicit generation commands use the same guarded preparation. A failed preparation is reported explicitly and stops the generation.
-
-Explicit invocations skip the choices already supplied:
+Pass the choices directly to skip their menus:
 
 ```text
-/codetour
-/codetour generate
 /codetour generate project
 /codetour generate changes neutral
 /codetour generate changes critical
-/codetour My Existing Tour --renderer terminal
+/codetour read
+/codetour read "My Existing Tour" --renderer terminal
 ```
 
-A first word after `generate` that is not exactly `project` or `changes` is the start of the orientation phrase. The adapter keeps it verbatim for the agent to resolve the missing choices, so `/codetour generate change the login flow` delegates with the request `change the login flow`. A phrase after an explicit valid type is transmitted verbatim, even when the sentence names a type later. `/codetour "generate"` still reads a Tour with that title, and `/codetour generate` without a type starts the same agent dialogue.
+An orientation phrase can follow the generation choices. The adapter preserves the phrase and opens native menus for any missing choices. Quote titles beginning with `generate` or `read` when passing a title directly to `/codetour`.
 
-Reading uses the standalone CLI, which owns discovery, resolution and the reader. A bare `/codetour` lists the discovered Tours through the CLI (`--internal-list-tours`): a workspace holding several Tours elicits one numbered choice through the host's selection dialog, and a single Tour resolves directly. A requested title resolves by exact title or file name through the CLI's resolution contract (`--internal-resolve-tour`), and resolution errors (not found or ambiguous title, empty workspace) reach the user exactly as the CLI reports them. The chosen Tour is then launched by identity (`--internal-tour-id`), so duplicate titles resolve unambiguously. `generate` is a command word; quote an existing title that starts with it, for example `/codetour "generate"`. Bare `read` remains a Tour title. The default renderer is the terminal; `--renderer html` selects the HTML reader explicitly. If the host lacks interactive elicitation, supply a complete generation command including its orientation, or an existing Tour title.
+The standalone CLI discovers Tours and resolves titles or file names. The picker opens the selected Tour by identity, including when titles repeat. The terminal is the preferred reader. If the extension has no terminal, the default command opens the Tour in VS Code. Use `--renderer html` to open the browser.
 
 ## Reading in the Copilot session
 
@@ -27,11 +24,17 @@ The terminal reader paints the terminal it is given, so the adapter lends it onl
 - A probe extension installed on that version recorded `process.stdin.isTTY` and `process.stdout.isTTY` as undefined in print mode and under a PTY parent alike, and its stdin was the CLI's extension bootstrap, never the user's terminal. `/dev/tty` opens from such a child under a PTY parent, but the Copilot TUI keeps owning that terminal's input and painting.
 - The SDK declares no suspend or terminal-handover surface: `CopilotSession` offers `send`, `sendAndWait`, `log`, `abort` and `ui`, and `SessionCapabilities.ui` is `elicitation`, MCP Apps and canvases only (`copilot-sdk/session.d.ts`, `types.d.ts`).
 
-So a Copilot session reads a Tour like this:
+On Copilot CLI 1.0.114, **Lire** opens the chosen Tour in VS Code through
+CodeTour's existing workspace and Tour URI. An explicit `--renderer terminal`
+request displays the command for the terminal reader. To use it in the same
+terminal, type `$` on an empty Copilot prompt and press Enter, run the
+displayed command in the shell, then press `q` to leave the reader and use
+`exit` to return to Copilot. The shortcut needs a local, trusted, idle
+session and can be enabled with `/settings shellShortcut on` if disabled.
+[GitHub Copilot CLI shortcuts](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#global-shortcuts-in-the-interactive-interface)
 
-1. `/codetour` lists the existing Tours and the host's selection dialog picks one.
-2. The Tour is **not** started in the session, and no start is announced. One warning names the reason and the exact command to run in the user's own shell: `codetour --internal-tour-id "<id>" --renderer terminal`.
-3. Nothing is detached. The adapter used to spawn a reader without a terminal, log `Starting CodeTour: …`, and let the reader die with `TermDOM requires an interactive terminal (TTY)`; it no longer claims a reading it cannot observe.
+With `--no-experimental` on 1.0.114, the extension command is unavailable.
+Use `$` to open the shell and run `codetour "My Tour" --renderer vscode`.
 
 A host that does report an interactive stdin and stdout takes the other branch: the reader inherits that terminal (`stdio: "inherit"`), the session waits for it, and the adapter reports the reader's real outcome — an info line when it closes cleanly, an error line with the exit code when it exits nonzero, and an `interrupted by <signal>` line when a signal killed it (a killed reader has no exit code). That branch is covered by tests against a recording CLI, all three outcomes included, and was run manually under a pseudo-terminal (`script -q /dev/null`) with the real reader: quitting the Tour logged `'<title>' closed; the terminal is back in your Copilot session`, and a killed reader logged `was interrupted by SIGTERM`, with no exit code. No shipping Copilot host reports a TTY, so the same branch inside a live session is unverified.
 
@@ -90,7 +93,7 @@ The run state is created with the preparation metrics the adapter alone knows (A
 
 ## Pre-launch report
 
-Before serving the generation prompt (after any agent choice dialogue), every generation reports the integration it would use (ADR 0043): the running adapter file, the launcher the CLI calls resolve to, the resolved workspace, the installed extension files, the installed plugin (version, cache path, MCP launcher and the build version beside the launcher script) and the user `mcp-config.json` declaration. The scan is offline and reads exactly the paths the installer writes, with the same `COPILOT_HOME` and `CODETOUR_COPILOT_*` overrides.
+Before serving the generation prompt (after the native choices), every generation reports the integration it would use (ADR 0043): the running adapter file, the launcher the CLI calls resolve to, the resolved workspace, the installed extension files, the installed plugin (version, cache path, MCP launcher and the build version beside the launcher script) and the user `mcp-config.json` declaration. The scan is offline and reads exactly the paths the installer writes, with the same `COPILOT_HOME` and `CODETOUR_COPILOT_*` overrides.
 
 Problems are reported at error level and never stop the run: a plugin that is not installed in this home, a launcher that does not exist, a launcher pointing at a different build (the staleness/foreign-checkout case), a second `codetour` MCP server declared in the user config, or duplicate CodeTour extension directories. The same facts are recorded in the run state's `metrics.integration`, so the per-`runId` trial record shows which integration was actually loaded.
 
@@ -183,7 +186,7 @@ node --test test/copilot-adapter.test.mjs test/copilot-hook.test.mjs \
 ```
 
 - fake-host adapter tests pin `prompts/get` → run state → `session.send` ordering, the intact original request and brief, the run identity, no analysis or fallback on missing/unavailable/empty prompt, one resolved workspace, concurrent runs and pruning;
-- the same adapter tests pin the reading contract: a bare `/codetour` presents the discovered Tours and reads the chosen one without starting a generation, a session that reports no terminal gets one warning naming the exact shell command, the workspace root it must run in, and never a `Starting CodeTour` line or a launched reader, and a session that reports a terminal makes the reader inherit it and reports its real outcome — a clean close, a nonzero exit code, and a signal (no exit code);
+- the same adapter tests pin the reading contract: the **Lire** action opens VS Code without a TTY, an explicit terminal request without a TTY gets one warning naming the exact shell command, the workspace root it must run in, and never a `Starting CodeTour` line or a launched reader, and a session that reports a terminal makes the reader inherit it and reports its real outcome — a clean close, a nonzero exit code, and a signal (no exit code);
 - hook tests cover ordinary conversations, unknown session/workspace, `stop_hook_active`, `completed_zero`, every closure, one block maximum (including three concurrent invocations), two runs, resume, expiry, symlinked paths and storage failures;
 - the real plugin test installs `packages/copilot-plugin` into a temporary `COPILOT_HOME` from a path containing spaces, inspects `plugin list`, `mcp list`, `mcp get` and `skill list`, runs the installed hook from a workspace path containing spaces, then uninstalls and checks the final state. It skips only when `copilot` is absent.
 
@@ -193,7 +196,7 @@ Observed on GitHub Copilot CLI 1.0.106 (bundled runtime 1.0.114), macOS, 19 Nove
 - one `codetour` MCP server process for one session, launched with the session workspace path containing spaces, exposing exactly the six CodeTour tools (prefixed `codetour-` in the session tool catalog);
 - a resumed real session with an incomplete run: the hook blocked once, the re-entry carried `stop_hook_active:true` and was inert, and the agent called `codetour-knowledge_save` with `entries:[]` and the runId; the MCP persisted `completed_zero` and `copilot` printed "Consolidation completed: no Knowledge entries were created or persisted";
 - `copilot -p "/codetour generate …"` does **not** dispatch the extension slash command; the CLI sends the text to the model, which invoked the plugin's `codetour-generate` skill and the MCP prompt instead. That skill path created a real Tour and a Knowledge entry, but it did not create a run state and is therefore unguarded. The adapter's `prompts/get` → state → `session.send` invariant is proven at its fake-host boundary against the compiled CLI; a fully automated real-host `/codetour generate` run remains unverified on this CLI version.
-- the terminal handoff was probed on CLI 1.0.114 with a throwaway user-scoped extension: the extension process reported no TTY in print mode or under a PTY parent, its stdin was the CLI's extension bootstrap, and the SDK declares no suspend surface. `/dev/tty` opened only with a PTY parent, and it is recorded as a limit rather than a route: the host TUI keeps that terminal's input and painting. So the same-terminal reading is unavailable there, and the session prints the exact shell command with the workspace root instead. Verified: the host gives extensions no terminal (the probed RPC-pipe fact), and a bare `/codetour` run against the compiled CLI in this repository listed its Tours, chose one, and printed the command, which resolves that Tour's identity in the CLI. Manual, still to be recorded: `/codetour` in a live Copilot session, the printed command run in a shell at the workspace root, and the TUI repaint once that reader exits.
+- the terminal handoff was probed on CLI 1.0.114 with a throwaway user-scoped extension: the extension process reported no TTY in print mode or under a PTY parent, its stdin was the CLI's extension bootstrap, and the SDK declares no suspend surface. `/dev/tty` opened only with a PTY parent, and it is recorded as a limit rather than a route: the host TUI keeps that terminal's input and painting. So the same-terminal reading is unavailable there, and the adapter falls back to VS Code or prints the shell command for explicit terminal requests. Verified: the host gives extensions no terminal (the probed RPC-pipe fact), and an explicit terminal request against the compiled CLI in this repository printed the command, which resolves that Tour's identity in the CLI. Manual, still to be recorded: `/codetour` in a live Copilot session, the printed command run in a shell at the workspace root, and the TUI repaint once that reader exits.
 
 A previous probe of the installed extension API is recorded in [the Copilot generation probe](copilot-generation-probe.md). The API remains experimental.
 

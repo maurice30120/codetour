@@ -307,6 +307,9 @@ export function createAcpStepChatResponder(
       // are the agent's own, never a catalogue.
       return session?.model;
     },
+    async prepareModels() {
+      await openSession();
+    },
     async selectModel(value) {
       // The choice is remembered for this Agent Profile's sessions, before
       // and after any open one: it is replayed on every new session.

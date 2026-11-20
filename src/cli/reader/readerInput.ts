@@ -34,6 +34,7 @@ export interface ReaderKeyState {
    * terminal-owned (ticket #266).
    */
   canSelectModel: boolean;
+  canSelectAgent?: boolean;
   /**
    * Whether the model picker is up: it is modal, so it owns every unmodified
    * key until it closes (ticket #266).
@@ -51,6 +52,7 @@ export type ReaderKeyAction =
   | { type: "toggle-voice" }
   | { type: "open-in-vscode" }
   | { type: "open-model-picker" }
+  | { type: "open-agent-picker" }
   | { type: "picker-move"; delta: number }
   | { type: "picker-accept" }
   | { type: "picker-cancel" }
@@ -80,7 +82,7 @@ export function translateKey(state: ReaderKeyState, event: ReaderKeyEvent): Read
       return { type: "picker-move", delta: -1 };
     }
     if (event.key === "Enter") return { type: "picker-accept" };
-    if (event.key === "Escape" || event.key === "q" || event.key === "m") {
+    if (event.key === "Escape" || event.key === "q" || event.key === "m" || event.key === "h") {
       return { type: "picker-cancel" };
     }
     // A key the picker does not map changes nothing and never reaches the
@@ -138,6 +140,10 @@ export function translateKey(state: ReaderKeyState, event: ReaderKeyEvent): Read
     // never a modified `m`.
     if (event.ctrl || event.meta || event.alt) return { type: "unhandled" };
     return { type: "open-model-picker" };
+  }
+  if (event.key === "h" && state.canSelectAgent && !responding) {
+    if (event.ctrl || event.meta || event.alt) return { type: "unhandled" };
+    return { type: "open-agent-picker" };
   }
   if (event.key === "j" || event.key === "ArrowDown") return { type: "scroll", delta: 1 };
   if (event.key === "k" || event.key === "ArrowUp") return { type: "scroll", delta: -1 };

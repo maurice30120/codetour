@@ -156,7 +156,7 @@ class TerminalReader implements TourReader {
    * The open model picker and its highlighted row (ticket #266); undefined
    * while it is closed. It owns the keyboard until it closes.
    */
-  private picker: { selected: number } | undefined;
+  private picker: { kind: "agent" | "model"; selected: number; notice?: string } | undefined;
 
   private stepScrollTop = 0;
   private stepViewportRows = 0;
@@ -271,14 +271,15 @@ class TerminalReader implements TourReader {
         responding
       },
       composer: this.composer(conversation, suggestions),
-      picker: this.modelPicker(agent),
+      picker: this.pickerView(agent),
       status: statusLine({
         conversation,
         compactHints: this.layout.compactHints,
         narrationEnabled: narrationState.enabled,
         speechWarning: narrationState.warning,
         canOpenInVsCode: this.openInVsCode !== undefined,
-        canSelectModel: this.conversation.canSelectModel,
+        canSelectModel: this.conversation.canSelectModel && !this.conversation.hasAnswerInFlight,
+        canSelectAgent: this.conversation.agentNames.length > 0 && !this.conversation.hasAnswerInFlight,
         openWarning: this.openWarning,
         modelWarning: this.modelWarning?.message,
         agent,
@@ -356,7 +357,8 @@ class TerminalReader implements TourReader {
       stepCount: this.tour.steps.length,
       pageRows: Math.max(1, this.stepViewportRows),
       canOpenInVsCode: this.openInVsCode !== undefined,
-      canSelectModel: this.conversation.canSelectModel,
+      canSelectModel: this.conversation.canSelectModel && !this.conversation.hasAnswerInFlight,
+      canSelectAgent: this.conversation.agentNames.length > 0 && !this.conversation.hasAnswerInFlight,
       pickerOpen: this.picker !== undefined
     }, event);
   }
@@ -456,6 +458,12 @@ class TerminalReader implements TourReader {
         break;
       case "open-model-picker":
         this.openModelPicker();
+        break;
+      case "open-agent-picker":
+        this.picker = {
+          kind: "agent",
+          selected: Math.max(0, this.conversation.agentNames.indexOf(this.conversation.agentIdentity?.agent ?? ""))
+        };
         break;
       case "picker-move":
         this.movePicker(action.delta);
@@ -682,9 +690,9 @@ class TerminalReader implements TourReader {
    * model the adapter paints and the row `Enter` accepts: a list that shrinks
    * while the picker is open can never make the two disagree.
    */
-  private pickerIndex(values: readonly AcpModelValue[]): number {
-    if (!values.length || !this.picker) return -1;
-    return Math.min(Math.max(this.picker.selected, 0), values.length - 1);
+  private pickerIndex(length: number): number {
+    if (!length || !this.picker) return -1;
+    return Math.min(Math.max(this.picker.selected, 0), length - 1);
   }
 
   /**
@@ -693,8 +701,18 @@ class TerminalReader implements TourReader {
    * an agent that announces none gets. The list is read live, so a model the
    * agent stops offering never stays on screen.
    */
-  private modelPicker(agent: StepChatAgentIdentity | undefined): ReaderPicker | undefined {
+  private pickerView(agent: StepChatAgentIdentity | undefined): ReaderPicker | undefined {
     if (!this.picker) return undefined;
+    if (this.picker.kind === "agent") {
+      const names = this.conversation.agentNames;
+      return {
+        title: "agent",
+        items: names.map(name => ({ label: name, effective: Boolean(agent?.effective && name === agent.agent) })),
+        selected: this.pickerIndex(names.length),
+        notice: undefined,
+        hint: " ↑/↓ move · enter choose · esc cancel"
+      };
+    }
     const announced = this.conversation.announcedModel;
     const values = announced?.values ?? [];
     return {
@@ -703,12 +721,12 @@ class TerminalReader implements TourReader {
         label: value.name,
         effective: value.value === announced?.value
       })),
-      selected: this.pickerIndex(values),
+      selected: this.pickerIndex(values.length),
       notice: values.length
         ? undefined
-        : agent?.effective
+        : this.picker.notice ?? (agent?.effective
           ? "agent-managed model"
-          : "the agent has not announced its models yet",
+          : "the agent has not announced its models yet"),
       hint: values.length ? " enter choose · esc cancel" : " esc close"
     };
   }
@@ -723,15 +741,37 @@ class TerminalReader implements TourReader {
     const effective = announced
       ? announced.values.findIndex(value => value.value === announced.value)
       : -1;
-    this.picker = { selected: Math.max(0, effective) };
+    const picker = { kind: "model" as const, selected: Math.max(0, effective), notice: undefined as string | undefined };
+    this.picker = picker;
+    if (announced || this.conversation.agentIdentity?.effective) return;
+    const preparation = this.conversation.prepareModels();
+    if (!preparation) return;
+    picker.notice = "connecting to the agent…";
+    void preparation.then(
+      () => {
+        if (this.picker === picker) {
+          picker.notice = undefined;
+          const current = this.conversation.announcedModel;
+          picker.selected = Math.max(0, current?.values.findIndex(value => value.value === current.value) ?? 0);
+        }
+        this.notify();
+      },
+      (error: unknown) => {
+        if (this.picker !== picker) return;
+        picker.notice = error instanceof Error ? error.message : String(error);
+        this.notify();
+      }
+    );
   }
 
   /** Moves the highlighted row by one, clamped inside the announced models. */
   private movePicker(delta: number): void {
     if (!this.picker) return;
-    const values = this.announcedModels();
-    if (!values.length) return;
-    this.picker.selected = Math.min(Math.max(this.picker.selected + delta, 0), values.length - 1);
+    const count = this.picker.kind === "agent"
+      ? this.conversation.agentNames.length
+      : this.announcedModels().length;
+    if (!count) return;
+    this.picker.selected = Math.min(Math.max(this.picker.selected + delta, 0), count - 1);
   }
 
   /**
@@ -742,8 +782,22 @@ class TerminalReader implements TourReader {
    */
   private acceptPicker(): void {
     if (!this.picker) return;
+    if (this.picker.kind === "agent") {
+      const names = this.conversation.agentNames;
+      const name = names[this.pickerIndex(names.length)];
+      this.picker = undefined;
+      this.modelWarning = undefined;
+      if (name) void this.conversation.selectAgent(name)?.catch((error: unknown) => {
+        this.modelWarning = {
+          message: "agent: " + (error instanceof Error ? error.message : String(error)),
+          confirmed: this.conversation.announcedModel?.value
+        };
+        this.notify();
+      });
+      return;
+    }
     const values = this.announcedModels();
-    const index = this.pickerIndex(values);
+    const index = this.pickerIndex(values.length);
     const value = index < 0 ? undefined : values[index];
     this.picker = undefined;
     if (!value) return;

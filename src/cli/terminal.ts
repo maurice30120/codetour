@@ -72,13 +72,19 @@ export function composeConversationResponder(
   // No installed Agent Profile means no responder: the reader stays fully
   // usable without an agent and says so (spec #93).
   if (!responder) return undefined;
-  const preselection = chat.profile;
+  const root = chat.profile?.entry.cwd;
+  const prepareModels = responder.prepareModels?.bind(responder);
   return {
     // The responder names the agent the session handshake confirmed; the
     // first installed candidate is only the preselection before that.
-    identity: () => responder.identity?.() ?? (preselection
-      ? { agent: preselection.name, effective: false }
+    identity: () => responder.identity?.() ?? (chat.profile
+      ? { agent: chat.profile.name, effective: false }
       : undefined),
+    agentNames: chat.agentNames,
+    selectAgent: chat.selectAgent?.bind(chat),
+    prepareModels: prepareModels && root
+      ? () => prepareModels(root)
+      : undefined,
     // The model picker lists what the answering agent announces, and the
     // reader's choice is the request the agent applies and confirms.
     model: () => responder.model?.(),
@@ -96,13 +102,8 @@ export function composeConversationResponder(
 /**
  * The composition root's collaborator wiring (spec #93): the ACP session
  * layer stays behind the Step Chat support seams and is adapted to the
- * reader's responder port; no agent process is started until the first
- * question. Since #104 the session is an ordered failover over every
- * installed candidate — the terminal keeps it instead of the webview's Agent
- * selector (ADR 0048) — and since ticket #266 it also exposes the models the
- * answering agent announces so the reader can pick one (ADR 0052). The
- * reading module runs the conversation through the shared StepConversations
- * store above this seam (ADR 0031).
+ * reader's responder port. The reading module uses the shared
+ * StepConversations store (ADR 0031).
  */
 export function composeTerminalReader(options: TerminalReaderCompositionOptions): TourReader {
   const { tour, root } = options;

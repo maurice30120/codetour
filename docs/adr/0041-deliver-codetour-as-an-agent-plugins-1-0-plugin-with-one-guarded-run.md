@@ -38,14 +38,12 @@ with no analysis, no fallback prompt and no run state. The adapter never
 announces a Tour creation or a persistence it has not observed; only the MCP's
 tool results report those outcomes.
 
-Amended 2026-11-19: missing generation choices are collected by the agent with
-`ask_user`, replacing the extension's generation menus. Explicit choices,
-including natural-language choices, are kept. This preparatory dialogue can
-precede `prompts/get` but performs no generation analysis and creates no Run
-State. Once resolved, the agent calls `codetour_prepare_generation` and follows
-its returned prompt in the same turn, rather than sending a nested agent
-request. Both entry paths share the guarded preparation above. Existing Tour
-reader selection remains a host menu.
+Updated 2026-11-20: the slash command uses the host's native menus for
+reading and generation choices. The adapter prepares a generation after the
+choices are confirmed, then delivers one prompt to the model. An agent
+handling a direct generation request can still call
+`codetour_prepare_generation` with the resolved choices and follow the
+returned prompt. Both paths use the same guarded preparation.
 
 **Run state and the agentStop guard.** The adapter writes one atomic state file
 under `<workspace>/.tours/.log/codetour-run-<runId>.json` before sending.

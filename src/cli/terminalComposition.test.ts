@@ -1,5 +1,8 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import type { AcpModelSelector } from "../agent/acpModelOptions";
 import type { StepChatResponder } from "../agent/stepChatContract";
 import type { CodeTour } from "../store";
@@ -8,7 +11,7 @@ import { NarrationController } from "./narration/NarrationController";
 import type { NarrationEngine } from "./narration/SystemSpeech";
 import type { ConversationResponder } from "./reader/collaborators";
 import { createReader, type TourReader } from "./reader/reader";
-import type { TerminalChatSession } from "./stepChatSupport";
+import { openTerminalChat, type TerminalChatSession } from "./stepChatSupport";
 import { composeConversationResponder } from "./terminal";
 
 /**
@@ -89,6 +92,56 @@ test("the composed responder exposes a model change when the answering agent acc
   assert.equal(reader.getState().picker?.items.length, 2,
     "the picker lists the announced models");
   await reader.close();
+});
+
+test("the reader can pick an installed agent and its model before sending a question", async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "codetour-reader-agents-"));
+  const firstLog = path.join(root, "copilot.log");
+  const selectedLog = path.join(root, "pi.log");
+  const fakeAgent = path.join(__dirname, "../agent/fakeAcpAgent.js");
+  const chat = openTerminalChat(root, {
+    profiles: [["Copilot", firstLog], ["Pi", selectedLog]].map(([name, log]) => ({
+      name,
+      entry: { command: process.execPath, args: [fakeAgent, log, "model-option"], cwd: root }
+    }))
+  });
+  const reader = createReader({
+    tour,
+    root,
+    speech: new NarrationController({ engine: new MuteSpeechEngine() }),
+    descriptionRenderer: async () => "<p>rendered</p>",
+    resolveStepContext: () => ({ kind: "none" }),
+    responder: composeConversationResponder(chat)
+  });
+  try {
+    await reader.open();
+    assert.match(reader.getState().status.hints, /h agent · m model/);
+    reader.pressKey({ key: "h" });
+    assert.deepEqual(reader.getState().picker?.items.map(item => item.label), ["Copilot", "Pi"]);
+    reader.pressKey({ key: "ArrowDown" });
+    reader.pressKey({ key: "Enter" });
+    assert.equal(reader.getState().conversation.agent?.agent, "Pi");
+    assert.equal(existsSync(selectedLog), false);
+
+    reader.pressKey({ key: "m" });
+    const deadline = Date.now() + 5_000;
+    while (!reader.getState().picker?.items.length && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.deepEqual(reader.getState().picker?.items.map(item => item.label), ["Fast", "Balanced", "Smart"]);
+    assert.doesNotMatch(readFileSync(selectedLog, "utf8"), /session\/prompt/);
+    reader.pressKey({ key: "ArrowUp" });
+    reader.pressKey({ key: "Enter" });
+    await reader.ask("Why?");
+    const log = readFileSync(selectedLog, "utf8");
+    assert.ok(log.includes("session/set_config_option"));
+    assert.ok(log.indexOf("session/set_config_option") < log.indexOf("session/prompt"));
+    assert.equal(reader.getState().conversation.agent?.model, "balanced");
+    assert.equal(existsSync(firstLog), false);
+  } finally {
+    await reader.close();
+    rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
 });
 
 test("an agent that manages its own model leaves the composed reader without a picker", async () => {

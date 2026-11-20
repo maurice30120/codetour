@@ -147,6 +147,8 @@ export interface StepChatResponder {
    * the only source of the values a reader may pick (ADR 0048).
    */
   model?(): AcpModelSelector | undefined;
+  /** Opens the session to discover models without prompting the agent. */
+  prepareModels?(workspaceRoot: string): Promise<void>;
   /**
    * Requests a model change for the agent that answers: remembered for the
    * sessions still to open, and applied live on an open one. The change only

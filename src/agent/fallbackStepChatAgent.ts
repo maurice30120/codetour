@@ -79,19 +79,29 @@ export function createFallbackStepChatResponder(
     return answered ?? profilesFor(workspace ?? "")[selected];
   }
 
+  async function setWorkspace(root: string): Promise<void> {
+    if (workspace === root) return;
+    const previous = active;
+    active = undefined;
+    selected = 0;
+    answered = undefined;
+    workspace = root;
+    await previous?.dispose?.();
+  }
+
+  function openProfile(profile: AcpAgentProfile): StepChatResponder {
+    return active ??= createAcpStepChatResponder(profile, {
+      ...options,
+      model: options.modelFor?.(profile.name)
+    });
+  }
+
   return {
     async answer(request, events) {
       const attempt = generation;
       const answer = pending.then(async () => {
         if (attempt !== generation) throw new Error("Answer interrupted.");
-        if (workspace !== request.workspaceRoot) {
-          const previous = active;
-          active = undefined;
-          selected = 0;
-          answered = undefined;
-          workspace = request.workspaceRoot;
-          await previous?.dispose?.();
-        }
+        await setWorkspace(request.workspaceRoot);
         await options.whenReady?.();
         // The profile that already answered is the only candidate: only the
         // initial automatic selection may fall through to another profile.
@@ -100,11 +110,7 @@ export function createFallbackStepChatResponder(
         for (let index = answered ? 0 : selected; index < profiles.length; index++) {
           if (attempt !== generation) throw new Error("Answer interrupted.");
           const profile = profiles[index];
-          const current = active ?? createAcpStepChatResponder(profile, {
-            ...options,
-            model: options.modelFor?.(profile.name)
-          });
-          active = current;
+          const current = openProfile(profile);
           let streamed = false;
           events?.onActivity?.(`Connecting to ${profile.name}…`);
           try {
@@ -184,13 +190,30 @@ export function createFallbackStepChatResponder(
       // Only the active Agent Profile has a session to announce a model from.
       return active?.model?.();
     },
-    async selectModel(value: string) {
-      if (active?.selectModel) {
-        return active.selectModel(value);
-      }
-      // No agent was launched yet: the choice is remembered for the profile
-      // that will answer, exactly like the model it would request on open.
-      options.modelFor?.(preselection()?.name ?? "")?.remember(value);
+    prepareModels(root) {
+      const attempt = generation;
+      const preparation = pending.then(async () => {
+        if (attempt !== generation) return;
+        await setWorkspace(root);
+        if (attempt !== generation) return;
+        const profile = preselection();
+        if (profile) await openProfile(profile).prepareModels?.(root);
+      });
+      pending = preparation.then(() => undefined, () => undefined);
+      return preparation;
+    },
+    selectModel(value: string) {
+      const attempt = generation;
+      const selection = pending.then(async () => {
+        if (attempt !== generation) return;
+        if (active?.selectModel) {
+          await active.selectModel(value);
+        } else {
+          options.modelFor?.(preselection()?.name ?? "")?.remember(value);
+        }
+      });
+      pending = selection.then(() => undefined, () => undefined);
+      return selection;
     },
     cancel() {
       generation++;

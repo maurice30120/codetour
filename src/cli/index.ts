@@ -17,11 +17,12 @@ import { resolveReadonlyStepContext } from "./stepContext";
 import { readTourImages } from "./stepImages";
 import { runTerminalTour } from "./terminal";
 import { runInternalOpenVsCode } from "./internalOpenVscode";
+import { openTourInVsCode } from "./openInVscode";
 import { defaultTerminalSession, handOffTtyToTourReader, HANDOFF_FLAG } from "./ttyHandoff";
 import { resolveTourSelection } from "./tourResolution";
 import { isKnowledgeInvocation, registerKnowledgeCommand, reportKnowledgeUsageError } from "./knowledge";
 
-const USAGE = "Usage: codetour [tour] [--renderer html|terminal]";
+const USAGE = "Usage: codetour [tour] [--renderer terminal|html|vscode]";
 
 // The experimental TTY handoff flag (spike, ticket #243): variadic so the
 // optional workspace root can follow the Tour file. The flag itself is
@@ -49,7 +50,7 @@ function buildProgram(): Command {
     .allowExcessArguments(false)
     .description("Read guided Tours of a codebase, and generate them with AI agents.")
     .argument("[title]", "Tour title or Tour file name")
-    .option("--renderer <type>", "open the Tour as terminal (default) or html")
+    .option("--renderer <type>", "open the Tour as terminal (default), html, or vscode")
     .option(
       "--install [agent]",
       "install an agent integration: " + agentIds() + "; with no value or 'all', every compatible agent"
@@ -280,8 +281,9 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
 
   // The renderer is validated before Git worktree detection, exactly as the
   // previous hand-rolled parser did: a bad renderer fails anywhere.
-  if (options.renderer !== undefined && options.renderer !== "html" && options.renderer !== "terminal") {
-    throw new Error("Unknown renderer '" + options.renderer + "'. Use html or terminal.");
+  const renderer = options.renderer ?? "terminal";
+  if (renderer !== "terminal" && renderer !== "html" && renderer !== "vscode") {
+    throw new Error("Unknown renderer '" + renderer + "'. Use terminal, html, or vscode.");
   }
 
   const root = repositoryRoot(process.cwd());
@@ -313,7 +315,11 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
   // terminal: the agent's terminal is the Playback Surface, never an
   // independent terminal window (ticket #241). Only an explicit
   // --renderer html opens the browser page.
-  if (options.renderer !== "html") {
+  if (renderer === "vscode") {
+    await openTourInVsCode({ tourId: tour.id, workspaceRoot: root, step: 0 });
+    return;
+  }
+  if (renderer === "terminal") {
     await runTerminalTour(tour, root);
     return;
   }

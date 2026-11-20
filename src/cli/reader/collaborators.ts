@@ -20,9 +20,7 @@ import type { ReadonlyStepContext } from "../stepContext";
  * responder over every installed candidate — adapted from the
  * Step chat support module by the composition root. The reader only sees
  * this port; the conversation lifecycle lives in the shared
- * `StepConversations` store above the seam. No agent process is started
- * until the first question. The terminal selects no Agent Profile — the
- * failover does (ADR 0048) — but since ticket #266 it does select the model.
+ * `StepConversations` store above the seam.
  */
 export interface ConversationResponder {
   /**
@@ -32,6 +30,9 @@ export interface ConversationResponder {
    * candidate is never presented as the agent that answered.
    */
   identity?(): StepChatAgentIdentity | undefined;
+  agentNames?: readonly string[];
+  selectAgent?(name: string): Promise<void>;
+  prepareModels?(): Promise<void>;
   /**
    * The model selector the answering agent announces right now, with the
    * model it confirms: undefined when it announces no model at all, which is

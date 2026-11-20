@@ -54,6 +54,21 @@ only the model.**
   conversations and the palette are untouched; and
   `CODETOUR_ACP_PROVIDER` / `CODETOUR_ACP_COMMAND` keep their escape-hatch role.
 
+## Update — choose the Agent Profile in the terminal
+
+`h` opens the same overlay with the installed Agent Profiles. The reader
+uses ranked failover until an explicit choice. That choice applies to future
+questions in the tour. Previous exchanges keep the recorded agent identity.
+
+`m` can initialize the selected agent's read-only ACP session to discover its
+models before the first question. The handshake sends no prompt. When the
+agent announces a selector, the reader sends model changes to that session
+before submitting any queued question. Choices are available while no answer
+is in flight.
+
+This updates the earlier restriction on Agent Profile selection and session
+startup. The terminal still lists only models the active session announces.
+
 ## What this amends in ADR 0048
 
 Two of its Selection bullets, both quoted here. First the clause in the Context

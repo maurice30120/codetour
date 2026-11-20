@@ -7,16 +7,6 @@ import path from "node:path";
 import { runCodeTourCommand, codeTourMcpServer, generationTool } from "../.github/extensions/codetour/adapter.mjs";
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-function processIsRunning(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    if (error.code === "ESRCH") return false;
-    throw error;
-  }
-}
-
 // The adapter decides from its own process whether a terminal can be lent to
 // the reader, exactly as Copilot forks an extension (ADR 0051). Tests pin that
 // reported state instead of depending on how the runner was started.
@@ -33,14 +23,11 @@ async function withReaderTerminal(reported, run) {
   }
 }
 
-function writeTrackedReaderWrapper(file) {
+function writeReaderWrapper(file) {
   writeFileSync(file, [
     'const { spawnSync } = require("node:child_process");',
-    'const { writeFileSync } = require("node:fs");',
     'const result = spawnSync(process.execPath, [process.env.CODETOUR_REAL_CLI, ...process.argv.slice(2)], { stdio: "inherit" });',
-    'if (process.argv.includes("--internal-tour-id")) writeFileSync(process.env.CODETOUR_TEST_READER_PID, String(process.pid));',
-    'const finish = () => process.exit(result.status ?? 1);',
-    'if (process.argv.includes("--internal-tour-id")) setTimeout(finish, 500); else finish();'
+    'process.exit(result.status ?? 1);'
   ].join("\n"));
 }
 
@@ -84,7 +71,7 @@ function writeRendererRecordingWrapper(file) {
   writeFileSync(file, [
     'const { spawnSync } = require("node:child_process");',
     'const { appendFileSync } = require("node:fs");',
-    'if (process.argv.includes("--internal-tour-id")) {',
+    'if (process.argv.includes("--internal-tour-id") || process.argv.includes("--internal-open-vscode")) {',
     '  appendFileSync(process.env.CODETOUR_TEST_RECORDED_ARGS, JSON.stringify(process.argv.slice(2)) + "\\n");',
     '  const signal = process.env.CODETOUR_TEST_READER_SIGNAL;',
     '  if (signal) process.kill(process.pid, signal);',
@@ -100,45 +87,28 @@ test("Copilot selection forwards the selected Tour to the real standalone HTML C
   const previousCli = process.env.CODETOUR_CLI;
   const previousRealCli = process.env.CODETOUR_REAL_CLI;
   const previousOutput = process.env.CODETOUR_TEST_HTML_OUTPUT;
-  const previousReaderPid = process.env.CODETOUR_TEST_READER_PID;
   try {
     execFileSync("git", ["init", "-q", root]);
     mkdirSync(path.join(root, ".tours"));
     for (const [name, title] of [["a", "First Tour"], ["b", "Second Tour"]])
       writeFileSync(path.join(root, ".tours", `${name}.tour`), JSON.stringify({title, steps:[{description: `Content for ${title}`}]}));
     const wrapper = path.join(root, "reader-wrapper.js");
-    const readerPid = path.join(root, "reader.pid");
-    // Keep a process whose cwd is the temporary workspace alive after the
-    // HTML file is written. Windows cannot remove that workspace until this
-    // reader process has exited, so the test waits for the PID to disappear.
-    writeTrackedReaderWrapper(wrapper);
+    writeReaderWrapper(wrapper);
     process.env.CODETOUR_CLI = wrapper;
     process.env.CODETOUR_REAL_CLI = path.resolve("dist/cli.js");
     const output = path.join(root, "result.html");
     process.env.CODETOUR_TEST_HTML_OUTPUT = output;
-    process.env.CODETOUR_TEST_READER_PID = readerPid;
     const messages = [];
     const session = {capabilities:{ui:{elicitation:true}}, ui:{select: async (prompt, choices) => prompt === "Read or generate a CodeTour?" ? "2. Read" : choices[1]},
       log: async message => messages.push(message)};
     await runCodeTourCommand(session, "--renderer html", root);
-    for (let i = 0; i < 100 && (!existsSync(output) || !existsSync(readerPid)); i++) await delay(50);
     assert.ok(existsSync(output), messages.join("\n"));
-    assert.ok(existsSync(readerPid), "the selected reader process should report its PID");
-    const pid = Number(readFileSync(readerPid, "utf8"));
-    assert.ok(Number.isSafeInteger(pid) && pid > 0, "the reader PID must be valid");
-    assert.ok(processIsRunning(pid), "the fixture must keep the reader alive after writing HTML");
-    const deadline = Date.now() + 5000;
-    while (processIsRunning(pid)) {
-      assert.ok(Date.now() < deadline, "the selected reader process must exit before workspace cleanup");
-      await delay(25);
-    }
     assert.match(readFileSync(output, "utf8"), /Second Tour/);
-    assert.match(messages.join("\n"), /Starting CodeTour: Second Tour/);
+    assert.match(messages.join("\n"), /Opened CodeTour: Second Tour/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
     if (previousRealCli === undefined) delete process.env.CODETOUR_REAL_CLI; else process.env.CODETOUR_REAL_CLI = previousRealCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
-    if (previousReaderPid === undefined) delete process.env.CODETOUR_TEST_READER_PID; else process.env.CODETOUR_TEST_READER_PID = previousReaderPid;
     // On Windows the OS may release a just-exited reader's cwd handle just
     // after its PID disappears. Retry only transient filesystem-lock errors.
     rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
@@ -169,7 +139,6 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
   const previousCli = process.env.CODETOUR_CLI;
   const previousRealCli = process.env.CODETOUR_REAL_CLI;
   const previousOutput = process.env.CODETOUR_TEST_HTML_OUTPUT;
-  const previousReaderPid = process.env.CODETOUR_TEST_READER_PID;
   try {
     execFileSync("git", ["init", "-q", root]);
     mkdirSync(path.join(root, ".tours"));
@@ -180,7 +149,7 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
     else symlinkSync(process.execPath, path.join(pkg, "node.exe"));
     const realCli = path.join(pkg, "dist", "real-cli.js");
     copyFileSync(path.resolve("dist/cli.js"), realCli);
-    writeTrackedReaderWrapper(path.join(pkg, "dist", "cli.js"));
+    writeReaderWrapper(path.join(pkg, "dist", "cli.js"));
     cpSync(path.resolve("dist/resvg-runtime"), path.join(pkg, "dist", "resvg-runtime"), {recursive:true});
     // The CLI bundle requires the userland punycode package instead of the
     // deprecated core module; a packaged layout ships it as a closure.
@@ -188,30 +157,17 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
     cpSync(path.resolve("node_modules/punycode"), path.join(pkg, "dist", "node_modules", "punycode"), {recursive:true});
     const cmd = path.join(pkg, "codetour.cmd");
     writeFileSync(cmd, "@echo off\r\nexit /b 12\r\n");
-    const readerPid = path.join(root, "reader.pid");
     process.env.CODETOUR_CLI = cmd;
     process.env.CODETOUR_REAL_CLI = realCli;
     process.env.CODETOUR_TEST_HTML_OUTPUT = path.join(root, "result.html");
-    process.env.CODETOUR_TEST_READER_PID = readerPid;
     const messages = [];
     await runCodeTourCommand({capabilities:{},log:async text => messages.push(text)}, "Safe --renderer html", root);
-    for (let i = 0; i < 100 && (!existsSync(process.env.CODETOUR_TEST_HTML_OUTPUT) || !existsSync(readerPid)); i++) await delay(50);
     assert.ok(existsSync(process.env.CODETOUR_TEST_HTML_OUTPUT), messages.join("\n"));
-    assert.ok(existsSync(readerPid), "the packaged reader should report its PID before cleanup");
-    const pid = Number(readFileSync(readerPid, "utf8"));
-    assert.ok(Number.isSafeInteger(pid) && pid > 0, "the packaged reader PID must be valid");
-    assert.ok(processIsRunning(pid), "the fixture must keep the packaged reader alive after writing HTML");
-    const deadline = Date.now() + 5000;
-    while (processIsRunning(pid)) {
-      assert.ok(Date.now() < deadline, "the packaged reader must exit before workspace cleanup");
-      await delay(25);
-    }
     assert.match(readFileSync(process.env.CODETOUR_TEST_HTML_OUTPUT, "utf8"), /Package works/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
     if (previousRealCli === undefined) delete process.env.CODETOUR_REAL_CLI; else process.env.CODETOUR_REAL_CLI = previousRealCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
-    if (previousReaderPid === undefined) delete process.env.CODETOUR_TEST_READER_PID; else process.env.CODETOUR_TEST_READER_PID = previousReaderPid;
     rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
   }
 });
@@ -242,42 +198,24 @@ test("generation relays the served neutral Changes Tour prompt to the host", asy
 });
 
 
-test("an incomplete generation delegates missing choices to the agent without extension menus", async () => {
-  const sent = [];
+test("cancelling the native generation menu sends nothing to the model", async () => {
+  const menus = [];
+  const logs = [];
   await runCodeTourCommand({
     capabilities: {ui: {elicitation: true}},
-    ui: {
-      select: async () => assert.fail("generation choices belong to ask_user"),
-      input: async () => assert.fail("generation questions belong to ask_user")
-    },
-    send: async options => sent.push(options),
-    log: collectLogs().log
-  }, "generate");
-  assert.equal(sent.length, 1);
-  assert.equal(sent[0].mode, "immediate");
-  assert.match(sent[0].prompt, /ask_user/);
-  assert.match(sent[0].prompt, /Project Tour/);
-  assert.match(sent[0].prompt, /Changes Tour/);
-  assert.match(sent[0].prompt, /codetour_prepare_generation/);
+    ui: {select: async (_prompt, choices) => {
+      menus.push(choices);
+      return menus.length === 1 ? choices[0] : null;
+    }},
+    send: async () => assert.fail("A cancelled menu must not call the model"),
+    log: async message => logs.push(message)
+  }, "");
+  assert.deepEqual(menus, [
+    ["1. Générer", "2. Lire"],
+    ["1. Project Tour", "2. Changes Tour — Neutre", "3. Changes Tour — Critique"]
+  ]);
+  assert.deepEqual(logs, []);
 });
-
-test("the choice dialogue preserves an explicit Changes Tour and a natural-language critical request", async () => {
-  const root = createTourWorkspace([]);
-  try {
-    let sent;
-    await runCodeTourCommand({
-      send: async options => { sent = options; },
-      log: collectLogs().log
-    }, "generate changes Fais une revue critique de ma branche.", root);
-    const {dialogueId, ...choices} = JSON.parse(sent.prompt.split("\n").at(-1));
-    assert.ok(dialogueId);
-    assert.deepEqual(choices, {type: "changes", request: "Fais une revue critique de ma branche."});
-    assert.deepEqual(readRunStates(root), [], "collecting choices is not a Generation Run");
-  } finally {
-    rmSync(root, {recursive:true, force:true});
-  }
-});
-
 
 test("critical generation receives the served prompt with the shared offline skill", async () => {
   const previousCli = process.env.CODETOUR_CLI;
@@ -413,63 +351,33 @@ test("a Changes Tour carries the orientation phrase alongside its review mode", 
   }
 });
 
-test("an orientation phrase reaches the agent intact before the type is resolved", async () => {
-  const previousCli = process.env.CODETOUR_CLI;
+test("an orientation phrase survives native generation choices", async () => {
+  const root = createTourWorkspace([]);
+  const restore = rememberCli();
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
-    const events = [];
-    let sent;
-    await runCodeTourCommand({
-      capabilities: {ui: {elicitation: true}},
-      ui: {select: async () => assert.fail("type selection belongs to ask_user")},
-      send: async options => { events.push("send"); sent = options; },
-      log: async message => { preLaunchLines.push(message); }
-    }, "generate Explique-moi le rendu Mermaid.");
-    assert.deepEqual(events, ["send"]);
-    assert.match(sent.prompt, /ask_user/);
-    assert.match(sent.prompt, /Explique-moi le rendu Mermaid\./);
-    assert.doesNotMatch(sent.prompt, /Run identity:/);
+    for (const [raw, index, brief] of [
+      ["generate Explique-moi le rendu Mermaid.", 0, "Explique-moi le rendu Mermaid."],
+      ["generate changes Fais une revue critique de ma branche.", 1, "Fais une revue critique de ma branche."]
+    ]) {
+      let sent;
+      const events = [];
+      await runCodeTourCommand({
+        capabilities: {ui: {elicitation: true}},
+        ui: {
+          select: async (_prompt, choices) => { events.push("select"); return choices[index]; },
+          input: async () => assert.fail("The command already includes the orientation")
+        },
+        send: async options => { events.push("send"); sent = options; },
+        log: collectLogs().log
+      }, raw, root);
+      assert.deepEqual(events, ["select", "send"]);
+      assert.ok(sent.prompt.includes(brief));
+      assert.match(sent.prompt, index === 0 ? /create_project_tour/ : /review mode: critical/);
+    }
   } finally {
-    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
-  }
-});
-
-test("a typo-like first word delegates type resolution and keeps the request intact", async () => {
-  for (const [raw, brief] of [["generate change the login flow", "change the login flow"], ["generate chages", "chages"], ["generate changse neutral", "changse neutral"]]) {
-    let sent;
-    await runCodeTourCommand({
-      capabilities: {ui: {elicitation: true}},
-      ui: {
-        select: async () => assert.fail("type selection belongs to ask_user"),
-        input: async () => assert.fail(`${raw} must not ask for an orientation already given`)
-      },
-      send: async options => { sent = options; },
-      log: collectLogs().log
-    }, raw);
-    assert.ok(sent, `${raw} must reach the agent for type resolution`);
-    assert.match(sent.prompt, /ask_user/);
-    assert.match(sent.prompt, new RegExp(brief.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-    assert.doesNotMatch(sent.prompt, /Run identity:/);
-  }
-});
-
-test("a free orientation phrase that does not name a type stays an orientation", async () => {
-  const previousCli = process.env.CODETOUR_CLI;
-  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
-  try {
-    let sent;
-    await runCodeTourCommand({
-      capabilities: {ui: {elicitation: true}},
-      ui: {select: async () => assert.fail("the adapter must not interpret natural-language choices")},
-      send: async options => { sent = options; },
-      log: collectLogs().log
-    }, "generate Changements récents dans le module de paiement.");
-    assert.ok(sent);
-    assert.match(sent.prompt, /ask_user/);
-    assert.match(sent.prompt, /Changements récents dans le module de paiement\./);
-    assert.doesNotMatch(sent.prompt, /Run identity:/);
-  } finally {
-    if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
+    restore();
+    rmSync(root, {recursive:true, force:true});
   }
 });
 
@@ -481,21 +389,24 @@ test("a quoted \"generate\" title is read instead of starting a generation", asy
       log: async message => messages.push(message)}, '"generate" --renderer html', root);
     const calls = await recordedReaderArgs(recorded);
     assert.equal(calls.length, 1);
-    assert.match(messages.join("\n"), /Starting CodeTour: generate \(html\)\./);
+    assert.match(messages.join("\n"), /Opened CodeTour: generate \(html\)\./);
   });
 });
 
-test("a failed dialogue send reports the error without creating a generation run", async () => {
+test("a failed generation send reports the error and removes the run state", async () => {
   const root = createTourWorkspace([]);
+  const restore = rememberCli();
+  process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
     const logs = [];
     await runCodeTourCommand({
-      send: async () => { throw new Error("dialogue refused"); },
+      send: async () => { throw new Error("generation refused"); },
       log: async message => logs.push(message)
-    }, "generate changes", root);
+    }, "generate project Explain the architecture", root);
     assert.deepEqual(readRunStates(root), []);
-    assert.deepEqual(logs, ["CodeTour: dialogue refused"]);
+    assert.equal(logs.at(-1), "CodeTour: generation refused");
   } finally {
+    restore();
     rmSync(root, {recursive:true, force:true});
   }
 });
@@ -556,16 +467,7 @@ async function withRealCli(root, run) {
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
-    try {
-      rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
-    } catch (error) {
-      // The detached reader keeps the workspace as its cwd, and Windows
-      // refuses to delete a directory a process still sits in, even after
-      // retries. The relayed resolution is the contract under test here, not
-      // the temporary workspace's cleanliness, so an ephemeral runner may
-      // keep the directory instead of failing the passing assertions.
-      if (process.platform !== "win32") throw error;
-    }
+    rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
   }
 }
 
@@ -577,7 +479,7 @@ test("a requested Tour title is resolved through the CLI contract", async () => 
     for (let i = 0; i < 100 && !(existsSync(output) && readFileSync(output, "utf8")); i++) await delay(50);
     assert.ok(existsSync(output), messages.join("\n"));
     assert.match(readFileSync(output, "utf8"), /Second Tour/);
-    assert.match(messages.join("\n"), /Starting CodeTour: Second Tour \(html\)/);
+    assert.match(messages.join("\n"), /Opened CodeTour: Second Tour \(html\)/);
   });
 });
 
@@ -641,43 +543,74 @@ test("an elicited choice resolves duplicate Tour titles by identity", async () =
     const html = readFileSync(output, "utf8");
     assert.match(html, /Second duplicate/);
     assert.doesNotMatch(html, /First duplicate/);
-    assert.match(messages.join("\n"), /Starting CodeTour: Shared Tour \(html\)/);
+    assert.match(messages.join("\n"), /Opened CodeTour: Shared Tour \(html\)/);
   });
 });
 
-test("a bare /codetour presents the existing Tours and reads the chosen one", async () => {
+test("Lire opens the chosen Tour in VS Code when Copilot has no TTY", async () => {
   const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
-  await withReaderTerminal(false, () => withRecordingCli(root, async () => {
+  await withReaderTerminal(false, () => withRecordingCli(root, async recorded => {
     const menus = [];
+    const messages = [];
     const session = {capabilities:{ui:{elicitation:true}},
       ui:{select: async (prompt, choices) => { menus.push([prompt, choices]); return choices[1]; }},
       send: async () => assert.fail("a bare read command never starts a generation"),
-      log: async () => {}};
+      log: async message => messages.push(message)};
     await runCodeTourCommand(session, "", root);
     assert.deepEqual(menus, [
+      ["CodeTour", ["1. Générer", "2. Lire"]],
       ["Select a CodeTour", ["1. First Tour", "2. Second Tour"]]
     ]);
+    assert.deepEqual(await recordedReaderArgs(recorded), [
+      ["--internal-open-vscode", path.join(realpathSync(root), ".tours", "b.tour"), realpathSync(root)]
+    ]);
+    assert.deepEqual(messages, ["Opened CodeTour: Second Tour (VS Code)."]);
   }));
 });
 
-test("a session without a terminal gets the exact command instead of a reader", async () => {
+test("an explicit terminal request without a TTY gets the exact shell command", async () => {
   const root = createTourWorkspace([["a", "First Tour"], ["b", "Second Tour"]]);
   await withReaderTerminal(false, () => withRecordingCli(root, async recorded => {
     const logs = [];
     const session = {capabilities:{ui:{elicitation:true}},
       ui:{select: async () => "1. First Tour"},
       log: async message => logs.push(message)};
-    await runCodeTourCommand(session, "", root);
+    await runCodeTourCommand(session, "read First Tour --renderer terminal", root);
     const output = logs.join("\n");
     assert.ok(!existsSync(recorded), "a reader without a terminal must not be started at all");
     assert.doesNotMatch(output, /Starting CodeTour/, "a reader that did not start is never announced");
-    assert.match(output, /'First Tour' was not started/);
+    assert.match(output, /To read 'First Tour'/);
+    assert.match(output, /type \$ and press Enter/);
     // The command only works in the workspace worktree: the sentence names it.
     assert.match(output, /at the workspace root \(/);
     assert.ok(output.includes(realpathSync(root)),
       "the workspace root is named: " + output);
     assert.match(output, /codetour --internal-tour-id "file:\/\/[^"]+a\.tour" --renderer terminal/);
   }));
+});
+
+test("a failed VS Code fallback provides the terminal command", async () => {
+  const root = createTourWorkspace([["a", "First Tour"]]);
+  await withReaderTerminal(false, () => withRecordingCli(root, async recorded => {
+    const messages = [];
+    await runCodeTourCommand({log: async message => messages.push(message)}, "read", root);
+    const [args] = await recordedReaderArgs(recorded);
+    assert.equal(args[0], "--internal-open-vscode");
+    assert.match(messages[0], /could not open VS Code/);
+    assert.match(messages[0], /--renderer terminal/);
+  }, {readerExit: 7}));
+});
+
+test("a failed HTML launch reports the CLI error without announcing an opening", async () => {
+  const root = createTourWorkspace([["a", "First Tour"]]);
+  await withReaderTerminal(false, () => withRecordingCli(root, async recorded => {
+    const logs = [];
+    await runCodeTourCommand({ log: async (message, options) => logs.push([message, options.level]) },
+      "read First Tour --renderer html", root);
+    const [args] = await recordedReaderArgs(recorded);
+    assert.deepEqual(args.slice(-2), ["--renderer", "html"]);
+    assert.deepEqual(logs, [["CodeTour: CodeTour exited 7", "error"]]);
+  }, { readerExit: 7 }));
 });
 
 test("a reported terminal lends itself to the reader and its real exit is reported", async () => {
@@ -719,7 +652,7 @@ test("a reader that closes cleanly returns the terminal to the session", async (
   await withReaderTerminal(true, () => withRecordingCli(root, async recorded => {
     const logs = [];
     const session = {capabilities:{}, log: async message => logs.push(message)};
-    await runCodeTourCommand(session, "", root);
+    await runCodeTourCommand(session, "read", root);
     await recordedReaderArgs(recorded);
     assert.match(logs.join("\n"), /Starting CodeTour: First Tour \(terminal\)\./);
     assert.match(logs.join("\n"), /'First Tour' closed; the terminal is back in your Copilot session\./);
@@ -817,7 +750,8 @@ for (const [label, command, renderer] of rendererForwardingCases) {
       const [flag, value] = calls[0].slice(-2);
       assert.equal(flag, "--renderer");
       assert.equal(value, renderer);
-      assert.match(messages.join("\n"), new RegExp(`Starting CodeTour: First Tour \\(${renderer}\\)\\.`));
+      const status = renderer === "html" ? "Opened" : "Starting";
+      assert.ok(messages.includes(`${status} CodeTour: First Tour (${renderer}).`));
     }));
   });
 }
@@ -960,33 +894,36 @@ test("the generation tool prepares a standard Project Tour without asking anothe
   }
 });
 
-test("a resolved dialogue starts run attribution at the dialogue rather than after the user's choices", async () => {
+test("run attribution starts before the native generation choices", async () => {
   const root = createTourWorkspace([]);
   const restore = rememberCli();
   process.env.CODETOUR_CLI = path.resolve("dist/cli.js");
   try {
-    let dialogue;
-    let sentAt;
+    let menuAt;
+    let sends = 0;
     const session = {
       sessionId: "attribution-session",
+      capabilities: {ui: {elicitation: true}},
+      ui: {
+        select: async (_prompt, choices) => {
+          menuAt ??= new Date().toISOString();
+          assert.deepEqual(readRunStates(root), []);
+          await delay(20);
+          return choices[0];
+        },
+        input: async () => ""
+      },
       send: async ({prompt}) => {
-        dialogue = JSON.parse(prompt.split("\n").at(-1));
-        sentAt = new Date().toISOString();
+        assert.match(prompt, /create_project_tour/);
+        sends++;
       },
       log: collectLogs().log
     };
-    await runCodeTourCommand(session, "generate", root);
-    await delay(20);
-    const tool = generationTool(session, root);
-    const args = {type: "project", request: "", dialogueId: dialogue.dialogueId};
-    const result = await tool.handler(args, {sessionId: session.sessionId});
-    assert.equal(result.resultType, "success", result.textResultForLlm);
+    await runCodeTourCommand(session, "", root);
     const [state] = readRunStates(root);
-    assert.ok(state.at <= sentAt, "dialogue usage must not fall in the preceding run's window");
+    assert.ok(state.at <= menuAt);
     assert.equal(state.metrics.preparation.commandAt, state.at);
-    const replay = await tool.handler(args, {sessionId: session.sessionId});
-    assert.equal(replay.resultType, "failure", "a consumed dialogue must not start another run");
-    assert.equal(readRunStates(root).length, 1);
+    assert.equal(sends, 1);
   } finally {
     restore();
     rmSync(root, {recursive:true, force:true});

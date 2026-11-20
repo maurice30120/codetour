@@ -25,8 +25,7 @@ decomposition steps and never prescribes a second anchor or verification pass.
    Project Tours have no review mode.
    Once resolved, call the extension tool `codetour_prepare_generation` with
    `type`, `reviewMode` for changes only, and the user's actual `request`
-   (without command syntax, empty for a standard Tour). If `/codetour` supplied
-   a `dialogueId`, pass it unchanged. Search for that exact
+   (without command syntax, empty for a standard Tour). Search for that exact
    tool name if deferred. It resolves the workspace, creates the guarded
    `runId` and returns the shared MCP prompt: follow it exactly, keeping that
    `runId` for creation and consolidation. If a generation prompt is already

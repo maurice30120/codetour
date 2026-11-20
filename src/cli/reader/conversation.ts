@@ -63,6 +63,22 @@ export class TourStepConversation {
     return this.store.canSelectModel;
   }
 
+  get agentNames(): readonly string[] {
+    return this.options.responder?.agentNames ?? [];
+  }
+
+  get hasAnswerInFlight(): boolean {
+    return this.store.hasAnswerInFlight();
+  }
+
+  selectAgent(name: string): Promise<void> | undefined {
+    return this.options.responder?.selectAgent?.(name);
+  }
+
+  prepareModels(): Promise<void> | undefined {
+    return this.options.responder?.prepareModels?.();
+  }
+
   /**
    * Requests one model change from the answering agent: the request counts
    * only once the agent confirms it, which `announcedModel` then reports.

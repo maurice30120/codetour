@@ -78,6 +78,7 @@ test("`o` opens the Tour in VS Code at the active Step over the reader contract"
   const collaborator = new ScriptedOpenInVsCode();
   const reader = harness(collaborator.invoker);
   await reader.open();
+  assert.match(reader.getState().status.hints, /o VS Code/);
   reader.navigateTo(1);
   reader.pressKey({ key: "o" });
   await flushed();

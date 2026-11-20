@@ -36,10 +36,11 @@ export interface StatusLineInput {
   compactHints: boolean;
   narrationEnabled: boolean;
   speechWarning: string | undefined;
-  /** Whether the Open-in-VS Code collaborator is wired; owns the `o open` hint (ticket #244). */
+  /** Whether the Open-in-VS Code collaborator is wired; owns the `o VS Code` hint. */
   canOpenInVsCode: boolean;
   /** Whether the responder accepts a model change; owns the `m model` hint (ticket #266). */
   canSelectModel: boolean;
+  canSelectAgent?: boolean;
   /** The latest nonblocking Open-in-VS Code failure, cleared by a later success. */
   openWarning: string | undefined;
   /**
@@ -64,8 +65,12 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
       ? ["←/→ step", "j/k scroll"]
       : ["←/→ previous/next", "j/k scroll", "PgUp/PgDn page"];
     if (hasResponder && !responding) keys.push("a ask");
-    if (input.canSelectModel && !responding) keys.push("m model");
-    if (input.canOpenInVsCode) keys.push("o open");
+    if (input.canSelectAgent && !responding) {
+      keys.unshift("h agent", ...(input.canSelectModel ? ["m model"] : []));
+    } else if (input.canSelectModel && !responding) {
+      keys.push("m model");
+    }
+    if (input.canOpenInVsCode) keys.push("o VS Code");
     // While an answer streams, quitting would lose it: the same key first
     // interrupts the answer in flight (ADR 0031).
     keys.push(responding ? "q stop" : "q quit");

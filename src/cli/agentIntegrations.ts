@@ -696,7 +696,7 @@ const copilotIntegration: AgentIntegration = {
     const legacy = await removeLegacyCodetourMcpRegistration();
     if (legacy) console.log(legacy);
     console.log("Start 'copilot --experimental' in a trusted Git worktree, accept the extension");
-    console.log("(Load Only or Load & Augment), then run /codetour generate project <request>.");
+    console.log("(Load Only or Load & Augment), then run /codetour to read or generate a Tour.");
     console.log("The plugin's agentStop hook asks for at most one consolidation continuation;");
     console.log("hooks disabled means no guard, and the MCP results remain the source of truth.");
   },
@@ -1032,7 +1032,7 @@ const piIntegration: AgentIntegration = {
     }
     console.log(`Installed the CodeTour Pi package in ${directory}.`);
     console.log(`Declared it in ${settingsFile} under packages[].`);
-    console.log("Run 'pi list' to confirm the package, then '/codetour' in a session to start a generation.");
+    console.log("Run 'pi list' to confirm the package, then '/codetour' in a session to read or generate a Tour.");
     console.log("The package's agent_before_settle guard asks for at most one consolidation continuation.");
   },
   async uninstall() {

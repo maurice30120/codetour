@@ -422,6 +422,12 @@ consolidation closure is all-or-nothing today, so `partial` is reserved. See
 and the [plugin README](packages/copilot-plugin/README.md) for the exact file
 format, expiry and outcomes.
 
+### Choose an agent in the terminal reader
+
+Press `h` to choose an installed agent, `m` to choose one of its announced
+models, and `o` to open the active step in VS Code. Opening the model list
+starts a read-only session without sending a question.
+
 ### Install the Pi plugin
 
 `codetour --install pi` installs the same integration for the Pi coding agent
@@ -440,8 +446,8 @@ that launcher. The package declares the existing `codetour mcp` server with
 `pi.registerMcpServer` (`deferred` exposure, real `ctx.cwd` as workspace), ships
 the `codetour-generate` skill rewritten on the `mcp__codetour__*` tool names,
 and hosts the consolidation guard as an `agent_before_settle` handler instead of
-a subprocess hook. `/codetour` collects the two choices with `ctx.ui.select`,
-writes the same run state, and delivers the skill invocation; Pi exposes MCP
+a subprocess hook. `/codetour` opens the native **Générer / Lire** menu.
+After the generation choices, Pi writes the run state and invokes the skill. Pi exposes MCP
 tools but not MCP prompts, so the served prompt is fetched with
 `get_generation_prompt` rather than `prompts/get`.
 
@@ -470,17 +476,19 @@ export CODETOUR_CLI="$CODETOUR_ROOT/dist/cli.js"
 copilot --experimental
 ```
 
-Inside Copilot, try `/codetour` to select a Tour, or run:
+Inside Copilot, choose **Lire** in `/codetour` or run:
 
 ```text
-/codetour project --renderer html
+/codetour read "My Tour" --renderer html
 ```
 
-This requests a specific Tour in the HTML reader; without the flag, the
-terminal reader opens by default. The adapter uses an
-experimental Copilot API. Its automated tests pass, but a real Copilot launch,
-argument forwarding, and reader survival after Copilot exits have not yet been
-validated; availability can depend on the installed Copilot version.
+**Lire** uses the terminal when Copilot lends it to the extension and opens
+the selected Tour in VS Code otherwise. For terminal playback in Copilot CLI
+1.0.114, use `/codetour read --renderer terminal`, then press `$` and Enter
+on the empty Copilot prompt and run the displayed command in the shell.
+Press `q` to close the reader and enter `exit` to return to Copilot.
+If the Copilot session has extensions disabled, use its `$` shell and run
+`codetour "My Tour" --renderer vscode`.
 
 For automated checks, run `npm test` from the CodeTour checkout. The real VS
 Code extension smoke tests are separate; see the desktop smoke-test guide below.

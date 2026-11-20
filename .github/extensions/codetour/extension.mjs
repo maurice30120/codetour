@@ -7,6 +7,6 @@ import { runCodeTourCommand, generationTool } from "./adapter.mjs";
 // The adapter still reaches the server over stdio for prompts/get.
 const session = await joinSession({ commands: [{
   name: "codetour",
-  description: "Read an existing CodeTour: /codetour [tour]; generate one: /codetour generate project|changes [neutral|critical]",
+  description: "Read an existing CodeTour: /codetour read [tour]; generate one: /codetour generate project|changes [neutral|critical]",
   handler: async ctx => runCodeTourCommand(session, ctx.args)
 }], tools: [generationTool({log: (...args) => session.log(...args)})] });

@@ -22,9 +22,13 @@ import {
 import {
   TERMINAL_OPTION,
   VSCODE_OPTION,
+  existingTourReader,
+  interactiveSession,
   openingOptions,
   openingQuestion,
   playInTerminal,
+  readerInvocation,
+  runTerminalReader,
   vscodeCommand,
 } from "../lib/reader.mjs";
 
@@ -123,7 +127,7 @@ function mcpNotConnectedMessage(): string {
     "Repair: enable the built-in MCP support with `pi config` (Built-in \u2192 mcp) or remove " +
       "`-builtin:mcp` from the settings, then `/reload`; `/mcp` must list `codetour` connected " +
       "with this extension as its source (if it lists it as disabled, enable it there).",
-    "If the profile is clean, the connection may still be starting: run /codetour again in a " +
+    "If the profile is clean, the connection may still be starting: run /codetour generate again in a " +
       "moment. No run state was created.",
   ].join(" ");
 }
@@ -134,7 +138,7 @@ interface GenerationChoices {
   request: string;
 }
 
-// `/codetour`, `/codetour project`, `/codetour changes critical explain the
+// `/codetour generate`, `/codetour project`, `/codetour changes critical explain the
 // renderer`, `/codetour generate changes neutral <phrase>`. Anything that is
 // not a recognised choice word belongs to the user's request and is forwarded
 // verbatim.
@@ -172,6 +176,59 @@ function skillInvocation(choices: {
   parts.push(`runId=${choices.runId}`);
   if (choices.request) parts.push(`request=${choices.request}`);
   return parts.join(" ");
+}
+
+interface DiscoveredTour {
+  id: string;
+  title: string;
+}
+
+async function readTour(pi: ExtensionAPI, ctx: ExtensionContext, title: string) {
+  const launcher = await resolveLauncher();
+  const workspace = await realWorkspace(ctx.cwd);
+  if (!workspace) throw new Error(`${ctx.cwd} is not a usable workspace.`);
+
+  const resolve = async (args: string[]) => {
+    const cli = readerInvocation(launcher, args, workspace);
+    const result = await pi.exec(cli.command, cli.args, { cwd: workspace });
+    if (result.code !== 0) throw new Error(result.stderr.trim() || `CLI exited with code ${result.code}.`);
+    return JSON.parse(result.stdout);
+  };
+
+  let selected: DiscoveredTour;
+  if (title) {
+    selected = await resolve([`--internal-resolve-tour=${title}`]);
+  } else {
+    const tours: DiscoveredTour[] = await resolve(["--internal-list-tours"]);
+    if (tours.length === 0) throw new Error("No CodeTours found in this workspace.");
+    const labels = tours.map((tour, index) => `${index + 1}. ${tour.title}`);
+    const choice = tours.length === 1 ? labels[0] : await ctx.ui.select("Select a CodeTour", labels);
+    if (choice === undefined) return;
+    selected = tours[labels.indexOf(choice)];
+    if (!selected) throw new Error("Invalid Tour selection.");
+  }
+
+  const { plan, command } = existingTourReader(selected.id, launcher, workspace);
+  const play = () => runTerminalReader(plan, command);
+  const outcome = ctx.hasUI && interactiveSession()
+    ? await ctx.ui.custom<Awaited<ReturnType<typeof play>>>(async (tui, _theme, _keys, done) => {
+        tui.stop();
+        let result;
+        try {
+          result = await play();
+        } finally {
+          tui.start();
+          tui.requestRender(true);
+        }
+        done(result);
+        return { render: () => [], invalidate: () => {} };
+      })
+    : await runTerminalReader(plan, command, { isInteractive: () => false });
+  if (outcome.degraded) {
+    ctx.ui.notify(`CodeTour: ${outcome.reason} From the workspace root (${workspace}), run: ${command}`, "warning");
+  } else if (outcome.exitCode !== 0) {
+    ctx.ui.notify(`CodeTour: the reader ended (${outcome.signal || outcome.exitCode}).`, "warning");
+  }
 }
 
 export default function codetourPlugin(pi: ExtensionAPI) {
@@ -305,36 +362,52 @@ export default function codetourPlugin(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("codetour", {
-    description: "Start a CodeTour Project Tour or Changes Tour",
+    description: "Read an existing CodeTour: /codetour read [tour]; generate one: /codetour generate",
     handler: async (rawArgs, ctx) => {
+      let input = rawArgs.trim();
+      if (!input) {
+        const choice = await ctx.ui.select("CodeTour", ["Générer", "Lire"]);
+        if (choice === undefined) return;
+        input = choice === "Générer" ? "generate" : "read";
+      }
+      if (/^read(?:\s|$)/.test(input)) {
+        const title = input.slice(4).trim().replace(/^(["'])(.*)\1$/, "$2");
+        try {
+          await readTour(pi, ctx, title);
+        } catch (error) {
+          ctx.ui.notify(`CodeTour: ${error instanceof Error ? error.message : String(error)}`, "error");
+        }
+        return;
+      }
       if (!codeTourToolsPresent(pi)) {
         ctx.ui.notify(mcpNotConnectedMessage(), "error");
         return;
       }
-      const choices = parseChoices(rawArgs);
+      const choices = parseChoices(input);
       let type = choices.type;
+      let reviewMode = choices.reviewMode;
       if (!type) {
-        const choice = await ctx.ui.select("CodeTour: which tour?", [
+        const choice = await ctx.ui.select("Quel tour générer ?", [
           "Project Tour",
-          "Changes Tour",
+          "Changes Tour — Neutre",
+          "Changes Tour — Critique",
         ]);
         if (!choice) {
           ctx.ui.notify("CodeTour: generation cancelled.", "info");
           return;
         }
         type = choice === "Project Tour" ? "project" : "changes";
+        if (type === "changes") {
+          reviewMode = choice === "Changes Tour — Critique" ? "critical" : "neutral";
+        }
       }
-      let reviewMode = choices.reviewMode;
       if (type === "changes" && !reviewMode) {
-        const mode = await ctx.ui.select("CodeTour: review mode", [
-          "neutral — factual explanation",
-          "critical — explanation plus review findings",
-        ]);
+        const mode = await ctx.ui.select("Mode de revue", ["Neutre", "Critique"]);
         if (!mode) {
           ctx.ui.notify("CodeTour: generation cancelled.", "info");
           return;
         }
-        reviewMode = mode.startsWith("critical") ? "critical" : "neutral";
+        reviewMode = mode === "Critique" ? "critical" : "neutral";
       }
 
       const workspace = await realWorkspace(ctx.cwd);

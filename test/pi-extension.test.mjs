@@ -121,12 +121,38 @@ test("the connection check stays passive: no mcp_servers_change handler", async 
   assert.deepEqual([...host.handlers.keys()].sort(), ["agent_before_settle", "session_start"]);
 });
 
-test("a cancelled selection starts nothing and writes no run state", async () => {
+test("reading an existing Tour uses its identity without a connected MCP server", async () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const tours = [
+      { id: "file:///first.tour", title: "Shared Tour" },
+      { id: "file:///second.tour", title: "Shared Tour" },
+    ];
+    const host = fakeHost({ code: 0, stdout: JSON.stringify(tours), stderr: "" }, plugin, []);
+    const context = fakeContext(workspace);
+    context.selections.push("Lire", "2. Shared Tour");
+    await host.commands.get("codetour").handler("", context.ctx);
+    assert.deepEqual(context.selects, [
+      { title: "CodeTour", options: ["Générer", "Lire"] },
+      { title: "Select a CodeTour", options: ["1. Shared Tour", "2. Shared Tour"] },
+    ]);
+    assert.deepEqual(host.executions, [
+      { command: "codetour", args: ["--internal-list-tours"], options: { cwd: workspace } },
+    ]);
+    assert.match(context.notifications[0].message, /--internal-tour-id.*second\.tour/);
+    assert.equal(host.sent.length, 0);
+    assert.deepEqual(runFiles(workspace), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a cancelled generation selection starts nothing and writes no run state", async () => {
   const { root, workspace } = workspaceWithSpaces();
   try {
     const host = fakeHost();
     const context = fakeContext(workspace);
-    await host.commands.get("codetour").handler("", context.ctx);
+    await host.commands.get("codetour").handler("generate", context.ctx);
     assert.equal(host.sent.length, 0);
     assert.match(context.notifications[0].message, /generation cancelled/);
     assert.equal(runFiles(workspace).length, 0);
@@ -210,12 +236,12 @@ test("explicit choices write the run state and deliver the skill invocation", as
   }
 });
 
-test("a missing type is asked for and a missing review mode is asked for once", async () => {
+test("the native generation menu sends the selected review mode only after confirmation", async () => {
   const { root, workspace } = workspaceWithSpaces();
   try {
     const host = fakeHost();
     const context = fakeContext(workspace);
-    context.selections.push("Changes Tour", "critical — explanation plus review findings");
+    context.selections.push("Changes Tour — Critique");
     await host.commands.get("codetour").handler("explain the payment flow", context.ctx);
     assert.equal(host.sent.length, 1);
     assert.match(host.sent[0].text, /type=changes reviewMode=critical/);

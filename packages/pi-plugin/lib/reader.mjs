@@ -24,9 +24,9 @@
 
 import { spawn as nodeSpawn } from "node:child_process";
 
-/** Quote one shell word: double quotes around it, embedded quotes escaped. */
+/** Quote one word for the shell command shown to the reader. */
 function shellQuote(value) {
-  return `"${value.replace(/"/g, '\\"')}"`;
+  return `"${value.replace(/[\\"$\x60]/g, "\\$&")}"`;
 }
 
 /**
@@ -59,21 +59,25 @@ export function readerCommand(state) {
  */
 export function readerSpawnPlan(state, launcher) {
   if (!state || state.tourCreated !== true) return null;
+  const cwd = typeof state.workspace === "string" && state.workspace !== ""
+    ? state.workspace
+    : undefined;
+  if (typeof state.tourPath === "string" && state.tourPath !== "") {
+    return readerInvocation(launcher, ["--internal-tour", state.tourPath], cwd);
+  }
+  if (typeof state.tourTitle === "string" && state.tourTitle !== "") {
+    return readerInvocation(launcher, [state.tourTitle], cwd);
+  }
+  return null;
+}
+
+export function readerInvocation(launcher, args, cwd) {
   const base = Array.isArray(launcher?.args) ? [...launcher.args] : [];
   if (base[base.length - 1] === "mcp") base.pop();
   const command = typeof launcher?.command === "string" && launcher.command !== ""
     ? launcher.command
     : "codetour";
-  const cwd = typeof state.workspace === "string" && state.workspace !== ""
-    ? state.workspace
-    : undefined;
-  if (typeof state.tourPath === "string" && state.tourPath !== "") {
-    return { command, args: [...base, "--internal-tour", state.tourPath], cwd };
-  }
-  if (typeof state.tourTitle === "string" && state.tourTitle !== "") {
-    return { command, args: [...base, state.tourTitle], cwd };
-  }
-  return null;
+  return { command, args: [...base, ...args], cwd };
 }
 
 /**
@@ -87,7 +91,7 @@ export function readerSpawnPlan(state, launcher) {
  * the wording of the hand-over are kept identical by hand; a change belongs in
  * both copies.
  */
-function interactiveSession() {
+export function interactiveSession() {
   return Boolean(process.stdin.isTTY && process.stdout.isTTY);
 }
 
@@ -105,10 +109,22 @@ function interactiveSession() {
 export async function playInTerminal(state, launcher, deps = {}) {
   const plan = readerSpawnPlan(state, launcher);
   if (!plan) return { played: false };
+  return runTerminalReader(plan, readerCommand(state), deps);
+}
+
+export function existingTourReader(tourId, launcher, cwd) {
+  const args = ["--internal-tour-id", tourId, "--renderer", "terminal"];
+  return {
+    plan: readerInvocation(launcher, args, cwd),
+    command: `codetour --internal-tour-id ${shellQuote(tourId)} --renderer terminal`,
+  };
+}
+
+export async function runTerminalReader(plan, command, deps = {}) {
   const isInteractive = deps.isInteractive ?? interactiveSession;
   const spawn = deps.spawn ?? nodeSpawn;
   if (!isInteractive()) {
-    return { played: false, degraded: true, command: readerCommand(state),
+    return { played: false, degraded: true, command,
       reason: "This session terminal is not interactive (no TTY): the reader " +
         "cannot take control. Run the command below from an interactive terminal instead." };
   }
@@ -123,7 +139,7 @@ export async function playInTerminal(state, launcher, deps = {}) {
   });
   if (ended.error !== undefined) {
     const message = ended.error instanceof Error ? ended.error.message : String(ended.error);
-    return { played: false, degraded: true, command: readerCommand(state), reason: message };
+    return { played: false, degraded: true, command, reason: message };
   }
   return { played: true, exitCode: ended.code, signal: ended.signal };
 }
