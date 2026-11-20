@@ -67,12 +67,14 @@ The controlled adapter writes one file per generation:
 
 - The adapter writes the state before `session.send`; a failed send removes it.
 - `create_project_tour` / `create_changes_tour` set `tourCreated`.
-- `knowledge_save` writes `created` or `completed_zero`, or `failed` for
-  conflict/invalid/internal failure. `knowledge_close_run` writes `skipped`.
-  Each save is all-or-nothing, but a run can make several save calls: when one
-  call created entries and another was refused, the closure is `partial` and
-  keeps the names that were actually published. A creation is never erased by
-  a later zero or skip closure.
+- `knowledge_save` writes `created`, `appended`, `replaced` or
+  `completed_zero`, or `failed` for conflict/invalid/internal failure.
+  `knowledge_close_run` writes `skipped`. The closure accumulates the names it
+  published in `created[]` and the names it appended to or rewrote in
+  `changed[]`. Each save is all-or-nothing, but a run can make several save
+  calls: when one call created or modified entries and another was refused, the
+  closure is `partial` and keeps the names that were actually published. A
+  creation is never erased by a later zero or skip closure.
 - The hook returns `{}` for ordinary conversations, other sessions or
   workspaces, `stop_hook_active`, a run without a created Tour, any existing
   closure, an expired or unreadable state, or a storage failure. It returns

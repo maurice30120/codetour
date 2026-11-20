@@ -34,9 +34,9 @@ import {
 
 // CodeTour for Pi.
 //
-// This extension is the Pi host of the shared CodeTour surfaces: it declares
-// the existing `codetour mcp` server for the session, starts a controlled
-// generation from `/codetour`, and asks for the one bounded consolidation
+// This extension is the Pi host of the shared CodeTour surfaces: it registers
+// the existing `codetour mcp` server only when `/codetour` is invoked, starts
+// a controlled generation, and asks for the one bounded consolidation
 // continuation the MCP's run state allows. It never generates a Tour, never
 // restates the Tour method, and never writes Tour or Knowledge content: the
 // served MCP prompt owns the method and the MCP tools own persistence.
@@ -110,25 +110,13 @@ function codeTourToolsPresent(pi: ExtensionAPI): boolean {
   return pi.getAllTools().some((tool) => tool.name.startsWith(MCP_TOOL_PREFIX));
 }
 
-/**
- * The diagnostic of a registered but unconnected server (ticket #265): the
- * observed fact, the two causes Pi allows to be told apart — a disabled or
- * replaced built-in MCP support, or a connection that is still starting — and
- * the repair, so a refused run never reads as an operational one.
- */
+/** Explain a failed on-demand connection after the registration is released. */
 function mcpNotConnectedMessage(): string {
   return [
-    `CodeTour: the "${SERVER_NAME}" MCP server is registered but not connected in this session ` +
-      `(none of its ${MCP_TOOL_PREFIX}* tools exist), so no generation can start.`,
-    "Pi's built-in MCP support connects registered servers; when it is disabled or replaced " +
-      "(Built-in \u2192 mcp off in `pi config`, `-builtin:mcp` in the settings, or another " +
-      "extension handling MCP such as `pi-mcp-adapter`), the server stays registered and " +
-      "unconnected and Pi reports that no loaded extension connects MCP servers.",
-    "Repair: enable the built-in MCP support with `pi config` (Built-in \u2192 mcp) or remove " +
-      "`-builtin:mcp` from the settings, then `/reload`; `/mcp` must list `codetour` connected " +
-      "with this extension as its source (if it lists it as disabled, enable it there).",
-    "If the profile is clean, the connection may still be starting: run /codetour generate again in a " +
-      "moment. No run state was created.",
+    `CodeTour: the "${SERVER_NAME}" MCP server could not connect; no ${MCP_TOOL_PREFIX}* tools appeared.`,
+    "Pi's built-in MCP support may be disabled or replaced, or connection startup may have timed out.",
+    "Enable it with `pi config` (Built-in → mcp), or remove `-builtin:mcp` from settings, then `/reload` and try again.",
+    "No run state was created.",
   ].join(" ");
 }
 
@@ -240,6 +228,41 @@ export default function codetourPlugin(pi: ExtensionAPI) {
   // a chorus, and the user answers the end of the generation only once.
   const offered = new Set<string>();
 
+  // The built-in MCP host connects registrations made after session startup.
+  // Keep no CodeTour server or tool definitions in an ordinary Pi session.
+  // A user-configured MCP server of the same name takes precedence, and is
+  // never unregistered by CodeTour.
+  let registeredOnDemand = false;
+
+  function releaseMcp(): void {
+    if (!registeredOnDemand) return;
+    pi.unregisterMcpServer(SERVER_NAME);
+    registeredOnDemand = false;
+  }
+
+  async function connectMcp(workspace: string): Promise<boolean> {
+    // Respect an existing, connected user/project registration.
+    if (codeTourToolsPresent(pi)) return true;
+    const launcher = await resolveLauncher();
+    pi.registerMcpServer(SERVER_NAME, {
+      command: launcher.command,
+      args: [...launcher.args, "--workspace-root", workspace],
+      description: "CodeTour: guided code tours and verified Knowledge.",
+      exposure: "deferred",
+    });
+    registeredOnDemand = true;
+
+    // Runtime registrations connect asynchronously. Do not send the skill or
+    // create a run state until its tools are actually available. A bounded
+    // wait also reports disabled/replaced built-in MCP without hanging Pi.
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (codeTourToolsPresent(pi)) return true;
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    }
+    releaseMcp();
+    return false;
+  }
+
   async function report(ctx: ExtensionContext, state: Record<string, any>): Promise<void> {
     if (state.tourCreated !== true) return;
     const key = `${displayKey(state)}|${isClosed(state)}`;
@@ -306,17 +329,10 @@ export default function codetourPlugin(pi: ExtensionAPI) {
   }
 
   pi.on("session_start", async (_event, ctx) => {
+    // No MCP registration at startup: ordinary conversations pay no CodeTour
+    // tool or server-description cost. Only /codetour opts into the MCP.
     const workspace = await realWorkspace(ctx.cwd);
-    if (!workspace) return;
-    const launcher = await resolveLauncher();
-    pi.registerMcpServer(SERVER_NAME, {
-      command: launcher.command,
-      args: [...launcher.args, "--workspace-root", workspace],
-      description: "CodeTour: guided code tours and verified Knowledge.",
-      exposure: "deferred",
-    });
-    // Old run states of this workspace can no longer drive the guard.
-    await pruneRunStates(workspace).catch(() => undefined);
+    if (workspace) await pruneRunStates(workspace).catch(() => undefined);
   });
 
   // The bounded consolidation guard: the Pi equivalent of the Copilot
@@ -335,17 +351,26 @@ export default function codetourPlugin(pi: ExtensionAPI) {
       if (state.workspace !== workspace || state.sessionId !== sessionId) continue;
       await report(ctx, state);
     }
-    if (event.aborted) return;
+    if (event.aborted) {
+      releaseMcp();
+      return;
+    }
 
     const candidate = selectContinuation(listed.states, { workspace, sessionId });
-    if (!candidate) return;
+    if (!candidate) {
+      releaseMcp();
+      return;
+    }
 
     const marked = await updateRunState(workspace, candidate.runId, (state: Record<string, any>) =>
       state.continuationUsed
         ? null
         : { ...state, continuationUsed: true, updatedAt: new Date().toISOString() }
     );
-    if (!marked.updated) return;
+    if (!marked.updated) {
+      releaseMcp();
+      return;
+    }
 
     return {
       entries: [
@@ -379,11 +404,8 @@ export default function codetourPlugin(pi: ExtensionAPI) {
         }
         return;
       }
-      if (!codeTourToolsPresent(pi)) {
-        ctx.ui.notify(mcpNotConnectedMessage(), "error");
-        return;
-      }
       const choices = parseChoices(input);
+
       let type = choices.type;
       let reviewMode = choices.reviewMode;
       if (!type) {
@@ -415,6 +437,21 @@ export default function codetourPlugin(pi: ExtensionAPI) {
         ctx.ui.notify(`CodeTour: ${ctx.cwd} is not a usable workspace.`, "error");
         return;
       }
+      try {
+        if (!(await connectMcp(workspace))) {
+          ctx.ui.notify(mcpNotConnectedMessage(), "error");
+          return;
+        }
+      } catch (error) {
+        releaseMcp();
+        ctx.ui.notify(
+          `CodeTour: could not register the on-demand MCP server (${
+            error instanceof Error ? error.message : String(error)
+          }).`,
+          "error"
+        );
+        return;
+      }
       const sessionId = ctx.sessionManager.getSessionId();
       const runId = newRunId();
       try {
@@ -435,6 +472,7 @@ export default function codetourPlugin(pi: ExtensionAPI) {
           }).`,
           "error"
         );
+        releaseMcp();
         return;
       }
       try {
@@ -444,6 +482,7 @@ export default function codetourPlugin(pi: ExtensionAPI) {
         );
       } catch (error) {
         await removeRunState(workspace, runId);
+        releaseMcp();
         ctx.ui.notify(
           `CodeTour: could not start the generation (${
             error instanceof Error ? error.message : String(error)

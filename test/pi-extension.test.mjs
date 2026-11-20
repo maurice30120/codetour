@@ -24,6 +24,7 @@ function fakeHost(
 ) {
   const handlers = new Map();
   const servers = [];
+  const unregistered = [];
   const commands = new Map();
   const notifications = [];
   const sent = [];
@@ -38,6 +39,9 @@ function fakeHost(
     registerMcpServer(name, config) {
       servers.push({ name, config });
     },
+    unregisterMcpServer(name) {
+      unregistered.push(name);
+    },
     registerCommand(name, definition) {
       commands.set(name, definition);
     },
@@ -50,7 +54,7 @@ function fakeHost(
     },
   };
   extension(pi);
-  return { handlers, servers, commands, notifications, sent, executions, tools };
+  return { handlers, servers, unregistered, commands, notifications, sent, executions, tools };
 }
 
 function fakeContext(workspace) {
@@ -90,24 +94,26 @@ function runFiles(workspace) {
   }
 }
 
-test("session_start registers one workspace-scoped CodeTour server", async () => {
+test("MCP is registered only when generation starts", async () => {
   const { root, workspace } = workspaceWithSpaces();
   try {
-    const host = fakeHost();
+    const host = fakeHost(undefined, pi => {
+      const register = pi.registerMcpServer;
+      pi.registerMcpServer = (name, config) => {
+        register(name, config);
+        host.tools.push(...CONNECTED_TOOLS);
+      };
+      plugin(pi);
+    }, []);
     const { ctx } = fakeContext(workspace);
     await host.handlers.get("session_start")({ reason: "startup" }, ctx);
+    assert.equal(host.servers.length, 0);
+    await host.commands.get("codetour").handler("project", ctx);
     assert.equal(host.servers.length, 1);
-    const [server] = host.servers;
-    assert.equal(server.name, "codetour");
-    assert.equal(server.config.exposure, "deferred");
-    // Without a managed launcher the documented PATH fallback is used.
-    assert.equal(server.config.command, "codetour");
-    assert.deepEqual(server.config.args, [
-      "mcp",
-      "--workspace-root",
-      workspace,
-    ]);
-    assert.ok(host.commands.has("codetour"));
+    assert.equal(host.servers[0].name, "codetour");
+    assert.equal(host.servers[0].config.exposure, "deferred");
+    assert.deepEqual(host.servers[0].config.args, ["mcp", "--workspace-root", workspace]);
+    assert.equal(host.sent.length, 1);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -175,7 +181,8 @@ test("an unconnected CodeTour server refuses the generation with the repair step
     assert.equal(context.notifications.length, 1);
     const [diagnostic] = context.notifications;
     assert.equal(diagnostic.level, "error");
-    assert.match(diagnostic.message, /"codetour" MCP server is registered but not connected/);
+    assert.deepEqual(host.unregistered, ["codetour"]);
+    assert.match(diagnostic.message, /"codetour" MCP server could not connect/);
     assert.match(diagnostic.message, /mcp__codetour__\*/);
     assert.match(diagnostic.message, /pi config/);
     assert.match(diagnostic.message, /-builtin:mcp/);
@@ -186,26 +193,6 @@ test("an unconnected CodeTour server refuses the generation with the repair step
   }
 });
 
-test("a connection that completes later is picked up by the next command", async () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    const host = fakeHost(undefined, plugin, []);
-    const context = fakeContext(workspace);
-    await host.commands.get("codetour").handler("project", context.ctx);
-    assert.equal(host.sent.length, 0);
-    assert.equal(runFiles(workspace).length, 0);
-
-    // The server connected meanwhile: the check is read per command, without
-    // polling and without a second registration.
-    host.tools.push(...CONNECTED_TOOLS);
-    await host.commands.get("codetour").handler("project", context.ctx);
-    assert.equal(host.sent.length, 1);
-    assert.match(host.sent[0].text, /^\/skill:codetour-generate type=project runId=/);
-    assert.equal(runFiles(workspace).length, 1);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
 
 test("explicit choices write the run state and deliver the skill invocation", async () => {
   const { root, workspace } = workspaceWithSpaces();

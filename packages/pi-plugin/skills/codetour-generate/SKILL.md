@@ -1,6 +1,6 @@
 ---
 name: codetour-generate
-description: Generate a CodeTour Project Tour or Changes Tour through the shared CodeTour MCP server. Use when the user asks to explain, tour or onboard onto a codebase, or to review the branch's changes, with CodeTour.
+description: Generate a CodeTour Project Tour or Changes Tour through the shared CodeTour MCP server. Normally start from the /codetour command, which connects MCP on demand.
 ---
 
 # CodeTour generation entry point
@@ -11,7 +11,7 @@ are served per run by `get_generation_prompt`. This skill only boots a
 generation; it never restates a Tour method, never duplicates the decomposition
 steps and never prescribes a second anchor or verification pass.
 
-The CodeTour tools are declared by the `codetour` MCP server. In Pi they are
+The /codetour command connects the CodeTour MCP server on demand before invoking this skill. A direct skill invocation requires an already connected CodeTour server. In Pi its tools are
 named `mcp__codetour__<tool>`: `mcp__codetour__get_generation_prompt`,
 `mcp__codetour__create_project_tour`, `mcp__codetour__create_changes_tour`,
 `mcp__codetour__knowledge_list`, `mcp__codetour__knowledge_read`,
@@ -65,11 +65,9 @@ before concluding they are missing.
    every cited source, and never verify an anchor a second time: the MCP
    already validates both.
 8. Only if no CodeTour tool is found after that search, say so and stop. The
-   CodeTour server is registered by the package's extension and connected by
-   Pi's built-in MCP support. Diagnose it with `/mcp` (it cannot be seen from a
-   shell), and for the disabled-or-replaced case quote the repair from the
-   package README's `/codetour` section instead of paraphrasing it.
-   `/codetour` already refuses to start in that state, so reaching this step
-   means the tools are missing for another reason; recommend a reinstall only
-   if `/mcp` shows no `codetour` server at all, with the repair command
-   `codetour --install pi`. A text answer is not a Tour.
+   extension registers the server *only* during a `/codetour` generation;
+   direct skill calls require a separate, already connected `codetour` server.
+   Recommend `/codetour` for the on-demand path, and diagnose a failed
+   connection with the package README's `/codetour` section. A reinstallation
+   (`codetour --install pi`) is needed only when the plugin itself is missing.
+   A text answer is not a Tour.

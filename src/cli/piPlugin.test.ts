@@ -58,6 +58,17 @@ test("the extension declares one MCP server and never generates a Tour itself", 
   assert.match(extension, /const SERVER_NAME = "codetour"/);
   assert.match(extension, /"--workspace-root"/);
   assert.match(extension, /exposure: "deferred"/);
+  assert.match(extension, /unregisterMcpServer\(SERVER_NAME\)/);
+  // Registration must happen only in the explicit /codetour flow, never
+  // at session startup. The guard releases the server when the run settles.
+  const startup = extension.slice(
+    extension.indexOf('pi.on("session_start"'),
+    extension.indexOf('pi.on("agent_before_settle"')
+  );
+  assert.doesNotMatch(startup, /registerMcpServer\(/);
+  const command = extension.slice(extension.indexOf('pi.registerCommand("codetour"'));
+  assert.match(command, /connectMcp\(workspace\)/);
+  assert.match(extension, /releaseMcp\(\)/);
   // The Tour method lives in the served MCP prompt; the extension must not
   // write Tours or Knowledge, and must not carry a fallback prompt.
   assert.doesNotMatch(extension, /\.tour["'`]?\s*,\s*JSON\.stringify|writeFile\([^)]*\.tour/);

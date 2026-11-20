@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
 import {
+  KNOWLEDGE_SAVE_MODES,
   knowledgeDirectory,
   loadKnowledgeLibrary,
   hashWorkspaceFile,
@@ -92,8 +93,17 @@ interface KnowledgeSaveOptions extends KnowledgeOptions {
   name?: string;
   description?: string;
   bodyFile?: string;
+  additionFile?: string;
   evidence?: string[];
+  mode?: string;
+  expectedRevision?: string;
 }
+
+/** The engine's write-mode vocabulary (spec #232), used as a lookup set. */
+const SAVE_MODES = new Set<string>(KNOWLEDGE_SAVE_MODES);
+
+/** The modes conditioned on the Knowledge Revision the caller read. */
+const REVISION_MODES = new Set<string>(KNOWLEDGE_SAVE_MODES.filter(mode => mode !== "create"));
 
 /** Accumulate a repeatable option, preserving the order the user wrote. */
 function repeatable(value: string, previous: string[]): string[] {
@@ -127,6 +137,7 @@ async function readCommand(name: string, options: KnowledgeOptions): Promise<voi
       workspace,
       name: read.name,
       description: read.description,
+      revision: read.revision,
       body: read.body,
       evidence: read.evidence.map(proof => ({ path: proof.path, sha256: proof.sha256 }))
     }, KNOWLEDGE_EXIT.ok);
@@ -134,12 +145,22 @@ async function readCommand(name: string, options: KnowledgeOptions): Promise<voi
   }
   // An unknown entry is an absence. Every other refusal is invalid and is
   // reported with its machine-readable reason only: never the body, a cited
-  // path or a hash value.
+  // path or a hash value. Its revision still leaves with the refusal whenever
+  // the entry file was readable: an invalid entry stays repairable.
   if (read.reason === "unknown_entry") {
     emit({ status: "absent", workspace, name }, KNOWLEDGE_EXIT.absent);
     return;
   }
-  emit({ status: "invalid", workspace, name, reason: read.reason }, KNOWLEDGE_EXIT.invalid);
+  emit(
+    {
+      status: "invalid",
+      workspace,
+      name,
+      reason: read.reason,
+      ...(read.revision === undefined ? {} : { revision: read.revision })
+    },
+    KNOWLEDGE_EXIT.invalid
+  );
 }
 
 async function hashCommand(target: string, options: KnowledgeOptions): Promise<void> {
@@ -161,6 +182,26 @@ async function hashCommand(target: string, options: KnowledgeOptions): Promise<v
 const usage = (reason: string, message: string): void => {
   emit({ status: "usage", reason, message }, KNOWLEDGE_EXIT.usage);
 };
+
+/**
+ * Read one Markdown input file (`--body-file`, `--addition-file`) against the
+ * workspace. An unreadable file is a usage error: the caller gave a path that
+ * cannot be used, and nothing is validated or written.
+ */
+async function readWorkspaceMarkdown(
+  workspace: string,
+  relative: string,
+  label: "body" | "addition"
+): Promise<{ status: "ok"; text: string } | { status: "unreadable" }> {
+  const file = path.resolve(workspace, relative);
+  try {
+    return { status: "ok", text: await fs.readFile(file, "utf8") };
+  } catch {
+    process.stderr.write("codetour knowledge: cannot read " + label + " file " + relative + "\n");
+    usage(`${label}_unreadable`, "Cannot read " + label + " file: " + relative);
+    return { status: "unreadable" };
+  }
+}
 
 /**
  * Read a JSON proposal file. An unreadable file is a usage error (the caller
@@ -189,22 +230,41 @@ async function readProposal(file: string): Promise<{ status: "ok"; value: unknow
  * input, never combined. Validation, conflict detection and publication are
  * owned by `saveKnowledgeProposal`, so the CLI cannot diverge from the shared
  * contract: a refusal publishes nothing and an existing entry is preserved.
- * The result carries names only — never a body, a hash or a resolved path.
+ * The mode is `create` (default), `append` or `replace`; append and replace are
+ * conditioned on the Knowledge Revision the caller read, so an append can
+ * enrich an entry it actually read and a replace can repair an entry whose
+ * contract no longer verifies without ever reading its body. The result
+ * carries names only — never a body, a hash or a resolved path.
  */
 async function saveCommand(options: KnowledgeSaveOptions): Promise<void> {
   const resolved = requireWorkspace(await resolveWorkspace(options.workspace));
   if (!resolved) return;
   const { workspace } = resolved;
 
+  if (options.mode !== undefined && !SAVE_MODES.has(options.mode)) {
+    usage("unknown_mode", '--mode must be "create", "append" or "replace".');
+    return;
+  }
+
   const hasProposal = options.proposal !== undefined;
   const hasConvenience = options.name !== undefined || options.description !== undefined ||
-    options.bodyFile !== undefined || (options.evidence ?? []).length > 0;
+    options.bodyFile !== undefined || options.additionFile !== undefined ||
+    (options.evidence ?? []).length > 0;
   if (hasProposal && hasConvenience) {
     usage("ambiguous_input", "Use either --proposal or the convenience flags, not both.");
     return;
   }
   if (!hasProposal && !hasConvenience) {
     usage("missing_input", "Pass --proposal, or --name, --description, --body-file and --evidence.");
+    return;
+  }
+  if (hasProposal && options.expectedRevision !== undefined) {
+    usage("ambiguous_input", "Declare expectedRevision inside the proposal entry, not as a flag.");
+    return;
+  }
+  if (!hasProposal && options.expectedRevision !== undefined &&
+    (options.mode === undefined || !REVISION_MODES.has(options.mode))) {
+    usage("missing_mode", "--expected-revision only applies to --mode append or --mode replace.");
     return;
   }
 
@@ -221,27 +281,56 @@ async function saveCommand(options: KnowledgeSaveOptions): Promise<void> {
       return;
     }
     proposal = read.value;
+    if (options.mode !== undefined && proposal !== null && typeof proposal === "object" && !Array.isArray(proposal)) {
+      const record = proposal as Record<string, unknown>;
+      if (record.mode !== undefined && record.mode !== options.mode) {
+        usage("ambiguous_input", "The proposal declares another mode; use either --mode or the proposal's mode.");
+        return;
+      }
+      proposal = { ...record, mode: options.mode };
+    }
+  } else if (options.mode === "append") {
+    // An append carries an addition, never a description or a body: it can
+    // not rewrite what the entry is, only extend it.
+    if (options.name === undefined || options.additionFile === undefined) {
+      usage("missing_entry_field", "Append convenience mode requires --name and --addition-file.");
+      return;
+    }
+    if (options.description !== undefined || options.bodyFile !== undefined) {
+      usage("ambiguous_input", "An append takes --addition-file; --description and --body-file belong to create and replace.");
+      return;
+    }
+    const addition = await readWorkspaceMarkdown(workspace, options.additionFile, "addition");
+    if (addition.status !== "ok") return;
+    proposal = {
+      mode: "append",
+      entries: [{
+        name: options.name,
+        addition: addition.text,
+        evidence: (options.evidence ?? []).map(evidence => ({ path: evidence })),
+        ...(options.expectedRevision === undefined ? {} : { expectedRevision: options.expectedRevision })
+      }]
+    };
   } else {
     if (options.name === undefined || options.description === undefined || options.bodyFile === undefined) {
+      if (options.additionFile !== undefined) {
+        usage("missing_mode", "--addition-file only applies to --mode append.");
+        return;
+      }
       usage("missing_entry_field", "Convenience mode requires --name, --description and --body-file.");
       return;
     }
     // The body is the one input resolved against the workspace, like evidence.
-    const file = path.resolve(workspace, options.bodyFile);
-    let body: string;
-    try {
-      body = await fs.readFile(file, "utf8");
-    } catch {
-      process.stderr.write("codetour knowledge: cannot read body file " + options.bodyFile + "\n");
-      usage("body_unreadable", "Cannot read body file: " + options.bodyFile);
-      return;
-    }
+    const body = await readWorkspaceMarkdown(workspace, options.bodyFile, "body");
+    if (body.status !== "ok") return;
     proposal = {
+      ...(options.mode === undefined ? {} : { mode: options.mode }),
       entries: [{
         name: options.name,
         description: options.description,
-        body,
-        evidence: (options.evidence ?? []).map(evidence => ({ path: evidence }))
+        body: body.text,
+        evidence: (options.evidence ?? []).map(evidence => ({ path: evidence })),
+        ...(options.expectedRevision === undefined ? {} : { expectedRevision: options.expectedRevision })
       }]
     };
   }
@@ -259,6 +348,40 @@ async function saveCommand(options: KnowledgeSaveOptions): Promise<void> {
       },
       KNOWLEDGE_EXIT.ok
     );
+    return;
+  }
+  if (result.status === "appended") {
+    // An append is a modification, never a creation: the CLI reports it with
+    // its own status and keeps naming entries only.
+    emit(
+      {
+        status: "appended",
+        workspace,
+        appended: result.appended,
+        warnings: result.warnings,
+      },
+      KNOWLEDGE_EXIT.ok
+    );
+    return;
+  }
+  if (result.status === "replaced") {
+    // A rewrite is a modification, never a creation: the CLI reports it with
+    // its own status and keeps naming entries only.
+    emit(
+      {
+        status: "replaced",
+        workspace,
+        replaced: result.replaced,
+        warnings: result.warnings,
+      },
+      KNOWLEDGE_EXIT.ok
+    );
+    return;
+  }
+  if (result.status === "no_change") {
+    // An addition that brought nothing literally new is a completed no-op:
+    // a success, never a refusal, and never a publication.
+    emit({ status: "no_change", workspace }, KNOWLEDGE_EXIT.ok);
     return;
   }
   if (result.status === "no-op") {
@@ -280,13 +403,13 @@ export function registerKnowledgeCommand(program: Command): void {
     .description("discover, verify, read and save Knowledge entries; deterministic, offline, no model");
   knowledge
     .command("list")
-    .description("list Knowledge entries by name and description only")
+    .description("list Knowledge entries by name, description and revision only")
     .option("--workspace <dir>", "workspace root (defaults to the current directory)")
     .option("--query <text>", "literal case-insensitive name or description filter")
     .action((options: KnowledgeOptions) => runAction(() => listCommand(options)));
   knowledge
     .command("read <name>")
-    .description("read one Knowledge entry after verifying every declared SHA-256 proof")
+    .description("read one Knowledge entry and its revision after verifying every declared SHA-256 proof")
     .option("--workspace <dir>", "workspace root (defaults to the current directory)")
     .action((name: string, options: KnowledgeOptions) => runAction(() => readCommand(name, options)));
   knowledge
@@ -298,10 +421,13 @@ export function registerKnowledgeCommand(program: Command): void {
     .command("save")
     .description("validate and persist a proposal (zero, one or many entries); nothing is written on any refusal")
     .option("--workspace <dir>", "workspace root (defaults to the current directory)")
-    .option("--proposal <file>", 'proposal JSON: {"entries":[{"name","description","body","evidence":[{"path","sha256"?}]}]}')
-    .option("--name <name>", "convenience: entry name, with --description, --body-file and --evidence")
-    .option("--description <text>", "convenience: one-line entry description")
-    .option("--body-file <file>", "convenience: Markdown body file, resolved against the workspace")
+    .option("--proposal <file>", 'proposal JSON: {"mode"?,"entries":[{"name","description","body","evidence":[{"path","sha256"?}],"expectedRevision"?}]} or, for append, {"mode":"append","entries":[{"name","addition","evidence"?,"expectedRevision"}]}')
+    .option("--mode <mode>", 'write mode: "create" (default), "append" or "replace"')
+    .option("--expected-revision <token>", "convenience: Knowledge Revision of the appended or replaced entry; required by --mode append and --mode replace")
+    .option("--name <name>", "convenience: entry name, with --description, --body-file and --evidence, or with --addition-file for append")
+    .option("--description <text>", "convenience: one-line entry description (create and replace)")
+    .option("--body-file <file>", "convenience: Markdown body file, resolved against the workspace (create and replace)")
+    .option("--addition-file <file>", "convenience: Markdown addition inserted verbatim by append, resolved against the workspace")
     .option("--evidence <path>", "convenience: workspace-relative evidence path (repeatable)", repeatable, [])
     .action((options: KnowledgeSaveOptions) => runAction(() => saveCommand(options)));
 }

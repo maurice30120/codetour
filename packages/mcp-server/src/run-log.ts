@@ -70,6 +70,8 @@ export interface KnowledgeObservation {
 export type ConsolidationStatus =
   | "completed_zero"
   | "created"
+  | "appended"
+  | "replaced"
   | "partial"
   | "failed"
   | "skipped";
@@ -80,6 +82,12 @@ export interface ConsolidationClosure {
   at: string;
   /** Names published by this closure, when the MCP created entries. */
   created?: string[];
+  /**
+   * Names this closure modified without creating, when the MCP appended to or
+   * rewrote an existing entry (`append`, `replace`, spec #232). Distinct from
+   * `created` so a run audit separates what it added from what it changed.
+   */
+  changed?: string[];
   /** The tool-level outcome that produced a non-created closure. */
   outcome?: string;
   reason?: string;
@@ -299,57 +307,94 @@ export function recordTourCreated(
 /**
  * Merge one save outcome into the run's accumulated consolidation state.
  *
- * A save call is all-or-nothing, but a run can make several save calls. When
- * one of them created entries and another was refused in a separate call, the
- * run did not fully succeed: the closure becomes `partial`, keeping the
- * published names and the refusal outcome. This never turns a refusal into a
- * success and never hides the entries that were actually written.
+ * A save call is all-or-nothing, but a run can make several save calls. Names
+ * are facts: `created` and `changed` accumulate by union, so no later closure
+ * may erase an entry a previous call really published or rewrote. When one
+ * call succeeded and another was refused, the run did not fully succeed: the
+ * closure becomes `partial`, keeping the published names and the refusal
+ * outcome. This never turns a refusal into a success and never hides the
+ * entries that were actually written.
+ *
+ * Between successful closures the precedence is `created` > `appended` /
+ * `replaced` > `completed_zero` (and a deliberate `skipped` ranks last, so an
+ * explicit zero never degrades to a skip and vice versa). The precedence is a
+ * fixed rank, never the call order: two runs that made the same writes produce
+ * the same Run State. An append and a rewrite share one rank: both modify an
+ * entry that existed, and neither is worth more than the other. That tie is
+ * broken by `replaced` below, so the verdict depends on the statuses alone and
+ * never on which call came first.
  */
+const CONSOLIDATION_RANK: Record<ConsolidationStatus, number> = {
+  created: 4,
+  appended: 3,
+  replaced: 3,
+  completed_zero: 1,
+  skipped: 0,
+  // Refusals are handled before the rank and never compete with a success.
+  partial: 0,
+  failed: 0,
+};
+
+const SUCCESS_OUTCOMES = new Set<ConsolidationStatus>([
+  "created",
+  "appended",
+  "replaced",
+  "completed_zero",
+  "skipped"
+]);
+
+const isRefusal = (status: ConsolidationStatus): boolean =>
+  status === "failed" || status === "partial";
+
+const uniqueNames = (...lists: Array<string[] | undefined>): string[] => [
+  ...new Set(lists.flatMap((list) => list ?? []))
+];
+
 function mergeConsolidation(
   previous: ConsolidationClosure | null,
   incoming: ConsolidationClosure
 ): ConsolidationClosure {
   if (!previous) return incoming;
-  // Names are facts: once any save call published entries, no later closure
-  // may erase them or downgrade the run to "nothing was created".
-  const created = [
-    ...new Set([
-      ...(previous.created ?? []),
-      ...(incoming.created ?? []),
-    ]),
-  ];
-  // A failed closure is a refused persistence attempt. A partial closure
-  // already records one, so either previous shape counts as a failure.
-  const previousFailed =
-    previous.status === "failed" || previous.status === "partial";
-  const failed = previousFailed || incoming.status === "failed";
-  if (created.length > 0) {
-    const outcome = failed
-      ? incoming.status === "failed"
-        ? incoming.outcome
-        : previous.outcome ?? "conflict"
-      : "created";
+  const created = uniqueNames(previous.created, incoming.created);
+  const changed = uniqueNames(previous.changed, incoming.changed);
+  const previousRefused = isRefusal(previous.status);
+  const incomingRefused = isRefusal(incoming.status);
+
+  if ((previousRefused || incomingRefused) && (created.length > 0 || changed.length > 0)) {
+    // A success and a refusal in separate calls: keep both facts.
+    const refusedClosure = incomingRefused ? incoming : previous;
     return {
       ...incoming,
-      status: failed ? "partial" : "created",
-      created,
-      // The accumulated closure's outcome always agrees with its status: a
-      // later empty answer cannot leave `outcome: "completed_zero"` on a
-      // closure that records published entries.
-      outcome,
+      status: "partial",
+      ...(created.length > 0 ? { created } : {}),
+      ...(changed.length > 0 ? { changed } : {}),
+      // The accumulated closure's outcome always agrees with its status.
+      outcome: refusedClosure.outcome ?? "conflict"
     };
   }
-  if (failed) {
-    // Nothing was created: keep the refusal that actually happened rather
+  if (previousRefused || incomingRefused) {
+    // Nothing was published: keep the refusal that actually happened rather
     // than letting a later empty answer hide it.
-    if (previous.status === "failed" && incoming.status !== "failed") {
-      return previous;
-    }
+    if (previousRefused && !incomingRefused) return previous;
     return incoming;
   }
-  // No creation and no refusal: an explicit zero beats a later deliberate
-  // skip, and a later explicit zero replaces a skip.
-  return previous.status === "completed_zero" ? previous : incoming;
+  const incomingRank = CONSOLIDATION_RANK[incoming.status];
+  const previousRank = CONSOLIDATION_RANK[previous.status];
+  const status =
+    incomingRank > previousRank
+      ? incoming.status
+      : incomingRank < previousRank
+        ? previous.status
+        : incoming.status === "replaced" || previous.status === "replaced"
+          ? "replaced"
+          : incoming.status;
+  return {
+    ...incoming,
+    status,
+    ...(created.length > 0 ? { created } : {}),
+    ...(changed.length > 0 ? { changed } : {}),
+    outcome: SUCCESS_OUTCOMES.has(status) ? status : incoming.outcome
+  };
 }
 
 /**

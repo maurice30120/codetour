@@ -28,8 +28,9 @@ import {
 // Inert when: the conversation is not a CodeTour run for this session and
 // workspace, the stop is already a hook-triggered re-entry, this run already
 // used its continuation, the Tour was not created (nothing to consolidate) or
-// any consolidation closure exists (created, completed_zero, partial, failed,
-// skipped). Storage failures are diagnostics, never a block.
+// any consolidation closure exists (created, appended, replaced,
+// completed_zero, partial, failed, skipped). Storage failures are diagnostics,
+// never a block.
 
 const MAX_INPUT_BYTES = 1024 * 1024;
 const HOOK_OUTPUT = {};

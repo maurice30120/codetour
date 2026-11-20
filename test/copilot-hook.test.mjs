@@ -119,7 +119,7 @@ test("a run without a created Tour is inert", () => {
   }
 });
 
-for (const status of ["created", "completed_zero", "partial", "failed", "skipped"]) {
+for (const status of ["created", "appended", "replaced", "completed_zero", "partial", "failed", "skipped"]) {
   test(`a ${status} consolidation closure is inert`, () => {
     const { root, workspace } = workspaceWithSpaces();
     try {
@@ -134,6 +134,35 @@ for (const status of ["created", "completed_zero", "partial", "failed", "skipped
     }
   });
 }
+
+// The closure of spec #232 carries `created` and `changed` name lists beside
+// its status. Both are assessments, so the hook never asks for a second
+// continuation and the twin reports the closure exactly as the MCP wrote it.
+test("an appended or replaced closure carrying changed names closes the run", async () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const closures = [
+      { status: "appended", changed: ["dispatch_flow"] },
+      { status: "replaced", changed: ["dispatch_flow", "billing_flow"] },
+      { status: "created", created: ["new_flow"], changed: ["dispatch_flow"] },
+      { status: "partial", created: ["new_flow"], changed: ["dispatch_flow"], outcome: "conflict" }
+    ];
+    for (const closure of closures) {
+      const state = writeState(workspace, {
+        tourCreated: true,
+        consolidation: { ...closure, runId: "run-0123456789abcdef", at: new Date().toISOString() }
+      });
+      assert.deepEqual(runHook(payload({ cwd: workspace })).output, {}, closure.status);
+      const after = readState(workspace, state.runId);
+      assert.equal(after.continuationUsed, false, `${closure.status}: no continuation is used`);
+      assert.deepEqual(after.consolidation, state.consolidation, `${closure.status}: the closure is reported as recorded`);
+      const [listed] = (await listRunStates(workspace)).states;
+      assert.deepEqual(listed.consolidation, state.consolidation, `${closure.status}: the twin reports created and changed`);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("an incomplete run receives exactly one bounded continuation", () => {
   const { root, workspace } = workspaceWithSpaces();

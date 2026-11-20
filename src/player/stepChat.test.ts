@@ -362,16 +362,28 @@ test("a panel whose probed catalogue has no usable agent explains it and disable
   resetChatState();
   // Every Agent Profile is installed but refuses: the initial probe settles
   // with nothing usable, which no machine-dependent test could guarantee.
-  setStepChatAgentSelection(() => new AgentSelection({
+  const selection = new AgentSelection({
     probe: async () => ({ availability: { state: "not-installed" } })
-  }));
+  });
+  setStepChatAgentSelection(() => selection);
   try {
     registerPlayerModule(host.extensionContext);
     await startTour();
 
     // The probe settled with nothing usable: the panel reposts the probed
     // catalogue, which disables the composer and shows the explaining state.
-    await host.waitFor(() => lastChatUpdate()?.unavailable === true);
+    try {
+      await host.waitFor(() => lastChatUpdate()?.unavailable === true);
+    } catch (error) {
+      // The panel state decides this test; make a failure say which invariant
+      // broke instead of only "condition was not met".
+      throw new Error(
+        `${(error as Error).message}: probeSettled=${selection.initialProbeSettled()}, ` +
+          `selected=${JSON.stringify(selection.selectedProfile()?.profile?.name ?? null)}, ` +
+          `states=${JSON.stringify(selection.profiles().map((view: { profile: { name: string }; availability: { state: string } }) => [view.profile.name, view.availability.state]))}, ` +
+          `lastUpdate=${JSON.stringify(lastChatUpdate())}`
+      );
+    }
     const probed = lastChatUpdate();
     // Every catalogued profile is listed, in rank order, with the state the
     // probe established: the panel shows the catalogue, not a PATH scan.

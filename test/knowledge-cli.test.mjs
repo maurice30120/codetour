@@ -75,13 +75,22 @@ function entry(name, description, proofs, body = "Verified body.\n") {
   return { frontmatter: lines.join("\n"), body };
 }
 
+// The revision token is opaque: a shape assertion pins that an entry carries
+// one, never its value.
+function entriesWithoutRevisions(entries) {
+  return entries.map(({ revision, ...rest }) => {
+    assert.equal(typeof revision, "string", `${rest.name} must carry a revision`);
+    return rest;
+  });
+}
+
 function seedValidWorkspace(ws, { name = "dispatch_flow", description = "How tool calls dispatch" } = {}) {
   writeFileSync(path.join(ws, "main.ts"), "export const start = 1;\n");
   const content = entry(name, description, [{ path: "main.ts", sha256: sha256("export const start = 1;\n") }]);
   writeCatalogueEntry(ws, `${name}.md`, content.frontmatter, content.body);
 }
 
-test("knowledge list reports name and description only from the resolved workspace", () => {
+test("knowledge list reports name, description and revision only from the resolved workspace", () => {
   const ws = workspace("codetour-knowledge-list-");
   try {
     seedValidWorkspace(ws);
@@ -92,15 +101,18 @@ test("knowledge list reports name and description only from the resolved workspa
     const result = runCli(["knowledge", "list"], { cwd: ws });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stderr, "");
-    assert.deepEqual(result.json, {
-      status: "ok",
-      workspace: ws,
-      entries: [
-        { name: "dispatch_flow", description: "How tool calls dispatch" },
-        { name: "other_flow", description: "Second entry" }
-      ],
-      invalid: []
-    });
+    assert.deepEqual(
+      { ...result.json, entries: entriesWithoutRevisions(result.json.entries) },
+      {
+        status: "ok",
+        workspace: ws,
+        entries: [
+          { name: "dispatch_flow", description: "How tool calls dispatch" },
+          { name: "other_flow", description: "Second entry" }
+        ],
+        invalid: []
+      }
+    );
     // Discovery is metadata only: no body, evidence or hash reaches stdout.
     assert.doesNotMatch(result.stdout, /Verified body|sha256|main\.ts/);
   } finally {
@@ -115,7 +127,7 @@ test("knowledge list filters a literal case-insensitive query and reports an emp
     seedValidWorkspace(ws);
     const filtered = runCli(["knowledge", "list", "--query", "DISPATCH"], { cwd: ws });
     assert.equal(filtered.status, 0, filtered.stderr);
-    assert.deepEqual(filtered.json.entries, [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
+    assert.deepEqual(entriesWithoutRevisions(filtered.json.entries), [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
 
     const unmatched = runCli(["knowledge", "list", "--query", "no-such-entry"], { cwd: ws });
     assert.equal(unmatched.status, 3, unmatched.stderr);
@@ -173,7 +185,9 @@ test("knowledge read returns the Markdown body only after every declared proof v
     const result = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stderr, "");
-    assert.deepEqual(result.json, {
+    const { revision, ...shape } = result.json;
+    assert.equal(typeof revision, "string");
+    assert.deepEqual(shape, {
       status: "valid",
       workspace: ws,
       name: "dispatch_flow",
@@ -188,6 +202,53 @@ test("knowledge read returns the Markdown body only after every declared proof v
     for (const key of Object.keys(credentialFreeEnv())) {
       assert.doesNotMatch(key, /API_KEY|TOKEN|SECRET/i);
     }
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test("knowledge list and read expose the same opaque revision, including for a refused entry", () => {
+  const ws = workspace("codetour-knowledge-revision-");
+  try {
+    seedValidWorkspace(ws);
+    const digest = sha256("export const start = 1;\n");
+    const listed = runCli(["knowledge", "list"], { cwd: ws });
+    assert.equal(listed.status, 0, listed.stderr);
+    const [discovered] = listed.json.entries;
+    assert.equal(typeof discovered.revision, "string");
+    assert.ok(discovered.revision.length > 0);
+    // Opaque: neither the body, nor the cited path, nor the source hash.
+    assert.notEqual(discovered.revision, digest);
+    assert.doesNotMatch(listed.stdout, /Verified body|main\.ts|sha256/);
+    // Stable while the entry file is unchanged.
+    assert.equal(runCli(["knowledge", "list"], { cwd: ws }).json.entries[0].revision, discovered.revision);
+
+    const read = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(read.status, 0, read.stderr);
+    assert.equal(read.json.revision, discovered.revision, "list and read expose one token for one file");
+
+    // A one-byte change of the entry file moves the revision, and the refusal
+    // still carries it so a repair can be conditioned on the bytes read.
+    writeCatalogueEntry(
+      ws,
+      "dispatch_flow.md",
+      entry("dispatch_flow", "How tool calls dispatch", [
+        { path: "main.ts", sha256: "f".repeat(64) }
+      ]).frontmatter,
+      "REFUSED BODY\n"
+    );
+    const refused = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(refused.status, 4, refused.stderr);
+    assert.equal(refused.json.status, "invalid");
+    assert.equal(refused.json.reason, "file_hash_mismatch");
+    assert.equal(typeof refused.json.revision, "string");
+    assert.notEqual(refused.json.revision, discovered.revision);
+    assert.doesNotMatch(refused.stdout, /REFUSED BODY|main\.ts|sha256|f{64}/);
+    // An entry that does not exist has no file to hash, so no revision.
+    const absent = runCli(["knowledge", "read", "never_written"], { cwd: ws });
+    assert.equal(absent.status, 3, absent.stderr);
+    assert.equal(absent.json.status, "absent");
+    assert.equal(absent.json.revision, undefined);
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }
@@ -228,18 +289,30 @@ test("knowledge read refuses malformed, stale, forged, missing, outside, escapin
     for (const [name, reason] of Object.entries(expected)) {
       const result = runCli(["knowledge", "read", name], { cwd: ws });
       assert.equal(result.status, 4, `${name}: ${result.stdout} ${result.stderr}`);
-      assert.deepEqual(result.json, { status: "invalid", workspace: ws, name, reason });
-      assert.doesNotMatch(result.stdout, /SECRET BODY|outside secret bytes|\.ts|sha256|[0-9a-f]{64}/);
+      const { revision, ...shape } = result.json;
+      assert.equal(typeof revision, "string", `${name} carries the revision of its entry file`);
+      assert.deepEqual(shape, { status: "invalid", workspace: ws, name, reason });
+      // The revision is a hex token by contract: the evidence hashes of this
+      // fixture are named instead of refusing every hex string.
+      assert.doesNotMatch(result.stdout, /SECRET BODY|outside secret bytes|\.ts|sha256/);
+      for (const evidenceHash of [digest, sha256("older bytes\n"), "a".repeat(64)]) {
+        assert.ok(!result.stdout.includes(evidenceHash), `${name} must not leak an evidence hash`);
+      }
     }
 
     // Discovery reports every refused contract without exposing evidence.
     const listed = runCli(["knowledge", "list"], { cwd: ws });
     assert.equal(listed.status, 3, listed.stderr);
     assert.deepEqual(listed.json.entries, []);
-    assert.deepEqual(listed.json.invalid, Object.entries(expected)
-      .map(([name, reason]) => ({ name, reason }))
-      .sort((a, b) => a.name.localeCompare(b.name)));
-    assert.doesNotMatch(listed.stdout, /SECRET BODY|outside secret bytes|sha256|[0-9a-f]{64}/);
+    assert.deepEqual(
+      listed.json.invalid.map(({ name, reason }) => ({ name, reason })),
+      Object.entries(expected)
+        .map(([name, reason]) => ({ name, reason }))
+        .sort((a, b) => a.name.localeCompare(b.name)));
+    // Every refused row still carries the revision of its entry file, so a
+    // repair can be conditioned on the bytes that failed.
+    assert.ok(listed.json.invalid.every(row => typeof row.revision === "string"));
+    assert.doesNotMatch(listed.stdout, /SECRET BODY|outside secret bytes|sha256/);
 
     const unknown = runCli(["knowledge", "read", "never_written"], { cwd: ws });
     assert.equal(unknown.status, 3, unknown.stderr);
@@ -261,7 +334,7 @@ test("an explicit workspace wins from a different launch directory", () => {  co
 
     const listed = runCli(["knowledge", "list", "--workspace", ws], { cwd: elsewhere });
     assert.equal(listed.status, 0, listed.stderr);
-    assert.deepEqual(listed.json.entries, [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
+    assert.deepEqual(entriesWithoutRevisions(listed.json.entries), [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
     assert.equal(listed.json.workspace, ws);
 
     const read = runCli(["knowledge", "read", "dispatch_flow", "--workspace", ws], { cwd: elsewhere });
@@ -388,7 +461,7 @@ test("knowledge save publishes a proposal that a second independent invocation d
     // A second, independent invocation rediscovers the entry by metadata only.
     const listed = runCli(["knowledge", "list", "--workspace", ws], { cwd: launch });
     assert.equal(listed.status, 0, listed.stderr);
-    assert.deepEqual(listed.json.entries, [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
+    assert.deepEqual(entriesWithoutRevisions(listed.json.entries), [{ name: "dispatch_flow", description: "How tool calls dispatch" }]);
 
     // ...and rereads the exact Markdown body behind the computed evidence.
     const read = runCli(["knowledge", "read", "dispatch_flow", "--workspace", ws], { cwd: launch });
@@ -668,6 +741,85 @@ test("knowledge save accepts convenience flags and refuses ambiguous or absent i
   }
 });
 
+test("knowledge save exposes the write mode and the expected revision a replace is conditioned on", () => {
+  const ws = workspace("codetour-knowledge-save-replace-");
+  try {
+    writeFileSync(path.join(ws, "main.ts"), "export const start = 1;\n");
+    writeFileSync(path.join(ws, "body.md"), "Convenience body.\n");
+    seedValidWorkspace(ws);
+    const read = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(read.status, 0, read.stderr);
+    const revision = read.json.revision;
+    assert.equal(typeof revision, "string");
+
+    // A proposal file declares the mode and the revision it read.
+    const proposal = writeProposal(ws, {
+      mode: "replace",
+      entries: [{
+        name: "dispatch_flow",
+        description: "Rewritten by the CLI",
+        body: "CLI body.\n",
+        evidence: [{ path: "main.ts" }],
+        expectedRevision: revision
+      }]
+    });
+    const replaced = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(replaced.status, 0, replaced.stderr);
+    assert.equal(replaced.stderr, "");
+    assert.deepEqual(replaced.json, {
+      status: "replaced",
+      workspace: ws,
+      replaced: ["dispatch_flow"],
+      warnings: [{ name: "dispatch_flow", code: "insufficient_backing", distinctEvidencePaths: 1 }]
+    });
+    assert.doesNotMatch(replaced.stdout, /CLI body|sha256|[0-9a-f]{64}/i);
+    const after = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(after.json.body, "CLI body.\n");
+    assert.notEqual(after.json.revision, revision);
+
+    // The convenience flags expose the same mode and revision.
+    const flagged = runCli([
+      "knowledge", "save",
+      "--workspace", ws,
+      "--mode", "replace",
+      "--name", "dispatch_flow",
+      "--description", "Rewritten from flags",
+      "--body-file", "body.md",
+      "--evidence", "main.ts",
+      "--expected-revision", after.json.revision
+    ], { cwd: ws });
+    assert.equal(flagged.status, 0, flagged.stderr);
+    assert.equal(flagged.json.status, "replaced");
+    const flaggedRead = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(flaggedRead.json.body, "Convenience body.\n");
+
+    // A stale revision is the documented conflict: exit 4, file untouched.
+    const stale = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(stale.status, 4, stale.stderr);
+    assert.deepEqual(stale.json, {
+      status: "conflict",
+      workspace: ws,
+      conflicts: [{ name: "dispatch_flow", reason: "revision_conflict" }]
+    });
+    assert.equal(runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws }).json.body, "Convenience body.\n");
+
+    // An unknown mode is a usage error, never a silent `create`.
+    const unknown = runCli([
+      "knowledge", "save", "--workspace", ws, "--mode", "upsert",
+      "--name", "other_flow", "--description", "d", "--body-file", "body.md", "--evidence", "main.ts"
+    ], { cwd: ws });
+    assert.equal(unknown.status, 2, unknown.stderr);
+    assert.deepEqual(unknown.json, {
+      status: "usage",
+      reason: "unknown_mode",
+      message: '--mode must be "create", "append" or "replace".'
+    });
+    assert.deepEqual(catalogueEntries(ws), ["dispatch_flow.md"]);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
 test("the bundled CLI computes symbol fingerprints itself: no fallback, marker stamped", () => {
   const ws = workspace("codetour-knowledge-cli-symbol-");
   try {
@@ -709,6 +861,97 @@ test("the bundled CLI computes symbol fingerprints itself: no fallback, marker s
   }
 });
 
+// Enriching an entry without rewriting its body (spec #232, ticket #256): the
+// packaged CLI exposes the mode and the revision it is conditioned on.
+
+test("knowledge save appends a section behind the historical body and reports no_change literally", () => {
+  const ws = workspace("codetour-knowledge-append-");
+  try {
+    seedValidWorkspace(ws);
+    writeFileSync(path.join(ws, "addition.md"), "## Exceptions\n\nAppended by the CLI.\n");
+    writeFileSync(path.join(ws, "blank.md"), "   \n");
+    writeFileSync(path.join(ws, "reader.ts"), "export const read = () => 1;\n");
+    const entryFile = path.join(ws, catalogue, "dispatch_flow.md");
+    const historical = readFileSync(entryFile, "utf8");
+    const revision = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws }).json.revision;
+    assert.equal(typeof revision, "string");
+
+    // A proposal file declares the mode, the addition and the revision read.
+    const proposal = writeProposal(ws, {
+      mode: "append",
+      entries: [{
+        name: "dispatch_flow",
+        addition: "## Exceptions\n\nAppended by the CLI.\n",
+        evidence: [{ path: "reader.ts" }],
+        expectedRevision: revision
+      }]
+    });
+    const appended = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(appended.status, 0, appended.stderr);
+    assert.equal(appended.stderr, "");
+    assert.deepEqual(appended.json, {
+      status: "appended",
+      workspace: ws,
+      appended: ["dispatch_flow"],
+      warnings: []
+    });
+    // The result names the entry only: never the body or a hash.
+    assert.doesNotMatch(appended.stdout, /Appended by the CLI|sha256|[0-9a-f]{64}/i);
+
+    const read = runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws });
+    assert.equal(read.status, 0, read.stderr);
+    assert.equal(read.json.body, "Verified body.\n\n## Exceptions\n\nAppended by the CLI.\n");
+    assert.ok(read.json.body.startsWith("Verified body.\n"), "the historical body is preserved byte for byte");
+    assert.deepEqual(read.json.evidence.map(proof => proof.path), ["main.ts", "reader.ts"]);
+    assert.equal(read.json.description, "How tool calls dispatch");
+    assert.notEqual(historical, readFileSync(entryFile, "utf8"));
+
+    // The convenience flags expose the same mode and revision.
+    writeFileSync(path.join(ws, "addition2.md"), "## Limits\n\nSecond section.\n");
+    const flagged = runCli([
+      "knowledge", "save",
+      "--workspace", ws,
+      "--mode", "append",
+      "--name", "dispatch_flow",
+      "--addition-file", "addition2.md",
+      "--expected-revision", read.json.revision
+    ], { cwd: ws });
+    assert.equal(flagged.status, 0, flagged.stderr);
+    assert.equal(flagged.json.status, "appended");
+    assert.equal(
+      runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws }).json.body,
+      "Verified body.\n\n## Exceptions\n\nAppended by the CLI.\n\n## Limits\n\nSecond section.\n"
+    );
+
+    // A blank addition with no new evidence adds nothing literal: it is a
+    // completed no-op, not a refusal and not a write.
+    const untouched = readFileSync(entryFile);
+    const noChange = runCli([
+      "knowledge", "save",
+      "--workspace", ws,
+      "--mode", "append",
+      "--name", "dispatch_flow",
+      "--addition-file", "blank.md",
+      "--expected-revision", runCli(["knowledge", "read", "dispatch_flow"], { cwd: ws }).json.revision
+    ], { cwd: ws });
+    assert.equal(noChange.status, 0, noChange.stderr);
+    assert.deepEqual(noChange.json, { status: "no_change", workspace: ws });
+    assert.deepEqual(readFileSync(entryFile), untouched);
+
+    // A stale revision is the documented conflict, and the file is untouched.
+    const stale = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(stale.status, 4, stale.stderr);
+    assert.deepEqual(stale.json, {
+      status: "conflict",
+      workspace: ws,
+      conflicts: [{ name: "dispatch_flow", reason: "revision_conflict" }]
+    });
+    assert.deepEqual(readFileSync(entryFile), untouched);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
 test("knowledge list separates stale symbol proofs from verified entries without leaking evidence", () => {
   const ws = workspace("codetour-knowledge-list-symbol-");
   try {
@@ -724,14 +967,56 @@ test("knowledge list separates stale symbol proofs from verified entries without
 
     const listed = runCli(["knowledge", "list"], { cwd: ws });
     assert.equal(listed.status, 0, listed.stderr);
-    assert.deepEqual(listed.json.entries, [{ name: "valid_flow", description: "Verified entry" }]);
-    assert.deepEqual(listed.json.invalid, [{ name: "dispatch_flow", reason: "symbol_hash_mismatch" }]);
-    assert.doesNotMatch(listed.stdout, /PRIVATE BODY|symbol\.ts|[0-9a-f]{64}/);
+    assert.deepEqual(entriesWithoutRevisions(listed.json.entries), [{ name: "valid_flow", description: "Verified entry" }]);
+    assert.deepEqual(listed.json.invalid.map(({ name, reason }) => ({ name, reason })), [{ name: "dispatch_flow", reason: "symbol_hash_mismatch" }]);
+    assert.doesNotMatch(listed.stdout, /PRIVATE BODY|symbol\.ts|sha256/);
 
     const filtered = runCli(["knowledge", "list", "--query", "no-match"], { cwd: ws });
     assert.equal(filtered.status, 3, filtered.stderr);
     assert.deepEqual(filtered.json.entries, []);
-    assert.deepEqual(filtered.json.invalid, [{ name: "dispatch_flow", reason: "symbol_hash_mismatch" }]);
+    assert.deepEqual(
+      filtered.json.invalid.map(({ name, reason }) => ({ name, reason })),
+      [{ name: "dispatch_flow", reason: "symbol_hash_mismatch" }]);
+    assert.ok(filtered.json.invalid.every(row => typeof row.revision === "string"));
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test("knowledge save append refuses an entry whose historical proof no longer verifies", () => {
+  const ws = workspace("codetour-knowledge-append-stale-");
+  try {
+    writeFileSync(path.join(ws, "main.ts"), "export const start = 1;\n");
+    writeFileSync(path.join(ws, "reader.ts"), "export const read = () => 1;\n");
+    writeFileSync(path.join(ws, "addition.md"), "## More\n");
+    const stale = entry("stale_flow", "Cites bytes that moved", [{ path: "main.ts", sha256: "f".repeat(64) }], "STALE BODY never served.\n");
+    writeCatalogueEntry(ws, "stale_flow.md", stale.frontmatter, stale.body);
+    // An unreadable entry still carries the revision of its file, so the
+    // repair write can be conditioned on bytes that were never served.
+    const refusedRead = runCli(["knowledge", "read", "stale_flow"], { cwd: ws });
+    assert.equal(refusedRead.status, 4, refusedRead.stderr);
+    assert.equal(refusedRead.json.status, "invalid");
+    const revision = refusedRead.json.revision;
+    assert.equal(typeof revision, "string");
+
+    const refused = runCli([
+      "knowledge", "save",
+      "--workspace", ws,
+      "--mode", "append",
+      "--name", "stale_flow",
+      "--addition-file", "addition.md",
+      "--evidence", "reader.ts",
+      "--expected-revision", revision
+    ], { cwd: ws });
+    assert.equal(refused.status, 4, refused.stderr);
+    assert.deepEqual(refused.json, {
+      status: "invalid",
+      workspace: ws,
+      rejected: [{ name: "stale_flow", reason: "stale_evidence" }]
+    });
+    assert.doesNotMatch(refused.stdout, /STALE BODY/);
+    assert.match(readFileSync(path.join(ws, catalogue, "stale_flow.md"), "utf8"), /STALE BODY never served\./);
+    assert.deepEqual(catalogueEntries(ws), ["stale_flow.md"]);
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }

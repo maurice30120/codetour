@@ -22,6 +22,13 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
   `completed_zero`, `partial` or `failed`; `knowledge_close_run` records an
   explicit `skipped`. Both write the server-authenticated run log. See ADR
   0040.
+- `knowledge_save` takes an explicit `mode`: `create` (the default, unchanged),
+  `append` (one addition and new evidence merged into an entry that still
+  verifies, its historical body kept byte for byte) and `replace` (one entry
+  rewritten in full, valid or invalid). Both amend modes are conditioned on
+  the opaque Knowledge Revision the caller read, under one catalogue lock; the
+  CLI gains `--mode` and `--expected-revision`, and `list` and `read` expose
+  each entry's `revision`. See ADR 0050 and ADR 0053, and spec #232.
 - A Copilot Agent Plugins 1.0 plugin ships one CodeTour MCP server, the
   `codetour-generate` skill and a deterministic `agentStop` hook.
   `codetour --install copilot` installs the plugin and the extension offline;

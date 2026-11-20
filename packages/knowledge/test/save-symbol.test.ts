@@ -107,7 +107,11 @@ test('a symbol with syntax errors falls back at creation and is refused on later
   ]) {
     await writeFile(file, invalid);
     const read = await (await loadKnowledgeLibrary(root, knowledgeDirectory(root))).read('good');
-    assert.deepEqual(read, { status: 'invalid', reason: 'symbol_unparseable' });
+    // The refusal carries the entry revision (spec #232), so a repair can be
+    // conditioned on the bytes that failed; the rest of the shape is exact.
+    const { revision, ...shape } = read as { revision?: string } & Record<string, unknown>;
+    assert.equal(typeof revision, 'string');
+    assert.deepEqual(shape, { status: 'invalid', reason: 'symbol_unparseable' });
   }
   const fallback = expectStatus(await saveKnowledgeProposal(root, proposal('fallback')), 'saved');
   assert.ok(fallback.warnings?.some(warning => warning.code === 'symbol_proof_fallback' && warning.reason === 'symbol_unparseable'));
