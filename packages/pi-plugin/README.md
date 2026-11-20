@@ -18,53 +18,55 @@ instead of whatever `codetour` happens to be on `PATH`.
 | Path | Role |
 | --- | --- |
 | `package.json` | Pi package manifest (`pi.extensions`, `pi.skills`, peer dependency on the host). |
-| `extensions/codetour.ts` | Declares the **existing** `codetour mcp` server, starts a controlled generation from `/codetour`, and hosts the bounded consolidation guard. |
+| `extensions/codetour.ts` | Registers the shared `codetour mcp` server **on demand** for `/codetour`, releases it after the run, and hosts the bounded consolidation guard. |
 | `lib/run-log.mjs` | The run-state contract this package reads and the only fields it writes. |
 | `lib/guard.mjs` | The guard decision and the closing line. |
 | `lib/reader.mjs` | The end-of-generation opening dialogue: the real interactive reader (terminal) or the Tour at its active step (VS Code). |
 | `skills/codetour-generate/SKILL.md` | Minimal generation entry point that defers to the served MCP prompt. |
 
-## One CodeTour MCP server
+## On-demand CodeTour MCP
 
-The extension calls `pi.registerMcpServer("codetour", …)` on `session_start`
-with the real path of `ctx.cwd`:
+The Pi extension does **not** register the CodeTour MCP server at session
+startup. Ordinary conversations do not get CodeTour tool definitions or a
+CodeTour server summary. The explicit `/codetour` command registers the
+existing server for the current workspace after the user has selected the Tour
+kind and review mode:
 
 ```text
 codetour mcp --workspace-root <real workspace>
 ```
 
-Exposure is `deferred`: the six CodeTour tools are found with tool search
-instead of being declared on every request. A user `mcp.json` entry named
-`codetour` takes precedence, and `/mcp` shows the overridden registration. The
-extension never declares its own server in a file, so a session can never load
-two copies of the tools.
+The extension waits for Pi's built-in MCP host to connect the server (up to ten
+seconds), then starts the skill. Exposure remains `deferred`: even during a
+generation, the seven CodeTour tools are discovered through tool search, not
+declared to the model up front. After the run finishes, fails, or is aborted,
+the extension unregisters **only its own** MCP registration. Previously loaded
+tool definitions may still appear in a conversation's history; unregistration
+cannot erase historical context or restore spent tokens.
 
-**Registering is not connecting.** Pi's built-in MCP support connects
-registered servers in the background, and the tools of a connected server
-appear as `mcp__codetour__*` in `pi.getAllTools()`. When that support is
-disabled or replaced, the server stays registered and unconnected, and Pi
-reports `MCP server "codetour" is registered, but no loaded extension connects
-MCP servers`. The extension reads the registry passively to detect this: it
-never handles `mcp_servers_change`, because handling that event would make it
-the extension responsible for connecting registered servers and would silence
-Pi's own diagnostic (ticket #265).
+A user or project `mcp.json` entry named `codetour` takes precedence. When
+its tools are already connected, the extension reuses them and never removes
+that external registration. The extension never writes a global MCP config.
+
+`/mcp` may therefore show no CodeTour server before `/codetour`, or after
+a run has finished. This is expected. If Pi's built-in MCP support is disabled
+or replaced, `/codetour` refuses to start and reports how to restore it.
+
+Invoke `/codetour` to start the on-demand flow. Invoking the skill directly
+without a configured CodeTour server does not register MCP on its own.
 
 ## `/codetour`
 
-`/codetour` first verifies that the CodeTour MCP server is connected in this
-session: at least one `mcp__codetour__*` tool must be listed by
-`pi.getAllTools()`, whatever its exposure. Without one it refuses to start and
-prints a diagnostic naming the observed fact, the two causes Pi allows to be
-told apart — the built-in MCP support is disabled or replaced, or the
-connection is still starting — and the repair: `pi config` (Built-in → mcp), or
-remove `-builtin:mcp` from the settings, then `/reload`, and check with `/mcp`
-that `codetour` is listed with the extension as its source and that tool search
-finds the seven `mcp__codetour__*` tools. This paragraph is the single
-authoritative statement of that repair: the skill and the spec point here
-rather than restating it. No run state is created and the skill is not invoked,
-so a refused `/codetour` can never be mistaken for a started generation. The
-check is read once per command, never polled: a connection that completes later
-is picked up by the next `/codetour`.
+`/codetour` first collects the requested choices, then connects the shared
+MCP server on demand. It waits until at least one `mcp__codetour__*` tool is
+listed by `pi.getAllTools()` before creating the run state or invoking the skill.
+If a server cannot connect within the bounded wait, the extension unregisters
+its attempted registration and reports the two likely causes: built-in MCP
+support is disabled or replaced, or connection startup failed/timed out.
+Repair: enable the built-in support with `pi config` (Built-in → mcp) or remove
+`-builtin:mcp` from settings, then `/reload`. On a subsequent `/codetour`,
+`/mcp` should show `codetour` connected during generation, and tool search
+should discover its seven tools. A refused command creates no run state.
 
 `/codetour` then collects the two generation choices with `ctx.ui.select`,
 creates a run identity, writes `.tours/.log/codetour-run-<runId>.json`, then
@@ -76,8 +78,8 @@ obtained with `get_generation_prompt` rather than `prompts/get`. The prompt text
 is the same one the Copilot adapter fetches.
 
 A cancelled choice stops the command with no run state. An unconnected MCP
-server refuses the command before any choice, with the diagnostic and repair
-steps above. A failed workspace resolution, a failed state write or a refused
+server refuses the command after the choices but before creating any run state,
+with the diagnostic and repair steps above. A failed workspace resolution, a failed state write or a refused
 delivery removes the state and reports the error; no fallback prompt exists.
 
 ## The guard
@@ -143,7 +145,7 @@ absence means "not measured", never "zero".
 - A Pi version that supports `registerMcpServer`, `registerCommand`,
   `agent_before_settle` with `continue: true`, `getAllTools()`, and package
   manifests.
-- **Pi's built-in MCP support must be enabled.** Registered servers are
+- **Pi's built-in MCP support must be enabled.** On-demand registrations are
   connected by it; a settings file that disables it
   (`"extensions": ["-builtin:mcp"]`, or `-builtin:mcp` in a project override),
   or an installed extension that replaces it (such as `pi-mcp-adapter`),
