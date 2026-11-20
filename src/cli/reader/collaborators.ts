@@ -19,8 +19,8 @@ import type { ReadonlyStepContext } from "../stepContext";
  * until the first question.
  */
 export interface ConversationResponder {
-  /** Lowercase provider name for the status line and the agent role line. */
-  readonly providerName: string | undefined;
+  /** Lowercase Agent Profile name for the status line and the agent role line. */
+  readonly agentProfileName: string | undefined;
   answer(request: StepChatRequest, events?: StepChatAnswerEvents): Promise<string> | string;
   /**
    * Interrupts the in-flight answer, if any; the store's stop calls it and

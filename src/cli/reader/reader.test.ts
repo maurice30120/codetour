@@ -91,7 +91,7 @@ class FakeDescriptionRenderer {
 
 /** A conversation responder the test scripts; no ACP agent process is started. */
 class FakeResponder implements ConversationResponder {
-  readonly providerName = "Fake";
+  readonly agentProfileName = "Fake";
   readonly requests: StepChatRequest[] = [];
   cancellations = 0;
   disposed = false;
@@ -674,7 +674,7 @@ test("a wide terminal spells the hints out and an agent adds the ask hint", asyn
   const status = reader.getState().status;
   assert.equal(status.mode, "READ");
   assert.equal(status.hints, " ←/→ previous/next · j/k scroll · PgUp/PgDn page · a ask · q quit");
-  // The right segments: the voice state first, then the provider.
+  // The right segments: the voice state first, then the Agent Profile.
   assert.deepEqual(status.rightSegments, ["VOICE OFF", "fake"]);
 });
 
@@ -941,7 +941,7 @@ test("an answer streams into the exchange, reports tools and completes", async (
   assert.equal(state.conversation.exchanges[0].activity, "thinking");
   assert.deepEqual(state.conversation.exchanges[0].toolUses, []);
   assert.equal(state.conversation.meta, "1 exchange");
-  // The status line gains the exchange count after the voice state and the provider.
+  // The status line gains the exchange count after the voice state and the Agent Profile.
   assert.deepEqual(state.status.rightSegments, ["VOICE OFF", "fake", "1 exchange"]);
 });
 
@@ -1608,15 +1608,15 @@ test("a second close awaits the first one's disposal", async () => {
   assert.equal(second, first);
 });
 
-test("the conversation panel carries the provider name for the agent role line", async () => {
+test("the conversation panel carries the Agent Profile name for the agent role line", async () => {
   const responder = new FakeResponder();
   const painted = paintHarness(
     [{ title: "First", description: "Hello" }],
     { responder }
   );
   await openPainted(painted);
-  assert.equal(painted.reader.getState().conversation.providerName, "Fake");
+  assert.equal(painted.reader.getState().conversation.agentProfileName, "Fake");
   const bare = paintHarness([{ title: "First", description: "Hello" }]);
   await openPainted(bare);
-  assert.equal(bare.reader.getState().conversation.providerName, undefined);
+  assert.equal(bare.reader.getState().conversation.agentProfileName, undefined);
 });

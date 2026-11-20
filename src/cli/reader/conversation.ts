@@ -37,9 +37,9 @@ export class TourStepConversation {
     return this.options.responder !== undefined;
   }
 
-  /** The agent's lowercase provider name, for the status line and the role line. */
-  get providerName(): string | undefined {
-    return this.options.responder?.providerName;
+  /** The agent's lowercase Agent Profile name, for the status line and the role line. */
+  get agentProfileName(): string | undefined {
+    return this.options.responder?.agentProfileName;
   }
 
   /** The Step's exchanges, raw and unpainted, straight from the shared store. */

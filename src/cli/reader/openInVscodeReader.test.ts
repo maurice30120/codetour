@@ -135,7 +135,7 @@ test("the `o` shortcut is not taken in ask mode", async () => {
   // A responder is wired so `a` owns the keyboard: without one, `a` itself
   // never enters ask mode and the test would prove nothing.
   const responder: ConversationResponder = {
-    providerName: "Fake",
+    agentProfileName: "Fake",
     answer: async () => "Fake answer"
   };
   const reader = harness(collaborator.invoker, responder);

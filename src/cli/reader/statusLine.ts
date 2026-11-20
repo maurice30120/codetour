@@ -4,7 +4,7 @@ import type { ConversationState, ReaderStatusLine } from "./viewModel";
  * The status line of the reader as pure data: the mode chip, the key hints
  * and the right-side segments in their fixed precedence (spec #93). The
  * adapter joins and truncates the segments; the order — voice state first,
- * then speech warning, provider and exchange count — is reading behavior
+ * then speech warning, Agent Profile and exchange count — is reading behavior
  * the tests pin, because a narrow terminal cuts the least important
  * segments and never the voice state (spec #79, #244).
  */
@@ -24,8 +24,8 @@ export interface StatusLineInput {
   canOpenInVsCode: boolean;
   /** The latest nonblocking Open-in-VS Code failure, cleared by a later success. */
   openWarning: string | undefined;
-  /** Lowercase provider name, when an agent is installed. */
-  providerName: string | undefined;
+  /** Lowercase Agent Profile name, when an agent is installed. */
+  agentProfileName: string | undefined;
   exchangeCount: number;
 }
 
@@ -52,7 +52,7 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
   ];
   if (input.speechWarning) rightSegments.push(input.speechWarning);
   if (input.openWarning) rightSegments.push(input.openWarning);
-  if (input.providerName) rightSegments.push(input.providerName.toLowerCase());
+  if (input.agentProfileName) rightSegments.push(input.agentProfileName.toLowerCase());
   if (input.exchangeCount) rightSegments.push(exchangesLabel(input.exchangeCount));
   return { mode, hints, rightSegments };
 }

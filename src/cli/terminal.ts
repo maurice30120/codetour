@@ -63,7 +63,7 @@ export function composeTerminalReader(options: TerminalReaderCompositionOptions)
   const responder: ConversationResponder | undefined = injected.responder ??
     (chat?.responder
       ? {
-        providerName: chat.provider?.name,
+        agentProfileName: chat.profile?.name,
         answer: (request, events) => chat.responder!.answer(request, events),
         // A stop interrupts the in-flight answer (ADR 0031): the failover
         // responder cancels its active candidate.
@@ -583,7 +583,7 @@ class TermDomSurface {
       question.textContent = exchange.question;
       const agent = document.createElement("div");
       agent.className = "role role-agent";
-      agent.textContent = "▌ " + (conversation.providerName ?? "agent").toLowerCase();
+      agent.textContent = "▌ " + (conversation.agentProfileName ?? "agent").toLowerCase();
       block.append(asker, question, agent);
       // The stored exchanges are raw (ADR 0031): tool uses and the latest
       // activity line are painted here, exactly as the extension's conversation view

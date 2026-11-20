@@ -144,10 +144,10 @@ CodeTour tree and status bar track your progress.
 ### Connect a conversation agent
 
 Install and authenticate a supported ACP agent separately, and ensure its
-executable is available on VS Code’s `PATH`. CodeTour tries installed providers
-in this order and keeps the first working one for the reading session:
+executable is available on VS Code’s `PATH`. CodeTour tries installed Agent
+Profiles in this order and keeps the first working one for the reading session:
 
-| Provider | Executable | Selected mode |
+| Agent Profile | Executable | Selected mode |
 | --- | --- | --- |
 | Vibe | `vibe-acp` | Ask |
 | GitHub Copilot CLI | `copilot --acp --stdio` | Default mode, with tools restricted to `view`, `grep`, and `glob` |
@@ -156,9 +156,9 @@ in this order and keeps the first working one for the reading session:
 
 CodeTour installs no agent automatically. Conversations are designed for reading
 and explanation: the client refuses file writes and terminal requests and checks
-tool permissions. Provider modes are not an operating-system sandbox.
+tool permissions. Agent Profile modes are not an operating-system sandbox.
 
-If an agent fails before producing answer text, CodeTour tries the next provider.
+If an agent fails before producing answer text, CodeTour tries the next Agent Profile.
 Once an answer has started, it reports an error without mixing in another agent’s
 response. You can stop an answer in progress.
 
