@@ -5,6 +5,7 @@ import { loadTour } from "../../store/tourSchema";
 import { NarrationController } from "../narration/NarrationController";
 import type { NarrationEngine } from "../narration/SystemSpeech";
 import { createReader, type TourReader } from "./reader";
+import { statusLine } from "./statusLine";
 import type { ConversationResponder } from "./collaborators";
 import type { OpenInVsCodeRequest } from "../openInVscode";
 
@@ -127,6 +128,60 @@ test("a failing VS Code opening becomes a nonblocking status-line warning", asyn
     !reader.getState().status.rightSegments.some(segment => segment.startsWith("vscode: ")),
     "a successful opening clears the warning"
   );
+  await reader.close();
+});
+
+test("the open warning sits after the documented fixed precedence segments (spec #240)", () => {
+  // The precedence is fixed: voice, speech warning, provider, exchange
+  // count — the Open-in-VS Code warning takes the last, outermost slot
+  // (spec #239 review F3), so a narrow terminal cuts it first and the
+  // documented segments stay in order.
+  const status = statusLine({
+    conversation: { asking: false, responding: false, hasResponder: true },
+    compactHints: false,
+    narrationEnabled: true,
+    speechWarning: "voice: slow",
+    canOpenInVsCode: true,
+    openWarning: "vscode: boom",
+    providerName: "Fake",
+    exchangeCount: 2
+  });
+  assert.deepEqual(status.rightSegments, [
+    "VOICE ON", "voice: slow", "fake", "2 exchanges", "vscode: boom"
+  ]);
+  // The warning survives the exchange-count-abent case unplaced before the
+  // provider.
+  const bare = statusLine({
+    conversation: { asking: false, responding: false, hasResponder: false },
+    compactHints: true,
+    narrationEnabled: false,
+    speechWarning: undefined,
+    canOpenInVsCode: true,
+    openWarning: "vscode: boom",
+    providerName: undefined,
+    exchangeCount: 0
+  });
+  assert.deepEqual(bare.rightSegments, ["VOICE OFF", "vscode: boom"]);
+});
+
+test("a failing opening never lands between the voice warning and the provider in the live view model", async () => {
+  const collaborator = new ScriptedOpenInVsCode();
+  const responder: ConversationResponder = {
+    providerName: "Fake",
+    answer: async () => "Fake answer"
+  };
+  const reader = harness(collaborator.invoker, responder);
+  await reader.open();
+  reader.pressKey({ key: "o" });
+  await flushed();
+  collaborator.settle(0, new Error("boom"));
+  await flushed();
+  await reader.ask("why?");
+  const segments = reader.getState().status.rightSegments;
+  const openIndex = segments.findIndex(segment => segment.startsWith("vscode: "));
+  const exchangeIndex = segments.findIndex(segment => /exchange/.test(segment));
+  assert.ok(openIndex > exchangeIndex,
+    "the open warning is cut before the exchange count: " + JSON.stringify(segments));
   await reader.close();
 });
 

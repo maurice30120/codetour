@@ -92,6 +92,28 @@ test("CLI errors do not write or launch", () => {
   }
 });
 
+test("a bare experimental-tty-handoff flag fails cleanly, never `boolean true is not iterable`", () => {
+  // Commander maps a variadic option without a value to `true`; the real
+  // handoff crash (review F1) reproduced exactly through this argv shape:
+  // `--internal-tour /tmp/x.tour --experimental-tty-handoff`.
+  const { root } = fixture();
+  try {
+    const tourPath = path.join(root, ".tours", "architecture.tour");
+    for (const args of [
+      ["--experimental-tty-handoff"],
+      ["--internal-tour", tourPath, "--experimental-tty-handoff"]
+    ]) {
+      const result = run(root, args);
+      assert.notEqual(result.status, 0);
+      const output = result.stderr + result.stdout;
+      assert.doesNotMatch(output, /is not iterable/i);
+      assert.match(output, /The experimental TTY handoff requires a Tour file path\./);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("the reader entry rejects a non-TTY host without hiding the error", () => {
   // The TermDOM reader needs an interactive terminal; run() drives the
   // bundled CLI over pipes, so no TTY is attached. The guard lives at the

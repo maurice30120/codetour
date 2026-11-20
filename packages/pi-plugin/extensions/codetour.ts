@@ -24,7 +24,7 @@ import {
   VSCODE_OPTION,
   openingOptions,
   openingQuestion,
-  readerCommand,
+  playInTerminal,
   vscodeCommand,
 } from "../lib/reader.mjs";
 
@@ -162,12 +162,28 @@ export default function codetourPlugin(pi: ExtensionAPI) {
     if (!question) return;
     const choice = await ctx.ui.select(question, openingOptions());
     if (choice === TERMINAL_OPTION) {
-      const command = readerCommand(state);
-      if (command) {
+      // The real reader opens immediately (review F2): the launcher CLI is
+      // spawned with inherited stdio — this very terminal, never an
+      // independent window — and the call returns only when the reading ends,
+      // which hands the terminal back to the session. A non-interactive
+      // session or a failed spawn degrades to the documented hand-over
+      // command, never a crash and never a summary in the Tour's place.
+      const outcome = await playInTerminal(state, await resolveLauncher());
+      if (outcome.degraded && outcome.command) {
         ctx.ui.notify(
-          `Run ${command} at the workspace root — the reader plays in this ` +
-            "terminal, never an independent window.",
-          "info"
+          outcome.reason
+            ? `CodeTour: ${outcome.reason} Run ${outcome.command} at the ` +
+              `workspace root — the reader plays in this terminal, never an ` +
+              "independent window."
+            : `Run ${outcome.command} at the workspace root — the reader plays ` +
+              "in this terminal, never an independent window.",
+          "warning"
+        );
+      } else if (outcome.played && outcome.exitCode !== 0) {
+        ctx.ui.notify(
+          `CodeTour: the reader ended (${outcome.signal || outcome.exitCode}); ` +
+            "the terminal is back with your session.",
+          "warning"
         );
       }
     } else if (choice === VSCODE_OPTION) {
