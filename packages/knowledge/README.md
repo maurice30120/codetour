@@ -53,11 +53,20 @@ the evidence is merged, deduplicated by `(type, path, symbol)` so a `file` and a
 entry that no longer holds is `stale_evidence` — distinct from a caller-supplied
 proof that does not verify — and its repair is `replace`. A blank addition is never
 refused: it is a proof-only append when it brings new evidence, and `no_change`
-otherwise, because `no_change` means only "the body is unchanged and no proof was
-added". `append` never reports `insufficient_backing`: adding a proof on an already
-cited path cannot lower the distinct-path count. `origin` is never an input key:
-the engine alone records that a file proof substitutes a symbol proof it could not
-resolve.
+otherwise. `no_change` has exactly two literal triggers — a blank addition, or an
+addition already present as an exact suffix of the body — each with no new proof:
+no fuzzy deduplication, no semantic judgement. `append` never reports
+`insufficient_backing`: adding a proof on an already cited path cannot lower the
+distinct-path count. `origin` is never an input key: the engine alone records that a
+file proof substitutes a symbol proof it could not resolve, and a rewrite carries
+that trace verbatim onto the identical `(type, path, sha256)` proof only.
+
+`append` and `replace` re-emit the frontmatter from the parsed contract: the name,
+the description and the evidence values are preserved while the formatting is
+canonical, because serialization is the only writer. The historical body is
+preserved byte for byte as the read grammar parses it, and that grammar normalizes
+CRLF to LF — the engine writes LF, so an append to a hand-authored CRLF entry
+publishes the normalized body with the parsed historical body as an exact prefix.
 
 The package reads, hashes and writes these files only: no model, no network, no API
 key. The packaged `codetour knowledge` CLI and the historical Research Harness both

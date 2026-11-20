@@ -282,8 +282,11 @@ untouched. An empty `entries` list is a valid, explicit no-op. Results:
 | status | meaning | exit |
 | --- | --- | --- |
 | `saved` | every entry was published; `saved` lists the names | 0 |
+| `appended` | the historical body was kept and the addition inserted; `appended` lists the name | 0 |
+| `replaced` | one entry was rewritten in full against the revision read; `replaced` lists the name | 0 |
+| `no_change` | the append added nothing literally new; nothing was written | 0 |
 | `no-op` | zero entries were proposed; nothing was created | 0 |
-| `conflict` | at least one name already exists; `conflicts` lists it, nothing was written | 4 |
+| `conflict` | a name already exists (`name_conflict`) or no longer carries the revision read (`revision_conflict`); `conflicts` lists it, nothing was written | 4 |
 | `invalid` | at least one entry or the proposal shape is invalid; `rejected` lists names and reasons, nothing was written | 4 |
 
 Exit statuses are stable: `0` success, `1` internal error, `2` usage error
@@ -301,7 +304,8 @@ extension, `codetour mcp`, and the `codetour-mcp` npm package) as
 `knowledge_list` (verified metadata only, with invalid entries reported for
 fixing), `knowledge_read` (verified body or a refusal
 with no content), `knowledge_save` (one observable consolidation outcome:
-`created`, `completed_zero`, `conflict`, `invalid` or `failed`) and
+`created`, `appended`, `replaced`, `no_change`, `completed_zero`, `conflict`,
+`invalid` or `failed`) and
 `knowledge_close_run` (an explicit `skipped` closure for a generation run). The
 `generate_project_tour` MCP prompt adds the user's original request, a bounded
 catalogue projection and an explicit decomposition/consolidation method before
