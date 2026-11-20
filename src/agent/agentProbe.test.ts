@@ -4,8 +4,15 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 
+import * as acp from "@agentclientprotocol/sdk";
+
 import type { AgentProfile } from "./agentCatalogue";
-import { AGENT_PROBE_TIMEOUT_MS, probeAgentProfile } from "./agentProbe";
+import { spawnAcpAgent } from "./acpAgentProcess";
+import {
+  AGENT_PROBE_TIMEOUT_MS,
+  authenticateAgentProfile,
+  probeAgentProfile
+} from "./agentProbe";
 
 /**
  * The Agent Probe is tested at its real boundary: a deterministic fake ACP
@@ -17,6 +24,7 @@ const fakeAgentScript = path.join(__dirname, "fakeAcpAgent.js");
 
 interface FakeAgentLogRecord {
   method: string;
+  params?: Record<string, unknown>;
   outcome?: string;
   pid?: number;
 }
@@ -122,6 +130,115 @@ test("an ACP authentication error code is read as authentication required", asyn
     assert.deepEqual(outcome.authMethods, [
       { id: "copilot-login", name: "Copilot login", description: null }
     ]);
+  } finally {
+    cleanup();
+  }
+});
+
+test("the probe announces the terminal authentication capability and keeps the methods it unlocks", async () => {
+  const { workspace, cleanup } = createWorkspace();
+  try {
+    const outcome = await probeAgentProfile(
+      fakeAgentProfile(workspace, "auth-terminal"),
+      workspace
+    );
+
+    // The capability is on the wire, not only in the outcome: the fake agent
+    // announces its terminal method only to a client that sends it.
+    const initialize = readLog(path.join(workspace, "agent.log")).find(
+      record => record.method === "initialize"
+    )!;
+    const capabilities = initialize.params!.clientCapabilities as Record<
+      string,
+      unknown
+    >;
+    assert.deepEqual(capabilities._meta, { "terminal-auth": true });
+    assert.equal(
+      (capabilities.fs as { readTextFile?: boolean }).readTextFile,
+      true
+    );
+
+    // A probe never authenticates anything on its own: it only asks, and the
+    // reader's own Sign in action is the one that connects the agent.
+    assert.deepEqual(
+      readLog(path.join(workspace, "agent.log")).map(record => record.method),
+      ["agent-process", "initialize", "session/new"]
+    );
+
+    // The announced terminal method keeps the command the reader's Sign in
+    // action runs, and the state still comes from the error code alone.
+    assert.equal(outcome.availability.state, "auth-required");
+    assert.deepEqual(outcome.authMethods, [
+      {
+        id: "terminal-login",
+        name: "Fake terminal sign in",
+        type: "terminal",
+        args: [],
+        _meta: {
+          "terminal-auth": {
+            command: "codetour-fake-login",
+            args: ["--connect"],
+            env: { CODETOUR_FAKE_AUTH: "1" },
+            label: "Fake agent sign in"
+          }
+        }
+      }
+    ]);
+  } finally {
+    cleanup();
+  }
+});
+
+test("a terminal authentication method is offered only to a client that announces the capability", async () => {
+  const { workspace, cleanup } = createWorkspace();
+  try {
+    const entry = fakeAgentProfile(workspace, "auth-terminal").entry(workspace)!;
+    const agent = spawnAcpAgent(entry);
+    const connection = acp.client({ name: "codetour" }).connect(agent.stream);
+    try {
+      // A client that cannot run a terminal command is told nothing: the
+      // method is gated on the capability, so the probe's own capability is
+      // what makes the Sign in action possible at all.
+      const initialized = await connection.agent.request(
+        acp.methods.agent.initialize,
+        {
+          protocolVersion: acp.PROTOCOL_VERSION,
+          clientCapabilities: { fs: { readTextFile: true } }
+        }
+      );
+      assert.deepEqual(initialized.authMethods ?? [], []);
+    } finally {
+      connection.close();
+      await agent.dispose().catch(() => undefined);
+    }
+  } finally {
+    cleanup();
+  }
+});
+
+test("the agent-handled authenticate method connects the agent, and the next probe observes it", async () => {
+  const { workspace, cleanup } = createWorkspace();
+  try {
+    const profile = fakeAgentProfile(workspace, "auth-once");
+    const before = await probeAgentProfile(profile, workspace);
+    assert.equal(before.availability.state, "auth-required");
+    assert.deepEqual(before.authMethods?.map(method => method.id), ["copilot-login"]);
+
+    // The fallback the reader's Sign in action uses when no terminal method is
+    // declared: initialize then authenticate, on a transport of its own.
+    await authenticateAgentProfile(profile, workspace, "copilot-login");
+
+    const after = await probeAgentProfile(profile, workspace);
+    assert.equal(after.availability.state, "available");
+
+    const records = readLog(path.join(workspace, "agent.log"));
+    const authenticate = records.find(record => record.method === "authenticate")!;
+    assert.deepEqual(authenticate.params, { methodId: "copilot-login" });
+    // The fallback never opens a session and never asks the agent anything.
+    assert.equal(
+      records.some(record => record.method === "session/prompt"),
+      false
+    );
   } finally {
     cleanup();
   }

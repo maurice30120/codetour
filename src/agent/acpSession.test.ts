@@ -4,6 +4,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 
+import * as acp from "@agentclientprotocol/sdk";
+
 import type { AcpAgentEntry } from "./acpAgentProcess";
 import { spawnAcpAgent } from "./acpAgentProcess";
 import { openAskSession } from "./acpSession";
@@ -540,6 +542,39 @@ test("an ask session starts the ACP entry, advertises no write or terminal capab
   }
 });
 
+
+test("an ask session announces the terminal authentication capability, like the probe", async () => {
+  const workspace = createWorkspace();
+  const logPath = path.join(workspace.workspace, "agent.log");
+  // An agent whose only path to a connection is the terminal method it gates
+  // on the capability: it refuses this session with the ACP authentication
+  // error code, so what the session announced is what can be observed.
+  const agent = spawnAcpAgent(fakeAgentEntry(logPath, "auth-terminal"));
+  try {
+    await assert.rejects(
+      openAskSession({
+        agentProfileName: "Copilot",
+        transport: agent,
+        cwd: workspace.workspace
+      }),
+      (error: acp.RequestError) => error.code === -32000
+    );
+
+    const records = await waitForLog(logPath, found =>
+      found.some(record => record.method === "initialize")
+    );
+    const initialize = records.find(record => record.method === "initialize")!;
+    const capabilities = initialize.params?.clientCapabilities as {
+      _meta?: Record<string, unknown>;
+    };
+    // Without this capability the agent has no way to offer the terminal
+    // method the reader's Sign in action runs.
+    assert.deepEqual(capabilities._meta, { "terminal-auth": true });
+  } finally {
+    await agent.dispose();
+    workspace.cleanup();
+  }
+});
 
 test("an unresponsive agent fails startup within the deadline", async () => {
   const workspace = createWorkspace();

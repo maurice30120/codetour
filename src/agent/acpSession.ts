@@ -3,6 +3,7 @@ import { readFile as readFileFromDisk } from "node:fs/promises";
 import * as path from "node:path";
 
 import type { AcpAgentTransport } from "./acpAgentProcess";
+import { clientCapabilities } from "./agentAuth";
 import type { StepChatAgentIdentity } from "./stepChatContract";
 
 /**
@@ -10,6 +11,10 @@ import type { StepChatAgentIdentity } from "./stepChatContract";
  * a read-only client: it never announces file writing or terminals, refuses
  * the corresponding agent requests, and checks the tools the agent actually
  * executes rather than trusting the Ask mode name alone.
+ *
+ * The one authentication capability it does announce — the reader's own
+ * terminal sign in, ADR 0048 — grants the agent nothing: it lets the reader
+ * connect an agent that asks for it, and CodeTour runs that command itself.
  */
 
 /** Kinds of tools an agent can execute during a session. */
@@ -470,11 +475,10 @@ export function openAskSession(
       connection.agent
         .request(acp.methods.agent.initialize, {
           protocolVersion: acp.PROTOCOL_VERSION,
-          clientCapabilities: {
-            fs: {
-              readTextFile: true
-            }
-          }
+          // The same capabilities the Agent Probe announces: an agent that
+          // gates its terminal authentication method on them must offer it to
+          // a conversation session too, not only to the probe.
+          clientCapabilities: clientCapabilities()
         })
         .then(() =>
           connection.agent.request(acp.methods.agent.session.new, {

@@ -6,6 +6,7 @@ import {
   type AgentProbeOutcome,
   type AgentProfile
 } from "./agentCatalogue";
+import { clientCapabilities } from "./agentAuth";
 
 /**
  * The Agent Probe: the bounded availability probe of ADR 0048.
@@ -96,7 +97,7 @@ export async function probeAgentProfile(
     const initialized = await bounded(
       connection.agent.request(acp.methods.agent.initialize, {
         protocolVersion: acp.PROTOCOL_VERSION,
-        clientCapabilities: { fs: { readTextFile: true } }
+        clientCapabilities: clientCapabilities()
       })
     );
     authMethods = initialized.authMethods ?? undefined;
@@ -118,6 +119,68 @@ export async function probeAgentProfile(
       availability: classifyProbeFailure(error),
       authMethods
     };
+  } finally {
+    if (timer) clearTimeout(timer);
+    connection.close();
+    await agent.dispose().catch(() => undefined);
+  }
+}
+
+/**
+ * Runs the authentication method the agent handles itself, on a throwaway
+ * transport: connect, `initialize`, `authenticate`, release. It never opens a
+ * session and never asks anything, and the caller re-probes the profile
+ * afterwards to see whether the agent is connected now.
+ *
+ * Only an agent-handled method is ever passed here: the ACP spec forbids
+ * passing a terminal method to `authenticate`, so those run in a terminal
+ * instead and never reach this function.
+ */
+export async function authenticateAgentProfile(
+  profile: AgentProfile,
+  cwd: string,
+  methodId: string,
+  options: AgentProbeOptions = {}
+): Promise<void> {
+  const entry = profile.entry(cwd);
+  if (!entry) {
+    throw new Error("This agent has no launcher on this platform.");
+  }
+  const timeoutMs = options.timeoutMs ?? AGENT_PROBE_TIMEOUT_MS;
+  const agent = spawnAcpAgent(entry);
+  const connection = acp.client({ name: "codetour" }).connect(agent.stream);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new ProbeDeadlineError(
+        `The agent did not answer the sign in within ${deadlineLabel(timeoutMs)}.`
+      )),
+      timeoutMs
+    );
+  });
+  // A transport that dies — an entry that cannot even be spawned included —
+  // fails the sign in instead of waiting on a connection that can never speak.
+  const exited = agent.exited.then(
+    () => {
+      throw new Error("The ACP agent exited before the sign in completed.");
+    },
+    (error: unknown) => {
+      throw error;
+    }
+  );
+  try {
+    await Promise.race([
+      connection.agent
+        .request(acp.methods.agent.initialize, {
+          protocolVersion: acp.PROTOCOL_VERSION,
+          clientCapabilities: clientCapabilities()
+        })
+        .then(() =>
+          connection.agent.request(acp.methods.agent.authenticate, { methodId })
+        ),
+      deadline,
+      exited
+    ]);
   } finally {
     if (timer) clearTimeout(timer);
     connection.close();

@@ -7,6 +7,8 @@ import {
   isSelectable,
   type AgentAvailability
 } from "../agent/agentCatalogue";
+import { signInPlan, type AgentSignInPlan } from "../agent/agentAuth";
+import { authenticateAgentProfile } from "../agent/agentProbe";
 import { createFallbackStepChatResponder } from "../agent/fallbackStepChatAgent";
 import {
   StepConversations,
@@ -35,6 +37,10 @@ import { renderMarkdownToHtml } from "./markdown";
  *   targetTourId, step }` makes the chosen Agent Profile answer, and
  *   `{ type: "refreshAgents", ... }` / `{ type: "probeUnverified", ... }`
  *   re-probe the catalogue or the profiles still unverified, once.
+ * - webview → extension: `{ type: "signIn", agent, token, targetTourId,
+ *   step }` is the reader's own request to connect that Agent Profile. It is
+ *   never sent by CodeTour on its own: no probe and no switch authenticates
+ *   anything.
  * - extension → webview: `{ type: "stepChat", exchanges, responding,
  *   agent }` replaces the rendered conversation of the step. Each exchange
  *   is a question with the answer HTML produced by the shared renderer and
@@ -192,6 +198,60 @@ export async function probeStepChatUnverifiedAgents(): Promise<void> {
 }
 
 /**
+ * Connects the Agent Profile the reader asked to sign in to, and re-probes it
+ * alone.
+ *
+ * The agent's own terminal authentication command runs in a VS Code terminal
+ * when its method declares one; otherwise the ACP method the agent handles
+ * itself is called on a throwaway transport. Nothing is authenticated that the
+ * reader did not ask for — no probe, no switch and no failure triggers this —
+ * and only the profile the reader connected is probed again: every other
+ * state stays cached, and the step history and the chosen agent are untouched.
+ */
+export async function signInStepChatAgent(name: string): Promise<void> {
+  const current = agents;
+  if (!current || conversations.hasAnswerInFlight()) return;
+  const profile = current.selection.profile(name);
+  const plan = signInPlan(current.selection.authMethods(name));
+  if (!profile || !plan) return;
+
+  if (plan.kind === "terminal") {
+    openAuthTerminal(plan, current.workspaceRoot);
+  } else {
+    try {
+      await authenticateAgentProfile(profile, current.workspaceRoot, plan.methodId);
+    } catch {
+      // The reader's action failed: say so instead of pretending anything was
+      // connected, and let the re-probe keep showing the real state.
+      void window.showWarningMessage(`Could not sign in to ${profile.name}.`);
+    }
+  }
+
+  await current.selection.probeProfile(name, current.workspaceRoot);
+  current.onSettled?.();
+}
+
+/**
+ * Opens the terminal the agent's terminal authentication method declares: the
+ * reader sees the command the agent asked for, in a shell of their own, and
+ * CodeTour types nothing into it.
+ */
+function openAuthTerminal(
+  plan: Extract<AgentSignInPlan, { kind: "terminal" }>,
+  workspaceRoot: string
+): void {
+  window
+    .createTerminal({
+      name: plan.label,
+      shellPath: plan.command,
+      shellArgs: plan.args,
+      env: plan.env,
+      cwd: workspaceRoot || undefined
+    })
+    .show();
+}
+
+/**
  * Makes the reader's chosen Agent Profile answer this panel: the current
  * responder's session is released and a fresh responder is composed over the
  * same selection and the same conversation store, so the step history stays
@@ -222,6 +282,11 @@ export interface StepChatAgentView {
   selected: boolean;
   /** False when the reader may not pick this profile by hand. */
   selectable: boolean;
+  /**
+   * True when the reader can connect this profile from the conversation area:
+   * it waits for authentication and announced a method CodeTour can use.
+   */
+  signIn: boolean;
 }
 
 function conversationKey(tourId: string, step: number): string {
@@ -293,7 +358,10 @@ function paintAgents(): {
       state: view.availability.state,
       detail: availabilityDetail(view.availability),
       selected: view.selected,
-      selectable: isSelectable(view.availability)
+      selectable: isSelectable(view.availability),
+      signIn:
+        view.availability.state === "auth-required" &&
+        signInPlan(view.availability.authMethods) !== undefined
     })),
     unavailable:
       selection.initialProbeSettled() && selection.selectedProfile() === undefined
