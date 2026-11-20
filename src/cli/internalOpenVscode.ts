@@ -14,12 +14,12 @@ import {
  *
  * The end-of-generation dialogue of the Pi plugin hands this command over, so
  * the "VS Code" choice walks the same real opening as the reading flow — the
- * T5 decision module is reused as-is (canonical workspace, best-effort window
- * detection, plan, executor), and this runner only debouches it, exactly like
+ * T5 decision module is reused as-is (canonical workspace, plan, executor),
+ * and this runner only debouches it, exactly like
  * `--internal-tour` debouches the reader composition. The active Step after a
  * generation is the first one.
  *
- * The Windows detection, the reachability probe and the plan executor are
+ * The reachability probe and the plan executor are
  * injectable seams: the tests drive this runner in-process with fakes, no
  * PTY and no real `code` process.
  */

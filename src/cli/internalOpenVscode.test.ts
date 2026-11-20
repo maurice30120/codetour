@@ -43,12 +43,11 @@ function recordingExecution() {
   };
 }
 
-test("a workspace never observed open opens its folder, then sends the Tour URI at the first step", async () => {
+test("opens the workspace before sending the Tour URI at the first step", async () => {
   const fixtureData = fixture();
   try {
     const recorded = recordingExecution();
     await runInternalOpenVsCode([fixtureData.tour, fixtureData.root], {
-      openWindows: async () => [],
       vscodeAvailable: async () => true,
       execution: recorded.execution
     });
@@ -58,27 +57,10 @@ test("a workspace never observed open opens its folder, then sends the Tour URI 
         command: "code",
         args: [
           "--open-url",
-          "vscode://maurice30120.codetour/openTour?tour=.tours%2Fpayment.tour&step=1"
+          "vscode://maurice30120.codetour/openTour?tour=.tours%2Fpayment.tour&step=1&workspace=" + encodeURIComponent(fixtureData.root)
         ]
       }
     ]);
-  } finally {
-    rmSync(fixtureData.root, { recursive: true, force: true });
-  }
-});
-
-test("a workspace already open in one window reuses it: only the Tour URI", async () => {
-  const fixtureData = fixture();
-  try {
-    const recorded = recordingExecution();
-    await runInternalOpenVsCode([fixtureData.tour, fixtureData.root], {
-      openWindows: async () => [fixtureData.root],
-      vscodeAvailable: async () => true,
-      execution: recorded.execution
-    });
-    assert.equal(recorded.invocations.length, 1);
-    assert.equal(recorded.invocations[0].command, "code");
-    assert.equal(recorded.invocations[0].args[0], "--open-url");
   } finally {
     rmSync(fixtureData.root, { recursive: true, force: true });
   }
@@ -90,7 +72,6 @@ test("an unreachable VS Code fails with the defined message", async () => {
     const recorded = recordingExecution();
     await assert.rejects(
       runInternalOpenVsCode([fixtureData.tour, fixtureData.root], {
-        openWindows: async () => [],
         vscodeAvailable: async () => false,
         execution: recorded.execution
       }),
@@ -107,11 +88,10 @@ test("a workspace-relative Tour path resolves against the workspace argument", a
   try {
     const recorded = recordingExecution();
     await runInternalOpenVsCode([".tours/payment.tour", fixtureData.root], {
-      openWindows: async () => [fixtureData.root],
       vscodeAvailable: async () => true,
       execution: recorded.execution
     });
-    assert.match(recorded.invocations[0].args[1], /tour=\.tours%2Fpayment\.tour/);
+    assert.match(recorded.invocations[1].args[1], /tour=\.tours%2Fpayment\.tour/);
   } finally {
     rmSync(fixtureData.root, { recursive: true, force: true });
   }
@@ -123,7 +103,6 @@ test("a missing Tour file fails before any launch", async () => {
     const recorded = recordingExecution();
     await assert.rejects(
       runInternalOpenVsCode([path.join(fixtureData.root, ".tours", "absent.tour"), fixtureData.root], {
-        openWindows: async () => [fixtureData.root],
         vscodeAvailable: async () => true,
         execution: recorded.execution
       }),

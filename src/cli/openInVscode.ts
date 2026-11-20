@@ -1,9 +1,10 @@
 import { execFile, spawn } from "child_process";
-import { promises as fs, realpathSync } from "fs";
-import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { promisify } from "util";
+import { canonicalWorkspacePath } from "../core/workspacePath";
+
+export { canonicalWorkspacePath };
 
 /**
  * The Open-in-VS Code contract of ticket #244 (spec #239): the terminal Tour
@@ -19,8 +20,8 @@ import { promisify } from "util";
 
 /**
  * The receiving URI of the extension's URIHandler. A `vscode://file/...`
- * URI would only open files; the extension URI reaches the window holding
- * the workspace and lets its Tour discovery resolve the file.
+ * URI would only open files; the extension URI lets Tour discovery resolve
+ * the file in the receiving window.
  */
 export const OPEN_IN_VSCODE_URI_PREFIX = "vscode://maurice30120.codetour/openTour";
 
@@ -30,36 +31,6 @@ export const OPEN_WINDOW_SETTLE_MS = 2000;
 const VS_CODE_UNAVAILABLE_MESSAGE =
   "Visual Studio Code is not reachable: the 'code' command was not found on PATH.";
 
-/**
- * The canonical workspace root the opening decision compares against:
- * resolved, stripped of its trailing separator, and — when the file system
- * can answer — replaced by its real path, so that a symlinked or
- * `..`-composed root compares equal to the window's folder.
- */
-export function canonicalWorkspacePath(
-  workspace: string,
-  realpath: (value: string) => string = tryRealpath
-): string {
-  const resolved = path.resolve(workspace);
-  let canonical = resolved;
-  try {
-    canonical = realpath(resolved);
-  } catch {
-    // An unavailable real path (removed directory, restricted mount) keeps
-    // the resolved argument: two equal arguments still compare equal.
-  }
-  return stripTrailingSeparator(canonical);
-}
-
-function tryRealpath(value: string): string {
-  return realpathSync(value);
-}
-
-function stripTrailingSeparator(value: string): string {
-  return value.length > 1 && (value.endsWith("/") || value.endsWith("\\"))
-    ? value.slice(0, -1)
-    : value;
-}
 
 /** The Tour file's path relative to the canonical workspace, POSIX-separated. */
 export function relativeTourPath(tourId: string, workspace: string): string {
@@ -84,11 +55,12 @@ export function relativeTourPath(tourId: string, workspace: string): string {
  * the workspace plus the 1-based Step, the extension's public-link contract
  * (`src/extension.ts`: "In public links, the first step is numbered 1").
  */
-export function buildTourOpenUri(address: { tourPath: string; step: number }): string {
+export function buildTourOpenUri(address: { tourPath: string; step: number; workspace?: string }): string {
   return (
     OPEN_IN_VSCODE_URI_PREFIX +
     "?tour=" + encodeURIComponent(address.tourPath) +
-    "&step=" + (address.step + 1)
+    "&step=" + (address.step + 1) +
+    (address.workspace ? "&workspace=" + encodeURIComponent(address.workspace) : "")
   );
 }
 
@@ -98,21 +70,17 @@ export interface LaunchInvocation {
   args: string[];
 }
 
-export type OpenInVsCodeScenario = "reuse-window" | "new-window" | "multiple-windows";
-
 export type OpenInVsCodePlan =
   | {
       kind: "launch";
-      scenario: OpenInVsCodeScenario;
       invocations: LaunchInvocation[];
     }
   | { kind: "unavailable"; message: string };
 
 /**
  * The opening decision (ticket #244): reach the extension URI contract in
- * the window that holds the workspace, and never open a duplicate window.
- * The observed windows come from the best-effort detector
- * ({@link detectOpenVsCodeWindows}); the plan only compares canonical paths.
+ * the window that holds the workspace. Persistent workspace storage does
+ * not establish whether a window is currently open.
  */
 export function planOpenInVsCode(input: {
   /** The canonical workspace the Tour belongs to. */
@@ -121,32 +89,19 @@ export function planOpenInVsCode(input: {
   tourPath: string;
   /** The active Step, 0-based. */
   step: number;
-  /** Canonical workspaces observed open in running VS Code windows. */
-  openWindows: string[];
   vscodeAvailable: boolean;
 }): OpenInVsCodePlan {
   if (!input.vscodeAvailable) {
     return { kind: "unavailable", message: VS_CODE_UNAVAILABLE_MESSAGE };
   }
-  const uri = buildTourOpenUri({ tourPath: input.tourPath, step: input.step });
+  const uri = buildTourOpenUri({ tourPath: input.tourPath, step: input.step, workspace: input.workspace });
   const openTourUri = { command: "code", args: ["--open-url", uri] as string[] };
-  const matches = input.openWindows.filter(window => window === input.workspace);
-  // Several matching windows: the URI alone is sent — VS Code routes it to
-  // one of them — and no invocation names the folder, so the plan cannot
-  // create a duplicate window. Which window receives the URI is VS Code's
-  // decision, a documented detection limit.
-  if (matches.length > 1) {
-    return { kind: "launch", scenario: "multiple-windows", invocations: [openTourUri] };
-  }
-  if (matches.length === 1) {
-    return { kind: "launch", scenario: "reuse-window", invocations: [openTourUri] };
-  }
+  // Workspace storage is persistent and does not prove a window is open.
+  // Ask VS Code to open the workspace before sending its relative Tour URI,
+  // even if a previously observed workspace happens to match.
   return {
     kind: "launch",
-    scenario: "new-window",
-    // Scenario (b): open the workspace folder first — `code <folder>` reuses
-    // the window that already holds it, never duplicating — then deliver the
-    // Tour URI to that window.
+    // Delegate workspace opening or reuse to VS Code, then deliver the URI.
     invocations: [{ command: "code", args: [input.workspace] }, openTourUri]
   };
 }
@@ -215,81 +170,6 @@ export async function isVsCodeReachable(): Promise<boolean> {
   }
 }
 
-/** The workspace-storage facts the window detector needs; fakes test it. */
-export interface OpenVsCodeDetectionDeps {
-  storageRoot: string;
-  listDirectories: (root: string) => Promise<string[]>;
-  readFile: (filePath: string) => Promise<string>;
-}
-
-/**
- * Best-effort detection of the workspaces already open in running VS Code
- * windows, from the per-window storage records VS Code keeps on disk
- * (`User/workspaceStorage/<hash>/workspace.json`, the folder URI included).
- *
- * Documented limits: the directory is a VS Code implementation detail that
- * changed across versions and profiles; remote (ssh, container) and
- * web-hosted windows are not listed; Insiders and VSCodium keep their own
- * roots this detector does not scan; a window opened after the scan is
- * invisible. A failure or a corrupt record degrades to "workspace not
- * observed open", which the plan still handles correctly: the `code <folder>`
- * invocation can never duplicate a window.
- */
-export async function detectOpenVsCodeWindows(
-  deps?: Partial<OpenVsCodeDetectionDeps>
-): Promise<string[]> {
-  const resolved = { ...defaultDetectionDeps(), ...deps };
-  let entries: string[];
-  try {
-    entries = await resolved.listDirectories(resolved.storageRoot);
-  } catch {
-    // No readable storage: no window is observed, the plan still behaves.
-    return [];
-  }
-  const windows: string[] = [];
-  for (const entry of entries) {
-    try {
-      const parsed = JSON.parse(
-        await resolved.readFile(path.join(resolved.storageRoot, entry, "workspace.json"))
-      ) as { folder?: unknown };
-      if (typeof parsed.folder === "string" && parsed.folder.startsWith("file:")) {
-        windows.push(canonicalWorkspacePath(fileURLToPath(parsed.folder)));
-      }
-    } catch {
-      // A corrupt or absent record is ignored: best-effort detection.
-    }
-  }
-  return windows;
-}
-
-function defaultDetectionDeps(): OpenVsCodeDetectionDeps {
-  const storageRoot = vscodeWorkspaceStorageRoot();
-  return {
-    storageRoot,
-    listDirectories: async root =>
-      (await fs.readdir(root, { withFileTypes: true }))
-        .filter(entry => entry.isDirectory())
-        .map(entry => entry.name),
-    readFile: filePath => fs.readFile(filePath, "utf8")
-  };
-}
-
-function vscodeWorkspaceStorageRoot(): string {
-  switch (process.platform) {
-    case "darwin":
-      return path.join(
-        os.homedir(), "Library", "Application Support", "Code", "User", "workspaceStorage"
-      );
-    case "win32":
-      return path.join(
-        process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"),
-        "Code", "User", "workspaceStorage"
-      );
-    default:
-      return path.join(os.homedir(), ".config", "Code", "User", "workspaceStorage");
-  }
-}
-
 /**
  * The opening request the reader hands over, grounded in its view model:
  * the Tour identity, the workspace and the active Step (ticket #244).
@@ -308,7 +188,7 @@ export type OpenInVsCodeInvoker = (request: OpenInVsCodeRequest) => Promise<void
 
 /**
  * The composed invoker the terminal reader uses by default: canonical
- * workspace, best-effort window detection, `code` reachability probe, then
+ * workspace, `code` reachability probe, then
  * the plan executed through the OS. Every failure rejects; the reader
  * surfaces the message as a nonblocking status-line warning.
  */
@@ -320,8 +200,7 @@ export function createOpenInVsCodeInvoker(deps?: {
 
 /**
  * The one opening composition every surface walks (review S3): canonical
- * workspace, best-effort window detection and `code` reachability in
- * parallel, the plan, then its execution through the OS. The reader's
+ * workspace, `code` reachability, the plan, then its execution through the OS. The reader's
  * invoker and the `--internal-open-vscode` runner are two debouches of this
  * single sequence, never two copies of it.
  */
@@ -330,15 +209,11 @@ export async function openTourInVsCode(
   deps?: OpenInVsCodeCompositionDeps
 ): Promise<void> {
   const workspace = canonicalWorkspacePath(request.workspaceRoot);
-  const [openWindows, vscodeAvailable] = await Promise.all([
-    deps?.openWindows ? deps.openWindows() : detectOpenVsCodeWindows(),
-    deps?.vscodeAvailable ? deps.vscodeAvailable() : isVsCodeReachable()
-  ]);
+  const vscodeAvailable = await (deps?.vscodeAvailable ? deps.vscodeAvailable() : isVsCodeReachable());
   const plan = planOpenInVsCode({
     workspace,
     tourPath: relativeTourPath(request.tourId, workspace),
     step: request.step,
-    openWindows,
     vscodeAvailable
   });
   await executeOpenInVsCodePlan(plan, deps?.execution);
@@ -346,8 +221,6 @@ export async function openTourInVsCode(
 
 /** The injectable seams of the shared opening composition; fakes test it. */
 export interface OpenInVsCodeCompositionDeps {
-  /** The canonical workspaces already open in running VS Code windows. */
-  openWindows?: () => Promise<string[]>;
   /** Whether the `code` CLI answers. */
   vscodeAvailable?: () => Promise<boolean>;
   /** The execution seams of the plan executor. */
