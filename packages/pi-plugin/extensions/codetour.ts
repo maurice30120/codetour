@@ -19,6 +19,14 @@ import {
   knowledgeDetailLines,
   selectContinuation,
 } from "../lib/guard.mjs";
+import {
+  TERMINAL_OPTION,
+  VSCODE_OPTION,
+  openingOptions,
+  openingQuestion,
+  readerCommand,
+  vscodeCommand,
+} from "../lib/reader.mjs";
 
 // CodeTour for Pi.
 //
@@ -129,7 +137,11 @@ export default function codetourPlugin(pi: ExtensionAPI) {
   // not become a chorus on every stop of a long conversation.
   const reported = new Map<string, string>();
 
-  function report(ctx: ExtensionContext, state: Record<string, any>): void {
+  // The opening dialogue is asked once per run: observability must not become
+  // a chorus, and the user answers the end of the generation only once.
+  const offered = new Set<string>();
+
+  async function report(ctx: ExtensionContext, state: Record<string, any>): Promise<void> {
     if (state.tourCreated !== true) return;
     const key = `${displayKey(state)}|${isClosed(state)}`;
     if (key === "|false") return;
@@ -138,6 +150,29 @@ export default function codetourPlugin(pi: ExtensionAPI) {
     ctx.ui.notify(closingLine(state), "info");
     for (const line of knowledgeDetailLines(state)) {
       ctx.ui.notify(line, "warning");
+    }
+    // At the end of the generation (the run is closed), ask the user how to
+    // open the created Tour (ticket #242): the real interactive reader in the
+    // terminal, or the Tour at its active step in VS Code through the CLI's
+    // Open-in-VS Code surface (ticket #244's contract). Never a textual
+    // summary, whatever the choice; reading never opens an independent window.
+    if (!isClosed(state) || offered.has(state.runId)) return;
+    offered.add(state.runId);
+    const question = openingQuestion(state);
+    if (!question) return;
+    const choice = await ctx.ui.select(question, openingOptions());
+    if (choice === TERMINAL_OPTION) {
+      const command = readerCommand(state);
+      if (command) {
+        ctx.ui.notify(
+          `Run ${command} at the workspace root — the reader plays in this ` +
+            "terminal, never an independent window.",
+          "info"
+        );
+      }
+    } else if (choice === VSCODE_OPTION) {
+      const command = vscodeCommand(state);
+      if (command) ctx.ui.notify(`Open in VS Code (the Tour at the active step): ${command}`, "info");
     }
   }
 
@@ -169,7 +204,7 @@ export default function codetourPlugin(pi: ExtensionAPI) {
     }
     for (const state of listed.states) {
       if (state.workspace !== workspace || state.sessionId !== sessionId) continue;
-      report(ctx, state);
+      await report(ctx, state);
     }
     if (event.aborted) return;
 

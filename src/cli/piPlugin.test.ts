@@ -65,6 +65,25 @@ test("the extension declares one MCP server and never generates a Tour itself", 
   assert.doesNotMatch(extension, /saveKnowledgeProposal/);
 });
 
+test("the closing offer asks for the real reader or VS Code, and never spawns it", () => {
+  const extension = source("extensions/codetour.ts");
+  // The end of generation asks the user (ticket #242): the real interactive
+  // reader of the created Tour, or the Tour at its active step in VS Code
+  // (compressed through the explicit uri contract, ticket #244). The decision
+  // logic is the pure module lib/reader.mjs; the extension only asks and
+  // hands over the exact command.
+  for (const word of ["openingOptions", "openingQuestion", "readerCommand", "vscodeCommand"]) {
+    assert.ok(extension.includes(word), `the extension must consume lib/reader.mjs (${word})`);
+  }
+  assert.doesNotMatch(extension, /child_process|spawn\(/, "the extension must not spawn the reader");
+  const reader = source("lib/reader.mjs");
+  assert.match(reader, /codetour --internal-tour/);
+  assert.match(reader, /--internal-open-vscode/);
+  // The URI construction stays single-seam in the CLI's Open-in-VS Code
+  // contract; the package duplicates neither the URI nor the plan.
+  assert.doesNotMatch(reader, /vscode:\/\//);
+});
+
 test("the guard is bounded: one continuation, marked under the run-state lock", () => {
   const extension = source("extensions/codetour.ts");
   assert.match(extension, /pi\.on\("agent_before_settle"/);
@@ -93,4 +112,18 @@ test("the skill defers to the served prompt and names the Pi tool prefix", () =>
   assert.doesNotMatch(skill, /ask_user/);
   // The skill boots a generation; it never restates the Tour method.
   assert.doesNotMatch(skill, /Mermaid|anchor pattern|decomposition step/i);
+});
+
+test("the skill ends the generation with the two real openings, never a summary", () => {
+  const skill = source("skills/codetour-generate/SKILL.md");
+  // The real interactive reader (ticket #241): the default reading path and
+  // the direct Tour-file path, run at the workspace root.
+  assert.match(skill, /codetour "<Tour title>"/);
+  assert.match(skill, /codetour --internal-tour/);
+  // The Open-in-VS Code contract (ticket #244): the CLI's opening command,
+  // the only spelling of the opening (single seam).
+  assert.match(skill, /--internal-open-vscode/);
+  assert.doesNotMatch(skill, /code --open-url/);
+  // No textual summary answers for the reader, whatever the choice.
+  assert.match(skill, /never answer with a step list|never a prose summary|no summary/i);
 });

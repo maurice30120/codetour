@@ -16,6 +16,7 @@ import { doctor, installAgents, listAgents, uninstallAgents, agentIds } from "./
 import { resolveReadonlyStepContext } from "./stepContext";
 import { readTourImages } from "./stepImages";
 import { runTerminalTour } from "./terminal";
+import { runInternalOpenVsCode } from "./internalOpenVscode";
 import { resolveTourSelection } from "./tourResolution";
 import { isKnowledgeInvocation, registerKnowledgeCommand, reportKnowledgeUsageError } from "./knowledge";
 
@@ -30,7 +31,8 @@ interface Options {
   internalListTours: boolean;
   internalResolveTour?: string | boolean;
   internalTourId?: string;
-  internalTour?: string[]; }
+  internalTour?: string[];
+  internalOpenVscode?: string[]; }
 
 function buildProgram(): Command {
   const command = new Command()
@@ -54,6 +56,7 @@ function buildProgram(): Command {
     .option("--internal-resolve-tour [title]", "resolve a Tour by title or file name and print its identity as JSON")
     .option("--internal-tour-id <id>", "open the Tour with this discovered identity")
     .option("--internal-tour <args...>", "internal: run the terminal reader on a Tour file")
+    .option("--internal-open-vscode <args...>", "internal: open a Tour file in VS Code at the active step")
     .action(async (title: string | undefined, options: Options) => runWithOptions(options, title))
     .exitOverride()
     // The mapped messages in toCliError are the CLI's error contract; the
@@ -222,6 +225,11 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
       pathToFileURL(options.internalTour[0]).toString()
     );
     await runTerminalTour(source, repositoryRoot(options.internalTour[1] || path.dirname(options.internalTour[0])));
+    return;
+  }
+
+  if (options.internalOpenVscode) {
+    await runInternalOpenVsCode(options.internalOpenVscode);
     return;
   }
 

@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import plugin from "../packages/pi-plugin/extensions/codetour.ts";
 import { updateRunState } from "../packages/pi-plugin/lib/run-log.mjs";
+import { TERMINAL_OPTION, VSCODE_OPTION } from "../packages/pi-plugin/lib/reader.mjs";
 
 // The extension wiring itself, exercised without a Pi process: a fake host
 // records what the extension registers, and a real temporary workspace holds
@@ -38,14 +39,19 @@ function fakeHost() {
 function fakeContext(workspace) {
   const notifications = [];
   const selections = [];
+  const selects = [];
   return {
     notifications,
     selections,
+    selects,
     ctx: {
       cwd: workspace,
       ui: {
         notify: (message, level) => notifications.push({ message, level }),
-        select: async (title) => selections.shift(),
+        select: async (title, options) => {
+          selects.push({ title, options });
+          return selections.shift();
+        },
       },
       sessionManager: { getSessionId: () => "pi-session-test" },
     },
@@ -226,6 +232,107 @@ test("an aborted settle never asks for a continuation", async () => {
       readFileSync(path.join(workspace, ".tours", ".log", `codetour-run-${runId}.json`), "utf8")
     );
     assert.equal(state.continuationUsed, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the end-of-generation ask offers the terminal reader and VS Code", async () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.commands.get("codetour").handler("project", context.ctx);
+    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
+    await updateRunState(workspace, runId, state => ({
+      ...state,
+      tourCreated: true,
+      tourPath: ".tours/payment.tour",
+      tourTitle: "Payment Flow",
+      consolidation: { status: "created", at: new Date().toISOString() },
+    }));
+    context.selections.push(TERMINAL_OPTION);
+    const settled = await host.handlers.get("agent_before_settle")(
+      { entries: [], aborted: false, context: {} },
+      context.ctx
+    );
+    // A closed run asks for no continuation: the dialogue is the last word.
+    assert.equal(settled, undefined);
+    // Exactly one ask, naming the created Tour and the two real openings.
+    assert.equal(context.selects.length, 1);
+    assert.match(context.selects[0].title, /"Payment Flow"/);
+    assert.deepEqual(context.selects[0].options.length, 2);
+    // The terminal choice hands over the exact real reader command; no
+    // step list or summary ever answers for the reader.
+    const commands = context.notifications.filter(entry => entry.message.includes('codetour "Payment Flow"'));
+    assert.equal(commands.length, 1);
+    assert.match(commands[0].message, /workspace root/);
+    assert.match(commands[0].message, /never an independent window/);
+    // The ask is once per run: a later settle of the same run never asks again.
+    await updateRunState(workspace, runId, state => ({
+      ...state,
+      knowledge: { version: 1, observed: true, at: new Date().toISOString(), listings: 1, valid: [], invalid: [], used: [] },
+    }));
+    await host.handlers.get("agent_before_settle")(
+      { entries: [], aborted: false, context: {} },
+      context.ctx
+    );
+    assert.equal(context.selects.length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the VS Code choice delegates to the explicit open-in-VS Code contract", async () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.commands.get("codetour").handler("project", context.ctx);
+    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
+    await updateRunState(workspace, runId, state => ({
+      ...state,
+      tourCreated: true,
+      tourPath: ".tours/payment.tour",
+      tourTitle: null,
+      consolidation: { status: "skipped", at: new Date().toISOString() },
+    }));
+    context.selections.push(VSCODE_OPTION);
+    await host.handlers.get("agent_before_settle")(
+      { entries: [], aborted: false, context: {} },
+      context.ctx
+    );
+    assert.equal(context.selects.length, 1);
+    const openings = context.notifications.filter(entry => entry.message.includes("--internal-open-vscode"));
+    assert.equal(openings.length, 1);
+    assert.match(openings[0].message, /codetour --internal-open-vscode "\.tours\/payment\.tour"/);
+    assert.match(openings[0].message, /active step/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a cancelled ask hands over nothing and no summary replaces the reader", async () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.commands.get("codetour").handler("project", context.ctx);
+    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
+    await updateRunState(workspace, runId, state => ({
+      ...state,
+      tourCreated: true,
+      tourPath: ".tours/payment.tour",
+      tourTitle: "Payment Flow",
+      consolidation: { status: "created", at: new Date().toISOString() },
+    }));
+    await host.handlers.get("agent_before_settle")(
+      { entries: [], aborted: false, context: {} },
+      context.ctx
+    );
+    assert.equal(context.selects.length, 1);
+    // Declined: no opening command and no textual stand-in for the reader.
+    assert.equal(context.notifications.filter(entry => /codetour|code --open-url/.test(entry.message)).length, 0);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

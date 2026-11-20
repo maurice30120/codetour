@@ -21,6 +21,7 @@ instead of whatever `codetour` happens to be on `PATH`.
 | `extensions/codetour.ts` | Declares the **existing** `codetour mcp` server, starts a controlled generation from `/codetour`, and hosts the bounded consolidation guard. |
 | `lib/run-log.mjs` | The run-state contract this package reads and the only fields it writes. |
 | `lib/guard.mjs` | The guard decision and the closing line. |
+| `lib/reader.mjs` | The end-of-generation opening dialogue: the real interactive reader (terminal) or the Tour at its active step (VS Code). |
 | `skills/codetour-generate/SKILL.md` | Minimal generation entry point that defers to the served MCP prompt. |
 
 ## One CodeTour MCP server
@@ -68,6 +69,28 @@ handler, in process instead of a subprocess. It reads the run state only:
 
 A session that bypasses `/codetour` (direct skill use, direct MCP calls) creates
 no run state and is therefore unguarded; the MCP results still tell the truth.
+
+## The opening dialogue
+
+When a run closes (the consolidation was assessed), the guard reports the
+closing line and then asks the user how to open the created Tour — never a
+step list or a summary in the Tour's place:
+
+- **Terminal** — the real interactive reader, run at the workspace root:
+  `codetour "<Tour title>"` (or `codetour --internal-tour "<tour path>"`).
+  The reader plays in the user's terminal, always the Playback Surface,
+  never an independent window; the extension hands over the command only and
+  never spawns a process (ticket #242).
+- **VS Code** — `codetour --internal-open-vscode "<tour path>"`, run at the
+  workspace root: the Open-in-VS Code contract of ticket #244, the Tour at its
+  active step (the first one right after generation). The decision lives once
+  in the CLI's `openInVscode` module (canonical workspace, window detection,
+  no duplicate window, the VS Code-absent case); the dialogue only hands over
+  the command. During reading, pressing `o` in the terminal reader performs
+  the same opening at the currently displayed Step.
+
+The ask is once per run; a declined ask hands over nothing and leaves no
+substitute text.
 
 ## Knowledge observability
 
