@@ -234,9 +234,12 @@ node "$CODETOUR_ROOT/dist/cli.js" knowledge hash src/main.ts
 node "$CODETOUR_ROOT/dist/cli.js" knowledge save --proposal proposal.json
 ```
 
-`list` returns names and descriptions only. `read` returns the Markdown body
-only when every declared file proof matches its SHA-256; otherwise it reports
-an `invalid` reason without the body, a cited path or a hash value. `hash`
+`list` verifies each entry and returns names and descriptions of matching valid
+entries; `invalid` reports every refused entry by name and reason, regardless
+of the query. It returns exit 3 when no valid entry matches. Neither list
+contains bodies, cited paths or evidence hashes. `read` returns the Markdown body
+only when every declared proof verifies; otherwise it reports an `invalid`
+reason without the body, a cited path or a hash value. `hash`
 prints the deterministic digest for preparing evidence.
 
 #### Save a proposal

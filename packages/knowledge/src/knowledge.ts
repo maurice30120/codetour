@@ -377,6 +377,11 @@ export interface KnowledgeLibrary {
   catalog(): Promise<KnowledgeMetadata[]>;
   /** Catalogue filtered by a literal case-insensitive name/description substring. */
   list(query?: string): Promise<KnowledgeMetadata[]>;
+  /** Verified metadata and all refusals, independent of the query. */
+  verifiedList(query?: string): Promise<{
+    entries: KnowledgeMetadata[];
+    invalid: { name: string; reason: KnowledgeFailureReason }[];
+  }>;
   /** Deterministic read: verifies the whole declared evidence contract first. */
   read(name: string): Promise<KnowledgeValidation>;
 }
@@ -431,6 +436,29 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
       if (!query) return entries;
       const lowerQuery = query.toLowerCase();
       return entries.filter(entry => `${entry.name} ${entry.description}`.toLowerCase().includes(lowerQuery));
+    },
+    verifiedList: async query => {
+      const dir = usable();
+      let files: string[] = [];
+      if (dir) {
+        try { files = (await readdir(dir)).filter(file => file.endsWith('.md')).sort(); }
+        catch { /* A missing or unreadable catalogue is empty. */ }
+      }
+      const entries: KnowledgeMetadata[] = [];
+      const invalid: { name: string; reason: KnowledgeFailureReason }[] = [];
+      const lowerQuery = query?.toLowerCase();
+      for (const file of files) {
+        const name = file.slice(0, -3);
+        const entry = await library.read(name);
+        if (entry.status === 'valid') {
+          if (!lowerQuery || `${entry.name} ${entry.description}`.toLowerCase().includes(lowerQuery)) {
+            entries.push({ name: entry.name, description: entry.description });
+          }
+        } else {
+          invalid.push({ name, reason: entry.reason });
+        }
+      }
+      return { entries, invalid };
     },
     read: async name => {
       if (typeof name !== 'string' || !validateKnowledgeName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };

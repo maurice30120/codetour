@@ -1,4 +1,4 @@
-# ADR 0050: Hand off the terminal from a Copilot session to the CodeTour reader
+# ADR 0051: Hand off the terminal from a Copilot session to the CodeTour reader
 
 * Status: experimental (spike, ticket #243, spec #239)
 * Date: 2026-01

@@ -42,8 +42,14 @@ cheap discovery; this decision accepts the local hashing cost because a served
 contract that lies about its own validity is worse than a few milliseconds of
 hashing in the consolidation flow.
 
-**Scope.** The MCP surface only (`tools/call` and `prompts/get`). The native
-`codetour knowledge` CLI keeps its non-verifying `list` for now — its `read`
-already verifies — and aligning it is a follow-up so the two surfaces do not
-drift. Validation of the effect on real Copilot generations remains to be
-established, as for every served-guidance change.
+**Original scope.** The MCP surface only (`tools/call` and `prompts/get`);
+the native CLI initially kept its non-verifying `list`. Validation of the
+effect on real Copilot generations remains to be established, as for every
+served-guidance change.
+
+**Update — native CLI discovery (ticket #260).** `codetour knowledge list` now
+verifies each catalogue entry with the same read gate. Its `entries` contain
+only verified names and descriptions; `invalid` reports every refused entry by
+name and reason, independent of the query. Neither list exposes bodies, cited
+paths or evidence hashes. Exit 3 still means no verified entry matched, even
+when invalid entries are reported; exit 0 means at least one verified match.

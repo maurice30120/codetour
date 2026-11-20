@@ -98,7 +98,8 @@ test("knowledge list reports name and description only from the resolved workspa
       entries: [
         { name: "dispatch_flow", description: "How tool calls dispatch" },
         { name: "other_flow", description: "Second entry" }
-      ]
+      ],
+      invalid: []
     });
     // Discovery is metadata only: no body, evidence or hash reaches stdout.
     assert.doesNotMatch(result.stdout, /Verified body|sha256|main\.ts/);
@@ -118,11 +119,11 @@ test("knowledge list filters a literal case-insensitive query and reports an emp
 
     const unmatched = runCli(["knowledge", "list", "--query", "no-such-entry"], { cwd: ws });
     assert.equal(unmatched.status, 3, unmatched.stderr);
-    assert.deepEqual(unmatched.json, { status: "empty", workspace: ws, entries: [] });
+    assert.deepEqual(unmatched.json, { status: "empty", workspace: ws, entries: [], invalid: [] });
 
     const empty = runCli(["knowledge", "list"], { cwd: absent });
     assert.equal(empty.status, 3, empty.stderr);
-    assert.deepEqual(empty.json, { status: "empty", workspace: absent, entries: [] });
+    assert.deepEqual(empty.json, { status: "empty", workspace: absent, entries: [], invalid: [] });
   } finally {
     rmSync(ws, { recursive: true, force: true });
     rmSync(absent, { recursive: true, force: true });
@@ -231,13 +232,13 @@ test("knowledge read refuses malformed, stale, forged, missing, outside, escapin
       assert.doesNotMatch(result.stdout, /SECRET BODY|outside secret bytes|\.ts|sha256|[0-9a-f]{64}/);
     }
 
-    // Discovery is metadata-only: malformed contracts are skipped, while
-    // well-formed entries with stale evidence stay discoverable (the read gate
-    // is what refuses them), and no body leaks.
+    // Discovery reports every refused contract without exposing evidence.
     const listed = runCli(["knowledge", "list"], { cwd: ws });
-    assert.equal(listed.status, 0, listed.stderr);
-    assert.deepEqual(listed.json.entries.map(item => item.name),
-      ["absolute", "changed", "forged", "missing", "outside", "symlink"]);
+    assert.equal(listed.status, 3, listed.stderr);
+    assert.deepEqual(listed.json.entries, []);
+    assert.deepEqual(listed.json.invalid, Object.entries(expected)
+      .map(([name, reason]) => ({ name, reason }))
+      .sort((a, b) => a.name.localeCompare(b.name)));
     assert.doesNotMatch(listed.stdout, /SECRET BODY|outside secret bytes|sha256|[0-9a-f]{64}/);
 
     const unknown = runCli(["knowledge", "read", "never_written"], { cwd: ws });
@@ -703,6 +704,34 @@ test("the bundled CLI computes symbol fingerprints itself: no fallback, marker s
     assert.equal(stale.status, 4);
     assert.equal(stale.json.reason, "symbol_hash_mismatch");
     assert.doesNotMatch(stale.stdout, /Body from the bundle/);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test("knowledge list separates stale symbol proofs from verified entries without leaking evidence", () => {
+  const ws = workspace("codetour-knowledge-list-symbol-");
+  try {
+    seedValidWorkspace(ws, { name: "valid_flow", description: "Verified entry" });
+    writeFileSync(path.join(ws, "symbol.ts"), "export function dispatch() { return 'ok'; }\n");
+    const proposal = writeProposal(ws, { entries: [{
+      name: "dispatch_flow", description: "Dispatch entry", body: "PRIVATE BODY\n",
+      evidence: [{ type: "symbol", path: "symbol.ts", symbol: "dispatch" }]
+    }] });
+    const saved = runCli(saveArgs(ws, proposal), { cwd: ws });
+    assert.equal(saved.status, 0, saved.stderr || saved.stdout);
+    writeFileSync(path.join(ws, "symbol.ts"), "export function dispatch() { return 'changed'; }\n");
+
+    const listed = runCli(["knowledge", "list"], { cwd: ws });
+    assert.equal(listed.status, 0, listed.stderr);
+    assert.deepEqual(listed.json.entries, [{ name: "valid_flow", description: "Verified entry" }]);
+    assert.deepEqual(listed.json.invalid, [{ name: "dispatch_flow", reason: "symbol_hash_mismatch" }]);
+    assert.doesNotMatch(listed.stdout, /PRIVATE BODY|symbol\.ts|[0-9a-f]{64}/);
+
+    const filtered = runCli(["knowledge", "list", "--query", "no-match"], { cwd: ws });
+    assert.equal(filtered.status, 3, filtered.stderr);
+    assert.deepEqual(filtered.json.entries, []);
+    assert.deepEqual(filtered.json.invalid, [{ name: "dispatch_flow", reason: "symbol_hash_mismatch" }]);
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }
