@@ -84,6 +84,30 @@ une configuration explicite et `/mcp` montre l'entrée surchargée.
 Aucune copie du serveur, aucune génération propre : l'extension ne fait que
 déclarer le serveur et lire son run-state.
 
+## Prérequis d'exécution
+
+Le serveur `codetour` est **enregistré** par l'extension mais **connecté** par le
+MCP intégré de Pi. Un `settings.json` qui le désactive
+(`"extensions": ["-builtin:mcp"]`, ou `-builtin:mcp` dans une surcharge de
+projet) ou une extension installée qui le remplace (`pi-mcp-adapter`) laisse
+l'enregistrement sans connexion, et Pi signale `MCP server "codetour" is
+registered, but no loaded extension connects MCP servers`.
+
+L'extension ne peut pas distinguer ces deux causes d'une connexion encore en
+cours par l'API Pi : `pi.getMcpServers()` ne renvoie que les enregistrements,
+jamais l'état de connexion, et les outils d'un serveur connecté n'apparaissent
+dans `pi.getAllTools()` (`mcp__codetour__*`) qu'une fois la connexion établie.
+La détection reste donc **passive** : lire le registre d'outils. Un handler
+`mcp_servers_change`, même de diagnostic seulement, marquerait l'extension
+comme celle qui connecte les serveurs enregistrés et supprimerait le message
+de Pi — ce serait cacher la cause au lieu de la nommer.
+
+Le diagnostic se fait dans la session avec `/mcp` (le serveur et sa source
+« extension » y figurent) ; `pi mcp list` ne peut pas le montrer, car les
+commandes shell ne chargent pas les extensions. Vérifié sur Pi 1.5.2 :
+`-e builtin:mcp -e ./packages/pi-plugin` + `tool_search` renvoie les sept outils
+`mcp__codetour__*`.
+
 ## Skill de génération
 
 `skills/codetour-generate/SKILL.md` est l'aiguillage, pas la méthode. Il est
@@ -104,14 +128,24 @@ servi, créer par l'outil MCP, consolider obligatoirement, ne jamais écrire de
 
 `pi.registerCommand("codetour", …)` reproduit l'entrée contrôlée Copilot :
 
-1. `ctx.ui.select` : **Project Tour** ou **Changes Tour** ; pour un Changes
+1. Vérification de la connexion MCP : au moins un outil `mcp__codetour__*` doit
+   figurer dans `pi.getAllTools()`, quelle que soit son exposition. Sinon la
+   commande refuse de démarrer et affiche le diagnostic (cause observée, les
+   deux causes possibles — support MCP intégré désactivé ou remplacé,
+   connexion encore en cours — et les étapes de correction : `pi config`
+   Built-in → mcp, ou retirer `-builtin:mcp` des settings, puis `/reload`, et
+   contrôler `/mcp`). Aucun run-state, aucune invocation de skill : une
+   génération refusée ne peut pas être prise pour une génération lancée. La
+   lecture est faite une fois par commande, sans boucle d'attente : une
+   connexion plus tardive est prise en compte par le `/codetour` suivant.
+2. `ctx.ui.select` : **Project Tour** ou **Changes Tour** ; pour un Changes
    Tour, second `select` : **neutral** ou **critical**. Aucun défaut ; une
    annulation arrête sans générer.
-2. Résolution du workspace (`ctx.cwd`, realpath) ; échec explicite si
+3. Résolution du workspace (`ctx.cwd`, realpath) ; échec explicite si
    inutilisable.
-3. Génération d'un `runId`, écriture atomique du run-state
+4. Génération d'un `runId`, écriture atomique du run-state
    `.tours/.log/codetour-run-<runId>.json` **avant** toute requête.
-4. Livraison de l'invocation de skill `/skill:codetour-generate type=…
+5. Livraison de l'invocation de skill `/skill:codetour-generate type=…
    [reviewMode=…] runId=<id> [request=…]` par `pi.sendUserMessage`. L'agent
    demande lui-même le prompt servi au serveur MCP et suit la méthode.
 
@@ -121,7 +155,7 @@ appeler `prompts/get`. Le prompt servi est donc obtenu par l'outil
 par l'adaptateur Copilot. La commande ne compose aucun prompt et ne fait aucune
 analyse.
 
-5. Annulation d'un choix, workspace inutilisable, écriture du run-state
+6. Annulation d'un choix, workspace inutilisable, écriture du run-state
    impossible ou livraison refusée : rien n'est généré ; un run-state déjà écrit
    est retiré et la commande se termine en erreur visible, sans analyse, sans
    prompt de secours.
@@ -258,7 +292,11 @@ l'extension VS Code, et ils rappellent la commande à lancer quand le CLI
   un serveur `codetour` enregistré sur `ctx.cwd`, choix annulé sans run-state,
   choix explicites produisant `runId` + invocation de skill, garde inerte avant
   Tour puis une seule continuation, ligne de clôture et détail des invalides
-  imprimés une fois.
+  imprimés une fois. La vérification de connexion MCP (ticket #265) y est
+  couverte sur les deux branches : serveur connecté (`mcp__codetour__*`
+  présent) → génération ; outils absents → diagnostic et aucun run-state ; une
+  connexion plus tardive est reprise par la commande suivante ; et l'extension
+  n'installe aucun handler `mcp_servers_change`.
 - `test/pi-guard.test.mjs` — garde inerte sur conversation ordinaire, Tour non
   créé, clôture présente, run expiré ; une seule continuation avec
   `continuationUsed` ; second appel inerte.
