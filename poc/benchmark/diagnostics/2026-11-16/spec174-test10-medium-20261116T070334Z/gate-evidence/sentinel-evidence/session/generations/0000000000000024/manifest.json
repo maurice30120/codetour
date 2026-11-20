@@ -1,0 +1,35 @@
+{
+  "checkpoint": {
+    "checkpoint_version": 1,
+    "chunks": [
+      "74fdb72c69bdcc1010b3d365b6d6aee5bb27cf95a87533d5dda74295ed537b9b"
+    ],
+    "path": "checkpoint.json",
+    "sha256": "630c87ac76d6af5318df89931a3f1d69b441362a05222c92cb8b4c6b669d0c5a"
+  },
+  "created_at": "2026-11-15T21:37:19.912Z",
+  "execution_state": "recoverable",
+  "generation": "0000000000000024",
+  "interop_export": null,
+  "manifest_version": 1,
+  "projection_state": {
+    "chunks": [
+      "1a3fef9001a1bfe43ff04c6af1d9d8843d21ccc3997e973df02e20d57acd0a55"
+    ],
+    "path": "projection-state.json",
+    "sha256": "96b33568d177151ece865febbffa2c47fce04d8b36cfd77d92f98cea3c52c9e9"
+  },
+  "recovery_journal_segment": {
+    "first_sequence": 25,
+    "path": "journal/0000000000000025.jsonl"
+  },
+  "runtime_state": {
+    "chunks": [
+      "a693ed1f32519c10840de1fa4b16b2254927fca1a3b96e2bfb7ca2eeac268998"
+    ],
+    "path": "runtime-state.json",
+    "sha256": "0eafafc23f9949f814a96081f22183b2ccc8d49ca360e9f563e798b6655624ca"
+  },
+  "session_id": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+  "snapshot_sequence": 24
+}

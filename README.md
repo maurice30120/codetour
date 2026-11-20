@@ -2,6 +2,27 @@
 
 **Explore a codebase, understand a branch, and ask questions right beside the code.**
 
+**Install or update with one command.** The script detects your platform,
+downloads the VSIX that the Release workflow built and attached to the
+[latest GitHub release](https://github.com/maurice30120/codetour/releases), and
+installs it in VS Code; rerun it after each new release.
+
+macOS, Linux, or Git Bash:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/maurice30120/codetour/main/scripts/install-latest.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/maurice30120/codetour/main/scripts/install-latest.ps1 | iex
+```
+
+The `main` URL tracks the latest stable release. From the `beta` branch, the
+same command with `CODETOUR_CHANNEL=beta` (PowerShell: `$env:CODETOUR_CHANNEL`)
+also accepts pre-releases; `CODETOUR_TAG=<tag>` pins an exact release.
+
 CodeTour IA is a VS Code desktop extension for guided code walkthroughs. Create
 tours with an AI agent or record them yourself, then follow explanations anchored
 to the files they describe. Keep tours in your repository so the next developer
@@ -44,7 +65,8 @@ GitHub release.
 2. In VS Code, run **Extensions: Install from VSIX...** and select the file.
 3. Open a project folder and find **CodeTour** in the Explorer.
 
-For installation from the terminal, replace the filename with the downloaded asset:
+The one-command scripts at the top of this README wrap the platform detection,
+the download below, and this terminal installation:
 
 ```bash
 code --install-extension ./codetour-<platform>-<version>.vsix
@@ -59,7 +81,9 @@ Codex, configured with your chosen provider. Installing the extension alone does
 not generate tours. You can record and replay tours without an AI agent.
 
 The extension bundles a local MCP server exposing `create_project_tour` and
-`create_changes_tour`. VS Code and GitHub Copilot discover a server for each
+`create_changes_tour`, plus the `knowledge_list`, `knowledge_read` and
+`knowledge_save` tools over the workspace Knowledge catalogue. VS Code and
+GitHub Copilot discover a server for each
 workspace folder automatically. For Codex, run **CodeTour IA: Configure MCP for
 Codex** from the Command Palette. After moving or updating the extension, use
 **CodeTour IA: Repair MCP Configuration for Codex** if its configuration is stale.
@@ -120,23 +144,35 @@ CodeTour tree and status bar track your progress.
 ### Connect a conversation agent
 
 Install and authenticate a supported ACP agent separately, and ensure its
-executable is available on VS Code’s `PATH`. CodeTour tries installed providers
-in this order and keeps the first working one for the reading session:
+executable is available on VS Code’s `PATH`. CodeTour probes the installed Agent
+Profiles in this order, preselects the first one that answers, and keeps your
+choice for the reading session:
 
-| Provider | Executable | Selected mode |
+| Agent Profile | Executable | Selected mode |
 | --- | --- | --- |
-| Vibe | `vibe-acp` | Ask |
 | GitHub Copilot CLI | `copilot --acp --stdio` | Default mode, with tools restricted to `view`, `grep`, and `glob` |
+| Vibe | `vibe-acp` | Ask |
+| Pi | `pi-acp` | Agent default, behind CodeTour’s read-only launcher (tools `read`, `grep`, `find`, `ls`) |
 | Codex ACP | `codex-acp` | read-only |
 | Claude Agent ACP | `claude-agent-acp` | plan |
 
 CodeTour installs no agent automatically. Conversations are designed for reading
 and explanation: the client refuses file writes and terminal requests and checks
-tool permissions. Provider modes are not an operating-system sandbox.
+tool permissions. Agent Profile modes are not an operating-system sandbox.
 
-If an agent fails before producing answer text, CodeTour tries the next provider.
-Once an answer has started, it reports an error without mixing in another agent’s
-response. You can stop an answer in progress.
+`pi-acp` launches `pi` without any tool restriction and offers no way to pass
+one, so CodeTour launches Pi through a small launcher of its own that runs `pi`
+with only the reading and searching tools, through the `PI_ACP_PI_COMMAND`
+variable the adapter honours. The launcher is written under the system
+temporary directory and changes nothing in your Pi configuration; where it
+cannot be provided — on Windows, for example — Pi is listed as a connection
+error instead of running unrestricted. See
+[ADR 0049](docs/adr/0049-restrict-pi-tools-through-a-replacement-launcher.md)
+and the [Pi smoke test](docs/pi-agent-smoke.md).
+
+If an agent fails before producing answer text, CodeTour tries the next Agent
+Profile, unless you picked one. Once an answer has started, it reports an error
+without mixing in another agent’s response. You can stop an answer in progress.
 
 ## Try the standalone readers
 
@@ -152,6 +188,7 @@ build the CLI:
 ```bash
 npm ci
 npm ci --prefix packages/description-renderer
+npm ci --prefix packages/knowledge
 npm ci --prefix packages/mcp-server
 npm run build
 CODETOUR_ROOT="$PWD"
@@ -171,7 +208,8 @@ node "$CODETOUR_ROOT/dist/cli.js" project --renderer terminal
 
 The HTML command opens a browser page; use **Next**, **Previous** and **Finish**
 to check the steps and their code context. The terminal is the default when
-`--renderer` is omitted; it opens an independent terminal window: use
+`--renderer` is omitted; it reads the Tour in the calling terminal itself
+(never an independent terminal window): use
 `n`/`p` or the arrow keys to move between steps, `j`/`k` to scroll, and `q` to
 finish. Check that the explanation and relevant source or diff correspond to
 the same Tour Step in both interfaces. Keep the invoking terminal open if using
@@ -184,10 +222,256 @@ cd /path/to/workspace
 node "$CODETOUR_ROOT/dist/cli.js" mcp
 ```
 
-The process speaks MCP over stdio with the same two tools as the extension;
-the working directory is the Tour Workspace, or pass `--workspace-root`. See
-the [standalone distribution guide](docs/standalone-distribution.md) for
+The process speaks MCP over stdio with the same tools as the extension — both
+Tour creation tools and the four Knowledge tools — from one shared server
+implementation; the working directory is the Tour Workspace, or pass
+`--workspace-root`. See the [standalone distribution guide](docs/standalone-distribution.md) for
 packaged-launcher client configuration.
+
+### Read and save a Knowledge catalogue
+
+`codetour knowledge` is the deterministic, offline surface for the Knowledge
+entries under `<workspace>/.tours/.memory/knowledge/`. It needs no model, no
+API key and no network. Pass `--workspace <dir>` to choose the project
+explicitly; otherwise the current directory is resolved once and used for
+every proof. Exactly one JSON object is written to stdout; diagnostics go to
+stderr.
+
+```bash
+cd /path/to/project
+node "$CODETOUR_ROOT/dist/cli.js" knowledge list
+node "$CODETOUR_ROOT/dist/cli.js" knowledge list --query dispatch
+node "$CODETOUR_ROOT/dist/cli.js" knowledge read dispatch_flow
+node "$CODETOUR_ROOT/dist/cli.js" knowledge hash src/main.ts
+node "$CODETOUR_ROOT/dist/cli.js" knowledge save --proposal proposal.json
+```
+
+`list` verifies each entry and returns names, descriptions and each entry's
+Knowledge Revision — the opaque SHA-256 of the entry file bytes — for matching
+valid entries; `invalid` reports every refused entry by name, reason and
+revision, regardless of the query, and `list` returns exit 3 when no valid
+entry matches. Neither list contains bodies, cited paths or evidence hashes:
+the revision is the one token it exposes. `read` returns the same revision and
+the Markdown body only when every declared proof verifies; otherwise it reports
+an `invalid` reason and the revision without the body, a cited path or a hash
+value. `hash` prints the deterministic digest for preparing evidence, and
+`save` takes `--mode` (`create`, `append` or `replace`) and
+`--expected-revision` for the two amend modes.
+
+#### Save a proposal
+
+`save` validates a whole proposal and persists it atomically, or publishes
+nothing. A proposal file is a JSON object with one key:
+
+```json
+{
+  "entries": [
+    {
+      "name": "dispatch_flow",
+      "description": "How tool calls dispatch",
+      "body": "Markdown body, interpreted never executed.\n",
+      "evidence": [{ "path": "src/main.ts" }, { "path": "docs/dispatch.md", "sha256": "<64 hex>" }]
+    }
+  ]
+}
+```
+
+`name` is a canonical identifier equal to the entry file name, `description`
+is one non-empty line and `evidence` cites at least one workspace-relative
+path. A relative `--proposal` path is resolved from the directory the CLI is
+launched in; the entry's evidence paths are always resolved against the
+workspace. An omitted `sha256` is computed from the cited bytes; a declared one is
+verified and normalized, so a stale or forged digest is refused. Paths outside
+the workspace, escaping symbolic links, missing or non-regular files and
+unsupported (`symbol`) proofs are refused the same way they are on read.
+
+The same entry can be described with convenience flags instead of a file
+(`--body-file` is resolved against the workspace, `--evidence` is repeatable):
+
+```bash
+node "$CODETOUR_ROOT/dist/cli.js" knowledge save \
+  --name dispatch_flow --description "How tool calls dispatch" \
+  --body-file docs/dispatch.md --evidence src/main.ts
+```
+
+A proposal is all-or-nothing: every entry is validated first, an existing
+`<name>.md` is never overwritten, and any refusal leaves the catalogue
+untouched. An empty `entries` list is a valid, explicit no-op. Results:
+
+| status | meaning | exit |
+| --- | --- | --- |
+| `saved` | every entry was published; `saved` lists the names | 0 |
+| `appended` | the historical body was kept and the addition inserted; `appended` lists the name | 0 |
+| `replaced` | one entry was rewritten in full against the revision read; `replaced` lists the name | 0 |
+| `no_change` | the append added nothing literally new; nothing was written | 0 |
+| `no-op` | zero entries were proposed; nothing was created | 0 |
+| `conflict` | a name already exists (`name_conflict`) or no longer carries the revision read (`revision_conflict`); `conflicts` lists it, nothing was written | 4 |
+| `invalid` | at least one entry or the proposal shape is invalid; `rejected` lists names and reasons, nothing was written | 4 |
+
+Exit statuses are stable: `0` success, `1` internal error, `2` usage error
+(unreadable proposal or body file, ambiguous input, unusable workspace), `3`
+absence (empty catalogue, unknown entry, missing file), `4` invalid (malformed
+contract, stale or forged hash, unsupported proof, path outside the workspace,
+symlink escape, name conflict).
+
+Evidence validity is not semantic correctness: a `saved` or `valid` result
+proves the declared sources still hash as declared, not that the explanation is
+accurate, complete or the best one.
+
+The same Knowledge contract is exposed by the existing MCP server (VS Code
+extension, `codetour mcp`, and the `codetour-mcp` npm package) as
+`knowledge_list` (verified metadata only, with invalid entries reported for
+fixing), `knowledge_read` (verified body or a refusal
+with no content), `knowledge_save` (one observable consolidation outcome:
+`created`, `appended`, `replaced`, `no_change`, `completed_zero`, `conflict`,
+`invalid` or `failed`) and
+`knowledge_close_run` (an explicit `skipped` closure for a generation run). The
+`generate_project_tour` MCP prompt adds the user's original request, a bounded
+catalogue projection and an explicit decomposition/consolidation method before
+generation. Those instructions travel only through `prompts/get`: a client that
+calls the tools directly does not receive them. See the
+[MCP server documentation](packages/mcp-server/README.md#generation-prompts-promptsget)
+for the exact composition, catalogue bounds, refusal reasons and the
+untrusted-data boundary.
+
+### The Knowledge workflow lives in the plugin
+
+The standalone `codetour-knowledge` skill is retired: the Copilot plugin is the
+only CodeTour guidance. Discovery goes through the MCP `knowledge_list`
+(metadata only; entries whose evidence no longer matches are listed under
+`invalid` with their reason, to fix or remove — see ADR 0044), reference reads
+through `knowledge_read` (a body is returned only when every declared SHA-256
+proof still matches), the Tour method travels only in the served
+`generate_project_tour` prompt, and consolidation goes through
+`knowledge_save`, `knowledge_close_run` and the plugin's `agentStop` guard.
+The `codetour knowledge` CLI commands remain for use outside Copilot.
+`codetour --install copilot` and `--uninstall copilot` remove a
+`~/.copilot/skills/codetour-knowledge/` directory an older CLI wrote, so no
+second, conflicting CodeTour skill is loaded next to the plugin. Limits stay
+as they were: a `valid` read or a `saved` proposal proves only that declared
+evidence still matches; it is not a semantic guarantee that the explanation is
+correct or complete.
+
+### Install every compatible agent
+
+`codetour --install` installs the integration of **every host this machine
+actually has**, from one CLI revision, without a checkout or network:
+
+```text
+Agent integrations:
+  copilot: installed
+  pi: installed
+  vscode: skipped (No CodeTour .vsix was found in the current directory or next to the CLI. …)
+```
+
+Compatibility means the host is present and its install prerequisite is met. An
+absent host is **skipped with its reason**, never a fatal error; an agent that
+fails is reported and makes the command exit non-zero without stopping the
+others. `--install <agent>` still names exactly one agent, `--install all` is
+the batch, and `--uninstall` removes every integration this CLI installed.
+`CODETOUR_DISABLE_AGENTS=vscode,pi` keeps agents out of a batch (CI, a shared
+account, a machine served by another build); naming an agent explicitly ignores
+it.
+
+### Install the Copilot plugin
+
+`codetour --install copilot` installs two surfaces from the same CLI revision,
+without a checkout or network:
+
+1. the experimental `/codetour` extension (reader and generation entry point);
+2. the **Agent Plugins 1.0** plugin from
+   [`packages/copilot-plugin/`](packages/copilot-plugin/README.md), embedded in
+   the CLI bundle by `scripts/embed-copilot-plugin.js`.
+
+The plugin is the single owner of the CodeTour MCP declaration. Its `mcp.json`
+declares the existing `codetour mcp` server scoped to the Copilot session
+workspace, so a plugin session runs one server and one copy of every tool. The
+extension no longer joins a second server, and the install removes only the
+legacy `codetour` entry an older CodeTour release wrote into
+`~/.copilot/mcp-config.json`; a same-named entry written by someone else is
+preserved and reported. The plugin also ships a minimal `codetour-generate`
+skill that defers to the served MCP prompt instead of duplicating the Tour
+method, and an `agentStop` guard.
+
+Verify the installed surfaces (the plugin needs GitHub Copilot CLI 1.0.106 or
+later; Agent Plugins 1.0 and the `agentStop` contract were verified on 1.0.106):
+
+```sh
+copilot plugin list           # codetour
+copilot mcp list              # exactly one codetour server, from the plugin
+copilot skill list            # codetour-generate, from the plugin
+codetour --agents             # integration state and repair command
+```
+
+Run a guarded generation from a trusted Git worktree:
+
+```text
+/codetour generate project Explique le flux de paiement
+```
+
+The controlled adapter resolves one workspace, fetches `prompts/get`
+`generate_project_tour` with the complete original request and the orientation
+phrase **before** calling the agent, and fails visibly when the server or the
+prompt is unavailable: no analysis starts and no fallback prompt is used. It
+writes `<workspace>/.tours/.log/codetour-run-<runId>.json` before sending; the
+MCP records the Tour creation and the consolidation closure under that same
+`runId`. The plugin's `agentStop` hook reads only that server trace. It is inert
+for ordinary conversations, other sessions or workspaces, `stop_hook_active`, a
+run without a Tour, any closure (including `completed_zero`) and any storage
+failure. For one incomplete run it asks for at most one continuation to call
+`knowledge_save` or `knowledge_close_run`, then stays inert.
+
+Limits are real, not implied guarantees: a run started through a direct skill or
+direct MCP calls has no run state and is unguarded; hooks disabled or a plugin
+not loaded means no guard; the MCP results and the run state always report the
+truth, and a missing closure is reported as an omission, never assumed. The
+consolidation closure is all-or-nothing today, so `partial` is reserved. See
+[ADR 0041](docs/adr/0041-deliver-codetour-as-an-agent-plugins-1-0-plugin-with-one-guarded-run.md)
+and the [plugin README](packages/copilot-plugin/README.md) for the exact file
+format, expiry and outcomes.
+
+### Choose an agent in the terminal reader
+
+Press `h` to choose an installed agent, `m` to choose one of its announced
+models, and `o` to open the active step in VS Code. Opening the model list
+starts a read-only session without sending a question.
+
+### Install the Pi plugin
+
+`codetour --install pi` installs the same integration for the Pi coding agent
+from the same CLI revision, without a checkout or network:
+
+1. the **Pi package** from
+   [`packages/pi-plugin/`](packages/pi-plugin/README.md), embedded in the CLI
+   bundle by `scripts/embed-pi-plugin.js`;
+2. its declaration in `<agent-dir>/settings.json` under `packages[]`, with
+   `<agent-dir>` = `PI_CODING_AGENT_DIR` or `~/.pi/agent`;
+3. a `launcher.json` naming the CLI that performed the install, so a stale
+   `codetour` on `PATH` cannot serve the session.
+
+A direct `pi install ./packages/pi-plugin` installs the same package without
+that launcher. The package declares the existing `codetour mcp` server with
+`pi.registerMcpServer` (`deferred` exposure, real `ctx.cwd` as workspace), ships
+the `codetour-generate` skill rewritten on the `mcp__codetour__*` tool names,
+and hosts the consolidation guard as an `agent_before_settle` handler instead of
+a subprocess hook. `/codetour` opens the native **Générer / Lire** menu.
+After the generation choices, Pi writes the run state and invokes the skill. Pi exposes MCP
+tools but not MCP prompts, so the served prompt is fetched with
+`get_generation_prompt` rather than `prompts/get`.
+
+```sh
+codetour --install pi         # package + declaration
+pi list                       # codetour-pi-plugin, from the managed directory
+pi mcp list                   # the codetour server registered by the extension
+codetour --agents             # integration state and repair command
+```
+
+Both plugins record the same additive `knowledge` block in the run state (ADR
+0045): the verified catalogue the run's own `knowledge_list` returned, the
+invalid entries with their reasons, and the entries its `knowledge_read`
+served. The closing line reports it on both hosts — `ctx.ui.notify` in Pi, one
+clause on the `agentStop` stderr line in Copilot — and an absent block means
+"not measured", never "zero".
 
 ### Try the experimental Copilot adapter
 
@@ -200,17 +484,19 @@ export CODETOUR_CLI="$CODETOUR_ROOT/dist/cli.js"
 copilot --experimental
 ```
 
-Inside Copilot, try `/codetour` to select a Tour, or run:
+Inside Copilot, choose **Lire** in `/codetour` or run:
 
 ```text
-/codetour project --renderer html
+/codetour read "My Tour" --renderer html
 ```
 
-This requests a specific Tour in the HTML reader; without the flag, the
-terminal reader opens by default. The adapter uses an
-experimental Copilot API. Its automated tests pass, but a real Copilot launch,
-argument forwarding, and reader survival after Copilot exits have not yet been
-validated; availability can depend on the installed Copilot version.
+**Lire** uses the terminal when Copilot lends it to the extension and opens
+the selected Tour in VS Code otherwise. For terminal playback in Copilot CLI
+1.0.114, use `/codetour read --renderer terminal`, then press `$` and Enter
+on the empty Copilot prompt and run the displayed command in the shell.
+Press `q` to close the reader and enter `exit` to return to Copilot.
+If the Copilot session has extensions disabled, use its `$` shell and run
+`codetour "My Tour" --renderer vscode`.
 
 For automated checks, run `npm test` from the CodeTour checkout. The real VS
 Code extension smoke tests are separate; see the desktop smoke-test guide below.
@@ -260,6 +546,7 @@ Use **Node.js 24.18.0** and **npm 12.0.1**, pinned in the repository.
 ```bash
 npm ci
 npm ci --prefix packages/description-renderer
+npm ci --prefix packages/knowledge
 npm ci --prefix packages/mcp-server
 npm test
 npm run package

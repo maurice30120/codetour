@@ -1,0 +1,219 @@
+{
+  "metadata": {
+    "timestamp": "2026-11-15T11:12:07.067Z",
+    "pocMetadata": {
+      "model": "mistral-small-latest"
+    },
+    "vibeMetadata": {
+      "model": "mistral-small-latest"
+    },
+    "pricing": {
+      "inputPrice": 0.000003,
+      "outputPrice": 0.000006
+    }
+  },
+  "tokenCurves": {
+    "poc": [],
+    "vibe": [
+      36605,
+      50329,
+      0
+    ],
+    "pocWithMemory": [],
+    "pocWithoutMemory": []
+  },
+  "dispersionAnalysis": {
+    "poc": {
+      "inputTokens": {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "stdDev": 0
+      },
+      "outputTokens": {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "stdDev": 0
+      },
+      "totalTokens": {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "stdDev": 0
+      },
+      "cost": {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "stdDev": 0
+      },
+      "duration": {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "stdDev": 0
+      }
+    },
+    "vibe": {
+      "inputTokens": {
+        "min": 0,
+        "max": 47981,
+        "mean": 27953.666666666668,
+        "median": 35880,
+        "stdDev": 20374.234715007635
+      },
+      "outputTokens": {
+        "min": 0,
+        "max": 2348,
+        "mean": 1024.3333333333333,
+        "median": 725,
+        "stdDev": 981.6572155741987
+      },
+      "totalTokens": {
+        "min": 0,
+        "max": 50329,
+        "mean": 28978,
+        "median": 36605,
+        "stdDev": 21242.730631128066
+      },
+      "cost": {
+        "min": 0,
+        "max": 0.158031,
+        "mean": 0.090007,
+        "median": 0.11199,
+        "stdDev": 0.06636207981972837
+      },
+      "duration": {
+        "min": 0,
+        "max": 16091,
+        "mean": 9062,
+        "median": 11095,
+        "stdDev": 6724.576170039764
+      }
+    }
+  },
+  "marginalTokenCost": {
+    "poc": [],
+    "vibe": [
+      0.11199,
+      0.158031,
+      0
+    ]
+  },
+  "cumulativeTokenCost": {
+    "poc": [],
+    "vibe": [
+      0.11199,
+      0.270021,
+      0.270021
+    ]
+  },
+  "tokensPerCorrectTour": {
+    "poc": {
+      "totalTokens": 0,
+      "correctRuns": 0,
+      "tokensPerCorrectTour": 0,
+      "completionRate": null
+    },
+    "vibe": {
+      "totalTokens": 86934,
+      "correctRuns": 2,
+      "tokensPerCorrectTour": 43467,
+      "completionRate": 0.6666666666666666
+    }
+  },
+  "breakEvenPoint": {
+    "reached": true,
+    "pocCost": 0,
+    "vibeCost": 0.270021,
+    "pocAvgCost": null,
+    "vibeAvgCost": 0.090007,
+    "savings": 0.270021,
+    "tokenSavings": 86934
+  },
+  "verdict": "indéterminé",
+  "measurements": {
+    "exploration": {
+      "poc": [],
+      "vibe": []
+    },
+    "search": {
+      "poc": [],
+      "vibe": []
+    },
+    "diagnostics": {
+      "poc": [],
+      "vibe": []
+    },
+    "corrections": {
+      "poc": [],
+      "vibe": []
+    },
+    "selection": {
+      "poc": [],
+      "vibe": []
+    },
+    "consolidation": {
+      "poc": [
+        {
+          "run": "pg-parse-1-undefined",
+          "reuses": 2,
+          "purges": 0
+        },
+        {
+          "run": "pg-flow-1-undefined",
+          "reuses": 4,
+          "purges": 0
+        }
+      ],
+      "vibe": []
+    },
+    "qualityAndCoverage": {
+      "poc": {
+        "proofs": 15,
+        "correct": 0,
+        "incorrect": 0,
+        "coverage": 0
+      },
+      "vibe": {
+        "proofs": 27,
+        "correct": 0,
+        "incorrect": 0,
+        "coverage": 0
+      }
+    },
+    "failures": {
+      "poc": [],
+      "vibe": []
+    },
+    "partialTours": {
+      "poc": [],
+      "vibe": []
+    },
+    "configurationDifferences": []
+  },
+  "summary": {
+    "poc": {
+      "runs": 0,
+      "complete": 0,
+      "partial": 0,
+      "avgTokens": 0,
+      "totalCost": 0,
+      "avgCost": 0
+    },
+    "vibe": {
+      "runs": 3,
+      "complete": 2,
+      "partial": 0,
+      "avgTokens": 28978,
+      "totalCost": 0.270021,
+      "avgCost": 0.090007
+    }
+  }
+}

@@ -1,0 +1,76 @@
+
+> codetour-vibe-connector@0.1.0 test
+> npm run build && node ../../scripts/run-compiled-tests.js dist/test
+
+
+> codetour-vibe-connector@0.1.0 build
+> tsc -p tsconfig.json
+
+[vibe-connector] 1 LLM call(s) carried no usage counters (G2 will fail)
+[vibe-connector] 1 LLM call(s) carried no usage counters (G2 will fail)
+▶ native research evidence through buildExecution and gates
+  ✔ accepts an observed native spawn linked to an executed research child (4.781234ms)
+  ✔ adds the separately exported root and child usage exactly once (2.649806ms)
+  ✔ rejects positive child totals that disagree with its per-call journal (0.476778ms)
+  ✔ rejects journal rotation gaps even when positive session totals exist (0.42586ms)
+  ✔ keeps an absent cache counter missing even when the export reports zero (1.766389ms)
+  ✔ fails closed on a failed LLM attempt whose usage is unknown (0.509844ms)
+  ✔ recognizes a spawn executed through run_typescript from the native runtime journal (0.5239ms)
+✔ native research evidence through buildExecution and gates (13.432117ms)
+▶ native CLI transport (offline executable fixture)
+  ✔ requests native explore using the installed protocol and retains both journals (687.955542ms)
+✔ native CLI transport (offline executable fixture) (688.466076ms)
+▶ ensureSubagentProfile (fail-closed deployment)
+  ✔ deploys a missing profile verbatim and never overwrites a different one (4.361014ms)
+  ✔ refuses when the versioned source is missing (0.995184ms)
+✔ ensureSubagentProfile (fail-closed deployment) (5.582648ms)
+✔ sentinel CLI persists NO-GO at the requested output and refuses to replace prior proof (445.156531ms)
+[vibe-connector] 1 LLM call(s) carried no usage counters (G2 will fail)
+[vibe-connector] 2 LLM call(s) carried no usage counters (G2 will fail)
+[vibe-connector] 2 LLM call(s) carried no usage counters (G2 will fail)
+▶ extractResponseFromOutput
+  ✔ extracts the assistant text from a JSON-array stdout projection (6.771366ms)
+  ✔ extracts assistant text from a JSONL stdout projection (0.365545ms)
+  ✔ returns an empty string for empty output (never a placeholder) (0.228491ms)
+✔ extractResponseFromOutput (9.880648ms)
+▶ extractPerCallUsageAndTools
+  ✔ parses per-call usage, dedupes tool names, and detects the subagent from task calls (8.088784ms)
+  ✔ counts LLM calls without usage counters as usageMissing (G2 must see the gap) (4.963298ms)
+  ✔ retains a partially flushed journal as an explicit instrumentation gap (6.608632ms)
+✔ extractPerCallUsageAndTools (20.114128ms)
+▶ buildExecution
+  ✔ builds execution identity from real export.json/manifest data (4.594905ms)
+  ✔ does not promote a legacy task request without child execution into a native identity (4.42368ms)
+  ✔ uses the real spawn duration only when the export carries no timestamps (4.27096ms)
+  ✔ throws when export.json carries no vibe_version (no default fallback) (4.819055ms)
+  ✔ throws when export.json carries no active_model (no default fallback) (4.176099ms)
+✔ buildExecution (22.923929ms)
+▶ validateG1 (Authentic Vibe)
+  ✔ rejects a direct root session even when it names itself explore (4.131159ms)
+  ✔ fails when the export carries no real session id (4.936436ms)
+  ✔ fails when no tool usage was extracted from the execution (4.947586ms)
+✔ validateG1 (Authentic Vibe) (14.315008ms)
+▶ validateG2 (Total instrumentation — per-call proof required)
+  ✔ passes when every LLM call in the session carries usage counters (4.873595ms)
+  ✔ FAILS with positive export totals when the journal has no per-call usage (the old rig passed here) (4.312386ms)
+  ✔ FAILS when even one LLM call in the session lacks usage counters (4.221056ms)
+  ✔ FAILS when export-level totals are zero (3.881884ms)
+✔ validateG2 (Total instrumentation — per-call proof required) (17.569779ms)
+▶ invokeVibeNativeAgent failure paths
+  ✔ rejects with VibeUnavailableError (never a simulated result) when the CLI is missing (52.368287ms)
+  ✔ rejects with RangeError when the explicit workDir does not exist (no guessed paths) (0.408119ms)
+✔ invokeVibeNativeAgent failure paths (53.005986ms)
+▶ environment detection
+  ✔ reports unavailable with a real error for a missing CLI (29.326529ms)
+  ✔ walks up to the validated fixture poc/benchmark/postgres only when it really exists (3.757965ms)
+  ✔ does not report ambient availability hard-wired (empty dir + missing CLI => still no workdir guess) (0.831075ms)
+✔ environment detection (34.131694ms)
+﹣ live sentinel (gated) (0.069504ms) # set VIBE_CONNECTOR_LIVE=1 to run the real-CLI sentinel in-suite
+ℹ tests 34
+ℹ suites 11
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1996.487236

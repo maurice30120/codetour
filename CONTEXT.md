@@ -58,3 +58,108 @@ _Avoid_: Voiceover, audio tour, TTS playback
 **Targeted Context**:
 A bounded selection of code symbols and locations relevant to a Tour, offered to the Tour Generator as a substitute for open-ended exploration. Off by default; a Tour Generator without it behaves as if it never existed.
 _Avoid_: Repository Map, optimisation, context map
+
+**Research Harness**:
+The `codetour-research` command that investigates one Research Question in a workspace and returns structured, source-referenced findings to the calling agent.
+_Avoid_: Black box, explorer, research tool
+
+**Research Question**:
+One question about a single mechanism or execution path, delegated to the Research Harness and naming the directories or files to examine when they are known.
+_Avoid_: Prompt, objective, multi-part question
+
+**Memory Function**:
+A reusable, validated search procedure persisted by the Research Harness under a stable name for later runs of similar Research Questions.
+_Avoid_: Procedure, script, learned skill
+
+**Memory Method**:
+A reusable search method expressed as short instructions for the Research Harness agent to interpret while investigating a Research Question. It is read, never executed.
+_Avoid_: Micro-skill, skill, Memory Function, executable script
+
+**Memory Entry**:
+A reusable item persisted in a workspace's `.tours/.memory/`: a Memory Function, a Memory Method, or a Knowledge Entry under `.tours/.memory/knowledge/`. Only a Consolidation Run creates Memory Functions and Memory Methods; Knowledge Entries are authored by hand, and created or amended by `codetour knowledge save`; since spec #223 they are also read natively (ADR 0039).
+_Avoid_: Skill, compétence
+
+**Memory Catalogue**:
+The set of Memory Entries stored in a workspace's `.tours/.memory/`, discoverable by description without loading their content.
+_Avoid_: Memory dump, function library
+
+**Knowledge Entry**:
+One hand-authored Markdown file stored under `.tours/.memory/knowledge/`: a name, a description, evidence proofs in frontmatter — a `file` proof pinning the SHA-256 of the cited file bytes, or a `symbol` proof pinning the SHA-256 of the cited symbol's canonical comment-stripped span (spec #233, ADR 0046) — and a body a reader returns only after verifying every declared proof. It was introduced by the experimental Knowledge mode (spec #219), is read and written by the native deterministic CLI since spec #223 (ADR 0039), and since spec #232 is created or amended only through a Knowledge Consolidation Operation; a requested `symbol` proof the engine could not resolve at creation is stored as a verified file proof marked `origin: symbol_fallback`, a mark the engine alone produces. Evidence validity proves only that the cited bytes or symbol span still hash as declared, never that the explanation is semantically correct or complete. Not a new memory kind: the durable vocabulary (ADR 0035, ADR 0036) still calls this Markdown concept a Memory Method, created by a Consolidation Run; Knowledge Entry is the prototype's chosen name for it, an experimental exception recorded here without rewriting those decisions.
+_Avoid_: Knowledge base, skill, document
+
+**Knowledge Catalogue**:
+The set of Knowledge Entries stored in a workspace's `.tours/.memory/knowledge/`, a fixed location under the hidden memory root, discovered by name and description without loading any body.
+_Avoid_: Knowledge base, dump
+
+**Knowledge Revision**:
+The SHA-256 of a Knowledge Entry's complete Markdown file bytes, exposed as an opaque token by discovery, by a read, by the catalogue projection served with the prompt, and by the Native Knowledge CLI (spec #232, ADR 0053). It is computed without validating the contract, so an entry whose evidence no longer verifies still has one; nothing of the body, of a cited path or of a source hash is derivable from it. It stays identical while the file is unchanged and moves with any modified byte, which is what lets a write be conditioned on the revision an agent actually read (compare-and-swap) instead of silently overwriting bytes it never saw. An entry with no readable file has none.
+_Avoid_: version number, Etag, content hash, entry checksum
+
+**Knowledge Mode**:
+The experimental Research Harness mode (`--knowledge`, spec #219) in which the Knowledge Catalogue is discovered by name and description only, `memory_read(name)` returns one validated body behind the existing Observation Masking, Memory Functions are unavailable, and no Consolidation Run runs. Exclusive of the historical Memory Function mode. Historical harness behaviour, kept as historical by ADR 0039.
+_Avoid_: Memory mode, hybrid mode
+
+**Knowledge Proposal**:
+The declarative input of `codetour knowledge save`: zero, one or more entries, each with a name, a one-line description, a Markdown body and at least one workspace-relative evidence path (with an optional declared SHA-256); an `append` entry declares a name, an addition, its new evidence and the revision it read, never a description or a body. The CLI computes or verifies every digest and publishes the whole proposal or nothing; an empty list is an explicit no-op, never a silent omission.
+_Avoid_: Knowledge upload, Knowledge payload
+
+**Knowledge Consolidation Operation**:
+One `knowledge_save` call with an explicit `mode` (spec #232, ADR 0050). `create` (the default) publishes a new entry and refuses an existing name; `append` enriches one existing entry that still verifies — the historical body is kept byte for byte, one blank line and the addition are inserted verbatim behind it, the description is never re-declared and only the evidence is merged — and refuses an entry whose contract no longer holds (`stale_evidence`, whose repair is `replace`); `replace` rewrites one existing entry in full — description, body and complete evidence — against the Knowledge Revision the caller read, on a valid and on an invalid entry alike, returns no previous body, and is refused when that revision is absent, wrong or stale. A blank addition is never refused: it is a proof-only append when it brings new evidence and a `no_change` otherwise; `no_change` has exactly two literal triggers, a blank addition or an addition already present as an exact suffix of the body, each with no new proof. `append` and `replace` re-emit the frontmatter from the parsed contract — name, description and evidence values preserved, formatting canonical — and preserve the historical body byte for byte as the read grammar parses it, which normalizes CRLF to LF. Every mode takes one catalogue lock for its whole critical section, so two writers cannot lose each other and the canonicalizer marker is never raced; readers take no lock. A refused operation is never a success: `unknown_entry` (there is nothing to rewrite) and `revision_conflict` (re-read, then retry) say which corrective action applies. The decomposition method served with the prompt states which mode applies: `create` for a new subject; `append` for a compatible addition, short and circumscribed, on an entry that still verifies; `replace` for an invalid entry, a claim the current code contradicts, a needed restructuring or an addition likely to contradict the existing body; and no entry at all when nothing durable qualifies or a doubt stays unresolved. It orders a restart from the current code rather than a re-read of an invalid body, and it claims no semantic consistency: the digest of a file proves unchanged bytes, and the MCP detects no natural-language contradiction.
+_Avoid_: Knowledge upsert, overwrite mode, knowledge merge
+
+
+**Native Knowledge CLI**:
+The deterministic `codetour knowledge` command family (spec #223, ADR 0039): `list` reports names, descriptions and Knowledge Revisions only, `read <name>` returns the entry's revision and a body only when every declared SHA-256 proof verifies — a refused entry reports its reason and its revision without a body — `hash <path>` prepares evidence, and `save` validates and persists a Knowledge Proposal in `create` (default), `append` or `replace` mode, the latter two conditioned on the Knowledge Revision the entry must still have. It resolves one explicit or current workspace, works offline in any project without a model, API key or network, and writes only Knowledge Entry files, never a Memory Function or a harness artefact.
+_Avoid_: Knowledge server, Knowledge agent, Memory Function runner
+
+**Knowledge MCP Surface**:
+The `knowledge_list`, `knowledge_read`, `knowledge_save` and `knowledge_close_run` tools the existing CodeTour MCP server exposes over the Knowledge Catalogue (spec #223, tickets #227 and #228). They reuse the same shared `codetour-knowledge` contract and catalogue location as the Native Knowledge CLI: listing is metadata only and carries the Knowledge Revision of every verified entry and of every invalid row, a read returns that revision at root level for both a valid and a refused entry plus a body only when every declared proof verifies, the catalogue projection served with the prompt carries the revision so a write mode needs no extra call, and a save publishes a whole Knowledge Proposal or reports an observable outcome (`created`, `appended`, `replaced`, `no_change`, `completed_zero`, `conflict`, `invalid`, `failed`), with an explicit mode (`create` by default, `append` of one addition and its merged evidence, or `replace` of one existing entry in full, the last two against the revision that was read). A `no_change` append writes nothing yet closes the run as `completed_zero`: the tool result and the Closure stay distinct for the agent and the measure. `knowledge_save` accepts an optional `runId` and persists the matching Consolidation Closure in the Run State; `knowledge_close_run` records an explicit `skipped` closure. A returned Markdown body is untrusted data, never system instructions.
+_Avoid_: Knowledge server, second MCP server
+
+**Native Knowledge Skill**:
+The `codetour-knowledge` Copilot skill written by `codetour --install copilot` at `~/.copilot/skills/codetour-knowledge/SKILL.md` (spec #223, ADR 0039). It is an instruction, not a program: pin one explicit workspace root, discover the Knowledge Catalogue by metadata, read only the selected entries and use only `status:"valid"` bodies as reference context, explore targeted gaps only when that context is insufficient, create the Tour through the CodeTour MCP's `create_project_tour`, and make one explicit consolidation assessment through `codetour knowledge save`. It never uses the Research Harness or a Memory Function, and the instruction alone does not guarantee that consolidation ran.
+_Avoid_: Knowledge agent, Knowledge harness, automatic consolidation
+
+**Agent Plugin**:
+The versioned Agent Plugins 1.0 directory `packages/copilot-plugin/` (spec #223, ticket #228, ADR 0041): a `plugin.json` manifest with the Agent Plugins 1.0 `$schema`, a root `mcp.json`, Copilot components under `com.github.copilot/`, and a minimal `skills/codetour-generate/SKILL.md`. The standalone CodeTour CLI embeds and installs it. It declares the existing `codetour mcp` server and the `agentStop` guard, not a second agent, model loop or MCP server.
+_Avoid_: extension bundle, marketplace plugin, second MCP server
+
+**Generation Run**:
+One generation started by `/codetour generate` or the controlled adapter's `codetour_prepare_generation` tool, identified by a `runId`. It is scoped to exactly one resolved workspace and one Copilot session, and it is the unit the Run State, the creation tools and the consolidation closure refer to. A run exists only after `prompts/get` succeeded; the preceding choice dialogue alone, or a direct MCP call without the adapter, is not a Generation Run.
+_Avoid_: session, task, generation attempt
+
+**Run State**:
+The atomic JSON file `<workspace>/.tours/.log/codetour-run-<runId>.json` (spec #223, ticket #228, ADR 0041). It records the run identity, workspace, session, Tour creation, the server-written Consolidation Closure and whether the single continuation was used; an optional `metrics` block records usage (ADR 0042) and an optional `knowledge` block records the Knowledge Observation (ADR 0045). The adapter creates it, the MCP updates the authenticated outcomes, and the agentStop guard reads it, toggles `continuationUsed` and records the usage snapshot. It contains no Tour or Knowledge content.
+_Avoid_: hook cache, agent memory, transcript
+
+**Run Usage Metrics**:
+The additive, optional `metrics` object of a Run State (spec #223, ADR 0042). The adapter writes the preparation facts only it knows (command start, served-prompt composition time, send stamp) and the Pre-Launch Report; the agentStop guard recomputes a snapshot from the Copilot session's own usage records at each stop: model, Copilot version, project state, CodeTour tool calls (successful results and refusals, joined start/completion by `toolCallId`), tokens and cache, with generation and consolidation windows split at the last successful Tour creation. Metrics are never an authenticated outcome, never feed the guard, and an unobservable snapshot is reported as `observed:false` instead of being omitted.
+_Avoid_: run telemetry claims, token report, cost accounting
+
+**Pre-Launch Report**:
+The integration display the adapter emits before serving a generation prompt, after any agent-driven choice dialogue (spec #223, ADR 0043): the running adapter file and its origin, the launcher the CLI resolves, the resolved workspace, the installed extension files, the installed plugin (version, cache path, MCP launcher and the build version beside the launcher script) and the user `mcp-config.json` declaration. One problem per hazard (missing plugin, missing launcher, launcher serving another build, a second `codetour` MCP server in the user config, duplicate extension directories) is reported at error level and never stops the run. The same facts are recorded in `metrics.integration`.
+_Avoid_: integration banner, doctor output, gate
+
+**Knowledge Observation**:
+The additive, optional `knowledge` object of a Run State (ADR 0045): what the run's own Knowledge discovery verified and what it actually read. `valid` is the union of verified names across the run's `knowledge_list` calls, `validTotal` the largest catalogue size observed, `complete` true only when one listing was untruncated, `invalid` the latest listing's failing entries with their reasons, and `used` the distinct entries whose body `knowledge_read` served (a refusal is not a use). The MCP server records it when a Knowledge call carries the run identity; it triggers no second scan and never feeds a guard decision, and its absence means "not measured", never "zero".
+_Avoid_: knowledge metrics, validation report, catalogue cache
+
+**Consolidation Closure**:
+The server-written verdict that closes one Generation Run in the Run State: `created`, `appended`, `replaced`, `completed_zero`, `failed` (with its `outcome`), `skipped`, or the reserved `partial`. `created` and `changed` accumulate by union the names the run's save calls actually published and modified — appended to or rewritten — distinct from each other, and the status follows a fixed precedence (`created` above `appended` and `replaced`, both above `completed_zero`, with the `appended`/`replaced` tie broken by `replaced`) so it never depends on the order of the calls. `completed_zero` is an explicit assessment with nothing to persist, not an omission; a refused write is never counted as a success; a run with no closure is incomplete and is the only case the agentStop hook may ask to close once.
+_Avoid_: consolidation summary, agent claim, omitted Knowledge
+
+**AgentStop Guard**:
+The deterministic Copilot `agentStop` hook of the Agent Plugin (spec #223, ticket #228, ADR 0041). It is inert for ordinary conversations, other sessions or workspaces, `stop_hook_active`, a run without a created Tour, any Consolidation Closure, and any storage failure. For one incomplete Generation Run it returns at most one `{decision:"block"}` asking for `knowledge_save` or `knowledge_close_run`, after marking `continuationUsed`. Independently of the decision it records the Run Usage Metrics snapshot for every run of this session (ADR 0042). It never calls a model and never creates Tour or Knowledge content.
+_Avoid_: auto-consolidation, retry loop, second agent
+
+**Research Run**:
+One execution of the Research Harness on a Research Question. It may use Memory Entries but never creates one.
+_Avoid_: Tour (reserved for the guided explanation), research Tour
+
+**Consolidation Run**:
+The step that follows a validated Research Run and decides, for each reusable finding, whether to persist a Memory Function, a Memory Method, or nothing.
+_Avoid_: Consolidation Tour, learning pass
+
+**Observation Masking**:
+Replacing older tool results in the history sent to the model with a one-line stub, so context stops growing with every call. Distinct from a summary or a truncation of a single result.
+_Avoid_: Context pruning, history compaction

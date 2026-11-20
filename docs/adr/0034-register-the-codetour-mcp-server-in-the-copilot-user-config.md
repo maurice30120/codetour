@@ -1,5 +1,11 @@
 # Register the CodeTour MCP server in the Copilot user config
 
+> **Superseded in part by ADR 0041 (spec #223, ticket #228).** The user-level
+> `~/.copilot/mcp-config.json` registration described here is replaced by the
+> CodeTour Agent Plugins 1.0 plugin, whose root `mcp.json` declares the same
+> server. `codetour --install copilot` now removes the legacy entry this CLI
+> wrote and preserves a foreign same-named entry.
+
 The Copilot adapter needs the two creation tools (`create_project_tour`,
 `create_changes_tour`) in the session's tool catalog, and until this decision
 the only registration came from the extension itself: the adapter joins the

@@ -1,0 +1,342 @@
+{
+  "budget": {
+    "iterations": 8,
+    "calls": 32,
+    "tokens": 32000,
+    "durationMs": 60000
+  },
+  "model": "mistral-small-latest",
+  "runs": [
+    {
+      "mode": "off",
+      "run": 1,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat et citer les lignes pertinentes.",
+        "entryPoints": [
+          {
+            "name": "src/math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "src/order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "src/catalog.js",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 10
+              }
+            ]
+          },
+          {
+            "name": "src/api.js",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "name": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "createOrder (order.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          },
+          {
+            "name": "Catalog (catalog.js)",
+            "evidence": [
+              {
+                "file": "src/catalog.js",
+                "startLine": 1,
+                "endLine": 10
+              }
+            ]
+          },
+          {
+            "name": "postOrder (api.js)",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 1,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "postOrder (api.js)",
+            "to": "createOrder (order.js)",
+            "evidence": [
+              {
+                "file": "src/api.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "createOrder (order.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          },
+          {
+            "from": "createOrder (order.js)",
+            "to": "Catalog (catalog.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 4,
+                "endLine": 4
+              }
+            ]
+          },
+          {
+            "from": "Catalog (catalog.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 5592,
+          "outputTokens": 781,
+          "usageAvailable": true,
+          "modelCalls": 7,
+          "toolCalls": 6,
+          "durationMs": 6716,
+          "outputBytes": 1436,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "mode": "off",
+      "run": 2,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat et citer les lignes pertinentes.",
+        "entryPoints": [],
+        "components": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder (order.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 3422,
+          "outputTokens": 275,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 3294,
+          "outputBytes": 774,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "mode": "on",
+      "run": 1,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat et citer les lignes pertinentes.",
+        "entryPoints": [],
+        "components": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder (order.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 4732,
+          "outputTokens": 275,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 3240,
+          "outputBytes": 774,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    },
+    {
+      "mode": "on",
+      "run": 2,
+      "result": {
+        "objective": "Comprendre comment la fonction totalPrice calcule son résultat et citer les lignes pertinentes.",
+        "entryPoints": [],
+        "components": [
+          {
+            "name": "math.js",
+            "evidence": [
+              {
+                "file": "src/math.js",
+                "startLine": 1,
+                "endLine": 3
+              }
+            ]
+          },
+          {
+            "name": "order.js",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 6
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "from": "createOrder (order.js)",
+            "to": "totalPrice (math.js)",
+            "evidence": [
+              {
+                "file": "src/order.js",
+                "startLine": 1,
+                "endLine": 1
+              },
+              {
+                "file": "src/order.js",
+                "startLine": 5,
+                "endLine": 5
+              }
+            ]
+          }
+        ],
+        "uncertainties": [],
+        "status": "complete",
+        "stopReason": null,
+        "metrics": {
+          "inputTokens": 4732,
+          "outputTokens": 298,
+          "usageAvailable": true,
+          "modelCalls": 5,
+          "toolCalls": 4,
+          "durationMs": 3351,
+          "outputBytes": 774,
+          "cost": null,
+          "memoryReuses": 0,
+          "memoryPurges": 0
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "function": [
+    {"id":"calculation","file":"src/math.js","startLine":1,"endLine":2}
+  ],
+  "class": [
+    {"id":"dependencies","file":"src/catalog.js","startLine":2,"endLine":4},
+    {"id":"uses","file":"src/catalog.js","startLine":7,"endLine":9}
+  ],
+  "flow": [
+    {"id":"entry","file":"src/api.js","startLine":3,"endLine":4},
+    {"id":"order","file":"src/order.js","startLine":3,"endLine":5},
+    {"id":"calculation","file":"src/math.js","startLine":1,"endLine":2}
+  ]
+}

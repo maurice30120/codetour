@@ -1,0 +1,9 @@
+{
+  "context": {
+    "keepToolResults": 2,
+    "maxResultBytes": 3000
+  },
+  "limits": {
+    "memorySynthesisAttempts": 2
+  }
+}

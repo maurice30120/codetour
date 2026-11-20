@@ -12,26 +12,36 @@ import { discoverToursFromRoot, visibleTours } from "../core/tourDiscovery";
 import { renderDescription } from "codetour-description-renderer";
 import { runMcpCli } from "codetour-mcp";
 import { createStandaloneTourHtml } from "./html";
-import { doctor, findAgentIntegration, listAgents, agentIds } from "./agentIntegrations";
+import { doctor, installAgents, listAgents, uninstallAgents, agentIds } from "./agentIntegrations";
 import { resolveReadonlyStepContext } from "./stepContext";
 import { readTourImages } from "./stepImages";
-import { launchTerminalReader } from "./terminalLauncher";
 import { runTerminalTour } from "./terminal";
+import { runInternalOpenVsCode } from "./internalOpenVscode";
+import { openTourInVsCode } from "./openInVscode";
+import { defaultTerminalSession, handOffTtyToTourReader, HANDOFF_FLAG } from "./ttyHandoff";
 import { resolveTourSelection } from "./tourResolution";
-import { fileURLToPath } from "node:url";
+import { isKnowledgeInvocation, registerKnowledgeCommand, reportKnowledgeUsageError } from "./knowledge";
 
-const USAGE = "Usage: codetour [tour] [--renderer html|terminal]";
+const USAGE = "Usage: codetour [tour] [--renderer terminal|html|vscode]";
+
+// The experimental TTY handoff flag (spike, ticket #243): variadic so the
+// optional workspace root can follow the Tour file. The flag itself is
+// spelled once, in the shared constant (review S2); this option spec only
+// adds the value shape.
+const HANDOFF_OPTION = HANDOFF_FLAG + " [paths...]";
 
 interface Options {
   renderer?: string;
-  install?: string;
-  uninstall?: string;
+  install?: string | boolean;
+  uninstall?: string | boolean;
   agents: boolean;
   doctor: boolean;
   internalListTours: boolean;
   internalResolveTour?: string | boolean;
   internalTourId?: string;
-  internalTour?: string[]; }
+  internalTour?: string[];
+  internalOpenVscode?: string[];
+  experimentalTtyHandoff?: string[]; }
 
 function buildProgram(): Command {
   const command = new Command()
@@ -40,15 +50,27 @@ function buildProgram(): Command {
     .allowExcessArguments(false)
     .description("Read guided Tours of a codebase, and generate them with AI agents.")
     .argument("[title]", "Tour title or Tour file name")
-    .option("--renderer <type>", "open the Tour as terminal (default) or html")
-    .option("--install <agent>", "install an agent integration: " + agentIds())
-    .option("--uninstall <agent>", "remove an agent integration installed by this CLI")
+    .option("--renderer <type>", "open the Tour as terminal (default), html, or vscode")
+    .option(
+      "--install [agent]",
+      "install an agent integration: " + agentIds() + "; with no value or 'all', every compatible agent"
+    )
+    .option(
+      "--uninstall [agent]",
+      "remove an agent integration installed by this CLI; with no value or 'all', every installed agent"
+    )
     .option("--agents", "list every agent integration and its state")
     .option("--doctor", "diagnose this CLI and every agent integration")
     .option("--internal-list-tours", "print the discoverable Tours as JSON")
     .option("--internal-resolve-tour [title]", "resolve a Tour by title or file name and print its identity as JSON")
     .option("--internal-tour-id <id>", "open the Tour with this discovered identity")
     .option("--internal-tour <args...>", "internal: run the terminal reader on a Tour file")
+    .option("--internal-open-vscode <args...>", "internal: open a Tour file in VS Code at the active step")
+    .option(
+      HANDOFF_OPTION,
+      "experimental: hand this terminal's control to the Tour reader, " +
+        "then return it to the agent session (prototype, ticket #243)"
+    )
     .action(async (title: string | undefined, options: Options) => runWithOptions(options, title))
     .exitOverride()
     // The mapped messages in toCliError are the CLI's error contract; the
@@ -66,6 +88,9 @@ function buildProgram(): Command {
       const exitCode = await runMcpCli(args);
       if (exitCode !== 0) process.exit(exitCode);
     });
+  // The native Knowledge family is deterministic and works outside Git: its
+  // positional subcommands never reach the Tour reader.
+  registerKnowledgeCommand(command);
   return command;
 }
 
@@ -176,7 +201,46 @@ async function openFileInBrowser(file: string): Promise<void> {
   });
 }
 
+// `--install` without a value is `true`: it means "every compatible agent",
+// exactly like the explicit `all`.
+function agentId(value: string | boolean): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return value === "all" ? undefined : value;
+}
+
 async function runWithOptions(options: Options, title: string | undefined): Promise<void> {
+  // The experimental TTY handoff (spike, ticket #243) runs before everything
+  // else and never reaches the standard reading path: the session's terminal
+  // is lent to the full terminal reader, then returned to the session.
+  if (options.experimentalTtyHandoff) {
+    // Commander maps a variadic option without a value to `true`: treating
+    // the bare flag as the argument list crashed with
+    // `TypeError: boolean true is not iterable` before the Tour was ever
+    // read (review F1). The flag is never propagated to the spawned reader
+    // (`ttyHandoff.ts`), so this guard only receives that bare form.
+    if (!Array.isArray(options.experimentalTtyHandoff)) {
+      throw new Error("The experimental TTY handoff requires a Tour file path.");
+    }
+    const [handoffTour, handoffRoot] = options.experimentalTtyHandoff;
+    if (!handoffTour) {
+      throw new Error("The experimental TTY handoff requires a Tour file path.");
+    }
+    console.log("CodeTour (experimental): handing this terminal's control to the Tour reader;");
+    console.log("CodeTour (experimental): leave the Tour to return control to your session.");
+    const handoff = await handOffTtyToTourReader(
+      { tourPath: handoffTour, workspaceRoot: handoffRoot },
+      { session: defaultTerminalSession() }
+    );
+    if (handoff.reason) console.error("CodeTour (experimental): " + handoff.reason);
+    if (handoff.handedOff) {
+      console.log("CodeTour (experimental): terminal returned to the session.");
+    }
+    if (handoff.interrupted || (handoff.spawned && handoff.exitCode !== 0)) {
+      process.exitCode = handoff.exitCode ?? 1;
+    }
+    return;
+  }
+
   // Agent integrations run before Tour discovery: an installation is a
   // machine-level action, valid outside any Git worktree.
   if (options.agents) {
@@ -188,11 +252,13 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
     return;
   }
   if (options.install) {
-    await findAgentIntegration(options.install).install();
+    const report = await installAgents(agentId(options.install));
+    if (report.failed) process.exitCode = 1;
     return;
   }
   if (options.uninstall) {
-    await findAgentIntegration(options.uninstall).uninstall();
+    const report = await uninstallAgents(agentId(options.uninstall));
+    if (report.failed) process.exitCode = 1;
     return;
   }
 
@@ -208,10 +274,16 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
     return;
   }
 
+  if (options.internalOpenVscode) {
+    await runInternalOpenVsCode(options.internalOpenVscode);
+    return;
+  }
+
   // The renderer is validated before Git worktree detection, exactly as the
   // previous hand-rolled parser did: a bad renderer fails anywhere.
-  if (options.renderer !== undefined && options.renderer !== "html" && options.renderer !== "terminal") {
-    throw new Error("Unknown renderer '" + options.renderer + "'. Use html or terminal.");
+  const renderer = options.renderer ?? "terminal";
+  if (renderer !== "terminal" && renderer !== "html" && renderer !== "vscode") {
+    throw new Error("Unknown renderer '" + renderer + "'. Use terminal, html, or vscode.");
   }
 
   const root = repositoryRoot(process.cwd());
@@ -239,11 +311,16 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
   }
   const tour = selected ?? await pickTour(tours, title);
 
-  // The terminal reader is the default: only an explicit --renderer html
-  // opens the browser page.
-  if (options.renderer !== "html") {
-    await launchTerminalReader(fileURLToPath(tour.id), root);
-    console.log("CodeTour: opened independent terminal reader for " + tour.title);
+  // The terminal reader is the default and reads in the caller's own
+  // terminal: the agent's terminal is the Playback Surface, never an
+  // independent terminal window (ticket #241). Only an explicit
+  // --renderer html opens the browser page.
+  if (renderer === "vscode") {
+    await openTourInVsCode({ tourId: tour.id, workspaceRoot: root, step: 0 });
+    return;
+  }
+  if (renderer === "terminal") {
+    await runTerminalTour(tour, root);
     return;
   }
 
@@ -274,6 +351,15 @@ async function main(): Promise<void> {
     await command.parseAsync(process.argv, { from: "node" });
   } catch (error) {
     if ((error as CommanderError).code === "commander.helpDisplayed") return;
+    // A command with subcommands but no action prints its help and raises
+    // `commander.help`: that is an informational success, not a JSON result.
+    if ((error as CommanderError).code === "commander.help") return;
+    // The Knowledge family keeps one JSON object on stdout and its documented
+    // usage status, including for commander's own parse diagnostics.
+    if (isKnowledgeInvocation(process.argv)) {
+      reportKnowledgeUsageError(error);
+      return;
+    }
     throw toCliError(error as CommanderError);
   }
 }

@@ -1,0 +1,100 @@
+{
+  "spec": 174,
+  "verdict": "NO-GO",
+  "success": false,
+  "phase": "pilot",
+  "started_at": "2026-11-15T22:07:23.921Z",
+  "pilot": {
+    "success": false,
+    "results": [
+      {
+        "runId": "c0315f66-5b52-47fa-98a6-c77d6776dce2",
+        "questionId": "PILOT-pg-config",
+        "agent": "codetour",
+        "series": "R",
+        "totalTokens": {
+          "input": 1737,
+          "output": 94,
+          "total": 1831
+        },
+        "status": "success"
+      },
+      {
+        "runId": "0ad00b59-2857-4986-a6bd-977bf846f84a",
+        "questionId": "PILOT-pg-config",
+        "agent": "vibe-native",
+        "series": "R",
+        "totalTokens": {
+          "input": 37793,
+          "output": 1721,
+          "total": 39514
+        },
+        "status": "success"
+      },
+      {
+        "runId": "50dfeb1a-8018-4696-9d0c-19bfd84bd49f",
+        "questionId": "PILOT-control-data",
+        "agent": "codetour",
+        "series": "R",
+        "totalTokens": {
+          "input": 35027,
+          "output": 679,
+          "total": 35706
+        },
+        "status": "error",
+        "error": "Partial exploration (stopReason: tokens)"
+      },
+      {
+        "runId": "84ff575e-9536-4f4f-a87d-ee97668ce7c5",
+        "questionId": "PILOT-control-data",
+        "agent": "vibe-native",
+        "series": "R",
+        "totalTokens": {
+          "input": 58815,
+          "output": 1536,
+          "total": 60351
+        },
+        "status": "success"
+      }
+    ],
+    "errors": [
+      "Partial exploration (stopReason: tokens)",
+      "Pilot evidence is incomplete."
+    ],
+    "noGoChecks": [
+      {
+        "passed": true,
+        "errors": []
+      },
+      {
+        "passed": true,
+        "errors": []
+      },
+      {
+        "passed": true,
+        "errors": []
+      },
+      {
+        "passed": true,
+        "errors": []
+      },
+      {
+        "passed": true,
+        "errors": []
+      },
+      {
+        "passed": true,
+        "errors": []
+      },
+      {
+        "passed": true,
+        "errors": []
+      },
+      {
+        "passed": true,
+        "errors": []
+      }
+    ],
+    "manifestFrozen": false
+  }
+}

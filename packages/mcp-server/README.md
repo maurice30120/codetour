@@ -6,13 +6,18 @@ The agent analyzes the code and writes the explanations; the server validates
 the proposal, applies the Git and security rules, and atomically replaces the
 reserved tour file.
 
-Two specialized tools are exposed:
+Two specialized Tour creation tools are exposed, next to the four Knowledge
+tools of spec #223:
 
 - `create_project_tour` — a **Project Tour** that explains a codebase as a
   whole, written to `.tours/project.tour`.
 - `create_changes_tour` — a **Changes Tour** that explains the committed
   changes on a branch since it diverged from a base ref, written to
   `.tours/changes.tour`.
+- `knowledge_list`, `knowledge_read`, `knowledge_save`,
+  `knowledge_close_run` — discovery, verified reading, deterministic
+  consolidation and an explicit skip closure over the workspace Knowledge
+  catalogue under `.tours/.memory/knowledge/`.
 
 Both outputs are compatible with the general CodeTour schema, within a
 deliberately stricter V1 subset: explanatory Markdown and workspace-internal
@@ -32,11 +37,14 @@ the same contract. Validation is local and offline.
 
 ## Quick start
 
-From the repository root, install the shared renderer first, then the MCP
-server dependencies, and verify both packages:
+From the repository root, build the two shared packages first, then install
+the MCP server dependencies and verify the package:
 
 ```bash
 cd packages/description-renderer
+npm install
+npm run build
+cd ../knowledge
 npm install
 npm run build
 cd ../mcp-server
@@ -90,7 +98,8 @@ for the packaged-launcher client configuration shape.
 
 Finally, configure your MCP client with the command and its working directory,
 as in the example below. Once connected, the client automatically discovers
-`create_project_tour` and `create_changes_tour`.
+`create_project_tour`, `create_changes_tour`, `knowledge_list`,
+`knowledge_read`, `knowledge_save` and `knowledge_close_run`.
 
 ## MCP client configuration
 
@@ -231,10 +240,14 @@ A committed-only Changes Tour is reproducible: the resolved merge-base SHA is
 persisted in `baseRef` and the analyzed head SHA in `ref`. File steps are
 automatically marked with `display: "diff"` so VS Code opens the Git diff
 between the two commits; added files have an empty left side, and renamed files
-record the original path in `baseFile`. Deleted files must be explained by
-steps without a locator. When `includeUncommittedChanges: true` actually
-includes local changes, anchors are checked against the current workspace, the
-tour has no `ref`, and file steps open the current files.
+record the original path in `baseFile`. At least one step must anchor a file
+that the comparison modified and that still exists in the analyzed snapshot;
+the server rejects a proposal without one (`MISSING_CHANGED_FILE_ANCHOR`).
+Deleted files must be explained by steps without a locator, and a
+deletion-only branch is exempt because it has no anchorable changed file.
+When `includeUncommittedChanges: true` actually includes local changes,
+anchors are checked against the current workspace, the tour has no `ref`, and
+file steps open the current files.
 
 ### Steps
 
@@ -245,7 +258,7 @@ tour has no `ref`, and file steps open the current files.
 | `file`        | string | Workspace-relative path; at most one of `file`/`directory` per step.         |
 | `directory`   | string | Workspace-relative path; use for structural overview steps and at most one of `file`/`directory` per step. |
 | `line`        | number | 1-based line; only valid with `file`, mutually exclusive with `pattern`.     |
-| `pattern`     | string | Regular expression matching exactly one occurrence; only valid with `file`.  |
+| `pattern`     | string | Regular expression matching exactly one occurrence; only valid with `file`. Prefer a short literal substring copied from the file, escaping regex metacharacters when present. |
 | `selection`   | object | `{ start: {line, character}, end: {line, character} }`, 1-based; only valid with `file`. |
 | `baseFile`    | string | Workspace-relative path of the file at `baseRef` when it was renamed; `file` is the path at `ref`. Requires `file`. |
 | `display`     | string | `"diff"`: open the Git diff between `baseRef` and `ref`. Requires `file`. |
@@ -278,6 +291,161 @@ fence index, and failing field. Every issue also reports the fence's starting
 line and column. All descriptions are checked in one call, and no Tour file is
 written when any diagram or ordinary Tour validation fails.
 
+### Knowledge tools
+
+The server exposes the same Knowledge contract as the native
+`codetour knowledge` CLI, from the shared `codetour-knowledge` package: no
+format, hash or conflict rule is reimplemented here. The catalogue is the
+fixed location `<workspace>/.tours/.memory/knowledge/`; all four tools accept
+the optional `workspacePath` (a directory relative to the configured workspace
+root, resolved with the same confinement as the Tour tools) and always stay
+inside the workspace.
+
+#### `knowledge_list`
+
+| Argument        | Type   | Required | Description                                                      |
+| --------------- | ------ | -------- | ----------------------------------------------------------------- |
+| `workspacePath` | string | no       | Directory relative to the configured workspace root.              |
+| `query`         | string | no       | Literal, case-insensitive substring of a name or description.     |
+| `limit`         | number | no       | Page size, 1–200; defaults to 50.                                 |
+| `offset`        | number | no       | Number of matching entries to skip; defaults to 0.                |
+
+Returns metadata only — `entries: [{name, description, revision}]` — never a
+body, evidence, a cited path or a hash. `revision` is the entry file's Knowledge
+Revision, an opaque token that stays identical while the file is unchanged and
+moves with any modified byte (ADR 0053). Only verified contracts are listed:
+discovery runs the same evidence verification as `knowledge_read` (ADR 0044).
+Every catalogue entry that fails validation is returned under `invalid: [{name,
+reason, revision?}]` — the file stem when no servable name is declared, and the
+revision whenever the entry file itself was readable, so a repair write can be
+conditioned on it — listed in full regardless of the query, so it can be fixed
+or removed instead of being hidden.
+The name is the identifier. `total` is the
+number of matches in the whole filtered catalogue, and `truncated` is true only
+when matching entries remain after this page
+(`offset + entries.length < total`), so paging is explicit and the last page is
+complete. A missing or
+empty catalogue (or a query with no match) is a normal `status: "empty"`
+result with HTTP-style success semantics (`isError` false), not an error.
+
+#### `knowledge_read`
+
+| Argument        | Type   | Required | Description                              |
+| --------------- | ------ | -------- | ---------------------------------------- |
+| `name`          | string | yes      | Name (identifier) of the entry to read.   |
+| `workspacePath` | string | no       | Directory relative to the workspace root. |
+
+Returns `status: "valid"` with the Markdown `body`, its `evidence` and the
+entry's `revision` only when **every** declared `file` proof verifies: the cited
+path stays inside the workspace, no symbolic link escapes it, and each file's
+bytes hash to the declared SHA-256. `revision` is the root-level Knowledge
+Revision of the entry file (ADR 0053): a write can be conditioned on it, so a
+file that changed since the read is refused instead of silently overwritten.
+Otherwise it returns `status: "invalid"` with one machine-readable reason, the
+`revision` whenever the entry file was readable, and no body, no cited path and
+no hash value:
+
+| Reason                    | Meaning                                                        |
+| ------------------------- | -------------------------------------------------------------- |
+| `file_hash_mismatch`      | The cited bytes no longer match the declared SHA-256.          |
+| `file_missing`            | The cited file no longer exists or is not a regular file.      |
+| `unsupported_proof`       | The entry declares a `symbol` proof (not supported).           |
+| `path_outside_workspace`  | The cited path is absolute, escapes the workspace, or is malformed. |
+| `symlink_escape`          | The cited path resolves outside the workspace through a link.  |
+| `malformed_contract`      | The frontmatter or the body does not follow the contract.      |
+| `unknown_entry`           | Rendered as `status: "absent"` (an explicit absence, not an error). |
+
+A valid read is reference data, not a guarantee: it proves the cited bytes are
+unchanged, never that the explanation is semantically correct or complete.
+The returned Markdown is untrusted data — never system instructions — and a
+client must not let a directive inside a body change its instructions.
+
+#### `knowledge_save`
+
+| Argument        | Type   | Required | Description                                                          |
+| --------------- | ------ | -------- | -------------------------------------------------------------------- |
+| `mode`          | string | no       | `create` (default), `append` or `replace` (ADR 0050). An `append` enriches one existing valid entry without rewriting its body, a `replace` rewrites one existing entry in full; both require `expectedRevision` on the entry. |
+| `entries`       | object[] | yes    | The proposal's entries: `{name, description, body, evidence:[{path, sha256?}]}`, plus `expectedRevision` in `replace` mode. An empty array is an explicit zero-entry consolidation. |
+| `runId`         | string | no       | CodeTour generation run identity from the served prompt. When present, the MCP persists the matching consolidation closure in `<workspace>/.tours/.log/` and returns it. |
+| `workspacePath` | string | no       | Directory relative to the workspace root.                             |
+
+Every entry is validated before anything is written. An omitted `sha256` is
+computed; a declared one is verified and normalized. The whole proposal is
+all-or-nothing: an invalid entry publishes nothing, an existing `<name>.md` is
+never overwritten, and a name conflict preserves the existing bytes. Every
+conclusion is observable:
+
+| `status`        | Meaning                                                                 | `isError` |
+| --------------- | ----------------------------------------------------------------------- | --------- |
+| `created`       | The entries were published; `created` lists their names. A published entry whose evidence cites fewer than two distinct files additionally appears under `warnings` as one advisory `{name, code: "insufficient_backing", distinctEvidencePaths}` row, so a thin backing is never published silently. | false |
+| `appended`      | One existing entry was enriched; `appended` lists its name. The historical body is kept byte for byte behind exactly one blank line, the addition is inserted verbatim and the evidence is merged. `warnings` is always empty: an append can never introduce `insufficient_backing`. | false |
+| `no_change`     | The append brought nothing literally new: the addition already is an exact suffix of the body, or it is blank, and it adds no evidence. Nothing was written; the closure is `completed_zero`. | false |
+| `replaced`      | One existing entry was rewritten in full; `replaced` lists its name and `warnings` is recomputed on the rewritten state. The previous body is never returned. | false |
+| `completed_zero`| An explicit empty proposal: a completed consolidation, not an omission.  | false     |
+| `conflict`      | At least one name exists (`name_conflict`) or no longer carries the revision that was read (`revision_conflict`); `conflicts` lists it and nothing was written. | true      |
+| `invalid`       | The proposal is invalid; `rejected` lists `{name?, reason}`; nothing was written. | true |
+| `failed`        | Unexpected failure; `reason` is `internal_error`; nothing was claimed.   | true      |
+
+With `mode: "replace"` the entries array holds exactly one entry carrying
+`expectedRevision`, the Knowledge Revision that was read: the whole entry —
+description, body and evidence — is rewritten from the current code, on a valid
+and on an invalid entry alike, every new proof is verified, and `unknown_entry`
+refuses a name that does not exist because a rewrite is not an upsert.
+
+With `mode: "append"` the entries array holds exactly one entry
+`{name, addition, evidence?, expectedRevision}`: the addition is inserted verbatim
+after the historical body behind exactly one blank line, the description is never
+re-declared, and the evidence is merged, deduplicated by `(type, path, symbol)` —
+a `file` and a `symbol` proof may therefore cite the same file, while a divergent
+digest on the same key is refused rather than corrected. Every historical proof is
+re-verified: an entry that no longer holds is `stale_evidence`, oriented to
+`replace`, and the file is untouched. A blank addition is not refused: it is a
+proof-only append when it brings new evidence and `no_change` otherwise.
+
+`append` and `replace` re-emit the frontmatter from the parsed contract — the
+name, the description and the evidence values are preserved while the formatting
+is canonical — and preserve the historical body byte for byte as the read grammar
+parses it, which normalizes CRLF to LF.
+
+An `append` or `replace` of several entries is refused with reason
+`mode_requires_single_entry` and an unrecognized mode with `unknown_mode`: one call
+form, one operation. `origin`
+is never an accepted input: only the engine records that a file proof
+substitutes a symbol proof it could not resolve, and a rewrite carries that trace
+verbatim onto the identical `(type, path, sha256)` proof only.
+
+A save result never echoes a body, a cited path or a hash value, and it is the
+only evidence that persistence happened: “no file was created” must not be
+reported as success, and it is not automatically a forgotten consolidation
+when the agent explicitly proposed zero entries. With a `runId`, the result
+also carries `consolidation: {status, runId, at, …}` and
+`consolidationPersisted`; `status` is `created`, `appended`, `replaced`,
+`completed_zero`, `partial` or `failed` (with an `outcome` of `conflict`,
+`invalid` or `internal_error`). `created` and `changed` accumulate the names
+the run's save calls really published and modified, distinct from each other,
+and the status follows a fixed precedence (`created` above `appended` and
+`replaced`, both above `completed_zero`, with the `appended`/`replaced` tie broken
+by `replaced`) so it never depends on the order of the calls. A `no_change` append
+closes the run as `completed_zero` while the tool result stays `no_change`: a
+completed consolidation that wrote nothing is not an omission.
+`partial` means the run made several save calls and at least one published
+entries while another was refused or failed: the closure keeps the published
+names and the refusal outcome instead of claiming a plain success.
+
+#### `knowledge_close_run`
+
+| Argument        | Type   | Required | Description                                                          |
+| --------------- | ------ | -------- | -------------------------------------------------------------------- |
+| `runId`         | string | yes      | CodeTour generation run identity from the served prompt.             |
+| `reason`        | string | no       | Why the consolidation assessment was deliberately skipped.           |
+| `workspacePath` | string | no       | Directory relative to the workspace root.                             |
+
+It records an explicit `skipped` consolidation closure for the run and returns
+`{status:"skipped", runId, consolidation: {status:"skipped", runId, at}}`.
+`skipped` is a closed run, distinct from an omission (no closure at all). The
+tool never creates Knowledge and cannot claim `created`; it exists so a run
+that deliberately cannot be assessed is not left open for the agentStop guard.
+
 ### Result
 
 Each successful tool call returns a human-readable message and a structure:
@@ -297,6 +465,8 @@ of these codes:
 | `STALE_HEAD`               | `headRef` does not match the current `HEAD`.                      |
 | `INVALID_BASE_REF`         | The merge-base between `baseRef` and `headRef` cannot be computed. |
 | `NO_CHANGES`               | No committed changes between the merge-base and `headRef`; the previous tour file is preserved. |
+| `MISSING_CHANGED_FILE_ANCHOR` | At least one changed file still exists in the analyzed snapshot, but no step anchors it with `file` plus `line` or `pattern`; deletion-only changes are exempt. The previous tour file is preserved. |
+| `INVALID_RUN_ID`           | The supplied `runId` is not a valid CodeTour generation identity (8–64 characters from `A-Z`, `a-z`, `0-9`, `_` and `-`). |
 | `SCHEMA_VALIDATION_FAILED` | Internal: the generated tour did not validate against the CodeTour schema. |
 | `OUTPUT_PATH_ESCAPES_WORKSPACE` | The output directory resolves outside the workspace root. |
 | `INTERNAL_ERROR`            | Unexpected server failure; reported as a result, never as a protocol error. |
@@ -306,9 +476,100 @@ Non-blocking warnings:
 | Code                            | Meaning                                                                  |
 | ------------------------------- | ------------------------------------------------------------------------ |
 | `STEP_LIMIT_EXCEEDED`           | The tour has more than fifteen steps.                                    |
-| `NO_CHANGED_FILE_ANCHOR`        | No step anchors a file modified by the changes.                          |
 | `UNCOMMITTED_CHANGES_EXCLUDED`  | Staged, unstaged or untracked changes were excluded (default).           |
 | `UNCOMMITTED_CHANGES_INCLUDED`  | Uncommitted changes were included; the tour describes a non-reproducible local state. |
+
+## Generation prompts (`prompts/get`)
+
+The server exposes two MCP prompts, which are the supported way to start a
+generation run:
+
+| Prompt                   | Arguments                        | Composes                                                    |
+| ------------------------ | -------------------------------- | ----------------------------------------------------------- |
+| `generate_project_tour`  | `request?`, `brief?`, `runId?`   | the Project Tour instructions, the user's actual demand, the run identity, the Knowledge catalogue projection and the decomposition method. |
+| `generate_changes_tour`  | `reviewMode`, `request?`, `brief?`, `runId?` | the Changes Tour instructions for the mode, the user's actual demand, the orientation and the run identity. |
+
+Hosts that do not expose `prompts/get` to the agent serve the same text through
+the `get_generation_prompt` tool (`type: "project" | "changes"`, plus the same
+optional arguments). Its `runId` is optional and normally absent: when absent,
+the returned prompt states that the identity is optional and that it must be
+omitted, never sent as an empty string.
+
+`request` is the user's actual demand reproduced **verbatim**: the controlled
+adapter strips the `/codetour`, `generate`, type and review-mode prefix and
+passes only the words the user wrote, for both Tour types, and omits the
+argument when the user gave no demand. `brief` remains the optional
+orientation phrase (backward compatibility for adapters that predate
+`request`): it orients the Tour and its language remains the Tour's language,
+so an adapter that only used `brief` keeps working unchanged. `runId` is the
+controlled adapter's generation identity; when present the prompt states it
+and tells the agent to pass it to `create_project_tour` and `knowledge_save`
+(or `knowledge_close_run`), which is what lets the MCP persist the
+server-written run trace. When no identity is supplied — the normal case for
+an agent calling `get_generation_prompt` directly — the prompt states that
+`runId` is optional, that it must be omitted rather than sent empty, and that
+consolidation closes through `knowledge_save` with an empty `entries` array.
+
+For `generate_changes_tour`, the composed message is, in this order: the
+Changes Tour instructions for the mode (including the embedded review
+instructions in `critical`), the user's actual demand, the optional
+orientation clause, then the run identity section.
+
+For `generate_project_tour`, the composed message is, in this order:
+
+1. the instructions also served by the fixed resource
+   `codetour://generate/project-tour` — the existing Project Tour contract,
+   including the creation call and the announcement step;
+2. the optional orientation clause (`brief`);
+3. the user's original request, intact, with its language;
+4. the **run identity** section: the identity when `runId` is present, or an
+   explicit optional-identity notice telling the agent to omit it otherwise;
+5. a **Knowledge catalogue projection**: up to 30 entries as name and
+   one-line description, never a body. A larger catalogue is truncated with an
+   explicit “Showing 30 of N entries” line and the instruction to call
+   `knowledge_list` with `query`, `offset` and `limit`, then `knowledge_read`.
+   An absent or empty catalogue is stated as normal. There is no vector index,
+   BM25 or additional model;
+6. the **decomposition method**, after the catalogue: decompose the request
+   into atomic questions, use only `status: "valid"` Knowledge as reference
+   context, read targetedly, explore gaps only when the Knowledge is
+   insufficient, create the Tour with `create_project_tour` (passing `runId`),
+   then close consolidation explicitly with `knowledge_save` (zero, one or many
+   entries, passing `runId`) or `knowledge_close_run` for a deliberate skip.
+   The method also states which mode applies, in the contract's own names:
+   `create` for a subject the catalogue does not have; `append` for a short,
+   circumscribed addition to an entry that still verifies; `replace`, carrying
+   that entry's revision, for an invalid entry, a claim the current code
+   contradicts, a needed restructuring or an addition likely to contradict the
+   existing body; and neither when nothing durable qualifies or a doubt stays
+   unresolved, never a fabricated entry. A replacement restarts from the
+   current code and never from a re-read of an invalid body, and the method
+   claims no semantic consistency: a SHA-256 fingerprint proves unchanged
+   bytes, never the truth of the text, and the MCP detects no natural-language
+   contradiction. The agent reports `created`, `appended`, `replaced`,
+   `no_change`, `completed_zero`, `conflict`, `invalid`, `failed` or
+   `skipped`.
+
+The MCP run log lives at `<workspace>/.tours/.log/codetour-run-<runId>.json`.
+`create_*_tour` records `tourCreated`; `knowledge_save`/`knowledge_close_run`
+record the closure. The Copilot plugin's `agentStop` hook reads only that file.
+The file format and the bounded continuation are documented in the
+[plugin README](../../packages/copilot-plugin/README.md) and ADR 0041.
+
+The method explicitly does **not** impose a systematic re-verification of the
+sources the Knowledge already covers, and does **not** add a second
+anchor-verification pass: the MCP validates every Tour Anchor. It also states
+that verified evidence proves only that the cited bytes are unchanged — never
+semantic truth or completeness.
+
+The wrapper reaches the agent only through `prompts/get`. A client that calls
+the tools directly and never calls `prompts/get` gets the tool descriptions
+(including the Knowledge tools' contracts) but not the original request, the
+catalogue projection, the decomposition method or the consolidation-closure
+instruction; it is responsible for providing an equivalent method itself.
+Adapters therefore carry no prompt text of their own: they pass the user's
+words as `request` (and the orientation as `brief`) and send exactly what the
+server composed. The prompts themselves are not persisted in a Tour file.
 
 ## Git reference policies
 
@@ -331,6 +592,9 @@ Install the package dependencies once:
 
 ```bash
 cd packages/description-renderer
+npm install
+npm run build
+cd ../knowledge
 npm install
 npm run build
 cd ../mcp-server
@@ -397,7 +661,7 @@ node --test --test-name-pattern="STALE_HEAD" \
 - atomic replacement and preservation of an existing Tour after failures;
 - CLI argument validation;
 - `npm pack`, local installation of the archive, execution of the installed
-  `codetour-mcp` binary, and invocation of both public MCP tools.
+  `codetour-mcp` binary, and invocation of every public MCP tool.
 
 Integration tests create isolated temporary workspaces and Git repositories
 and remove them after each scenario. The packaging smoke test stays local and

@@ -1,0 +1,84 @@
+{
+  "projection_state_version": 1,
+  "session_api": {
+    "history_positions": {
+      "effect-8089354c-880a-551f-b0d9-8362bd73411d:call": 2,
+      "effect-8089354c-880a-551f-b0d9-8362bd73411d:result": 3,
+      "effect-a0334f49-ee89-55b0-98ae-c746d285090c:call": 5,
+      "effect-a0334f49-ee89-55b0-98ae-c746d285090c:result": 6,
+      "reasoning-64e25d85-4b64-5968-85b6-5ca470494ab0-0": 4,
+      "reasoning-bdd59bd3-fa3f-53df-a0ae-ba3e0b97b00c-0": 1,
+      "user-turn-00f61009738ed31dc31ac8626174a42a-1": 0
+    },
+    "metadata_version": 1,
+    "next_history_index": 7,
+    "tool_calls": {
+      "effect-8089354c-880a-551f-b0d9-8362bd73411d": {
+        "arguments": {
+          "config_name": "research",
+          "message": "Where is the PostgreSQL backend startup entry point? Give the path, function name and supporting line references.",
+          "name": "native-research"
+        },
+        "toolCallId": "typescript:3:XxwDSHGun:0:tool:0"
+      },
+      "effect-a0334f49-ee89-55b0-98ae-c746d285090c": {
+        "toolCallId": "mJCOx116i"
+      }
+    },
+    "turn_outcomes": {}
+  },
+  "session_id": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+  "snapshot": {
+    "activeCallbacks": [],
+    "format": "harness.public-session-state/v1",
+    "history": {
+      "cursor": {
+        "after": null,
+        "before": null
+      },
+      "entries": [],
+      "range": "latest"
+    },
+    "latestTurn": {
+      "id": "turn-00f61009738ed31dc31ac8626174a42a",
+      "inputEntryId": "user-turn-00f61009738ed31dc31ac8626174a42a-1",
+      "queueItemId": null,
+      "sessionId": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+      "startedAt": 1794778595028,
+      "status": "in_progress"
+    },
+    "session": {
+      "contextUsage": {
+        "cachedInputTokens": 9344,
+        "inputTokens": 9897,
+        "outputTokens": 48,
+        "totalTokens": 9945
+      },
+      "createdAt": 1794778593820,
+      "id": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+      "parentSessionId": null,
+      "preview": "Use the native agents.spawn tool with these exact arguments: {\"name\":\"native-research\",\"config_name\":\"research\",\"message\":\"Where is the PostgreSQL backend startup entry point? Give the path, function…",
+      "rootSessionId": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+      "status": {
+        "activeTurnId": "turn-00f61009738ed31dc31ac8626174a42a",
+        "type": "running"
+      },
+      "title": null,
+      "titleSource": "auto",
+      "tokenUsage": {
+        "cachedInputTokens": 12672,
+        "inputTokens": 19487,
+        "outputTokens": 348,
+        "totalTokens": 19835
+      },
+      "updatedAt": 1794778639863
+    },
+    "turnQueue": {
+      "items": [],
+      "maxItems": 32,
+      "paused": false
+    }
+  },
+  "snapshot_sequence": 24,
+  "watermark": 8
+}

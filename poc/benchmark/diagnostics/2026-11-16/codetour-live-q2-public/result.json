@@ -1,0 +1,426 @@
+{
+  "objective": "Explain how pg_rewrite_query handles utility and ordinary queries. Trace the relevant branch and delegation, and cite the source.",
+  "entryPoints": [
+    {
+      "name": "pg_rewrite_query",
+      "evidence": [
+        {
+          "file": "src/backend/tcop/postgres.c",
+          "startLine": 816,
+          "endLine": 816
+        },
+        {
+          "file": "src/include/tcop/tcopprot.h",
+          "startLine": 50,
+          "endLine": 50
+        }
+      ]
+    }
+  ],
+  "components": [
+    {
+      "name": "CMD_UTILITY definition",
+      "evidence": [
+        {
+          "file": "src/include/nodes/nodes.h",
+          "startLine": 264,
+          "endLine": 280
+        }
+      ]
+    },
+    {
+      "name": "pg_rewrite_query branch for CMD_UTILITY",
+      "evidence": [
+        {
+          "file": "src/backend/tcop/postgres.c",
+          "startLine": 827,
+          "endLine": 832
+        }
+      ]
+    },
+    {
+      "name": "QueryRewrite function (ordinary queries)",
+      "evidence": [
+        {
+          "file": "src/backend/rewrite/rewriteHandler.c",
+          "startLine": 4674,
+          "endLine": 4690
+        },
+        {
+          "file": "src/include/rewrite/rewriteHandler.h",
+          "startLine": 20,
+          "endLine": 20
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "from": "pg_rewrite_query",
+      "to": "CMD_UTILITY branch",
+      "evidence": [
+        {
+          "file": "src/backend/tcop/postgres.c",
+          "startLine": 827,
+          "endLine": 832
+        }
+      ]
+    },
+    {
+      "from": "pg_rewrite_query",
+      "to": "QueryRewrite (ordinary)",
+      "evidence": [
+        {
+          "file": "src/backend/tcop/postgres.c",
+          "startLine": 835,
+          "endLine": 835
+        }
+      ]
+    }
+  ],
+  "uncertainties": [
+    "The exact set of utility commands recognized by CMD_UTILITY is not enumerated in the cited lines; it is defined by the parser and command handlers.",
+    "The delegation from pg_rewrite_query to QueryRewrite for non-utility queries is shown syntactically, but the full internal behavior of QueryRewrite is outside the directly cited lines."
+  ],
+  "status": "complete",
+  "stopReason": null,
+  "promptSha256": "96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c",
+  "modelConfig": {
+    "model": "mistral-small-latest",
+    "temperature": 0,
+    "maxOutputTokens": 4096
+  },
+  "metrics": {
+    "inputTokens": 71181,
+    "outputTokens": 850,
+    "usageAvailable": true,
+    "modelCalls": 14,
+    "toolCalls": 13,
+    "durationMs": 26061,
+    "outputBytes": 21005,
+    "cost": null,
+    "memoryReuses": 0,
+    "memoryPurges": 0,
+    "memoryQueryRejects": 0,
+    "memoryResultsCompacted": 0,
+    "memoryResultsRepeated": 0
+  },
+  "callTrace": [
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 1746,
+      "outputTokens": 20,
+      "usageMissing": false,
+      "seq": 0,
+      "startedAt": "2026-11-16T06:25:57.967Z",
+      "endedAt": "2026-11-16T06:25:58.926Z",
+      "durationMs": 959
+    },
+    {
+      "type": "memory_list",
+      "name": "memory_list",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "returned=0",
+      "seq": 1,
+      "startedAt": "2026-11-16T06:25:58.926Z",
+      "endedAt": "2026-11-16T06:25:58.926Z",
+      "durationMs": 0
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 1769,
+      "outputTokens": 15,
+      "usageMissing": false,
+      "seq": 2,
+      "startedAt": "2026-11-16T06:25:58.931Z",
+      "endedAt": "2026-11-16T06:25:59.403Z",
+      "durationMs": 472
+    },
+    {
+      "type": "tool",
+      "name": "searchText",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 3,
+      "startedAt": "2026-11-16T06:25:59.403Z",
+      "endedAt": "2026-11-16T06:26:01.097Z",
+      "durationMs": 1694
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 2216,
+      "outputTokens": 35,
+      "usageMissing": false,
+      "seq": 4,
+      "startedAt": "2026-11-16T06:26:01.100Z",
+      "endedAt": "2026-11-16T06:26:01.800Z",
+      "durationMs": 700
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 5,
+      "startedAt": "2026-11-16T06:26:01.801Z",
+      "endedAt": "2026-11-16T06:26:02.535Z",
+      "durationMs": 734
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 2736,
+      "outputTokens": 33,
+      "usageMissing": false,
+      "seq": 6,
+      "startedAt": "2026-11-16T06:26:02.537Z",
+      "endedAt": "2026-11-16T06:26:03.828Z",
+      "durationMs": 1291
+    },
+    {
+      "type": "tool",
+      "name": "readAround",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 7,
+      "startedAt": "2026-11-16T06:26:03.828Z",
+      "endedAt": "2026-11-16T06:26:04.586Z",
+      "durationMs": 758
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 3073,
+      "outputTokens": 33,
+      "usageMissing": false,
+      "seq": 8,
+      "startedAt": "2026-11-16T06:26:04.588Z",
+      "endedAt": "2026-11-16T06:26:05.112Z",
+      "durationMs": 524
+    },
+    {
+      "type": "tool",
+      "name": "readAround",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 9,
+      "startedAt": "2026-11-16T06:26:05.112Z",
+      "endedAt": "2026-11-16T06:26:05.875Z",
+      "durationMs": 763
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 3411,
+      "outputTokens": 12,
+      "usageMissing": false,
+      "seq": 10,
+      "startedAt": "2026-11-16T06:26:05.877Z",
+      "endedAt": "2026-11-16T06:26:06.709Z",
+      "durationMs": 832
+    },
+    {
+      "type": "tool",
+      "name": "searchText",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 11,
+      "startedAt": "2026-11-16T06:26:06.709Z",
+      "endedAt": "2026-11-16T06:26:08.334Z",
+      "durationMs": 1625
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 4203,
+      "outputTokens": 40,
+      "usageMissing": false,
+      "seq": 12,
+      "startedAt": "2026-11-16T06:26:08.336Z",
+      "endedAt": "2026-11-16T06:26:08.968Z",
+      "durationMs": 632
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 13,
+      "startedAt": "2026-11-16T06:26:08.968Z",
+      "endedAt": "2026-11-16T06:26:09.718Z",
+      "durationMs": 750
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 4880,
+      "outputTokens": 37,
+      "usageMissing": false,
+      "seq": 14,
+      "startedAt": "2026-11-16T06:26:09.720Z",
+      "endedAt": "2026-11-16T06:26:10.296Z",
+      "durationMs": 576
+    },
+    {
+      "type": "tool",
+      "name": "readAround",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 15,
+      "startedAt": "2026-11-16T06:26:10.296Z",
+      "endedAt": "2026-11-16T06:26:11.057Z",
+      "durationMs": 761
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 5242,
+      "outputTokens": 16,
+      "usageMissing": false,
+      "seq": 16,
+      "startedAt": "2026-11-16T06:26:11.058Z",
+      "endedAt": "2026-11-16T06:26:11.492Z",
+      "durationMs": 434
+    },
+    {
+      "type": "tool",
+      "name": "searchText",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "truncated",
+      "seq": 17,
+      "startedAt": "2026-11-16T06:26:11.492Z",
+      "endedAt": "2026-11-16T06:26:12.635Z",
+      "durationMs": 1143
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 7312,
+      "outputTokens": 35,
+      "usageMissing": false,
+      "seq": 18,
+      "startedAt": "2026-11-16T06:26:12.637Z",
+      "endedAt": "2026-11-16T06:26:13.500Z",
+      "durationMs": 863
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 19,
+      "startedAt": "2026-11-16T06:26:13.500Z",
+      "endedAt": "2026-11-16T06:26:14.224Z",
+      "durationMs": 724
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 8146,
+      "outputTokens": 35,
+      "usageMissing": false,
+      "seq": 20,
+      "startedAt": "2026-11-16T06:26:14.226Z",
+      "endedAt": "2026-11-16T06:26:15.502Z",
+      "durationMs": 1276
+    },
+    {
+      "type": "tool",
+      "name": "readAround",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 21,
+      "startedAt": "2026-11-16T06:26:15.502Z",
+      "endedAt": "2026-11-16T06:26:16.247Z",
+      "durationMs": 745
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 8591,
+      "outputTokens": 15,
+      "usageMissing": false,
+      "seq": 22,
+      "startedAt": "2026-11-16T06:26:16.249Z",
+      "endedAt": "2026-11-16T06:26:17.100Z",
+      "durationMs": 851
+    },
+    {
+      "type": "tool",
+      "name": "searchText",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 23,
+      "startedAt": "2026-11-16T06:26:17.100Z",
+      "endedAt": "2026-11-16T06:26:18.781Z",
+      "durationMs": 1681
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 8748,
+      "outputTokens": 35,
+      "usageMissing": false,
+      "seq": 24,
+      "startedAt": "2026-11-16T06:26:18.783Z",
+      "endedAt": "2026-11-16T06:26:19.803Z",
+      "durationMs": 1020
+    },
+    {
+      "type": "tool",
+      "name": "readLines",
+      "inputTokens": null,
+      "outputTokens": null,
+      "usageMissing": false,
+      "outcome": "keys=result,returned,observed,truncated",
+      "seq": 25,
+      "startedAt": "2026-11-16T06:26:19.803Z",
+      "endedAt": "2026-11-16T06:26:20.622Z",
+      "durationMs": 819
+    },
+    {
+      "type": "model",
+      "name": "model",
+      "inputTokens": 9108,
+      "outputTokens": 489,
+      "usageMissing": false,
+      "seq": 26,
+      "startedAt": "2026-11-16T06:26:20.623Z",
+      "endedAt": "2026-11-16T06:26:23.980Z",
+      "durationMs": 3357
+    }
+  ],
+  "consolidationReport": {
+    "accepted": [],
+    "rejected": [],
+    "duplicates": [],
+    "indeterminate": []
+  }
+}

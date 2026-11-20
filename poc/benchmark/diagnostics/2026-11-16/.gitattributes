@@ -1,0 +1,2 @@
+# Keep original test transcripts byte-for-byte; their hashes are in inventory.json.
+*.log -whitespace

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "agentStop": [
+      {
+        "type": "command",
+        "command": "node \"${PLUGIN_ROOT}/com.github.copilot/hooks/agent-stop.mjs\"",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

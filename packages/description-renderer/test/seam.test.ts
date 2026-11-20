@@ -381,3 +381,35 @@ test("renderMermaidDiagram refuses unsupported diagram kinds itself", async () =
     );
   }
 });
+
+// The generation guidance's historical edge-label example
+// (`Client --> API: places orders (HTTPS)`) is not valid flowchart syntax:
+// labels ride in the quoted pipe form (`-->|\"label\"|`). Pinning the refusal
+// with the real engine keeps that fact true as the locked engine upgrades: if
+// a future version ever accepts the colon form, this test forces the guidance
+// and its canonical example to be re-evaluated together.
+test("renderMermaidDiagram keeps the colon edge-label form rejected", async () => {
+  await assert.rejects(
+    () =>
+      renderMermaidDiagram(
+        "flowchart LR\nClient --> API: places orders (HTTPS)",
+        "light"
+      ),
+    /Parse error/u
+  );
+});
+
+// The canonical example the generation guidance serves is the exact form this
+// engine accepts: quoted pipe edge label, punctuation inside the quotes.
+test("renderMermaidDiagram accepts the canonical quoted-edge-label example", async () => {
+  const { svg } = await renderMermaidDiagram(
+    "flowchart LR\nClient -->|\"places orders (HTTPS)\"| API",
+    "light"
+  );
+  assert.ok(svg.startsWith("<svg"));
+  // Edge labels render one word per tspan, so the words are asserted
+  // individually rather than as a contiguous phrase.
+  assert.ok(svg.includes(">places</tspan>"));
+  assert.ok(svg.includes("> orders</tspan>"));
+  assert.ok(svg.includes("HTTPS"));
+});

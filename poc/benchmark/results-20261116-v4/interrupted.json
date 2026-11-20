@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-16T06:41:22.747087+00:00",
+  "measured_runs_started": false,
+  "reason": "CodeTour pilot failed evidence bounds validation. Interrupted before sealing; in-flight pilot usage may be incomplete. Excluded from campaign metrics."
+}

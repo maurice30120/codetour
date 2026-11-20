@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { spawnSync, spawn } = require("node:child_process");
 const { createRequire } = require("node:module");
 const root = path.resolve(__dirname, "..");
@@ -131,6 +132,142 @@ test("packaged CLI reads a Tour without a globally available Node executable", (
   }
 });
 
+test("packaged codetour knowledge lists metadata, verifies a read and hashes evidence offline", () => {
+  const workspace = path.join(shared.tmp, "knowledge workspace");
+  const catalogue = path.join(workspace, ".tours", ".memory", "knowledge");
+  fs.mkdirSync(catalogue, { recursive: true });
+  const cited = "export const start = 1;\n";
+  fs.writeFileSync(path.join(workspace, "main.ts"), cited);
+  const digest = crypto.createHash("sha256").update(cited).digest("hex");
+  fs.writeFileSync(path.join(catalogue, "dispatch_flow.md"),
+    `---\nname: dispatch_flow\ndescription: How tool calls dispatch\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${digest}\n---\nVerified standalone body.\n`);
+  fs.writeFileSync(path.join(catalogue, "stale_flow.md"),
+    `---\nname: stale_flow\ndescription: cites a changed file\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${"0".repeat(64)}\n---\nStandalone secret body.\n`);
+  const env = restrictedEnv();
+  const run = args => spawnPackagedSync(["knowledge", ...args], { cwd: workspace, env, encoding: "utf8" });
+
+  const listed = run(["list"]);
+  assert.equal(listed.status, 0, listed.stderr);
+  assert.equal(listed.stderr, "");
+  const list = JSON.parse(listed.stdout);
+  assert.equal(list.status, "ok");
+  assert.deepEqual(list.entries, [
+    { name: "dispatch_flow", description: "How tool calls dispatch" },
+    { name: "stale_flow", description: "cites a changed file" }
+  ]);
+  assert.doesNotMatch(listed.stdout, /Verified standalone body|Standalone secret body|sha256/);
+
+  const read = run(["read", "dispatch_flow"]);
+  assert.equal(read.status, 0, read.stderr);
+  const valid = JSON.parse(read.stdout);
+  assert.equal(valid.status, "valid");
+  assert.equal(valid.body, "Verified standalone body.\n");
+  assert.deepEqual(valid.evidence, [{ path: "main.ts", sha256: digest }]);
+
+  const stale = run(["read", "stale_flow"]);
+  assert.equal(stale.status, 4, stale.stderr);
+  assert.deepEqual(JSON.parse(stale.stdout),
+    { status: "invalid", workspace: fs.realpathSync(workspace), name: "stale_flow", reason: "file_hash_mismatch" });
+  assert.doesNotMatch(stale.stdout, /Standalone secret body|main\.ts|0{64}/);
+
+  const hashed = run(["hash", "main.ts"]);
+  assert.equal(hashed.status, 0, hashed.stderr);
+  assert.deepEqual(JSON.parse(hashed.stdout), { status: "ok", workspace: fs.realpathSync(workspace), path: "main.ts", sha256: digest });
+
+  const empty = path.join(shared.tmp, "knowledge absent");
+  fs.mkdirSync(empty);
+  const absent = spawnPackagedSync(["knowledge", "list"], { cwd: empty, env, encoding: "utf8" });
+  assert.equal(absent.status, 3, absent.stderr);
+  assert.deepEqual(JSON.parse(absent.stdout), { status: "empty", workspace: fs.realpathSync(empty), entries: [] });
+});
+
+test("packaged codetour knowledge saves a proposal that a second invocation discovers and rereads", () => {
+  const workspace = path.join(shared.tmp, "knowledge save workspace");
+  fs.mkdirSync(workspace);
+  const cited = "export const start = 1;\n";
+  fs.writeFileSync(path.join(workspace, "main.ts"), cited);
+  const digest = crypto.createHash("sha256").update(cited).digest("hex");
+  const body = "## Standalone consolidation\n\nSaved by the packaged CLI.\n";
+  const proposal = path.join(shared.tmp, "standalone proposal.json");
+  fs.writeFileSync(proposal, JSON.stringify({
+    entries: [{
+      name: "saved_flow",
+      description: "Saved offline",
+      body,
+      evidence: [{ path: "main.ts" }],
+    }],
+  }));
+  const env = restrictedEnv();
+  const run = args => spawnPackagedSync(["knowledge", ...args], { cwd: workspace, env, encoding: "utf8" });
+  const resolved = fs.realpathSync(workspace);
+
+  const saved = run(["save", "--workspace", workspace, "--proposal", proposal]);
+  assert.equal(saved.status, 0, saved.stderr);
+  assert.equal(saved.stderr, "");
+  assert.deepEqual(JSON.parse(saved.stdout), { status: "saved", workspace: resolved, saved: ["saved_flow"] });
+  assert.doesNotMatch(saved.stdout, /Standalone consolidation|sha256|[0-9a-f]{64}/);
+
+  // A second, independent invocation rediscovers the entry by metadata only.
+  const listed = run(["list", "--workspace", workspace]);
+  assert.equal(listed.status, 0, listed.stderr);
+  assert.deepEqual(JSON.parse(listed.stdout), {
+    status: "ok",
+    workspace: resolved,
+    entries: [{ name: "saved_flow", description: "Saved offline" }],
+  });
+  assert.doesNotMatch(listed.stdout, /Standalone consolidation|sha256/);
+
+  // ...and rereads the exact Markdown body behind the computed evidence.
+  const read = run(["read", "saved_flow", "--workspace", workspace]);
+  assert.equal(read.status, 0, read.stderr);
+  assert.deepEqual(JSON.parse(read.stdout), {
+    status: "valid",
+    workspace: resolved,
+    name: "saved_flow",
+    description: "Saved offline",
+    body,
+    evidence: [{ path: "main.ts", sha256: digest }],
+  });
+
+  // Saving the same name again is a conflict that preserves the first entry.
+  const conflict = run(["save", "--workspace", workspace, "--proposal", proposal]);
+  assert.equal(conflict.status, 4, conflict.stderr);
+  assert.deepEqual(JSON.parse(conflict.stdout), {
+    status: "conflict",
+    workspace: resolved,
+    conflicts: [{ name: "saved_flow", reason: "name_conflict" }],
+  });
+  const reread = run(["read", "saved_flow", "--workspace", workspace]);
+  assert.equal(reread.status, 0, reread.stderr);
+  assert.equal(JSON.parse(reread.stdout).body, body);
+});
+
+test("packaged codetour removes a leftover Knowledge skill offline, never installs one", () => {
+  const workspace = path.join(shared.tmp, "skill workspace");
+  fs.mkdirSync(workspace);
+  const env = {
+    ...restrictedEnv(),
+    COPILOT_HOME: path.join(workspace, "copilot home"),
+    CODETOUR_COPILOT_MCP_CONFIG: path.join(workspace, "mcp-config.json"),
+    CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(workspace, "copilot-extensions"),
+    CODETOUR_COPILOT_PLUGIN_DIR: path.join(workspace, "copilot plugin"),
+  };
+  // A copy an older CLI wrote before the skill was retired. The plugin is the
+  // only guidance now: the install travels inside the standalone artifact with
+  // no checkout and no network, and must retire the old skill, not ship one.
+  const skillDirectory = path.join(workspace, "copilot home", "skills", "codetour-knowledge");
+  fs.mkdirSync(skillDirectory, { recursive: true });
+  fs.writeFileSync(path.join(skillDirectory, "SKILL.md"), "---\nname: codetour-knowledge\n---\nan older installment\n");
+  const installed = spawnPackagedSync(["--install", "copilot"], { cwd: workspace, env, encoding: "utf8" });
+  assert.equal(installed.status, 0, installed.stderr);
+  assert.match(installed.stdout, /Removed the retired standalone Knowledge skill/);
+  assert.equal(fs.existsSync(skillDirectory), false);
+
+  const removed = spawnPackagedSync(["--uninstall", "copilot"], { cwd: workspace, env, encoding: "utf8" });
+  assert.equal(removed.status, 0, removed.stderr);
+  assert.equal(fs.existsSync(skillDirectory), false);
+});
+
 test("packaged codetour mcp creates a Project Tour in a non-Git workspace without global Node", async () => {
   const workspace = path.join(shared.tmp, "tour workspace");
   fs.mkdirSync(workspace);
@@ -154,7 +291,14 @@ test("packaged codetour mcp creates a Project Tour in a non-Git workspace withou
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map(tool => tool.name).sort(),
-      ["create_changes_tour", "create_project_tour"]
+      [
+        "create_changes_tour",
+        "create_project_tour",
+        "knowledge_close_run",
+        "knowledge_list",
+        "knowledge_read",
+        "knowledge_save",
+      ]
     );
     const response = await callTool(client, "create_project_tour", {
       title: "Standalone Tour",
@@ -171,6 +315,83 @@ test("packaged codetour mcp creates a Project Tour in a non-Git workspace withou
       [".tours", ".tours/project.tour"]
     );
     assert.equal(stderrChunks.join(""), "");
+  } finally {
+    await client.close();
+  }
+});
+
+test("packaged codetour mcp exposes the Knowledge tools and the enriched Project Tour prompt", async () => {
+  const workspace = path.join(shared.tmp, "knowledge mcp workspace");
+  fs.mkdirSync(workspace);
+  const cited = "export const start = 1;\n";
+  fs.writeFileSync(path.join(workspace, "main.ts"), cited);
+  const digest = crypto.createHash("sha256").update(cited).digest("hex");
+  const catalogue = path.join(workspace, ".tours", ".memory", "knowledge");
+  fs.mkdirSync(catalogue, { recursive: true });
+  fs.writeFileSync(path.join(catalogue, "packaged_flow.md"),
+    `---\nname: packaged_flow\ndescription: Read through the packaged MCP\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${digest}\n---\nPackaged MCP body.\n`);
+  fs.writeFileSync(path.join(catalogue, "packaged_stale.md"),
+    `---\nname: packaged_stale\ndescription: Cites changed bytes\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${"0".repeat(64)}\n---\nPackaged stale body.\n`);
+  const client = new Client(
+    { name: "standalone-knowledge-test-client", version: "0.0.0" },
+    { capabilities: {} }
+  );
+  const transport = new StdioClientTransport({
+    command: shared.launcher,
+    args: ["mcp"],
+    cwd: workspace,
+    env: restrictedEnv(),
+  });
+  await client.connect(transport);
+  try {
+    const listed = await callTool(client, "knowledge_list", {});
+    assert.equal(listed.isError, false, listed.text);
+    assert.equal(listed.structured.status, "ok");
+    assert.deepEqual(listed.structured.entries, [
+      { name: "packaged_flow", description: "Read through the packaged MCP" },
+    ]);
+    assert.deepEqual(listed.structured.invalid, [
+      { name: "packaged_stale", reason: "file_hash_mismatch" },
+    ]);
+    assert.doesNotMatch(listed.text + JSON.stringify(listed.structured), /Packaged MCP body|Packaged stale body|sha256/);
+
+    const read = await callTool(client, "knowledge_read", { name: "packaged_flow" });
+    assert.equal(read.isError, false, read.text);
+    assert.equal(read.structured.status, "valid");
+    assert.equal(read.structured.body, "Packaged MCP body.\n");
+
+    const stale = await callTool(client, "knowledge_read", { name: "packaged_stale" });
+    assert.equal(stale.isError, false, stale.text);
+    assert.equal(stale.structured.status, "invalid");
+    assert.equal(stale.structured.reason, "file_hash_mismatch");
+    assert.doesNotMatch(stale.text + JSON.stringify(stale.structured), /Packaged stale body|main\.ts|0{64}/);
+
+    const created = await callTool(client, "knowledge_save", {
+      entries: [{
+        name: "packaged_saved",
+        description: "Saved through the packaged MCP",
+        body: "Packaged saved body.\n",
+        evidence: [{ path: "main.ts" }],
+      }],
+    });
+    assert.equal(created.isError, false, created.text);
+    assert.deepEqual(created.structured, { status: "created", workspace: ".", created: ["packaged_saved"] });
+    const reread = await callTool(client, "knowledge_read", { name: "packaged_saved" });
+    assert.equal(reread.structured.body, "Packaged saved body.\n");
+
+    const request = "Explique la distribution des appels d'outils.";
+    const prompt = await client.getPrompt({
+      name: "generate_project_tour",
+      arguments: { request },
+    });
+    const text = prompt.messages
+      .map(message => (typeof message.content === "string" ? message.content : message.content.text ?? ""))
+      .join("\n");
+    assert.equal(text.split(request).length - 1, 1, "the original request travels verbatim");
+    assert.ok(text.indexOf("## Knowledge catalogue") >= 0);
+    assert.ok(text.indexOf("## Knowledge catalogue") < text.indexOf("## Decomposition method"));
+    assert.ok(text.includes("packaged_flow"));
+    assert.ok(!text.includes("Packaged MCP body."));
   } finally {
     await client.close();
   }

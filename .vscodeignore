@@ -2,8 +2,9 @@
 .vscode/**
 .githooks/**
 node_modules/**
-packages/mcp-server/**
-packages/description-renderer/**
+packages/**
+poc/**
+.playwright-mcp/**
 src/**
 scripts/**
 .agents/**

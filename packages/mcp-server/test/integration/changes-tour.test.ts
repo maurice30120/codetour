@@ -42,8 +42,9 @@ test("accepts all five allowed Mermaid kinds in a Changes Tour", async () => {
       const response = await callTool(client, "create_changes_tour", {
         baseRef: baseSha,
         headRef: head,
-        steps: Object.entries(ALLOWED_DIAGRAM_SOURCES).map(([kind, source]) => ({
+        steps: Object.entries(ALLOWED_DIAGRAM_SOURCES).map(([kind, source], index) => ({
           description: captionedDiagram(`${kind} change`, source),
+          ...(index === 0 ? { file: "feature.txt" } : {}),
         })),
       });
       assert.equal(response.isError, false, response.text);
@@ -424,7 +425,7 @@ test("includes uncommitted changes explicitly and drops the ref", async () => {
   }
 });
 
-test("warns with NO_CHANGED_FILE_ANCHOR when no step anchors a changed file", async () => {
+test("rejects with MISSING_CHANGED_FILE_ANCHOR when no step anchors a changed file", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
     await withServer(root, async (client) => {
@@ -433,15 +434,39 @@ test("warns with NO_CHANGED_FILE_ANCHOR when no step anchors a changed file", as
         headRef: head,
         steps: [{ description: "Only context, no anchors." }],
       });
-      assert.equal(response.isError, false);
-      assert.ok(warningCodes(response).includes("NO_CHANGED_FILE_ANCHOR"));
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "MISSING_CHANGED_FILE_ANCHOR");
+      assert.match(response.text, /feature\.txt/, "the error names an anchorable changed file");
+    });
+    assert.equal(
+      fs.existsSync(path.join(root, ".tours/changes.tour")),
+      false,
+      "a rejected proposal must not write the tour file"
+    );
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("rejects a dry-run without a changed-file anchor too", async () => {
+  const { root, baseSha, head } = await setupRepo();
+  try {
+    await withServer(root, async (client) => {
+      const response = await callTool(client, "create_changes_tour", {
+        baseRef: baseSha,
+        headRef: head,
+        dryRun: true,
+        steps: [{ description: "Only context, no anchors." }],
+      });
+      assert.equal(response.isError, true);
+      assert.equal(structuredCode(response), "MISSING_CHANGED_FILE_ANCHOR");
     });
   } finally {
     rmrf(root);
   }
 });
 
-test("does not warn when a step anchors a changed file", async () => {
+test("accepts a step anchoring a changed file", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
     await withServer(root, async (client) => {
@@ -450,8 +475,7 @@ test("does not warn when a step anchors a changed file", async () => {
         headRef: head,
         steps: [{ description: "The new file.", file: "feature.txt" }],
       });
-      assert.equal(response.isError, false);
-      assert.ok(!warningCodes(response).includes("NO_CHANGED_FILE_ANCHOR"));
+      assert.equal(response.isError, false, response.text);
     });
   } finally {
     rmrf(root);
@@ -474,8 +498,7 @@ test("allows deletion-only branches with content-only steps", async () => {
         headRef: head,
         steps: [{ description: "We removed victim.txt entirely." }],
       });
-      assert.equal(response.isError, false);
-      assert.ok(warningCodes(response).includes("NO_CHANGED_FILE_ANCHOR"));
+      assert.equal(response.isError, false, response.text);
     });
     assert.equal(readTourFile(root, ".tours/changes.tour").ref, head);
     assert.ok(tourFileValidAgainstSchema(root, ".tours/changes.tour"));
@@ -496,8 +519,7 @@ test("allows anchoring unchanged files for essential context", async () => {
           { description: "The new file.", file: "feature.txt" },
         ],
       });
-      assert.equal(response.isError, false);
-      assert.ok(!warningCodes(response).includes("NO_CHANGED_FILE_ANCHOR"));
+      assert.equal(response.isError, false, response.text);
     });
   } finally {
     rmrf(root);
@@ -545,7 +567,6 @@ test("works when the workspace root is a subdirectory of the repository", async 
         steps: [{ description: "The new file.", file: "new.ts" }],
       });
       assert.equal(response.isError, false);
-      assert.ok(!warningCodes(response).includes("NO_CHANGED_FILE_ANCHOR"));
     });
     assert.ok(tourFileValidAgainstSchema(subRoot, ".tours/changes.tour"));
   } finally {
@@ -558,6 +579,7 @@ test("warns when the tour exceeds fifteen steps for a changes tour", async () =>
   try {
     const steps = Array.from({ length: 16 }, (_, index) => ({
       description: `Step ${index + 1}.`,
+      ...(index === 0 ? { file: "feature.txt" } : {}),
     }));
     await withServer(root, async (client) => {
       const response = await callTool(client, "create_changes_tour", {
@@ -643,7 +665,6 @@ test("explains local work when only uncommitted changes exist", async () => {
       assert.equal(response.isError, false);
       assert.equal(response.structured.status, "created");
       assert.ok(warningCodes(response).includes("UNCOMMITTED_CHANGES_INCLUDED"));
-      assert.ok(!warningCodes(response).includes("NO_CHANGED_FILE_ANCHOR"));
     });
     const tour = readTourFile(root, ".tours/changes.tour");
     assert.equal(tour.ref, undefined);
@@ -652,7 +673,7 @@ test("explains local work when only uncommitted changes exist", async () => {
   }
 });
 
-test("counts uncommitted files as changed for NO_CHANGED_FILE_ANCHOR", async () => {
+test("counts uncommitted files as anchorable changed files", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
     writeFile(root, "local-only.txt", "local work\n");
@@ -663,8 +684,7 @@ test("counts uncommitted files as changed for NO_CHANGED_FILE_ANCHOR", async () 
         includeUncommittedChanges: true,
         steps: [{ description: "Local work.", file: "local-only.txt" }],
       });
-      assert.equal(response.isError, false);
-      assert.ok(!warningCodes(response).includes("NO_CHANGED_FILE_ANCHOR"));
+      assert.equal(response.isError, false, response.text);
     });
   } finally {
     rmrf(root);

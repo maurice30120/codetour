@@ -1,0 +1,55 @@
+{
+  "projection_state_version": 1,
+  "session_api": {
+    "history_positions": {
+      "user-child-7ffe940821b29a1662c0d755:turn:1-1": 0
+    },
+    "metadata_version": 1,
+    "next_history_index": 1,
+    "turn_outcomes": {}
+  },
+  "session_id": "child-7ffe940821b29a1662c0d755",
+  "snapshot": {
+    "activeCallbacks": [],
+    "format": "harness.public-session-state/v1",
+    "history": {
+      "cursor": {
+        "after": null,
+        "before": null
+      },
+      "entries": [],
+      "range": "latest"
+    },
+    "latestTurn": {
+      "id": "child-7ffe940821b29a1662c0d755:turn:1",
+      "inputEntryId": "user-child-7ffe940821b29a1662c0d755:turn:1-1",
+      "queueItemId": null,
+      "sessionId": "child-7ffe940821b29a1662c0d755",
+      "startedAt": 1794778598427,
+      "status": "in_progress"
+    },
+    "session": {
+      "contextUsage": null,
+      "createdAt": 1794778598395,
+      "id": "child-7ffe940821b29a1662c0d755",
+      "parentSessionId": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+      "preview": "Where is the PostgreSQL backend startup entry point? Give the path, function name and supporting line references.",
+      "rootSessionId": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+      "status": {
+        "activeTurnId": "child-7ffe940821b29a1662c0d755:turn:1",
+        "type": "running"
+      },
+      "title": null,
+      "titleSource": "auto",
+      "tokenUsage": null,
+      "updatedAt": 1794778598427
+    },
+    "turnQueue": {
+      "items": [],
+      "maxItems": 32,
+      "paused": false
+    }
+  },
+  "snapshot_sequence": 5,
+  "watermark": 1
+}

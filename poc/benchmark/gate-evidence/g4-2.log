@@ -1,0 +1,15 @@
+
+> @spec-174/benchmark-evaluator@1.0.0 test
+> jest --runInBand
+
+
+PASS test/grader.test.ts
+PASS test/arbitrator.test.ts
+PASS test/blinder.test.ts
+PASS test/normalizer.test.ts
+
+Test Suites: 4 passed, 4 total
+Tests:       15 passed, 15 total
+Snapshots:   0 total
+Time:        4.424 s
+Ran all test suites.

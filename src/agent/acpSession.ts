@@ -3,12 +3,19 @@ import { readFile as readFileFromDisk } from "node:fs/promises";
 import * as path from "node:path";
 
 import type { AcpAgentTransport } from "./acpAgentProcess";
+import { clientCapabilities } from "./agentAuth";
+import { findModelSelector, type AcpModelSelector } from "./acpModelOptions";
+import type { StepChatAgentIdentity } from "./stepChatContract";
 
 /**
  * A session layer for Tour Step Conversations over ACP. The extension side is
  * a read-only client: it never announces file writing or terminals, refuses
  * the corresponding agent requests, and checks the tools the agent actually
  * executes rather than trusting the Ask mode name alone.
+ *
+ * The one authentication capability it does announce — the reader's own
+ * terminal sign in, ADR 0048 — grants the agent nothing: it lets the reader
+ * connect an agent that asks for it, and CodeTour runs that command itself.
  */
 
 /** Kinds of tools an agent can execute during a session. */
@@ -111,6 +118,24 @@ export interface AskSession {
   /** The verified current mode; prompts are refused outside Ask. */
   readonly modeId: string;
   /**
+   * The Agent Profile this session was opened as, with the effective model
+   * when the agent announces one. An opened session is effective by
+   * definition: its handshake is what confirmed the agent.
+   */
+  readonly identity: StepChatAgentIdentity;
+  /**
+   * The model selector the agent announced for this session, with the value
+   * it confirms: undefined when it announces no model at all.
+   */
+  readonly model: AcpModelSelector | undefined;
+  /**
+   * Requests a model change on the open session. The request counts only once
+   * the agent confirms it: the resolved selector is the agent's state after
+   * the request, unchanged when it refuses the value. A value the agent does
+   * not offer sends nothing at all.
+   */
+  setModel(value: string): Promise<AcpModelSelector | undefined>;
+  /**
    * Sends the reader's question with the context of its Tour Step and the
    * step's previous exchanges, and resolves once the agent's answer is
    * complete.
@@ -128,9 +153,21 @@ export interface AskSession {
 }
 
 export interface OpenAskSessionOptions {
+  /** The Agent Profile this session is opened as, named as the reader sees it. */
+  agentProfileName: string;
   startupTimeoutMs?: number;
   modeId?: string;
   useDefaultMode?: boolean;
+  /**
+   * The model to request on this new session, as the reader chose it for this
+   * Agent Profile. An agent that does not offer the value is asked nothing.
+   */
+  requestedModel?: string;
+  /**
+   * Called when the agent reports a model change for this session, the
+   * reader's own request included: only what the agent confirms is displayed.
+   */
+  onModelChange?(model: AcpModelSelector | undefined): void;
   transport: AcpAgentTransport;
   cwd: string;
   /**
@@ -225,7 +262,7 @@ function buildPromptBlocks(
 
 /**
  * Opens a session with the ACP agent behind the given transport, selects and
- * verifies its provider mode before any prompt, and returns the conversation.
+ * verifies its agent mode before any prompt, and returns the conversation.
  */
 export function openAskSession(
   options: OpenAskSessionOptions
@@ -253,6 +290,7 @@ export function openAskSession(
     let askModeId = "";
     let turn: PromptTurn | null = null;
     let currentModeId: string | null = null;
+    let configOptions: acp.SessionConfigOption[] = [];
     let closed = false;
 
     const app = acp
@@ -317,9 +355,70 @@ export function openAskSession(
         case "current_mode_update":
           currentModeId = update.currentModeId;
           break;
+        case "config_option_update":
+          // The agent reports the full set of options: the model it now
+          // confirms replaces the one displayed, whoever changed it.
+          configOptions = update.configOptions;
+          options.onModelChange?.(modelState());
+          break;
         default:
           break;
       }
+    }
+
+    function modelState(): AcpModelSelector | undefined {
+      return findModelSelector(configOptions);
+    }
+
+    /**
+     * Replays the reader's model choice on the session that just opened: an
+     * agent that does not offer the value is asked nothing and keeps its own,
+     * and a refused request never fails the session.
+     */
+    async function requestModel(requested: string): Promise<void> {
+      const offered = modelState();
+      if (
+        !offered ||
+        offered.value === requested ||
+        !offered.values.some(value => value.value === requested)
+      ) {
+        return;
+      }
+      try {
+        const confirmed = await guard(
+          connection.agent.request(acp.methods.agent.session.setConfigOption, {
+            sessionId,
+            configId: offered.optionId,
+            value: requested
+          })
+        );
+        configOptions = confirmed.configOptions;
+      } catch {
+        // The agent kept its own value: the reader sees that value, never a
+        // request it refused.
+      }
+    }
+
+    /** Requests a live model change and answers the agent's confirmed state. */
+    function setModel(value: string): Promise<AcpModelSelector | undefined> {
+      const offered = modelState();
+      if (closed || !offered || offered.value === value ||
+          !offered.values.some(candidate => candidate.value === value)) {
+        return Promise.resolve(offered);
+      }
+      return connection.agent
+        .request(acp.methods.agent.session.setConfigOption, {
+          sessionId,
+          configId: offered.optionId,
+          value
+        })
+        .then(
+          response => {
+            configOptions = response.configOptions;
+            return modelState();
+          },
+          () => modelState()
+        );
     }
 
     function trackTool(update: acp.ToolCallUpdate) {
@@ -377,6 +476,18 @@ export function openAskSession(
       get modeId() {
         return currentModeId ?? "";
       },
+      get identity() {
+        const model = modelState()?.value;
+        return {
+          agent: options.agentProfileName,
+          ...(model !== undefined ? { model } : {}),
+          effective: true
+        };
+      },
+      get model() {
+        return modelState();
+      },
+      setModel,
       prompt(question, context, events, history) {
         if (closed) {
           return Promise.reject(
@@ -458,11 +569,11 @@ export function openAskSession(
       connection.agent
         .request(acp.methods.agent.initialize, {
           protocolVersion: acp.PROTOCOL_VERSION,
-          clientCapabilities: {
-            fs: {
-              readTextFile: true
-            }
-          }
+          // The same capabilities the Agent Probe announces, the session
+          // configuration options included: an agent that gates its terminal
+          // authentication method on them must offer it to a conversation
+          // session too, not only to the probe.
+          clientCapabilities: clientCapabilities()
         })
         .then(() =>
           connection.agent.request(acp.methods.agent.session.new, {
@@ -473,6 +584,7 @@ export function openAskSession(
     )
       .then(newSession => {
         sessionId = newSession.sessionId;
+        configOptions = newSession.configOptions ?? [];
         const modes = newSession.modes;
         if (!modes) {
           throw new Error(
@@ -507,30 +619,31 @@ export function openAskSession(
         }
         return undefined;
       })
-      .then(
-        () => {
-          clearTimeout(startupTimer);
-          openResolve(sessionObject);
-        },
-        (error: unknown) => {
-          clearTimeout(startupTimer);
-          connection.close();
-          options.transport.dispose().catch(() => undefined);
-          // A vanished entry usually surfaces first as the SDK's generic
-          // connection-closed rejection; give the reader a real cause.
-          if (
-            error instanceof Error &&
-            /ACP connection closed/.test(error.message)
-          ) {
-            openReject(
-              new Error(
-                "The ACP agent exited or closed the connection before the session could start."
-              )
-            );
-            return;
-          }
-          openReject(error);
+      .then(async () => {
+        if (options.requestedModel !== undefined) {
+          await requestModel(options.requestedModel);
         }
-      );
+        clearTimeout(startupTimer);
+        openResolve(sessionObject);
+      })
+      .catch((error: unknown) => {
+        clearTimeout(startupTimer);
+        connection.close();
+        options.transport.dispose().catch(() => undefined);
+        // A vanished entry usually surfaces first as the SDK's generic
+        // connection-closed rejection; give the reader a real cause.
+        if (
+          error instanceof Error &&
+          /ACP connection closed/.test(error.message)
+        ) {
+          openReject(
+            new Error(
+              "The ACP agent exited or closed the connection before the session could start."
+            )
+          );
+          return;
+        }
+        openReject(error);
+      });
   });
 }

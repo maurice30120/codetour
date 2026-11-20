@@ -119,7 +119,19 @@ test("create_changes_tour guidance refers to the skill pack resource", async () 
       const project = tools.find((tool) => tool.name === "create_project_tour");
       assert.ok(changes, "create_changes_tour must stay exposed");
       assert.ok(project, "create_project_tour must stay exposed");
-      assert.equal(tools.length, 2, "no third tool may be added");
+      assert.deepEqual(
+        tools.map((tool) => tool.name).sort(),
+        [
+          "create_changes_tour",
+          "create_project_tour",
+          "get_generation_prompt",
+          "knowledge_close_run",
+          "knowledge_list",
+          "knowledge_read",
+          "knowledge_save",
+        ],
+        "the Tour tools and the Knowledge tools are the complete catalog"
+      );
       assert.ok(
         (changes.description ?? "").includes(CRITICAL_REVIEW_RESOURCE_URI),
         "the changes tour guidance must reference the skill pack resource"

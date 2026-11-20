@@ -1,0 +1,5 @@
+[
+  {"id":"function","objective":"Comment totalPrice calcule-t-elle son résultat ?"},
+  {"id":"class","objective":"Quelles dépendances la classe Catalog utilise-t-elle et où ?"},
+  {"id":"flow","objective":"Quel est le flux de postOrder jusqu'au calcul du total ?"}
+]

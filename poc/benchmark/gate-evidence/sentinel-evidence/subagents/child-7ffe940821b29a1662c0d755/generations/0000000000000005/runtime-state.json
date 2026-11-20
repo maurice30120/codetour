@@ -1,0 +1,701 @@
+{
+  "actions": [
+    {
+      "action_id": "ff77b0e9-95f0-5225-a6cd-a654f2b3abf1",
+      "kind": "completion",
+      "lease_id": "ff77b0e9-95f0-5225-a6cd-a654f2b3abf1",
+      "prepared_process_start": null,
+      "process_manager_instance_id": null,
+      "process_request_sha256": null,
+      "recovery_mode": "reconnect_or_fail",
+      "request": {
+        "action_id": "ff77b0e9-95f0-5225-a6cd-a654f2b3abf1",
+        "iteration": 0,
+        "max_iterations": 40,
+        "model_input": {
+          "messages": {
+            "messages": [
+              {
+                "content": [
+                  {
+                    "text": "You help users get complex tasks done. Act directly and proactively. Find relevant skills with the `skill` tool, discover additional tools with `search_tool_functions`, and call them using `run_typescript`.\n\n## Autonomy and initiative\n\n- Treat the user's request as authorization to perform the normal, in-scope work needed to complete it. Start working without asking whether to proceed.\n- Do not ask for confirmation before loading skills, discovering tools, reading or searching available context, or performing other reversible investigation.\n- When a tool call needs approval, make the tool call and let the runtime's approval mechanism handle it. Do not preemptively ask for permission in chat.\n- When details are ambiguous, first use the available context and tools to resolve them. Ask a clarifying question only when missing information would materially change the result, cannot be discovered, or additional authorization is genuinely required.\n- Make reasonable implementation choices, keep momentum, and continue until the requested outcome is complete or a real blocker remains.\n\n## Using tool functions via run_typescript\n\nThe `run_typescript` tool executes TypeScript code in a sandbox environment. You can access external services via functions exposed under the `tools.<group>.<function>` namespace in the sandbox. A tool with no group is in the `client` group: call it as `tools.client.<function>`. Users might refer to these functions as \"tools\", \"integrations\", \"connectors\", or \"services\". `run_typescript` can also be used to perform data manipulation tasks such as counting, computing, filtering, grouping, aggregating, sorting, etc.\n\nAvailable tool functions can be discovered with the top-level `search_tool_functions` tool. For unfamiliar tool calls, use this sequence: `best_match` → `details` → `run_typescript`.\n\n1. Call `best_match` with a concise capability query to get ranked function names.\n2. Call `details` with each selected exact function name before its first use.\n3. Call the selected function through its documented `tools.<group>.<function>` path in `run_typescript`.\n\n## Background processes\n\nUse background processes through the programmatic `tools.process` namespace when a command must keep running while you continue other work:\n- `tools.process.start` accepts the same command syntax as `tools.file_system.bash`.\n- `tools.process.start` starts a command and returns a stable process ID immediately.\n- `tools.process.output` reads incremental output from a raw byte cursor and can wait for new output or termination, or reads the current newest page with `from: \"end\"`. Continue forward reads at `nextCursor`; `hasMore` reports unread retained output and `truncatedBefore` reports discarded history.\n- `tools.process.write` sends text, control keys, or raw bytes to an interactive process.\n- `tools.process.list` reports this session's processes.\n- `tools.process.stop` terminates a process and its children.\n\nUse ordinary `tools.file_system.bash` for commands whose complete result is needed immediately. Keep each returned process ID and output cursor. The Runtime injects a metadata-only notification when a process reaches a terminal state; call `tools.process.output` to inspect remaining output before drawing conclusions and stop processes that are no longer needed.\n\nWhen background work needs a short pause, call `tools.self.sleep({ seconds })` through `run_typescript`, then inspect process output or status.\n\n## Available Skills\n\nSkills contain task-specific instructions. When a request matches a skill description, proactively call the `skill` tool with its exact name before starting the task, then follow the loaded instructions. If that skill's full instructions are already present in the current context, follow them without calling `skill` again. Load every skill that materially applies.\n\nCall `skill` only with a name listed in `<available-skills>`. Connector names and unlisted names in skill instructions are not skills.\n\nLoad a skill only with `skill`, never by reading its root `SKILL.md` path with `read_file`. A listed skill's files may not exist until `skill` loads it. After loading, use `read_file` only for support or reference files mentioned by the loaded skill.\n\n## Current time\n\n\"Now\" is the current date or time the user states. If the user states none, call `run_typescript` to read `new Date().toISOString()` before answering or acting on anything that depends on the date; make the call right away instead of announcing it. Dates in documents, emails, logs, records, and tool results describe those items, not today, even when they are the only dates in view. Use a user timezone supplied in context for user-facing times; otherwise use UTC, or ask for the timezone only when local time materially affects the result.\n\n## Use-case instructions\n\nYou are the native research subagent of the CodeTour benchmark (spec #174).\n\nResearch the question you receive inside the current working directory only.\nYou are read-only: never modify, create or delete a file; never run network or\nwrite operations.\n\nMethod (bounded budget):\n- Target first: derive likely symbol names from the question (entry points,\n  main(), directories named after the topic) and grep for them before reading\n  broadly. Diffuse exploration is the failure mode; aim to conclude in about\n  10 tool steps.\n- Read only what is needed to verify the exact relation asked.\n\nProduce, in your final answer:\n- the direct answer: symbol names and what they do,\n- the supporting evidence: file path + line numbers you actually read,\n- one short sentence on any limit or uncertainty.\n\nKeep the answer compact and factual. Do not speculate: a claim without a\nverifiable citation must be flagged as uncertain instead.\n\n### Searchable connector groups\n\n- file_system\n- self\n- process\n\nHere are tools that are NOT available in `run_typescript` and `search_tool_functions`, call them directly: `wait`, `skill`\n\n<available-skills>\n  <skill>\n    <name>research</name>\n    <description>Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.</description>\n  </skill>\n  <skill>\n    <name>domain-modeling</name>\n    <description>Build and sharpen a project&apos;s domain model. Use when discussing codebase terminology, writing or editing a GLOSSARY.md, or recording or editing an ADR.</description>\n  </skill>\n  <skill>\n    <name>setup-pre-commit</name>\n    <description>Set up Husky pre-commit hooks with lint-staged (Prettier), type checking, and tests in the current repo. Use when user wants to add pre-commit hooks, set up Husky, configure lint-staged, or add commit-time formatting/typechecking/testing.</description>\n  </skill>\n  <skill>\n    <name>writing-for-agents</name>\n    <description>Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md.</description>\n  </skill>\n  <skill>\n    <name>diagnosing-bugs</name>\n    <description>Diagnosis loop for hard bugs and performance regressions. Use when the user says &quot;diagnose&quot;/&quot;debug this&quot;, or reports something broken/throwing/failing/slow.</description>\n  </skill>\n  <skill>\n    <name>git-guardrails-claude-code</name>\n    <description>Set up Claude Code hooks to block dangerous git commands (push, reset --hard, clean, branch -D, etc.) before they execute. Use when user wants to prevent destructive git operations, add git safety hooks, or block git push/reset in Claude Code.</description>\n  </skill>\n  <skill>\n    <name>code-review</name>\n    <description>Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo&apos;s documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to &quot;review since X&quot;.</description>\n  </skill>\n  <skill>\n    <name>wizard</name>\n    <description>Generate an interactive bash wizard that walks a human through steps only they can perform. Use when provisioning infrastructure, setting up credentials or CI secrets, walking an unfamiliar third-party dashboard, or running a one-off migration or cutover. Don&apos;t invoke this for steps the agent can perform itself.</description>\n  </skill>\n  <skill>\n    <name>codebase-design</name>\n    <description>Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module&apos;s interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.</description>\n  </skill>\n  <skill>\n    <name>prototype</name>\n    <description>Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like.</description>\n  </skill>\n  <skill>\n    <name>pr</name>\n    <description>Use when writing a PR body.</description>\n  </skill>\n  <skill>\n    <name>scaffold-exercises</name>\n    <description>Create exercise directory structures with sections, problems, solutions, and explainers that pass linting. Use when user wants to scaffold exercises, create exercise stubs, or set up a new course section.</description>\n  </skill>\n  <skill>\n    <name>tdd</name>\n    <description>Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions &quot;red-green-refactor&quot;, or wants integration tests.</description>\n  </skill>\n  <skill>\n    <name>grilling</name>\n    <description>Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any &apos;grill&apos; trigger phrases.</description>\n  </skill>\n  <skill>\n    <name>migrate-to-shoehorn</name>\n    <description>Migrate test files from `as` type assertions to @total-typescript/shoehorn. Use when user mentions shoehorn, wants to replace `as` in tests, or needs partial test data.</description>\n  </skill>\n  <skill>\n    <name>find-skills</name>\n    <description>Helps users discover and install agent skills when they ask questions like &quot;how do I do X&quot;, &quot;find a skill for X&quot;, &quot;is there a skill that can...&quot;, or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.</description>\n  </skill>\n</available-skills>",
+                    "type": "text"
+                  }
+                ],
+                "role": "system"
+              },
+              {
+                "content": [
+                  {
+                    "text": "Where is the PostgreSQL backend startup entry point? Give the path, function name and supporting line references.",
+                    "type": "text"
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "revision": 1,
+            "type": "replace"
+          },
+          "tool_catalog": {
+            "revision": 0,
+            "tools": [
+              {
+                "description": "Discover callable tool functions for run_typescript.\n\nUse mode=\"best_match\" first with a capability query; it returns up to 20 ranked exact function names, without declarations.\nIf a returned name fits, call mode=\"details\" with that exact name before using it.\nUse mode=\"all_connector_capabilities\" with connectors set to exact connector names only when best_match returned moreCandidatesAvailable: true and no candidate fits, or when explicitly listing a connector inventory.\n\nFor query, use short tool-capability keywords, not the full user request.\nIf the user shares a URL from an online service, first check whether there is a connector for that service. Include the service name or domain plus the needed operation in the best_match query, for example \"google docs open url\", before falling back to generic web URL tools.\nFor named connector + capability requests, pass both connectors and query in one best_match call.\nIf no returned function name matches after the available discovery path, answer unsupported instead of probing adjacent tools.\nTreat auth as unavailable only when connector guidance or a tool error says so.",
+                "name": "search_tool_functions",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "connectors": {
+                      "default": [],
+                      "description": "Exact connector names; required in all_connector_capabilities mode, optional filter in best_match, unused in details.",
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 10,
+                      "type": "array"
+                    },
+                    "functionNames": {
+                      "description": "Deprecated alias for functions.",
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 10,
+                      "type": "array"
+                    },
+                    "functions": {
+                      "default": [],
+                      "description": "Exact {connector}.{function} names for details; required in details mode.",
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 10,
+                      "type": "array"
+                    },
+                    "mode": {
+                      "default": "best_match",
+                      "description": "best_match returns ranked names; details returns declarations for exact functions; all_connector_capabilities lists exact connector inventories.",
+                      "enum": [
+                        "best_match",
+                        "details",
+                        "all_connector_capabilities"
+                      ],
+                      "type": "string"
+                    },
+                    "query": {
+                      "description": "Rewrite the needed operation into short tool keywords, e.g. \"list issues\"; do not pass the full user request.",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              {
+                "description": "\nExecutes TypeScript code in a sandbox environment.\n\n## How to use run_typescript\n\nThe `run_typescript` tool executes TypeScript code in a sandbox environment. This sandbox has access to ES2015 - ES2022 language features, but doesn't have access to NodeJS, browser APIs, or network I/O.\n\n### Sandbox capabilities and durability model\n\n- The sandbox is a replayable TypeScript workflow environment, not a general-purpose Node.js runtime. Use it for orchestration, tool-call wiring, and local data transformation.\n- It supports standard JavaScript/TypeScript computation such as async/await, Promises, JSON, Array/Object/Map/Set operations, RegExp, and console output for debugging.\n- It does not provide ambient filesystem access, Node.js packages, browser APIs, DOM APIs, or direct network I/O. Reach external systems only through the provided `tools.<group>.<function>` functions.\n- Execution may pause while tool calls are pending and later replay from the beginning. Local code can therefore run more than once; keep it to pure orchestration, pure data transforms, and tool-call wiring.\n- Time, randomness, and promise-selection APIs are recorded automatically and replay deterministically. This includes `Date()`, `new Date()`, `Date.now()`, `performance.now()`, `Math.random()`, `crypto.randomUUID()`, `crypto.getRandomValues()`, `Promise.race()`, and `Promise.any()`.\n- Each program has a time budget, paused while waiting for approvals or hooks. When it runs out, sleeps end early and the program stops before its next tool call.\n\n### The `main` function\n\n**IMPORTANT:** The sandboxed environment expects a `main` function that will be run automatically.\n- You MUST always define an `async function main() { /* ... */ }` containing all your code\n- You MUST NOT call `main()` yourself - the sandbox calls it automatically\n- The result of the `main` function will be visible as a { type: \"success\", value } object.\n- The input must contain inline `code`.\n- A failed tool call throws a `ToolError`, a subclass of `Error`: `name` is `\"ToolError\"`, `message` explains the failure, `code` is a stable error code, `tool` names the called function (`tools.<group>.<function>`), and `details` or `structuredContent` hold extra data when the tool gives it, such as a failed command's output. Codes include:\n  - `invalid_arguments`: the arguments are invalid; the call did not run.\n  - `permission_denied`, `tool_denied` or `policy_rejected`: a policy, the user or the file system refused the call.\n  - `approval_failed`: nobody answered the approval request in time.\n  - `tool_skipped`: a hook skipped the call.\n  - `subagent_not_found`: no agent at that `agent_path` (for `interrupt`, no direct child there).\n  - `ProgramBudgetExceeded`: the program's time budget ran out.\n  - Any other code: the tool itself failed; `message` says why.\n- Use `try/catch` or `.catch(...)` and branch on `error.code` to recover or keep partial results; otherwise let errors propagate to the tool result.\n- AVOID using console.log or console.error to read the output of functions. Rely on the main function's returned value instead. Only use console for debugging.\n- For independent calls, prefer `Promise.allSettled(...)`. Use `Promise.all(...)` only when all must succeed; avoid sequential awaits when calls can run concurrently.\n- You MUST NOT use `fetch()`, `setInterval()`, `atob()`, `btoa()`, `DOMParser`, `Buffer`, `require()`, `import()`, or `export` — they do not exist. Tool functions are already available under the `tools` namespace.\n- When a string contains double quotes, you MUST use single quotes for the outer string.\n  WRONG: `await tools.web_search.web_search({ query: \"\"Sample Topic\" TV date\" });`\n  CORRECT: `await tools.web_search.web_search({ query: '\"Sample Topic\" TV date' });`\n\n### Available tool functions\n\nTool functions are available under `tools.<group>.<function>`; no imports needed. A tool that declares no group lives in the `client` group, so it is called as `tools.client.<function>`.\n\nBefore calling an unfamiliar tool function, use `search_tool_functions` to load details for the exact function name. Use only documented function paths and argument shapes.\n\n\n### Example\n\n1. Discover the appropriate tool function signature. Assuming you found the following type definition:\n\n```typescript\ndeclare namespace tools.someGroup {\n  function someFunction(args: { timestamp: number, someQuery: string }): Promise<{ someOutput: number }>;\n}\n```\n\n2. Run TypeScript code. You can call `run_typescript` with code like:\n\n```json\n{\"code\": \"async function main() {\\n  const timestamp = Date.now();\\n  const { someOutput } = await tools.someGroup.someFunction({ timestamp, someQuery: '...' });\\n  return someOutput;\\n}\"}\n```\n\n",
+                "name": "run_typescript",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              },
+              {
+                "description": "Wait until new input arrives, such as a result from a child you started, a background task, a user follow up or until the timeout ends. wait returns as soon as input arrives, so use a timeout relevant to expected timeframe. Call wait alone. The input arrives in normal model context, not in the result.",
+                "name": "wait",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "timeout_ms": {
+                      "maximum": 3600000,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "timeout_ms"
+                  ],
+                  "type": "object"
+                }
+              },
+              {
+                "description": "Read a text file with optional zero-indexed line offset and limit. When `was_truncated` is true, read on from `next_offset`. An offset past the end of the file is an error. A directory reads as a listing of its entries, one per line with `/` after each subdirectory, at most 500 at a time. An image file returns the image itself.",
+                "name": "read_file",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "limit": {
+                      "default": null,
+                      "minimum": 1,
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "offset": {
+                      "default": 0,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ],
+                  "type": "object"
+                }
+              },
+              {
+                "description": "Create or overwrite a UTF-8 file. Line breaks in `content` can be `\\n`, `\\r\\n` or `\\r`: the file keeps the line endings of the file it replaces, and a new file uses the repository's line endings when they can be found, or the platform default otherwise. To change a file's line endings, run a command such as `unix2dos` or `dos2unix`.",
+                "name": "write_file",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "content": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "content"
+                  ],
+                  "type": "object"
+                }
+              },
+              {
+                "description": "Exact string replacement in a file.\n\nRead the current file first. `old_string` must match exactly, including whitespace and indentation. Line endings don't need to match: the file keeps its own. With `replace_all=false` (the default), `old_string` must occur exactly once; set `replace_all=true` only to replace every occurrence. If an edit fails, re-read the file before retrying.\n\nExample:\n{\"file_path\":\"src/config.ts\",\"old_string\":\"const mode = \\\"old\\\";\",\"new_string\":\"const mode = \\\"new\\\";\",\"replace_all\":false}",
+                "name": "edit",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "file_path": {
+                      "description": "Path to the existing text file to edit. Use `file_path`; `path` is not accepted.",
+                      "type": "string"
+                    },
+                    "new_string": {
+                      "description": "Exact replacement text for `old_string`. It may be empty to delete the matched text, but it must differ from `old_string`.",
+                      "type": "string"
+                    },
+                    "old_string": {
+                      "description": "Exact text to find, including whitespace and indentation. It must occur exactly once unless `replace_all` is true.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "replace_all": {
+                      "default": false,
+                      "description": "When false (the default), replace the single `old_string` match. When true, replace every occurrence of `old_string`.",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "file_path",
+                    "old_string",
+                    "new_string"
+                  ],
+                  "type": "object"
+                }
+              },
+              {
+                "description": "Run a shell command and capture stdout, stderr, and its return code.\n\nThe call blocks until the command exits, and a command still running after `timeout_seconds` is stopped. Start long-running commands, such as servers and long builds, with `tools.process.start` and read their output with `tools.process.output`.",
+                "name": "bash",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout_seconds": {
+                      "default": 120,
+                      "description": "Seconds the command may run: 120 by default, at most 300. A command that runs longer is stopped, and the result keeps the output it wrote so far with `timed_out` set. For longer work, use `tools.process.start` instead.",
+                      "maximum": 300,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "command"
+                  ],
+                  "type": "object"
+                }
+              },
+              {
+                "description": "Load a specialized skill that provides domain-specific instructions and workflows. When a task matches one of the available skills listed in your system prompt, call this tool with the exact skill name to load the full skill instructions. Only listed names are valid. Call exactly with {\"name\":\"<exact name>\"}; no other argument keys are accepted.",
+                "name": "skill",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {
+                      "description": "The exact name of the skill to load from the available skills.",
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ],
+                  "type": "object"
+                }
+              }
+            ],
+            "type": "replace"
+          }
+        },
+        "purpose": "agent",
+        "turn_id": "child-7ffe940821b29a1662c0d755:turn:1",
+        "type": "llm_call"
+      },
+      "request_pruned": false,
+      "request_sha256": "a9c5c4217a65944dfb6735e5410e58a4cf4a1bea60cd795f4b181b6c1a3dcab1",
+      "result": null,
+      "result_pruned": false,
+      "state": "pending"
+    }
+  ],
+  "callbacks": [],
+  "children": [],
+  "command_receipts": [
+    {
+      "abandon_on_restart": false,
+      "client_command_id": "8089354c-880a-551f-b0d9-8362bd73411d:start",
+      "method": "parent/turn/start",
+      "params": null,
+      "params_sha256": "421049112c8871fd73b6311e2ecff9a2fd702352a1f00f79ff69352ce0d15d44",
+      "response": {},
+      "state": "succeeded"
+    }
+  ],
+  "core_capabilities": null,
+  "core_last_input_id": 1,
+  "core_plugins": [],
+  "core_settings": {
+    "context": {
+      "compaction": {
+        "mode": "automatic"
+      },
+      "model_facts": {
+        "compaction_threshold": 200000,
+        "compaction_threshold_max": 238144,
+        "context_window": 262144,
+        "image_cost": {
+          "kind": "fixed",
+          "tokens": 3080
+        },
+        "input_modalities": [
+          "text",
+          "image"
+        ]
+      },
+      "notifications": {
+        "pending_bytes": 1048576,
+        "pending_count": 1000,
+        "recent_ids": 1000
+      }
+    },
+    "tools": {
+      "background_processes": {
+        "mode": "enabled"
+      },
+      "bash_timeout": {
+        "default_seconds": 120,
+        "max_seconds": 300
+      },
+      "command_environment": {
+        "mode": "unix"
+      },
+      "file_system": {
+        "mode": "enabled",
+        "read_file": {
+          "images": "native"
+        }
+      },
+      "large_output": {
+        "max_output_tokens": 4000,
+        "mode": "filesystem",
+        "model_visible_output_tokens": 2000
+      },
+      "max_wait_ms": 3600000,
+      "model_wait": {
+        "external_input": true,
+        "mode": "enabled"
+      },
+      "programmatic": {
+        "max_effects": 128,
+        "max_elapsed_ms": 60000,
+        "max_operations": 1024,
+        "max_sleep_ms": 30000
+      },
+      "subagents": {
+        "mode": "disabled"
+      }
+    },
+    "turn": {
+      "max_iterations": 40,
+      "output_limit_recovery": {
+        "max_retries": 6,
+        "mode": "retry"
+      }
+    }
+  },
+  "core_system_instructions": "You are the native research subagent of the CodeTour benchmark (spec #174).\n\nResearch the question you receive inside the current working directory only.\nYou are read-only: never modify, create or delete a file; never run network or\nwrite operations.\n\nMethod (bounded budget):\n- Target first: derive likely symbol names from the question (entry points,\n  main(), directories named after the topic) and grep for them before reading\n  broadly. Diffuse exploration is the failure mode; aim to conclude in about\n  10 tool steps.\n- Read only what is needed to verify the exact relation asked.\n\nProduce, in your final answer:\n- the direct answer: symbol names and what they do,\n- the supporting evidence: file path + line numbers you actually read,\n- one short sentence on any limit or uncertainty.\n\nKeep the answer compact and factual. Do not speculate: a claim without a\nverifiable citation must be flagged as uncertain instead.\n",
+  "core_task_id": null,
+  "identity": {
+    "depth": 1,
+    "kind": "subagent",
+    "parent_session_id": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+    "root_session_id": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+    "session_id": "child-7ffe940821b29a1662c0d755"
+  },
+  "import_provenance": null,
+  "lifecycle": {
+    "type": "active"
+  },
+  "parent_command_receipts": {},
+  "pending_transition": {
+    "input_id": 1,
+    "next": {
+      "directives": [
+        {
+          "action": {
+            "action_id": "ff77b0e9-95f0-5225-a6cd-a654f2b3abf1",
+            "attempt": null,
+            "compaction_id": null,
+            "iteration": 0,
+            "max_iterations": 40,
+            "model_input": {
+              "messages": {
+                "messages": [
+                  {
+                    "content": [
+                      {
+                        "_meta": null,
+                        "annotations": null,
+                        "text": "You help users get complex tasks done. Act directly and proactively. Find relevant skills with the `skill` tool, discover additional tools with `search_tool_functions`, and call them using `run_typescript`.\n\n## Autonomy and initiative\n\n- Treat the user's request as authorization to perform the normal, in-scope work needed to complete it. Start working without asking whether to proceed.\n- Do not ask for confirmation before loading skills, discovering tools, reading or searching available context, or performing other reversible investigation.\n- When a tool call needs approval, make the tool call and let the runtime's approval mechanism handle it. Do not preemptively ask for permission in chat.\n- When details are ambiguous, first use the available context and tools to resolve them. Ask a clarifying question only when missing information would materially change the result, cannot be discovered, or additional authorization is genuinely required.\n- Make reasonable implementation choices, keep momentum, and continue until the requested outcome is complete or a real blocker remains.\n\n## Using tool functions via run_typescript\n\nThe `run_typescript` tool executes TypeScript code in a sandbox environment. You can access external services via functions exposed under the `tools.<group>.<function>` namespace in the sandbox. A tool with no group is in the `client` group: call it as `tools.client.<function>`. Users might refer to these functions as \"tools\", \"integrations\", \"connectors\", or \"services\". `run_typescript` can also be used to perform data manipulation tasks such as counting, computing, filtering, grouping, aggregating, sorting, etc.\n\nAvailable tool functions can be discovered with the top-level `search_tool_functions` tool. For unfamiliar tool calls, use this sequence: `best_match` → `details` → `run_typescript`.\n\n1. Call `best_match` with a concise capability query to get ranked function names.\n2. Call `details` with each selected exact function name before its first use.\n3. Call the selected function through its documented `tools.<group>.<function>` path in `run_typescript`.\n\n## Background processes\n\nUse background processes through the programmatic `tools.process` namespace when a command must keep running while you continue other work:\n- `tools.process.start` accepts the same command syntax as `tools.file_system.bash`.\n- `tools.process.start` starts a command and returns a stable process ID immediately.\n- `tools.process.output` reads incremental output from a raw byte cursor and can wait for new output or termination, or reads the current newest page with `from: \"end\"`. Continue forward reads at `nextCursor`; `hasMore` reports unread retained output and `truncatedBefore` reports discarded history.\n- `tools.process.write` sends text, control keys, or raw bytes to an interactive process.\n- `tools.process.list` reports this session's processes.\n- `tools.process.stop` terminates a process and its children.\n\nUse ordinary `tools.file_system.bash` for commands whose complete result is needed immediately. Keep each returned process ID and output cursor. The Runtime injects a metadata-only notification when a process reaches a terminal state; call `tools.process.output` to inspect remaining output before drawing conclusions and stop processes that are no longer needed.\n\nWhen background work needs a short pause, call `tools.self.sleep({ seconds })` through `run_typescript`, then inspect process output or status.\n\n## Available Skills\n\nSkills contain task-specific instructions. When a request matches a skill description, proactively call the `skill` tool with its exact name before starting the task, then follow the loaded instructions. If that skill's full instructions are already present in the current context, follow them without calling `skill` again. Load every skill that materially applies.\n\nCall `skill` only with a name listed in `<available-skills>`. Connector names and unlisted names in skill instructions are not skills.\n\nLoad a skill only with `skill`, never by reading its root `SKILL.md` path with `read_file`. A listed skill's files may not exist until `skill` loads it. After loading, use `read_file` only for support or reference files mentioned by the loaded skill.\n\n## Current time\n\n\"Now\" is the current date or time the user states. If the user states none, call `run_typescript` to read `new Date().toISOString()` before answering or acting on anything that depends on the date; make the call right away instead of announcing it. Dates in documents, emails, logs, records, and tool results describe those items, not today, even when they are the only dates in view. Use a user timezone supplied in context for user-facing times; otherwise use UTC, or ask for the timezone only when local time materially affects the result.\n\n## Use-case instructions\n\nYou are the native research subagent of the CodeTour benchmark (spec #174).\n\nResearch the question you receive inside the current working directory only.\nYou are read-only: never modify, create or delete a file; never run network or\nwrite operations.\n\nMethod (bounded budget):\n- Target first: derive likely symbol names from the question (entry points,\n  main(), directories named after the topic) and grep for them before reading\n  broadly. Diffuse exploration is the failure mode; aim to conclude in about\n  10 tool steps.\n- Read only what is needed to verify the exact relation asked.\n\nProduce, in your final answer:\n- the direct answer: symbol names and what they do,\n- the supporting evidence: file path + line numbers you actually read,\n- one short sentence on any limit or uncertainty.\n\nKeep the answer compact and factual. Do not speculate: a claim without a\nverifiable citation must be flagged as uncertain instead.\n\n### Searchable connector groups\n\n- file_system\n- self\n- process\n\nHere are tools that are NOT available in `run_typescript` and `search_tool_functions`, call them directly: `wait`, `skill`\n\n<available-skills>\n  <skill>\n    <name>research</name>\n    <description>Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.</description>\n  </skill>\n  <skill>\n    <name>domain-modeling</name>\n    <description>Build and sharpen a project&apos;s domain model. Use when discussing codebase terminology, writing or editing a GLOSSARY.md, or recording or editing an ADR.</description>\n  </skill>\n  <skill>\n    <name>setup-pre-commit</name>\n    <description>Set up Husky pre-commit hooks with lint-staged (Prettier), type checking, and tests in the current repo. Use when user wants to add pre-commit hooks, set up Husky, configure lint-staged, or add commit-time formatting/typechecking/testing.</description>\n  </skill>\n  <skill>\n    <name>writing-for-agents</name>\n    <description>Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md.</description>\n  </skill>\n  <skill>\n    <name>diagnosing-bugs</name>\n    <description>Diagnosis loop for hard bugs and performance regressions. Use when the user says &quot;diagnose&quot;/&quot;debug this&quot;, or reports something broken/throwing/failing/slow.</description>\n  </skill>\n  <skill>\n    <name>git-guardrails-claude-code</name>\n    <description>Set up Claude Code hooks to block dangerous git commands (push, reset --hard, clean, branch -D, etc.) before they execute. Use when user wants to prevent destructive git operations, add git safety hooks, or block git push/reset in Claude Code.</description>\n  </skill>\n  <skill>\n    <name>code-review</name>\n    <description>Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo&apos;s documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to &quot;review since X&quot;.</description>\n  </skill>\n  <skill>\n    <name>wizard</name>\n    <description>Generate an interactive bash wizard that walks a human through steps only they can perform. Use when provisioning infrastructure, setting up credentials or CI secrets, walking an unfamiliar third-party dashboard, or running a one-off migration or cutover. Don&apos;t invoke this for steps the agent can perform itself.</description>\n  </skill>\n  <skill>\n    <name>codebase-design</name>\n    <description>Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module&apos;s interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.</description>\n  </skill>\n  <skill>\n    <name>prototype</name>\n    <description>Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like.</description>\n  </skill>\n  <skill>\n    <name>pr</name>\n    <description>Use when writing a PR body.</description>\n  </skill>\n  <skill>\n    <name>scaffold-exercises</name>\n    <description>Create exercise directory structures with sections, problems, solutions, and explainers that pass linting. Use when user wants to scaffold exercises, create exercise stubs, or set up a new course section.</description>\n  </skill>\n  <skill>\n    <name>tdd</name>\n    <description>Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions &quot;red-green-refactor&quot;, or wants integration tests.</description>\n  </skill>\n  <skill>\n    <name>grilling</name>\n    <description>Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any &apos;grill&apos; trigger phrases.</description>\n  </skill>\n  <skill>\n    <name>migrate-to-shoehorn</name>\n    <description>Migrate test files from `as` type assertions to @total-typescript/shoehorn. Use when user mentions shoehorn, wants to replace `as` in tests, or needs partial test data.</description>\n  </skill>\n  <skill>\n    <name>find-skills</name>\n    <description>Helps users discover and install agent skills when they ask questions like &quot;how do I do X&quot;, &quot;find a skill for X&quot;, &quot;is there a skill that can...&quot;, or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.</description>\n  </skill>\n</available-skills>",
+                        "type": "text"
+                      }
+                    ],
+                    "role": "system"
+                  },
+                  {
+                    "content": [
+                      {
+                        "_meta": null,
+                        "annotations": null,
+                        "text": "Where is the PostgreSQL backend startup entry point? Give the path, function name and supporting line references.",
+                        "type": "text"
+                      }
+                    ],
+                    "role": "user"
+                  }
+                ],
+                "revision": 1,
+                "type": "replace"
+              },
+              "tool_catalog": {
+                "revision": 0,
+                "tools": [
+                  {
+                    "description": "Discover callable tool functions for run_typescript.\n\nUse mode=\"best_match\" first with a capability query; it returns up to 20 ranked exact function names, without declarations.\nIf a returned name fits, call mode=\"details\" with that exact name before using it.\nUse mode=\"all_connector_capabilities\" with connectors set to exact connector names only when best_match returned moreCandidatesAvailable: true and no candidate fits, or when explicitly listing a connector inventory.\n\nFor query, use short tool-capability keywords, not the full user request.\nIf the user shares a URL from an online service, first check whether there is a connector for that service. Include the service name or domain plus the needed operation in the best_match query, for example \"google docs open url\", before falling back to generic web URL tools.\nFor named connector + capability requests, pass both connectors and query in one best_match call.\nIf no returned function name matches after the available discovery path, answer unsupported instead of probing adjacent tools.\nTreat auth as unavailable only when connector guidance or a tool error says so.",
+                    "name": "search_tool_functions",
+                    "parameters": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "connectors": {
+                          "default": [],
+                          "description": "Exact connector names; required in all_connector_capabilities mode, optional filter in best_match, unused in details.",
+                          "items": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "maxItems": 10,
+                          "type": "array"
+                        },
+                        "functionNames": {
+                          "description": "Deprecated alias for functions.",
+                          "items": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "maxItems": 10,
+                          "type": "array"
+                        },
+                        "functions": {
+                          "default": [],
+                          "description": "Exact {connector}.{function} names for details; required in details mode.",
+                          "items": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "maxItems": 10,
+                          "type": "array"
+                        },
+                        "mode": {
+                          "default": "best_match",
+                          "description": "best_match returns ranked names; details returns declarations for exact functions; all_connector_capabilities lists exact connector inventories.",
+                          "enum": [
+                            "best_match",
+                            "details",
+                            "all_connector_capabilities"
+                          ],
+                          "type": "string"
+                        },
+                        "query": {
+                          "description": "Rewrite the needed operation into short tool keywords, e.g. \"list issues\"; do not pass the full user request.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "description": "\nExecutes TypeScript code in a sandbox environment.\n\n## How to use run_typescript\n\nThe `run_typescript` tool executes TypeScript code in a sandbox environment. This sandbox has access to ES2015 - ES2022 language features, but doesn't have access to NodeJS, browser APIs, or network I/O.\n\n### Sandbox capabilities and durability model\n\n- The sandbox is a replayable TypeScript workflow environment, not a general-purpose Node.js runtime. Use it for orchestration, tool-call wiring, and local data transformation.\n- It supports standard JavaScript/TypeScript computation such as async/await, Promises, JSON, Array/Object/Map/Set operations, RegExp, and console output for debugging.\n- It does not provide ambient filesystem access, Node.js packages, browser APIs, DOM APIs, or direct network I/O. Reach external systems only through the provided `tools.<group>.<function>` functions.\n- Execution may pause while tool calls are pending and later replay from the beginning. Local code can therefore run more than once; keep it to pure orchestration, pure data transforms, and tool-call wiring.\n- Time, randomness, and promise-selection APIs are recorded automatically and replay deterministically. This includes `Date()`, `new Date()`, `Date.now()`, `performance.now()`, `Math.random()`, `crypto.randomUUID()`, `crypto.getRandomValues()`, `Promise.race()`, and `Promise.any()`.\n- Each program has a time budget, paused while waiting for approvals or hooks. When it runs out, sleeps end early and the program stops before its next tool call.\n\n### The `main` function\n\n**IMPORTANT:** The sandboxed environment expects a `main` function that will be run automatically.\n- You MUST always define an `async function main() { /* ... */ }` containing all your code\n- You MUST NOT call `main()` yourself - the sandbox calls it automatically\n- The result of the `main` function will be visible as a { type: \"success\", value } object.\n- The input must contain inline `code`.\n- A failed tool call throws a `ToolError`, a subclass of `Error`: `name` is `\"ToolError\"`, `message` explains the failure, `code` is a stable error code, `tool` names the called function (`tools.<group>.<function>`), and `details` or `structuredContent` hold extra data when the tool gives it, such as a failed command's output. Codes include:\n  - `invalid_arguments`: the arguments are invalid; the call did not run.\n  - `permission_denied`, `tool_denied` or `policy_rejected`: a policy, the user or the file system refused the call.\n  - `approval_failed`: nobody answered the approval request in time.\n  - `tool_skipped`: a hook skipped the call.\n  - `subagent_not_found`: no agent at that `agent_path` (for `interrupt`, no direct child there).\n  - `ProgramBudgetExceeded`: the program's time budget ran out.\n  - Any other code: the tool itself failed; `message` says why.\n- Use `try/catch` or `.catch(...)` and branch on `error.code` to recover or keep partial results; otherwise let errors propagate to the tool result.\n- AVOID using console.log or console.error to read the output of functions. Rely on the main function's returned value instead. Only use console for debugging.\n- For independent calls, prefer `Promise.allSettled(...)`. Use `Promise.all(...)` only when all must succeed; avoid sequential awaits when calls can run concurrently.\n- You MUST NOT use `fetch()`, `setInterval()`, `atob()`, `btoa()`, `DOMParser`, `Buffer`, `require()`, `import()`, or `export` — they do not exist. Tool functions are already available under the `tools` namespace.\n- When a string contains double quotes, you MUST use single quotes for the outer string.\n  WRONG: `await tools.web_search.web_search({ query: \"\"Sample Topic\" TV date\" });`\n  CORRECT: `await tools.web_search.web_search({ query: '\"Sample Topic\" TV date' });`\n\n### Available tool functions\n\nTool functions are available under `tools.<group>.<function>`; no imports needed. A tool that declares no group lives in the `client` group, so it is called as `tools.client.<function>`.\n\nBefore calling an unfamiliar tool function, use `search_tool_functions` to load details for the exact function name. Use only documented function paths and argument shapes.\n\n\n### Example\n\n1. Discover the appropriate tool function signature. Assuming you found the following type definition:\n\n```typescript\ndeclare namespace tools.someGroup {\n  function someFunction(args: { timestamp: number, someQuery: string }): Promise<{ someOutput: number }>;\n}\n```\n\n2. Run TypeScript code. You can call `run_typescript` with code like:\n\n```json\n{\"code\": \"async function main() {\\n  const timestamp = Date.now();\\n  const { someOutput } = await tools.someGroup.someFunction({ timestamp, someQuery: '...' });\\n  return someOutput;\\n}\"}\n```\n\n",
+                    "name": "run_typescript",
+                    "parameters": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "description": "Wait until new input arrives, such as a result from a child you started, a background task, a user follow up or until the timeout ends. wait returns as soon as input arrives, so use a timeout relevant to expected timeframe. Call wait alone. The input arrives in normal model context, not in the result.",
+                    "name": "wait",
+                    "parameters": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "timeout_ms": {
+                          "maximum": 3600000,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "timeout_ms"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "description": "Read a text file with optional zero-indexed line offset and limit. When `was_truncated` is true, read on from `next_offset`. An offset past the end of the file is an error. A directory reads as a listing of its entries, one per line with `/` after each subdirectory, at most 500 at a time. An image file returns the image itself.",
+                    "name": "read_file",
+                    "parameters": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "limit": {
+                          "default": null,
+                          "minimum": 1,
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "offset": {
+                          "default": 0,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "path": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "path"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "description": "Create or overwrite a UTF-8 file. Line breaks in `content` can be `\\n`, `\\r\\n` or `\\r`: the file keeps the line endings of the file it replaces, and a new file uses the repository's line endings when they can be found, or the platform default otherwise. To change a file's line endings, run a command such as `unix2dos` or `dos2unix`.",
+                    "name": "write_file",
+                    "parameters": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "content": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "content"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "description": "Exact string replacement in a file.\n\nRead the current file first. `old_string` must match exactly, including whitespace and indentation. Line endings don't need to match: the file keeps its own. With `replace_all=false` (the default), `old_string` must occur exactly once; set `replace_all=true` only to replace every occurrence. If an edit fails, re-read the file before retrying.\n\nExample:\n{\"file_path\":\"src/config.ts\",\"old_string\":\"const mode = \\\"old\\\";\",\"new_string\":\"const mode = \\\"new\\\";\",\"replace_all\":false}",
+                    "name": "edit",
+                    "parameters": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "file_path": {
+                          "description": "Path to the existing text file to edit. Use `file_path`; `path` is not accepted.",
+                          "type": "string"
+                        },
+                        "new_string": {
+                          "description": "Exact replacement text for `old_string`. It may be empty to delete the matched text, but it must differ from `old_string`.",
+                          "type": "string"
+                        },
+                        "old_string": {
+                          "description": "Exact text to find, including whitespace and indentation. It must occur exactly once unless `replace_all` is true.",
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "replace_all": {
+                          "default": false,
+                          "description": "When false (the default), replace the single `old_string` match. When true, replace every occurrence of `old_string`.",
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "file_path",
+                        "old_string",
+                        "new_string"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "description": "Run a shell command and capture stdout, stderr, and its return code.\n\nThe call blocks until the command exits, and a command still running after `timeout_seconds` is stopped. Start long-running commands, such as servers and long builds, with `tools.process.start` and read their output with `tools.process.output`.",
+                    "name": "bash",
+                    "parameters": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "command": {
+                          "type": "string"
+                        },
+                        "timeout_seconds": {
+                          "default": 120,
+                          "description": "Seconds the command may run: 120 by default, at most 300. A command that runs longer is stopped, and the result keeps the output it wrote so far with `timed_out` set. For longer work, use `tools.process.start` instead.",
+                          "maximum": 300,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "command"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "description": "Load a specialized skill that provides domain-specific instructions and workflows. When a task matches one of the available skills listed in your system prompt, call this tool with the exact skill name to load the full skill instructions. Only listed names are valid. Call exactly with {\"name\":\"<exact name>\"}; no other argument keys are accepted.",
+                    "name": "skill",
+                    "parameters": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "description": "The exact name of the skill to load from the available skills.",
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "type": "object"
+                    }
+                  }
+                ],
+                "type": "replace"
+              }
+            },
+            "purpose": "agent",
+            "trigger": null,
+            "turn_id": "child-7ffe940821b29a1662c0d755:turn:1",
+            "type": "llm_call"
+          },
+          "type": "dispatch"
+        }
+      ],
+      "type": "actions"
+    },
+    "observations": [
+      {
+        "content": [
+          {
+            "_meta": null,
+            "annotations": null,
+            "text": "Where is the PostgreSQL backend startup entry point? Give the path, function name and supporting line references.",
+            "type": "text"
+          }
+        ],
+        "turn_id": "child-7ffe940821b29a1662c0d755:turn:1",
+        "type": "turn_started"
+      }
+    ],
+    "protocol_version": 1,
+    "turn": {
+      "status": "running",
+      "turn_id": "child-7ffe940821b29a1662c0d755:turn:1"
+    }
+  },
+  "plugin_lock": {
+    "lock_version": 1,
+    "plugins": [],
+    "snapshot_digest": null
+  },
+  "processes": [],
+  "provider_operations": [
+    {
+      "idempotency_key": "ff77b0e9-95f0-5225-a6cd-a654f2b3abf1",
+      "operation_id": "ff77b0e9-95f0-5225-a6cd-a654f2b3abf1",
+      "provider": "configured",
+      "recovery_mode": "reconnect_or_fail",
+      "request_sha256": "a9c5c4217a65944dfb6735e5410e58a4cf4a1bea60cd795f4b181b6c1a3dcab1",
+      "result": null,
+      "state": "running"
+    }
+  ],
+  "runtime_state_version": 3,
+  "session_id": "child-7ffe940821b29a1662c0d755",
+  "session_metadata": {
+    "active_model": null,
+    "agent_name": null,
+    "completion_catalogue": null,
+    "cwd": "/Users/damien/Documents/codetour/poc/benchmark/postgres",
+    "external_import": null,
+    "hook_bindings": [
+      {
+        "id": "builtin:agents_md",
+        "order": 0,
+        "point": "post_tool_call",
+        "selector": {
+          "type": "always"
+        }
+      }
+    ],
+    "origin_cwd": null,
+    "parent_session_id": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+    "reasoning_effort": null,
+    "root_session_id": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
+    "subagent_policy_ceiling_digest": "dc664c6e7827d01189d6e338982d2537cb31737197ed02b872fd33b09d915c92",
+    "subagent_spawn_key": "8089354c-880a-551f-b0d9-8362bd73411d",
+    "subagent_template_digest": "57d8bdbf74e4877ca9e5e46119b03ac72c246ea280499c1358b65d268a740f3e"
+  },
+  "snapshot_sequence": 5,
+  "storage_lifetime": "persistent",
+  "subagents": null,
+  "submitted_process_notifications": []
+}

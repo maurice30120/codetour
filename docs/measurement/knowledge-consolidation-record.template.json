@@ -1,0 +1,128 @@
+{
+  "$comment": "Fillable measurement record for spec #232 ticket #258. One record per repetition. Read docs/measurement/knowledge-consolidation-protocol.md before filling: usageWindow is copied verbatim from the run state's metrics.usage.windows.consolidation and is never recomputed; judgement is a separate block judged from the entry file and the closure, before the token figures are read. This file is data, not executable measurement code.",
+  "protocol": "docs/measurement/knowledge-consolidation-protocol.md",
+  "protocolVersion": 1,
+  "campaign": {
+    "id": null,
+    "openedAt": null,
+    "operator": null,
+    "model": null,
+    "copilotVersion": null,
+    "codeTourVersion": null,
+    "promptDigest": null,
+    "host": {
+      "os": null,
+      "node": null
+    },
+    "budgets": {
+      "approvalPolicy": null,
+      "hostLimits": null,
+      "catalogueProjectionLimit": null,
+      "knowledgeListLimits": null,
+      "explorationScope": null
+    }
+  },
+  "case": {
+    "id": null,
+    "family": null,
+    "arm": null,
+    "repetition": null,
+    "request": null,
+    "tourKind": null,
+    "reviewMode": null,
+    "snapshot": {
+      "workspace": null,
+      "branch": null,
+      "headCommit": null,
+      "treeCleanBefore": null,
+      "treeCleanAfter": null
+    },
+    "cataloguePrecondition": {
+      "entryPath": null,
+      "revision": null,
+      "valid": null,
+      "bodyBytes": null,
+      "evidenceCount": null,
+      "proofPaths": []
+    },
+    "answerElements": []
+  },
+  "run": {
+    "runId": null,
+    "runStatePath": null,
+    "sessionId": null,
+    "startedAt": null,
+    "resultStatus": null,
+    "refusalReason": null,
+    "consolidationClosure": {
+      "status": null,
+      "created": [],
+      "changed": [],
+      "outcome": null,
+      "reason": null
+    },
+    "failure": {
+      "occurred": null,
+      "kind": null,
+      "reason": null
+    }
+  },
+  "usageWindow": {
+    "$comment": "Copied verbatim from metrics.usage.windows.consolidation of the run state; windowMs is the only derived field (untilAt minus fromAt). observed false means not measured, never zero.",
+    "observed": null,
+    "reason": null,
+    "source": null,
+    "observedAt": null,
+    "file": null,
+    "fromAt": null,
+    "untilAt": null,
+    "windowMs": null,
+    "records": null,
+    "durationMs": null,
+    "inputTokens": null,
+    "outputTokens": null,
+    "cacheReadTokens": null,
+    "cacheWriteTokens": null,
+    "reasoningTokens": null,
+    "calls": {
+      "successful": {},
+      "refused": {}
+    }
+  },
+  "entries": [
+    {
+      "name": null,
+      "path": null,
+      "revision": null,
+      "fileBytes": null,
+      "bodyBytes": null,
+      "lines": null,
+      "evidenceCount": null,
+      "distinctProofPaths": null,
+      "preservedHistoricalBytes": null
+    }
+  ],
+  "judgement": {
+    "$comment": "Judged from the entry file, the closure and the cited code, before the token figures are read. Coverage is not conformance and conformance is not cost.",
+    "conformance": {
+      "verdict": null,
+      "judgedBy": null,
+      "judgedAt": null,
+      "checks": [
+        {
+          "id": null,
+          "passed": null,
+          "note": null
+        }
+      ]
+    },
+    "coverage": {
+      "expected": [],
+      "stated": [],
+      "absent": [],
+      "contradicted": [],
+      "ratio": null,
+      "judgedBy": null
+    }
+  }
+}

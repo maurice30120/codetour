@@ -7,6 +7,56 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Added
 
+- The native `codetour knowledge` CLI. `list` discovers catalogue metadata
+  without bodies, `read` returns a body only when every declared `file` proof
+  still hashes to its SHA-256, `hash` prepares evidence deterministically, and
+  `save` validates a whole proposal before publishing it atomically. Every
+  command prints one JSON object on stdout with stable exit statuses (`0`
+  success, `1` internal, `2` usage or unusable workspace, `3` absence, `4`
+  invalid), and none needs a model, a network or an API key. See ADR 0039.
+- The CodeTour MCP server exposes the same Knowledge contract as
+  `knowledge_list`, `knowledge_read`, `knowledge_save` and
+  `knowledge_close_run`, and both generation prompts accept the user's
+  demand as `request` next to a bounded Knowledge catalogue projection. A
+  `knowledge_save` carrying the run identity records `created`,
+  `completed_zero`, `partial` or `failed`; `knowledge_close_run` records an
+  explicit `skipped`. Both write the server-authenticated run log. See ADR
+  0040.
+- `knowledge_save` takes an explicit `mode`: `create` (the default, unchanged),
+  `append` (one addition and new evidence merged into an entry that still
+  verifies, its historical body kept byte for byte) and `replace` (one entry
+  rewritten in full, valid or invalid). Both amend modes are conditioned on
+  the opaque Knowledge Revision the caller read, under one catalogue lock; the
+  CLI gains `--mode` and `--expected-revision`, and `list` and `read` expose
+  each entry's `revision`. See ADR 0050 and ADR 0053, and spec #232.
+- A Copilot Agent Plugins 1.0 plugin ships one CodeTour MCP server, the
+  `codetour-generate` skill and a deterministic `agentStop` hook.
+  `codetour --install copilot` installs the plugin and the extension offline;
+  `--uninstall copilot` removes what this CLI owns. See ADR 0041.
+- A run log under `<workspace>/.tours/.log/` gives the guarded
+  `/codetour generate` wrapper and the hook one authenticated state per
+  `runId` — `tourCreated`, the consolidation closure and `continuationUsed` —
+  with atomic writes under a cross-process lock, pruning that never touches
+  Knowledge, and one JavaScript source of truth shared by the extension and
+  the plugin (`npm run sync:copilot-run-log`, pinned byte for byte by a test).
+  An additive optional `metrics` block records the run's usage (ADR 0042):
+  the adapter stamps the preparation facts it alone knows, and the agentStop
+  hook recomputes a snapshot from the Copilot session usage records at every
+  stop — model, project state, completed CodeTour tool calls, tokens and
+  cache, split into generation (until the last observed Tour creation) and
+  consolidation windows. Metrics are observability, never a guarded outcome;
+  an unobservable session events file is reported as `observed:false` and
+  changes no decision.
+- Every `/codetour generate` now reports the integration it would use before
+  the first agent request (ADR 0043): the adapter file and its origin, the
+  resolved launcher and workspace, the installed extension files, the
+  installed plugin (version, cache path, MCP launcher, launcher build) and
+  the user `mcp-config.json` declaration. One problem per hazard — missing
+  plugin, missing launcher, a launcher serving another build (the stale/
+  foreign-checkout case), a second CodeTour MCP server in the user config,
+  duplicate extension directories — is printed at error level and never
+  stops the run; the same facts are recorded in `metrics.integration`.
+
 - A Tour generation can be accompanied by a phrase: `/codetour generate`
   accepts a free orientation after the type and review mode
   (`/codetour generate project montre-moi le rendu Mermaid`). The phrase
@@ -38,8 +88,51 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
   token, the `--internal-*` surfaces used by the adapter are unchanged, and
   `--help` now documents every option.
 
+- `scripts/install-latest.sh` (macOS, Linux, Git Bash) and
+  `scripts/install-latest.ps1` (Windows) install or update the extension with
+  one command: they detect the packaging target, download the platform VSIX the
+  Release workflow attached to the latest GitHub release and call
+  `code --install-extension`. `CODETOUR_TAG` pins an explicit release,
+  `CODETOUR_CHANNEL=beta` accepts pre-releases, `CODETOUR_VSIX_URL` pins an
+  explicit VSIX and `CODETOUR_REPO` serves forks. The README exposes both
+  commands at the top under *Install or update with one command*. Beta
+  releases are cut from the pushed `beta` branch and install through the same
+  script with `CODETOUR_CHANNEL=beta`.
+- A successful `create_project_tour` / `create_changes_tour` now names the Tour
+  in its first line (`Created Changes Tour "…" at .tours/changes.tour`), and the
+  MCP records that title in the run state. At each stop that changes the
+  figures, the `agentStop` hook prints one `CodeTour usage:` line on stderr with
+  the Tour name, its path, the generation and consolidation token phases
+  (input, output, cached) and the run total (ADR 0042 amendment). Tokens are
+  final only at the stop that observes them; an unreadable session events file
+  is reported as `usage not observed`, never invented.
+
 ### Changed
 
+- The standalone `codetour-knowledge` skill is retired: the plugin alone guides
+  discovery, Tour creation and consolidation through its MCP server and the
+  served `generate_project_tour` prompt. `--install copilot` and `--uninstall
+  copilot` no longer write the skill and remove a
+  `~/.copilot/skills/codetour-knowledge/` directory an older CLI wrote, so no
+  second CodeTour guidance loads next to the plugin; the `codetour knowledge`
+  CLI commands stay. See the update to ADR 0039.
+- The Changes Tour contract now rejects a proposal that anchors no modified file
+  with `MISSING_CHANGED_FILE_ANCHOR` instead of returning an advisory warning,
+  so a tour can no longer describe a change set without pointing at it;
+  deletion-only branches stay valid, and the error names anchorable files. The
+  served prompts and tool descriptions also give literal anchor-pattern
+  examples and state that ambiguous or invalid expressions are rejected.
+- MCP Knowledge discovery verifies before it serves: `knowledge_list` and the
+  `prompts/get` catalogue projection run the same evidence verification as
+  `knowledge_read`, list only verified contracts as entries, and return every
+  failing catalogue entry under `invalid` with a machine-readable reason —
+  in full, regardless of the query — so broken contracts are fixed or removed
+  instead of being hidden or silently trusted. No body, cited path or hash
+  value reaches the report. See ADR 0044.
+- `/codetour generate` sends only the user's demand to `prompts/get` as
+  `request`, for Project and Changes Tours alike: the command, type and
+  review-mode prefix are adapter syntax and never travel as the user's words.
+  The same phrase still travels as `brief` for the Tour orientation.
 - The terminal reader is the default renderer: `codetour` and `/codetour` open
   the interactive terminal Tour without a flag, and `--renderer html` selects
   the HTML page explicitly.
@@ -57,6 +150,19 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Fixed
 
+- A served generation prompt always states the run-identity contract: when no
+  adapter identity exists, it says `runId` is optional and must be omitted
+  rather than sent empty, and that consolidation closes through
+  `knowledge_save` with an empty `entries` array. The Tour and Knowledge tools
+  treat a blank `runId` as absent instead of rejecting it.
+- Refused Project and Changes Tour creations report what the diagram engine
+  itself failed on: the Mermaid validation diagnostic carries the engine's
+  parse message — whitespace-collapsed and excerpt-bounded next to the source
+  excerpt it already carried. The served edge-label guidance prefers the
+  canonical quoted form for every labeled edge instead of quoting only
+  punctuated labels, while stating that Mermaid documents other valid
+  syntaxes. Engine-level regression tests keep the historical colon-label
+  form rejected and the canonical example rendering.
 - `codetour --install copilot` now registers the `codetour` MCP server in
   `~/.copilot/mcp-config.json` with the absolute launcher of the installed
   CLI, so `codetour-create_project_tour` and `codetour-create_changes_tour`

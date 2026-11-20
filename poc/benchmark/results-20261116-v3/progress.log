@@ -1,0 +1,6 @@
+{"phase":"pilot_start","at":"2026-11-16T06:36:49.524Z","output":"/Users/damien/Documents/codetour/poc/benchmark/results-20261116-v3"}
+Error: NO-GO: NO-GO: harness effective model configuration differs or is unreported
+    at ExecutionManager.executeSingle (/Users/damien/Documents/codetour/poc/benchmark/runner/src/execution/manager.ts:352:15)
+    at async BenchmarkRunner.runSingle (/Users/damien/Documents/codetour/poc/benchmark/runner/src/index.ts:403:19)
+    at async runPilot (/Users/damien/Documents/codetour/poc/benchmark/pilot.ts:91:76)
+    at async /Users/damien/Documents/codetour/poc/benchmark/results-20261116-v3/launch.cjs:36:23

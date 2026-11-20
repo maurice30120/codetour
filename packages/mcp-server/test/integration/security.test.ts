@@ -74,13 +74,21 @@ test("rejects an active scheme in the tour-level description", async () => {
   }
 });
 
-test("exposes exactly two tools", async () => {
+test("exposes exactly the two Tour tools and the four Knowledge tools", async () => {
   const root = tempDir();
   try {
     await withServer(root, async (client) => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
-      assert.deepEqual(names, ["create_changes_tour", "create_project_tour"]);
+      assert.deepEqual(names, [
+        "create_changes_tour",
+        "create_project_tour",
+        "get_generation_prompt",
+        "knowledge_close_run",
+        "knowledge_list",
+        "knowledge_read",
+        "knowledge_save",
+      ]);
       const project = tools.tools.find((tool) => tool.name === "create_project_tour");
       assert.ok(project);
       assert.ok(project!.description!.includes("Project Tour"));

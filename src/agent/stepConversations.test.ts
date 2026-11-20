@@ -50,6 +50,8 @@ test("a question records its exchange and returns the completed answer", async (
       answer: "Réponse complète.",
       activity: undefined,
       toolUses: [],
+      // A responder that names no agent leaves the exchange without one.
+      agent: undefined,
       pending: false,
       interrupted: false,
       failed: false
@@ -290,6 +292,56 @@ test("a stop during the grounding capture is honored and never prompts", async (
   assert.equal(settled.exchanges[0].interrupted, true);
   assert.equal(settled.responding, false);
   assert.equal(calls, 0);
+});
+
+test("each exchange records the identity the handshake confirmed, and the store reports the current one", async () => {
+  const conversations = new StepConversations({
+    identity: () => ({ agent: "Copilot", model: "gpt-5", effective: true }),
+    answer(_request: StepChatRequest, events) {
+      // The preselection is all the paintings can show until the handshake.
+      events?.onAgentIdentity?.({ agent: "Vibe", effective: false });
+      events?.onAgentIdentity?.({ agent: "Copilot", model: "gpt-5", effective: true });
+      return "Réponse de Copilot.";
+    }
+  });
+
+  const view = await conversations.ask("tour::0", "Qui répond ?", grounding());
+
+  // The identity that produced the answer travels with the raw exchange:
+  // the painter captions it without guessing from the responder's state.
+  assert.deepEqual(view.exchanges[0].agent, {
+    agent: "Copilot",
+    model: "gpt-5",
+    effective: true
+  });
+  assert.deepEqual(conversations.identity(), {
+    agent: "Copilot",
+    model: "gpt-5",
+    effective: true
+  });
+});
+
+test("a failed launch records the agent it tried as preselected, not as the answering one", async () => {
+  const conversations = new StepConversations({
+    identity: () => ({ agent: "Vibe", effective: false }),
+    answer: () => {
+      throw new StepChatAgentUnavailableError("Impossible de lancer l'agent.");
+    }
+  });
+
+  const view = await conversations.ask("tour::0", "Et si l'agent manque ?", grounding());
+
+  assert.equal(view.exchanges[0].failed, true);
+  assert.deepEqual(view.exchanges[0].agent, { agent: "Vibe", effective: false });
+});
+
+test("without a responder there is no identity to name", async () => {
+  const conversations = new StepConversations();
+
+  const view = await conversations.ask("tour::0", "Qui répond ?", grounding());
+
+  assert.equal(view.exchanges[0].agent, undefined);
+  assert.equal(conversations.identity(), undefined);
 });
 
 test("without a responder the exchange fails and the reading stays usable", async () => {

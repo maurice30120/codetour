@@ -1,0 +1,38 @@
+{
+  "name": "codetour-pi-plugin",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "CodeTour for Pi: the shared CodeTour MCP server, a minimal generation skill and a bounded consolidation guard.",
+  "keywords": [
+    "pi-package",
+    "codetour",
+    "tours",
+    "knowledge",
+    "mcp",
+    "pi"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/maurice30120/codetour",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maurice30120/codetour"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/codetour.ts"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "changelogPath": ""
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "files": [
+    "extensions",
+    "lib",
+    "skills",
+    "README.md"
+  ]
+}

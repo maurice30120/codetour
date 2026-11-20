@@ -1,0 +1,91 @@
+{
+  "run_id": "8571d3c9-f98d-4196-8f78-93fd530d5e8d",
+  "timestamp": "2026-11-16T06:15:21.191Z",
+  "agent": "codetour",
+  "agent_version": "f4433993fc7b406d66a7c631c2112c6ea92b4a6d",
+  "model": "mistral-small-latest",
+  "model_params": {
+    "temperature": 0,
+    "max_tokens": 600000
+  },
+  "question_id": "PILOT-pg-config",
+  "series": "R",
+  "phase": "repetition",
+  "repeat_index": 1,
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "calls": [
+    {
+      "call_id": "call-fc25ad09-af52-4729-a2b5-7f26930bd314-0",
+      "call_type": "prompt",
+      "input_tokens": 1752,
+      "output_tokens": 68,
+      "cache_included_in_input": true,
+      "duration_ms": 1198,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 0,
+        "started_at": "2026-11-16T06:15:23.410Z",
+        "ended_at": "2026-11-16T06:15:24.608Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    }
+  ],
+  "functions_created": [],
+  "functions_reused": [],
+  "total_tokens": {
+    "input": 1752,
+    "output": 68,
+    "total": 1820,
+    "verified": true,
+    "cached_input": 0,
+    "cache_creation_input": 0
+  },
+  "result": {
+    "tour_title": "Tour: Explain how the pg_config command line utility handles a request to print its version.",
+    "steps": [],
+    "raw_response": "{\"objective\":\"Explain how the pg_config command line utility handles a request to print its version.\",\"entryPoints\":[],\"components\":[],\"relations\":[],\"uncertainties\":[\"The repository under exploration is not yet identified; no evidence can be provided until a target repository containing pg_config is located and analyzed.\"],\"status\":\"complete\",\"stopReason\":null,\"promptSha256\":\"96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c\",\"modelConfig\":{\"model\":\"mistral-small-latest\",\"temperature\":0,\"maxOutputTokens\":4096},\"metrics\":{\"inputTokens\":1752,\"outputTokens\":68,\"usageAvailable\":true,\"modelCalls\":1,\"toolCalls\":0,\"durationMs\":1239,\"outputBytes\":0,\"cost\":null,\"memoryReuses\":0,\"memoryPurges\":0,\"memoryQueryRejects\":0,\"memoryResultsCompacted\":0,\"memoryResultsRepeated\":0},\"callTrace\":[{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":1752,\"outputTokens\":68,\"usageMissing\":false,\"seq\":0,\"startedAt\":\"2026-11-16T06:15:23.410Z\",\"endedAt\":\"2026-11-16T06:15:24.608Z\",\"durationMs\":1198}],\"consolidationReport\":{\"accepted\":[],\"rejected\":[],\"duplicates\":[],\"indeterminate\":[]}}",
+    "citations": []
+  },
+  "error": null,
+  "status": "success",
+  "fixture_verification": {
+    "head_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "clean_tree": true,
+    "verified_at": "2026-11-16T06:15:21.191Z"
+  },
+  "manifest_hash": "f82864b9d7f2ad2061dad85f163989114c19bdf7d57c0516bfd2e67b81c85c1d",
+  "config_hash": "26de704cc4ae99db6df1a7c2f90f000f1d29911211bb870f0b31f1ef2aa93095",
+  "execution_config": {
+    "fixture_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "codetour": {
+      "model": "mistral-small-latest",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "vibe": {
+      "model": "mistral-medium-3.5",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "timeout_ms": 600000,
+    "retry_policy": {
+      "maxRetries": 0,
+      "retryDelay": 0
+    }
+  },
+  "prompt_hash": "2addf1bc6b973717749458ad99f7cf607e9c73e44abfc3c7bf0144426d0906e9",
+  "question_hash": "85f0915bbb43d99f6a71d7894ca84cf621efffdcfcce5db68790c2e6ffc4b653",
+  "fixture_hash": "1ae64b1c130a9bc03de0835845d5e8cf42f3e0726eb646d8ac62eb72870f0dfa",
+  "system_prompt_hash": "96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c",
+  "tools": []
+}

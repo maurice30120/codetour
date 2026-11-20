@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "codetour",
+  "version": "0.1.2",
+  "description": "CodeTour for GitHub Copilot CLI: the shared CodeTour MCP server, a minimal generation skill and a bounded agentStop consolidation guard.",
+  "author": {
+    "name": "CodeTour"
+  },
+  "homepage": "https://github.com/maurice30120/codetour",
+  "repository": "https://github.com/maurice30120/codetour",
+  "license": "MIT",
+  "keywords": [
+    "codetour",
+    "tours",
+    "knowledge",
+    "mcp",
+    "copilot"
+  ]
+}

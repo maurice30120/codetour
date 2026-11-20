@@ -1,0 +1,76 @@
+{
+  "diagnostic": true,
+  "included_in_campaign": false,
+  "measured_campaign_started": false,
+  "requested_runs": 10,
+  "started_at": "2026-11-16T07:04:37.731Z",
+  "state": "INVALIDATED_TELEMETRY_GAP",
+  "configuration": {
+    "codetour": {
+      "model": "mistral-medium-3.5",
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "vibe": {
+      "model": "mistral-medium-3.5",
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "timeoutMs": 600000
+  },
+  "completed_runs": 2,
+  "all_usage_verified": false,
+  "semantic_evaluation": "Pending independent assessment; success below is execution status only.",
+  "totals": null,
+  "results": [
+    {
+      "runId": "182d2440-96ed-4986-b0e8-809e4899c4a2",
+      "questionId": "R-Q1-R1",
+      "agent": "codetour",
+      "series": "R",
+      "totalTokens": {
+        "input": 159308,
+        "output": 1119,
+        "total": 160427
+      },
+      "status": "success",
+      "duration_ms": 40782,
+      "model": "mistral-medium-3.5",
+      "usage_verified": true,
+      "functions_created": [],
+      "functions_reused": [],
+      "consolidation": {
+        "accepted": [],
+        "rejected": [],
+        "duplicates": [],
+        "indeterminate": []
+      },
+      "model_calls": 17,
+      "tool_calls": 18,
+      "citations": 6,
+      "source_seal": "c2c6774bdb6afda7ebb3ffedf986fade1b6997039e1532f0e5969f201c2fc9e2",
+      "quality": "not independently evaluated"
+    },
+    {
+      "runId": "2595b5aa-22df-472c-8752-bc7a606bb9e9",
+      "questionId": "R-Q1-R1",
+      "agent": "vibe-native",
+      "series": "R",
+      "totalTokens": {
+        "input": 108823,
+        "output": 2639,
+        "total": 111462
+      },
+      "status": "success",
+      "duration_ms": 110041,
+      "model": "mistral-vibe-cli-latest",
+      "usage_verified": true,
+      "functions_created": [],
+      "functions_reused": [],
+      "citations": 8,
+      "source_seal": "c2c6774bdb6afda7ebb3ffedf986fade1b6997039e1532f0e5969f201c2fc9e2",
+      "quality": "not independently evaluated"
+    }
+  ],
+  "error": "Vibe Q1 session exports report 447650 tokens, but recorded per-call subset totals 111462; corrected G2 rejects this. Batch interrupted, no comparison verdict."
+}

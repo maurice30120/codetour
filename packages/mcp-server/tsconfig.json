@@ -13,7 +13,11 @@
     "skipLibCheck": true,
     "sourceMap": true,
     "declaration": true,
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "codetour-knowledge": ["../knowledge/dist/src/index"]
+    }
   },
   "include": ["src", "test"]
 }

@@ -1,0 +1,83 @@
+{
+  "spec": 174,
+  "verdict": "NO-GO",
+  "success": false,
+  "phase": "pilot",
+  "started_at": "2026-11-15T22:23:45.424Z",
+  "pilot": {
+    "success": false,
+    "results": [
+      {
+        "runId": "106cdb7e-f45b-4af2-90f6-f54f1e73a05f",
+        "questionId": "PILOT-pg-config",
+        "agent": "codetour",
+        "series": "R",
+        "totalTokens": {
+          "input": 1737,
+          "output": 84,
+          "total": 1821
+        },
+        "status": "success"
+      },
+      {
+        "runId": "5e154175-4065-440a-9bf0-481e559a473c",
+        "questionId": "PILOT-pg-config",
+        "agent": "vibe-native",
+        "series": "R",
+        "totalTokens": {
+          "input": 27732,
+          "output": 1050,
+          "total": 28782
+        },
+        "status": "success"
+      },
+      {
+        "runId": "b4ebcb76-6cce-4e64-8e9d-75bfe93fa53b",
+        "questionId": "PILOT-control-data",
+        "agent": "codetour",
+        "series": "R",
+        "totalTokens": {
+          "input": 35585,
+          "output": 189,
+          "total": 35774
+        },
+        "status": "error",
+        "error": "Partial exploration (stopReason: iterations)"
+      },
+      {
+        "runId": "d0b05deb-f84b-4e44-9f61-21c10a5e703f",
+        "questionId": "PILOT-control-data",
+        "agent": "vibe-native",
+        "series": "R",
+        "totalTokens": {
+          "input": 46239,
+          "output": 2423,
+          "total": 48662
+        },
+        "status": "success"
+      }
+    ],
+    "errors": [
+      "Partial exploration (stopReason: iterations)"
+    ],
+    "noGoChecks": [
+      {
+        "passed": true,
+        "errors": []
+      },
+      {
+        "passed": true,
+        "errors": []
+      },
+      {
+        "passed": true,
+        "errors": []
+      },
+      {
+        "passed": true,
+        "errors": []
+      }
+    ],
+    "manifestFrozen": false
+  }
+}

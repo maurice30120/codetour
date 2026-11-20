@@ -1,0 +1,18 @@
+#!/Users/damien/.local/share/uv/tools/mistral-vibe/bin/python3
+"""Run the installed native CLI while retaining its real per-call journal segments.
+Only journal garbage collection is disabled; agent instructions, tools, models,
+requests, budgets, and generation/checkpoint garbage collection remain native.
+This is diagnostic instrumentation, not a change to the installed package.
+"""
+import sys
+from mistralai_vibe_local_harness.vibe import _storage
+original_discard = _storage._discard_all_but_newest
+
+def retain_journal_segments(directory, pattern, discard):
+    if directory.name == 'journal' and pattern is _storage._JOURNAL_SEGMENT_PATTERN:
+        return
+    return original_discard(directory, pattern, discard)
+
+_storage._discard_all_but_newest = retain_journal_segments
+from vibe.app_server.stdio import main
+sys.exit(main())

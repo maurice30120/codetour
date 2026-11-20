@@ -33,8 +33,9 @@ The default renderer is the terminal: it opens a separate terminal window. `--re
 ### Start the MCP server with `codetour mcp`
 
 The same launcher starts the CodeTour MCP server, so an agent outside VS Code
-can create Project Tours and Changes Tours with the same two tools, validation
-and workspace confinement as the extension and the `codetour-mcp` npm package:
+can create Project Tours and Changes Tours and discover, read and save
+Knowledge with the same tools, validation and workspace confinement as the
+extension and the `codetour-mcp` npm package:
 
 ```sh
 cd /path/to/workspace
@@ -86,16 +87,15 @@ detection, existing-installation checks and per-file verification. The
 adapter files travel embedded inside the CLI bundle, so the install works
 from any directory with no dependency on this repository. A pre-existing
 installation whose content differs is replaced directly, and the install
-reports which files it replaced. The install also registers the `codetour`
-MCP server in `~/.copilot/mcp-config.json`, launched by the installed
-launcher (`codetour mcp` through its absolute runtime and script path), so
-the two creation tools are discoverable in a Copilot session even when the
-extension process does not join. Existing MCP servers are preserved and an
-identical entry is not rewritten. `codetour --uninstall copilot`
-removes only the files and the MCP entry this CLI owns, leaving any other
-file or server untouched. `CODETOUR_COPILOT_MCP_CONFIG` overrides the
-configuration path, and `codetour --agents` or `codetour --doctor` reports a
-missing registration as an incomplete integration.
+reports which files it replaced. The install also writes the Agent Plugins 1.0
+plugin (its root `mcp.json` declares the `codetour` server with the verified
+absolute launcher) and removes the legacy `codetour` entry an older release
+wrote into `~/.copilot/mcp-config.json`; a foreign same-named entry is
+preserved and reported. `codetour --uninstall copilot` removes the plugin and
+only the files this CLI owns, leaving any other file or server untouched.
+`CODETOUR_COPILOT_MCP_CONFIG` overrides the legacy configuration path for the
+cleanup, and `codetour --agents` or `codetour --doctor` reports a missing
+plugin, skill or adapter as an incomplete integration.
 
 `codetour --install vscode` installs the CodeTour VS Code extension through
 the `code` CLI when a `.vsix` is found next to the launcher or in the current
@@ -118,7 +118,10 @@ Execution can be blocked by macOS Gatekeeper, Windows security controls, or an e
 
 ## Validation status
 
-`npm run test:standalone` builds an artifact for the running host and tests Tour discovery and HTML output with the packaged runtime. It also launches `codetour mcp` through the packaged launcher with an MCP SDK client in a workspace that is not a Git repository, with a PATH that exposes no global Node executable on macOS: it performs the handshake, lists both tools, creates a Project Tour, verifies the produced files, and checks `--help`, `--version`, invalid arguments, inaccessible workspaces and stdin shutdown. The packager rejects an artifact whose CLI bundle exceeds the measured size budget or contains a second MCP server entry.
+`npm run test:standalone` builds an artifact for the running host and tests Tour discovery and HTML output with the packaged runtime. It also launches `codetour mcp` through the packaged launcher with an MCP SDK client in a workspace that is not a Git repository, with a PATH that exposes no global Node executable on macOS: it performs the handshake, lists every tool, creates a Project Tour, lists,
+reads and saves Knowledge and requests the enriched Project Tour prompt,
+verifies the produced files, and checks `--help`, `--version`, invalid
+arguments, inaccessible workspaces and stdin shutdown. The packager rejects an artifact whose CLI bundle exceeds the measured size budget or contains a second MCP server entry.
 
 On macOS it also runs the packaged terminal reader in a pseudo-terminal and checks that a Tour Step appears and the reader exits. This does not prove the graphical terminal window works, validate Copilot, or replace testing on a fresh machine without a global runtime and without admin access. Windows and both macOS architectures each need their own actual artifact and graphical smoke test before the POC packaging acceptance criterion is complete.
 

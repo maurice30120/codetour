@@ -1,0 +1,11 @@
+# Expose each Knowledge Entry's revision as the digest of its file bytes, without validating the contract
+
+Spec #232 needs a compare-and-swap token so a write can be conditioned on the entry an agent actually read. We decide that a Knowledge Entry's **Knowledge Revision** is the SHA-256 of the complete Markdown file bytes, exposed as an opaque token by discovery, read, the catalogue projection served by `prompts/get`, and the Native Knowledge CLI.
+
+**Why without validating the contract.** The digest is taken from the file bytes alone, before parsing and before any evidence verification, so it exists for an entry whose contract already fails. That case is exactly the one that must stay writable: a stale proof makes an entry unreadable by design, and repairing it needs a token that identifies the file *without* serving the body the reader refuses. Deriving the revision from a validated contract would make the dead entries it must address the only ones it cannot address.
+
+**Why opaque.** Callers compare tokens, never decompose them. Nothing of the body, of a cited path or of a source hash is derivable from the value, so publishing it leaks no content and offers no shortcut around verification: a caller who wants the bytes still reads the entry and verifies its contract. Hashing the entry file — not the body, not a cited file — also keeps the token cheap and total: one read of one file, no workspace access, no canonicalizer dependency.
+
+Considered and rejected: a revision computed over the parsed body (unavailable for a malformed contract, and blind to frontmatter and evidence edits); a content hash of the verified evidence set (changes meaning with the engine, and needs a successful verification to exist); a server-side generation counter (a second state to persist, and it survives nothing that rewrites the file).
+
+Consequence: any byte change moves the revision — an edited description, reformatted frontmatter, a corrected proof — so a write conditioned on a stale token is refused instead of silently overwriting. A revision is not a content proof: it says the file changed, never that the explanation is correct. An entry with no readable file (`unknown_entry`, a symlink escape, a malformed name) has no revision, because there is nothing to hash.

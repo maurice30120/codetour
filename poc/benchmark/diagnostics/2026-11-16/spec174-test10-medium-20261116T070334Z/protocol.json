@@ -1,0 +1,120 @@
+{
+  "spec": "174",
+  "version": "2.0",
+  "status": "DIAGNOSTIC_ONLY",
+  "source": "https://github.com/maurice30120/codetour/issues/174",
+  "functional_source": "https://github.com/maurice30120/codetour/issues/172",
+  "fixture": {
+    "repository": "https://github.com/postgres/postgres",
+    "sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "read_only": true,
+    "verification": "git HEAD and clean tree before every run"
+  },
+  "questions": {
+    "file": "poc/benchmark/postgres-questions.json",
+    "hash": "sha256:d4f896a391a41050cd3a3f784be762ce9d2f5f9f329694ce6fe5673793a5ba86",
+    "series_R": {
+      "questions": 5,
+      "repetitions": 4,
+      "requests_per_agent": 20
+    },
+    "series_T": {
+      "priming": 10,
+      "transfer": 10,
+      "requests_per_agent": 20
+    },
+    "agent_order": "counterbalanced_by_question_index",
+    "memory": "empty at each series start; retained within series"
+  },
+  "expected_answers": {
+    "file": "poc/benchmark/postgres-expected-answers.json",
+    "hash": "sha256:8d241c2a7df6c6ba28ffd5f2999674945d6285b09277d66f12fcf5f22157242d",
+    "visible_to_agents": false
+  },
+  "prompts": {
+    "codetour": "packages/exploration-poc/src/decomposition-prompt.ts",
+    "hash": "sha256:96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c",
+    "vibe": "native research agent with its unmodified system instructions"
+  },
+  "models": {
+    "codetour": "mistral-medium-3.5; exact effective identity in each trace",
+    "vibe": "vibe CLI 3.1.2; root session 77c3b8a8-4288-57f2-4e54-535cb81aac64 configured mistral-vibe-cli-latest; native research child (research) on model mistral-vibe-cli-latest; per-run identity in trace.model",
+    "document_divergences": true,
+    "causal_attribution": "substantial model or budget differences prevent causal attribution"
+  },
+  "parameters": {
+    "max_input_output_tokens_per_request": 600000,
+    "budget_note": "same ceiling for both arms (fairness, spec section 4); token_limit per request observed to interrupt the native arm at 16384 before its root could finish delegating — corrected before any measured run, applicable to the pilot's uncounted runs as well",
+    "timeout_ms": 600000,
+    "max_infrastructure_retries": 0,
+    "temperature": "CodeTour: 0; Vibe: provider default for the root session (sentinel observed 1 on the root) and its native child — recorded as a documented divergence, not equalized",
+    "cache_policy": "provider cache tokens reported separately and included only once in input"
+  },
+  "evaluation": {
+    "criteria_file": "poc/benchmark/evaluator/criteria-pre-registered.json",
+    "criteria_hash": "sha256:c3f7638e7ede1a69c5aeed3922c14cad29a996548577a1bc88880a436e5f8fd0",
+    "blind_to": [
+      "agent",
+      "run_id",
+      "rank",
+      "memory",
+      "tokens"
+    ],
+    "semantic_uncertainty": "manual independent review and recorded arbitration; never automatic semantic success",
+    "production_judge": false
+  },
+  "thresholds": {
+    "minimum_gain": 0.2,
+    "maximum_quality_degradation": 0.05,
+    "maximum_additional_critical_false_claims": 0,
+    "confidence_level": 0.95,
+    "must_pass_each_series": true
+  },
+  "statistics": {
+    "method": "Paired, dependency-aware bootstrap (10,000 resamples, seed 174) over the pre-registered independent units — in series R the 5 question families (4 repetitions each), in series T the learning sequences — of the cumulative tokens per correct Tour per agent. The 95% confidence interval of the relative reduction must be strictly positive on EACH series; leave-one-family-out re-computation and the cumulative-denominator including failed runs form the sensitivity plan. Fewer than 5 independent information units, an unmatched comparison, or any missing usage forbids a global reduction and yields INDÉTERMINÉ.",
+    "independent_unit": "question family or independent learning sequence, never repeated run by default",
+    "bootstrap_iterations": 10000,
+    "seed": 174,
+    "insufficient_independent_units": "INDETERMINED",
+    "extension": {
+      "enabled": false,
+      "reason": "Additional question families and stopping rules have not been preregistered."
+    }
+  },
+  "execution": {
+    "total_runs": 10,
+    "pilot_questions": "poc/benchmark/pilot-questions.json",
+    "pilot_included_in_metrics": false,
+    "freeze": "only after successful external pilot and G0-G4 evidence; before first measured run",
+    "agent_failures": "preserve all partial usage and count in request denominator",
+    "missing_usage": "NO-GO; no global reduction computed"
+  },
+  "measurement": {
+    "primary": "tokens cumulés par Tour correct",
+    "include": [
+      "creation",
+      "exploration",
+      "diagnostics",
+      "retries",
+      "corrections",
+      "selection",
+      "consolidation"
+    ],
+    "evaluator_costs": "reported separately and symmetrically",
+    "per_function_savings_without_counterfactual": false
+  },
+  "diagnostic": {
+    "outside_measured_campaign": true,
+    "source_manifest_sha256": "f82864b9d7f2ad2061dad85f163989114c19bdf7d57c0516bfd2e67b81c85c1d",
+    "selected_question_ids": [
+      "R-Q1-R1",
+      "R-Q2-R1",
+      "R-Q3-R1",
+      "R-Q4-R1",
+      "R-Q5-R1"
+    ],
+    "ordered_pairs": "CodeTour first for odd family indices; Vibe first for even family indices.",
+    "memory": "Fresh R memory at start; retained across all five CodeTour requests.",
+    "rationale": "User selected Medium 3.5 after a source-verified standalone CodeTour search. No blind quality or reduction verdict from this diagnostic."
+  }
+}

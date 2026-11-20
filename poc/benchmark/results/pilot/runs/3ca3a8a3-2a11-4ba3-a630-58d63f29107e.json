@@ -1,0 +1,91 @@
+{
+  "run_id": "3ca3a8a3-2a11-4ba3-a630-58d63f29107e",
+  "timestamp": "2026-11-15T22:48:57.844Z",
+  "agent": "codetour",
+  "agent_version": "7852aadfc65666558d20eb3a4316706fc58bd576",
+  "model": "mistral-small-latest",
+  "model_params": {
+    "temperature": 0,
+    "max_tokens": 600000
+  },
+  "question_id": "PILOT-control-data",
+  "series": "R",
+  "phase": "repetition",
+  "repeat_index": 1,
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "calls": [
+    {
+      "call_id": "call-6e961b6f-dede-4ab6-8747-27e154f013b8-0",
+      "call_type": "prompt",
+      "input_tokens": 1756,
+      "output_tokens": 107,
+      "cache_included_in_input": true,
+      "duration_ms": 1208,
+      "tool_name": "model",
+      "parameters": {
+        "seq": 0,
+        "started_at": "2026-11-15T22:49:02.635Z",
+        "ended_at": "2026-11-15T22:49:03.843Z"
+      },
+      "result": null,
+      "error": null,
+      "usage_missing": false
+    }
+  ],
+  "functions_created": [],
+  "functions_reused": [],
+  "total_tokens": {
+    "input": 1756,
+    "output": 107,
+    "total": 1863,
+    "verified": true,
+    "cached_input": 0,
+    "cache_creation_input": 0
+  },
+  "result": {
+    "tour_title": "Tour: Explain how pg_controldata selects the data directory to inspect and report a missing directory argument.",
+    "steps": [],
+    "raw_response": "{\"objective\":\"Explain how pg_controldata selects the data directory to inspect and report a missing directory argument.\",\"entryPoints\":[],\"components\":[],\"relations\":[],\"uncertainties\":[\"The exact logic of directory selection by pg_controldata is not documented in the repository.\",\"The repository may not contain the source code for pg_controldata (part of PostgreSQL, not this repo).\"],\"status\":\"complete\",\"stopReason\":null,\"promptSha256\":\"96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c\",\"modelConfig\":{\"model\":\"mistral-small-latest\",\"temperature\":0,\"maxOutputTokens\":4096},\"metrics\":{\"inputTokens\":1756,\"outputTokens\":107,\"usageAvailable\":true,\"modelCalls\":1,\"toolCalls\":0,\"durationMs\":1263,\"outputBytes\":0,\"cost\":null,\"memoryReuses\":0,\"memoryPurges\":0,\"memoryQueryRejects\":0,\"memoryResultsCompacted\":0,\"memoryResultsRepeated\":0},\"callTrace\":[{\"type\":\"model\",\"name\":\"model\",\"inputTokens\":1756,\"outputTokens\":107,\"usageMissing\":false,\"seq\":0,\"startedAt\":\"2026-11-15T22:49:02.635Z\",\"endedAt\":\"2026-11-15T22:49:03.843Z\",\"durationMs\":1208}],\"consolidationReport\":{\"accepted\":[],\"rejected\":[],\"duplicates\":[],\"indeterminate\":[]}}",
+    "citations": []
+  },
+  "error": null,
+  "status": "success",
+  "fixture_verification": {
+    "head_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "clean_tree": true,
+    "verified_at": "2026-11-15T22:48:57.844Z"
+  },
+  "manifest_hash": "f82864b9d7f2ad2061dad85f163989114c19bdf7d57c0516bfd2e67b81c85c1d",
+  "config_hash": "26de704cc4ae99db6df1a7c2f90f000f1d29911211bb870f0b31f1ef2aa93095",
+  "execution_config": {
+    "fixture_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+    "codetour": {
+      "model": "mistral-small-latest",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "vibe": {
+      "model": "mistral-medium-3.5",
+      "params": {
+        "temperature": 0,
+        "max_tokens": 600000
+      },
+      "maxTokens": 600000,
+      "temperature": 0
+    },
+    "timeout_ms": 600000,
+    "retry_policy": {
+      "maxRetries": 0,
+      "retryDelay": 0
+    }
+  },
+  "prompt_hash": "14343b0186fc82e5167ecc926f905c18867e5197e1469005b812225b75fdd795",
+  "question_hash": "1bbcc69f91c5982c81b55ffb543118688914aae18b951cae8bca8dc1ac81b530",
+  "fixture_hash": "1ae64b1c130a9bc03de0835845d5e8cf42f3e0726eb646d8ac62eb72870f0dfa",
+  "system_prompt_hash": "96b81f94ff68609669415edd260a0f78583fbf81a48e7bbe26759844b0c2b15c",
+  "tools": []
+}

@@ -1,0 +1,37 @@
+{
+  "gate": "G4",
+  "registered": true,
+  "preregistered_before_campaign": true,
+  "source": "Spec #174 docs/specs/postgres-real-benchmark-2026-11-15.md section 6 and docs/specs/spec-174-tickets/06-evaluateur-aveugle.md — criteria fixed BEFORE observing any run result",
+  "criteria": {
+    "correct": {
+      "definition": "Response relevant, central relations correct, proofs verifiable against the fixture at the pinned SHA",
+      "requires_all_of": ["evidence_supported", "no major_missing_relation", "no critical_false_claim", "coverage >= min_coverage"]
+    },
+    "evidence_supported": {
+      "definition": "Every claim is backed by at least one citation that verifies against the real fixture code (file exists, line exists, content matches)"
+    },
+    "major_missing_relation": {
+      "definition": "A critical pre-registered relation is absent, OR provided but not verified against the code"
+    },
+    "critical_false_claim": {
+      "definition": "A critical claim contradicted by the code, or supported by fabricated evidence (citation to a nonexistent file/line)"
+    },
+    "coverage": {
+      "definition": "Share of expected areas covered by citations whose file and line REALLY exist in the fixture",
+      "min_coverage": 0.7
+    }
+  },
+  "independence": {
+    "blind_to": ["agent", "execution_rank", "token_cost", "run_id"],
+    "no_systematic_llm_judge": "Aucun second LLM juge systematique en production (complement #172/#174) — verification deterministe contre le code reel uniquement; arbitrage = second passage deterministe, motif conserve"
+  },
+  "adversarial_regression": {
+    "description": "A response whose relation cites a NONEXISTENT file and whose claims miss proof must score correct=false",
+    "case": {
+      "claim": "exec_simple_query calls pg_parse_query (critical)",
+      "citation_file": "src/backend/nope/does_not_exist_42.c",
+      "expected_verdict": { "correct": false, "evidence_supported": false, "major_missing_relation_or_critical_false_claim": true }
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "type": "manual_diagnostic_not_blind_benchmark_evaluation",
+  "at": "2026-11-16T06:47:25.405733+00:00",
+  "execution_status": "complete",
+  "citations": [
+    {
+      "file": "src/test/perl/PostgreSQL/Test/Cluster.pm",
+      "startLine": 1764,
+      "endLine": 1769,
+      "bounds_valid": true,
+      "source_sha256": "e6a76a0e3fdd48a67e448fbcaed197acd1c4fed413e371e4afdcea0cc2577f84"
+    },
+    {
+      "file": "src/test/perl/PostgreSQL/Version.pm",
+      "startLine": 68,
+      "endLine": 68,
+      "bounds_valid": true,
+      "source_sha256": "6f198a679bb763e0b33f2292780f2b0a682acdb342691b53ecc15b087a074cca"
+    },
+    {
+      "file": "src/bin/pg_config/pg_config.c",
+      "startLine": 1,
+      "endLine": 100,
+      "bounds_valid": true,
+      "source_sha256": "b72a49055448c456ac9f2e7e102823ea4b658c20e7b125bde556971537a946e8"
+    },
+    {
+      "file": "src/bin/pg_config/pg_config.c",
+      "startLine": 101,
+      "endLine": 186,
+      "bounds_valid": true,
+      "source_sha256": "b72a49055448c456ac9f2e7e102823ea4b658c20e7b125bde556971537a946e8"
+    },
+    {
+      "file": "src/common/config_info.c",
+      "startLine": 1,
+      "endLine": 100,
+      "bounds_valid": true,
+      "source_sha256": "3c063d4e80f20507a50d160322f02d900c36f5318c8ddffd76adda74392204c3"
+    },
+    {
+      "file": "src/common/config_info.c",
+      "startLine": 101,
+      "endLine": 200,
+      "bounds_valid": true,
+      "source_sha256": "3c063d4e80f20507a50d160322f02d900c36f5318c8ddffd76adda74392204c3"
+    },
+    {
+      "file": "src/common/config_info.c",
+      "startLine": 180,
+      "endLine": 201,
+      "bounds_valid": true,
+      "source_sha256": "3c063d4e80f20507a50d160322f02d900c36f5318c8ddffd76adda74392204c3"
+    },
+    {
+      "file": "src/bin/pg_config/pg_config.c",
+      "startLine": 80,
+      "endLine": 120,
+      "bounds_valid": true,
+      "source_sha256": "b72a49055448c456ac9f2e7e102823ea4b658c20e7b125bde556971537a946e8"
+    },
+    {
+      "file": "src/bin/pg_config/pg_config.c",
+      "startLine": 153,
+      "endLine": 153,
+      "bounds_valid": true,
+      "source_sha256": "b72a49055448c456ac9f2e7e102823ea4b658c20e7b125bde556971537a946e8"
+    },
+    {
+      "file": "src/bin/pg_config/pg_config.c",
+      "startLine": 101,
+      "endLine": 101,
+      "bounds_valid": true,
+      "source_sha256": "b72a49055448c456ac9f2e7e102823ea4b658c20e7b125bde556971537a946e8"
+    }
+  ],
+  "semantic_satisfactory": false,
+  "reason": "Valid source ranges, but file/module labels and references to test consumers do not explicitly describe the version option lookup, VERSION value construction and show_item printing.",
+  "functions_created": [],
+  "reuses": 0,
+  "result_sha256": "27dca31dc4a3c79ff550a16140162ab19f082d65460833416935d577ea0cdf72"
+}

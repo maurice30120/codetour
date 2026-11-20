@@ -1,0 +1,22 @@
+{
+  "checkpoint_version": 1,
+  "compaction_count": 0,
+  "context": {
+    "messages": []
+  },
+  "notifications": [],
+  "turn": {
+    "iterations": 0,
+    "model_input_ready": false,
+    "pending_steer": [],
+    "phase": {
+      "action_id": "ff77b0e9-95f0-5225-a6cd-a654f2b3abf1",
+      "type": "awaiting_completion"
+    },
+    "queued": {
+      "type": "empty"
+    },
+    "turn_id": "child-7ffe940821b29a1662c0d755:turn:1",
+    "type": "active"
+  }
+}

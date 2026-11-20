@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { renderMermaidDiagram } from "codetour-description-renderer";
 import { rmrf, tempDir, withServer } from "../helpers/test-utils";
 import {
   CHANGES_TOUR_PROMPT_RESOURCE_TEMPLATE,
@@ -31,6 +32,9 @@ function changesTourPromptUri(reviewMode: string): string {
 // the served instructions — in the composed prompts/get form, only the
 // user's orientation clause may follow it.
 function assertAnnouncementStep(text: string, persistenceClause: string): void {
+  assert.ok(text.includes("Validation runs before writing; correct reported issues and retry."));
+  assert.ok(text.includes("only when validation without writing is needed."));
+  assert.ok(!text.includes("Rehearse first"));
   const marker = "Announce the created tour";
   const index = text.indexOf(marker);
   assert.ok(index >= 0, "the served prompt must contain the announcement step");
@@ -56,9 +60,19 @@ function assertAnnouncementStep(text: string, persistenceClause: string): void {
   );
   const remainder =
     lineEnd === -1 ? "" : text.slice(lineEnd).trim();
+  // The served instructions end with the announcement. The composed
+  // prompts/get form may append, in this order, the orientation clause, the
+  // user's original request, the Knowledge catalogue projection and the
+  // decomposition method (spec #223).
+  const followUps = [
+    "## Tour orientation from the user",
+    "## The user's original request",
+    "## Run identity",
+    "## Knowledge catalogue (metadata only)",
+    "## Decomposition method",
+  ];
   assert.ok(
-    remainder === "" ||
-      remainder.startsWith("## Tour orientation from the user"),
+    remainder === "" || followUps.some((heading) => remainder.startsWith(heading)),
     "the announcement must be the final step of the served instructions"
   );
 }
@@ -100,6 +114,41 @@ async function readResourceText(
   return content.text ?? "";
 }
 
+test("tool guidance gives a valid Mermaid example and Knowledge name rule", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async client => {
+      const tools = (await client.listTools()).tools;
+      const project = tools.find(tool => tool.name === "create_project_tour");
+      const save = tools.find(tool => tool.name === "knowledge_save");
+      assert.ok(project?.description);
+      assert.ok(save?.description);
+      const example = project.description.match(/`(Client -->[^`]+)`/);
+      assert.ok(example, "the project tool supplies an edge-label example");
+      await renderMermaidDiagram(`flowchart LR\n${example[1]}`, "light");
+      assert.match(save.description, /knowledge-lecture-verifiee/);
+      assert.match(
+        project.description,
+        /pattern: "export function createServer"/,
+        "the project tool supplies a simple literal anchor-pattern example"
+      );
+      assert.match(project.description, /metacharacters/);
+      // The tool descriptions stay in context even when the served prompt is
+      // not read, so the code-verification, flow-tracing and user-file rules
+      // live here too.
+      assert.match(
+        project.description,
+        /not proof of present behavior/,
+        "the project tool must make documentation context, not proof"
+      );
+      assert.match(project.description, /transport or storage boundary/);
+      assert.match(project.description, /provides or names in the request/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 test("serves the Project Tour generation prompt resource", async () => {
   const root = tempDir();
   try {
@@ -134,9 +183,85 @@ test("serves the Project Tour generation prompt resource", async () => {
         text.includes("guess"),
         "the prompt warns against guessed line numbers"
       );
+      assert.ok(
+        text.includes('pattern: "export function createServer"'),
+        "the prompt supplies a simple literal anchor-pattern example"
+      );
+      assert.ok(
+        text.includes("metacharacters"),
+        "the prompt explains when to escape a literal pattern"
+      );
       // The prompt ends with the announcement step for the created tour.
       assertAnnouncementStep(text, "dryRun omitted to persist");
       assertUnavailableToolGuidance(text);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("the Project Tour prompt verifies claims against code and traces flows end to end", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const text = await readResourceText(
+        client,
+        PROJECT_TOUR_PROMPT_RESOURCE_URI
+      );
+      // Architectural claims are verified against the current code: served
+      // documentation is context about intent, never proof of present behavior.
+      assert.ok(
+        text.includes("not proof of present behavior"),
+        "the prompt must make documentation context, not proof"
+      );
+      assert.ok(
+        text.includes("follow the code and report the divergence"),
+        "the prompt must resolve a documentation-versus-code conflict on the code"
+      );
+      // Important flows are followed from the entry point to the transport
+      // or storage boundary, recording observed variants and error cases.
+      assert.ok(text.includes("entry point"));
+      assert.ok(text.includes("transport or storage boundary"));
+      assert.ok(text.includes("variants"));
+      assert.ok(text.includes("error cases"));
+      // User-provided files are examined and integrated when relevant.
+      assert.ok(
+        text.includes("provides or names in the request"),
+        "the prompt must examine the files the user provides"
+      );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("every served generation prompt scopes knowledge rules and requires cited backing", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const surfaces = [
+        await readResourceText(client, PROJECT_TOUR_PROMPT_RESOURCE_URI),
+        await readResourceText(client, changesTourPromptUri("neutral")),
+        await readResourceText(client, changesTourPromptUri("critical")),
+      ];
+      for (const text of surfaces) {
+        assert.ok(
+          text.includes("general rule or an exception"),
+          "the prompt must distinguish general rules from their exceptions"
+        );
+        assert.ok(
+          text.includes("not proven general"),
+          "the prompt must refuse to generalize from a single path"
+        );
+        assert.ok(
+          text.includes("every claim of the body is backed"),
+          "the prompt must back every body claim with the cited files"
+        );
+        assert.ok(
+          text.includes("every file a reader needs"),
+          "the prompt must require the evidence a reader needs"
+        );
+      }
     });
   } finally {
     rmrf(root);
@@ -203,6 +328,14 @@ test("serves the neutral Changes Tour generation prompt", async () => {
       assert.ok(
         text.includes("guess"),
         "the prompt warns against guessed line numbers"
+      );
+      assert.ok(
+        text.includes("MISSING_CHANGED_FILE_ANCHOR"),
+        "the prompt states that a changed-file anchor is mandatory"
+      );
+      assert.ok(
+        text.includes('pattern: "export function createServer"'),
+        "the prompt supplies a simple literal anchor-pattern example"
       );
       // The prompt ends with the announcement step for the created tour.
       assertAnnouncementStep(text, "dryRun omitted to persist");
@@ -382,6 +515,112 @@ test("rejects an unknown review mode in the Changes Tour generation prompt", asy
           arguments: { reviewMode: "angry" },
         })
       );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+// ADR 0015 (issue #186): the internal generation instructions served to the
+// host agent are English. Only the user's own words — the brief — travel
+// verbatim in the user's language. These markers detect French text; the
+// surfaces scanned below are the server-authored instructions, and the
+// composed form is scanned with the brief stripped first.
+const FRENCH_ACCENTS = /[éèêëàâçôûîüöÉÈÊËÀÂÇÔÛÎÜÖœŒ]/;
+const FRENCH_TERMS =
+  /\b(verbe|domaine|objet|contrat|périmètre|perimetre|dépôt|depot)\b/i;
+
+function assertEnglishInstructions(text: string, surface: string): void {
+  assert.ok(
+    !FRENCH_ACCENTS.test(text),
+    `${surface} must not contain French accented characters`
+  );
+  assert.ok(!FRENCH_TERMS.test(text), `${surface} must not contain French terms`);
+}
+
+test("serves every generation prompt surface with English internal instructions", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const surfaces: Array<[string, string]> = [
+        [
+          "the Project Tour prompt resource",
+          await readResourceText(client, PROJECT_TOUR_PROMPT_RESOURCE_URI),
+        ],
+        [
+          "the neutral Changes Tour prompt resource",
+          await readResourceText(client, changesTourPromptUri("neutral")),
+        ],
+        [
+          "the critical Changes Tour prompt resource",
+          await readResourceText(client, changesTourPromptUri("critical")),
+        ],
+      ];
+      const projectPrompt = await client.getPrompt({
+        name: GENERATE_PROJECT_TOUR_PROMPT_NAME,
+      });
+      surfaces.push([
+        "the Project Tour prompts/get form",
+        promptText(projectPrompt.messages),
+      ]);
+      const changesPrompt = await client.getPrompt({
+        name: GENERATE_CHANGES_TOUR_PROMPT_NAME,
+        arguments: { reviewMode: "neutral" },
+      });
+      surfaces.push([
+        "the Changes Tour prompts/get form",
+        promptText(changesPrompt.messages),
+      ]);
+      for (const [surface, text] of surfaces) {
+        assert.ok(text.length > 0, `${surface} must not be empty`);
+        assertEnglishInstructions(text, surface);
+      }
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("keeps the composed instructions English while carrying a French brief verbatim", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const brief = "Explique le parcours d'authentification de bout en bout.";
+      const prompt = await client.getPrompt({
+        name: GENERATE_PROJECT_TOUR_PROMPT_NAME,
+        arguments: { brief },
+      });
+      const text = promptText(prompt.messages);
+      assert.ok(text.includes(brief), "the user's brief travels verbatim");
+      assertEnglishInstructions(
+        text.replace(brief, ""),
+        "the composed Project Tour instructions"
+      );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("get_generation_prompt serves the same prompt as prompts/get for hosts without prompts/get", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async (client) => {
+      const args = { reviewMode: "critical", request: "Revue de la MR 9" };
+      const viaPrompt = promptText(
+        (await client.getPrompt({ name: GENERATE_CHANGES_TOUR_PROMPT_NAME, arguments: args })).messages
+      );
+      const result = (await client.callTool({
+        name: "get_generation_prompt",
+        arguments: { type: "changes", ...args },
+      })) as { content: Array<{ type: string; text: string }> };
+      assert.strictEqual(result.content[0].text, viaPrompt);
+
+      const project = (await client.callTool({
+        name: "get_generation_prompt",
+        arguments: { type: "project" },
+      })) as { content: Array<{ type: string; text: string }> };
+      assert.ok(project.content[0].text.includes("create_project_tour"));
     });
   } finally {
     rmrf(root);

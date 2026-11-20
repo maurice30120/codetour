@@ -31,6 +31,7 @@ const MERMAID_TOOL_GUIDANCE =
   `Each description accepts at most ${MAX_DIAGRAMS_PER_DESCRIPTION} Mermaid fences, each source is limited to ` +
   `${MAX_DIAGRAM_SOURCE_BYTES / 1024} KB, and every source must have valid Mermaid syntax. ` +
   `Validation is offline, reports all diagram errors with their description, fence, and source location, ` +
+  `includes the engine's own parse message to make the correction actionable, ` +
   `and preserves the previous Tour when any error is found.`;
 
 export { MERMAID_TOOL_GUIDANCE };
@@ -40,6 +41,26 @@ async function parseMermaid(source: string): Promise<void> {
   // strict configuration as playback. Its PNG is intentionally discarded:
   // this call is the offline syntax-validation seam for the MCP server.
   await renderMermaidDiagram(source, "light");
+}
+
+// The engine's own parse message is the actionable part of the diagnostic: it
+// names the offending token (for example got 'NODE_STRING'), which turns the
+// agent's correction into an edit instead of a guess. Mermaid messages are
+// multi-line (source echo, caret row, expected tokens) and unbounded, so the
+// diagnostic collapses whitespace, trims, and bounds the excerpt; short
+// messages are embedded in full, unchanged. Like serializeFound, this helper
+// must never throw.
+const ENGINE_MESSAGE_LIMIT = 200;
+
+function engineMessageExcerpt(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  if (collapsed === "") {
+    return "(the engine gave no message)";
+  }
+  return collapsed.length > ENGINE_MESSAGE_LIMIT
+    ? collapsed.slice(0, ENGINE_MESSAGE_LIMIT) + TRUNCATION_MARKER
+    : collapsed;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -158,11 +179,12 @@ async function validateDescription(
 
     try {
       await parseMermaid(fence.source);
-    } catch {
+    } catch (error) {
       issues.push({
         path: fencePath(descriptionPath, index, "source"),
         message:
           `the Mermaid source at ${location} has invalid Mermaid syntax; ` +
+          `the diagram engine reports: ${engineMessageExcerpt(error)}; ` +
           `found: ${serializeFound(foundSourceExcerpt(fence.source))}`,
       });
     }

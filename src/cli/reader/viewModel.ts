@@ -1,3 +1,4 @@
+import type { StepChatAgentIdentity } from "../../agent/stepChatContract";
 import type { StepConversationExchange } from "../../agent/stepConversations";
 import type { TerminalLayout } from "../terminalLayout";
 
@@ -91,6 +92,38 @@ export interface ReaderComposer {
   prompt: string;
 }
 
+/** One row of the model picker: a model the answering agent announces (ticket #266). */
+export interface ReaderPickerItem {
+  /** The model's label, as the agent spells it; untruncated — the adapter fits it. */
+  label: string;
+  /** True for the model the agent confirms as the Effective Model right now. */
+  effective: boolean;
+}
+
+/**
+ * The model picker overlay (ticket #266, ADR 0052): the models the answering
+ * agent announces, opened with a free unmodified key and owning the keyboard
+ * until it closes. Its state lives here, in the reading module; the adapter
+ * only paints it.
+ */
+export interface ReaderPicker {
+  /** The overlay heading. */
+  title: string;
+  /** The available Agent Profiles or the models announced by the agent. */
+  items: ReaderPickerItem[];
+  /** The highlighted row; -1 when there is nothing to choose. */
+  selected: number;
+  /**
+   * The explicit statement an agent that announces no model gets:
+   * "agent-managed model" once a session handshake confirmed the agent, and
+   * the fact that it has not announced its models yet before that. Undefined
+   * while `items` is non-empty.
+   */
+  notice: string | undefined;
+  /** The exact hint line: how to choose, or how to leave. */
+  hint: string;
+}
+
 /** The right-hand Tour Step Conversation panel (ADR 0026). */
 export interface ReaderConversation {
   title: string;
@@ -103,8 +136,12 @@ export interface ReaderConversation {
    */
   meta: string;
   hasResponder: boolean;
-  /** The agent's provider name, for the role line; the adapter lowercases it. */
-  providerName: string | undefined;
+  /**
+   * The agent answering the panel right now: the Agent Profile, its effective
+   * model when the agent announces one, and whether a session handshake
+   * confirmed it. Undefined when no agent is installed at all.
+   */
+  agent: StepChatAgentIdentity | undefined;
   /** Suggested questions of the active Step, in order; keys 1-9 ask them. */
   suggestions: string[];
   /** The raw, unpainted exchanges of the displayed Step, from the shared
@@ -213,6 +250,8 @@ export interface ReaderViewModel {
 
   conversation: ReaderConversation;
   composer: ReaderComposer;
+  /** The model picker while it is open; undefined when it is closed (ticket #266). */
+  picker: ReaderPicker | undefined;
   status: ReaderStatusLine;
   narration: ReaderNarrationState;
   scroll: ReaderScrollState;

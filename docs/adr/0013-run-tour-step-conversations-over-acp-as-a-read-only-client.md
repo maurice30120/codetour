@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Run Tour Step Conversations over ACP as a read-only client

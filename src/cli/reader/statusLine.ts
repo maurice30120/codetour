@@ -1,17 +1,33 @@
+import type { StepChatAgentIdentity } from "../../agent/stepChatContract";
 import type { ConversationState, ReaderStatusLine } from "./viewModel";
 
 /**
  * The status line of the reader as pure data: the mode chip, the key hints
- * and the right-side segments in their fixed precedence (spec #93). The
+ * and the right-side segments in their fixed precedence (spec #93, #240). The
  * adapter joins and truncates the segments; the order — voice state first,
- * then speech warning, provider and exchange count — is reading behavior
- * the tests pin, because a narrow terminal cuts the least important
- * segments and never the voice state (spec #79).
+ * then speech warning, the answering Agent Profile, exchange count, and the
+ * Open-in-VS Code warning last (spec #239 review F3) — is reading behavior
+ * the tests pin, because a narrow terminal cuts the least important segments
+ * and never the voice state (spec #79, #244).
  */
 
 /** "1 exchange" / "n exchanges", shared by the conversation head meta and the status line. */
 export function exchangesLabel(count: number): string {
   return count + (count === 1 ? " exchange" : " exchanges");
+}
+
+/**
+ * The agent the reader names, shared by the conversation panel's role line
+ * and the status line's Agent Profile segment: the Agent Profile in the
+ * reader's lowercase chrome, its effective model when the agent announces
+ * one, and whether a session handshake confirmed it or it is still only
+ * preselected.
+ */
+export function agentIdentityLabel(identity: StepChatAgentIdentity): string {
+  const label = identity.model
+    ? `${identity.agent.toLowerCase()} · ${identity.model}`
+    : identity.agent.toLowerCase();
+  return label + (identity.effective ? " (effective)" : " (preselected)");
 }
 
 export interface StatusLineInput {
@@ -20,8 +36,20 @@ export interface StatusLineInput {
   compactHints: boolean;
   narrationEnabled: boolean;
   speechWarning: string | undefined;
-  /** Lowercase provider name, when an agent is installed. */
-  providerName: string | undefined;
+  /** Whether the Open-in-VS Code collaborator is wired; owns the `o VS Code` hint. */
+  canOpenInVsCode: boolean;
+  /** Whether the responder accepts a model change; owns the `m model` hint (ticket #266). */
+  canSelectModel: boolean;
+  canSelectAgent?: boolean;
+  /** The latest nonblocking Open-in-VS Code failure, cleared by a later success. */
+  openWarning: string | undefined;
+  /**
+   * The latest model change the agent did not adopt, cleared by a later
+   * confirmed one (ticket #266). It sits next to the Agent Profile it is about.
+   */
+  modelWarning: string | undefined;
+  /** The agent answering right now, when an agent is installed. */
+  agent: StepChatAgentIdentity | undefined;
   exchangeCount: number;
 }
 
@@ -37,6 +65,12 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
       ? ["←/→ step", "j/k scroll"]
       : ["←/→ previous/next", "j/k scroll", "PgUp/PgDn page"];
     if (hasResponder && !responding) keys.push("a ask");
+    if (input.canSelectAgent && !responding) {
+      keys.unshift("h agent", ...(input.canSelectModel ? ["m model"] : []));
+    } else if (input.canSelectModel && !responding) {
+      keys.push("m model");
+    }
+    if (input.canOpenInVsCode) keys.push("o VS Code");
     // While an answer streams, quitting would lose it: the same key first
     // interrupts the answer in flight (ADR 0031).
     keys.push(responding ? "q stop" : "q quit");
@@ -46,7 +80,14 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
     input.narrationEnabled ? "VOICE ON" : "VOICE OFF"
   ];
   if (input.speechWarning) rightSegments.push(input.speechWarning);
-  if (input.providerName) rightSegments.push(input.providerName.toLowerCase());
+  if (input.agent) rightSegments.push(agentIdentityLabel(input.agent));
+  // The model warning describes the agent it follows, so it goes before the
+  // exchange count: a refused model says something about the agent, not about
+  // the conversation's volume.
+  if (input.modelWarning) rightSegments.push(input.modelWarning);
   if (input.exchangeCount) rightSegments.push(exchangesLabel(input.exchangeCount));
+  // The Open-in-VS Code failure is the outermost, least reading-essential
+  // segment: it preserves the documented fixed precedence of spec #240.
+  if (input.openWarning) rightSegments.push(input.openWarning);
   return { mode, hints, rightSegments };
 }

@@ -1,0 +1,34 @@
+{
+  "name": "benchmark-runner",
+  "version": "1.0.0",
+  "description": "Runner for PostgreSQL benchmark - Spec #174 T05",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && NODE_ENV=test node --test dist/test/*.test.js",
+    "lint": "eslint src/**/*.ts test/**/*.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "benchmark",
+    "codetour",
+    "vibe",
+    "postgresql",
+    "spec-174"
+  ],
+  "author": "spec-174-implementation",
+  "license": "MIT",
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/uuid": "^9.0.7",
+    "typescript": "^5.3.3",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.2",
+    "@typescript-eslint/parser": "^6.13.2",
+    "ts-node": "^10.9.2"
+  }
+}

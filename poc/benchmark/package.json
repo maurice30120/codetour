@@ -1,0 +1,12 @@
+{
+  "name": "codetour-postgres-benchmark",
+  "private": true,
+  "scripts": {
+    "typecheck": "node runner/node_modules/typescript/bin/tsc -p tsconfig.json",
+    "test": "node --test test/*.test.mjs test/*.test.cjs",
+    "preflight": "node preflight.mjs",
+    "verify:tests": "node verify-tests.mjs",
+    "campaign": "node -r ./runner/node_modules/ts-node/register/transpile-only execute.ts",
+    "report": "node report.mjs"
+  }
+}

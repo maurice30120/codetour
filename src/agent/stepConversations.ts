@@ -1,10 +1,12 @@
 import {
   StepChatAgentUnavailableError,
+  type StepChatAgentIdentity,
   type StepChatContext,
   type StepChatHistoryEntry,
   type StepChatResponder,
   type StepChatToolUse
 } from "./stepChatContract";
+import type { AcpModelSelector } from "./acpModelOptions";
 
 /**
  * The Tour Step Conversation store shared by every playback surface, above
@@ -31,6 +33,9 @@ export interface StepConversationExchange {
   // The tool calls the agent reported while answering, forbidden ones
   // included, keyed by call and updated in place.
   toolUses: StepChatToolUse[];
+  // The agent that produced this answer: the identity the session handshake
+  // confirmed, or the preselection when no session could be opened.
+  agent?: StepChatAgentIdentity;
   // True while the responder is still answering this question.
   pending: boolean;
   // True when the reader stopped this answer: its late completion must
@@ -55,6 +60,7 @@ interface StoredExchange {
   // truncates the thoughts a subsequent delta restores.
   thought: string;
   tools: Map<string, StepChatToolUse>;
+  agent?: StepChatAgentIdentity;
   pending: boolean;
   interrupted: boolean;
   failed: boolean;
@@ -91,12 +97,56 @@ export class StepConversations {
         answer: exchange.answer,
         activity: exchange.activity,
         toolUses: [...exchange.tools.values()],
+        agent: exchange.agent,
         pending: exchange.pending,
         interrupted: exchange.interrupted,
         failed: exchange.failed
       })),
       responding: stored.some(exchange => exchange.pending)
     };
+  }
+
+  /**
+   * True while any conversation's answer is still streaming: the reader's
+   * agent or model choice is refused until it settles, so no answer is ever
+   * interrupted by a change the reader did not ask for now.
+   */
+  hasAnswerInFlight(): boolean {
+    for (const stored of this.conversations.values()) {
+      if (stored.some(exchange => exchange.pending)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * The agent answering the conversations right now, with the preselection
+   * before any handshake: what a painter names as the reader's agent.
+   */
+  identity(): StepChatAgentIdentity | undefined {
+    return this.responder?.identity?.();
+  }
+
+  /**
+   * The model selector the answering agent announces right now, with the
+   * value it confirms; undefined until a session announces one (ticket #266).
+   * The store stays the conversation owner, the responder the transport: the
+   * model state is read and requested through the same seam as the identity.
+   */
+  model(): AcpModelSelector | undefined {
+    return this.responder?.model?.();
+  }
+
+  /** Whether the responder accepts a model change at all (ticket #266). */
+  get canSelectModel(): boolean {
+    return this.responder?.selectModel !== undefined;
+  }
+
+  /**
+   * Requests one model change from the answering agent: the request counts
+   * only once the agent confirms it, which {@link model} then reports.
+   */
+  selectModel(value: string): Promise<void> | void {
+    return this.responder?.selectModel?.(value);
   }
 
   /**
@@ -154,6 +204,9 @@ export class StepConversations {
       exchange.answer = answer;
       exchange.failed = failed;
       exchange.pending = false;
+      // A failed launch never announced an identity: the agent it tried is
+      // recorded as preselected, never as the one that answered.
+      exchange.agent ??= this.responder?.identity?.();
     };
 
     if (!this.responder) {
@@ -189,6 +242,11 @@ export class StepConversations {
           onActivity: message => {
             if (exchange.interrupted) return;
             exchange.activity = message;
+            onUpdate?.();
+          },
+          onAgentIdentity: identity => {
+            if (exchange.interrupted) return;
+            exchange.agent = identity;
             onUpdate?.();
           },
           onToolUse: tool => {

@@ -1,0 +1,154 @@
+{
+  "run_id": "7dbb2a44-560e-4bc6-8c6e-465f5623cc1d",
+  "timestamp": "2026-11-15T17:01:43.050Z",
+  "agent": "vibe-native",
+  "agent_version": "1.0.0",
+  "model": "mistral-large",
+  "model_params": {
+    "temperature": 0.7,
+    "max_tokens": 4000,
+    "top_p": 0.95
+  },
+  "question_id": "T-Q19-N1",
+  "series": "T",
+  "phase": "transfer",
+  "repeat_index": 1,
+  "postgres_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+  "calls": [
+    {
+      "call_id": "call-1794762103050-0",
+      "call_type": "prompt",
+      "input_tokens": 1500,
+      "output_tokens": 800,
+      "duration_ms": 0,
+      "tool_name": "vibe_prompt",
+      "parameters": {
+        "objective": "Create a code tour that explains checkpoints and recovery",
+        "session_id": "vibe-session-1794762103050-rvlnjqnki",
+        "use_native_research": true
+      },
+      "result": {
+        "content": "Starting exploration: Create a code tour that explains checkpoints and recovery",
+        "session_id": "vibe-session-1794762103050-rvlnjqnki"
+      },
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-1794762103050-1",
+      "call_type": "search",
+      "input_tokens": 200,
+      "output_tokens": 300,
+      "duration_ms": 0,
+      "tool_name": "vibe_research_search",
+      "parameters": {
+        "query": "Create a code tour that explains checkpoints and recovery",
+        "area": "src/backend/access/transam/ckpt.c",
+        "session_id": "vibe-session-1794762103050-rvlnjqnki"
+      },
+      "result": {
+        "results": [
+          {
+            "file": "src/backend/access/transam/ckpt.c",
+            "line": 157,
+            "content": "Code at src/backend/access/transam/ckpt.c"
+          }
+        ]
+      },
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-1794762103050-2",
+      "call_type": "search",
+      "input_tokens": 200,
+      "output_tokens": 300,
+      "duration_ms": 0,
+      "tool_name": "vibe_research_search",
+      "parameters": {
+        "query": "Create a code tour that explains checkpoints and recovery",
+        "area": "src/backend/access/transam/xlog.c",
+        "session_id": "vibe-session-1794762103050-rvlnjqnki"
+      },
+      "result": {
+        "results": [
+          {
+            "file": "src/backend/access/transam/xlog.c",
+            "line": 273,
+            "content": "Code at src/backend/access/transam/xlog.c"
+          }
+        ]
+      },
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-1794762103050-3",
+      "call_type": "tool",
+      "input_tokens": 400,
+      "output_tokens": 250,
+      "duration_ms": 0,
+      "tool_name": "vibe_orchestrator",
+      "parameters": {
+        "session_id": "vibe-session-1794762103050-rvlnjqnki",
+        "action": "consolidate_results"
+      },
+      "result": {
+        "consolidated": true,
+        "findings": 2
+      },
+      "usage_missing": false
+    },
+    {
+      "call_id": "call-1794762103050-4",
+      "call_type": "retry",
+      "input_tokens": 300,
+      "output_tokens": 150,
+      "duration_ms": 0,
+      "tool_name": "vibe_retry",
+      "parameters": {
+        "session_id": "vibe-session-1794762103050-rvlnjqnki",
+        "reason": "needed more information"
+      },
+      "result": {
+        "retried": true
+      },
+      "usage_missing": false
+    }
+  ],
+  "functions_created": [],
+  "functions_reused": [],
+  "total_tokens": {
+    "input": 2600,
+    "output": 1800,
+    "total": 4400,
+    "verified": true
+  },
+  "result": {
+    "tour_title": "Tour: Create a code tour that explains checkpoints and recovery (Vibe Native)",
+    "steps": [
+      {
+        "step_id": "step-src/backend/access/transam/ckpt.c",
+        "description": "Step: Analyzing src/backend/access/transam/ckpt.c",
+        "file": "src/backend/access/transam/ckpt.c",
+        "line": 555,
+        "citations": [
+          "src/backend/access/transam/ckpt.c:555"
+        ]
+      },
+      {
+        "step_id": "step-src/backend/access/transam/xlog.c",
+        "description": "Step: Analyzing src/backend/access/transam/xlog.c",
+        "file": "src/backend/access/transam/xlog.c",
+        "line": 155,
+        "citations": [
+          "src/backend/access/transam/xlog.c:155"
+        ]
+      }
+    ],
+    "raw_response": "{\"objective\":\"Create a code tour that explains checkpoints and recovery\",\"steps\":2,\"method\":\"native research sub-agent\",\"session_id\":null}",
+    "citations": [
+      "src/backend/access/transam/ckpt.c:555",
+      "src/backend/access/transam/xlog.c:155"
+    ]
+  },
+  "error": null,
+  "status": "success"
+}

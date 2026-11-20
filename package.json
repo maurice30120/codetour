@@ -734,6 +734,7 @@
     "@types/vscode": "1.101.0",
     "@vscode/vsce": "^2.17.0",
     "codetour-description-renderer": "file:packages/description-renderer",
+    "codetour-knowledge": "file:packages/knowledge",
     "commander": "^12.1.0",
     "debug": "^4.3.4",
     "eslint": "^8.34.0",
@@ -745,15 +746,18 @@
     "webpack-merge": "^5.8.0"
   },
   "scripts": {
-    "build": "npm --prefix packages/description-renderer run build && npm --prefix packages/mcp-server run build && webpack --mode production && node scripts/prepare-resvg-runtime.js",
-    "check:fast": "tsc -p tsconfig.test.json --noEmit && node --test test/copilot-adapter.test.mjs",
+    "build": "npm --prefix packages/description-renderer run build && npm --prefix packages/knowledge run build && npm --prefix packages/mcp-server run build && webpack --mode production && node scripts/prepare-resvg-runtime.js && node scripts/copy-knowledge-vendor.js",
+    "check:fast": "npm --prefix packages/knowledge test && tsc -p tsconfig.test.json --noEmit && node --test test/copilot-adapter.test.mjs && npm --prefix packages/exploration-poc run typecheck && npm --prefix packages/exploration-poc test",
     "watch": "webpack --mode development --watch",
     "package": "node scripts/package-extension.js",
     "vscode:prepublish": "npm run build",
-    "test": "npm run build && node scripts/sync-renderer-dep.js && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test && npm --prefix packages/description-renderer test && npm --prefix packages/mcp-server test && node --test test/copilot-adapter.test.mjs test/cli-resolution.test.mjs test/pre-commit-hook.test.mjs",
+    "test": "npm run build && node scripts/sync-renderer-dep.js && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test && npm --prefix packages/description-renderer test && npm --prefix packages/knowledge test && npm --prefix packages/mcp-server test && node --test test/copilot-adapter.test.mjs test/copilot-hook.test.mjs test/copilot-plugin-install.test.mjs test/pi-guard.test.mjs test/pi-plugin-install.test.mjs test/pi-extension.test.mjs test/cli-resolution.test.mjs test/pre-commit-hook.test.mjs test/knowledge-cli.test.mjs",
     "cli": "node dist/cli.js",
     "package:standalone": "node scripts/package-standalone.js",
-    "test:standalone": "node --test test/standalone-package.test.js"
+    "test:standalone": "node --test test/standalone-package.test.js",
+    "embed:copilot-plugin": "node scripts/embed-copilot-plugin.js",
+    "sync:copilot-run-log": "node scripts/sync-copilot-run-log.js",
+    "embed:pi-plugin": "node scripts/embed-pi-plugin.js"
   },
   "prettier": {
     "arrowParens": "avoid",

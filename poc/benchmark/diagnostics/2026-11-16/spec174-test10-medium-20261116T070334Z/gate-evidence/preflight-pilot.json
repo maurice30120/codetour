@@ -1,0 +1,37 @@
+{
+  "spec": 174,
+  "checked_at": "2026-11-15T22:07:11.194Z",
+  "verdict": "READY",
+  "campaign_started": false,
+  "gates": {
+    "G0": {
+      "passed": true,
+      "reason": "Tests executed against the current source.",
+      "evidence_file": "/Users/damien/Documents/codetour/poc/benchmark/gate-evidence/g0-conformance.json"
+    },
+    "G1": {
+      "passed": true,
+      "reason": "Native research execution verified from raw sentinel evidence."
+    },
+    "G2": {
+      "passed": true,
+      "reason": "Complete provider usage reconciled by connector."
+    },
+    "G3": {
+      "passed": true,
+      "observed_sha": "70c4a57b64d39c526eb4c44a925eb92a6e56f3c5",
+      "clean_tree": true,
+      "reason": "Pinned fixture verified on disk."
+    },
+    "G4": {
+      "passed": true,
+      "reason": "Tests executed against the current source.",
+      "evidence_file": "/Users/damien/Documents/codetour/poc/benchmark/gate-evidence/g4-evaluator.json"
+    },
+    "G5": {
+      "passed": true,
+      "reason": "Frozen protocol and question/reference content verified."
+    }
+  },
+  "blockers": []
+}

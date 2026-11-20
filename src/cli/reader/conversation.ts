@@ -1,5 +1,7 @@
 import type { CodeTour } from "../../store";
 import { StepConversations, type StepConversationExchange } from "../../agent/stepConversations";
+import type { AcpModelSelector } from "../../agent/acpModelOptions";
+import type { StepChatAgentIdentity } from "../../agent/stepChatContract";
 import { buildStepChatContext } from "../stepChatSupport";
 import type { CommitFileReader, ConversationResponder, StepContextResolver } from "./collaborators";
 
@@ -37,9 +39,52 @@ export class TourStepConversation {
     return this.options.responder !== undefined;
   }
 
-  /** The agent's lowercase provider name, for the status line and the role line. */
-  get providerName(): string | undefined {
-    return this.options.responder?.providerName;
+  /**
+   * The agent answering right now, for the status line and the role line:
+   * the effective Agent Profile and model once a handshake confirmed them,
+   * the preselection before that.
+   */
+  get agentIdentity(): StepChatAgentIdentity | undefined {
+    return this.store.identity();
+  }
+
+  /**
+   * The model selector the answering agent announces right now, with the model
+   * it confirms: undefined until a session announces one, so the model picker
+   * never lists values no agent offered (ADR 0048, ticket #266). It travels
+   * through the store, the conversation's owner, exactly like the identity.
+   */
+  get announcedModel(): AcpModelSelector | undefined {
+    return this.store.model();
+  }
+
+  /** Whether the responder accepts a model change at all (ticket #266). */
+  get canSelectModel(): boolean {
+    return this.store.canSelectModel;
+  }
+
+  get agentNames(): readonly string[] {
+    return this.options.responder?.agentNames ?? [];
+  }
+
+  get hasAnswerInFlight(): boolean {
+    return this.store.hasAnswerInFlight();
+  }
+
+  selectAgent(name: string): Promise<void> | undefined {
+    return this.options.responder?.selectAgent?.(name);
+  }
+
+  prepareModels(): Promise<void> | undefined {
+    return this.options.responder?.prepareModels?.();
+  }
+
+  /**
+   * Requests one model change from the answering agent: the request counts
+   * only once the agent confirms it, which `announcedModel` then reports.
+   */
+  selectModel(value: string): Promise<void> | void {
+    return this.store.selectModel(value);
   }
 
   /** The Step's exchanges, raw and unpainted, straight from the shared store. */

@@ -1,0 +1,64 @@
+{
+  "root": "/Users/dhuyet/Documents/POC/codetour",
+  "revision": "069d77afa81293a9d897187c0fbe6c8207d1a88d",
+  "model": "mistral-medium-3.5",
+  "budget": {
+    "iterations": 100,
+    "calls": 400,
+    "tokens": 2000000,
+    "durationMs": 1200000
+  },
+  "tasks": [
+    [
+      161,
+      "Explorer un dépôt avec LangGraph.js et Mistral",
+      "Explique comment le harnais orchestre les appels au modèle Mistral et les outils d’exploration, avec des références au code."
+    ],
+    [
+      162,
+      "Explorer avec des scripts Code Mode confinés",
+      "Explique comment les scripts Code Mode sont compilés, confinés et exécutés, avec les limites et références au code."
+    ],
+    [
+      163,
+      "Terminer une exploration sous budget avec des preuves vérifiées",
+      "Explique comment le harnais applique les budgets et vérifie les preuves avant de terminer une exploration."
+    ],
+    [
+      164,
+      "Comparer le harnais avec et sans Code Mode",
+      "Identifie les chemins d’exécution avec et sans Code Mode et les différences observables dans le harnais."
+    ],
+    [
+      165,
+      "Mémoriser et réexécuter un script utile",
+      "Explique comment une fonction utile est essayée, consolidée et réexécutée depuis la mémoire."
+    ],
+    [
+      166,
+      "Appliquer les règles de rétention de la mémoire",
+      "Explique les règles de persistance, de refus et de collision du catalogue mémoire actuel."
+    ],
+    [
+      167,
+      "Comparer la mémoire et produire le bilan du spike",
+      "Identifie les métriques et traces disponibles pour examiner la création et la réutilisation des fonctions mémoire."
+    ],
+    [
+      175,
+      "Préparer et figer le prompt CodeTour pour le benchmark officiel",
+      "Explique où le prompt de décomposition est défini, versionné et incorporé dans le harnais."
+    ],
+    [
+      176,
+      "Auditer la conformité du moteur de mémoire avant benchmark",
+      "Explique les validations déterministes des fonctions et de leurs citations avant consolidation en mémoire."
+    ],
+    [
+      179,
+      "Exécuter deux bras comparables avec télémétrie complète et NO-GO",
+      "Identifie comment le harnais enregistre les appels, les tokens et les raisons d’arrêt, et signale les limites de ces données."
+    ]
+  ],
+  "scope": "exploratory diagnostic, not benchmark #174"
+}
