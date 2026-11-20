@@ -195,7 +195,7 @@ function registerAcpResponder(
   behavior?: string
 ) {
   setStepChatResponder(
-    createAcpStepChatResponder(() => fakeAgentEntry(agent, behavior))
+    createAcpStepChatResponder({ name: "Fake agent", entry: fakeAgentEntry(agent, behavior) })
   );
 }
 
@@ -370,11 +370,14 @@ test("a missing agent entry reports the launch failure in the chat and the reade
   resetChatState();
   const agent = createAgentWorkspace();
   setStepChatResponder(
-    createAcpStepChatResponder(() => ({
-      command: "codetour-no-such-acp-agent",
-      args: [],
-      cwd: agent.workspace
-    }))
+    createAcpStepChatResponder({
+      name: "Fake agent",
+      entry: {
+        command: "codetour-no-such-acp-agent",
+        args: [],
+        cwd: agent.workspace
+      }
+    })
   );
 
   registerPlayerModule(host.extensionContext);
@@ -470,12 +473,51 @@ test(`a lost agent connection lands in the chat and the next question relaunches
 });
 }
 
+test("the responder names its Agent Profile as effective only once the handshake confirms it", { timeout: 60_000 }, async () => {
+  const agent = createAgentWorkspace();
+  const announced: { agent: string; model?: string; effective: boolean }[] = [];
+  const responder = createAcpStepChatResponder({
+    name: "Copilot",
+    entry: fakeAgentEntry(agent)
+  });
+  const request = {
+    question: "Qui répond ?",
+    context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+    history: [],
+    workspaceRoot: agent.workspace
+  };
+  try {
+    // Nothing has been launched yet: the profile is only preselected.
+    assert.equal(responder.identity().agent, "Copilot");
+    assert.equal(responder.identity().effective, false);
+
+    await responder.answer(request, {
+      onAgentIdentity: (identity: { agent: string; model?: string; effective: boolean }) =>
+        announced.push(identity)
+    });
+
+    // The handshake confirmed the profile once, and it stays effective for
+    // the session it opened.
+    assert.deepEqual(announced.map(identity => [identity.agent, identity.effective]), [
+      ["Copilot", true]
+    ]);
+    assert.equal(responder.identity().agent, "Copilot");
+    assert.equal(responder.identity().effective, true);
+    assert.equal(responder.identity().model, undefined);
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+  // The released responder no longer answers as an effective agent.
+  assert.equal(responder.identity().effective, false);
+});
+
 test("closing the reading webview releases the ACP agent process", async () => {
   resetChatState();
   const agent = createAgentWorkspace();
   const processes: { exited: Promise<unknown> }[] = [];
   setStepChatResponder(
-    createAcpStepChatResponder(() => fakeAgentEntry(agent), {
+    createAcpStepChatResponder({ name: "Fake agent", entry: fakeAgentEntry(agent) }, {
       onProcess: (spawned: { exited: Promise<unknown> }) =>
         processes.push(spawned)
     })
@@ -915,6 +957,36 @@ for (const failingBehavior of ["no-ask-mode", "prompt-fails", "silent-start"]) {
     }
   });
 }
+
+test("the failover responder preselects its first candidate and names the agent that really answers", async () => {
+  resetChatState();
+  const agent = createAgentWorkspace();
+  const responder = createFallbackStepChatResponder(() => [
+    { name: "Vibe", entry: { command: "/missing/codetour-agent", cwd: agent.workspace } },
+    { name: "Copilot", entry: fakeAgentEntry(agent) }
+  ]);
+  try {
+    // Before any question the first candidate is only the preselection.
+    assert.equal(responder.identity()?.agent, "Vibe");
+    assert.equal(responder.identity()?.effective, false);
+
+    const announced: string[] = [];
+    const answer = await responder.answer({
+      question: "Qui répond ?", workspaceRoot: agent.workspace, history: [],
+      context: { available: false, description: "A tour step" }
+    }, { onAgentIdentity: (identity: { agent: string }) => announced.push(identity.agent) });
+    assert.match(answer, /Tour answer/);
+
+    // The failing candidate never answers: the handshake that confirmed the
+    // agent is the one of the profile that actually produced the answer.
+    assert.deepEqual(announced, ["Copilot"]);
+    assert.equal(responder.identity()?.agent, "Copilot");
+    assert.equal(responder.identity()?.effective, true);
+  } finally {
+    await responder.dispose();
+    await agent.cleanup();
+  }
+});
 
 test("the failover chrome announces the next agent in English", async () => {
   resetChatState();

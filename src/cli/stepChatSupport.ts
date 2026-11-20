@@ -8,7 +8,10 @@ import type { CodeTour, CodeTourStep } from "../store";
 import type { ReadonlyStepContext } from "./stepContext";
 
 export interface TerminalChatSession {
-  /** The first installed Agent Profile, as the panel names the agent. */
+  /**
+   * The first installed Agent Profile: only the preselection the panel names
+   * until a session handshake confirms the agent that really answers.
+   */
   profile?: AcpAgentProfile;
   /**
    * The Tour Step Conversation responder: one failover policy over every

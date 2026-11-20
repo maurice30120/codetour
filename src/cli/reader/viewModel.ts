@@ -1,3 +1,4 @@
+import type { StepChatAgentIdentity } from "../../agent/stepChatContract";
 import type { StepConversationExchange } from "../../agent/stepConversations";
 import type { TerminalLayout } from "../terminalLayout";
 
@@ -103,8 +104,12 @@ export interface ReaderConversation {
    */
   meta: string;
   hasResponder: boolean;
-  /** The Agent Profile name, for the role line; the adapter lowercases it. */
-  agentProfileName: string | undefined;
+  /**
+   * The agent answering the panel right now: the Agent Profile, its effective
+   * model when the agent announces one, and whether a session handshake
+   * confirmed it. Undefined when no agent is installed at all.
+   */
+  agent: StepChatAgentIdentity | undefined;
   /** Suggested questions of the active Step, in order; keys 1-9 ask them. */
   suggestions: string[];
   /** The raw, unpainted exchanges of the displayed Step, from the shared

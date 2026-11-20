@@ -218,6 +218,9 @@ class TerminalReader implements TourReader {
     const exchanges = this.conversation.exchangesFor(this.current);
     const responding = this.conversation.isResponding(this.current);
     const hasResponder = this.conversation.hasResponder;
+    // The agent answering right now, painted by the panel's role line and
+    // by the status line alike.
+    const agent = this.conversation.agentIdentity;
     // The conversation state every status and composer decision shares.
     const conversation: ConversationState = {
       asking: this.asking,
@@ -247,7 +250,7 @@ class TerminalReader implements TourReader {
             ? exchangesLabel(exchanges.length)
             : "ready",
         hasResponder,
-        agentProfileName: this.conversation.agentProfileName,
+        agent,
         suggestions,
         exchanges,
         responding
@@ -260,7 +263,7 @@ class TerminalReader implements TourReader {
         speechWarning: narrationState.warning,
         canOpenInVsCode: this.openInVsCode !== undefined,
         openWarning: this.openWarning,
-        agentProfileName: this.conversation.agentProfileName,
+        agent,
         exchangeCount: exchanges.length
       }),
       narration: narrationState,

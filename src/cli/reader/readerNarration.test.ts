@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CodeTour, CodeTourStep } from "../../store";
-import type { StepChatRequest } from "../../agent/stepChatContract";
+import type { StepChatAgentIdentity, StepChatRequest } from "../../agent/stepChatContract";
 import { NarrationController } from "../narration/NarrationController";
 import type { NarrationEngine } from "../narration/SystemSpeech";
 import type {
@@ -103,7 +103,10 @@ class FakeDescriptionRenderer {
 
 /** A conversation responder stub: no agent process is ever started. */
 class StubResponder implements ConversationResponder {
-  readonly agentProfileName = "Stub";
+  identity(): StepChatAgentIdentity {
+    return { agent: "Stub", effective: false };
+  }
+
   answer(_request: StepChatRequest): Promise<string> {
     return Promise.resolve("Stub answer");
   }

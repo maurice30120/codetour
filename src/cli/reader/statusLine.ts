@@ -1,3 +1,4 @@
+import type { StepChatAgentIdentity } from "../../agent/stepChatContract";
 import type { ConversationState, ReaderStatusLine } from "./viewModel";
 
 /**
@@ -14,6 +15,20 @@ export function exchangesLabel(count: number): string {
   return count + (count === 1 ? " exchange" : " exchanges");
 }
 
+/**
+ * The agent the reader names, shared by the conversation panel's role line
+ * and the status line's Agent Profile segment: the Agent Profile in the
+ * reader's lowercase chrome, its effective model when the agent announces
+ * one, and whether a session handshake confirmed it or it is still only
+ * preselected.
+ */
+export function agentIdentityLabel(identity: StepChatAgentIdentity): string {
+  const label = identity.model
+    ? `${identity.agent.toLowerCase()} · ${identity.model}`
+    : identity.agent.toLowerCase();
+  return label + (identity.effective ? " (effective)" : " (preselected)");
+}
+
 export interface StatusLineInput {
   /** The conversation state the mode chip and hints depend on (spec #93). */
   conversation: ConversationState;
@@ -24,8 +39,8 @@ export interface StatusLineInput {
   canOpenInVsCode: boolean;
   /** The latest nonblocking Open-in-VS Code failure, cleared by a later success. */
   openWarning: string | undefined;
-  /** Lowercase Agent Profile name, when an agent is installed. */
-  agentProfileName: string | undefined;
+  /** The agent answering right now, when an agent is installed. */
+  agent: StepChatAgentIdentity | undefined;
   exchangeCount: number;
 }
 
@@ -52,7 +67,7 @@ export function statusLine(input: StatusLineInput): ReaderStatusLine {
   ];
   if (input.speechWarning) rightSegments.push(input.speechWarning);
   if (input.openWarning) rightSegments.push(input.openWarning);
-  if (input.agentProfileName) rightSegments.push(input.agentProfileName.toLowerCase());
+  if (input.agent) rightSegments.push(agentIdentityLabel(input.agent));
   if (input.exchangeCount) rightSegments.push(exchangesLabel(input.exchangeCount));
   return { mode, hints, rightSegments };
 }

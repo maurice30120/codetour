@@ -82,6 +82,7 @@ test("an Ask mode is also selected by name when its id differs", async () => {
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "ask-mode-by-name"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -118,6 +119,7 @@ test("a mode change away from Ask is detected and the next question is refused",
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "mode-drift"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -156,7 +158,7 @@ test("a session refuses to open without an Ask mode", async () => {
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "no-ask-mode"));
   try {
     await assert.rejects(
-      openAskSession({ transport: agent, cwd: workspace.workspace }),
+      openAskSession({ agentProfileName: "Copilot", transport: agent, cwd: workspace.workspace }),
       /does not offer an Ask mode/
     );
   } finally {
@@ -175,7 +177,7 @@ test("a session fails fast when the ACP entry exits at launch", async () => {
     });
     try {
       await assert.rejects(
-        openAskSession({ transport: agent, cwd: workspace.workspace }),
+        openAskSession({ agentProfileName: "Copilot", transport: agent, cwd: workspace.workspace }),
         /before the session could start|ENOENT/
       );
     } finally {
@@ -192,6 +194,7 @@ test("closing the session interrupts the in-flight turn and releases the agent p
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "slow"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -239,6 +242,7 @@ test("the client refuses write and terminal requests and verifies the tools the 
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "rogue"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -315,6 +319,7 @@ test("read-only tool use is granted once, served inside the workspace only, and 
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "permission-read"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -380,6 +385,7 @@ test("cancelling interrupts an in-flight answer and frees the session for the ne
   const agent = spawnAcpAgent(fakeAgentEntry(logPath, "slow"));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -433,6 +439,7 @@ test("a prompt carries the tour step context and receives the complete answer", 
   const agent = spawnAcpAgent(fakeAgentEntry(logPath));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -489,6 +496,7 @@ test("an ask session starts the ACP entry, advertises no write or terminal capab
   const agent = spawnAcpAgent(fakeAgentEntry(logPath));
   try {
     const session = await openAskSession({
+      agentProfileName: "Copilot",
       transport: agent,
       cwd: workspace.workspace
     });
@@ -540,7 +548,7 @@ test("an unresponsive agent fails startup within the deadline", async () => {
     let deadline: ReturnType<typeof setTimeout> | undefined;
     try {
       await assert.rejects(Promise.race([
-        openAskSession({ transport: agent, cwd: workspace.workspace, startupTimeoutMs: 100 }),
+        openAskSession({ agentProfileName: "Copilot", transport: agent, cwd: workspace.workspace, startupTimeoutMs: 100 }),
         new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error("startup hung")), 1000); })
       ]), /exceeded the ACP connection timeout/i);
     } finally {
@@ -557,7 +565,7 @@ test("an agent session selects its exact read-only mode", async () => {
   const workspace = createWorkspace();
   const agent = spawnAcpAgent(fakeAgentEntry(path.join(workspace.workspace, "agent.log"), "read-only-mode"));
   try {
-    const session = await openAskSession({ transport: agent, cwd: workspace.workspace, modeId: "read-only" });
+    const session = await openAskSession({ agentProfileName: "Copilot", transport: agent, cwd: workspace.workspace, modeId: "read-only" });
     assert.equal(session.modeId, "read-only");
     const result = await session.prompt("Explain", { filePath: "anchor.js", description: "Constants", code: "const first = 1;" });
     assert.match(result.message, /Tour answer/);
@@ -572,7 +580,7 @@ for (const behavior of ["default", "rogue"]) {
     const logPath = path.join(workspace.workspace, "agent.log");
     const agent = spawnAcpAgent(fakeAgentEntry(logPath, behavior));
     try {
-      const session = await openAskSession({ transport: agent, cwd: workspace.workspace,
+      const session = await openAskSession({ agentProfileName: "Copilot", transport: agent, cwd: workspace.workspace,
         useDefaultMode: true });
       assert.equal(session.modeId, "edit");
       const outcome = await session.prompt("Explain", { filePath: "anchor.js", description: "Constants", code: "const first = 1;" });

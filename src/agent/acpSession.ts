@@ -3,6 +3,7 @@ import { readFile as readFileFromDisk } from "node:fs/promises";
 import * as path from "node:path";
 
 import type { AcpAgentTransport } from "./acpAgentProcess";
+import type { StepChatAgentIdentity } from "./stepChatContract";
 
 /**
  * A session layer for Tour Step Conversations over ACP. The extension side is
@@ -111,6 +112,12 @@ export interface AskSession {
   /** The verified current mode; prompts are refused outside Ask. */
   readonly modeId: string;
   /**
+   * The Agent Profile this session was opened as, with the effective model
+   * when the agent announces one. An opened session is effective by
+   * definition: its handshake is what confirmed the agent.
+   */
+  readonly identity: StepChatAgentIdentity;
+  /**
    * Sends the reader's question with the context of its Tour Step and the
    * step's previous exchanges, and resolves once the agent's answer is
    * complete.
@@ -128,6 +135,8 @@ export interface AskSession {
 }
 
 export interface OpenAskSessionOptions {
+  /** The Agent Profile this session is opened as, named as the reader sees it. */
+  agentProfileName: string;
   startupTimeoutMs?: number;
   modeId?: string;
   useDefaultMode?: boolean;
@@ -376,6 +385,9 @@ export function openAskSession(
       },
       get modeId() {
         return currentModeId ?? "";
+      },
+      get identity() {
+        return { agent: options.agentProfileName, effective: true };
       },
       prompt(question, context, events, history) {
         if (closed) {
