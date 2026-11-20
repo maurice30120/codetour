@@ -507,12 +507,18 @@ test("--install with no agent installs every compatible agent and reports the re
     assert.match(result.stdout, /^  copilot: (installed|already-installed|skipped)/m);
     assert.match(result.stdout, /^  pi: (installed|already-installed|skipped)/m);
     assert.doesNotMatch(result.stdout, /vscode/, "a disabled agent takes no part in the batch");
-    // Whatever the machine has, a compatible agent was actually installed.
-    if (!/^  (copilot|pi): skipped$/m.test(result.stdout)) {
+    // Whatever the machine has, every agent the batch reports as `installed`
+    // left its files behind. A `skipped` line carries the reason for it in
+    // parentheses (`skipped (The 'pi' command was not found on PATH.)`), so the
+    // outcome is matched on the result token alone: a machine with neither
+    // agent CLI must not be read as "an agent was installed".
+    const installed = (agent: string) =>
+      new RegExp(`^  ${agent}: installed$`, "m").test(result.stdout);
+    if (installed("copilot") || installed("pi")) {
       assert.ok(
         existsSync(path.join(workspace, "copilot-plugin", "plugin.json")) ||
           existsSync(path.join(workspace, "pi-agent", "packages", "codetour-plugin", "package.json")),
-        "at least one compatible agent must be installed"
+        "an agent reported installed, so its files must exist in the workspace"
       );
     }
   } finally {
