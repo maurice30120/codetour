@@ -303,12 +303,10 @@ test("the VS Code choice delegates to the explicit open-in-VS Code contract", as
       context.ctx
     );
     assert.equal(context.selects.length, 1);
-    const openings = context.notifications.filter(entry => entry.message.includes("code --open-url"));
+    const openings = context.notifications.filter(entry => entry.message.includes("--internal-open-vscode"));
     assert.equal(openings.length, 1);
-    assert.match(
-      openings[0].message,
-      /vscode:\/\/maurice30120\.codetour\/openTour\?tour=\.tours%2Fpayment\.tour&step=1/
-    );
+    assert.match(openings[0].message, /codetour --internal-open-vscode "\.tours\/payment\.tour"/);
+    assert.match(openings[0].message, /active step/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -25,7 +25,7 @@ import {
   openingOptions,
   openingQuestion,
   readerCommand,
-  vscodeOpenCommand,
+  vscodeCommand,
 } from "../lib/reader.mjs";
 
 // CodeTour for Pi.
@@ -153,9 +153,9 @@ export default function codetourPlugin(pi: ExtensionAPI) {
     }
     // At the end of the generation (the run is closed), ask the user how to
     // open the created Tour (ticket #242): the real interactive reader in the
-    // terminal, or the Tour at its active step in VS Code (the open-in-VS Code
-    // contract of ticket #244). Never a textual summary, whatever the choice;
-    // reading never opens an independent window.
+    // terminal, or the Tour at its active step in VS Code through the CLI's
+    // Open-in-VS Code surface (ticket #244's contract). Never a textual
+    // summary, whatever the choice; reading never opens an independent window.
     if (!isClosed(state) || offered.has(state.runId)) return;
     offered.add(state.runId);
     const question = openingQuestion(state);
@@ -171,7 +171,7 @@ export default function codetourPlugin(pi: ExtensionAPI) {
         );
       }
     } else if (choice === VSCODE_OPTION) {
-      const command = vscodeOpenCommand(state);
+      const command = vscodeCommand(state);
       if (command) ctx.ui.notify(`Open in VS Code (the Tour at the active step): ${command}`, "info");
     }
   }

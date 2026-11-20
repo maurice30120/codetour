@@ -72,13 +72,16 @@ test("the closing offer asks for the real reader or VS Code, and never spawns it
   // (compressed through the explicit uri contract, ticket #244). The decision
   // logic is the pure module lib/reader.mjs; the extension only asks and
   // hands over the exact command.
-  for (const word of ["openingOptions", "openingQuestion", "readerCommand", "vscodeOpenCommand"]) {
+  for (const word of ["openingOptions", "openingQuestion", "readerCommand", "vscodeCommand"]) {
     assert.ok(extension.includes(word), `the extension must consume lib/reader.mjs (${word})`);
   }
   assert.doesNotMatch(extension, /child_process|spawn\(/, "the extension must not spawn the reader");
   const reader = source("lib/reader.mjs");
   assert.match(reader, /codetour --internal-tour/);
-  assert.match(reader, /vscode:\/\/maurice30120\.codetour\/openTour\?tour=/);
+  assert.match(reader, /--internal-open-vscode/);
+  // The URI construction stays single-seam in the CLI's Open-in-VS Code
+  // contract; the package duplicates neither the URI nor the plan.
+  assert.doesNotMatch(reader, /vscode:\/\//);
 });
 
 test("the guard is bounded: one continuation, marked under the run-state lock", () => {
@@ -117,9 +120,10 @@ test("the skill ends the generation with the two real openings, never a summary"
   // the direct Tour-file path, run at the workspace root.
   assert.match(skill, /codetour "<Tour title>"/);
   assert.match(skill, /codetour --internal-tour/);
-  // The Open-in-VS Code contract (ticket #244): the deep-link address of the
-  // Tour at its step.
-  assert.match(skill, /vscode:\/\/maurice30120\.codetour\/openTour\?tour=/);
+  // The Open-in-VS Code contract (ticket #244): the CLI's opening command,
+  // the only spelling of the opening (single seam).
+  assert.match(skill, /--internal-open-vscode/);
+  assert.doesNotMatch(skill, /code --open-url/);
   // No textual summary answers for the reader, whatever the choice.
   assert.match(skill, /never answer with a step list|never a prose summary|no summary/i);
 });

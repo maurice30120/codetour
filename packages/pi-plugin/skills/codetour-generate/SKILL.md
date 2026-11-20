@@ -61,11 +61,13 @@ before concluding they are missing.
      known. The reader plays in the user's terminal, never an independent
      window. Do not run it inside this session: it owns the terminal while
      it plays.
-   - **VS Code** — the Open-in-VS Code contract, the Tour at its step:
-     `code --open-url "vscode://maurice30120.codetour/openTour?tour=<tour path>&step=<step>"`
-     (`step=1` right after generation: the first Step is the active one;
-     the step number is 1-based). Give the command exactly; state nothing
-     about the Tour's content in its place.
+   - **VS Code** — the Open-in-VS Code opening, the Tour at its active step
+     (the first one right after generation): `codetour --internal-open-vscode "<tour path>"`,
+     run by the user at the workspace root. The decision — reusing the
+     already-open window, never duplicating, the VS Code-absent case — is
+     the CLI's. During reading, pressing `o` in the terminal reader performs
+     the same opening at the currently displayed Step. Give the command
+     exactly; state nothing about the Tour's content in its place.
 7. Pass the same `runId` to `mcp__codetour__knowledge_list` and
    `mcp__codetour__knowledge_read` when you use them: the MCP then records the
    verified catalogue and the entries this run actually read. Never re-read

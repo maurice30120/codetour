@@ -6,11 +6,12 @@
 //   Terminal : the shipped CLI's real interactive reader, on the reader
 //              view-model seam (tickets #240, #241), in the agent's own
 //              terminal, never an independent window;
-//   VS Code  : the "Open in VS Code" contract of ticket #244, the Tour with
-//              its step — wired here against the explicit URI contract the
-//              extension already serves (src/extension.ts: `tour`, then the
-//              1-based `step`); the final wiring is verified at merge time by
-//              T5.
+//   VS Code  : the "Open in VS Code" opening (ticket #244) through the
+//              shipped CLI's non-interactive surface
+//              `codetour --internal-open-vscode <tour path> [workspace]`,
+//              which reuses the T5 decision module as-is (canonical
+//              workspace, window detection, plan, executor). The dialogue
+//              builds no URI and owns no opening logic of its own.
 //
 // The extension never spawns anything (no subprocess, no PTY): the decision
 // module only names the exact command for the user's surface.
@@ -64,24 +65,15 @@ export function openingQuestion(state) {
 }
 
 /**
- * The deep-link address of the Tour, on the explicit uri contract of the
- * VS Code extension's handler: the recorded Tour file plus the active step,
- * numbered 1 (the first Step after generation).
+ * The CLI command that opens the created Tour in VS Code at its active step
+ * (the first one after a generation), or null when no Tour exists to open.
+ * All the opening logic — canonical workspace, no duplicate window, the
+ * VS Code-absent case — stays in the T5 decision module behind this surface.
  */
-export function vscodeUri(state) {
+export function vscodeCommand(state) {
   if (!state || state.tourCreated !== true) return null;
-  if (typeof state.tourPath !== "string" || state.tourPath === "") return null;
-  const tour = encodeURIComponent(state.tourPath);
-  return `vscode://maurice30120.codetour/openTour?tour=${tour}&step=1`;
-}
-
-/**
- * The command that hands the address to VS Code from the user's terminal:
- * `code --open-url` routes to the window holding this workspace (a new one
- * when none does) — the window-reuse decision stays with VS Code, the
- * duplicate-window detection is ticket #244's.
- */
-export function vscodeOpenCommand(state) {
-  const uri = vscodeUri(state);
-  return uri ? `code --open-url ${shellQuote(uri)}` : null;
+  if (typeof state.tourPath === "string" && state.tourPath !== "") {
+    return `codetour --internal-open-vscode ${shellQuote(state.tourPath)}`;
+  }
+  return null;
 }

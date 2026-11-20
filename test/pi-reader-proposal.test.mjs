@@ -6,8 +6,7 @@ import {
   openingOptions,
   openingQuestion,
   readerCommand,
-  vscodeOpenCommand,
-  vscodeUri,
+  vscodeCommand,
 } from "../packages/pi-plugin/lib/reader.mjs";
 
 // The opening dialogue of the Pi plugin (ticket #242, amendment): at the end of
@@ -61,26 +60,18 @@ test("the question names the created Tour", () => {
   );
 });
 
-test("the VS Code path is the explicit uri contract of the extension handler", () => {
-  const uri = vscodeUri({ tourCreated: true, tourPath: ".tours/payment.tour" });
-  // The publisher-named deep link accepted by src/extension.ts (tour, then the
-  // 1-based step — the active step after generation is the first one).
-  assert.equal(uri, "vscode://maurice30120.codetour/openTour?tour=.tours%2Fpayment.tour&step=1");
-  const command = vscodeOpenCommand({ tourCreated: true, tourPath: ".tours/payment.tour" });
-  assert.equal(command, `code --open-url "${uri}"`);
+test("the VS Code choice walks the CLI's Open-in-VS Code surface on the Tour file", () => {
+  const command = vscodeCommand({ tourCreated: true, tourPath: ".tours/payment.tour" });
+  assert.equal(command, 'codetour --internal-open-vscode ".tours/payment.tour"');
 });
 
-test("a Tour path with spaces and a title are encoded in the VS Code contract", () => {
-  const command = vscodeOpenCommand({
-    tourCreated: true,
-    tourTitle: null,
-    tourPath: ".tours/my tour.tour",
-  });
-  assert.equal(command, 'code --open-url "vscode://maurice30120.codetour/openTour?tour=.tours%2Fmy%20tour.tour&step=1"');
+test("a Tour path with spaces is quoted in the VS Code contract", () => {
+  const command = vscodeCommand({ tourCreated: true, tourPath: ".tours/my tour.tour" });
+  assert.equal(command, 'codetour --internal-open-vscode ".tours/my tour.tour"');
 });
 
-test("no Tour, no VS Code contract", () => {
-  assert.equal(vscodeOpenCommand({ tourCreated: false, tourPath: null }), null);
-  assert.equal(vscodeOpenCommand({ tourCreated: true, tourPath: "" }), null);
-  assert.equal(vscodeOpenCommand(null), null);
+test("no Tour file recorded, no VS Code contract", () => {
+  assert.equal(vscodeCommand({ tourCreated: false, tourPath: null }), null);
+  assert.equal(vscodeCommand({ tourCreated: true, tourPath: "" }), null);
+  assert.equal(vscodeCommand(null), null);
 });

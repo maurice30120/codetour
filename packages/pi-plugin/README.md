@@ -81,12 +81,13 @@ step list or a summary in the Tour's place:
   The reader plays in the user's terminal, always the Playback Surface,
   never an independent window; the extension hands over the command only and
   never spawns a process (ticket #242).
-- **VS Code** — `code --open-url "vscode://maurice30120.codetour/openTour?tour=<tour path>&step=<step>"`,
-  the extension's explicit deep-link contract: the Tour at its step, 1-based,
-  the first Step being the active one right after generation. Reusing the
-  window of the already-open workspace, refusing duplicates and the VS Code
-  absent case are ticket #244's; the address delegated here is the contract
-  T5 verifies at merge (ticket #242, amendment).
+- **VS Code** — `codetour --internal-open-vscode "<tour path>"`, run at the
+  workspace root: the Open-in-VS Code contract of ticket #244, the Tour at its
+  active step (the first one right after generation). The decision lives once
+  in the CLI's `openInVscode` module (canonical workspace, window detection,
+  no duplicate window, the VS Code-absent case); the dialogue only hands over
+  the command. During reading, pressing `o` in the terminal reader performs
+  the same opening at the currently displayed Step.
 
 The ask is once per run; a declined ask hands over nothing and leaves no
 substitute text.
