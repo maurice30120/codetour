@@ -108,8 +108,9 @@ path does not claim it. What the installed adapter does instead (ticket #264):
    real exit — info on a clean close, error with the exit code or signal on an
    interruption;
 3. without a reported terminal, nothing is spawned and no start is announced:
-   one warning names the reason and the exact command to run in the user's own
-   shell, `codetour --internal-tour-id "<id>" --renderer terminal`.
+   one warning names the reason, the workspace root the command must run in
+   and the exact command itself, `codetour --internal-tour-id "<id>"
+   --renderer terminal`.
 
 The former `Starting CodeTour: …` line announced a detached process that died
 with `TermDOM requires an interactive terminal (TTY)`. It is gone from the
@@ -121,12 +122,15 @@ no-terminal branch, which is the only branch CLI 1.0.114 reaches.
   CLI 1.0.114; the user leaves the session to read. The ticket's second
   acceptance criterion (read in the same session, then get the prompt back) is
   therefore not met on this host, and the docs say so.
-* The inherited-terminal branch is covered by tests against a recording CLI,
-  and was run manually under a pseudo-terminal (`script -q /dev/null`) with the
-  real reader: the clean quit logged "closed; the terminal is back in your
-  Copilot session" and a killed reader logged its exit code. No shipping host
+* The inherited-terminal branch is covered by tests against a recording CLI —
+  the clean exit, a nonzero exit code and a reader killed by a signal — and was
+  run manually under a pseudo-terminal (`script -q /dev/null`) with the real
+  reader: the clean quit logged "closed; the terminal is back in your Copilot
+  session", and a killed reader logged `was interrupted by SIGTERM`, with no
+  exit code (`code: null`), because a signal is not one. No shipping host
   reports a TTY, so how a real TUI behaves after the reader exits (repaint,
-  cooked mode, pending input) is still unverified in a Copilot session.
+  cooked mode, pending input) is still a manual check in a live Copilot
+  session.
 * Choosing a Tour requires host elicitation. A session without it is told to
   name the Tour explicitly, as before.
 * The `/dev/tty` route is not a substitute: opening that device does not

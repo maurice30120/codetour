@@ -291,6 +291,13 @@ function readerTerminal() {
 // The reader inherits this process's own terminal, so it paints the screen the
 // session was using and the session waits for its real exit instead of
 // detaching a process it could never observe (ADR 0051).
+//
+// This spawn-and-wait deliberately duplicates
+// `packages/pi-plugin/lib/reader.mjs` (`interactiveSession`/`playInTerminal`):
+// the two surfaces ship separately — the Copilot adapter is embedded as a
+// string in the CLI bundle, the Pi package is installed from its own directory
+// — so neither can import the other. A change to the TTY predicate, the
+// inherited stdio or the wording belongs in both copies.
 function runReader(selected, renderer, cwd) {
   const [executable, ...prefix] = command();
   const child = spawn(executable, [...prefix, "--internal-tour-id", selected.id, "--renderer", renderer],
@@ -530,10 +537,14 @@ export async function runCodeTourCommand(session, raw, cwd = process.cwd()) {
     // no TTY is reported here. A reader that cannot start is never announced;
     // the user gets the exact command to run instead.
     if (!readerTerminal()) {
+      // The printed command names a Tour by identity, and the CLI resolves the
+      // repository from the workspace it runs in: the sentence must say where.
+      const workspace = resolveWorkspace(cwd);
       await session.log(
         `CodeTour: '${selected.title}' was not started: this Copilot session has no terminal to lend the reader ` +
         "(Copilot forks extensions with the JSON-RPC stdio pipes, not the user's TTY; see docs/adr/0051). " +
-        `Read it from your own shell with: codetour --internal-tour-id "${selected.id}" --renderer terminal`,
+        `Read it from your own shell at the workspace root (${workspace}) with: ` +
+        `codetour --internal-tour-id "${selected.id}" --renderer terminal`,
         { level: "warning" });
       return;
     }
