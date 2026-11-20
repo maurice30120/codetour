@@ -55,6 +55,15 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * A value inlined in the webview's own script: JSON, with the one character
+ * that could close the script element escaped, so an agent name can never end
+ * the script or open a tag.
+ */
+function inlineScriptJson(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 /** One question asked in the step chat, with its rendered answer. */
 export interface TourStepChatExchange {
   question: string;
@@ -86,6 +95,8 @@ export interface TourAgentAvailability {
   selected?: boolean;
   /** False when the reader may not pick this profile by hand. */
   selectable?: boolean;
+  /** True when the reader can connect this profile from the conversation area. */
+  signIn?: boolean;
 }
 
 /** The active step displayed in the single expanded reading view. */
@@ -160,6 +171,10 @@ function renderAgentControlsHtml(
   locked: boolean
 ): string {
   const entries = agents ?? [];
+  // The Sign in action belongs to the profile the selector shows: it appears
+  // only for an agent that waits for authentication and announced a method
+  // CodeTour can use, and it is locked while an answer streams.
+  const signInUsable = entries.find(agent => agent.selected)?.signIn === true;
   const options = entries
     .map(
       agent =>
@@ -176,7 +191,9 @@ function renderAgentControlsHtml(
     locked ? " disabled" : ""
   }>${options}</select><button type="button" class="step-chat-agents-refresh" id="step-chat-agents-refresh" data-action="refreshAgents" title="Probe every agent again"${
     locked ? " disabled" : ""
-  }>Refresh</button></div>`;
+  }>Refresh</button><button type="button" class="step-chat-sign-in" id="step-chat-sign-in" data-action="signIn" title="Connect this agent"${
+    signInUsable ? "" : " hidden"
+  }${locked ? " disabled" : ""}>Sign in</button></div>`;
 }
 
 /**
@@ -289,10 +306,11 @@ const READING_STYLES = `
     .step-chat-agent-controls[hidden] { display: none; }
     .step-chat-control-label { flex: 0 0 auto; }
     .step-chat-agent-select { flex: 0 1 auto; min-width: 0; max-width: 60%; padding: 2px 4px; font: inherit; font-size: 12px; color: var(--vscode-dropdown-foreground, var(--vscode-input-foreground)); background: var(--vscode-dropdown-background, var(--vscode-input-background)); border: 1px solid var(--vscode-dropdown-border, var(--vscode-input-border, transparent)); border-radius: 3px; }
-    .step-chat-agents-refresh { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; font: inherit; font-size: 12px; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); cursor: pointer; }
-    .step-chat-agents-refresh:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground); }
-    .step-chat-agent-select:focus-visible, .step-chat-agents-refresh:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
-    .step-chat-agent-select:disabled, .step-chat-agents-refresh:disabled { opacity: .55; cursor: default; }
+    .step-chat-agents-refresh, .step-chat-sign-in { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; font: inherit; font-size: 12px; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); cursor: pointer; }
+    .step-chat-agents-refresh:hover:not(:disabled), .step-chat-sign-in:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground); }
+    .step-chat-agent-select:focus-visible, .step-chat-agents-refresh:focus-visible, .step-chat-sign-in:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
+    .step-chat-agent-select:disabled, .step-chat-agents-refresh:disabled, .step-chat-sign-in:disabled { opacity: .55; cursor: default; }
+    .step-chat-sign-in[hidden] { display: none; }
     .step-chat-failure-actions { display: flex; gap: 6px; margin: .6em 0 0; }
     .step-chat-failure { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 10px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; font: inherit; font-size: 12px; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); cursor: pointer; }
     .step-chat-failure:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground); }
@@ -429,6 +447,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     const chatAgentControls = document.getElementById("step-chat-agent-controls");
     const chatAgentSelect = document.getElementById("step-chat-agent-select");
     const chatAgentsRefresh = document.getElementById("step-chat-agents-refresh");
+    const chatSignIn = document.getElementById("step-chat-sign-in");
     const chatUnavailable = document.getElementById("step-chat-unavailable");
     const suggestionButtons = Array.from(document.getElementById("step-chat-suggestions")?.children || []);
     // One spelling for both surfaces: the agent caption of an answer and
@@ -460,8 +479,25 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       : '';
     let chatResponding = ${model.chatResponding === true};
     let chatCannotAnswer = ${model.chatUnavailable === true};
+    // The profiles that offer the reader a way to connect them, by name: the
+    // Sign in action follows the profile the selector shows.
+    let signInAgents = ${inlineScriptJson(
+      (model.chatAgents ?? [])
+        .filter(agent => agent.signIn === true)
+        .map(agent => agent.name)
+    )};
     // The selector probes the still unverified profiles once per opening.
     let selectorProbed = false;
+    // A locked Sign in never connects anything, and it stays hidden for a
+    // profile that has no usable authentication method.
+    const syncSignIn = () => {
+      if (!chatSignIn) return;
+      const usable = Boolean(chatAgentSelect) && signInAgents.includes(chatAgentSelect.value);
+      chatSignIn.hidden = !usable;
+      chatSignIn.disabled = chatResponding || !usable;
+    };
+    // The action starts from the profile the rendered selector shows.
+    syncSignIn();
     // Nothing is asked while an answer streams, and nothing is asked when no
     // Agent Profile can answer: the Tour itself stays fully readable. The
     // Agent control follows the answer, never the other way around.
@@ -475,6 +511,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
       // streaming answer locks the choice.
       if (chatAgentSelect) chatAgentSelect.disabled = chatResponding;
       if (chatAgentsRefresh) chatAgentsRefresh.disabled = chatResponding;
+      syncSignIn();
     };
     const setResponding = responding => {
       chatResponding = responding;
@@ -488,12 +525,14 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     };
     const setAgents = agents => {
       if (!chatAgentSelect || !Array.isArray(agents)) return;
+      signInAgents = agents.filter(agent => agent.signIn === true).map(agent => agent.name);
       chatAgentSelect.innerHTML = agents.map(agent =>
         '<option value="' + escapeHtml(agent.name) + '" data-state="' + escapeHtml(agent.state) + '"'
         + (agent.selected ? ' selected' : '') + (agent.selectable === false ? ' disabled' : '') + '>'
         + escapeHtml(agentStateText(agent)) + '</option>'
       ).join("");
       if (chatAgentControls) chatAgentControls.hidden = agents.length === 0;
+      syncSignIn();
     };
     const postChatMessage = message => vscode.postMessage({ ...message, token: document.body.dataset.token,
       targetTourId: document.body.dataset.tourId, step: Number(document.body.dataset.step) });
@@ -519,6 +558,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
         if (chatResponding || chatAgentSelect.disabled) return;
         const agent = chatAgentSelect.value;
         if (agent) postChatMessage({ type: "chooseAgent", agent });
+        syncSignIn();
       });
     }
     if (chatForm && chatInput) {
@@ -604,6 +644,14 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
         // Agent control: the choice stays the reader's.
         if (button.dataset.action === "changeAgent") {
           if (!button.disabled && chatAgentSelect) chatAgentSelect.focus();
+          return;
+        }
+        // Signing in is the reader's own action for the profile the selector
+        // shows: CodeTour never connects an agent on its own.
+        if (button.dataset.action === "signIn") {
+          if (!button.disabled && chatAgentSelect && chatAgentSelect.value) {
+            postChatMessage({ type: "signIn", agent: chatAgentSelect.value });
+          }
           return;
         }
         // A manual refresh is the reader's own way to re-probe the whole

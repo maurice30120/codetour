@@ -466,6 +466,15 @@ export function createVscodeHost(options: HostOptions = {}) {
   const modalResponses: string[] = [];
   const pendingModals: ((choice: string | undefined) => void)[] = [];
   const externalLinks: Uri[] = [];
+  const terminals: {
+    name?: string;
+    shellPath?: string;
+    shellArgs?: string[];
+    env?: Record<string, string>;
+    cwd?: string;
+    shown: boolean;
+    sentText: string[];
+  }[] = [];
   const documents = new Map<string, MockTextDocument>();
   const fileSystemProviders = new Map<
     string,
@@ -991,11 +1000,28 @@ export function createVscodeHost(options: HostOptions = {}) {
       inputBoxes.push(box);
       return box;
     },
-    createTerminal: () => ({
-      show: () => undefined,
-      sendText: () => undefined,
-      dispose: () => undefined
-    })
+    // Every created terminal is recorded with the options it was opened with,
+    // so a test can assert which command the extension asked to run.
+    createTerminal: (options?: unknown) => {
+      const record =
+        typeof options === "string"
+          ? { name: options, shown: false, sentText: [] }
+          : {
+              ...((options ?? {}) as Record<string, never>),
+              shown: false,
+              sentText: [] as string[]
+            };
+      terminals.push(record as (typeof terminals)[number]);
+      return {
+        show: () => {
+          record.shown = true;
+        },
+        sendText: (text: string) => {
+          (record.sentText as string[]).push(text);
+        },
+        dispose: () => undefined
+      };
+    }
   };
 
   const vscode = {
@@ -1145,6 +1171,8 @@ export function createVscodeHost(options: HostOptions = {}) {
       respondToModal(choice);
     },
     externalLinks,
+    // Every terminal the extension opened, with the options it was created with.
+    terminals: () => [...terminals],
     decorationTypes,
     visibleTextEditors,
     setFileContent,

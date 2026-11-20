@@ -151,6 +151,8 @@ export class AgentSelection {
   private readonly catalogue: readonly AgentProfile[];
   private readonly probe: AgentProbe;
   private readonly availability = new Map<string, AgentAvailability>();
+  /** The authentication methods each probed profile's `initialize` announced. */
+  private readonly methods = new Map<string, acp.AuthMethod[]>();
   private selectedName: string | undefined;
   private explicitName: string | undefined;
   private settled = false;
@@ -176,6 +178,21 @@ export class AgentSelection {
   /** The profile that answers by default, or undefined when none is usable. */
   selectedProfile(): AgentProfileView | undefined {
     return this.profiles().find(view => view.selected);
+  }
+
+  /** One catalogue profile by name, or undefined when it is not catalogued. */
+  profile(name: string): AgentProfile | undefined {
+    return this.catalogue.find(candidate => candidate.name === name);
+  }
+
+  /**
+   * The authentication methods the profile's last Agent Probe announced,
+   * kept next to its state: they are how the reader's own `Sign in` action
+   * learns what the agent can be connected with. A profile that was never
+   * probed announces nothing.
+   */
+  authMethods(name: string): acp.AuthMethod[] {
+    return this.methods.get(name) ?? [];
   }
 
   /** The profile the reader chose by hand, or undefined while automatic. */
@@ -252,6 +269,7 @@ export class AgentSelection {
     // that already answered are never replaced by a later probe.
     const retained = this.explicitName ?? (this.started ? this.selectedName : undefined);
     this.availability.clear();
+    this.methods.clear();
     this.selectedName = retained;
     this.settled = false;
     const run = this.run(cwd, {
@@ -283,6 +301,24 @@ export class AgentSelection {
   }
 
   /**
+   * Re-establishes one profile — what the reader's own `Sign in` action asks
+   * for after connecting that agent. Every other probed state stays as it was,
+   * the reader's explicit choice and the profile that already answers are kept,
+   * and a panel that had no usable profile gains the one that just answered.
+   */
+  async probeProfile(name: string, cwd: string): Promise<void> {
+    const profile = this.profile(name);
+    if (!profile) return;
+    await this.whenInitialProbeSettled();
+    this.record(profile.name, await this.probeOnce(profile, cwd));
+    // Only a panel with nothing to answer with may gain an agent here: a
+    // single profile's sign in never replaces who already answers.
+    if (this.selectedName === undefined) {
+      this.selectedName = automaticSelection(this.profiles())?.profile.name;
+    }
+  }
+
+  /**
    * Records that the first answer settled: the automatic selection is over,
    * so a later failure retries the same profile instead of falling through.
    */
@@ -293,6 +329,7 @@ export class AgentSelection {
   /** Forgets everything this panel probed. */
   dispose(): void {
     this.availability.clear();
+    this.methods.clear();
     this.selectedName = undefined;
     this.explicitName = undefined;
     this.settled = false;
@@ -352,6 +389,9 @@ export class AgentSelection {
 
   private record(name: string, outcome: AgentProbeOutcome): void {
     const { availability } = outcome;
+    if (outcome.authMethods !== undefined) {
+      this.methods.set(name, outcome.authMethods);
+    }
     if (availability.state === "available") {
       this.availability.set(name, {
         state: "available",
