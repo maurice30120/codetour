@@ -65,6 +65,11 @@ export interface AcpStepChatResponder extends StepChatResponder {
    */
   identity(): StepChatAgentIdentity;
   /**
+   * The model selector the open session announces, or undefined before any
+   * session and for an agent that announces no model.
+   */
+  model(): AcpModelSelector | undefined;
+  /**
    * The reader's model for this Agent Profile: remembered for the sessions
    * still to open, requested live on an open one. Nothing is displayed as
    * effective before the agent confirms it.
@@ -296,6 +301,11 @@ export function createAcpStepChatResponder(
       // the handshake and after any release the reader has the preselection
       // only.
       return session?.identity ?? { agent: profile.name, effective: false };
+    },
+    model() {
+      // Only an open session announces a model: the values the reader may pick
+      // are the agent's own, never a catalogue.
+      return session?.model;
     },
     async selectModel(value) {
       // The choice is remembered for this Agent Profile's sessions, before

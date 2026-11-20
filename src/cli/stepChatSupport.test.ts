@@ -164,3 +164,89 @@ test("the no-agent explanation spells the catalogue in its rank order", () => {
     "No ACP agent is installed (Copilot, Vibe, Pi, Codex or Claude Code)."
   );
 });
+
+/** The model option the fake agent announces, as the reader's picker lists it (ADR 0048). */
+const announcedModelOptions = {
+  optionId: "model",
+  value: "smart",
+  values: [
+    { value: "fast", name: "Fast" },
+    { value: "balanced", name: "Balanced" },
+    { value: "smart", name: "Smart" }
+  ]
+};
+
+test("the terminal's responder announces the models its agent offers and applies the choice", {
+  timeout: 60_000
+}, async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "codetour-cli-model-"));
+  try {
+    const session = openTerminalChat(directory, {
+      profiles: [{
+        name: "Copilot",
+        entry: {
+          command: process.execPath,
+          args: [fakeAgent, path.join(directory, "agent.log"), "model-option"],
+          cwd: directory
+        }
+      }],
+      exists: () => true
+    });
+    const responder = session.responder;
+    assert.ok(responder);
+    // No session yet: the agent announced nothing, and the picker must not
+    // invent a list before the handshake.
+    assert.equal(responder.model?.(), undefined);
+    await responder.answer({
+      question: "Which model?",
+      context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+      history: [],
+      workspaceRoot: directory
+    });
+    // The open session announced its model option, groups flattened: exactly
+    // the values ticket #266 lists in the terminal.
+    assert.deepEqual(responder.model?.(), announcedModelOptions);
+    // The reader's choice reaches the agent, and its confirmation is what the
+    // responder reports back.
+    await responder.selectModel?.("fast");
+    assert.equal(responder.model?.()?.value, "fast");
+    assert.deepEqual(responder.identity?.(), { agent: "Copilot", model: "fast", effective: true });
+    await session.dispose();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a refused model keeps the agent's own value on the terminal's responder", {
+  timeout: 60_000
+}, async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "codetour-cli-model-refused-"));
+  try {
+    const session = openTerminalChat(directory, {
+      profiles: [{
+        name: "Copilot",
+        entry: {
+          command: process.execPath,
+          args: [fakeAgent, path.join(directory, "agent.log"), "model-refused"],
+          cwd: directory
+        }
+      }],
+      exists: () => true
+    });
+    const responder = session.responder;
+    assert.ok(responder);
+    await responder.answer({
+      question: "Which model?",
+      context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+      history: [],
+      workspaceRoot: directory
+    });
+    await responder.selectModel?.("fast");
+    // The agent kept its own model: the reader's readback sees no adoption,
+    // which is what turns a refusal into its visible warning.
+    assert.equal(responder.model?.()?.value, "smart");
+    await session.dispose();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

@@ -41,8 +41,9 @@ export interface FallbackStepChatOptions extends AcpStepChatResponderHooks {
   onAgentAnswered?(profileName: string): void;
   /**
    * The reader's model choice for one Agent Profile: each profile's responder
-   * replays it on every session it opens. A terminal reader has no selector
-   * and passes none.
+   * replays it on every session it opens. A terminal reader passes none — it
+   * chooses among the values an open session announces — so its choice
+   * applies to that session only.
    */
   modelFor?(profileName: string): AcpStepChatModelMemory | undefined;
 }
@@ -178,6 +179,10 @@ export function createFallbackStepChatResponder(
       return candidate
         ? { agent: candidate.name, effective: false }
         : undefined;
+    },
+    model() {
+      // Only the active Agent Profile has a session to announce a model from.
+      return active?.model?.();
     },
     async selectModel(value: string) {
       if (active?.selectModel) {
