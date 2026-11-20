@@ -3,13 +3,9 @@ import * as assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AcpAgentProfile } from "../agent/agentProfiles";
+import { commandExists, type AcpAgentProfile } from "../agent/agentCatalogue";
 import { createAcpStepChatResponder } from "../agent/stepChatAgent";
-import {
-  buildStepChatContext,
-  commandExists,
-  openTerminalChat
-} from "./stepChatSupport";
+import { buildStepChatContext, openTerminalChat } from "./stepChatSupport";
 
 const fakeAgent = path.join(__dirname, "../agent/fakeAcpAgent.js");
 
@@ -52,8 +48,8 @@ test("only the installed Agent Profiles reach the session's responder", async ()
 });
 
 test("the session's responder failovers between the installed Agent Profiles by default", async () => {
-  // The default responder is the single failover policy of ADR 0014, over
-  // the installed candidates in the extension's order.
+  // The default responder is the terminal's ordered failover, over the
+  // installed candidates in the catalogue's rank order.
   const session = openTerminalChat(process.cwd(), {
     profiles: [profile("Vibe", "vibe-acp")],
     exists: () => true,

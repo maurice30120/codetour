@@ -3,6 +3,11 @@ import { ActiveTour } from "../store";
 import { FS_SCHEME } from "../constants";
 import { getStepFileUri } from "../utils";
 import {
+  AgentSelection,
+  type AgentAvailability
+} from "../agent/agentCatalogue";
+import { createFallbackStepChatResponder } from "../agent/fallbackStepChatAgent";
+import {
   StepConversations,
   type StepConversationView
 } from "../agent/stepConversations";
@@ -68,9 +73,86 @@ export { StepChatAgentUnavailableError };
 /** The shared conversation store: every surface keeps only its painter. */
 const conversations = new StepConversations();
 
-/** Injects (or removes) the responder answering step chat questions. */
+/**
+ * The reading panel's Agent Selection and the responder over it. Both live
+ * as long as the panel: nothing probed survives the webview (ADR 0048).
+ */
+let agents: { selection: AgentSelection; responder: StepChatResponder } |
+  undefined;
+/** True while a responder was injected instead of the catalogued one. */
+let injectedResponder = false;
+
+/**
+ * The Agent Selection the panel opens, composed by the extension at
+ * activation with the catalogued Agent Probe. Without one — the deterministic
+ * tests, or a host composing none — the panel starts no probe at all.
+ */
+let createSelection: (() => AgentSelection) | undefined;
+
+/** Composes (or removes) the Agent Selection the reading panel opens. */
+export function setStepChatAgentSelection(
+  create?: () => AgentSelection
+): void {
+  createSelection = create;
+}
+
+/**
+ * Injects (or removes) the responder answering step chat questions. While one
+ * is injected the panel starts no Agent Probe of its own.
+ */
 export function setStepChatResponder(next?: StepChatResponder): void {
+  injectedResponder = next !== undefined;
+  agents?.selection.dispose();
+  agents = undefined;
   conversations.setResponder(next);
+}
+
+/**
+ * Opens the reading panel's Agent Selection: the catalogue, the availability
+ * the initial Agent Probe establishes and the agent answering by default.
+ *
+ * The probe runs sequentially in rank order and stops at the first available
+ * profile; `onProbed` reports that it settled, so the reader sees the probed
+ * states and the preselected agent instead of provisional ones.
+ */
+export function openStepChatAgents(
+  workspaceRoot: string,
+  onProbed?: () => void
+): void {
+  closeStepChatAgents();
+  if (injectedResponder || !createSelection) return;
+  const selection = createSelection();
+  const responder = createFallbackStepChatResponder(
+    cwd => selection.candidates(cwd),
+    {
+      // A question asked while the initial probe runs waits for it: it is
+      // never sent to an Agent Profile the panel has not verified.
+      whenReady: () => selection.whenInitialProbeSettled(),
+      onConversationStarted: () => selection.hasConversationStarted()
+    }
+  );
+  agents = { selection, responder };
+  conversations.setResponder(responder);
+  void selection
+    .probeInitial(workspaceRoot)
+    .then(() => onProbed?.(), () => onProbed?.());
+}
+
+/** Closes the reading panel's Agent Selection: its cache does not outlive it. */
+export function closeStepChatAgents(): void {
+  const current = agents;
+  agents = undefined;
+  current?.selection.dispose();
+}
+
+/** One catalogue profile as the webview paints it: serializable, no entry. */
+export interface StepChatAgentView {
+  name: string;
+  state: AgentAvailability["state"];
+  /** The authentication methods' names, or the connection error's reason. */
+  detail?: string;
+  /** True for the Agent Profile that answers by default. */
+  selected: boolean;
 }
 
 function conversationKey(tourId: string, step: number): string {
@@ -104,6 +186,12 @@ export interface StepChatConversationView {
   // The agent answering the step right now: effective after the session
   // handshake, preselected before it.
   agent?: StepChatAgentIdentity;
+  // The Agent Catalogue with each profile's probed availability; absent when
+  // no selection owns the panel (an injected responder).
+  agents?: StepChatAgentView[];
+  // True when the initial probe settled and no profile can answer: the
+  // composer is disabled and the panel explains it.
+  unavailable?: boolean;
 }
 
 /** The conversation of a step with its response-in-progress state. */
@@ -115,6 +203,44 @@ export function getStepChatConversationView(
     conversations.view(conversationKey(tourId, step)),
     conversations.identity()
   );
+}
+
+/**
+ * The catalogue as the webview paints it, and whether any profile can answer
+ * at all. Before the initial probe settles no state is final, so nothing is
+ * announced as unusable yet.
+ */
+function paintAgents(): {
+  agents?: StepChatAgentView[];
+  unavailable?: boolean;
+} {
+  const selection = agents?.selection;
+  if (!selection) {
+    return {};
+  }
+  return {
+    agents: selection.profiles().map(view => ({
+      name: view.profile.name,
+      state: view.availability.state,
+      detail: availabilityDetail(view.availability),
+      selected: view.selected
+    })),
+    unavailable:
+      selection.initialProbeSettled() && selection.selectedProfile() === undefined
+  };
+}
+
+/** The extra fact a profile's state carries, when it carries one. */
+function availabilityDetail(
+  availability: AgentAvailability
+): string | undefined {
+  if (availability.state === "auth-required") {
+    const names = availability.authMethods.map(method => method.name);
+    return names.length ? names.join(", ") : undefined;
+  }
+  return availability.state === "connection-error"
+    ? availability.reason
+    : undefined;
 }
 
 /** Forgets every step conversation; called when the reading webview closes. */
@@ -145,7 +271,8 @@ function paint(
       agent: exchange.agent
     })),
     responding: view.responding,
-    agent
+    agent,
+    ...paintAgents()
   };
 }
 

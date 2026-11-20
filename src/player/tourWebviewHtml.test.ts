@@ -713,3 +713,161 @@ test("the step chat message handler repaints the current agent and the answer ca
   messageListener({ data: { type: "stepChat", responding: false, exchanges: [] } });
   assert.equal(agentElement.hidden, true);
 });
+
+test("the conversation area names every Agent Profile and its availability state", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      chatAgent: { agent: "Copilot", effective: false },
+      chatAgents: [
+        { name: "Copilot", state: "available", selected: true },
+        { name: "Vibe", state: "unverified" },
+        { name: "Codex", state: "not-installed" },
+        {
+          name: "Claude Code",
+          state: "auth-required",
+          detail: "Claude login"
+        },
+        { name: 'Another "<b>"', state: "connection-error", detail: "timed out <5 s>" },
+        { name: "Unknown agent", state: "unknown" }
+      ]
+    },
+    "agents-nonce"
+  );
+
+  // The six states of the Agent Catalogue are painted, in catalogue order,
+  // with the profile that answers marked as such.
+  assert.match(html, /<p class="step-chat-agents" id="step-chat-agents">/);
+  assert.ok(html.includes(
+    '<span class="step-chat-agent-state" data-state="available" data-selected="true">Copilot — available · selected</span>'
+  ));
+  assert.ok(html.includes(
+    '<span class="step-chat-agent-state" data-state="unverified">Vibe — installed, not verified</span>'
+  ));
+  assert.ok(html.includes(
+    '<span class="step-chat-agent-state" data-state="not-installed">Codex — not installed</span>'
+  ));
+  assert.ok(html.includes(
+    '<span class="step-chat-agent-state" data-state="auth-required">Claude Code — authentication required (Claude login)</span>'
+  ));
+  assert.ok(html.includes(
+    '<span class="step-chat-agent-state" data-state="unknown">Unknown agent — unknown</span>'
+  ));
+  // Every name and detail is escaped like the rest of the conversation.
+  assert.ok(html.includes('Another &quot;&lt;b&gt;&quot; — connection error (timed out &lt;5 s&gt;)'));
+  // An agent can answer: the composer keeps accepting questions.
+  assert.match(html, /id="step-chat-unavailable" role="status" hidden>/);
+  assert.doesNotMatch(html, /id="step-chat-input"[^>]* disabled/);
+});
+
+test("a panel whose catalogue has nothing usable explains it and disables the composer only", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      questions: ["Pourquoi ?"],
+      chatAgents: [
+        { name: "Copilot", state: "not-installed" },
+        { name: "Vibe", state: "connection-error", detail: "timed out" }
+      ],
+      chatUnavailable: true
+    },
+    "unavailable-nonce"
+  );
+
+  // The explaining state is visible and says the reading is unaffected.
+  assert.match(html, /<p class="step-chat-unavailable" id="step-chat-unavailable" role="status">No agent can answer this step right now\./);
+  assert.match(html, /Tour reading stays fully available/);
+  // Nothing can be asked: the field, the send button and the suggestions are
+  // disabled, and the Stop button cannot be used either.
+  assert.match(html, /id="step-chat-input"[^>]* disabled/);
+  assert.match(html, /class="step-chat-submit" id="step-chat-submit" disabled/);
+  assert.match(html, /data-question="Pourquoi \?" disabled/);
+  assert.match(html, /id="step-chat-stop"[^>]*disabled/);
+  // The Tour itself stays fully readable and navigable.
+  assert.match(html, /<h1>Overview<\/h1>/);
+  assert.doesNotMatch(html, /data-action="next"[^>]* disabled/);
+  assert.match(html, /data-action="previous"/);
+});
+
+test("the step chat message handler repaints the catalogue states and locks the composer", () => {
+  const html = createTourWebviewHtml(
+    {
+      ...baseModel(),
+      questions: ["Pourquoi ?"],
+      chatAgents: [{ name: "Copilot", state: "unverified", selected: true }]
+    },
+    "agents-nonce"
+  );
+  const script = html.match(/<script nonce="agents-nonce">([\s\S]*?)<\/script>/)![1];
+  let messageListener!: (event: unknown) => void;
+  const agentsLine = { hidden: false, innerHTML: "" };
+  const unavailableNote = { hidden: true };
+  const input = { value: "", disabled: false };
+  const submitButton = { disabled: false };
+  const stopButton = { hidden: true, disabled: false };
+  const suggestion = { disabled: false, hidden: false, dataset: { action: "askQuestion", question: "Pourquoi ?" } };
+  const elements: Record<string, unknown> = {
+    "step-chat-agents": agentsLine,
+    "step-chat-unavailable": unavailableNote,
+    "step-chat-input": input,
+    "step-chat-submit": submitButton,
+    "step-chat-stop": stopButton,
+    "step-chat-suggestions": { children: [suggestion] }
+  };
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({ postMessage: () => undefined }),
+    document: {
+      body: { dataset: { token: "agents-nonce", tourId: baseModel().tourId, step: "1" } },
+      addEventListener: () => undefined,
+      getElementById: (id: string) => elements[id] ?? null
+    },
+    window: {
+      addEventListener: (_name: string, listener: (event: unknown) => void) => {
+        messageListener = listener;
+      }
+    }
+  });
+
+  // The probe settled with nothing usable: the states are repainted, the
+  // panel explains itself and the composer is locked.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: false,
+      unavailable: true,
+      agents: [
+        { name: "Copilot", state: "not-installed" },
+        { name: 'Vibe "<b>"', state: "connection-error", detail: "did not answer" }
+      ],
+      exchanges: []
+    }
+  });
+  assert.equal(agentsLine.hidden, false);
+  assert.ok(agentsLine.innerHTML.includes(
+    '<span class="step-chat-agent-state" data-state="not-installed">Copilot — not installed</span>'
+  ));
+  assert.ok(agentsLine.innerHTML.includes(
+    "Vibe &quot;&lt;b&gt;&quot; — connection error (did not answer)"
+  ));
+  assert.equal(unavailableNote.hidden, false);
+  assert.equal(input.disabled, true);
+  assert.equal(submitButton.disabled, true);
+  assert.equal(suggestion.disabled, true);
+  assert.equal(stopButton.disabled, true);
+
+  // A later probe found an agent: the states and the composer follow.
+  messageListener({
+    data: {
+      type: "stepChat",
+      responding: false,
+      unavailable: false,
+      agents: [{ name: "Copilot", state: "available", selected: true }],
+      exchanges: []
+    }
+  });
+  assert.equal(unavailableNote.hidden, true);
+  assert.equal(input.disabled, false);
+  assert.equal(submitButton.disabled, false);
+  assert.equal(suggestion.disabled, false);
+  assert.ok(agentsLine.innerHTML.includes("Copilot — available · selected"));
+});
