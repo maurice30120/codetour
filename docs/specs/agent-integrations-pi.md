@@ -104,7 +104,11 @@ de Pi — ce serait cacher la cause au lieu de la nommer.
 
 Le diagnostic se fait dans la session avec `/mcp` (le serveur et sa source
 « extension » y figurent) ; `pi mcp list` ne peut pas le montrer, car les
-commandes shell ne chargent pas les extensions. Vérifié sur Pi 1.5.2 :
+commandes shell ne chargent pas les extensions. Les étapes de correction, elles,
+sont énoncées une seule fois, dans `packages/pi-plugin/README.md` (section
+`/codetour`) : le message d'exécution les porte en propre pour l'utilisateur qui
+le lit seul, ce spec et la skill y renvoient au lieu de les répéter. Vérifié sur
+Pi 1.5.2 :
 `-e builtin:mcp -e ./packages/pi-plugin` + `tool_search` renvoie les sept outils
 `mcp__codetour__*`.
 
@@ -132,10 +136,10 @@ servi, créer par l'outil MCP, consolider obligatoirement, ne jamais écrire de
    figurer dans `pi.getAllTools()`, quelle que soit son exposition. Sinon la
    commande refuse de démarrer et affiche le diagnostic (cause observée, les
    deux causes possibles — support MCP intégré désactivé ou remplacé,
-   connexion encore en cours — et les étapes de correction : `pi config`
-   Built-in → mcp, ou retirer `-builtin:mcp` des settings, puis `/reload`, et
-   contrôler `/mcp`). Aucun run-state, aucune invocation de skill : une
-   génération refusée ne peut pas être prise pour une génération lancée. La
+   connexion encore en cours — et les étapes de correction, énoncées une seule
+   fois dans `packages/pi-plugin/README.md`, section `/codetour`). Aucun
+   run-state, aucune invocation de skill : une génération refusée ne peut pas
+   être prise pour une génération lancée. La
    lecture est faite une fois par commande, sans boucle d'attente : une
    connexion plus tardive est prise en compte par le `/codetour` suivant.
 2. `ctx.ui.select` : **Project Tour** ou **Changes Tour** ; pour un Changes

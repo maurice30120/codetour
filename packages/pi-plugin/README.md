@@ -58,10 +58,13 @@ prints a diagnostic naming the observed fact, the two causes Pi allows to be
 told apart — the built-in MCP support is disabled or replaced, or the
 connection is still starting — and the repair: `pi config` (Built-in → mcp), or
 remove `-builtin:mcp` from the settings, then `/reload`, and check with `/mcp`
-that `codetour` is listed with the extension as its source. No run state is
-created and the skill is not invoked, so a refused `/codetour` can never be
-mistaken for a started generation. The check is read once per command, never
-polled: a connection that completes later is picked up by the next `/codetour`.
+that `codetour` is listed with the extension as its source and that tool search
+finds the seven `mcp__codetour__*` tools. This paragraph is the single
+authoritative statement of that repair: the skill and the spec point here
+rather than restating it. No run state is created and the skill is not invoked,
+so a refused `/codetour` can never be mistaken for a started generation. The
+check is read once per command, never polled: a connection that completes later
+is picked up by the next `/codetour`.
 
 `/codetour` then collects the two generation choices with `ctx.ui.select`,
 creates a run identity, writes `.tours/.log/codetour-run-<runId>.json`, then
@@ -146,12 +149,9 @@ absence means "not measured", never "zero".
   or an installed extension that replaces it (such as `pi-mcp-adapter`),
   leaves the `codetour` server registered but unconnected, and Pi reports
   `MCP server "codetour" is registered, but no loaded extension connects MCP
-  servers`. `/codetour` refuses to start in that case. Re-enable it with
-  `pi config` (Built-in → mcp) or by removing that entry, then `/reload`.
-  Verify a session with `/mcp`: the `codetour` server must be listed with the
-  extension as its source, and tool search must find the seven
-  `mcp__codetour__*` tools. `pi mcp list` cannot confirm it, because shell
-  commands do not load extensions.
+  servers`. `/codetour` refuses to start in that case; the diagnostic and its
+  repair are stated once, in [`/codetour`](#codetour) above. `pi mcp list`
+  cannot confirm a connection, because shell commands do not load extensions.
 - `codetour` on `PATH` for a direct `pi install` of this source (the managed
   install writes an absolute launcher).
 - No Node subprocess and no extra hook runtime: everything runs inside Pi.

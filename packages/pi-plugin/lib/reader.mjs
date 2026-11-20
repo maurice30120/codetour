@@ -76,7 +76,17 @@ export function readerSpawnPlan(state, launcher) {
   return null;
 }
 
-/** Whether this process owns an interactive terminal for the reader. */
+/**
+ * Whether this process owns an interactive terminal for the reader.
+ *
+ * This handoff deliberately duplicates the Copilot adapter's
+ * `readerTerminal`/`runReader` (`.github/extensions/codetour/adapter.mjs`):
+ * the two surfaces ship separately — this package is installed from its own
+ * directory, the Copilot adapter is embedded as a string in the CLI bundle —
+ * so neither can import the other. The TTY predicate, the inherited stdio and
+ * the wording of the hand-over are kept identical by hand; a change belongs in
+ * both copies.
+ */
 function interactiveSession() {
   return Boolean(process.stdin.isTTY && process.stdout.isTTY);
 }
