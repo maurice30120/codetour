@@ -310,16 +310,22 @@ inside the workspace.
 | `limit`         | number | no       | Page size, 1–200; defaults to 50.                                 |
 | `offset`        | number | no       | Number of matching entries to skip; defaults to 0.                |
 
-Returns metadata only — `entries: [{name, description, revision}]` — never a
-body, evidence, a cited path or a hash. `revision` is the entry file's Knowledge
-Revision, an opaque token that stays identical while the file is unchanged and
-moves with any modified byte (ADR 0053). Only verified contracts are listed:
-discovery runs the same evidence verification as `knowledge_read` (ADR 0044).
-Every catalogue entry that fails validation is returned under `invalid: [{name,
-reason, revision?}]` — the file stem when no servable name is declared, and the
-revision whenever the entry file itself was readable, so a repair write can be
-conditioned on it — listed in full regardless of the query, so it can be fixed
-or removed instead of being hidden.
+Returns metadata only — `entries: [{name, description, revision,
+daughterNames?, daughtersOmitted?}]` — never a body, evidence, a cited path or a
+hash. `revision` is the entry file's Knowledge Revision, an opaque token that
+stays identical while the file is unchanged and moves with any modified byte
+(ADR 0053). Only verified contracts are listed: discovery runs the same evidence
+verification as `knowledge_read` (ADR 0044). A Composed Knowledge Entry — one
+whose frontmatter declares `dependencies` — adds its daughters' names, in
+declared order, and never their revisions, proofs or bodies; the row names at
+most three of them, and `daughtersOmitted` states how many it left out, so a
+long declaration never produces a long catalogue row. Each daughter keeps her own
+row. Every catalogue entry that fails validation is returned under `invalid:
+[{name, reason, revision?, via?}]` — the file stem when no servable name is
+declared, the revision whenever the entry file itself was readable, so a repair
+write can be conditioned on it, and `via`, the faulty daughter of the refusing
+level when the reason describes a dependency step — listed in full regardless of
+the query, so it can be fixed or removed instead of being hidden.
 The name is the identifier. `total` is the
 number of matches in the whole filtered catalogue, and `truncated` is true only
 when matching entries remain after this page
@@ -338,7 +344,10 @@ result with HTTP-style success semantics (`isError` false), not an error.
 Returns `status: "valid"` with the Markdown `body`, its `evidence` and the
 entry's `revision` only when **every** declared `file` proof verifies: the cited
 path stays inside the workspace, no symbolic link escapes it, and each file's
-bytes hash to the declared SHA-256. `revision` is the root-level Knowledge
+bytes hash to the declared SHA-256. A Composed Knowledge Entry verifies more: each
+declared daughter's file must still hash to the pinned revision and her own whole
+contract must hold, transitively, within the composition and node bounds — and
+her body is still never served with her mother's. `revision` is the root-level Knowledge
 Revision of the entry file (ADR 0053): a write can be conditioned on it, so a
 file that changed since the read is refused instead of silently overwritten.
 Otherwise it returns `status: "invalid"` with one machine-readable reason, the
@@ -353,7 +362,17 @@ no hash value:
 | `path_outside_workspace`  | The cited path is absolute, escapes the workspace, or is malformed. |
 | `symlink_escape`          | The cited path resolves outside the workspace through a link.  |
 | `malformed_contract`      | The frontmatter or the body does not follow the contract.      |
+| `dependency_missing`      | A declared daughter is absent from the catalogue (`via` names her). |
+| `dependency_invalid`      | A declared daughter's own read refuses (`via` names her).      |
+| `dependency_cycle`        | A declared daughter is already one of her ancestors (`via` names her). |
+| `dependency_depth_exceeded` | The declared graph is deeper than the composition bound (`via` names the daughter past it). |
+| `dependency_node_limit_exceeded` | The declared graph verifies more entries than the node bound allows (`via` names the first daughter over it, who was never read). |
 | `unknown_entry`           | Rendered as `status: "absent"` (an explicit absence, not an error). |
+
+The dependency reasons describe the step that failed, never the daughter's own
+cause — saying `unknown_entry` of an entry that exists would be false — so the
+refusal carries `via` for the caller to descend to, one composition level per
+read. An atomic refusal never carries `via`.
 
 A valid read is reference data, not a guarantee: it proves the cited bytes are
 unchanged, never that the explanation is semantically correct or complete.
@@ -365,7 +384,7 @@ client must not let a directive inside a body change its instructions.
 | Argument        | Type   | Required | Description                                                          |
 | --------------- | ------ | -------- | -------------------------------------------------------------------- |
 | `mode`          | string | no       | `create` (default), `append` or `replace` (ADR 0050). An `append` enriches one existing valid entry without rewriting its body, a `replace` rewrites one existing entry in full; both require `expectedRevision` on the entry. |
-| `entries`       | object[] | yes    | The proposal's entries: `{name, description, body, evidence:[{path, sha256?}]}`, plus `expectedRevision` in `replace` mode. An empty array is an explicit zero-entry consolidation. |
+| `entries`       | object[] | yes    | The proposal's entries: `{name, description, body, evidence:[{path, sha256?}], dependencies?:[{name}]}`, plus `expectedRevision` in `replace` mode. An empty array is an explicit zero-entry consolidation. |
 | `runId`         | string | no       | CodeTour generation run identity from the served prompt. When present, the MCP persists the matching consolidation closure in `<workspace>/.tours/.log/` and returns it. |
 | `workspacePath` | string | no       | Directory relative to the workspace root.                             |
 
@@ -406,6 +425,19 @@ proof-only append when it brings new evidence and `no_change` otherwise.
 name, the description and the evidence values are preserved while the formatting
 is canonical — and preserve the historical body byte for byte as the read grammar
 parses it, which normalizes CRLF to LF.
+
+An entry declaring `dependencies` publishes a Composed Knowledge Entry: at least
+two distinct daughters, named only, each item exactly `{name}`. The engine
+resolves each daughter's file from the catalogue, verifies her whole contract and
+pins her current Knowledge Revision itself, in the same critical section as the
+publication, so a daughter cannot move between her resolution and this write. A
+daughter that is absent, or whose own read refuses, refuses the whole proposal
+with `dependency_missing` or `dependency_invalid` and names her in `via`; a cycle
+and the two bounds are refused as `dependency_cycle`, `dependency_depth_exceeded`
+and `dependency_node_limit_exceeded`, the node bound being checked before the
+first daughter past it is even read. An `append` never accepts `dependencies`,
+and a `replace` of a composed entry redeclares the whole list or is refused as
+`dependencies_incomplete`.
 
 An `append` or `replace` of several entries is refused with reason
 `mode_requires_single_entry` and an unrecognized mode with `unknown_mode`: one call

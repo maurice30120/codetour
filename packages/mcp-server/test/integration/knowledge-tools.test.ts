@@ -6,7 +6,9 @@ import * as path from "node:path";
 import { callTool, rmrf, tempDir, withServer, writeFile } from "../helpers/test-utils";
 import { readRunState } from "../../src/run-log";
 import {
+  COMPOSED_KNOWLEDGE_DAUGHTER_LIMIT,
   COMPOSED_KNOWLEDGE_TYPE,
+  composedKnowledgeOmission,
   composedKnowledgeRelation,
 } from "../../src/knowledge";
 
@@ -496,7 +498,7 @@ test("knowledge_read refuses a composed entry whose daughter broke and names her
       assert.equal(refused.isError, false, refused.text);
       const { revision, ...shape } = refused.structured;
       assert.equal(typeof revision, "string", "the mother's own file was readable");
-      // The reason describes the dependency step and `via` names the KO
+      // The reason describes the dependency step and `via` names the faulty
       // daughter of that level; her own reason stays hers.
       assert.deepEqual(shape, {
         status: "invalid",
@@ -624,6 +626,70 @@ test("knowledge_list carries the daughters of a composed entry by name only", as
   }
 });
 
+// The served catalogue row is bounded even though the declared list is not:
+// a fifty-daughter entry must not produce fifty names in `knowledge_list`.
+test("knowledge_list bounds the daughters of a composed row and states the omission", async () => {
+  const root = tempDir("codetour-knowledge-composed-bound-");
+  try {
+    const dispatchCode = writeWorkspaceFile(root, "src/dispatch.ts", "export const dispatch = 1;\n");
+    const renderCode = writeWorkspaceFile(root, "src/render.ts", "export const render = 2;\n");
+    const daughters = ["wide_one", "wide_two", "wide_three", "wide_four", "wide_five"];
+    for (const [index, name] of daughters.entries()) {
+      const code = `export const wide${index} = ${index};\n`;
+      writeWorkspaceFile(root, `src/${name}.ts`, code);
+      writeEntry(root, name, {
+        description: `Daughter ${name}`,
+        body: `${name} SECRET BODY\n`,
+        evidence: [{ path: `src/${name}.ts`, sha256: sha256(code) }],
+      });
+    }
+    const own = [
+      { path: "src/dispatch.ts", sha256: dispatchCode },
+      { path: "src/render.ts", sha256: renderCode },
+    ];
+    writeEntry(root, "wide_mother", {
+      description: "How five daughters interact",
+      body: "WIDE MOTHER BODY\n",
+      evidence: own,
+      dependencies: daughters.map((name) => ({ name, sha256: revisionOf(entryFile(root, name)) })),
+    });
+    // A mother whose list fits the bound states no omission at all.
+    writeEntry(root, "narrow_mother", {
+      description: "How two daughters interact",
+      body: "NARROW MOTHER BODY\n",
+      evidence: own,
+      dependencies: daughters.slice(0, 2).map((name) => ({ name, sha256: revisionOf(entryFile(root, name)) })),
+    });
+    await withServer(root, async (client) => {
+      const listed = await callTool(client, KNOWLEDGE_LIST, {});
+      assert.equal(listed.isError, false, listed.text);
+      type Row = {
+        name: string;
+        daughterNames?: string[];
+        daughtersOmitted?: number;
+      };
+      const rows = listed.structured.entries as Row[];
+      const wide = rows.find((row) => row.name === "wide_mother");
+      // The bound is the catalogue line's: the first names, never all of them,
+      // and the count left out beside them.
+      assert.deepEqual(wide?.daughterNames, ["wide_one", "wide_two", "wide_three"]);
+      assert.equal(wide?.daughtersOmitted, 2);
+      const narrow = rows.find((row) => row.name === "narrow_mother");
+      assert.deepEqual(narrow?.daughterNames, ["wide_one", "wide_two"]);
+      assert.ok(!("daughtersOmitted" in (narrow ?? {})), "a list that fits states no omission");
+      // A daughter keeps her own row, and an atomic row carries no relation.
+      const daughter = rows.find((row) => row.name === "wide_five");
+      assert.ok(daughter, "a daughter past the bound keeps her own row");
+      assert.deepEqual(Object.keys(daughter ?? {}).sort(), ["description", "name", "revision"]);
+      // Bounding the names never serves content: no daughter body reaches the
+      // served catalogue, and the row itself still names none of it.
+      assert.doesNotMatch(textOf(listed), /SECRET BODY|WIDE MOTHER BODY/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
 // Composition is derived from the declaration alone (ADR 0055): editing the
 // frontmatter changes the line, with no `kind` field and no other state.
 test("a composed entry type follows its dependencies declaration and nothing else", async () => {
@@ -731,10 +797,10 @@ test("a composed entry with more daughters than the bound projects an explicit o
   }
 });
 
-// A composed entry whose daughter is KO is no longer verified: it moves to the
+// A composed entry with a faulty daughter is no longer verified: it moves to the
 // invalid rows with the dependency-step reason and the faulty daughter's name,
 // as at read time (spec #288).
-test("a composed entry whose daughter is KO is listed as invalid under her dependency reason", async () => {
+test("a composed entry with a faulty daughter is listed as invalid under her dependency reason", async () => {
   const root = tempDir("codetour-knowledge-composed-invalid-");
   try {
     writeComposedFixture(root);
@@ -761,7 +827,7 @@ test("a composed entry whose daughter is KO is listed as invalid under her depen
           .map((row) => ({ name: row.name, reason: row.reason, via: row.via })),
         [{ name: "composed_flow", reason: "dependency_invalid", via: "auth_flow" }]
       );
-      // The projection says the same thing: the reason and the KO daughter.
+      // The projection says the same thing: the reason and the faulty daughter.
       const prompt = await client.getPrompt({
         name: "generate_project_tour",
         arguments: { request: "Give me a tour of this project." },
@@ -770,7 +836,7 @@ test("a composed entry whose daughter is KO is listed as invalid under her depen
       const line = projectionLine(text, "composed_flow");
       assert.ok(line, "an invalid entry keeps her line");
       assert.ok(line.includes("dependency_invalid"), line);
-      assert.ok(line.includes("auth_flow"), "the KO daughter is named");
+      assert.ok(line.includes("auth_flow"), "the faulty daughter is named");
       assert.doesNotMatch(text, /MOTHER BODY|DAUGHTER SECRET/);
       assert.doesNotMatch(
         line.replace(revisionOf(entryFile(root, "composed_flow")), ""),
@@ -1600,6 +1666,16 @@ test("prompts/get spells the composed relation with the catalogue's single sourc
         ),
         "the prompt quotes the truncated relation token the catalogue renders"
       );
+      // The omission marker is part of that spelling: the prompt quotes the
+      // one the formatter produces, never a second literal (ticket #285).
+      const omitted = 5 - COMPOSED_KNOWLEDGE_DAUGHTER_LIMIT;
+      const marker = composedKnowledgeOmission(omitted).trim();
+      assert.equal(marker, "(+2 more)", "the marker keeps its agreed spelling");
+      assert.ok(
+        text.includes(`\`${marker}\``),
+        "the prompt quotes the formatter's omission marker"
+      );
+      assert.doesNotMatch(text, /\(\+N more\)/, "the prompt never re-spells a placeholder marker");
       // The type word travels from the same source, so a rename of the state
       // cannot leave the prompt and the catalogue disagreeing.
       assert.ok(text.includes(`\`${COMPOSED_KNOWLEDGE_TYPE}\``), "the prompt names the type word");

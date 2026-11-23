@@ -5,6 +5,7 @@ import {
 import type {
   KnowledgeCatalogueEntry,
   KnowledgeFailureReason,
+  KnowledgeMetadata,
 } from "codetour-knowledge";
 
 // The Knowledge surface of the existing CodeTour MCP server (spec #223,
@@ -55,11 +56,25 @@ export interface KnowledgeInvalidEntry {
    */
   revision?: string;
   /**
-   * The KO daughter of the refusing level, on a Composed Knowledge Entry: the
-   * reason describes the dependency step, so the repair needs a target (spec
-   * #288). Never her revision, her evidence or her body.
+   * The faulty daughter of the refusing level, on a Composed Knowledge Entry:
+   * the reason describes the dependency step, so the repair needs a target
+   * (spec #288). Never her revision, her evidence or her body.
    */
   via?: string;
+}
+
+/**
+ * One catalogue row as `knowledge_list` serves it: the entry's metadata, plus —
+ * on a Composed Knowledge Entry — the daughters named on the row, bounded, and
+ * how many of them the row leaves out. A row that truncates says so, so a
+ * fifty-daughter entry never produces fifty names in the served catalogue
+ * (spec #288, ticket #286).
+ */
+export interface KnowledgeServedCatalogueEntry extends KnowledgeMetadata {
+  /** The daughters named on this row, in declared order; absent on an atomic entry. */
+  daughterNames?: readonly string[];
+  /** Declared daughters this row leaves out; absent when the list fits. */
+  daughtersOmitted?: number;
 }
 
 /** One bounded page of catalogue metadata, never a body. */
@@ -69,7 +84,8 @@ export interface KnowledgeCataloguePage {
   /**
    * Verified entries only: every declared SHA-256 proof matched. A composed
    * entry carries her daughters' names, in declared order, and each daughter
-   * keeps her own row (ADR 0055).
+   * keeps her own row (ADR 0055). This is the library's own truth, complete;
+   * the row `knowledge_list` serves bounds the list (`servedCatalogueRow`).
    */
   entries: KnowledgeCatalogueEntry[];
   /**
@@ -127,11 +143,32 @@ export async function listKnowledgePage(
 export const COMPOSED_KNOWLEDGE_TYPE = "composed";
 
 /**
- * Daughters named on one catalogue line. The contract does not cap the
+ * Daughters named by one served surface. The contract does not cap the
  * dependency list, so the projection is bounded and says when it truncates: a
- * fifty-daughter entry must not produce fifty names in the served catalogue.
+ * fifty-daughter entry must not produce fifty names in the served catalogue
+ * (spec #288, ticket #286).
  */
 export const COMPOSED_KNOWLEDGE_DAUGHTER_LIMIT = 3;
+
+/**
+ * The daughters one served surface names for a composed entry: the kept names
+ * and the count left out. The catalogue line, the served `knowledge_list` row
+ * and the generation prompt all bound through here, so the limit is spelled
+ * once.
+ */
+export function boundedDaughterNames(daughters: readonly string[]): { names: string[]; omitted: number } {
+  const names = daughters.slice(0, COMPOSED_KNOWLEDGE_DAUGHTER_LIMIT);
+  return { names, omitted: daughters.length - names.length };
+}
+
+/**
+ * The omission marker a truncated daughter list spells, derived from the bound
+ * instead of re-spelled by its callers: the relation token quotes it and the
+ * generation prompt quotes the same spelling (spec #288, ticket #285).
+ */
+export function composedKnowledgeOmission(omitted: number): string {
+  return omitted > 0 ? ` (+${omitted} more)` : "";
+}
 
 /**
  * The relation token of a composed entry, appended to its own catalogue line
@@ -145,18 +182,39 @@ export const COMPOSED_KNOWLEDGE_DAUGHTER_LIMIT = 3;
  * surfaces cannot drift.
  */
 export function composedKnowledgeRelation(daughters: readonly string[]): string {
-  const named = daughters.slice(0, COMPOSED_KNOWLEDGE_DAUGHTER_LIMIT);
-  const omitted = daughters.length - named.length;
-  const omission = omitted > 0 ? ` (+${omitted} more)` : "";
-  return `[${COMPOSED_KNOWLEDGE_TYPE}: ${named.join(", ")}${omission}]`;
+  const { names, omitted } = boundedDaughterNames(daughters);
+  return `[${COMPOSED_KNOWLEDGE_TYPE}: ${names.join(", ")}${composedKnowledgeOmission(omitted)}]`;
+}
+
+/**
+ * One catalogue row as the `knowledge_list` result carries it: the library's
+ * complete row bounded to what one served line may name, with the omission
+ * count beside the kept names. An atomic row gains no field at all, and a row
+ * that fits gains no `daughtersOmitted`: the truncation is stated when it
+ * happens, never as a constant zero.
+ */
+export function servedCatalogueRow(entry: KnowledgeCatalogueEntry): KnowledgeServedCatalogueEntry {
+  const metadata: KnowledgeMetadata = {
+    name: entry.name,
+    description: entry.description,
+    revision: entry.revision,
+  };
+  if (entry.daughterNames === undefined) return metadata;
+  const { names, omitted } = boundedDaughterNames(entry.daughterNames);
+  return {
+    ...metadata,
+    daughterNames: names,
+    ...(omitted === 0 ? {} : { daughtersOmitted: omitted }),
+  };
 }
 
 /**
  * One invalid catalogue row: the reason, the faulty daughter of the refusing
  * level when there is one, and the revision when the entry file was readable.
  * `via` is what makes a composed refusal actionable — the reason describes the
- * dependency step, so the KO daughter is the repair target (spec #288) — and a
- * daughter's own revision, evidence and body never appear beside her name.
+ * dependency step, so the faulty daughter is the repair target (spec #288) —
+ * and a daughter's own revision, evidence and body never appear beside her
+ * name.
  */
 function invalidEntryLine(entry: KnowledgeInvalidEntry): string {
   const details = [
@@ -278,6 +336,11 @@ const COMPOSED_RELATION_TRUNCATED_EXAMPLE = [
   "knowledge-d",
   "knowledge-e",
 ];
+// How many daughters that example leaves out: the prompt spells the omission
+// marker from the one formatter, never as a second literal (#285).
+const COMPOSED_RELATION_TRUNCATED_OMITTED = boundedDaughterNames(
+  COMPOSED_RELATION_TRUNCATED_EXAMPLE
+).omitted;
 
 export const KNOWLEDGE_DECOMPOSITION_METHOD = [
   "## Decomposition method",
@@ -348,7 +411,8 @@ export const KNOWLEDGE_DECOMPOSITION_METHOD = [
     "and its body records how they relate. Its catalogue line carries that " +
     `relation after the revision, \`${composedKnowledgeRelation(COMPOSED_RELATION_EXAMPLE)}\`, ` +
     `or \`${composedKnowledgeRelation(COMPOSED_RELATION_TRUNCATED_EXAMPLE)}\` ` +
-    "when the list is truncated: `(+N more)` daughters are then not shown. " +
+    `when the list is truncated: \`${composedKnowledgeOmission(COMPOSED_RELATION_TRUNCATED_OMITTED).trim()}\` ` +
+    "daughters are then not shown. " +
     "Decide before saving:",
   "",
   "- Completing or correcting an existing atomic entry on the same subject: " +

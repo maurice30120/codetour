@@ -57,7 +57,7 @@ const composedSource = (
 
 const dependency = (name: string, sha256: string): KnowledgeDependency => ({ name, sha256 });
 
-/** A refusal carries its reason, the KO daughter of its own level, and never a body. */
+/** A refusal carries its reason, the faulty daughter of its own level, and never a body. */
 const expectInvalid = (read: KnowledgeValidation, reason: KnowledgeFailureReason, via?: string): void => {
   assert.equal(read.status, 'invalid', JSON.stringify(read).slice(0, 300));
   const refused = read as { reason: KnowledgeFailureReason; via?: string; revision?: string };
@@ -257,7 +257,7 @@ test('one composition level beyond the depth bound is a typed refusal, never a p
   assert.equal(KNOWLEDGE_MAX_COMPOSITION_DEPTH, 2);
   assert.equal((await library.read('middle')).status, 'valid');
   assert.equal((await library.read('upper')).status, 'valid');
-  // The refusal is typed, total, and names the KO daughter of this level.
+  // The refusal is typed, total, and names the faulty daughter of this level.
   expectInvalid(await library.read('top'), 'dependency_depth_exceeded', 'upper');
   // Reading the too-deep entry on her own is legal: the bound is about the
   // graph one read traverses, never about an entry's existence.
@@ -421,7 +421,7 @@ test('the verified listing carries the daughters of a composed entry by name onl
   }
 });
 
-test('the verified listing reports a composed refusal with its dependency step and the KO daughter', async t => {
+test('the verified listing reports a composed refusal with its dependency step and the faulty daughter', async t => {
   const root = await newRoot(t, 'composed-listing-refused-');
   await composedWorkspace(root);
   const library = await readRoot(root);
@@ -431,7 +431,7 @@ test('the verified listing reports a composed refusal with its dependency step a
   assert.ok(!entries.some(entry => entry.name === 'mother'), 'a mother whose daughter broke is no longer verified');
   const mother = invalid.find(entry => entry.name === 'mother');
   // The reason describes the dependency step, never the daughter's own reason,
-  // and the KO daughter of that level is named: the repair has a target.
+  // and the faulty daughter of that level is named: the repair has a target.
   assert.equal(mother?.reason, 'dependency_invalid');
   assert.equal(mother?.via, 'child_one');
   assert.equal(typeof mother?.revision, 'string');

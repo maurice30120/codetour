@@ -10,8 +10,10 @@ The single deterministic source of the Knowledge contract used by CodeTour:
   `catalog()`, `list(query)` and `read(name)` expose it (ADR 0053).
 - `verifyKnowledge(entry, root)` — every declared `file` proof must stay inside the
   workspace, avoid symlink escapes and match its SHA-256 before the body is returned.
-- `loadKnowledgeLibrary(root, directory)` — `catalog()`, `list(query)` and `read(name)`
-  over `<workspace>/.tours/.memory/knowledge`.
+- `loadKnowledgeLibrary(root, directory)` — `catalog()`, `list(query)`, `verifiedList(query)`
+  and `read(name)` over `<workspace>/.tours/.memory/knowledge`, plus the one
+  daughter resolution a write pins through (`resolve(name)`) and the read-side
+  validation of a staged candidate (`validateCandidate(source, name)`).
 - `hashWorkspaceFile(root, path)` — the same confinement rules for preparing evidence.
 - `saveKnowledgeProposal(root, proposal)` — validate a whole proposal, compute or
   verify every SHA-256 proof, then publish
@@ -26,13 +28,30 @@ The single deterministic source of the Knowledge contract used by CodeTour:
 - `validateCanonicalName(name)` — the shared identifier rule for Memory Methods and
   Knowledge entries.
 
-A proposal is `{"entries":[{name, description, body, evidence:[{path, sha256?}]}]}`.
+A proposal is `{"entries":[{name, description, body, evidence:[{path, sha256?}], dependencies?:[{name}]}]}`.
 The name is a canonical identifier, the description is one non-empty line, the body
 is Markdown kept byte-for-byte, and evidence cites at least one workspace-relative
 file. A missing `sha256` is computed from the bytes; a declared one is verified and
 normalized. Every entry is validated before the first byte is staged, so an invalid
 entry, a duplicate name or an existing entry refuses the whole proposal: no partial
 publication, no overwrite, and no staging file left behind.
+
+An entry declaring `dependencies` publishes a Composed Knowledge Entry (spec #288):
+two distinct daughters at least, named only, plus at least two direct proofs of
+her own. The engine resolves each daughter's file from the catalogue, verifies
+her whole contract with the read path's own rules and pins her current Knowledge
+Revision itself, so the proposing agent never supplies a digest, a path or a
+body. What is pinned is exactly what a read then verifies: the same declaration
+is refused the same way on both sides, with the read path's own reasons —
+`dependency_missing`, `dependency_invalid`, `dependency_cycle`,
+`dependency_depth_exceeded`, `dependency_node_limit_exceeded` — each naming the
+faulty daughter of its level in `via`. The node bound is checked before the first
+daughter past it is resolved, so a forged declaration cannot make a write read
+the catalogue past the budget a read of it would refuse. An `append` never
+declares daughters, and a `replace` of a composed entry redeclares the whole list
+or is refused as `dependencies_incomplete`. `verifiedList(query)` is the
+catalogue row that carries the daughters' names; `catalog()` and `list(query)`
+stay metadata only.
 
 A proposal may carry a `mode` (ADR 0050): `create` (default) publishes new entries,
 `append` enriches one existing entry that still verifies, and `replace` rewrites one

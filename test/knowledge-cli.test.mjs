@@ -1045,3 +1045,70 @@ test("the bundled CLI refuses an unparseable symbol and reports creation fallbac
     rmSync(ws, { recursive: true, force: true });
   }
 });
+
+// Composition reaches the CLI through the proposal's `dependencies` list, and a
+// refusal of a composed entry names the faulty daughter of its own level: the
+// CLI is the same read entry point as the MCP, so it must not drop the one
+// diagnosis an atomic refusal never carries (spec #288, story 9).
+test("knowledge read names the faulty daughter of a composed entry, and an atomic refusal keeps no via", () => {
+  const ws = workspace("codetour-knowledge-composed-");
+  try {
+    writeFileSync(path.join(ws, "alpha.ts"), "export const alpha = 1;\n");
+    writeFileSync(path.join(ws, "beta.ts"), "export const beta = 2;\n");
+    writeFileSync(path.join(ws, "relation_a.ts"), "relation a\n");
+    writeFileSync(path.join(ws, "relation_b.ts"), "relation b\n");
+
+    // Two atomic daughters, named only — the engine pins their revisions.
+    const daughters = writeProposal(ws, {
+      entries: [
+        { name: "child_one", description: "First daughter", body: "CHILD ONE BODY\n", evidence: [{ path: "alpha.ts" }] },
+        { name: "child_two", description: "Second daughter", body: "CHILD TWO BODY\n", evidence: [{ path: "beta.ts" }] }
+      ]
+    }, "daughters.json");
+    const seeded = runCli(saveArgs(ws, daughters), { cwd: ws });
+    assert.equal(seeded.status, 0, seeded.stderr || seeded.stdout);
+    assert.deepEqual(seeded.json.saved, ["child_one", "child_two"]);
+
+    const mother = writeProposal(ws, {
+      entries: [{
+        name: "mother",
+        description: "How the two daughters interact",
+        body: "## Relation\n\nThe daughters interact.\n",
+        evidence: [{ path: "relation_a.ts" }, { path: "relation_b.ts" }],
+        dependencies: [{ name: "child_one" }, { name: "child_two" }]
+      }]
+    }, "mother.json");
+    const composed = runCli(saveArgs(ws, mother), { cwd: ws });
+    assert.equal(composed.status, 0, composed.stderr || composed.stdout);
+    assert.deepEqual(composed.json.saved, ["mother"]);
+
+    const valid = runCli(["knowledge", "read", "mother"], { cwd: ws });
+    assert.equal(valid.status, 0, valid.stderr);
+    assert.equal(valid.json.status, "valid");
+
+    // Discovery names the daughters of a composed entry, by name only.
+    const listed = runCli(["knowledge", "list"], { cwd: ws });
+    assert.equal(listed.status, 0, listed.stderr);
+    assert.deepEqual(listed.json.entries.find(row => row.name === "mother").daughterNames, ["child_one", "child_two"]);
+
+    // One daughter's own read refuses now: the mother's refusal reports the
+    // dependency step and names her, which is where the repair has to start.
+    writeFileSync(path.join(ws, "alpha.ts"), "export const alpha = 99;\n");
+    const refused = runCli(["knowledge", "read", "mother"], { cwd: ws });
+    assert.equal(refused.status, 4, refused.stderr);
+    assert.equal(refused.json.status, "invalid");
+    assert.equal(refused.json.reason, "dependency_invalid", "the reason describes the dependency step");
+    assert.equal(refused.json.via, "child_one", "the faulty daughter of this level is named");
+    assert.equal(typeof refused.json.revision, "string");
+    assert.doesNotMatch(refused.stdout, /CHILD ONE BODY|CHILD TWO BODY|export const alpha|relation a/);
+
+    // An atomic refusal is unchanged: no `via` key at all, not a null one.
+    writeCatalogueEntry(ws, "stale.md", entry("stale", "cites changed bytes", [{ path: "relation_a.ts", sha256: "a".repeat(64) }]).frontmatter, "STALE BODY\n");
+    const atomic = runCli(["knowledge", "read", "stale"], { cwd: ws });
+    assert.equal(atomic.status, 4, atomic.stderr);
+    assert.equal(atomic.json.reason, "file_hash_mismatch");
+    assert.equal(Object.prototype.hasOwnProperty.call(atomic.json, "via"), false);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+});

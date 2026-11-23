@@ -11,7 +11,9 @@ import { knowledgeCanonicalizer, treeSitterSymbolFingerprinter } from './symbol-
  * evidence list; the free-form Markdown body after the closing `---` is what
  * `memory_read` returns once the whole evidence contract has been verified.
  * The name is a safe flat Knowledge name equal to the file name, so
- * discovery presents entries by name, description and revision only.
+ * discovery presents entries by name, description and revision only — plus,
+ * on a Composed Knowledge Entry, the names of her daughters alone
+ * (`KnowledgeCatalogueEntry`, spec #288).
  */
 export interface KnowledgeMetadata {
   name: string;
@@ -570,7 +572,11 @@ type DaughterResolution =
   | { status: 'refused'; reason: 'dependency_missing' | 'dependency_invalid' };
 
 export interface KnowledgeLibrary {
-  /** Discoverable entries: name, description and revision only, sorted by name. */
+  /**
+   * Discoverable entries: name, description and revision only, sorted by name.
+   * Unverified metadata, never the declared daughters: `verifiedList` is the
+   * catalogue row that carries them.
+   */
   catalog(): Promise<KnowledgeMetadata[]>;
   /** Catalogue filtered by a literal case-insensitive name/description substring. */
   list(query?: string): Promise<KnowledgeMetadata[]>;

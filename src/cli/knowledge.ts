@@ -146,7 +146,10 @@ async function readCommand(name: string, options: KnowledgeOptions): Promise<voi
   // An unknown entry is an absence. Every other refusal is invalid and is
   // reported with its machine-readable reason only: never the body, a cited
   // path or a hash value. Its revision still leaves with the refusal whenever
-  // the entry file was readable: an invalid entry stays repairable.
+  // the entry file was readable: an invalid entry stays repairable. A composed
+  // refusal names too the faulty daughter of its own level (`via`), the only
+  // repair target the caller can descend to; an atomic refusal never carries
+  // the field, so its payload stays byte-identical.
   if (read.reason === "unknown_entry") {
     emit({ status: "absent", workspace, name }, KNOWLEDGE_EXIT.absent);
     return;
@@ -157,7 +160,8 @@ async function readCommand(name: string, options: KnowledgeOptions): Promise<voi
       workspace,
       name,
       reason: read.reason,
-      ...(read.revision === undefined ? {} : { revision: read.revision })
+      ...(read.revision === undefined ? {} : { revision: read.revision }),
+      ...(read.via === undefined ? {} : { via: read.via })
     },
     KNOWLEDGE_EXIT.invalid
   );
@@ -403,7 +407,7 @@ export function registerKnowledgeCommand(program: Command): void {
     .description("discover, verify, read and save Knowledge entries; deterministic, offline, no model");
   knowledge
     .command("list")
-    .description("list Knowledge entries by name, description and revision only")
+    .description("list Knowledge entries by name, description and revision; a composed entry also names its daughters")
     .option("--workspace <dir>", "workspace root (defaults to the current directory)")
     .option("--query <text>", "literal case-insensitive name or description filter")
     .action((options: KnowledgeOptions) => runAction(() => listCommand(options)));
@@ -419,9 +423,14 @@ export function registerKnowledgeCommand(program: Command): void {
     .action((target: string, options: KnowledgeOptions) => runAction(() => hashCommand(target, options)));
   knowledge
     .command("save")
-    .description("validate and persist a proposal (zero, one or many entries); nothing is written on any refusal")
+    .description("validate and persist a proposal (zero, one or many entries); an entry declaring `dependencies` is composed; nothing is written on any refusal")
     .option("--workspace <dir>", "workspace root (defaults to the current directory)")
-    .option("--proposal <file>", 'proposal JSON: {"mode"?,"entries":[{"name","description","body","evidence":[{"path","sha256"?}],"expectedRevision"?}]} or, for append, {"mode":"append","entries":[{"name","addition","evidence"?,"expectedRevision"}]}')
+    // `dependencies` is the only way to compose an entry from the CLI: two
+    // daughters at least, names only — the engine resolves each file and pins
+    // her revision itself. An append never accepts the field, and a replace of
+    // a composed entry redeclares the whole list or is refused
+    // (`dependencies_incomplete`).
+    .option("--proposal <file>", 'proposal JSON: {"mode"?,"entries":[{"name","description","body","evidence":[{"path","sha256"?}],"dependencies":[{"name"}]?,"expectedRevision"?}]} or, for append, {"mode":"append","entries":[{"name","addition","evidence"?,"expectedRevision"}]}')
     .option("--mode <mode>", 'write mode: "create" (default), "append" or "replace"')
     .option("--expected-revision <token>", "convenience: Knowledge Revision of the appended or replaced entry; required by --mode append and --mode replace")
     .option("--name <name>", "convenience: entry name, with --description, --body-file and --evidence, or with --addition-file for append")
