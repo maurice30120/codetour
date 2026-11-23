@@ -83,7 +83,9 @@ function workspaceWithSpaces() {
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-pi-extension-"));
   const workspace = path.join(root, "work space");
   mkdirSync(workspace, { recursive: true });
-  return { root, workspace: realpathSync(workspace) };
+  // The extension carries the canonical spelling (ADR 0056): the native real
+  // path, which expands an 8.3 name on Windows.
+  return { root, workspace: realpathSync.native(workspace) };
 }
 
 function runFiles(workspace) {

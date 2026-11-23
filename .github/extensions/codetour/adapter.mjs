@@ -33,7 +33,20 @@ async function servedPrompt(cwd, name, args) {
       lines.close();
       child.stdin.end();
       child.kill();
-      if (error) reject(error); else resolve(value);
+      // A reported failure means the child is gone: the caller may remove the
+      // workspace it gave the server, which Windows refuses while a process
+      // still holds it as its working directory.
+      if (!error) {
+        resolve(value);
+        return;
+      }
+      if (child.exitCode !== null || child.signalCode !== null) {
+        reject(error);
+        return;
+      }
+      const settle = () => reject(error);
+      child.once("exit", settle);
+      setTimeout(settle, 1000).unref();
     };
     const timer = setTimeout(() => finish(new Error(`CodeTour MCP prompt ${name} timed out.`)), 15000);
     const send = message => child.stdin.write(JSON.stringify({jsonrpc: "2.0", ...message}) + "\n");

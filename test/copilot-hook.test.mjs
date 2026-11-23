@@ -304,13 +304,17 @@ test("storage failures and corrupt state never block and never throw", () => {
     assert.match(corrupt.stderr, /malformed/);
 
     // An unwritable run directory cannot record the continuation, so the hook
-    // lets the agent stop instead of blocking without its bound.
-    const state = writeState(workspace, { tourCreated: true });
-    chmodSync(runLogDirectory(workspace), 0o555);
-    const unwritable = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(unwritable.output, {});
-    assert.equal(readState(workspace, state.runId).continuationUsed, false);
-    chmodSync(runLogDirectory(workspace), 0o755);
+    // lets the agent stop instead of blocking without its bound. Windows has
+    // no directory mode a process cannot write to: the platform property the
+    // case rests on does not exist there.
+    if (process.platform !== "win32") {
+      const state = writeState(workspace, { tourCreated: true });
+      chmodSync(runLogDirectory(workspace), 0o555);
+      const unwritable = runHook(payload({ cwd: workspace }));
+      assert.deepEqual(unwritable.output, {});
+      assert.equal(readState(workspace, state.runId).continuationUsed, false);
+      chmodSync(runLogDirectory(workspace), 0o755);
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
