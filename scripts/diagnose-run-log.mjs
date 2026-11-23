@@ -22,6 +22,7 @@ import {
   rmSync,
   writeFileSync
 } from "node:fs";
+import { readdir as readdirPromises, realpath as realpathPromises } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -165,6 +166,29 @@ async function main() {
       add(`${probe.label}: continuationUsed after hook`, after?.continuationUsed);
       add(`${probe.label}: metrics after hook`, after?.metrics ? "recorded" : "none");
     }
+
+    // The library view: what the hook's own module sees when it lists the
+    // directory the state was written into. This separates "the hook never
+    // reached the directory" from "the state was read and rejected".
+    const library = await import(
+      pathToFileURL(path.join(repository, ".github/extensions/codetour/run-log.mjs")).href
+    );
+    const asyncReal = await realpathPromises(raw);
+    add("fs/promises realpath", asyncReal);
+    add("runLogDirectory(real)", library.runLogDirectory(asyncReal));
+    add("run state file exists", existsSync(library.runStatePath(asyncReal, RUN_ID)) ? "yes" : "NO");
+    try {
+      add("directory entries", (await readdirPromises(library.runLogDirectory(asyncReal))).join(", "));
+    } catch (error) {
+      add("directory entries", `unreadable: ${error?.code || error?.message}`);
+    }
+    const listed = await library.listRunStates(asyncReal);
+    add("listRunStates states", listed.states.length);
+    add("listRunStates problems", listed.problems.join(" | ") || "none");
+    const readBack = await library.readRunStateFile(library.runStatePath(asyncReal, RUN_ID));
+    add("readRunStateFile reason", readBack.state ? "ok" : readBack.reason);
+    add("readRunStateFile workspace", readBack.state?.workspace);
+    add("RUN_STATE_VERSION", library.RUN_STATE_VERSION);
 
     if (asJson) {
       console.log(JSON.stringify(Object.fromEntries(findings), null, 2));
