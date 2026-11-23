@@ -111,7 +111,7 @@ test("Copilot selection forwards the selected Tour to the real standalone HTML C
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
     // On Windows the OS may release a just-exited reader's cwd handle just
     // after its PID disappears. Retry only transient filesystem-lock errors.
-    rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
+    removeWorkspace(root);
   }
 });
 
@@ -129,7 +129,7 @@ test("missing UI capability is reported without launching a reader", async () =>
     assert.match(messages.join("\n"), /requires an interactive Copilot session/);
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -168,7 +168,7 @@ test("a packaged .cmd path uses its bundled runtime without shell interpretation
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
     if (previousRealCli === undefined) delete process.env.CODETOUR_REAL_CLI; else process.env.CODETOUR_REAL_CLI = previousRealCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
-    rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
+    removeWorkspace(root);
   }
 });
 
@@ -377,7 +377,7 @@ test("an orientation phrase survives native generation choices", async () => {
     }
   } finally {
     restore();
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -407,7 +407,7 @@ test("a failed generation send reports the error and removes the run state", asy
     assert.equal(logs.at(-1), "CodeTour: generation refused");
   } finally {
     restore();
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -447,6 +447,23 @@ test("the adapter source carries no generation contract prose", () => {
 });
 
 
+// Removing a workspace a relay or the CLI just used: Windows refuses while a
+// child that received it as its working directory is still tearing down, so
+// the removal retries briefly instead of failing the test on the platform's
+// process teardown.
+function removeWorkspace(directory) {
+  const deadline = Date.now() + 5_000;
+  for (;;) {
+    try {
+      rmSync(directory, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (Date.now() >= deadline || !["EPERM", "EBUSY", "ENOTEMPTY"].includes(error.code)) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+    }
+  }
+}
+
 function createTourWorkspace(tours) {
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-adapter-relay-"));
   execFileSync("git", ["init", "-q", root]);
@@ -467,7 +484,7 @@ async function withRealCli(root, run) {
   } finally {
     if (previousCli === undefined) delete process.env.CODETOUR_CLI; else process.env.CODETOUR_CLI = previousCli;
     if (previousOutput === undefined) delete process.env.CODETOUR_TEST_HTML_OUTPUT; else process.env.CODETOUR_TEST_HTML_OUTPUT = previousOutput;
-    rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
+    removeWorkspace(root);
   }
 }
 
@@ -717,7 +734,7 @@ async function withRecordingCli(root, run, {readerExit, readerSignal} = {}) {
     if (previousReaderExit === undefined) delete process.env.CODETOUR_TEST_READER_EXIT; else process.env.CODETOUR_TEST_READER_EXIT = previousReaderExit;
     if (previousReaderSignal === undefined) delete process.env.CODETOUR_TEST_READER_SIGNAL; else process.env.CODETOUR_TEST_READER_SIGNAL = previousReaderSignal;
     try {
-      rmSync(root, {recursive:true, force:true, maxRetries:50, retryDelay:100});
+      removeWorkspace(root);
     } catch (error) {
       // A just-exited reader may still hold the workspace as its cwd; Windows
       // refuses to delete such a directory even after retries. The recorded
@@ -840,7 +857,7 @@ test("the generation tool returns the served critical prompt with a guarded sess
     assert.ok(result.textResultForLlm.includes(states[0].runId));
   } finally {
     restore();
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -865,7 +882,7 @@ test("the generation tool rejects unresolved choices and unavailable prompts wit
     }
   } finally {
     restore();
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -890,7 +907,7 @@ test("the generation tool prepares a standard Project Tour without asking anothe
     assert.equal(state.metrics.preparation.sentAt, undefined, "a tool return must not claim session.send accepted a prompt");
   } finally {
     restore();
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -926,7 +943,7 @@ test("run attribution starts before the native generation choices", async () => 
     assert.equal(sends, 1);
   } finally {
     restore();
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1004,7 +1021,7 @@ test("a generation writes one workspace-scoped run before sending the served pro
   } finally {
     restore();
     if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1039,7 +1056,7 @@ test("both Tour types send the user's demand, never the command, to prompts/get"
   } finally {
     restore();
     if (previousArgs === undefined) delete process.env.CODETOUR_TEST_PROMPT_ARGS; else process.env.CODETOUR_TEST_PROMPT_ARGS = previousArgs;
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1069,7 +1086,7 @@ test("a generation with an empty demand sends no request argument", async () => 
   } finally {
     restore();
     if (previousArgs === undefined) delete process.env.CODETOUR_TEST_PROMPT_ARGS; else process.env.CODETOUR_TEST_PROMPT_ARGS = previousArgs;
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1146,7 +1163,7 @@ test("an empty served prompt fails without sending or writing a run", async () =
     assert.deepEqual(readRunStates(root), [], "no run state is written when the wrapper fails");
   } finally {
     restore();
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1165,7 +1182,7 @@ test("concurrent generations keep separate run states per session", async () => 
     assert.notEqual(states[0].runId, states[1].runId);
   } finally {
     restore();
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1191,7 +1208,7 @@ test("a new generation prunes expired run states without touching Knowledge", as
     assert.equal(readRunStates(root).length, 1);
   } finally {
     restore();
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1254,7 +1271,7 @@ test("a clean install reports no pre-launch problem and names its surfaces", asy
   } finally {
     restore();
     if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1284,7 +1301,7 @@ test("a stale or foreign plugin build is named before the run", async () => {
   } finally {
     restore();
     if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1316,7 +1333,7 @@ test("a second CodeTour MCP declaration is reported as a duplicate", async () =>
   } finally {
     restore();
     if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1346,7 +1363,7 @@ test("a missing plugin launcher is reported before the run", async () => {
   } finally {
     restore();
     if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
 
@@ -1375,6 +1392,6 @@ test("duplicate CodeTour extension directories are named in the report", async (
   } finally {
     restore();
     if (previousHome === undefined) delete process.env.COPILOT_HOME; else process.env.COPILOT_HOME = previousHome;
-    rmSync(root, {recursive:true, force:true});
+    removeWorkspace(root);
   }
 });
