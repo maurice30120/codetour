@@ -69,7 +69,10 @@ function resolveWorkspace(cwd) {
   const requested = path.resolve(cwd || process.cwd());
   let resolved;
   try {
-    resolved = realpathSync(requested);
+    // The canonical spelling (ADR 0056): the run state records it and every
+    // reader compares it, and only the native call answers the same form as
+    // `fs.promises.realpath` on an 8.3 short path.
+    resolved = typeof realpathSync.native === "function" ? realpathSync.native(requested) : realpathSync(requested);
   } catch (error) {
     throw new Error(
       `The CodeTour workspace '${requested}' does not exist or is not readable (${error instanceof Error ? error.message : String(error)}). ` +

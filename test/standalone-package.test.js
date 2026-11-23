@@ -178,18 +178,20 @@ test("packaged codetour knowledge lists metadata, verifies a read and hashes evi
   const stale = run(["read", "stale_flow"]);
   assert.equal(stale.status, 4, stale.stderr);
   assert.deepEqual(JSON.parse(stale.stdout),
-    { status: "invalid", workspace: fs.realpathSync(workspace), name: "stale_flow", reason: "file_hash_mismatch", revision: staleRevision });
+    { status: "invalid", workspace: fs.realpathSync.native(workspace), name: "stale_flow", reason: "file_hash_mismatch", revision: staleRevision });
   assert.doesNotMatch(stale.stdout, /Standalone secret body|main\.ts|0{64}/);
 
   const hashed = run(["hash", "main.ts"]);
   assert.equal(hashed.status, 0, hashed.stderr);
-  assert.deepEqual(JSON.parse(hashed.stdout), { status: "ok", workspace: fs.realpathSync(workspace), path: "main.ts", sha256: digest });
+  // Every workspace the packaged CLI answers is the canonical spelling
+  // (ADR 0056): the native real path, not the argument.
+  assert.deepEqual(JSON.parse(hashed.stdout), { status: "ok", workspace: fs.realpathSync.native(workspace), path: "main.ts", sha256: digest });
 
   const empty = path.join(shared.tmp, "knowledge absent");
   fs.mkdirSync(empty);
   const absent = spawnPackagedSync(["knowledge", "list"], { cwd: empty, env, encoding: "utf8" });
   assert.equal(absent.status, 3, absent.stderr);
-  assert.deepEqual(JSON.parse(absent.stdout), { status: "empty", workspace: fs.realpathSync(empty), entries: [], invalid: [] });
+  assert.deepEqual(JSON.parse(absent.stdout), { status: "empty", workspace: fs.realpathSync.native(empty), entries: [], invalid: [] });
 });
 
 test("packaged codetour knowledge saves a proposal that a second invocation discovers and rereads", () => {
@@ -210,7 +212,7 @@ test("packaged codetour knowledge saves a proposal that a second invocation disc
   }));
   const env = restrictedEnv();
   const run = args => spawnPackagedSync(["knowledge", ...args], { cwd: workspace, env, encoding: "utf8" });
-  const resolved = fs.realpathSync(workspace);
+  const resolved = fs.realpathSync.native(workspace);
 
   const saved = run(["save", "--workspace", workspace, "--proposal", proposal]);
   assert.equal(saved.status, 0, saved.stderr);

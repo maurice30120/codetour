@@ -831,7 +831,7 @@ test("the generation tool returns the served critical prompt with a guarded sess
     const states = readRunStates(root);
     assert.equal(states.length, 1);
     assert.equal(states[0].sessionId, "dialogue-session");
-    assert.equal(states[0].workspace, realpathSync(root));
+    assert.equal(states[0].workspace, realpathSync.native(root));
     assert.equal(states[0].kind, "changes");
     assert.equal(states[0].request, request);
     assert.equal(states[0].tourCreated, false);
@@ -967,7 +967,7 @@ test("a generation writes one workspace-scoped run before sending the served pro
     assert.equal(state.runId, identity[1]);
     assert.equal(state.sessionId, "session-0123456789abcdef");
     assert.equal(state.request, demand, "the run records the user's demand, never the command");
-    assert.equal(state.workspace, realpathSync(root));
+    assert.equal(state.workspace, realpathSync.native(root));
     assert.equal(state.tourCreated, false);
     assert.equal(state.consolidation, null);
     assert.equal(state.continuationUsed, false);

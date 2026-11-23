@@ -93,7 +93,9 @@ test("the VS Code renderer opens a named Tour from a nested directory without a 
     });
     assert.equal(result.status, 0, result.stderr);
     const [workspace, flag, uri] = readFileSync(invocations, "utf8").trim().split("\n");
-    assert.equal(workspace, realpathSync(root));
+    // The CLI answers the canonical spelling (ADR 0056): the native real path,
+    // which is the form `fs.promises.realpath` returns on an 8.3 short path.
+    assert.equal(workspace, realpathSync.native(root));
     assert.equal(flag, "--open-url");
     assert.equal(new URL(uri).searchParams.get("tour"), ".tours/architecture.tour");
     assert.equal(new URL(uri).searchParams.get("step"), "1");
