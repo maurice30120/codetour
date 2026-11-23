@@ -7,6 +7,7 @@ import {
   hashWorkspaceFile,
   hashWorkspaceSymbol,
   isOutsideWorkspace,
+  KNOWLEDGE_MAX_VALIDATED_NODES,
   knowledgeDirectory,
   knowledgeRevision,
   loadKnowledgeLibrary,
@@ -680,7 +681,7 @@ const sameDependencies = (
 const errorCode = (error: unknown): string | undefined =>
   isRecord(error) && typeof error.code === 'string' ? error.code : undefined;
 
-/** One refused entry as the proposal reports it: name, reason, and the KO daughter of a dependency-step refusal. */
+/** One refused entry as the proposal reports it: name, reason, and the faulty daughter of a dependency-step refusal. */
 const rejectionOf = (
   validation: { name?: string; reason: KnowledgeSaveRejectionReason; via?: string }
 ): KnowledgeSaveRejection => ({
@@ -858,6 +859,10 @@ type PinnedDependencies =
  * a bound is refused rather than published dead. Resolution, validation and
  * staging therefore happen in one critical section, and every refusal here
  * precedes the first written byte.
+ *
+ * The node bound is checked before each resolution, exactly as the read path
+ * checks it before each read: a forged declaration must not make the write
+ * touch the catalogue past the budget a read of it would refuse (spec #288).
  */
 async function pinDependencies(
   realRoot: string,
@@ -868,6 +873,13 @@ async function pinDependencies(
   const library = await loadKnowledgeLibrary(realRoot, directory);
   const dependencies: KnowledgeDependency[] = [];
   for (const daughter of daughters) {
+    // The declared names are distinct (`declaredDependencyNames`), so this
+    // counts what the read path counts: one verified entry per daughter, the
+    // entry itself included. Past the budget the first daughter over it is
+    // named, and nothing of her is read.
+    if (dependencies.length + 1 >= KNOWLEDGE_MAX_VALIDATED_NODES) {
+      return { ok: false, name: entry.name, reason: 'dependency_node_limit_exceeded', via: daughter };
+    }
     const resolved = await library.resolve(daughter);
     if (resolved.status === 'refused') return { ok: false, name: entry.name, reason: resolved.reason, via: daughter };
     dependencies.push({ name: daughter, sha256: resolved.revision });

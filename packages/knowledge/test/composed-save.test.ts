@@ -5,6 +5,7 @@ import { realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  KNOWLEDGE_MAX_VALIDATED_NODES,
   knowledgeDirectory,
   knowledgeRevision,
   loadKnowledgeLibrary,
@@ -143,7 +144,7 @@ test('an unknown daughter is refused as dependency_missing before any byte is wr
     entries: [motherEntry({ dependencies: [{ name: 'child_one' }, { name: 'absent_daughter' }] })]
   }));
   assert.equal(rejection.reason, 'dependency_missing');
-  assert.equal(rejection.via, 'absent_daughter', 'the KO daughter is named, as on the read path');
+  assert.equal(rejection.via, 'absent_daughter', 'the faulty daughter is named, as on the read path');
   await expectUnchangedCatalogue(root, ['child_one.md', 'child_two.md']);
 });
 
@@ -376,4 +377,49 @@ test('a composed entry is never published with fewer than two direct proofs of h
   }));
   assert.equal(rejection.reason, 'malformed_entry');
   await expectUnchangedCatalogue(root, ['child_one.md', 'child_two.md']);
+});
+
+test('the write side checks the node bound before it resolves a daughter past it', async t => {
+  const root = await realRoot('knowledge-composed-write-bound-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'shared.ts'), 'export const shared = 1;\n');
+  await writeFile(join(root, 'relation_a.ts'), 'export const relationA = 1;\n');
+  await writeFile(join(root, 'relation_b.ts'), 'export const relationB = 2;\n');
+
+  // 63 atomic daughters, published in one call: with their mother they are
+  // exactly the node budget of one operation.
+  const names = Array.from(
+    { length: KNOWLEDGE_MAX_VALIDATED_NODES - 1 },
+    (_, index) => `node_${String(index).padStart(2, '0')}`
+  );
+  const seeded = await saveKnowledgeProposal(root, {
+    entries: names.map(name => ({
+      name,
+      description: `${name} atomic description`,
+      body: `${name} atomic body\n`,
+      evidence: [{ path: 'shared.ts' }]
+    }))
+  });
+  assert.equal(seeded.status, 'saved', JSON.stringify(seeded));
+
+  const fits = await saveKnowledgeProposal(root, {
+    entries: [motherEntry({ name: 'fits', dependencies: names.map(name => ({ name })) })]
+  });
+  assert.equal(fits.status, 'saved', JSON.stringify(fits));
+  assert.equal((await read(root, 'fits')).status, 'valid');
+
+  // One daughter more is past the budget. That daughter is deliberately absent
+  // from the catalogue: a `dependency_node_limit_exceeded` refusal proves she
+  // was never resolved, because resolving her would answer
+  // `dependency_missing` instead.
+  const before = await catalogueFiles(root);
+  const [rejection] = rejected(await saveKnowledgeProposal(root, {
+    entries: [motherEntry({
+      name: 'wide',
+      dependencies: [...names.map(name => ({ name })), { name: 'absent_daughter' }]
+    })]
+  }));
+  assert.equal(rejection.reason, 'dependency_node_limit_exceeded');
+  assert.equal(rejection.via, 'absent_daughter', 'the first daughter over the bound is named');
+  assert.deepEqual(await catalogueFiles(root), before, 'nothing was read past the bound, nothing was written');
 });
