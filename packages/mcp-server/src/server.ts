@@ -660,7 +660,7 @@ const knowledgeSaveInputSchema = knowledgeToolInputSchema
       .unknown()
       .optional()
       .describe(
-        "The entries array of a Knowledge proposal: zero entries is an explicit completed_zero, one or many entries are validated and published together. A create or replace entry has name, description, body and evidence: file proofs [{type: \"file\", path, sha256?}] or symbol proofs [{type: \"symbol\", path, symbol, sha256?}]. A symbol proof can be provided without sha256: the engine resolves the qualified symbol and computes the fingerprint; when it cannot during a create, the save falls back to a verified file proof and reports it in warnings, never silently. An append holds exactly one entry {name, addition, evidence?, expectedRevision}: the addition is inserted verbatim after one blank line and the evidence is merged into the historical proofs. With mode \"append\" or \"replace\", the array holds exactly one entry carrying expectedRevision, the Knowledge Revision that was read."
+        "The entries array of a Knowledge proposal: zero entries is an explicit completed_zero, one or many entries are validated and published together. A create or replace entry has name, description, body and evidence: file proofs [{type: \"file\", path, sha256?}] or symbol proofs [{type: \"symbol\", path, symbol, sha256?}]. A symbol proof can be provided without sha256: the engine resolves the qualified symbol and computes the fingerprint; when it cannot during a create, the save falls back to a verified file proof and reports it in warnings, never silently. A create or replace entry may also declare dependencies: [{name}] — at least two daughters, names only, no digest, no path and no body, because the engine resolves each daughter's file from the catalogue and pins her revision itself. An append holds exactly one entry {name, addition, evidence?, expectedRevision}: the addition is inserted verbatim after one blank line and the evidence is merged into the historical proofs, and it never accepts dependencies. With mode \"append\" or \"replace\", the array holds exactly one entry carrying expectedRevision, the Knowledge Revision that was read."
       ),
     runId: z
       .unknown()
@@ -749,6 +749,16 @@ const KNOWLEDGE_SAVE_DESCRIPTION =
   "and refuses a name that does not exist (reason `unknown_entry`). " +
   "`origin` is never an input: the engine alone " +
   "records that a file proof substitutes a symbol proof it could not resolve. " +
+  "An entry declaring `dependencies` is a composed one: it names at least two " +
+  "daughters — names only, never a digest, a path or a body — and the engine " +
+  "resolves each daughter's file from the catalogue, verifies her whole " +
+  "contract and pins her revision itself. A daughter that is absent, or whose " +
+  "own read refuses, is refused before anything is written (reasons " +
+  "`dependency_missing` and `dependency_invalid`, naming her in `via`); a " +
+  "cycle and the two bounds are refused as `dependency_cycle`, " +
+  "`dependency_depth_exceeded` and `dependency_node_limit_exceeded`. An append " +
+  "never accepts `dependencies`, and a replace of a composed entry redeclares " +
+  "the whole list or is refused (reason `dependencies_incomplete`). " +
   "Results are observable: \"created\" names " +
   "the published entries, \"appended\" names the enriched one, \"replaced\" " +
   "names the rewritten one, \"no_change\" is a completed assessment that " +
