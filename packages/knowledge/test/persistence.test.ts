@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import {
   fileProofHash,
   knowledgeDirectory,
+  knowledgeRevision,
   loadKnowledgeLibrary,
   parseKnowledge,
   saveKnowledgeProposal,
@@ -250,4 +251,33 @@ test('a provided matching hash is accepted and normalized while an uppercase has
   const parsed = parseKnowledge(await readFile(join(knowledgeDirectory(root), 'provided.md'), 'utf8'), 'provided.md');
   assert.equal(parsed.status, 'valid');
   assert.deepEqual((parsed as { evidence: unknown }).evidence, [{ type: 'file', path: 'main.ts', sha256: digest }]);
+});
+
+test('an atomic entry serializes byte for byte as before, with no dependencies block and an identical revision', () => {
+  const source = `---\nname: atomic_flow\ndescription: unchanged contract\nevidence:\n  - type: file\n    path: src/main.ts\n    sha256: ${'a'.repeat(64)}\n---\nBody one.\n\nBody two.\n`;
+  const parsed = parseKnowledge(source, 'atomic_flow.md');
+  assert.equal(parsed.status, 'valid');
+  // Absence of `dependencies` is atomicity: no field, no block, no migration.
+  assert.equal('dependencies' in parsed, false);
+  const serialized = serializeKnowledgeEntry(parsed as Extract< typeof parsed, { status: 'valid' }>);
+  assert.equal(serialized, source);
+  assert.doesNotMatch(serialized, /dependencies/);
+  assert.equal(knowledgeRevision(Buffer.from(serialized)), knowledgeRevision(Buffer.from(source)));
+});
+
+test('a composed entry round-trips byte for byte through the serializer after normalization', () => {
+  const children = [
+    { name: 'child_one', sha256: createHash('sha256').update('first daughter\n').digest('hex') },
+    { name: 'child_two', sha256: createHash('sha256').update('second daughter\n').digest('hex') }
+  ];
+  const source = `---\nname: mother\ndescription: how the two daughters interact\nevidence:\n  - type: file\n    path: src/main.ts\n    sha256: ${'a'.repeat(64)}\n  - type: symbol\n    path: src/reader.ts\n    symbol: read\n    sha256: ${'b'.repeat(64)}\ndependencies:\n  - name: ${children[0].name}\n    sha256: ${children[0].sha256}\n  - name: ${children[1].name}\n    sha256: ${children[1].sha256}\n---\nBody one.\n\nBody two.\n`;
+  const parsed = parseKnowledge(source, 'mother.md');
+  assert.equal(parsed.status, 'valid');
+  const entry = parsed as Extract<typeof parsed, { status: 'valid' }>;
+  assert.deepEqual(entry.dependencies, children);
+  const serialized = serializeKnowledgeEntry(entry);
+  assert.equal(serialized, source);
+  // Stable block order: evidence, then dependencies.
+  assert.ok(serialized.indexOf('\nevidence:') < serialized.indexOf('\ndependencies:'));
+  assert.equal(knowledgeRevision(Buffer.from(serialized)), knowledgeRevision(Buffer.from(source)));
 });

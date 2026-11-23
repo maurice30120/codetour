@@ -12,6 +12,7 @@ import {
   parseKnowledge,
   readCatalogueCanonicalizer,
   verifyKnowledge,
+  type KnowledgeDependency,
   type KnowledgeProof
 } from './knowledge';
 import { knowledgeCanonicalizer } from './symbol-fingerprint';
@@ -120,6 +121,11 @@ export interface KnowledgePersistableEntry {
   description: string;
   body: string;
   evidence: KnowledgeProof[];
+  /**
+   * Declared daughters of a composed entry, pinned by digest; absent on an
+   * atomic one, which is what keeps its serialized bytes unchanged (spec #288).
+   */
+  dependencies?: KnowledgeDependency[];
 }
 
 /**
@@ -201,7 +207,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 /**
  * Serialize one verified entry in the restricted catalogue grammar. The body
  * is appended verbatim after the closing delimiter: Markdown is data, never
- * executed or reformatted.
+ * executed or reformatted. A composed entry adds its `dependencies` block
+ * after `evidence`, in that stable order; an atomic entry gains no byte.
  */
 export function serializeKnowledgeEntry(entry: KnowledgePersistableEntry): string {
   const lines = ['---', `name: ${entry.name}`, `description: ${entry.description}`, 'evidence:'];
@@ -211,6 +218,12 @@ export function serializeKnowledgeEntry(entry: KnowledgePersistableEntry): strin
     } else {
       lines.push('  - type: file', `    path: ${proof.path}`, `    sha256: ${proof.sha256}`);
       if (proof.origin) lines.push(`    origin: ${proof.origin}`);
+    }
+  }
+  if (entry.dependencies) {
+    lines.push('dependencies:');
+    for (const dependency of entry.dependencies) {
+      lines.push(`  - name: ${dependency.name}`, `    sha256: ${dependency.sha256}`);
     }
   }
   lines.push('---');
