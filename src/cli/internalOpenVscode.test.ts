@@ -18,7 +18,7 @@ import { runInternalOpenVsCode } from "./internalOpenVscode";
 
 function fixture() {
   // The canonical path is the comparison root of the contract (real path).
-  const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), "codetour-internal-vscode-")));
+  const root = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), "codetour-internal-vscode-")));
   mkdirSync(path.join(root, ".tours"), { recursive: true });
   writeFileSync(
     path.join(root, ".tours", "payment.tour"),

@@ -61,7 +61,7 @@ const copilotProbe = spawnSync("copilot", ["--version"], { encoding: "utf8" });
 const copilotSkip = copilotProbe.status === 0 ? undefined : "the 'copilot' CLI is not available on PATH";
 
 test("a project Tour is built from the Knowledge discovered in the same workspace", { skip: copilotSkip }, async () => {
-  const workspace = realpathSync(mkdtempSync(path.join(os.tmpdir(), "codetour-parcours-")));
+  const workspace = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), "codetour-parcours-")));
   const env = credentialFreeEnv({
     COPILOT_HOME: path.join(workspace, "copilot-home"),
     CODETOUR_COPILOT_MCP_CONFIG: path.join(workspace, "mcp-config.json"),
@@ -156,7 +156,7 @@ test("a project Tour is built from the Knowledge discovered in the same workspac
 });
 
 test("a second generation reuses the Knowledge validated by the first and opens its Tour", async () => {
-  const workspace = realpathSync(mkdtempSync(path.join(os.tmpdir(), "codetour-parcours-reuse-")));
+  const workspace = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), "codetour-parcours-reuse-")));
   const env = credentialFreeEnv();
   try {
     mkdirSync(path.join(workspace, "src"));

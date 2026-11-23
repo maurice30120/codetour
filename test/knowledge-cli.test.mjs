@@ -55,7 +55,7 @@ function runCli(args, { cwd, env = {} } = {}) {
 }
 
 function workspace(prefix) {
-  return realpathSync(mkdtempSync(path.join(os.tmpdir(), prefix)));
+  return realpathSync.native(mkdtempSync(path.join(os.tmpdir(), prefix)));
 }
 
 function sha256(text) {

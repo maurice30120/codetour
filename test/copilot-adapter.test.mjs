@@ -562,7 +562,7 @@ test("Lire opens the chosen Tour in VS Code when Copilot has no TTY", async () =
       ["Select a CodeTour", ["1. First Tour", "2. Second Tour"]]
     ]);
     assert.deepEqual(await recordedReaderArgs(recorded), [
-      ["--internal-open-vscode", path.join(realpathSync(root), ".tours", "b.tour"), realpathSync(root)]
+      ["--internal-open-vscode", path.join(realpathSync.native(root), ".tours", "b.tour"), realpathSync.native(root)]
     ]);
     assert.deepEqual(messages, ["Opened CodeTour: Second Tour (VS Code)."]);
   }));
@@ -583,7 +583,7 @@ test("an explicit terminal request without a TTY gets the exact shell command", 
     assert.match(output, /type \$ and press Enter/);
     // The command only works in the workspace worktree: the sentence names it.
     assert.match(output, /at the workspace root \(/);
-    assert.ok(output.includes(realpathSync(root)),
+    assert.ok(output.includes(realpathSync.native(root)),
       "the workspace root is named: " + output);
     assert.match(output, /codetour --internal-tour-id "file:\/\/[^"]+a\.tour" --renderer terminal/);
   }));
