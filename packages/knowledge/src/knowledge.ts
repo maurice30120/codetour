@@ -514,9 +514,20 @@ export async function hashWorkspaceFile(root: string, path: string): Promise<Kno
  * whole daughter graph. `via` names the faulty daughter of the level that
  * refused, and nothing else about her ever leaves.
  */
-type GraphOutcome =
+export type KnowledgeGraphOutcome =
   | { status: 'valid'; entry: Extract<KnowledgeParseResult, { status: 'valid' }> }
   | { status: 'invalid'; reason: KnowledgeFailureReason; via?: string };
+
+/**
+ * Resolution of one declared daughter by name, in the read path's own
+ * vocabulary (spec #288): her current Knowledge Revision when she is there and
+ * readable, and otherwise the dependency-step refusal a read of her mother
+ * would report. Absence and an unreadable catalogue file stay distinct
+ * diagnoses; nothing of her file but her revision ever leaves this shape.
+ */
+export type KnowledgeDependencyResolution =
+  | { status: 'resolved'; revision: string }
+  | { status: 'refused'; reason: 'dependency_missing' | 'dependency_invalid' };
 
 /**
  * Refusals that describe the graph a read traversed rather than one daughter:
@@ -540,6 +551,11 @@ const GRAPH_REFUSALS: ReadonlySet<KnowledgeFailureReason> = new Set<KnowledgeFai
  */
 type GraphState = { fingerprint: SymbolFingerprinter; verifiedAt: Map<string, number> };
 
+/** One daughter file resolved for the dependency step: never anything of her content. */
+type DaughterResolution =
+  | { status: 'resolved'; source: string; revision: string }
+  | { status: 'refused'; reason: 'dependency_missing' | 'dependency_invalid' };
+
 export interface KnowledgeLibrary {
   /** Discoverable entries: name, description and revision only, sorted by name. */
   catalog(): Promise<KnowledgeMetadata[]>;
@@ -556,6 +572,23 @@ export interface KnowledgeLibrary {
    * before any body is returned (spec #288).
    */
   read(name: string): Promise<KnowledgeValidation>;
+  /**
+   * Resolve one declared daughter by name from this catalogue (spec #288): her
+   * current Knowledge Revision, or the dependency-step refusal. Publication
+   * pins through this same resolution, so a write and a read cannot disagree
+   * on which daughter is `dependency_missing` and which is
+   * `dependency_invalid` (ADR 0054).
+   */
+  resolve(name: string): Promise<KnowledgeDependencyResolution>;
+  /**
+   * Validate a candidate entry source that is not published yet — a proposal
+   * staged under the name it will carry — with exactly the rules a read
+   * applies: its own proofs, each daughter's whole contract, a cycle seeded by
+   * that name, and the depth and node bounds (spec #288). A write refuses what
+   * a read of the resulting file would refuse, so no composed entry is ever
+   * born dead.
+   */
+  validateCandidate(source: string, name: string): Promise<KnowledgeGraphOutcome>;
 }
 
 /**
@@ -589,24 +622,32 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
     } catch { return { status: 'invalid', reason: 'unknown_entry' }; }
   };
   /**
-   * Presence and pinned revision of one daughter (spec #288, step 2): she is
-   * looked up by name in the same catalogue directory as the entry being read,
-   * so the catalogue root stays confined exactly as for an atomic entry, and
-   * her complete file bytes must hash to the revision the mother declared.
-   * Nothing of her file but a readable source ever leaves this function.
+   * Resolve one declared daughter (spec #288, step 2): she is looked up by name
+   * in the same catalogue directory as the entry being read, so the catalogue
+   * root stays confined exactly as for an atomic entry. Nothing of her file
+   * but a readable source and her revision ever leaves this function.
    */
-  const readDaughter = async (
-    name: string,
-    declaredRevision: string
-  ): Promise<{ status: 'ok'; source: string } | { status: 'refused'; reason: 'dependency_missing' | 'dependency_invalid' }> => {
+  const resolveDaughter = async (name: string): Promise<DaughterResolution> => {
     const entryFile = await readEntryFile(name);
     if (entryFile.status !== 'valid') {
       // Absence and an unreadable catalogue file are distinct diagnoses: only
       // the first one means the catalogue does not hold the daughter at all.
       return { status: 'refused', reason: entryFile.reason === 'unknown_entry' ? 'dependency_missing' : 'dependency_invalid' };
     }
-    if (!sameHash(declaredRevision, entryFile.revision)) return { status: 'refused', reason: 'dependency_invalid' };
-    return { status: 'ok', source: entryFile.source };
+    return { status: 'resolved', source: entryFile.source, revision: entryFile.revision };
+  };
+  /**
+   * Presence and pinned revision of one daughter: her complete file bytes must
+   * hash to the revision the mother declared.
+   */
+  const readDaughter = async (
+    name: string,
+    declaredRevision: string
+  ): Promise<{ status: 'ok'; source: string } | { status: 'refused'; reason: 'dependency_missing' | 'dependency_invalid' }> => {
+    const resolution = await resolveDaughter(name);
+    if (resolution.status === 'refused') return resolution;
+    if (!sameHash(declaredRevision, resolution.revision)) return { status: 'refused', reason: 'dependency_invalid' };
+    return { status: 'ok', source: resolution.source };
   };
   /**
    * Validate one entry and, when she declares daughters, her whole graph, in
@@ -623,7 +664,7 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
     depth: number,
     ancestors: readonly string[],
     state: GraphState
-  ): Promise<GraphOutcome> => {
+  ): Promise<KnowledgeGraphOutcome> => {
     const parsed = parseKnowledge(source, name);
     if (parsed.status !== 'valid') return { status: 'invalid', reason: parsed.reason };
     const verified = await verifyKnowledge(parsed, root, state.fingerprint);
@@ -655,6 +696,20 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
       state.verifiedAt.set(daughter.name, daughterDepth);
     }
     return { status: 'valid', entry: verified };
+  };
+  /**
+   * The validation state of ONE operation (spec #288): a stale canonicalizer
+   * identity is an engine change — never a code change — so symbol proofs
+   * route to explicit re-anchoring (ADR 0046), and the node cache lives only
+   * as long as this validation.
+   */
+  const graphState = async (): Promise<GraphState> => {
+    const marker = await readCatalogueCanonicalizer(usable() ?? '');
+    const engineStale = marker !== undefined && marker !== knowledgeCanonicalizer;
+    return {
+      fingerprint: engineStale ? async () => ({ status: 'refused', reason: 'engine_changed' as const }) : fingerprinter,
+      verifiedAt: new Map()
+    };
   };
   const library: KnowledgeLibrary = {
     catalog: async () => {
@@ -711,22 +766,23 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
       const entryFile = await readEntryFile(name);
       if (entryFile.status !== 'valid') return entryFile;
       const { revision } = entryFile;
-      // A stale canonicalizer identity is an engine change, never a code
-      // change: symbol proofs route to explicit re-anchoring (ADR 0046).
-      const marker = await readCatalogueCanonicalizer(usable() ?? '');
-      const engineStale = marker !== undefined && marker !== knowledgeCanonicalizer;
-      // One cache per read, discarded when the read ends (spec #288).
-      const state: GraphState = {
-        fingerprint: engineStale ? async () => ({ status: 'refused', reason: 'engine_changed' as const }) : fingerprinter,
-        verifiedAt: new Map()
-      };
-      const outcome = await verifyGraph(name, entryFile.source, 0, [name], state);
+      const outcome = await verifyGraph(name, entryFile.source, 0, [name], await graphState());
       // The revision accompanies every outcome of a readable entry file, a
       // refusal included: a repair write can be conditioned on what was here.
       return outcome.status === 'valid'
         ? { ...outcome.entry, revision }
         : { status: 'invalid', reason: outcome.reason, revision, ...(outcome.via === undefined ? {} : { via: outcome.via }) };
-    }
+    },
+    resolve: async name => {
+      if (typeof name !== 'string' || !validateKnowledgeName(name).ok) return { status: 'refused', reason: 'dependency_invalid' };
+      const resolution = await resolveDaughter(name);
+      return resolution.status === 'refused'
+        ? resolution
+        : { status: 'resolved', revision: resolution.revision };
+    },
+    validateCandidate: async (source, name) => typeof name === 'string' && validateKnowledgeName(name).ok
+      ? verifyGraph(name, source, 0, [name], await graphState())
+      : { status: 'invalid', reason: 'malformed_contract' }
   };
   return library;
 }

@@ -9,14 +9,16 @@ import {
   isOutsideWorkspace,
   knowledgeDirectory,
   knowledgeRevision,
+  loadKnowledgeLibrary,
   parseKnowledge,
   readCatalogueCanonicalizer,
   verifyKnowledge,
   type KnowledgeDependency,
+  type KnowledgeFailureReason,
   type KnowledgeProof
 } from './knowledge';
 import { knowledgeCanonicalizer } from './symbol-fingerprint';
-import { validateNewKnowledgeName } from './name';
+import { validateKnowledgeName, validateNewKnowledgeName } from './name';
 
 /**
  * Deterministic persistence of Knowledge entries (spec #223, ticket #225).
@@ -37,6 +39,15 @@ import { validateNewKnowledgeName } from './name';
  * rename, so a reader always sees the previous whole file or the new one;
  * `append` keeps the historical body byte for byte, inserts one addition
  * verbatim after exactly one blank line and merges the evidence.
+ *
+ * A proposal that declares `dependencies` publishes a Composed Knowledge
+ * Entry (spec #288). It carries the daughters' names alone: inside the same
+ * critical section the engine resolves each daughter's file from the
+ * catalogue, verifies her whole contract through the read path and pins her
+ * current revision itself (ADR 0054), so a composed entry is never born dead.
+ * `append` accepts neither the field nor a description — an append never
+ * changes what an entry is — and `replace` redeclares the whole list or is
+ * refused, because losing an entry's structure must never be a side effect.
  */
 
 /** One evidence item as declared by a proposal; `sha256` is optional. */
@@ -59,11 +70,28 @@ export interface KnowledgeProposalSymbolProof {
   sha256?: string;
 }
 
+/**
+ * One declared daughter of a Composed Knowledge Entry as a proposal carries
+ * her (spec #288): her canonical Knowledge name and nothing else. No digest,
+ * no path, no body enters the proposal — the engine resolves her file from the
+ * catalogue and pins her revision itself, under the catalogue lock
+ * (ADR 0054), so a proposal supplying one declares an unknown field.
+ */
+export interface KnowledgeProposalDependency {
+  name: string;
+}
+
 export interface KnowledgeProposalEntry {
   name: string;
   description: string;
   body: string;
   evidence: Array<KnowledgeProposalFileProof | KnowledgeProposalSymbolProof>;
+  /**
+   * Declared daughters by name, at least two: their presence alone makes the
+   * entry composed, so an absent list is atomicity and the field never appears
+   * on an `append`.
+   */
+  dependencies?: KnowledgeProposalDependency[];
 }
 
 /**
@@ -159,11 +187,31 @@ export type KnowledgeSaveRejectionReason =
   | 'unknown_mode'
   | 'mode_requires_single_entry'
   /** The historical contract of an `append` target no longer validates; repair it with `replace`. */
-  | 'stale_evidence';
+  | 'stale_evidence'
+  /**
+   * Dependency-step refusals of a proposed Composed Knowledge Entry (spec
+   * #288). They are the read path's own reasons, spelled the same, so a write
+   * and a read of the same declaration refuse it the same way: a daughter
+   * absent from the catalogue, one whose own read refuses, a cycle, the two
+   * bounds, and a complete list that a rewrite of a composed entry must
+   * redeclare.
+   */
+  | 'dependency_missing'
+  | 'dependency_invalid'
+  | 'dependency_cycle'
+  | 'dependency_depth_exceeded'
+  | 'dependency_node_limit_exceeded'
+  | 'dependencies_incomplete';
 
+/**
+ * One refused entry: its name whenever the proposal declared a usable one, the
+ * machine-readable reason, and — for a dependency-step refusal — the faulty
+ * daughter of that level in `via`, exactly as a read reports her.
+ */
 export interface KnowledgeSaveRejection {
   name?: string;
   reason: KnowledgeSaveRejectionReason;
+  via?: string;
 }
 
 /**
@@ -233,15 +281,43 @@ export function serializeKnowledgeEntry(entry: KnowledgePersistableEntry): strin
 /**
  * One validated entry, or one refusal. A missing `expectedRevision` is not a
  * malformed proposal: it is a compare-and-swap conflict, so it carries the
- * name and its own kind and never reaches the `invalid` vocabulary.
+ * name and its own kind and never reaches the `invalid` vocabulary. A `create`
+ * or `replace` entry that declares daughters carries their names only; their
+ * files and revisions are the lock's step.
  */
 type ProposalValidation =
-  | { ok: true; entry: KnowledgePersistableEntry; warnings: KnowledgeSaveWarning[]; expectedRevision?: string }
-  | { ok: false; name?: string; reason: KnowledgeSaveRejectionReason }
+  | { ok: true; entry: KnowledgePersistableEntry; warnings: KnowledgeSaveWarning[]; expectedRevision?: string; daughters?: string[] }
+  | { ok: false; name?: string; reason: KnowledgeSaveRejectionReason; via?: string }
   | { ok: false; name: string; reason: 'revision_conflict' };
 
-const failure = (reason: KnowledgeSaveRejectionReason, name?: string): ProposalValidation =>
-  name === undefined ? { ok: false, reason } : { ok: false, name, reason };
+const failure = (reason: KnowledgeSaveRejectionReason, name?: string, via?: string): ProposalValidation =>
+  name === undefined
+    ? { ok: false, reason }
+    : { ok: false, name, reason, ...(via === undefined ? {} : { via }) };
+
+/**
+ * Refusal reasons of the dependency step, mapped to the write vocabulary
+ * (spec #288). The two sides spell them the same on purpose: a write never
+ * degrades a graph diagnosis into a generic failure.
+ */
+const DEPENDENCY_STEP_REFUSALS: Partial<Record<KnowledgeFailureReason, KnowledgeSaveRejectionReason>> = {
+  dependency_missing: 'dependency_missing',
+  dependency_invalid: 'dependency_invalid',
+  dependency_cycle: 'dependency_cycle',
+  dependency_depth_exceeded: 'dependency_depth_exceeded',
+  dependency_node_limit_exceeded: 'dependency_node_limit_exceeded'
+};
+
+/**
+ * Why a candidate refused by the read grammar refused, in the write vocabulary:
+ * a dependency-step reason is kept as it is, a malformed candidate is the
+ * proposal's own grammar, and any other refusal means the workspace moved
+ * between the proposal's validation and the lock's re-read.
+ */
+const writeReason = (reason: KnowledgeFailureReason): KnowledgeSaveRejectionReason =>
+  reason === 'malformed_contract'
+    ? 'malformed_entry'
+    : DEPENDENCY_STEP_REFUSALS[reason] ?? 'unstable_evidence';
 
 const PROVIDED_HASH = /^[0-9a-fA-F]{64}$/;
 
@@ -250,13 +326,48 @@ const PROVIDED_HASH = /^[0-9a-fA-F]{64}$/;
 // like any other unknown field instead of being copied into the catalogue.
 const EVIDENCE_KEYS = new Set(['type', 'path', 'symbol', 'sha256']);
 
-const CREATE_ENTRY_KEYS = ['name', 'description', 'body', 'evidence'];
+const CREATE_ENTRY_KEYS = ['name', 'description', 'body', 'evidence', 'dependencies'];
 const REPLACE_ENTRY_KEYS = [...CREATE_ENTRY_KEYS, 'expectedRevision'];
+// An `append` enriches one entry without changing what the entry IS, so it
+// accepts neither `name`, nor `description`, nor `dependencies`: the field is
+// an unknown one there, refused like the other two (spec #288).
 const APPEND_ENTRY_KEYS = ['name', 'addition', 'evidence', 'expectedRevision'];
 
 type EvidenceValidation =
   | { ok: true; evidence: KnowledgeProof[]; warnings: KnowledgeSaveWarning[] }
   | { ok: false; reason: KnowledgeSaveRejectionReason };
+
+/** Declared daughters of one proposal entry, by name alone (spec #288). */
+type DependencyDeclaration =
+  | { ok: true; names: string[] }
+  | { ok: false; reason: 'malformed_entry' | 'dependencies_incomplete' };
+
+/**
+ * Validate the declared daughters of one proposal entry: canonical names,
+ * distinct, two at least, and nothing but a name. Neither she nor her own
+ * graph is resolved here — the daughter files, their contracts and their
+ * revisions belong to the lock's step (ADR 0054) — so a proposal is refused
+ * for its own shape before the catalogue is touched.
+ */
+function declaredDependencyNames(raw: unknown): DependencyDeclaration {
+  if (!Array.isArray(raw)) return { ok: false, reason: 'malformed_entry' };
+  const names: string[] = [];
+  for (const item of raw) {
+    // A daughter is named, never pinned: a digest — or a path, or a proof
+    // type — is an unknown field, refused exactly like a caller-supplied
+    // `origin`.
+    if (!isRecord(item) || Object.keys(item).length !== 1 || typeof item.name !== 'string') {
+      return { ok: false, reason: 'malformed_entry' };
+    }
+    if (!validateKnowledgeName(item.name).ok || names.includes(item.name)) return { ok: false, reason: 'malformed_entry' };
+    names.push(item.name);
+  }
+  // Composition is derived from the list alone: a declaration with fewer than
+  // two daughters is a malformed contract, never an atomic entry, and the
+  // engine never completes it.
+  if (names.length < 2) return { ok: false, reason: 'dependencies_incomplete' };
+  return { ok: true, names };
+}
 
 /**
  * Verify every declared proof of one entry against the workspace: the path
@@ -366,6 +477,20 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>, mode
   if (!verified.ok) return failure(verified.reason, name);
   const { evidence } = verified;
 
+  // A composed proposal declares her daughters by name, written into a file
+  // whose every dependency the lock will pin. An entry is never her own
+  // daughter, and the read grammar refuses a composed entry backed by fewer
+  // than two direct proofs of her own: both are refused here, before the
+  // catalogue is touched.
+  let daughters: string[] | undefined;
+  if (raw.dependencies !== undefined) {
+    const declared = declaredDependencyNames(raw.dependencies);
+    if (!declared.ok) return failure(declared.reason, name);
+    if (declared.names.includes(name)) return failure('dependency_cycle', name, name);
+    if (evidence.length < 2) return failure('malformed_entry', name);
+    daughters = declared.names;
+  }
+
   const entry: KnowledgePersistableEntry = { name, description, body, evidence };
   // The read grammar is the contract: if serialization cannot be read back
   // exactly, the entry is refused instead of publishing an ambiguous file.
@@ -379,9 +504,13 @@ async function validateEntry(root: string, raw: unknown, seen: Set<string>, mode
   )) {
     return failure('malformed_evidence', name);
   }
-  return expectedRevision === undefined
-    ? { ok: true, entry, warnings: verified.warnings }
-    : { ok: true, entry, warnings: verified.warnings, expectedRevision };
+  return {
+    ok: true,
+    entry,
+    warnings: verified.warnings,
+    ...(expectedRevision === undefined ? {} : { expectedRevision }),
+    ...(daughters === undefined ? {} : { daughters })
+  };
 }
 
 /** One validated `append` entry: the addition, its new proofs and the revision read. */
@@ -551,6 +680,15 @@ const sameDependencies = (
 const errorCode = (error: unknown): string | undefined =>
   isRecord(error) && typeof error.code === 'string' ? error.code : undefined;
 
+/** One refused entry as the proposal reports it: name, reason, and the KO daughter of a dependency-step refusal. */
+const rejectionOf = (
+  validation: { name?: string; reason: KnowledgeSaveRejectionReason; via?: string }
+): KnowledgeSaveRejection => ({
+  ...(validation.name === undefined ? {} : { name: validation.name }),
+  reason: validation.reason,
+  ...(validation.via === undefined ? {} : { via: validation.via })
+});
+
 /**
  * Check that the catalogue location cannot leave the workspace through any
  * existing path component, without creating anything. A catalogue that does
@@ -689,6 +827,70 @@ async function evidenceIsStable(root: string, entries: KnowledgePersistableEntry
     }
   }
   return true;
+}
+
+/**
+ * Declared daughters of one historical entry file, when its contract parses
+ * (spec #288): what a rewrite of a composed entry must redeclare. An
+ * unparseable history declares nothing the engine can compare, and its repair
+ * is a total rewrite.
+ */
+function historicalDependencies(bytes: Buffer, name: string): KnowledgeDependency[] | undefined {
+  const historical = parseKnowledge(bytes.toString('utf8'), `${name}.md`);
+  return historical.status === 'valid' ? historical.dependencies : undefined;
+}
+
+type PinnedDependencies =
+  | { ok: true; entry: KnowledgePersistableEntry }
+  | { ok: false; name: string; reason: KnowledgeSaveRejectionReason; via?: string };
+
+/**
+ * Resolve and pin the declared daughters of one entry, inside the catalogue
+ * lock (spec #288, ADR 0054). The proposing agent named them, so the engine
+ * resolves each file from the catalogue with the read path's own resolution,
+ * verifies her whole contract through the read path's own verification, and
+ * pins her current Knowledge Revision itself.
+ *
+ * The candidate is then validated with the read path's own graph rules, seeded
+ * by the name it will carry: a cycle introduced here is a `dependency_cycle`, a
+ * daughter that moved between her resolution and this validation is refused
+ * instead of pinned silently, and an entry whose daughter graph already exceeds
+ * a bound is refused rather than published dead. Resolution, validation and
+ * staging therefore happen in one critical section, and every refusal here
+ * precedes the first written byte.
+ */
+async function pinDependencies(
+  realRoot: string,
+  directory: string,
+  entry: KnowledgePersistableEntry,
+  daughters: readonly string[]
+): Promise<PinnedDependencies> {
+  const library = await loadKnowledgeLibrary(realRoot, directory);
+  const dependencies: KnowledgeDependency[] = [];
+  for (const daughter of daughters) {
+    const resolved = await library.resolve(daughter);
+    if (resolved.status === 'refused') return { ok: false, name: entry.name, reason: resolved.reason, via: daughter };
+    dependencies.push({ name: daughter, sha256: resolved.revision });
+  }
+  const pinned: KnowledgePersistableEntry = { ...entry, dependencies };
+  const candidate = await library.validateCandidate(serializeKnowledgeEntry(pinned), entry.name);
+  if (candidate.status !== 'valid') {
+    return {
+      ok: false,
+      name: entry.name,
+      reason: writeReason(candidate.reason),
+      ...(candidate.via === undefined ? {} : { via: candidate.via })
+    };
+  }
+  // The read grammar stays the only grammar: a composed candidate that does not
+  // read back exactly — description, body, evidence, declared daughters — is
+  // refused instead of published.
+  if (candidate.entry.description !== pinned.description || candidate.entry.body !== pinned.body ||
+    !sameEvidence(candidate.entry.evidence, pinned.evidence) ||
+    !sameDependencies(candidate.entry.dependencies, dependencies)) {
+    return { ok: false, name: entry.name, reason: 'malformed_entry' };
+  }
+  return { ok: true, entry: pinned };
 }
 
 /**
@@ -847,6 +1049,10 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
   const rejected: KnowledgeSaveRejection[] = [];
   const revisionConflicts: KnowledgeConflict[] = [];
   const expectedRevisions = new Map<string, string>();
+  // Declared daughters by entry name (spec #288): resolved and pinned inside
+  // the lock, never here, because a pin captured before the critical section
+  // could be stale by the time the file is staged (ADR 0054).
+  const declaredDaughters = new Map<string, string[]>();
   const fallbackWarnings: KnowledgeSaveWarning[] = [];
   for (const raw of proposal.entries) {
     if (mode === 'append') {
@@ -856,7 +1062,7 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
       } else if (validation.reason === 'revision_conflict') {
         revisionConflicts.push({ name: validation.name, reason: 'revision_conflict' });
       } else {
-        rejected.push(validation.name === undefined ? { reason: validation.reason } : { name: validation.name, reason: validation.reason });
+        rejected.push(rejectionOf(validation));
       }
       continue;
     }
@@ -865,12 +1071,13 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
       validated.push(validation.entry);
       fallbackWarnings.push(...validation.warnings);
       if (validation.expectedRevision !== undefined) expectedRevisions.set(validation.entry.name, validation.expectedRevision);
+      if (validation.daughters !== undefined) declaredDaughters.set(validation.entry.name, validation.daughters);
     } else if (validation.reason === 'revision_conflict') {
       // An absent revision is a compare-and-swap conflict, never a malformed
       // proposal: the corrective action is to re-read the entry.
       revisionConflicts.push({ name: validation.name, reason: 'revision_conflict' });
     } else {
-      rejected.push(validation.name === undefined ? { reason: validation.reason } : { name: validation.name, reason: validation.reason });
+      rejected.push(rejectionOf(validation));
     }
   }
   if (revisionConflicts.length > 0) return { status: 'conflict', conflicts: revisionConflicts };
@@ -902,8 +1109,9 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
   }
 
   // One critical section for the three modes: re-read, revision comparison,
-  // evidence stability re-check, temp file and publication. The canonicalizer
-  // marker is written inside it too, so two symbolic writers can never race it.
+  // daughter resolution and pinning, evidence stability re-check, temp file and
+  // publication. The canonicalizer marker is written inside it too, so two
+  // symbolic writers can never race it.
   return withCatalogueLock(directory, async () => {
     if (mode === 'append') return appendToEntry(realRoot, directory, appends[0]);
     if (mode === 'replace') {
@@ -920,6 +1128,12 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
       if (knowledgeRevision(bytes) !== expectedRevisions.get(entry.name)) {
         return { status: 'conflict', conflicts: [{ name: entry.name, reason: 'revision_conflict' }] };
       }
+      // No downgrade (spec #288): a composed target redeclares at least two
+      // daughters. The engine never completes a missing list, because losing an
+      // entry's structure must never be a side effect of a rewrite.
+      if (declaredDaughters.get(entry.name) === undefined && historicalDependencies(bytes, entry.name) !== undefined) {
+        return { status: 'invalid', rejected: [{ name: entry.name, reason: 'dependencies_incomplete' }] };
+      }
       carryFallbackOrigins(entry, bytes);
     }
 
@@ -935,10 +1149,31 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
       }
     }
 
+    // The composed step (spec #288, ADR 0054): every declared daughter is
+    // resolved, verified and pinned here, in the same critical section as the
+    // staging below, so a daughter cannot move between her resolution and her
+    // publication unnoticed. A refusal precedes the first staged byte.
+    const published: KnowledgePersistableEntry[] = [];
+    for (const entry of validated) {
+      const daughters = declaredDaughters.get(entry.name);
+      if (daughters === undefined) {
+        published.push(entry);
+        continue;
+      }
+      const pinned = await pinDependencies(realRoot, directory, entry, daughters);
+      if (!pinned.ok) {
+        return {
+          status: 'invalid',
+          rejected: [{ name: pinned.name, reason: pinned.reason, ...(pinned.via === undefined ? {} : { via: pinned.via }) }]
+        };
+      }
+      published.push(pinned.entry);
+    }
+
     // The second read of every cited proof: refuse a proposal whose workspace
     // moved under it instead of pinning a mid-write fingerprint.
-    if (!(await evidenceIsStable(realRoot, validated))) {
-      return { status: 'invalid', rejected: validated.map(entry => ({ name: entry.name, reason: 'unstable_evidence' as const })) };
+    if (!(await evidenceIsStable(realRoot, published))) {
+      return { status: 'invalid', rejected: published.map(entry => ({ name: entry.name, reason: 'unstable_evidence' as const })) };
     }
 
     const staged: Array<{ name: string; temp: string; target: string }> = [];
@@ -949,7 +1184,7 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
     // instead of leaving the previous one in place (spec #232).
     const rollbackTargets: string[] = [];
     try {
-      for (const entry of validated) {
+      for (const entry of published) {
         const temp = join(directory, `.${entry.name}.${randomUUID()}.tmp`);
         await writeFile(temp, serializeKnowledgeEntry(entry), { flag: 'wx' });
         staged.push({ name: entry.name, temp, target: join(directory, `${entry.name}.md`) });
@@ -980,10 +1215,10 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
         try { await access(marker); }
         catch { try { await writeFile(marker, `${knowledgeCanonicalizer}\n`); } catch { /* advisory marker only */ } }
       }
-      const warnings = [...publishedWarnings(validated), ...fallbackWarnings];
+      const warnings = [...publishedWarnings(published), ...fallbackWarnings];
       return mode === 'replace'
-        ? { status: 'replaced', replaced: validated.map(entry => entry.name), warnings }
-        : { status: 'saved', saved: validated.map(entry => entry.name), warnings };
+        ? { status: 'replaced', replaced: published.map(entry => entry.name), warnings }
+        : { status: 'saved', saved: published.map(entry => entry.name), warnings };
     } catch (error) {
       // A late failure only ever withdraws a publication this call performed
       // itself, never the target of a completed `replace`.
