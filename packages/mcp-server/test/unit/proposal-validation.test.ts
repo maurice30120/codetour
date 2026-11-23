@@ -2,6 +2,7 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { canonicalWorkspacePath } from "codetour-knowledge";
 import { createContext } from "../../src/context";
 import {
   stageCommitAnchors,
@@ -69,7 +70,10 @@ test("validateTourProposal accepts a valid Project Tour proposal", async () => {
     );
     assert.ok(result.ok, JSON.stringify(result));
     assert.deepEqual(result.proposal.params.title, "Tour");
-    assert.equal(result.proposal.ctx.root, root);
+    // The context carries one canonical spelling (ADR 0056): the native real
+    // path, which differs from the temp directory's own spelling where the
+    // platform keeps a link (and on Windows, an 8.3 short name).
+    assert.equal(result.proposal.ctx.root, canonicalWorkspacePath(root));
     assert.equal(result.proposal.steps.length, 1);
   } finally {
     rmrf(root);

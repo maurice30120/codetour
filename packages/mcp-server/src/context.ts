@@ -3,17 +3,18 @@ import * as path from "path";
 import { canonicalWorkspacePath } from "codetour-knowledge";
 import { Issue, WorkspaceContext } from "./types";
 
-// Workspace context: the supplied root and its canonical real path. All
-// confinement checks compare real paths so a symlink cannot escape the
-// configured root, and the root the run log records is the one the hooks
-// compare (ADR 0056).
+// Workspace context: one canonical spelling for the supplied root and its real
+// path (ADR 0056). Confinement checks compare real paths so a symlink cannot
+// escape the configured root, the run log records the root the hooks compare,
+// and both must be the *same* spelling: a short 8.3 name on one side and the
+// native long form on the other made every in-workspace target read as an
+// escape.
 export function createContext(workspaceRoot: string): WorkspaceContext {
-  const root = path.resolve(workspaceRoot);
-  const realRoot = canonicalWorkspacePath(workspaceRoot);
-  if (!fs.statSync(realRoot).isDirectory()) {
+  const root = canonicalWorkspacePath(workspaceRoot);
+  if (!fs.statSync(root).isDirectory()) {
     throw new Error("workspace root must be a directory");
   }
-  return { root, realRoot };
+  return { root, realRoot: root };
 }
 
 // A call may narrow the configured workspace, but never expand its boundary.
