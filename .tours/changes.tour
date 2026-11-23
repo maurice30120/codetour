@@ -1,47 +1,196 @@
 {
   "$schema": "https://aka.ms/codetour-schema",
-  "title": "Revue critique des changements #223 non commités",
-  "description": "Revue factuelle des changements locaux liés à la spécification #223 et à PR #231. Le contexte de demande provient de PR #231 (« Implement spec #223: native Knowledge and the guarded Copilot generation run »). L’axe Spec est évalué sur les exigences visibles du titre, du résumé et de la description de cette PR. Aucun document de normes de code distinct n’a été trouvé sous les noms usuels; AGENTS.md ne contient que les instructions de chargement des domaines et de suivi des tickets.\n\n**Standards:** aucune violation documentée établie. Aucun défaut critique établi dans les changements inspectés.\n\n**Spec:** les changements observés couvrent les surfaces annoncées: avertissements de preuve insuffisante, propagation CLI/MCP et tests.\n\nGenerated from the merge-base of `main` (`8f42a4ff2364d55e11196dce1c99cbfbf109963b`) to `78fa36258fc3bca39a1fab5a2f077ea65033435c`, including uncommitted changes (non-reproducible local state).",
+  "title": "PR #268 — le workflow Pi : lecteur terminal, sélection d'agent et de modèle",
+  "description": "Revue critique de la PR #268 (`integration/183-pi-workflow` → `main`) : le lecteur de Tours en terminal, la sélection explicite de l'Agent Profile et du modèle ACP, la main au terminal depuis une session Copilot, l'ouverture dans VS Code par le contrat d'URI de l'extension, et l'écriture compare-and-swap des entrées Knowledge.\n\nLa comparaison analysée va du merge-base `origin/main` (`a551389`) au commit `6c11e74` : 247 commits, 904 fichiers, environ 379 000 lignes ajoutées. Le parcours se concentre sur le code de la chaîne de lecture (`src/agent`, `src/cli`, `src/player`, `src/extension.ts`) et sur `packages/knowledge` ; les répertoires de benchmark du POC (`poc/benchmark`, `poc/exploration-benchmark`, ~600 fichiers), les documents de specs et les ADR ne sont pas parcourus pas à pas.\n\n**Bilan des axes.** Un écart Standards est établi — `onToolUse` n'est jamais retransmis par le responder de repli, donc les outils interdits exécutés ne sont plus signalés. Cinq autres observations Standards sont des risques explicitement présentés comme tels (jugement), pas des violations. L'axe Spec, évalué sur l'issue #246, n'établit aucun écart sur les chemins parcourus.\n\n**Sources.** Standards : `AGENTS.md`, `CONTEXT.md` et les décisions `docs/adr/0013`, `0048`, `0049`, `0050`, `0051`, `0052`. Spec : l'issue #246, retrouvée par les références `(#246)` des commits et le corps de la PR, avec son amendement dans l'ADR 0052.\n\n**Tests.** Ils n'ont pas été exécutés pour cette revue, et le corps de la PR indique que les suites n'ont pas été relancées pendant la rédaction (le run CI sur `ce7f475` a échoué à `npm ci`, avant tout test). Aucun résultat de test n'est donc affirmé ici : les fichiers de test cités sont ceux qui couvrent le comportement décrit, pas une preuve de succès.\n\nGenerated from the merge-base of `origin/main` (`a55138959ceed699aa3b9951983f350b906e73a4`) to `6c11e74e72b300022ab7e1ba0e76cb60f0c95288`.",
+  "ref": "6c11e74e72b300022ab7e1ba0e76cb60f0c95288",
+  "baseRef": "a55138959ceed699aa3b9951983f350b906e73a4",
   "steps": [
     {
-      "title": "Vue d’ensemble",
-      "description": "Ces dix fichiers non commités étendent le catalogue Knowledge natif de la spécification #223: ils ajoutent un signal lorsque une entrée repose sur moins de deux fichiers distincts, puis propagent ce signal aux résultats CLI et MCP.\n\n**Spec:** PR #231 demande une intégration native de Knowledge et un lancement Copilot gardé. Le périmètre non commité se concentre sur l’avertissement de preuve insuffisante; aucun écart manifeste avec le résumé de la PR n’est établi.\n\nLe périmètre Git contient dix fichiers modifiés, dont aucun n’est actuellement indexé."
+      "title": "Où le changement vit",
+      "description": "La PR intègre le workflow Pi derrière l'issue #183 : preuves de symboles (#233), plugin Pi (#236), lecture dans le terminal et main au TTY (#239), sélection d'agent et de modèle (#246 à #253), plus les revues des tickets #260 à #266. Le code de fond vit dans `src/agent`, `src/cli`, `src/player`, `src/extension.ts` et dans deux paquets : `packages/knowledge` et `packages/pi-plugin`.\n\nLe parcours suit la chaîne de lecture, puis l'écriture Knowledge.\n\n**Diagram — chaîne de sélection et de lecture**\n\n```mermaid\nflowchart TD\n  subgraph Catalogue\n    A[\"AGENT_CATALOGUE (rang explicite)\"]\n    P[\"AgentProbe (5 s, initialize + session/new)\"]\n    S[\"AgentSelection\"]\n  end\n  subgraph Conversation\n    F[\"createFallbackStepChatResponder\"]\n    C[\"createAcpStepChatResponder (session ACP)\"]\n  end\n  T[\"Lecteur terminal\"]\n  W[\"Webview VS Code\"]\n  A --> S\n  P --> S\n  S --> F\n  F --> C\n  F --> T\n  F --> W\n  T --> V[\"o : openInVsCode (URI extension)\"]\n  H[\"ttyHandoff (--internal-tour)\"] --> T\n```\n\nLes 38 documents de `docs/specs`, les 24 ADR et les répertoires de benchmark du POC ne sont pas parcourus pas à pas : ils représentent l'essentiel des 904 fichiers du diff.",
+      "questions": [
+        "Pourquoi la PR est-elle si large pour une seule fonctionnalité ?",
+        "Quelles parties du diff ne sont pas couvertes par ce parcours ?",
+        "Où commencer si je ne veux lire qu'un seul module ?"
+      ],
+      "directory": "src"
     },
     {
-      "title": "Calcul central du niveau de preuve",
-      "description": "Le résultat de publication obtient désormais un tableau d’avertissements calculé à partir des preuves validées.\n\nUn chemin d’évidence distinct est compté une fois; moins de deux chemins produit `insufficient_backing`. La publication reste réussie, mais le retour porte explicitement le nom de l’entrée et le nombre de chemins distincts.\n\n**Standards:** aucun standard documentaire du dépôt ne contredit ce comportement. Ce jugement reste fondé sur la lecture du code, pas sur un défaut confirmé par un linter.\n\n**Spec:** l’avertissement répond à l’exigence générale de preuves vérifiables annoncée par la PR: il ne remplace pas la validation de contenu, qui reste hors du contrat de preuve.",
+      "title": "Le catalogue d'agents et sa sélection",
+      "description": "`AGENT_CATALOGUE` est une constante versionnée de cinq profils avec un rang explicite : Copilot (0), Vibe (1), Pi (2), Codex (3), Claude Code (4). L'ordre décide, jamais une découverte ni un registre distant, et `entry(cwd)` peut rendre `undefined` : Pi sans lanceur restreint n'est pas lançable, il est déclaré en erreur de connexion plutôt que démarré sans limite.\n\n`AgentSelection` porte les règles du panneau : classification bon marché par présence de l'exécutable (`commandExists`), sonde séquentielle dans l'ordre du rang qui s'arrête au premier profil `available`, glissement automatique vers un profil suivant uniquement tant que la première réponse n'a pas atterri (`started`), choix explicite définitif, mémoire du modèle par profil, et rien qui survive au panneau (`dispose()`). `candidates()` est la seule politique de repli, consommée par le responder.\n\nCouverture déclarée : `src/agent/agentCatalogue.test.ts`.\n\n**Standards:** risque, pas une violation — *Data Clumps* (jugement). Trois `Map` indexées par le même nom de profil portent des facettes du même objet : `availability`, `methods` et `modelChoices`. La conséquence est visible : `degrade()` écrit `availability` en `connection-error` sans toucher `methods`, donc `authMethods(name)` continue de rendre les méthodes d'une sonde antérieure pour un profil qui n'est plus joignable. Un enregistrement unique par profil supprimerait cette divergence possible.",
+      "questions": [
+        "Pourquoi l'arrêt de la sonde au premier profil disponible ?",
+        "Qu'est-ce qui empêche une bascule silencieuse après la première réponse ?",
+        "Que se passe-t-il si Pi ne peut pas être restreint sur cette machine ?"
+      ],
+      "file": "src/agent/agentCatalogue.ts",
+      "pattern": "export const AGENT_CATALOGUE: readonly AgentProfile\\[\\] = \\[",
+      "display": "diff"
+    },
+    {
+      "title": "La sonde bornée d'un Agent Profile",
+      "description": "La sonde d'un profil suit le contrat de l'ADR 0048 : `initialize`, puis `session/new`, puis libération immédiate de la session et du transport. Le délai est de 5 s par profil, distinct des 30 s d'un démarrage de conversation, pour qu'un agent simplement lent ne coûte pas une tentative entière au lecteur.\n\n`openBoundedTransport` construit une course entre l'opération, l'échéance et la fin du processus : un transport mort échoue au lieu de laisser la requête suspendue sur une connexion muette. `classifyProbeFailure` lit `auth-required` sur le code ACP `-32000`, jamais sur le texte du message, et un `ENOENT` devient `not-installed`. `authenticateAgentProfile` ne sert qu'aux méthodes que l'agent prend en charge lui-même : les méthodes terminales, interdites à `authenticate` par la spec ACP, partent dans un terminal et ne passent pas ici.\n\nCouverture déclarée : `src/agent/agentProbe.test.ts`, et `src/agent/fakeAcpAgent.ts` côté faux agent à processus réel.",
+      "questions": [
+        "Pourquoi 5 secondes pour la sonde et 30 pour une conversation ?",
+        "Comment un agent en erreur d'authentification est-il distingué d'un agent cassé ?",
+        "Que devient la session ouverte par la sonde ?"
+      ],
+      "file": "src/agent/agentProbe.ts",
+      "pattern": "export const AGENT_PROBE_TIMEOUT_MS = 5_000;",
+      "display": "diff"
+    },
+    {
+      "title": "Pi derrière un lanceur restreint",
+      "description": "`pi-acp` lance `pi` avec une liste d'arguments fixe et n'offre pas de passthrough, donc une conversation Pi porterait `bash`, `edit` et `write` au-delà du client en lecture seule de l'ADR 0013. Le seul point d'injection disponible est `PI_ACP_PI_COMMAND` : CodeTour y place un script `/bin/sh` qui se remplace par le même `pi`, limité à `read,grep,find,ls` et privé des MCP.\n\nLe lanceur est versionné (`PI_READONLY_LAUNCHER_VERSION`), écrit par fichier temporaire puis `rename`, jamais dans `~/.pi`. Sur Windows il n'y a pas de shell POSIX : `piReadonlyLauncher()` rend `undefined`, `piAcpEntry()` rend `undefined`, et le profil Pi est déclaré en erreur de connexion — la dégradation silencieuse vers un Pi sans limite n'existe pas.\n\nCouverture déclarée : `src/agent/piReadonlyLauncher.test.ts`, plus `src/agent/piAgentSmoke.test.ts`, un smoke test réel qui s'auto-ignore sans agent.\n\n**Standards:** risque (sécurité, jugement) — le lanceur vit sous `os.tmpdir()/codetour-pi-readonly`, et `mkdirSync(..., { mode: 0o700 })` ne fixe le mode qu'à la création. Sur un répertoire temporaire partagé, un dossier préexistant (autre propriétaire, droits plus larges) n'est ni vérifié ni refusé avant d'écrire le script, puis c'est `pi-acp` qui l'exécute. La comparaison de contenu (`readScript(file) !== script`) et le `rename` protègent d'un fichier résiduel, pas d'un répertoire contrôlé par un autre utilisateur local.",
+      "questions": [
+        "Pourquoi Pi ne peut-il pas recevoir ses restrictions par arguments ?",
+        "Que se passe-t-il sur Windows ?",
+        "Le lanceur peut-il modifier ma configuration Pi ?"
+      ],
+      "file": "src/agent/piReadonlyLauncher.ts",
+      "pattern": "export const PI_READONLY_TOOLS: readonly string\\[\\] = \\[",
+      "display": "diff"
+    },
+    {
+      "title": "Le responder de repli ordonné",
+      "description": "Ce responder est la machine du repli : `pending` sérialise sélection, démarrage et questions ; `generation` invalide ce qu'un `cancel()` rend obsolète ; `answered` rend collant le profil qui a répondu, si bien qu'un transport mort est retenté sur le même agent au lieu de glisser ailleurs. Une question qui a déjà diffusé du texte ne recolle jamais un autre agent : `streamed` provoque la remontée de l'erreur.\n\nLa sélection reste au-dessus : `profilesFor` fournit la liste ordonnée (le panneau VS Code y branche `AgentSelection.candidates`, le terminal la liste des profils installés), `whenReady` fait attendre la sonde initiale, `onProfileFailed` dégrade le seul profil fautif et `onAgentAnswered` fait suivre la sélection effective. `modelFor` rejoue le modèle choisi à chaque nouvelle session d'un profil.\n\nCouverture déclarée : `src/agent/fallbackStepChatAgent.test.ts`.\n\n**Standards:** violation démontrée d'une règle documentée. L'ADR 0013 exige que « the tool calls the agent actually executes are verified against the forbidden kinds (edit, delete, move, execute) and reported on every turn outcome ». Le contrat `StepChatAnswerEvents` déclare `onToolUse` (`src/agent/stepChatContract.ts`) et la couche ACP le transmet bien (`onToolUse: tool => events?.onToolUse?.(tool)` dans `src/agent/stepChatAgent.ts`). Ici, l'objet d'événements construit pour `current.answer(...)` ne contient que `onAnswerDelta`, `onThoughtDelta`, `onActivity` et `onAgentIdentity` : `onToolUse` n'est jamais retransmis.\n\nLes deux surfaces de production composent ce responder (`src/cli/stepChatSupport.ts` et `src/player/stepChat.ts`), et `StepConversations` ne remplit `toolUses` que depuis cet événement ; `player/stepChat.ts` peint ensuite `forbiddenTools: exchange.toolUses.filter(tool => tool.forbidden)`, qui reste donc toujours vide. L'outil interdit exécuté n'est plus signalé au lecteur, alors que le contrat le prévoit. Aucun test ne couvre ce transfert (`onToolUse` n'apparaît pas dans `fallbackStepChatAgent.test.ts`).",
+      "questions": [
+        "Pourquoi un agent qui a déjà répondu n'est-il plus remplacé ?",
+        "Que se passe-t-il si la première réponse échoue sur le premier profil ?",
+        "Où le signalement des outils interdits se perd-il ?"
+      ],
+      "file": "src/agent/fallbackStepChatAgent.ts",
+      "pattern": "export function createFallbackStepChatResponder\\(",
+      "display": "diff"
+    },
+    {
+      "title": "La session de conversation du terminal",
+      "description": "`openTerminalChat` compose la session du lecteur terminal : les profils du catalogue dont l'exécutable existe (`commandExists`), un responder de repli construit sur `chosen ? [chosen] : profiles`, le premier profil installé comme présélection, la liste des noms pour le picker d'agent, et un `selectAgent` qui jette le responder courant pour qu'une nouvelle session démarre sur le profil choisi.\n\nDeux propriétés de bord sont assumées et documentées : le terminal ne sonde pas (les valeurs de modèle viennent uniquement d'une session ouverte, ADR 0052) et il ne passe pas de `modelFor`, donc son choix de modèle vaut pour la session ouverte et n'est pas rejoué après un `cancel()`. Le message d'absence d'agent (`NO_AGENT_INSTALLED_MESSAGE`) est dérivé du catalogue par `agentCatalogueLabel`, pour que la phrase et l'ordre de la liste ne puissent pas diverger.\n\nCouverture déclarée : `src/cli/stepChatSupport.test.ts`.",
+      "questions": [
+        "Pourquoi le terminal ne lance-t-il pas la sonde ?",
+        "Que devient le choix de modèle après un stop ?",
+        "D'où vient la phrase « No ACP agent is installed » ?"
+      ],
+      "file": "src/cli/stepChatSupport.ts",
+      "pattern": "export function openTerminalChat\\(",
+      "display": "diff"
+    },
+    {
+      "title": "Le point de composition du lecteur",
+      "description": "`runTerminalTour` ne compose plus ses collaborateurs : `composeTerminalReader` devient le point de composition unique, ce qui rend le lecteur testable au seam du view model avec des collaborateurs injectés (`TerminalTourCollaborators`).\n\n`composeConversationResponder` adapte la session de chat au port `ConversationResponder` du module de lecture, avec deux précautions : le responder n'existe que si un profil installé a été trouvé (sans agent, la lecture reste entière), et `selectModel` n'est câblé que si le responder sous-jacent l'expose réellement (`typeof responder.selectModel === \"function\"`), ce qui laisse la touche `m` et son indice hors de l'interface quand l'agent gère lui-même son modèle (ADR 0052). `openInVsCode` reçoit par défaut l'invoker de `createOpenInVsCodeInvoker()`.\n\nCouverture déclarée : `src/cli/terminalComposition.test.ts`.",
+      "questions": [
+        "Qu'est-ce que ce refactor rend possible pour les tests ?",
+        "Pourquoi la touche m disparaît-elle avec certains agents ?",
+        "Que devient la lecture quand aucun agent n'est installé ?"
+      ],
+      "file": "src/cli/terminal.ts",
+      "pattern": "export function composeTerminalReader\\(",
+      "display": "diff"
+    },
+    {
+      "title": "L'overlay du picker de modèle",
+      "description": "Le picker est un overlay unique ancré au-dessus de la ligne de statut, ajouté au DOM après elle et affiché en `flex-direction: column` : il pousse vers le haut et recouvre ce qu'il croise, sans introduire de nouvelle région dans la mise en page du lecteur (ADR 0028 et 0052). Les styles n'utilisent que les jetons de la palette existante.\n\n`paintPicker` ne décide rien : la liste, la ligne surlignée et le texte d'explication (`notice`) viennent du view model ; un picker absent masque l'overlay. Les lignes effectives sont distinctes des lignes seulement sélectionnées, ce qui laisse le modèle confirmé visible même quand le curseur est ailleurs.\n\nCouverture déclarée : `src/cli/reader/modelPickerReader.test.ts`.",
+      "questions": [
+        "Pourquoi un overlay plutôt qu'un nouveau panneau ?",
+        "Comment le modèle effectif reste-t-il visible ?"
+      ],
+      "file": "src/cli/terminal.ts",
+      "pattern": "private paintPicker\\(view: ReaderViewModel\\): void \\{",
+      "display": "diff"
+    },
+    {
+      "title": "L'état du picker dans le module de lecture",
+      "description": "Le picker est un état du module de lecture (`{ kind: \"agent\" | \"model\"; selected; notice? }`), pas de l'adaptateur. `openModelPicker` lit ce que la session annonce et n'invente rien : si la session n'a pas encore parlé, il appelle `prepareModels()` — seule action du picker qui ouvre une session sans poser de question — puis affiche `connecting to the agent…`, `agent-managed model` ou l'échec.\n\nLe choix est une requête : `requestModel` envoie la valeur au responder et n'affiche le résultat qu'après confirmation. Si l'agent confirme une autre valeur, le lecteur écrit `model: <label> refused` ; `reconcileModelWarning()` efface cet avertissement dès que la valeur confirmée change, y compris quand c'est l'agent qui a changé de modèle de lui-même (`config_option_update`). `pickerIndex()` borne la ligne peinte et la ligne acceptée avec le même calcul.\n\n**Standards:** risque, pas une violation — *Duplicated Code* (jugement). Le prédicat composé `this.conversation.canSelectModel && !this.conversation.hasAnswerInFlight` est recalculé à l'identique pour la ligne de statut et pour l'état des touches (`reader.ts` lignes 281 et 360) : une même règle de disponibilité, deux endroits à faire évoluer ensemble.",
+      "questions": [
+        "Que fait exactement la touche m la première fois ?",
+        "Comment un refus de l'agent devient-il visible ?",
+        "Pourquoi l'avertissement de modèle disparaît-il tout seul ?"
+      ],
+      "file": "src/cli/reader/reader.ts",
+      "pattern": "private requestModel\\(value: AcpModelValue\\): void \\{",
+      "display": "diff"
+    },
+    {
+      "title": "Le clavier modal du picker",
+      "description": "`translateKey` traite d'abord le picker : c'est le seul endroit qui décide qu'aucune touche de lecture ne s'applique tant qu'il est ouvert. `↓`/`j` et `↑`/`k` déplacent, `Entrée` accepte, `Échap`, `q`, `m` et `h` ferment, et une touche non mappée devient `picker-ignored` plutôt que de tomber dans la navigation ou le défilement.\n\nLes combinaisons avec `ctrl`, `meta` ou `alt` rendent `unhandled` avant tout le reste : `Ctrl+C` continue de parvenir au terminal, ce qui est exactement la contrainte de l'ADR 0052. Le reste du clavier garde l'ordre établi : `q`/`Échap` arrêtent la réponse en cours avant de quitter, `o` n'ouvre VS Code que si le collaborateur est câblé, `m` et `h` que si le choix est offert et qu'aucune réponse ne s'écrit.\n\nCouverture déclarée : `src/cli/reader/reader.test.ts`.",
+      "questions": [
+        "Pourquoi Ctrl+C continue-t-il de fonctionner ?",
+        "Que fait une touche non mappée pendant le picker ?",
+        "Pourquoi m et h sont-ils conditionnels ?"
+      ],
+      "file": "src/cli/reader/readerInput.ts",
+      "pattern": "if \\(state.pickerOpen\\) \\{",
+      "display": "diff"
+    },
+    {
+      "title": "Nommer l'agent et le modèle sur la ligne de statut",
+      "description": "`agentIdentityLabel` est la seule mise en forme de l'identité, partagée par la ligne de rôle de la conversation et par le segment de la ligne de statut : le nom du profil en minuscules, son modèle effectif quand l'agent en annonce un, puis `(effective)` après la poignée de main ou `(preselected)` avant. Le nom affiché cesse donc d'être le premier binaire trouvé sur le `PATH`, qui était le défaut décrit par la spec #246.\n\nL'ordre des segments de droite reste celui que la spec #93/#240 épingle : état de la voix, avertissement de narration, agent, avertissement de modèle, nombre d'échanges, puis l'avertissement d'ouverture VS Code en dernier — le segment le plus coupable quand la largeur manque. Les indices de touches (`h agent`, `m model`, `o VS Code`) n'apparaissent que si le collaborateur correspondant existe et qu'aucune réponse ne s'écrit.\n\nCouverture déclarée : `src/cli/reader/modelPickerReader.test.ts` et `src/cli/reader/openInVscodeReader.test.ts`.",
+      "questions": [
+        "Pourquoi « preselected » avant la poignée de main ?",
+        "Pourquoi l'avertissement VS Code est-il le dernier segment ?"
+      ],
+      "file": "src/cli/reader/statusLine.ts",
+      "pattern": "export function agentIdentityLabel\\(identity: StepChatAgentIdentity\\): string \\{",
+      "display": "diff"
+    },
+    {
+      "title": "La main au terminal depuis une session Copilot",
+      "description": "La main au TTY est un spike expérimental (ticket #243) : la session prête son terminal au lecteur complet, dans le même terminal, puis le récupère quoi qu'il arrive. `defaultTerminalSession()` fournit les quatre membres du contrat ; `suspend()` frappe un jeton à usage unique, `resume(claimed)` refuse un jeton périmé, et `restoreTerminalState()` valide le mode cuit — le processus n'a pas d'écran alternatif, donc la restauration ne fait rien d'autre.\n\n`handOffTtyToTourReader` refuse d'abord une session non interactive avec une raison explicite. Le fils est lancé avec `stdio: \"inherit\"` et reçoit `--internal-tour <tour> [workspace]`, jamais le flag de la main au TTY : c'est le correctif F1, où le flag variadique sans valeur atteignait Commander sous la forme `true` et cassait le fils avant la lecture du Tour. La reprise du terminal est dans un `finally` unique, donc un lecteur tué par un signal rend quand même la main.\n\nCouverture déclarée : `src/cli/ttyHandoff.test.ts` et `test/copilot-hook.test.mjs`.",
+      "questions": [
+        "Que garantit le jeton rendu par suspend() ?",
+        "Pourquoi le flag de handoff ne va-t-il pas au fils ?",
+        "Quel chemin de sortie rend le terminal à la session ?"
+      ],
+      "file": "src/cli/ttyHandoff.ts",
+      "pattern": "export async function handOffTtyToTourReader\\(",
+      "display": "diff"
+    },
+    {
+      "title": "Ouvrir le Tour dans VS Code par l'URI de l'extension",
+      "description": "L'ouverture ne passe pas par `code <fichier>` : `planOpenInVsCode` construit deux invocations, `code <workspace>` puis `code --open-url` sur l'URI de l'extension (`OPEN_IN_VSCODE_URI_PREFIX`, chemin `/openTour`, query `tour`, `step`, `workspace`), séparées par un délai fixe de 2 s (`OPEN_WINDOW_SETTLE_MS`). L'URI porte le fichier `.tour` relatif au workspace et le pas numéroté à partir de 1, le contrat du `URIHandler` de l'extension. `executeOpenInVsCodePlan` traduit un `ENOENT` en message défini, et `openTourInVsCode` est l'unique composition partagée par la touche `o` du lecteur et par `--internal-open-vscode`.\n\nCouverture déclarée : `src/cli/openInVscode.test.ts`, `src/cli/internalOpenVscode.test.ts`, `src/cli/reader/openInVscodeReader.test.ts` et `src/extensionUri.test.ts`.\n\n**Standards:** risque, pas une violation (jugement). `relativeTourPath` dégrade en nom de fichier nu tout Tour situé hors du workspace. Le récepteur ne peut alors pas le retrouver : `startTour` compare le chemin canonique attendu (workspace + nom) et échoue, et `URIHandler.handleUri` refuse en annonçant un lien envoyé à un autre workspace. Le lecteur affiche donc un échec d'ouverture ou un « not found » pour un cas qui est en réalité un Tour hors workspace : le diagnostic ne nomme pas la cause réelle, et le délai fixe de 2 s n'est qu'une heuristique de fenêtre prête.",
+      "questions": [
+        "Pourquoi une URI d'extension plutôt que l'ouverture d'un fichier ?",
+        "Que deviennent les Tours hors du workspace ?",
+        "À quoi sert le délai de 2 secondes ?"
+      ],
+      "file": "src/cli/openInVscode.ts",
+      "pattern": "export function planOpenInVsCode\\(input: \\{",
+      "display": "diff"
+    },
+    {
+      "title": "Le récepteur d'URI et la composition de l'extension",
+      "description": "`handleUri` vérifie d'abord la cible : une URI de type `/openTour` portant un `workspace` est refusée si aucune fenêtre ouverte n'a ce dossier canonique (`canonicalWorkspacePath`, partagé avec le CLI et résolu par `realpath`). Le lien ne peut donc pas atterrir dans une autre fenêtre au hasard.\n\n`startTour` suit la même identité : `linkTourPath` et `tourFilePath` comparent des chemins canoniques, avec un ré-échappement de `%`, `#` et `?` puisque la découverte stocke une URI décodée. À l'activation, l'extension ne câble plus un responder de repli immédiat : elle compose `setStepChatAgentSelection(() => new AgentSelection({ probe: probeAgentProfile }))`, et c'est le panneau de lecture qui possède la sélection et sa sonde pour sa durée de vie. `discoverToursFromRoot` ignore désormais les répertoires `.memory`, pour que les fonctions de mémoire Knowledge ne soient pas prises pour des Tours.\n\nCouverture déclarée : `src/extensionUri.test.ts`, `src/core/tourDiscovery.test.ts`, `src/player/stepChat.test.ts`.",
+      "questions": [
+        "Pourquoi vérifier la fenêtre avant de démarrer le Tour ?",
+        "Pourquoi la sonde appartient-elle au panneau et non à l'activation ?",
+        "Pourquoi exclure les répertoires .memory de la découverte ?"
+      ],
+      "file": "src/extension.ts",
+      "pattern": "export class URIHandler implements vscode.UriHandler \\{",
+      "display": "diff"
+    },
+    {
+      "title": "L'écriture Knowledge en compare-and-swap",
+      "description": "La persistance Knowledge valide toute la proposition avant d'écrire quoi que ce soit : noms, descriptions, chemins confinés au workspace, preuves `file` ou `symbol` dont l'empreinte SHA-256 est calculée ou vérifiée. Les trois modes partagent une section critique unique sous un verrou de catalogue (ADR 0050) : relecture de l'entrée, comparaison de la Knowledge Revision, seconde vérification des preuves, fichier temporaire puis publication.\n\n`create` publie par lien dur exclusif, donc il ne peut pas écraser une entrée existante, et un conflit tardif annule ce que l'appel venait de publier. `replace` et `append` sont de vrais compare-and-swap : sans `expectedRevision`, ou avec une révision qui a bougé, ils rendent un `conflict` sans rien écrire ; `replace` publie par `rename` atomique, pour qu'un lecteur voie toujours l'ancien fichier entier ou le nouveau. Un changement de canonicaliseur ne refuse que les preuves `symbol` (`engine_changed`), et une entrée publiée avec moins de deux fichiers de preuve reste publiée mais signalée par `insufficient_backing`.\n\nCouverture déclarée : `packages/knowledge/test/append.test.ts`, `packages/knowledge/test/replace.test.ts`, `packages/knowledge/test/persistence.test.ts`, et `packages/mcp-server/test/integration/knowledge-tools.test.ts`.\n\n**Standards:** risque, pas une violation (jugement). Le verrou est repris d'autorité après `CATALOGUE_LOCK_STALE_MS` (15 s) sur la seule foi de son `mtime`, alors qu'un écrivain vivant peut dépasser ce délai : la section critique relit et rehache toutes les preuves deux fois, ce qui n'est pas borné sur un gros workspace. Si le verrou est volé, deux writers exécutent la section critique, et la comparaison de révision de `replace` peut être perdue (dernier écrivain gagnant) alors que l'ADR 0050 exige un seul verrou. `create` reste protégé par son lien exclusif ; c'est le CAS de `replace` qui dépend entièrement du verrou. Aucune défaillance observée — prise de risque à nommer.",
+      "questions": [
+        "Pourquoi un verrou unique pour tout le catalogue ?",
+        "Comment create évite-t-il d'écraser une entrée ?",
+        "Que se passe-t-il si deux writers se chevauchent ?"
+      ],
       "file": "packages/knowledge/src/persistence.ts",
-      "pattern": "function publishedWarnings"
+      "pattern": "const CATALOGUE_LOCK_STALE_MS = 15000;",
+      "display": "diff"
     },
     {
-      "title": "Exposition MCP du signal",
-      "description": "Le handler MCP reprend les avertissements du noyau partagé au lieu de les cacher. Il inclut les lignes `warnings` dans la réponse `created` et ajoute une note lisible indiquant qu’une preuve cite moins de deux fichiers distincts.\n\nCe passage contient aussi la limite explicite que la preuve vérifie les octets, pas la vérité sémantique ou l’exhaustivité de l’entrée.\n\n**Standards:** aucune règle documentaire de code trouvée pour les structures de réponse. La séparation entre structure MCP et texte humain est cohérente avec les tests voisins.\n\n**Spec:** cette propagation est attendue pour rendre visible l’état de publication sans écrire partiellement.",
-      "file": "packages/mcp-server/src/server.ts",
-      "pattern": "const warningNote"
-    },
-    {
-      "title": "Surface native CLI",
-      "description": "La commande CLI transmet directement `result.warnings` dans son résultat `saved`. Elle ne reconstruit pas la logique d’évaluation ni ne divise les résultats de publication.\n\nLa valeur de retour reste additive par rapport à `saved`, avec les noms publiés séparés des avertissements.\n\n**Standards:** aucune violation démontrée. Ce changement évite aussi une duplication évidente de la logique centrale.\n\n**Spec:** la surface CLI reste déterministe et partage donc la même décision que le noyau commun décrit dans la PR.",
-      "file": "src/cli/knowledge.ts",
-      "pattern": "const result = await saveKnowledgeProposal"
-    },
-    {
-      "title": "Tests du noyau",
-      "description": "Les tests du noyau couvrent la publication sans avertissement avec deux chemins, l’avertissement pour un seul chemin répété, les noms réservés, les conflits et les propositions invalides.\n\nLes cas observables distinguent le nombre de chemins distincts du nombre d’éléments d’évidence.\n\n**Standards:** aucune violation documentaire établie. La politique de test couvre les conclusions utiles plutôt que les constantes d’implémentation.\n\n**Spec:** ces cas soutiennent le contrat annoncé: publication atomique, aucun écrasement et diagnostic visible des preuves faibles.",
-      "file": "packages/knowledge/test/persistence.test.ts",
-      "pattern": "an entry backed by two distinct files"
-    },
-    {
-      "title": "Tests MCP",
-      "description": "Le test d’intégration vérifie que le résultat MCP contient `created`, `warnings` et un avertissement seulement pour l’entrée à preuve unique.\n\nIl vérifie aussi que les chemins et les empreintes ne sont pas renvoyés par le résultat public. Le changement CLI possède des assertions correspondantes pour les sorties structurées.\n\n**Spec:** cette couverture correspond à la séparation entre métadonnées publiques, preuves internes et résultats de publication décrite par la PR.\n\n**Standards:** le test a été ajouté à l’intégration existante plutôt que dans un nouvel emplacement isolé; aucun standard documentaire contraire n’est trouvé.",
-      "file": "packages/mcp-server/test/integration/knowledge-tools.test.ts",
-      "pattern": "insufficiently backed entries"
-    },
-    {
-      "title": "Documentation et suite de validation",
-      "description": "La documentation Knowledge décrit maintenant le champ `warnings` et son code `insufficient_backing`, tandis que le README MCP documente le même résultat côté outil.\n\n**Spec:** la documentation reste alignée avec le code sur la nature additive et non bloquante de l’avertissement.\n\nLa commande `npm test -- --test-reporter=spec` a été exécutée sur l’ensemble du dépôt et s’est terminée avec un code zéro. Je n’affirme pas un nombre exact de tests.",
-      "file": "packages/knowledge/README.md",
-      "pattern": "warnings"
+      "title": "Le garde du plugin Pi",
+      "description": "Cet ancien chemin de garde reste dans le paquet Pi : `selectContinuation` choisit au plus une exécution incomplète pour la session et le workspace courants, la plus récente, et rend `null` dès qu'un closure existe, qu'une continuation a déjà été utilisée ou que l'état est expiré. `continuationMessage` reformule une seule fois l'exigence de consolidation, sans jamais recréer le Tour ni affirmer une persistance que le MCP n'a pas confirmée.\n\nLe corps de la PR décrit ce garde comme le remplacement en processus du hook `agentStop` de Copilot ; le README du paquet Pi le documente comme le handler `agent_before_settle`, avec la même inertie pour une conversation ordinaire, une autre session, un workspace différent ou un état illisible. `knowledgeClause` ne parle que d'un bloc `knowledge` observé : l'absence veut dire « non mesuré », jamais « zéro ».\n\nCouverture déclarée : `test/pi-guard.test.mjs` et `test/pi-extension.test.mjs`.",
+      "questions": [
+        "Pourquoi l'absence de bloc knowledge n'est-elle pas un zéro ?",
+        "Qu'est-ce qui rend le garde inerte ?"
+      ],
+      "file": "packages/pi-plugin/lib/guard.mjs",
+      "pattern": "export function selectContinuation\\(",
+      "display": "diff"
     }
   ]
 }
