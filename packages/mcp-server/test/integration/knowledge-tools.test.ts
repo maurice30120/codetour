@@ -5,6 +5,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { callTool, rmrf, tempDir, withServer, writeFile } from "../helpers/test-utils";
 import { readRunState } from "../../src/run-log";
+import {
+  COMPOSED_KNOWLEDGE_TYPE,
+  composedKnowledgeRelation,
+} from "../../src/knowledge";
 
 // The Knowledge tools are exercised through the public MCP stdio seam against
 // a third-party workspace (a temporary directory outside the repository): no
@@ -1210,6 +1214,169 @@ test("the mode guidance adds no second consolidation pass and no second orchestr
       assert.doesNotMatch(
         text,
         /second (?:agent|model|orchestrator)|another (?:agent|model)\b|retry loop|loop until/i
+      );
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+// Composing, or not (spec #288, ticket #285). The served generation prompt is
+// generation data for the host agent: it fixes the decision rules, it adds no
+// phase, no model call and no tool. The rules are read from the prompt the
+// real MCP server composes — never from a test-only seam.
+test("prompts/get teaches when to compose a composed entry and when to abstain", async () => {
+  const root = tempDir("codetour-knowledge-compose-rules-");
+  try {
+    await withServer(root, async (client) => {
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: { request: "Give me a tour of this project." },
+      });
+      const text = promptText(prompt.messages);
+      // 1. Completing or correcting an atomic entry of the same subject is an
+      //    enrichment of that entry, never a composition: one source alone is
+      //    never a composed entry.
+      assert.match(text, /Completing or correcting an existing atomic entry on the same subject/);
+      assert.match(text, /never a new composed one/);
+      assert.match(text, /A single source is an enrichment, never a composition/);
+      // 2. An independent discovery may become a new atomic entry.
+      assert.match(text, /An independent discovery/);
+      assert.match(text, /a new atomic entry is possible/);
+      // 3. A composition needs two genuinely relevant sources AND a new,
+      //    reusable cross-cutting conclusion; two lookups prove nothing.
+      assert.match(text, /at least two distinct Knowledge sources genuinely relevant/);
+      assert.match(text, /new, reusable cross-cutting conclusion/);
+      assert.match(text, /Two lookups are not enough/);
+      assert.match(text, /daughters that verify prove nothing about the relation/);
+      // 4. Nothing is a valid outcome.
+      assert.match(text, /Nothing is a valid outcome/);
+      assert.match(text, /mere rephrasing/);
+      assert.match(text, /completed_zero/);
+      assert.match(text, /skipped/);
+      // 5. The dependencies format carries names only: no digest, no path, no
+      //    body — the engine resolves the files and pins the revisions.
+      assert.match(text, /Dependencies format/);
+      assert.match(text, /Supply no digest, no path and no body/);
+      assert.match(
+        text,
+        /resolves each daughter's file from the catalogue and pins its revision itself/
+      );
+      assert.match(text, /spelled exactly as the catalogue spells them/);
+      assert.match(text, /Never paste or paraphrase a daughter's body into the mother/);
+      // 6. The relation rests on the mother's own direct proofs, at least two.
+      assert.match(text, /at least two direct proofs of its own/);
+      assert.match(text, /never the standing of its daughters/);
+      // 7. A cross-cutting request targets the mother, a targeted request the
+      //    atomic entry, and the pair is not read by default.
+      assert.match(text, /a cross-cutting request targets the composed entry/);
+      assert.match(text, /a targeted request targets the atomic one/);
+      assert.match(text, /Do not read a mother and her daughters in the same run by default/);
+      assert.match(text, /the mother's body already states the relation/);
+      // The rules stay generation data: no phase, no model call, no extra tool.
+      assert.match(text, /no model call, no additional tool and no re-verification pass/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+// The prompt and the catalogue projection must name the composed relation the
+// same way: one exported spelling (spec #288, ADR 0055), quoted by the prompt
+// here and rendered on the catalogue line by #286. A test that hard-coded the
+// token would let the two surfaces drift; this one asks the single source of
+// truth.
+test("prompts/get spells the composed relation with the catalogue's single source of truth", async () => {
+  const root = tempDir("codetour-knowledge-compose-spelling-");
+  try {
+    await withServer(root, async (client) => {
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: { request: "Give me a tour of this project." },
+      });
+      const text = promptText(prompt.messages);
+      // The agreed inter-ticket shape: appended after the revision, on the
+      // entry's own line, daughters bounded with an explicit omission marker.
+      const complete = composedKnowledgeRelation(["knowledge-a", "knowledge-b"]);
+      assert.equal(complete, "[composed: knowledge-a, knowledge-b]");
+      assert.match(
+        composedKnowledgeRelation([
+          "knowledge-a",
+          "knowledge-b",
+          "knowledge-c",
+          "knowledge-d",
+          "knowledge-e",
+        ]),
+        /\(\+2 more\)\]$/
+      );
+      assert.ok(
+        text.includes(`\`${complete}\``),
+        "the prompt quotes the complete relation token the catalogue renders"
+      );
+      assert.ok(
+        text.includes(
+          `\`${composedKnowledgeRelation([
+            "knowledge-a",
+            "knowledge-b",
+            "knowledge-c",
+            "knowledge-d",
+            "knowledge-e",
+          ])}\``
+        ),
+        "the prompt quotes the truncated relation token the catalogue renders"
+      );
+      // The type word travels from the same source, so a rename of the state
+      // cannot leave the prompt and the catalogue disagreeing.
+      assert.ok(text.includes(`\`${COMPOSED_KNOWLEDGE_TYPE}\``), "the prompt names the type word");
+      assert.ok(text.includes("`dependencies`"), "the prompt names the declared daughters list");
+      // Nothing of a daughter travels with the names: the entry supplies no
+      // digest and never reads a daughter's body after the mother.
+      assert.match(text, /no digest/);
+      assert.doesNotMatch(text, /(?:provide|supply|compute|paste) (?:a |the )?(?:sha-?256|digest)/i);
+      assert.doesNotMatch(text, /read (?:the )?(?:bodies|body) of (?:its |the )?daughters/i);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+// The consolidation reminder appended right after `create_project_tour` /
+// `create_changes_tour` is a freeze, not a feature (spec #288): it carries the
+// consulted entries by identifier, name and description — through the
+// catalogue, never by injecting a body — and it adds no reminder about a
+// rehearsal or about a creation failure.
+test("the consultation reminder stays metadata-only with no dryRun and no failure reminder", async () => {
+  const root = tempDir("codetour-knowledge-reminder-");
+  try {
+    const digest = writeWorkspaceFile(root, "src/main.ts", "export const start = 1;\n");
+    writeEntry(root, "consulted_flow", {
+      description: "How consultations are recorded",
+      body: "CONSULTED BODY never injected.\n",
+      evidence: [{ path: "src/main.ts", sha256: digest }],
+    });
+    await withServer(root, async (client) => {
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: {},
+      });
+      const text = promptText(prompt.messages);
+      const marker = "- After the tour is created, consolidate with `knowledge_save`";
+      const start = text.indexOf(marker);
+      assert.ok(start >= 0, "the served prompt must carry the consolidation reminder");
+      const lineEnd = text.indexOf("\n", start);
+      const reminder = text.slice(start, lineEnd === -1 ? undefined : lineEnd);
+      // The consulted entry is known by its identifier and description, and
+      // its body is injected nowhere.
+      assert.ok(text.includes("`consulted_flow`"), "the reminder surface names the identifier");
+      assert.ok(text.includes("How consultations are recorded"), "the description is projected");
+      assert.ok(!text.includes("CONSULTED BODY"), "no consulted body reaches the prompt");
+      assert.ok(!reminder.includes("CONSULTED BODY"), "the reminder carries no body");
+      // No rehearsal reminder and no failure reminder ride along.
+      assert.doesNotMatch(reminder, /dryRun/i, "the reminder must not mention a rehearsal");
+      assert.doesNotMatch(
+        reminder,
+        /fail|failure|failed|error/i,
+        "the reminder must not mention a failure"
       );
     });
   } finally {

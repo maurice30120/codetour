@@ -108,6 +108,40 @@ export async function listKnowledgePage(
 }
 
 /**
+ * The type word of a Composed Knowledge Entry (spec #288) on the served
+ * surface. Composition is derived from the declared `dependencies` list — no
+ * `kind` field enters the frontmatter (ADR 0055) — and the word is spelled
+ * once here so the catalogue line and the served generation prompt cannot name
+ * the same state differently.
+ */
+export const COMPOSED_KNOWLEDGE_TYPE = "composed";
+
+/**
+ * Daughters named on one catalogue line. The contract does not cap the
+ * dependency list, so the projection is bounded and says when it truncates: a
+ * fifty-daughter entry must not produce fifty names in the served catalogue.
+ */
+export const COMPOSED_KNOWLEDGE_DAUGHTER_LIMIT = 3;
+
+/**
+ * The relation token of a composed entry, appended to its own catalogue line
+ * after the revision: the type and the **names** of its daughters, bounded,
+ * with an explicit omission marker when the list is truncated. Names only —
+ * never a body, an evidence proof or a daughter revision — so the relation is
+ * discoverable without becoming a second read (ADR 0055).
+ *
+ * This function is the single source of truth for that spelling: the catalogue
+ * projection renders it and the served generation prompt quotes it, so the two
+ * surfaces cannot drift.
+ */
+export function composedKnowledgeRelation(daughters: readonly string[]): string {
+  const named = daughters.slice(0, COMPOSED_KNOWLEDGE_DAUGHTER_LIMIT);
+  const omitted = daughters.length - named.length;
+  const omission = omitted > 0 ? ` (+${omitted} more)` : "";
+  return `[${COMPOSED_KNOWLEDGE_TYPE}: ${named.join(", ")}${omission}]`;
+}
+
+/**
  * The lightweight catalogue projection embedded in the Project Tour prompt:
  * names, one-line descriptions and revisions only, bounded by
  * `KNOWLEDGE_PROMPT_CATALOGUE_LIMIT`, with explicit truncation and search
@@ -196,8 +230,24 @@ export async function knowledgeCatalogueProjection(root: string): Promise<string
  * second anchor pass, because the MCP validates every Tour Anchor. It also
  * carries the consolidation mode choice (spec #232, ticket #257): which
  * `knowledge_save` mode applies to which situation, with the statement that
- * the guidance proves nothing about semantic consistency.
+ * the guidance proves nothing about semantic consistency. It carries too the
+ * decision rules for a Composed Knowledge Entry (spec #288, ticket #285): when
+ * composing is warranted, when an atomic enrichment or nothing is, and the
+ * dependencies format — names only, no digest — that the engine completes.
  */
+
+// Example daughters the served prompt spells the relation token with. The
+// token itself comes from `composedKnowledgeRelation`, so the prompt and the
+// catalogue line (#286) cannot disagree on the relation's spelling.
+const COMPOSED_RELATION_EXAMPLE = ["knowledge-a", "knowledge-b"];
+const COMPOSED_RELATION_TRUNCATED_EXAMPLE = [
+  "knowledge-a",
+  "knowledge-b",
+  "knowledge-c",
+  "knowledge-d",
+  "knowledge-e",
+];
+
 export const KNOWLEDGE_DECOMPOSITION_METHOD = [
   "## Decomposition method",
   "",
@@ -259,6 +309,49 @@ export const KNOWLEDGE_DECOMPOSITION_METHOD = [
   "- Neither, when nothing durable qualifies or an unresolved doubt remains: " +
     "an empty proposal or an explicit closure, never a fabricated Knowledge " +
     "entry.",
+  "",
+  "## Composed entry",
+  "",
+  `An entry of type \`${COMPOSED_KNOWLEDGE_TYPE}\` rests on at least two other ` +
+    "Knowledge entries — its daughters, named in its `dependencies` list — " +
+    "and its body records how they relate. Its catalogue line carries that " +
+    `relation after the revision, \`${composedKnowledgeRelation(COMPOSED_RELATION_EXAMPLE)}\`, ` +
+    `or \`${composedKnowledgeRelation(COMPOSED_RELATION_TRUNCATED_EXAMPLE)}\` ` +
+    "when the list is truncated: `(+N more)` daughters are then not shown. " +
+    "Decide before saving:",
+  "",
+  "- Completing or correcting an existing atomic entry on the same subject: " +
+    "prefer `append`, or `replace` when it must be rewritten, on that atomic " +
+    "entry — never a new composed one. A single source is an enrichment, " +
+    "never a composition.",
+  "- An independent discovery, on a subject the catalogue does not carry: a " +
+    "new atomic entry is possible.",
+  "- A composed entry requires at least two distinct Knowledge sources " +
+    "genuinely relevant to this investigation AND a new, reusable " +
+    "cross-cutting conclusion that explains their relation. Two lookups are " +
+    "not enough: daughters that verify prove nothing about the relation, so " +
+    "the relation is your conclusion, never their sum.",
+  "- Nothing: an investigation that discovered nothing, or a mere rephrasing " +
+    "of what you read, closes with `completed_zero` or `skipped`. Nothing is " +
+    "a valid outcome.",
+  "",
+  "Dependencies format: name the daughters your synthesis rests on — their " +
+    "names, spelled exactly as the catalogue spells them — in the entry's " +
+    "`dependencies` list. Supply no digest, no path and no body: the engine " +
+    "resolves each daughter's file from the catalogue and pins its revision " +
+    "itself. Never paste or paraphrase a daughter's body into the mother.",
+  "",
+  "A composed entry justifies its relation with at least two direct proofs " +
+    "of its own — its `evidence`, never the standing of its daughters.",
+  "",
+  "Reading: a cross-cutting request targets the composed entry, a targeted " +
+    "request targets the atomic one. Do not read a mother and her daughters " +
+    "in the same run by default: the mother's body already states the " +
+    "relation, and a composed entry is served alone — the engine validates " +
+    "its daughters without ever handing you their bodies.",
+  "",
+  "This is generation data, not a workflow: composing adds no model call, no " +
+    "additional tool and no re-verification pass.",
   "",
   "The choice of mode, and this guidance with it, is not a proof of semantic " +
     "consistency: a SHA-256 fingerprint proves that the cited bytes are " +
