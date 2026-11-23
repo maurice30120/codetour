@@ -53,6 +53,18 @@ function shareSetup(root, { withBuild = true } = {}) {
       "dir"
     );
   }
+  // The harness runs its whitelisted primitives in a worker that resolves
+  // quickjs-emscripten through the sandbox package's own node_modules, so the
+  // fixture carries that directory too instead of inheriting the checkout's
+  // hoisting by accident.
+  if (!existsSync(path.join(root, "packages", "exploration-sandbox", "node_modules"))) {
+    mkdirSync(path.join(root, "packages", "exploration-sandbox"), { recursive: true });
+    symlinkSync(
+      path.join(repository, "packages", "exploration-sandbox", "node_modules"),
+      path.join(root, "packages", "exploration-sandbox", "node_modules"),
+      "dir"
+    );
+  }
 }
 
 // A fixture repository holds the tracked files the fast guard reads: the

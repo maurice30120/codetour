@@ -3,18 +3,30 @@ name: Test
 on:
   push:
   pull_request:
+  # A manual lane for machine-specific investigations, e.g. a Windows path
+  # spelling. It never runs on a push or a pull request.
+  workflow_dispatch:
+    inputs:
+      diagnose:
+        description: Investigation to run instead of the test matrix
+        type: choice
+        default: run-log
+        options:
+          - run-log
 
 permissions:
   contents: read
 
 concurrency:
-  group: test-${{ github.event_name }}-${{ github.ref }}
+  # One pass per commit: a pull request run cancels the push run of the same
+  # ref instead of paying for both.
+  group: test-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   test:
     # Standard hosted runners are free only while the repository is public.
-    if: github.event.repository.private == false
+    if: github.event.repository.private == false && github.event_name != 'workflow_dispatch'
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -34,16 +46,51 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix packages/description-renderer
       - run: npm ci --prefix packages/knowledge
-      - run: npm ci --prefix packages/mcp-server
       # npm packs the local `file:` dependencies when they are installed, and a
       # packed copy of codetour-knowledge without its dist shadows the built one
       # for every harness test — including the pre-commit guard's fixture. The
-      # local dependency is therefore built before the harness installs it.
+      # local dependency is therefore built before the packages that pack it.
       - run: npm run build --prefix packages/knowledge
+      - run: npm ci --prefix packages/mcp-server
       - run: npm ci --prefix packages/exploration-poc
+      # The harness runs its primitives in a worker that resolves
+      # quickjs-emscripten through this package's own node_modules.
+      - run: npm ci --prefix packages/exploration-sandbox
       - run: npm run test
       - run: npm test --prefix packages/exploration-poc
       - run: npm run package
       - name: Test standalone distribution
         if: runner.os == 'macOS' || runner.os == 'Windows'
         run: npm run test:standalone
+
+  diagnose-run-log:
+    # A permanent, on-demand investigation lane: it replays the run-log contract
+    # end to end and prints every spelling of the workspace, so a machine-specific
+    # mismatch (8.3 short paths, mapped drives, symlinked checkouts) is read
+    # instead of guessed. It costs nothing on ordinary runs.
+    if: github.event.repository.private == false && github.event_name == 'workflow_dispatch' && inputs.diagnose == 'run-log'
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install pinned npm
+        run: npm install --global npm@12.0.1
+        working-directory: ${{ runner.temp }}
+      - name: Verify toolchain
+        run: node --version && npm --version
+      - run: npm ci
+      - run: npm ci --prefix packages/knowledge
+      - run: npm run build --prefix packages/knowledge
+      - run: npm ci --prefix packages/mcp-server
+      # The run-log writer is read from the built server; the packaging step is
+      # skipped because it stages the renderer payload this lane never uses.
+      - run: npx tsc -p packages/mcp-server/tsconfig.json
+      - name: Replay the run-log contract
+        run: node scripts/diagnose-run-log.mjs
