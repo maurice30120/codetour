@@ -53,8 +53,29 @@ export interface KnowledgeSymbolProof {
 
 export type KnowledgeProof = KnowledgeFileProof | KnowledgeSymbolProof;
 
+/**
+ * One Knowledge Dependency of a Composed Knowledge Entry (spec #288): the
+ * daughter's canonical Knowledge name and the SHA-256 of her complete entry
+ * file bytes — never a path, never a symbol proof, never a body. The engine
+ * resolves the daughter from the catalogue; the contract never transports a
+ * location. A `file` proof citing the daughter's Markdown attests bytes of
+ * that file and never satisfies this contract.
+ */
+export interface KnowledgeDependency {
+  /** Canonical Knowledge name of the daughter entry. */
+  name: string;
+  /** SHA-256 of the daughter's complete entry file bytes (her Knowledge Revision). */
+  sha256: string;
+}
+
 export interface KnowledgeEntry extends KnowledgeMetadata {
   evidence: KnowledgeProof[];
+  /**
+   * Declared daughters, present only on a composed entry: absence of the field
+   * is atomicity, so there is no `kind` discriminator and one spelling per
+   * state (spec #288).
+   */
+  dependencies?: KnowledgeDependency[];
   body: string;
 }
 
@@ -76,7 +97,15 @@ export type KnowledgeFailureReason =
   | 'symbol_unparseable'
   | 'unsupported_language'
   | 'symbol_hash_mismatch'
-  | 'engine_changed';
+  | 'engine_changed'
+  /**
+   * Temporary (spec #288, ticket #282): the contract accepts a declaration of
+   * dependencies, the read does not yet. A composed body is refused — even
+   * when every direct proof verifies — until the daughter graph is validated
+   * transitively (ticket #283), so no unverified composition is ever served.
+   * This reason disappears with #283.
+   */
+  | 'dependency_validation_unavailable';
 
 /**
  * Outcome of a Knowledge read: the validated Markdown body with its revision,
@@ -86,7 +115,16 @@ export type KnowledgeFailureReason =
  * (`unknown_entry`, `symlink_escape`, a malformed name).
  */
 export type KnowledgeValidation =
-  | { status: 'valid'; name: string; description: string; body: string; evidence: KnowledgeProof[]; revision: string }
+  | {
+    status: 'valid';
+    name: string;
+    description: string;
+    body: string;
+    evidence: KnowledgeProof[];
+    /** Declared daughters of a composed entry; absent on an atomic one. */
+    dependencies?: KnowledgeDependency[];
+    revision: string;
+  }
   | { status: 'invalid'; reason: KnowledgeFailureReason; revision?: string };
 
 /**
@@ -113,11 +151,29 @@ const symbolProofSchema = z.object({
 
 const proofSchema = z.union([fileProofSchema, symbolProofSchema]);
 
+// A daughter is named by her canonical Knowledge name and pinned by the digest
+// of her entry file bytes; nothing else — no `path`, no `type`, no `symbol`.
+const dependencySchema = z.object({
+  name: z.string().min(1),
+  sha256: z.string().regex(/^[0-9a-fA-F]{64}$/),
+}).strict();
+
 const frontmatterSchema = z.object({
   name: z.string(),
   description: z.string().min(1),
   evidence: z.array(proofSchema).min(1),
-}).strict();
+  dependencies: z.array(dependencySchema).min(2).optional(),
+}).strict().superRefine((contract, context) => {
+  // Composition is derived from the declaration alone (spec #288): a composed
+  // entry needs two direct proofs of its own, and two distinct daughters.
+  if (contract.dependencies === undefined) return;
+  if (contract.evidence.length < 2) {
+    context.addIssue({ code: 'custom', message: 'a composed entry needs at least two direct proofs' });
+  }
+  if (new Set(contract.dependencies.map(dependency => dependency.name)).size !== contract.dependencies.length) {
+    context.addIssue({ code: 'custom', message: 'a daughter is declared twice' });
+  }
+});
 
 /** Location of the Knowledge catalogue inside one workspace. */
 export const knowledgeDirectory = (root: string): string => join(root, '.tours', '.memory', 'knowledge');
@@ -152,15 +208,30 @@ const parsePair = (text: string): { key: string; value: string } | undefined => 
 };
 
 /**
+ * The sequences of the Knowledge frontmatter, and the keys each of their items
+ * may carry — exactly the keys of their strict schema. Declaring them here
+ * once is what refuses a dependency item under `evidence` (and the reverse)
+ * instead of attaching it to the block that happens to be open.
+ */
+const SEQUENCE_ITEM_KEYS = new Map<string, ReadonlySet<string>>([
+  ['evidence', new Set(['type', 'path', 'symbol', 'sha256', 'origin'])],
+  ['dependencies', new Set(['name', 'sha256'])]
+]);
+
+/**
  * Restricted YAML-subset parser for the Knowledge frontmatter: flat scalars
- * (`key: value`) plus one `evidence:` sequence of `- key: value` items.
- * Anything outside this grammar (nested structures, tabs, duplicated keys,
- * an inline evidence map…) is a malformed contract. The catalogue format is
- * fixed here, so validation stays deterministic without a YAML engine.
+ * (`key: value`) plus a map of sequences keyed by name — `evidence` and
+ * `dependencies` — each a list of `- key: value` items. Anything outside this
+ * grammar (nested structures, tabs, duplicated keys, an inline sequence value,
+ * an item before its key or after a scalar, a sequence key declared twice or
+ * with no item, an item whose keys belong to the other sequence) is a
+ * malformed contract. The catalogue format is fixed here, so validation stays
+ * deterministic without a YAML engine.
  */
 function parseFrontmatter(lines: string[]): Record<string, unknown> | undefined {
   const scalars: Record<string, string> = {};
-  let evidence: Array<Record<string, string>> | undefined;
+  const sequences: Record<string, Array<Record<string, string>>> = {};
+  let active: string | undefined;
   let itemIndent = -1;
   let current: Record<string, string> | undefined;
   for (const raw of lines) {
@@ -169,41 +240,50 @@ function parseFrontmatter(lines: string[]): Record<string, unknown> | undefined 
     const indent = line.length - line.trimStart().length;
     const inline = line.trimStart();
     if (inline.startsWith('- ')) {
-      if (evidence === undefined || indent === 0) return undefined;
+      // An item belongs to the sequence key declared immediately above it.
+      if (active === undefined || indent === 0) return undefined;
       if (itemIndent === -1) itemIndent = indent;
       if (indent !== itemIndent) return undefined;
       const pair = parsePair(inline.slice(2).trim());
-      // Every item opens fresh; duplicate keys come from continuations only.
-      if (!pair || !pair.value) return undefined;
+      // Every item opens fresh; a key of the other sequence refuses the item
+      // instead of attaching it to this one.
+      if (!pair || !pair.value || !SEQUENCE_ITEM_KEYS.get(active)?.has(pair.key)) return undefined;
       current = { [pair.key]: pair.value };
-      evidence.push(current);
+      sequences[active].push(current);
       continue;
     }
     if (indent === 0) {
       const pair = parsePair(line);
       if (!pair) return undefined;
-      if (pair.key === 'evidence') {
-        if (evidence !== undefined) return undefined;
-        if (pair.value === '[]') { evidence = []; current = undefined; itemIndent = -1; continue; }
-        // An inline evidence value other than an empty list is not part of the grammar.
-        if (pair.value) return undefined;
-        evidence = [];
+      if (SEQUENCE_ITEM_KEYS.has(pair.key)) {
+        // A sequence is declared once, opens with no item of its own, and an
+        // explicit empty list declares nothing — refused below.
+        if (pair.key in sequences) return undefined;
+        if (pair.value && pair.value !== '[]') return undefined;
+        sequences[pair.key] = [];
+        active = pair.key;
         current = undefined;
         itemIndent = -1;
         continue;
       }
-      if (!pair.value || pair.key in scalars) return undefined;
+      if (!pair.value || pair.key in scalars || pair.key in sequences) return undefined;
       scalars[pair.key] = pair.value;
+      // A scalar closes the open sequence: the item after it has no key left.
+      active = undefined;
+      current = undefined;
+      itemIndent = -1;
       continue;
     }
-    // Continuation: the keys of the current evidence item, deeper than its `- ` marker.
-    if (evidence === undefined || !current || itemIndent === -1 || indent <= itemIndent) return undefined;
+    // Continuation: the keys of the current item, deeper than its `- ` marker.
+    if (active === undefined || !current || itemIndent === -1 || indent <= itemIndent) return undefined;
     const pair = parsePair(line.trim());
-    if (!pair || !pair.value || pair.key in current) return undefined;
+    if (!pair || !pair.value || pair.key in current || !SEQUENCE_ITEM_KEYS.get(active)?.has(pair.key)) return undefined;
     current[pair.key] = pair.value;
   }
-  if (!evidence) return undefined;
-  return { ...scalars, evidence };
+  // A declared sequence with no item says nothing: it is a malformed contract,
+  // never an empty list.
+  if (Object.values(sequences).some(items => items.length === 0)) return undefined;
+  return { ...scalars, ...sequences };
 }
 
 /**
@@ -223,9 +303,14 @@ export function parseKnowledge(source: string, fileName: string): KnowledgeParse
   if (!frontmatter) return { status: 'invalid', reason: 'malformed_contract' };
   const parsed = frontmatterSchema.safeParse(frontmatter);
   if (!parsed.success) return { status: 'invalid', reason: 'malformed_contract' };
-  const { name, description, evidence } = parsed.data;
+  const { name, description, evidence, dependencies } = parsed.data;
   if (!validateKnowledgeName(name).ok) return { status: 'invalid', reason: 'malformed_contract' };
   if (name !== fileName.replace(/\.md$/, '')) return { status: 'invalid', reason: 'malformed_contract' };
+  // A daughter is looked up in the catalogue by name, so she obeys the same
+  // safe flat rule as the entry itself (spec #288).
+  if (dependencies?.some(dependency => !validateKnowledgeName(dependency.name).ok)) {
+    return { status: 'invalid', reason: 'malformed_contract' };
+  }
   // Complete `symbol` proofs are part of the contract (spec #233) and verify
   // at read time; an incomplete one already failed the schema above, so there
   // is no unsupported proof left to refuse here.
@@ -235,6 +320,9 @@ export function parseKnowledge(source: string, fileName: string): KnowledgeParse
     description,
     body,
     evidence,
+    // Absence of the field IS atomicity (spec #288): a composed entry carries
+    // its daughters, an atomic one carries nothing extra.
+    ...(dependencies === undefined ? {} : { dependencies })
   };
 }
 
@@ -294,6 +382,12 @@ const resolveCitedFile = async (realRoot: string, path: string): Promise<CitedFi
  * value ever leaves this module with the refusal.
  */
 export async function verifyKnowledge(entry: Extract<KnowledgeParseResult, { status: 'valid' }>, root: string, fingerprinter: SymbolFingerprinter = treeSitterSymbolFingerprinter): Promise<KnowledgeParseResult> {
+  // Temporary (spec #288, ticket #282): the contract accepts a declaration of
+  // dependencies, the verification does not yet. A composed entry is refused
+  // before anything is read, even when every direct proof would verify, so no
+  // unvalidated composition is ever served; ticket #283 validates the daughter
+  // graph here instead and this reason disappears.
+  if (entry.dependencies !== undefined) return { status: 'invalid', reason: 'dependency_validation_unavailable' };
   let realRoot: string;
   try { realRoot = await realpath(root); }
   catch { return { status: 'invalid', reason: 'file_missing' }; }
