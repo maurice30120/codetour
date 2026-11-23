@@ -312,6 +312,18 @@ export class StepConversations {
     this.release(this.responder);
   }
 
+  /**
+   * The reading session is over: the responder is released, and the returned
+   * promise settles once its agent resources are, so the caller can rely on no
+   * agent process outliving the session (a directory the reader owns stays
+   * deletable on every platform).
+   */
+  async dispose(): Promise<void> {
+    const current = this.responder;
+    this.responder = undefined;
+    await this.release(current);
+  }
+
   private cancelInFlight(): void {
     try {
       this.responder?.cancel?.();
@@ -320,17 +332,19 @@ export class StepConversations {
     }
   }
 
-  private release(current: StepChatResponder | undefined): void {
+  private release(current: StepChatResponder | undefined): Promise<void> | undefined {
     if (!current) {
-      return;
+      return undefined;
     }
     try {
       const released = current.dispose?.();
       if (released) {
-        Promise.resolve(released).catch(() => undefined);
+        return Promise.resolve(released).catch(() => undefined);
       }
+      return undefined;
     } catch {
       // Releasing a responder must never disturb the reader.
+      return undefined;
     }
   }
 }

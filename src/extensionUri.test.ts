@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import * as nodeModule from "node:module";
+import * as path from "node:path";
 import { createVscodeHost, Uri } from "./test/vscodeHost";
 
 const host = createVscodeHost();
@@ -13,7 +14,9 @@ const originalLoad = (nodeModule as unknown as { _load: Function })._load;
 (nodeModule as unknown as { _load: Function })._load = function (request: string, ...args: unknown[]) {
   if (request === "vscode") return host.vscode;
   const parent = args[0] as { filename?: string } | undefined;
-  if (parent?.filename?.endsWith("/extension.js")) {
+  // The module the extension loads is matched by its file name alone: the
+  // separator belongs to the platform, not to the stub.
+  if (parent?.filename && path.basename(parent.filename) === "extension.js") {
     if (request === "./store/provider") return { discoverTours: async () => { discoveries++; } };
     if (request === "./store") return { store: { tours } };
     if (request === "./store/actions") return { startCodeTour: (tour: { id: string }, step: number) => started.push({ tour, step }) };

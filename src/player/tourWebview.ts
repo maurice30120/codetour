@@ -25,6 +25,9 @@ interface TourView {
   version: number;
   codeViewColumn: vscode.ViewColumn;
   rendered?: { active: ActiveTour; step: number; token: string };
+  // A change of the panel's agents that arrived before any step rendered: the
+  // render that follows posts it instead of letting the repost be lost.
+  chatPostDeferred?: boolean;
 }
 
 let view: TourView | undefined;
@@ -61,12 +64,10 @@ export function showTourWebview(): void {
     // re-rendered, so a probe that answers while the step is still being
     // rendered never paints the panel ahead of it.
     openStepChatAgents(active.workspaceRoot?.fsPath ?? "", () => {
-      const rendered = current.rendered;
-      if (view !== current || !rendered) return;
-      void current.panel.webview.postMessage({
-        type: "stepChat",
-        ...getStepChatConversationView(rendered.active.tour.id, rendered.step)
-      });
+      // A probe that settles before the panel rendered a step can post
+      // nothing yet: the repost is deferred to that render rather than lost.
+      if (view !== current) return;
+      if (!postStepChat(current)) current.chatPostDeferred = true;
     });
     current.panel.webview.onDidReceiveMessage(async message => {
       const rendered = current.rendered;
@@ -204,6 +205,27 @@ export async function renderTourStep(): Promise<void> {
     previousTourTitle: getPreviousTour()?.title,
     nextTourTitle: getNextTour()?.title
   }, token);
+  // A settlement that arrived before this render is posted now, so the panel
+  // shows the state the probe established as soon as its step exists.
+  if (current.chatPostDeferred) {
+    current.chatPostDeferred = false;
+    postStepChat(current);
+  }
+}
+
+/**
+ * Posts the rendered step's Step Chat state into the panel, answering `false`
+ * when no step is rendered yet: the caller then defers its repost instead of
+ * losing it.
+ */
+function postStepChat(current: TourView): boolean {
+  const rendered = current.rendered;
+  if (view !== current || !rendered) return false;
+  void current.panel.webview.postMessage({
+    type: "stepChat",
+    ...getStepChatConversationView(rendered.active.tour.id, rendered.step)
+  });
+  return true;
 }
 
 export function disposeTourWebview(): void {

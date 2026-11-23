@@ -124,7 +124,7 @@ test("an interactive session suspends itself before the reader starts, then resu
   // The same-terminal contract: node itself, then the CLI entry beside it,
   // then the reader's options — the session's argv is preserved in order.
   assert.equal(calls[0].command, process.execPath);
-  assert.match(String(calls[0].args[0]), /dist[\/]cli\.js$/);
+  assert.match(String(calls[0].args[0]), /dist[\\/]cli\.js$/);
   // The handoff flag NEVER travels to the child (review F1): the child runs
   // the internal reading path, bare; a flag without a value reaches Commander
   // as `true` and made the child crash with `TypeError: boolean true is not

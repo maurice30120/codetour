@@ -135,10 +135,9 @@ export class TourStepConversation {
 
   /**
    * Release the responder's agent resources through the store; the session
-   * is over.
+   * is over, and the promise settles once those resources are released.
    */
   dispose(): Promise<void> {
-    this.store.setResponder(undefined);
-    return Promise.resolve();
+    return this.store.dispose();
   }
 }

@@ -34,7 +34,7 @@ function temporaryDirectory(): string {
 
 const POSIX_ONLY = { skip: process.platform === "win32" };
 
-test("the launcher restricts Pi to the reading and searching tools", () => {
+test("the launcher restricts Pi to the reading and searching tools", POSIX_ONLY, () => {
   const root = temporaryDirectory();
   const launcher = piReadonlyLauncher({ root });
 
@@ -71,9 +71,11 @@ test("the launcher restricts Pi to the reading and searching tools", () => {
 
 test("the launcher is written once and reused as is", () => {
   const root = temporaryDirectory();
-  const first = piReadonlyLauncher({ root });
+  // The POSIX script is written whatever the running platform: reuse is a
+  // property of the file system, not of the shell that will run it.
+  const first = piReadonlyLauncher({ root, platform: "linux" });
   const content = readFileSync(first!, "utf8");
-  const second = piReadonlyLauncher({ root });
+  const second = piReadonlyLauncher({ root, platform: "linux" });
 
   assert.equal(second, first, "the same build reuses the same launcher");
   assert.equal(readFileSync(second!, "utf8"), content);
@@ -156,7 +158,7 @@ test("Pi is launched through pi-acp and the launcher, never as a bare pi", POSIX
   assert.equal(entry.modeId, undefined);
 });
 
-test("the launcher is never written into the reader's Pi configuration", () => {
+test("the launcher is never written into the reader's Pi configuration", POSIX_ONLY, () => {
   const root = temporaryDirectory();
   const home = path.join(root, "home");
   const tmp = path.join(root, "tmp");

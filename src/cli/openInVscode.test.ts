@@ -1,4 +1,5 @@
 import * as assert from "node:assert/strict";
+import * as path from "node:path";
 import { test } from "node:test";
 import {
   buildTourOpenUri,
@@ -28,7 +29,7 @@ test("canonicalWorkspacePath strips the trailing separator and prefers the real 
     canonicalWorkspacePath("/gone/repo", () => {
       throw new Error("ENOENT");
     }),
-    "/gone/repo"
+    path.resolve("/gone/repo")
   );
 });
 
