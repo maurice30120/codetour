@@ -251,9 +251,13 @@ Knowledge Revision — the opaque SHA-256 of the entry file bytes — for matchi
 valid entries; `invalid` reports every refused entry by name, reason and
 revision, regardless of the query, and `list` returns exit 3 when no valid
 entry matches. Neither list contains bodies, cited paths or evidence hashes:
-the revision is the one token it exposes. `read` returns the same revision and
-the Markdown body only when every declared proof verifies; otherwise it reports
-an `invalid` reason and the revision without the body, a cited path or a hash
+the revision is the one token it exposes. A composed entry additionally
+carries `daughterNames`, the names of the entries its `dependencies` declare —
+never their revisions, proofs or bodies — and a refusal of the dependency step
+carries `via`, the faulty daughter of that level. `read` returns the same
+revision and the Markdown body only when every declared proof verifies;
+otherwise it reports an `invalid` reason, the revision and, for a composed
+entry, the faulty `via` daughter, without the body, a cited path or a hash
 value. `hash` prints the deterministic digest for preparing evidence, and
 `save` takes `--mode` (`create`, `append` or `replace`) and
 `--expected-revision` for the two amend modes.
@@ -278,7 +282,9 @@ nothing. A proposal file is a JSON object with one key:
 
 `name` is a canonical identifier equal to the entry file name, `description`
 is one non-empty line and `evidence` cites at least one workspace-relative
-path. A relative `--proposal` path is resolved from the directory the CLI is
+path — at least two for a composed entry, which also declares `dependencies`
+as a list of daughter **names** only, never a digest or a path: the engine
+resolves each daughter and pins her revision itself. A relative `--proposal` path is resolved from the directory the CLI is
 launched in; the entry's evidence paths are always resolved against the
 workspace. An omitted `sha256` is computed from the cited bytes; a declared one is
 verified and normalized, so a stale or forged digest is refused. Paths outside
