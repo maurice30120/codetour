@@ -690,14 +690,18 @@ const knowledgeCloseRunInputSchema = knowledgeToolInputSchema
 
 const KNOWLEDGE_LIST_DESCRIPTION =
   "List the Knowledge catalogue of the workspace by name, description and " +
-  "revision only (metadata). Never returns a body. Every returned entry carries " +
+  "revision only (metadata). Never returns a body. An entry that declares " +
+  "dependencies is composed: its row adds the names of its daughters, never " +
+  "their revisions, proofs or bodies, and every daughter keeps her own row. " +
+  "Every returned entry carries " +
   "its revision — the opaque token of the entry file bytes — on verified entries " +
   "and on invalid rows alike, so a later write can be conditioned on the exact " +
   "bytes that were discovered (compare-and-swap: a stale revision is refused " +
   "instead of silently overwritten). Every returned entry is verified: its whole " +
   "declared SHA-256 evidence contract matches, so discovery serves only valid " +
   "contracts; entries that fail validation are returned under invalid with a " +
-  "machine-readable reason, listed in full regardless of the query, so they can " +
+  "machine-readable reason and, when a dependency step refused, the name of the " +
+  "faulty daughter, listed in full regardless of the query, so they can " +
   "be fixed or removed. An entry name is its identifier. The " +
   "optional query is a literal, case-insensitive substring filter on names and " +
   "descriptions. limit and offset paginate the filtered catalogue; total and " +

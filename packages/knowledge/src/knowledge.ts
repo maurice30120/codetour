@@ -24,6 +24,19 @@ export interface KnowledgeMetadata {
   revision: string;
 }
 
+/**
+ * One verified catalogue row: the metadata every discovery surface serves,
+ * plus — on a Composed Knowledge Entry only — the names of her declared
+ * daughters, in declared order. Composition is derived from that declaration,
+ * so no `kind` field exists and a row without `daughterNames` is atomic
+ * (spec #288). Names only: a daughter's revision, evidence and body stay out
+ * of the catalogue, which keeps the relation discoverable without turning it
+ * into a second read (ADR 0055).
+ */
+export interface KnowledgeCatalogueEntry extends KnowledgeMetadata {
+  daughterNames?: readonly string[];
+}
+
 /** A `file` proof pins the deterministic SHA-256 of the cited file bytes. */
 export interface KnowledgeFileProof {
   type: 'file';
@@ -561,10 +574,14 @@ export interface KnowledgeLibrary {
   catalog(): Promise<KnowledgeMetadata[]>;
   /** Catalogue filtered by a literal case-insensitive name/description substring. */
   list(query?: string): Promise<KnowledgeMetadata[]>;
-  /** Verified metadata and all refusals, independent of the query. */
+  /**
+   * Verified metadata and all refusals, independent of the query. A composed
+   * entry's row carries her daughters' names only, and a refusal of the
+   * dependency step names the faulty daughter of its own level in `via`.
+   */
   verifiedList(query?: string): Promise<{
-    entries: KnowledgeMetadata[];
-    invalid: { name: string; reason: KnowledgeFailureReason; revision?: string }[];
+    entries: KnowledgeCatalogueEntry[];
+    invalid: { name: string; reason: KnowledgeFailureReason; revision?: string; via?: string }[];
   }>;
   /**
    * Deterministic read: verifies the whole declared evidence contract and, for
@@ -743,21 +760,31 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
         try { files = (await readdir(dir)).filter(file => file.endsWith('.md')).sort(); }
         catch { /* A missing or unreadable catalogue is empty. */ }
       }
-      const entries: KnowledgeMetadata[] = [];
-      const invalid: { name: string; reason: KnowledgeFailureReason; revision?: string }[] = [];
+      const entries: KnowledgeCatalogueEntry[] = [];
+      const invalid: { name: string; reason: KnowledgeFailureReason; revision?: string; via?: string }[] = [];
       const lowerQuery = query?.toLowerCase();
       for (const file of files) {
         const name = file.slice(0, -3);
         const entry = await library.read(name);
         if (entry.status === 'valid') {
           if (!lowerQuery || `${entry.name} ${entry.description}`.toLowerCase().includes(lowerQuery)) {
-            entries.push({ name: entry.name, description: entry.description, revision: entry.revision });
+            entries.push({
+              name: entry.name,
+              description: entry.description,
+              revision: entry.revision,
+              // The daughters' names only: their revisions stay out of every
+              // catalogue surface (spec #288).
+              ...(entry.dependencies === undefined
+                ? {}
+                : { daughterNames: entry.dependencies.map(dependency => dependency.name) })
+            });
           }
-        } else if (entry.revision === undefined) {
-          invalid.push({ name, reason: entry.reason });
-        } else {
-          invalid.push({ name, reason: entry.reason, revision: entry.revision });
+          continue;
         }
+        const row: { name: string; reason: KnowledgeFailureReason; revision?: string; via?: string } = { name, reason: entry.reason };
+        if (entry.revision !== undefined) row.revision = entry.revision;
+        if (entry.via !== undefined) row.via = entry.via;
+        invalid.push(row);
       }
       return { entries, invalid };
     },

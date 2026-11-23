@@ -140,6 +140,12 @@ function pageWithoutRevisions(page: Record<string, unknown>): Record<string, unk
   };
 }
 
+// The projection's own line for one entry: the flat catalogue shape pins that
+// every entry keeps exactly one line, the composed relation included.
+function projectionLine(text: string, name: string): string | undefined {
+  return text.split("\n").find((line) => line.startsWith(`- \`${name}\` \u2014`));
+}
+
 test("knowledge_list reports metadata only and treats an absent catalogue as empty", async () => {
   const root = tempDir("codetour-knowledge-list-");
   try {
@@ -512,6 +518,275 @@ test("knowledge_read refuses a composed entry whose daughter broke and names her
       const restored = await callTool(client, KNOWLEDGE_READ, { name: "composed_flow" });
       assert.equal(restored.structured.status, "valid", restored.text);
       assert.equal(restored.structured.body, "MOTHER BODY\n");
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+// The catalogue projection stays flat (spec #288, ADR 0055): a composed entry
+// carries her type and her daughters' names on her own line, and every daughter
+// keeps hers. The relation token comes from the single exported formatter the
+// prompt quotes, so the two surfaces cannot name the same state differently.
+test("prompts/get projects a composed entry flat with her type and her daughters' names", async () => {
+  const root = tempDir("codetour-knowledge-composed-projection-");
+  try {
+    writeComposedFixture(root);
+    await withServer(root, async (client) => {
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: { request: "Give me a tour of this project." },
+      });
+      const text = promptText(prompt.messages);
+      const composedLine = projectionLine(text, "composed_flow");
+      assert.ok(composedLine, "the composed entry keeps her own line");
+      assert.ok(
+        composedLine.endsWith(composedKnowledgeRelation(["dispatch_flow", "auth_flow"])),
+        composedLine
+      );
+      assert.ok(
+        composedLine.includes(`(revision ${revisionOf(entryFile(root, "composed_flow"))})`),
+        composedLine
+      );
+      assert.ok(
+        composedLine.includes("How dispatch interacts with authentication"),
+        composedLine
+      );
+      assert.equal(
+        text.split("\n").filter((line) => line.startsWith("- `composed_flow`")).length,
+        1,
+        "a composed entry appears once"
+      );
+      // Every daughter keeps her line, so a targeted request can aim at her
+      // without reading the mother; an atomic entry carries no relation.
+      const daughters = [
+        ["dispatch_flow", "How a tool call dispatches"],
+        ["auth_flow", "How a session is authenticated"],
+      ] as const;
+      for (const [daughter, description] of daughters) {
+        const line = projectionLine(text, daughter);
+        assert.ok(line, `${daughter} keeps her own line`);
+        assert.ok(line.includes(description), line);
+        assert.ok(!line.includes(COMPOSED_KNOWLEDGE_TYPE), "an atomic entry carries no relation");
+      }
+      // No body and no proof enters the projection, and no daughter revision
+      // rides on the composed line: a daughter's own line carries her own
+      // revision, the mother's line carries her own only. The relation is
+      // discoverable, never a second read.
+      assert.doesNotMatch(text, /DAUGHTER SECRET|MOTHER BODY/);
+      assert.doesNotMatch(
+        composedLine.replace(revisionOf(entryFile(root, "composed_flow")), ""),
+        /[0-9a-f]{64}/,
+        "no daughter revision rides on the composed line"
+      );
+      for (const evidenceHash of [
+        sha256("export const dispatch = 1;\n"),
+        sha256("export const auth = 4;\n"),
+        sha256("export const render = 2;\n"),
+      ]) {
+        assert.ok(!text.includes(evidenceHash), "no evidence hash enters the projection");
+      }
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("knowledge_list carries the daughters of a composed entry by name only", async () => {
+  const root = tempDir("codetour-knowledge-composed-list-");
+  try {
+    writeComposedFixture(root);
+    await withServer(root, async (client) => {
+      const listed = await callTool(client, KNOWLEDGE_LIST, {});
+      assert.equal(listed.isError, false, listed.text);
+      type Row = { name: string; daughterNames?: string[] };
+      const rows = listed.structured.entries as Row[];
+      const composed = rows.find((row) => row.name === "composed_flow");
+      // The relation is derived from the declared dependencies: their names,
+      // never a daughter digest, a daughter proof or a daughter body — the row
+      // carries exactly four fields.
+      assert.deepEqual(composed?.daughterNames, ["dispatch_flow", "auth_flow"]);
+      assert.deepEqual(Object.keys(composed ?? {}).sort(), [
+        "daughterNames",
+        "description",
+        "name",
+        "revision",
+      ]);
+      for (const daughter of ["dispatch_flow", "auth_flow"]) {
+        const row = rows.find((entry) => entry.name === daughter);
+        assert.ok(row, `${daughter} keeps her own row`);
+        assert.ok(!("daughterNames" in row), "an atomic entry carries no relation");
+      }
+      assert.doesNotMatch(textOf(listed), /DAUGHTER SECRET|MOTHER BODY/);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+// Composition is derived from the declaration alone (ADR 0055): editing the
+// frontmatter changes the line, with no `kind` field and no other state.
+test("a composed entry type follows its dependencies declaration and nothing else", async () => {
+  const root = tempDir("codetour-knowledge-composed-derived-");
+  try {
+    const code = writeWorkspaceFile(root, "src/derive.ts", "export const derive = 1;\n");
+    const other = writeWorkspaceFile(root, "src/other.ts", "export const other = 2;\n");
+    writeEntry(root, "left_flow", {
+      description: "Left subject",
+      body: "LEFT BODY\n",
+      evidence: [{ path: "src/derive.ts", sha256: code }],
+    });
+    writeEntry(root, "right_flow", {
+      description: "Right subject",
+      body: "RIGHT BODY\n",
+      evidence: [{ path: "src/other.ts", sha256: other }],
+    });
+    const dependencies = [
+      { name: "left_flow", sha256: revisionOf(entryFile(root, "left_flow")) },
+      { name: "right_flow", sha256: revisionOf(entryFile(root, "right_flow")) },
+    ];
+    // The same entry, three frontmatter states: atomic, composed, atomic again.
+    const states: Array<{ dependencies?: typeof dependencies; composed: boolean }> = [
+      { composed: false },
+      { dependencies, composed: true },
+      { composed: false },
+    ];
+    await withServer(root, async (client) => {
+      for (const state of states) {
+        writeEntry(root, "subject_flow", {
+          description: "A subject that may or may not compose",
+          body: "SUBJECT BODY\n",
+          evidence: [
+            { path: "src/derive.ts", sha256: code },
+            { path: "src/other.ts", sha256: other },
+          ],
+          ...(state.dependencies === undefined ? {} : { dependencies: state.dependencies }),
+        });
+        const prompt = await client.getPrompt({
+          name: "generate_project_tour",
+          arguments: { request: "Give me a tour of this project." },
+        });
+        const line = projectionLine(promptText(prompt.messages), "subject_flow");
+        assert.ok(line, "the entry always keeps her line");
+        if (state.composed) {
+          assert.ok(
+            line.endsWith(composedKnowledgeRelation(["left_flow", "right_flow"])),
+            line
+          );
+        } else {
+          assert.ok(!line.includes(COMPOSED_KNOWLEDGE_TYPE), line);
+        }
+      }
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+// The contract does not cap the dependency list, so the projection is bounded
+// and says when it truncates instead of serving fifty names (ADR 0055).
+test("a composed entry with more daughters than the bound projects an explicit omission marker", async () => {
+  const root = tempDir("codetour-knowledge-composed-bound-");
+  try {
+    const shared = writeWorkspaceFile(root, "src/shared.ts", "export const shared = 1;\n");
+    const second = writeWorkspaceFile(root, "src/second.ts", "export const second = 2;\n");
+    const daughters = ["leaf_one", "leaf_two", "leaf_three", "leaf_four", "leaf_five"];
+    for (const daughter of daughters) {
+      writeEntry(root, daughter, {
+        description: `Subject of ${daughter}`,
+        body: `${daughter} BODY\n`,
+        evidence: [{ path: "src/shared.ts", sha256: shared }],
+      });
+    }
+    writeEntry(root, "wide_flow", {
+      description: "Resting on five subjects",
+      body: "WIDE BODY\n",
+      evidence: [
+        { path: "src/shared.ts", sha256: shared },
+        { path: "src/second.ts", sha256: second },
+      ],
+      dependencies: daughters.map((name) => ({
+        name,
+        sha256: revisionOf(entryFile(root, name)),
+      })),
+    });
+    await withServer(root, async (client) => {
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: { request: "Give me a tour of this project." },
+      });
+      const text = promptText(prompt.messages);
+      const line = projectionLine(text, "wide_flow");
+      assert.ok(line, "the composed entry keeps her own line");
+      assert.ok(line.endsWith(composedKnowledgeRelation(daughters)), line);
+      assert.match(line, /\(\+2 more\)\]$/, "the omission is explicit");
+      assert.ok(!line.includes("leaf_four") && !line.includes("leaf_five"), line);
+      // The daughters the line omits still keep their own line.
+      for (const daughter of daughters) {
+        assert.ok(projectionLine(text, daughter), `${daughter} keeps her own line`);
+      }
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+// A composed entry whose daughter is KO is no longer verified: it moves to the
+// invalid rows with the dependency-step reason and the faulty daughter's name,
+// as at read time (spec #288).
+test("a composed entry whose daughter is KO is listed as invalid under her dependency reason", async () => {
+  const root = tempDir("codetour-knowledge-composed-invalid-");
+  try {
+    writeComposedFixture(root);
+    type Row = { name: string; reason?: string; via?: string };
+    await withServer(root, async (client) => {
+      // The daughter's Markdown is untouched; the code she cites moved.
+      writeFile(root, "src/auth.ts", "export const auth = 44;\n");
+      const listed = await callTool(client, KNOWLEDGE_LIST, {});
+      assert.equal(listed.isError, false, listed.text);
+      assert.ok(
+        !(listed.structured.entries as Row[]).some((row) => row.name === "composed_flow"),
+        "a mother whose daughter broke is no longer verified"
+      );
+      const refused = (listed.structured.invalid as Row[]).find(
+        (row) => row.name === "composed_flow"
+      );
+      assert.equal(refused?.reason, "dependency_invalid");
+      assert.equal(refused?.via, "auth_flow");
+      // The invalid set is independent of the query: it stays listed in full.
+      const filtered = await callTool(client, KNOWLEDGE_LIST, { query: "dispatch" });
+      assert.deepEqual(
+        (filtered.structured.invalid as Row[])
+          .filter((row) => row.name === "composed_flow")
+          .map((row) => ({ name: row.name, reason: row.reason, via: row.via })),
+        [{ name: "composed_flow", reason: "dependency_invalid", via: "auth_flow" }]
+      );
+      // The projection says the same thing: the reason and the KO daughter.
+      const prompt = await client.getPrompt({
+        name: "generate_project_tour",
+        arguments: { request: "Give me a tour of this project." },
+      });
+      const text = promptText(prompt.messages);
+      const line = projectionLine(text, "composed_flow");
+      assert.ok(line, "an invalid entry keeps her line");
+      assert.ok(line.includes("dependency_invalid"), line);
+      assert.ok(line.includes("auth_flow"), "the KO daughter is named");
+      assert.doesNotMatch(text, /MOTHER BODY|DAUGHTER SECRET/);
+      assert.doesNotMatch(
+        line.replace(revisionOf(entryFile(root, "composed_flow")), ""),
+        /[0-9a-f]{64}/,
+        "no daughter revision rides on the invalid row"
+      );
+      // A daughter absent from the catalogue is a distinct dependency-step
+      // refusal, still naming the faulty daughter.
+      writeFile(root, "src/auth.ts", "export const auth = 4;\n");
+      fs.rmSync(entryFile(root, "auth_flow"));
+      const missing = await callTool(client, KNOWLEDGE_LIST, {});
+      const absentDaughter = (missing.structured.invalid as Row[]).find(
+        (row) => row.name === "composed_flow"
+      );
+      assert.equal(absentDaughter?.reason, "dependency_missing");
+      assert.equal(absentDaughter?.via, "auth_flow");
     });
   } finally {
     rmrf(root);

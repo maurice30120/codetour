@@ -397,3 +397,48 @@ test('the temporary composed refusal is gone and the composition bounds are expo
   assert.equal(KNOWLEDGE_MAX_COMPOSITION_DEPTH, 2);
   assert.equal(KNOWLEDGE_MAX_VALIDATED_NODES, 64);
 });
+
+test('the verified listing carries the daughters of a composed entry by name only', async t => {
+  const root = await newRoot(t, 'composed-listing-');
+  const fixture = await composedWorkspace(root);
+  const library = await readRoot(root);
+  const { entries, invalid } = await library.verifiedList();
+  assert.deepEqual(invalid, []);
+  const mother = entries.find(entry => entry.name === 'mother');
+  // The relation is derived from the declared dependencies: the daughters'
+  // names, in declared order, and nothing of their own.
+  assert.deepEqual(mother, {
+    name: 'mother',
+    description: 'how the daughters of mother interact',
+    revision: fixture.motherRevision,
+    daughterNames: ['child_one', 'child_two']
+  });
+  // Every daughter keeps her own row, and an atomic entry carries no relation.
+  for (const daughter of ['child_one', 'child_two']) {
+    const row = entries.find(entry => entry.name === daughter);
+    assert.ok(row, `${daughter} keeps her row`);
+    assert.deepEqual(Object.keys(row).sort(), ['description', 'name', 'revision']);
+  }
+});
+
+test('the verified listing reports a composed refusal with its dependency step and the KO daughter', async t => {
+  const root = await newRoot(t, 'composed-listing-refused-');
+  await composedWorkspace(root);
+  const library = await readRoot(root);
+  // The daughter's Markdown is untouched; the code she cites moved.
+  await writeFile(join(root, 'alpha.ts'), 'export const alpha = 99;\n');
+  const { entries, invalid } = await library.verifiedList();
+  assert.ok(!entries.some(entry => entry.name === 'mother'), 'a mother whose daughter broke is no longer verified');
+  const mother = invalid.find(entry => entry.name === 'mother');
+  // The reason describes the dependency step, never the daughter's own reason,
+  // and the KO daughter of that level is named: the repair has a target.
+  assert.equal(mother?.reason, 'dependency_invalid');
+  assert.equal(mother?.via, 'child_one');
+  assert.equal(typeof mother?.revision, 'string');
+  // The invalid set is listed in full whatever the query: it stays visible.
+  for (const query of ['mother', 'nothing-matches-this']) {
+    const filtered = await library.verifiedList(query);
+    assert.deepEqual(filtered.invalid.map(entry => entry.name), invalid.map(entry => entry.name));
+    assert.equal(filtered.invalid.find(entry => entry.name === 'mother')?.via, 'child_one');
+  }
+});
