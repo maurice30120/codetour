@@ -19,8 +19,9 @@ permissions:
 
 concurrency:
   # One pass per commit: a pull request run cancels the push run of the same
-  # ref instead of paying for both.
-  group: test-${{ github.ref }}
+  # ref instead of paying for both. The manual investigation lane keeps its own
+  # group, so a concurrent suite run never cancels the answer being read.
+  group: test-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && 'diagnose' || 'suite' }}
   cancel-in-progress: true
 
 jobs:
