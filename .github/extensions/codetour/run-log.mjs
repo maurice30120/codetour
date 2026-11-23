@@ -1,4 +1,4 @@
-import { constants, createReadStream, promises as fs } from "node:fs";
+import { constants, createReadStream, promises as fs, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
@@ -69,6 +69,32 @@ const LOCK_STALE_MS = 15000;
 
 export function isValidRunId(runId) {
   return typeof runId === "string" && RUN_ID_PATTERN.test(runId);
+}
+
+// The workspace spelling every comparison uses (ADR 0056). Node has *two*
+// realpath implementations with different answers on Windows: `realpathSync`
+// keeps an 8.3 short name (`C:\Users\RUNNER~1\...`) while
+// `fs.promises.realpath` answers the long on-disk form. A server writing with
+// one and a hook comparing with the other never agree, so both sides go
+// through the native call — the file system's own answer — with the trailing
+// separator removed.
+export function canonicalWorkspace(value) {
+  if (typeof value !== "string" || value === "") return "";
+  const resolved = path.resolve(value);
+  let canonical = resolved;
+  try {
+    canonical = typeof realpathSync.native === "function" ? realpathSync.native(resolved) : realpathSync(resolved);
+  } catch {
+    // An unavailable real path keeps the resolved argument.
+  }
+  return canonical.length > 1 && (canonical.endsWith("/") || canonical.endsWith("\\"))
+    ? canonical.slice(0, -1)
+    : canonical;
+}
+
+/** Whether two spellings name the same workspace root. */
+export function sameWorkspace(left, right) {
+  return canonicalWorkspace(left) === canonicalWorkspace(right);
 }
 
 export function runLogDirectory(workspace) {
@@ -192,7 +218,7 @@ export async function readRunStateFile(file) {
 
 export async function writeRunState(workspace, state) {
   if (!isRunState(state)) throw new Error("Invalid CodeTour run state.");
-  if (path.resolve(state.workspace) !== path.resolve(await fs.realpath(workspace))) {
+  if (!sameWorkspace(state.workspace, workspace)) {
     throw new Error("The CodeTour run state belongs to another workspace.");
   }
   await ensureDirectory(workspace);

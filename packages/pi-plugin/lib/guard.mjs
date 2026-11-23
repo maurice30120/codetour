@@ -1,4 +1,4 @@
-import { isExpired } from "./run-log.mjs";
+import { isExpired, sameWorkspace } from "./run-log.mjs";
 
 // The bounded consolidation guard and the closing line of a Pi run.
 //
@@ -22,7 +22,7 @@ export function selectContinuation(states, { workspace, sessionId, now = Date.no
   const candidates = states
     .filter(
       state =>
-        state.workspace === workspace &&
+        sameWorkspace(state.workspace, workspace) &&
         state.sessionId === sessionId &&
         state.tourCreated === true &&
         state.continuationUsed !== true &&

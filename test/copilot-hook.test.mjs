@@ -268,6 +268,18 @@ test("an expired run and a symlinked workspace path are handled deterministicall
       updatedAt: new Date().toISOString()
     });
     assert.equal(runHook(payload({ cwd: link })).output.decision, "block");
+    // The comparison is symmetric: a state recorded under another spelling of
+    // the same root — here the link rather than its target — is still this
+    // run's, so a writer using one spelling and a hook reading the other agree
+    // (ADR 0056).
+    writeState(workspace, {
+      runId: "run-eeeeeeeeeeeeeeee",
+      workspace: link,
+      tourCreated: true,
+      at: new Date().toISOString(),
+      updatedAt: new Date(Date.now() + 1000).toISOString()
+    });
+    assert.equal(runHook(payload({ cwd: workspace })).output.decision, "block");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

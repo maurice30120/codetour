@@ -1,6 +1,7 @@
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
+import { canonicalWorkspacePath } from "codetour-knowledge";
 
 /**
  * The CodeTour generation run log (spec #223, ticket #228).
@@ -237,7 +238,10 @@ function baseState(
   return {
     version: RUN_STATE_VERSION,
     runId,
-    workspace,
+    // The state carries the canonical workspace spelling (ADR 0056): the hooks
+    // compare it with their own real path, and an 8.3 or symlinked spelling
+    // would make the run invisible to the guard that must read it.
+    workspace: canonicalWorkspacePath(workspace),
     sessionId: null,
     kind,
     request: null,

@@ -1,5 +1,8 @@
 import * as assert from "node:assert";
+import { realpathSync, symlinkSync } from "node:fs";
+import * as path from "node:path";
 import { test } from "node:test";
+import { canonicalWorkspacePath } from "codetour-knowledge";
 import {
   readRunState,
   recordKnowledgeListing,
@@ -140,5 +143,27 @@ test("no run identity means no write at all", async () => {
     assert.equal(await readRunState(root, RUN_ID), undefined);
   } finally {
     rmrf(root);
+  }
+});
+
+test("the state records the canonical workspace spelling, not the argument", async () => {
+  // ADR 0056: the hooks compare this field with their own real path, and Node's
+  // two realpath implementations answer differently on Windows (an 8.3 short
+  // name versus the long form). A symlink is the platform-neutral spelling
+  // difference available to this test: the run must carry the target.
+  const directory = tempDir("codetour-knowledge-workspace-");
+  const real = realpathSync(directory);
+  const linked = path.join(path.dirname(real), `${path.basename(real)}-linked`);
+  symlinkSync(real, linked, "dir");
+  try {
+    const created = await recordTourCreated(linked, RUN_ID, "project", ".tours/project.tour", "Tour");
+    assert.equal(created.persisted, true);
+    // The file lives under the root the caller named, and the state names the
+    // canonical root: both spellings still lead the hooks to the same run.
+    assert.equal((await readRunState(linked, RUN_ID))?.workspace, canonicalWorkspacePath(real));
+    assert.notEqual((await readRunState(linked, RUN_ID))?.workspace, linked);
+  } finally {
+    rmrf(linked);
+    rmrf(directory);
   }
 });

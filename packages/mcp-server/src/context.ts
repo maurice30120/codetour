@@ -1,13 +1,15 @@
 import * as fs from "fs";
 import * as path from "path";
+import { canonicalWorkspacePath } from "codetour-knowledge";
 import { Issue, WorkspaceContext } from "./types";
 
-// Workspace context: the supplied root and its resolved real path. All
+// Workspace context: the supplied root and its canonical real path. All
 // confinement checks compare real paths so a symlink cannot escape the
-// configured root.
+// configured root, and the root the run log records is the one the hooks
+// compare (ADR 0056).
 export function createContext(workspaceRoot: string): WorkspaceContext {
   const root = path.resolve(workspaceRoot);
-  const realRoot = fs.realpathSync(root);
+  const realRoot = canonicalWorkspacePath(workspaceRoot);
   if (!fs.statSync(realRoot).isDirectory()) {
     throw new Error("workspace root must be a directory");
   }

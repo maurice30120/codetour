@@ -5,6 +5,7 @@ import {
   collectSessionUsage,
   listRunStates,
   recordRunMetrics,
+  sameWorkspace,
   summarizeRunUsage,
   updateRunState
 } from "../lib/run-log.mjs";
@@ -200,7 +201,7 @@ function isClosed(state) {
 // Nothing here influences the guard: any failure is a diagnostic.
 async function recordUsageMetrics(workspace, sessionId, states) {
   const mine = states
-    .filter(state => state.workspace === workspace && state.sessionId === sessionId)
+    .filter(state => sameWorkspace(state.workspace, workspace) && state.sessionId === sessionId)
     .sort((left, right) => (Date.parse(left.at) || 0) - (Date.parse(right.at) || 0));
   if (mine.length === 0) return;
   const session = await collectSessionUsage(sessionId);
@@ -254,7 +255,7 @@ async function decide(input) {
   for (const problem of listed.problems) diagnostic(`ignored run state (${problem})`);
   await recordUsageMetrics(workspace, sessionId, listed.states);
   const candidates = listed.states.filter(state =>
-    state.workspace === workspace &&
+    sameWorkspace(state.workspace, workspace) &&
     state.sessionId === sessionId &&
     state.tourCreated === true &&
     !state.continuationUsed &&
