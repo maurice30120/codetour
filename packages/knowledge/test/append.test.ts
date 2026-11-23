@@ -490,3 +490,33 @@ test('engine_changed refuses an append whose resulting entry carries symbol proo
   assert.equal((await readFile(marker, 'utf8')).trim(), 'span@0', 'the marker is never rewritten');
   assert.notEqual(knowledgeCanonicalizer, 'span@0');
 });
+
+test('an append keeps the daughters of a composed entry verbatim, pins included', async t => {
+  const root = await realRoot('knowledge-append-composed-');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'main.ts'), 'export const start = 1;\n');
+  await writeFile(join(root, 'reader.ts'), 'export const read = () => 1;\n');
+  // A composed entry enriches without changing what she is: the daughters are
+  // carried exactly as the body is, so `append` can neither drop nor re-pin one
+  // (spec #288).
+  const pins = [
+    { name: 'child_one', sha256: 'a'.repeat(64) },
+    { name: 'child_two', sha256: 'b'.repeat(64) }
+  ];
+  const composed = `---\nname: mother\ndescription: How the two daughters interact\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${sha256('export const start = 1;\n')}\n  - type: file\n    path: reader.ts\n    sha256: ${sha256('export const read = () => 1;\n')}\ndependencies:\n${pins.map(pin => `  - name: ${pin.name}\n    sha256: ${pin.sha256}`).join('\n')}\n---\n${SEEDED_BODY}`;
+  await mkdir(knowledgeDirectory(root), { recursive: true });
+  await writeFile(entryPath(root, 'mother'), composed);
+
+  const result = await append(root, {
+    name: 'mother',
+    addition: '## Interaction\n\nAppended section.\n',
+    expectedRevision: knowledgeRevision(Buffer.from(composed))
+  });
+  assert.equal(result.status, 'appended', JSON.stringify(result));
+  const parsed = parseKnowledge(await readFile(entryPath(root, 'mother'), 'utf8'), 'mother.md');
+  assert.equal(parsed.status, 'valid');
+  const written = parsed as { dependencies: unknown; body: string };
+  assert.deepEqual(written.dependencies, pins);
+  assert.ok(written.body.startsWith(SEEDED_BODY), 'the historical body stays verbatim');
+  assert.match(written.body, /Appended section\./);
+});

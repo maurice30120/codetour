@@ -26,6 +26,7 @@ interface EntryFixture {
   body: string;
   evidence?: Array<{ path: string; sha256?: string }>;
   symbolProof?: { path: string; symbol: string; sha256?: string };
+  dependencies?: Array<{ name: string; sha256: string }>;
 }
 
 // Write one Knowledge entry in the documented catalogue grammar. Fixtures are
@@ -55,8 +56,57 @@ function writeEntry(root: string, name: string, fixture: EntryFixture): void {
       );
     }
   }
+  if (fixture.dependencies && fixture.dependencies.length > 0) {
+    lines.push("dependencies:");
+    for (const dependency of fixture.dependencies) {
+      lines.push(`  - name: ${dependency.name}`, `    sha256: ${dependency.sha256}`);
+    }
+  }
   lines.push("---", fixture.body);
-  fs.writeFileSync(path.join(catalogue, `${name}.md`), lines.join("\n"));
+  fs.writeFileSync(entryFile(root, name), lines.join("\n"));
+}
+
+/** Path of one catalogue entry, so a dependency pin can hash her exact bytes. */
+function entryFile(root: string, name: string): string {
+  return path.join(catalogueDirectory(root), `${name}.md`);
+}
+
+/** The Knowledge Revision of a written fixture: the SHA-256 of its whole file. */
+function revisionOf(file: string): string {
+  return sha256(fs.readFileSync(file, "utf8"));
+}
+
+/**
+ * One composed entry over two atomic daughters, every pin computed from the
+ * bytes actually written. A test moves exactly one daughter's cited code
+ * without touching her Markdown.
+ */
+function writeComposedFixture(root: string): void {
+  const dispatchCode = writeWorkspaceFile(root, "src/dispatch.ts", "export const dispatch = 1;\n");
+  const renderCode = writeWorkspaceFile(root, "src/render.ts", "export const render = 2;\n");
+  const authCode = writeWorkspaceFile(root, "src/auth.ts", "export const auth = 4;\n");
+  writeEntry(root, "dispatch_flow", {
+    description: "How a tool call dispatches",
+    body: "DAUGHTER SECRET one\n",
+    evidence: [{ path: "src/dispatch.ts", sha256: dispatchCode }],
+  });
+  writeEntry(root, "auth_flow", {
+    description: "How a session is authenticated",
+    body: "DAUGHTER SECRET two\n",
+    evidence: [{ path: "src/auth.ts", sha256: authCode }],
+  });
+  writeEntry(root, "composed_flow", {
+    description: "How dispatch interacts with authentication",
+    body: "MOTHER BODY\n",
+    evidence: [
+      { path: "src/dispatch.ts", sha256: dispatchCode },
+      { path: "src/render.ts", sha256: renderCode },
+    ],
+    dependencies: [
+      { name: "dispatch_flow", sha256: revisionOf(entryFile(root, "dispatch_flow")) },
+      { name: "auth_flow", sha256: revisionOf(entryFile(root, "auth_flow")) },
+    ],
+  });
 }
 
 function writeWorkspaceFile(root: string, relativePath: string, content: string): string {
@@ -383,6 +433,81 @@ test("knowledge_read reports an unknown entry as an explicit absence", async () 
         name: "never_written",
       });
       assert.doesNotMatch(response.text, /body/i);
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("knowledge_read serves a valid composed entry and never a daughter body", async () => {
+  const root = tempDir("codetour-knowledge-composed-");
+  try {
+    writeComposedFixture(root);
+    await withServer(root, async (client) => {
+      const response = await callTool(client, KNOWLEDGE_READ, { name: "composed_flow" });
+      assert.equal(response.isError, false, response.text);
+      const { revision, ...shape } = response.structured;
+      assert.equal(typeof revision, "string");
+      // The composed body, her own two proofs, and nothing of her daughters.
+      assert.deepEqual(shape, {
+        status: "valid",
+        workspace: ".",
+        name: "composed_flow",
+        description: "How dispatch interacts with authentication",
+        body: "MOTHER BODY\n",
+        evidence: [
+          { path: "src/dispatch.ts", sha256: sha256("export const dispatch = 1;\n") },
+          { path: "src/render.ts", sha256: sha256("export const render = 2;\n") },
+        ],
+      });
+      const surface = textOf(response);
+      assert.doesNotMatch(surface, /DAUGHTER SECRET/);
+      // A daughter's pin is a revision of HER file: it is never echoed here.
+      for (const daughter of ["dispatch_flow", "auth_flow"]) {
+        assert.ok(
+          !surface.includes(revisionOf(entryFile(root, daughter))),
+          "a daughter revision must not be surfaced"
+        );
+      }
+    });
+  } finally {
+    rmrf(root);
+  }
+});
+
+test("knowledge_read refuses a composed entry whose daughter broke and names her in via", async () => {
+  const root = tempDir("codetour-knowledge-composed-refuse-");
+  try {
+    writeComposedFixture(root);
+    await withServer(root, async (client) => {
+      // The daughter's Markdown is untouched; the code she cites moved.
+      writeFile(root, "src/auth.ts", "export const auth = 44;\n");
+      const refused = await callTool(client, KNOWLEDGE_READ, { name: "composed_flow" });
+      assert.equal(refused.isError, false, refused.text);
+      const { revision, ...shape } = refused.structured;
+      assert.equal(typeof revision, "string", "the mother's own file was readable");
+      // The reason describes the dependency step and `via` names the KO
+      // daughter of that level; her own reason stays hers.
+      assert.deepEqual(shape, {
+        status: "invalid",
+        workspace: ".",
+        name: "composed_flow",
+        reason: "dependency_invalid",
+        via: "auth_flow",
+      });
+      const surface = textOf(refused);
+      assert.doesNotMatch(surface, /MOTHER BODY|DAUGHTER SECRET/);
+      assert.ok(!surface.includes("file_hash_mismatch"), "the daughter's own reason is not her mother's");
+      // Reading the daughter says what is actually wrong with her, with no via.
+      const daughter = await callTool(client, KNOWLEDGE_READ, { name: "auth_flow" });
+      assert.equal(daughter.structured.reason, "file_hash_mismatch");
+      assert.equal(daughter.structured.via, undefined);
+      // The transitional refusal of the contract ticket is gone: the byte that
+      // was restored restores the composed read itself.
+      writeFile(root, "src/auth.ts", "export const auth = 4;\n");
+      const restored = await callTool(client, KNOWLEDGE_READ, { name: "composed_flow" });
+      assert.equal(restored.structured.status, "valid", restored.text);
+      assert.equal(restored.structured.body, "MOTHER BODY\n");
     });
   } finally {
     rmrf(root);
