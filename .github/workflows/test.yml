@@ -33,6 +33,7 @@ jobs:
         run: node --version && npm --version
       - run: npm ci
       - run: npm ci --prefix packages/description-renderer
+      - run: npm ci --prefix packages/knowledge
       - run: npm ci --prefix packages/mcp-server
       - run: npm ci --prefix packages/exploration-poc
       - run: npm run test

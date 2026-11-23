@@ -2,12 +2,21 @@ import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import * as nodeModule from "node:module";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import { createVscodeHost, Uri } from "./test/vscodeHost";
 
 const host = createVscodeHost();
 let discoveries = 0;
 const tours: Array<{ id: string }> = [];
 const started: Array<{ tour: { id: string }; step: number }> = [];
+
+/**
+ * The identifier Tour discovery stores for a file: its URI, decoded, in the
+ * platform's own spelling — the form the extension reads back as a path.
+ */
+function discoveryId(file: string): string {
+  return decodeURIComponent(pathToFileURL(path.resolve(file)).href);
+}
 (host.vscode as unknown as { UIKind: object }).UIKind = { Web: 2, Desktop: 1 };
 (host.vscode.workspace as unknown as { onDidChangeWorkspaceFolders: () => void }).onDidChangeWorkspaceFolders = () => undefined;
 const originalLoad = (nodeModule as unknown as { _load: Function })._load;
@@ -45,10 +54,12 @@ test("an opening for the current workspace proceeds to Tour discovery", async ()
 });
 
 test("a multi-root workspace opens the requested root's Tour and Step", async () => {
-  const otherRoot = "/other-root";
+  // Roots and Tour files are spelled the way this platform resolves them: the
+  // extension compares one canonical path, not one separator.
+  const otherRoot = path.resolve("/other-root");
   host.vscode.workspace.workspaceFolders.push({ uri: Uri.file(otherRoot), name: "other", index: 1 });
-  tours.push({ id: Uri.file("/workspace/.tours/demo.tour").toString() });
-  tours.push({ id: Uri.file("/other-root/.tours/demo.tour").toString() });
+  tours.push({ id: discoveryId("/workspace/.tours/demo.tour") });
+  tours.push({ id: discoveryId("/other-root/.tours/demo.tour") });
   const handler = new URIHandler();
   await handler.handleUri(new Uri("vscode", "", "/openTour", new URLSearchParams({ workspace: otherRoot, tour: ".tours/demo.tour", step: "2" }).toString()) as never);
   assert.deepEqual(started.at(-1), { tour: tours[1], step: 1 });
@@ -70,11 +81,12 @@ test("a missing Tour in the requested workspace is reported", async () => {
 });
 
 test("a Tour whose decoded identifier contains URL delimiters is opened", async () => {
+  const otherRoot = path.resolve("/other-root");
   for (const name of ["demo#review.tour", "demo?review.tour", "demo%review.tour"]) {
-    const tour = { id: `file:///other-root/.tours/${name}` };
+    const tour = { id: discoveryId(`/other-root/.tours/${name}`) };
     tours.push(tour);
     const handler = new URIHandler();
-    await handler.handleUri(new Uri("vscode", "", "/openTour", new URLSearchParams({ workspace: "/other-root", tour: `.tours/${name}`, step: "1" }).toString()) as never);
+    await handler.handleUri(new Uri("vscode", "", "/openTour", new URLSearchParams({ workspace: otherRoot, tour: `.tours/${name}`, step: "1" }).toString()) as never);
     assert.deepEqual(started.at(-1), { tour, step: 0 });
   }
 });

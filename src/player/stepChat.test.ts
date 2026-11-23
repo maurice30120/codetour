@@ -386,10 +386,16 @@ test("a panel whose probed catalogue has no usable agent explains it and disable
     }
     const probed = lastChatUpdate();
     // Every catalogued profile is listed, in rank order, with the state the
-    // probe established: the panel shows the catalogue, not a PATH scan.
+    // probe established: the panel shows the catalogue, not a PATH scan. Pi
+    // needs the POSIX launcher of ADR 0049, so where the platform cannot
+    // provide one it is a connection error no probe ever refutes.
+    const piState = process.platform === "win32" ? "connection-error" : "not-installed";
     assert.deepEqual(
       probed.agents?.map(agent => [agent.name, agent.state]),
-      AGENT_CATALOGUE.map((profile: { name: string }) => [profile.name, "not-installed"])
+      AGENT_CATALOGUE.map((profile: { name: string }) => [
+        profile.name,
+        profile.name === "Pi" ? piState : "not-installed"
+      ])
     );
     assert.equal(probed.agent, undefined, "nothing is preselected");
     assert.deepEqual(probed.exchanges, []);
