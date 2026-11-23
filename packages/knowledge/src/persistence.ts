@@ -538,6 +538,16 @@ const sameEvidence = (left: readonly KnowledgeProof[], right: readonly Knowledge
     return other.type === 'file' && proof.path === other.path && proof.sha256 === other.sha256 && proof.origin === other.origin;
   });
 
+/** Same declared daughters, in the same order, with the same pins (spec #288). */
+const sameDependencies = (
+  left: readonly KnowledgeDependency[] | undefined,
+  right: readonly KnowledgeDependency[] | undefined
+): boolean => {
+  if (left === undefined || right === undefined) return left === right;
+  return left.length === right.length && left.every((dependency, index) =>
+    dependency.name === right[index].name && dependency.sha256 === right[index].sha256);
+};
+
 const errorCode = (error: unknown): string | undefined =>
   isRecord(error) && typeof error.code === 'string' ? error.code : undefined;
 
@@ -742,15 +752,20 @@ async function appendToEntry(realRoot: string, directory: string, append: Valida
     name: historical.name,
     description: historical.description,
     body,
-    evidence: merged.evidence
+    evidence: merged.evidence,
+    // An append enriches an entry, it never changes what the entry IS: the
+    // historical daughters are carried verbatim, exactly like the body, and
+    // with their pins untouched (spec #288).
+    ...(historical.dependencies === undefined ? {} : { dependencies: historical.dependencies })
   };
   // The read grammar stays the only grammar: an appended entry that does not
-  // read back exactly — name, description, body, evidence traces — is refused
-  // instead of published. The historical description is carried, never
-  // re-invented: an append cannot rewrite who the entry is.
+  // read back exactly — name, description, body, evidence traces, declared
+  // daughters — is refused instead of published. The historical description is
+  // carried, never re-invented: an append cannot rewrite who the entry is.
   const roundTrip = parseKnowledge(serializeKnowledgeEntry(entry), `${entry.name}.md`);
   if (roundTrip.status !== 'valid' || roundTrip.name !== entry.name || roundTrip.description !== entry.description ||
-    roundTrip.body !== body || !sameEvidence(roundTrip.evidence, entry.evidence)) {
+    roundTrip.body !== body || !sameEvidence(roundTrip.evidence, entry.evidence) ||
+    !sameDependencies(roundTrip.dependencies, entry.dependencies)) {
     return { status: 'invalid', rejected: [{ name, reason: 'malformed_entry' }] };
   }
   // The second read of every cited proof, historical ones included.

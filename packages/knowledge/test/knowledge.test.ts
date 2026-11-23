@@ -279,7 +279,7 @@ async function writeDaughters(root: string): Promise<KnowledgeDependency[]> {
 const composedEntry = (name: string, dependencies: string, evidence: string): string =>
   `---\nname: ${name}\ndescription: how the two daughters interact\nevidence:\n${evidence}\n${dependencies}\n---\nsecret composed body\n`;
 
-test('a composed entry declares two distinct daughters and its body is refused until the graph is validated', async t => {
+test('a composed entry declares two distinct daughters and its whole graph decides the body', async t => {
   const root = await realRoot('knowledge-composed-');
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, 'main.ts'), 'main bytes\n');
@@ -299,17 +299,17 @@ test('a composed entry declares two distinct daughters and its body is refused u
   assert.equal(entry.evidence.length, 2);
   assert.equal(entry.evidence.every(proof => proof.type === 'file'), true);
 
-  // The read is not: no composed body is served before the daughter graph is
-  // validated (ticket #283), even though both direct proofs verify.
+  // The read serves her body once the whole daughter graph verifies — and never
+  // carries a daughter's body with it (spec #288, ticket #283).
   const library = await readRoot(root);
   const read = await library.read('mother');
-  await expectInvalid(read, 'dependency_validation_unavailable');
-  assert.doesNotMatch(JSON.stringify(read), /secret composed body/);
+  assert.equal(read.status, 'valid', JSON.stringify(read));
+  assert.equal((read as { body: string }).body, 'secret composed body\n');
+  assert.doesNotMatch(JSON.stringify(read), /child_one body|child_two body/);
   assert.equal(typeof (read as { revision?: string }).revision, 'string');
-  // Discovery stays metadata only, and the refusal is visible as such.
+  // Discovery stays metadata only, and no entry is reported invalid.
   assert.ok((await library.catalog()).some(({ name, description }) => name === 'mother' && description === 'how the two daughters interact'));
-  const { invalid } = await library.verifiedList();
-  assert.deepEqual(invalid.map(({ name, reason }) => ({ name, reason })), [{ name: 'mother', reason: 'dependency_validation_unavailable' }]);
+  assert.deepEqual((await library.verifiedList()).invalid, []);
 });
 
 test('a dependencies block declared before evidence stays a dependency block', async t => {
@@ -328,7 +328,7 @@ test('a dependencies block declared before evidence stays a dependency block', a
   const entry = parsed as Extract<KnowledgeParseResult, { status: 'valid' }>;
   assert.deepEqual(entry.dependencies, daughters);
   assert.equal(entry.evidence.length, 2);
-  await expectInvalid(await (await readRoot(root)).read('mother'), 'dependency_validation_unavailable');
+  assert.equal((await (await readRoot(root)).read('mother')).status, 'valid');
 });
 
 test('malformed dependency contracts are refused without reading the body', async t => {
@@ -363,9 +363,10 @@ test('malformed dependency contracts are refused without reading the body', asyn
     await expectInvalid(read, 'malformed_contract');
     assert.doesNotMatch(JSON.stringify(read), /secret composed body/);
   }
-  // The same declaration with two direct proofs is a legal contract.
+  // The same declaration with two direct proofs is a legal contract, and now a
+  // readable one: her daughters verify, so her body is served.
   await writeEntry(root, 'mother.md', composedEntry('mother', dependencyBlock([childOne, childTwo]), evidence));
-  await expectInvalid(await (await readRoot(root)).read('mother'), 'dependency_validation_unavailable');
+  assert.equal((await (await readRoot(root)).read('mother')).status, 'valid');
 });
 
 test('a dependency item under evidence and a proof item under dependencies are refused, never attached', async t => {

@@ -1809,7 +1809,8 @@ async function handleKnowledgeRead(
   // A refusal names only its machine-readable cause: no body, no cited path
   // and no hash value ever leaves the catalogue. Its revision does, when the
   // entry file was readable: it addresses the bytes that failed without
-  // revealing one byte of them.
+  // revealing one byte of them. A composed refusal adds the faulty daughter of
+  // its own level, so the caller can descend to the real cause (spec #288).
   return knowledgeResponse(
     {
       status: "invalid",
@@ -1817,8 +1818,11 @@ async function handleKnowledgeRead(
       name,
       reason: read.reason,
       ...(read.revision === undefined ? {} : { revision: read.revision }),
+      ...(read.via === undefined ? {} : { via: read.via }),
     },
-    `Knowledge entry "${name}" is not readable (reason: ${read.reason}). No content is returned.`
+    `Knowledge entry "${name}" is not readable (reason: ${read.reason}${
+      read.via === undefined ? "" : `, daughter: ${read.via}`
+    }). No content is returned.`
   );
 }
 

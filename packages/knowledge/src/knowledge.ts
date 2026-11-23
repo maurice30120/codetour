@@ -99,20 +99,26 @@ export type KnowledgeFailureReason =
   | 'symbol_hash_mismatch'
   | 'engine_changed'
   /**
-   * Temporary (spec #288, ticket #282): the contract accepts a declaration of
-   * dependencies, the read does not yet. A composed body is refused — even
-   * when every direct proof verifies — until the daughter graph is validated
-   * transitively (ticket #283), so no unverified composition is ever served.
-   * This reason disappears with #283.
+   * Dependency-step refusals of a Composed Knowledge Entry (spec #288). They
+   * describe the step that failed, never the daughter's own reason: saying
+   * `unknown_entry` of an entry that exists would be false. The refusal names
+   * the faulty daughter of its own level, so descending one read per level
+   * reaches the real cause, bounded by the composition depth.
    */
-  | 'dependency_validation_unavailable';
+  | 'dependency_missing'
+  | 'dependency_invalid'
+  | 'dependency_cycle'
+  | 'dependency_depth_exceeded'
+  | 'dependency_node_limit_exceeded';
 
 /**
  * Outcome of a Knowledge read: the validated Markdown body with its revision,
  * or a typed refusal. A refusal carries the revision whenever the entry file
  * itself was readable — that is what makes an invalid entry repairable without
  * ever serving its body — and none when there is no entry file to hash
- * (`unknown_entry`, `symlink_escape`, a malformed name).
+ * (`unknown_entry`, `symlink_escape`, a malformed name). A composed refusal
+ * additionally names the faulty daughter of its own level in `via`, and
+ * carries no body, no cited path and no hash value of that daughter.
  */
 export type KnowledgeValidation =
   | {
@@ -125,7 +131,7 @@ export type KnowledgeValidation =
     dependencies?: KnowledgeDependency[];
     revision: string;
   }
-  | { status: 'invalid'; reason: KnowledgeFailureReason; revision?: string };
+  | { status: 'invalid'; reason: KnowledgeFailureReason; revision?: string; via?: string };
 
 /**
  * Static outcome of parsing one Knowledge file: the read outcome minus the
@@ -177,6 +183,16 @@ const frontmatterSchema = z.object({
 
 /** Location of the Knowledge catalogue inside one workspace. */
 export const knowledgeDirectory = (root: string): string => join(root, '.tours', '.memory', 'knowledge');
+
+/**
+ * Bounds of one composed read (spec #288). Two composition levels below the
+ * entry read — the `composed → composed → atomic` chain, and nothing deeper —
+ * and 64 distinct entries verified by one operation, that entry included.
+ * Exceeding either is a total, typed refusal: a bound never degrades into a
+ * partial serve.
+ */
+export const KNOWLEDGE_MAX_COMPOSITION_DEPTH = 2;
+export const KNOWLEDGE_MAX_VALIDATED_NODES = 64;
 
 /**
  * Knowledge Revision of one entry file (ADR 0053): the SHA-256 of its complete
@@ -373,21 +389,20 @@ const resolveCitedFile = async (realRoot: string, path: string): Promise<CitedFi
 };
 
 /**
- * Deterministic verification of a parsed Knowledge entry. EVERY declared
- * proof is checked — never a sample — before the body is returned: each cited
- * path must stay inside the workspace, must not escape through a symbolic
- * link, and each proof must hash to its declared SHA-256 — the cited file's
- * bytes for `file`, the symbol's canonical span for `symbol`. The first
+ * Deterministic verification of ONE parsed Knowledge entry: every declared
+ * proof of its own is checked — never a sample — before the body is returned:
+ * each cited path must stay inside the workspace, must not escape through a
+ * symbolic link, and each proof must hash to its declared SHA-256 — the cited
+ * file's bytes for `file`, the symbol's canonical span for `symbol`. The first
  * failing proof stops the check with its reason; no content, path or hash
  * value ever leaves this module with the refusal.
+ *
+ * A daughter of a composed entry is a Knowledge like any other, so she is
+ * verified through this same function (spec #288): what composes the checks —
+ * the daughter graph, its cycle and node bounds — is the catalogue read's
+ * step, never a second notion of a valid entry.
  */
 export async function verifyKnowledge(entry: Extract<KnowledgeParseResult, { status: 'valid' }>, root: string, fingerprinter: SymbolFingerprinter = treeSitterSymbolFingerprinter): Promise<KnowledgeParseResult> {
-  // Temporary (spec #288, ticket #282): the contract accepts a declaration of
-  // dependencies, the verification does not yet. A composed entry is refused
-  // before anything is read, even when every direct proof would verify, so no
-  // unvalidated composition is ever served; ticket #283 validates the daughter
-  // graph here instead and this reason disappears.
-  if (entry.dependencies !== undefined) return { status: 'invalid', reason: 'dependency_validation_unavailable' };
   let realRoot: string;
   try { realRoot = await realpath(root); }
   catch { return { status: 'invalid', reason: 'file_missing' }; }
@@ -494,6 +509,37 @@ export async function hashWorkspaceFile(root: string, path: string): Promise<Kno
   return { status: 'ok', path: relative(realRoot, real).split(sep).join('/'), sha256: fileProofHash(bytes) };
 }
 
+/**
+ * Outcome of validating one entry together with, when she is composed, her
+ * whole daughter graph. `via` names the faulty daughter of the level that
+ * refused, and nothing else about her ever leaves.
+ */
+type GraphOutcome =
+  | { status: 'valid'; entry: Extract<KnowledgeParseResult, { status: 'valid' }> }
+  | { status: 'invalid'; reason: KnowledgeFailureReason; via?: string };
+
+/**
+ * Refusals that describe the graph a read traversed rather than one daughter:
+ * a loop or a bound stays true at every level above it, so it is reported
+ * unchanged (with this level's own daughter in `via`) instead of degrading
+ * into `dependency_invalid` and hiding the diagnosis under a chain of reads.
+ */
+const GRAPH_REFUSALS: ReadonlySet<KnowledgeFailureReason> = new Set<KnowledgeFailureReason>([
+  'dependency_cycle',
+  'dependency_depth_exceeded',
+  'dependency_node_limit_exceeded'
+]);
+
+/**
+ * The validation cache of ONE read (spec #288): every distinct entry this
+ * operation verified, with the shallowest composition depth that verified her.
+ * A shallower verification is the stronger one — it explored her daughters one
+ * level higher — so only an equal or shallower depth may reuse it. The map is
+ * created per read and never survives it: a modification made between two
+ * reads is always seen.
+ */
+type GraphState = { fingerprint: SymbolFingerprinter; verifiedAt: Map<string, number> };
+
 export interface KnowledgeLibrary {
   /** Discoverable entries: name, description and revision only, sorted by name. */
   catalog(): Promise<KnowledgeMetadata[]>;
@@ -504,7 +550,11 @@ export interface KnowledgeLibrary {
     entries: KnowledgeMetadata[];
     invalid: { name: string; reason: KnowledgeFailureReason; revision?: string }[];
   }>;
-  /** Deterministic read: verifies the whole declared evidence contract first. */
+  /**
+   * Deterministic read: verifies the whole declared evidence contract and, for
+   * a composed entry, every daughter's own contract down the declared graph,
+   * before any body is returned (spec #288).
+   */
   read(name: string): Promise<KnowledgeValidation>;
 }
 
@@ -512,7 +562,8 @@ export interface KnowledgeLibrary {
  * Open the `knowledge` catalogue of one workspace: a flat directory of
  * `<name>.md` entries. A missing or unreadable catalogue is an empty library
  * and never breaks an ordinary search; every read verifies the whole declared
- * evidence contract before the body is returned.
+ * evidence contract, and a composed entry's whole daughter graph, before the
+ * body is returned.
  */
 export async function loadKnowledgeLibrary(root: string, directory: string, fingerprinter: SymbolFingerprinter = treeSitterSymbolFingerprinter): Promise<KnowledgeLibrary> {
   const realRoot = await realpath(root).catch(() => undefined);
@@ -536,6 +587,74 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
       // it exists before, and independently of, every verification.
       return { status: 'valid', source: bytes.toString('utf8'), revision: knowledgeRevision(bytes) };
     } catch { return { status: 'invalid', reason: 'unknown_entry' }; }
+  };
+  /**
+   * Presence and pinned revision of one daughter (spec #288, step 2): she is
+   * looked up by name in the same catalogue directory as the entry being read,
+   * so the catalogue root stays confined exactly as for an atomic entry, and
+   * her complete file bytes must hash to the revision the mother declared.
+   * Nothing of her file but a readable source ever leaves this function.
+   */
+  const readDaughter = async (
+    name: string,
+    declaredRevision: string
+  ): Promise<{ status: 'ok'; source: string } | { status: 'refused'; reason: 'dependency_missing' | 'dependency_invalid' }> => {
+    const entryFile = await readEntryFile(name);
+    if (entryFile.status !== 'valid') {
+      // Absence and an unreadable catalogue file are distinct diagnoses: only
+      // the first one means the catalogue does not hold the daughter at all.
+      return { status: 'refused', reason: entryFile.reason === 'unknown_entry' ? 'dependency_missing' : 'dependency_invalid' };
+    }
+    if (!sameHash(declaredRevision, entryFile.revision)) return { status: 'refused', reason: 'dependency_invalid' };
+    return { status: 'ok', source: entryFile.source };
+  };
+  /**
+   * Validate one entry and, when she declares daughters, her whole graph, in
+   * the imposed order (spec #288): her own direct proofs, then for each
+   * daughter her presence and her pinned revision, then every one of that
+   * daughter's own proofs — she is a Knowledge like any other — and finally,
+   * when she is herself composed, her own daughters. `depth` is this entry's
+   * composition level and `ancestors` the names above her, which is what makes
+   * a loop a typed refusal instead of a walk.
+   */
+  const verifyGraph = async (
+    name: string,
+    source: string,
+    depth: number,
+    ancestors: readonly string[],
+    state: GraphState
+  ): Promise<GraphOutcome> => {
+    const parsed = parseKnowledge(source, name);
+    if (parsed.status !== 'valid') return { status: 'invalid', reason: parsed.reason };
+    const verified = await verifyKnowledge(parsed, root, state.fingerprint);
+    if (verified.status !== 'valid') return { status: 'invalid', reason: verified.reason };
+    for (const daughter of verified.dependencies ?? []) {
+      // A daughter already above this entry closes a loop: refused before any
+      // read, so a cycle costs no file and never recurses.
+      if (ancestors.includes(daughter.name)) return { status: 'invalid', reason: 'dependency_cycle', via: daughter.name };
+      // Her daughters would sit one level below her; past the bound is a total
+      // refusal, never a partially served graph.
+      if (depth >= KNOWLEDGE_MAX_COMPOSITION_DEPTH) return { status: 'invalid', reason: 'dependency_depth_exceeded', via: daughter.name };
+      const daughterDepth = depth + 1;
+      const verifiedAt = state.verifiedAt.get(daughter.name);
+      // Reached again from an equal or shallower path: the verified outcome is
+      // reused and a distinct entry is never verified, nor counted, twice.
+      if (verifiedAt !== undefined && verifiedAt <= daughterDepth) continue;
+      if (state.verifiedAt.size + 1 >= KNOWLEDGE_MAX_VALIDATED_NODES) {
+        return { status: 'invalid', reason: 'dependency_node_limit_exceeded', via: daughter.name };
+      }
+      const presence = await readDaughter(daughter.name, daughter.sha256);
+      if (presence.status === 'refused') return { status: 'invalid', reason: presence.reason, via: daughter.name };
+      const outcome = await verifyGraph(daughter.name, presence.source, daughterDepth, [...ancestors, daughter.name], state);
+      if (outcome.status === 'invalid') {
+        // The daughter's own refusals never become hers to leak: this level
+        // can only say that her own read refuses. A diagnosis about the graph
+        // itself stays true here, so it is reported unchanged.
+        return { status: 'invalid', reason: GRAPH_REFUSALS.has(outcome.reason) ? outcome.reason : 'dependency_invalid', via: daughter.name };
+      }
+      state.verifiedAt.set(daughter.name, daughterDepth);
+    }
+    return { status: 'valid', entry: verified };
   };
   const library: KnowledgeLibrary = {
     catalog: async () => {
@@ -592,20 +711,21 @@ export async function loadKnowledgeLibrary(root: string, directory: string, fing
       const entryFile = await readEntryFile(name);
       if (entryFile.status !== 'valid') return entryFile;
       const { revision } = entryFile;
-      const parsed = parseKnowledge(entryFile.source, name);
-      if (parsed.status !== 'valid') return { status: 'invalid', reason: parsed.reason, revision };
       // A stale canonicalizer identity is an engine change, never a code
       // change: symbol proofs route to explicit re-anchoring (ADR 0046).
       const marker = await readCatalogueCanonicalizer(usable() ?? '');
       const engineStale = marker !== undefined && marker !== knowledgeCanonicalizer;
-      const verified = await verifyKnowledge(parsed, root, engineStale
-        ? async () => ({ status: 'refused', reason: 'engine_changed' as const })
-        : fingerprinter);
+      // One cache per read, discarded when the read ends (spec #288).
+      const state: GraphState = {
+        fingerprint: engineStale ? async () => ({ status: 'refused', reason: 'engine_changed' as const }) : fingerprinter,
+        verifiedAt: new Map()
+      };
+      const outcome = await verifyGraph(name, entryFile.source, 0, [name], state);
       // The revision accompanies every outcome of a readable entry file, a
       // refusal included: a repair write can be conditioned on what was here.
-      return verified.status === 'valid'
-        ? { ...verified, revision }
-        : { status: 'invalid', reason: verified.reason, revision };
+      return outcome.status === 'valid'
+        ? { ...outcome.entry, revision }
+        : { status: 'invalid', reason: outcome.reason, revision, ...(outcome.via === undefined ? {} : { via: outcome.via }) };
     }
   };
   return library;
