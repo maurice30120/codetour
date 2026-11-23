@@ -139,10 +139,15 @@ test("packaged codetour knowledge lists metadata, verifies a read and hashes evi
   const cited = "export const start = 1;\n";
   fs.writeFileSync(path.join(workspace, "main.ts"), cited);
   const digest = crypto.createHash("sha256").update(cited).digest("hex");
-  fs.writeFileSync(path.join(catalogue, "dispatch_flow.md"),
-    `---\nname: dispatch_flow\ndescription: How tool calls dispatch\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${digest}\n---\nVerified standalone body.\n`);
-  fs.writeFileSync(path.join(catalogue, "stale_flow.md"),
-    `---\nname: stale_flow\ndescription: cites a changed file\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${"0".repeat(64)}\n---\nStandalone secret body.\n`);
+  const dispatchEntry =
+    `---\nname: dispatch_flow\ndescription: How tool calls dispatch\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${digest}\n---\nVerified standalone body.\n`;
+  fs.writeFileSync(path.join(catalogue, "dispatch_flow.md"), dispatchEntry);
+  // The revision is the digest of the entry file's own bytes (ADR 0053).
+  const dispatchRevision = crypto.createHash("sha256").update(dispatchEntry).digest("hex");
+  const staleEntry =
+    `---\nname: stale_flow\ndescription: cites a changed file\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${"0".repeat(64)}\n---\nStandalone secret body.\n`;
+  fs.writeFileSync(path.join(catalogue, "stale_flow.md"), staleEntry);
+  const staleRevision = crypto.createHash("sha256").update(staleEntry).digest("hex");
   const env = restrictedEnv();
   const run = args => spawnPackagedSync(["knowledge", ...args], { cwd: workspace, env, encoding: "utf8" });
 
@@ -151,9 +156,15 @@ test("packaged codetour knowledge lists metadata, verifies a read and hashes evi
   assert.equal(listed.stderr, "");
   const list = JSON.parse(listed.stdout);
   assert.equal(list.status, "ok");
+  // Discovery is the verified catalogue: the stale entry is not listed, and
+  // each listed entry carries the revision a conditional write is based on.
   assert.deepEqual(list.entries, [
-    { name: "dispatch_flow", description: "How tool calls dispatch" },
-    { name: "stale_flow", description: "cites a changed file" }
+    { name: "dispatch_flow", description: "How tool calls dispatch", revision: dispatchRevision }
+  ]);
+  // The stale entry is reported beside the catalogue, with its revision and
+  // its reason, and never as a discoverable entry.
+  assert.deepEqual(list.invalid, [
+    { name: "stale_flow", reason: "file_hash_mismatch", revision: staleRevision }
   ]);
   assert.doesNotMatch(listed.stdout, /Verified standalone body|Standalone secret body|sha256/);
 
@@ -167,7 +178,7 @@ test("packaged codetour knowledge lists metadata, verifies a read and hashes evi
   const stale = run(["read", "stale_flow"]);
   assert.equal(stale.status, 4, stale.stderr);
   assert.deepEqual(JSON.parse(stale.stdout),
-    { status: "invalid", workspace: fs.realpathSync(workspace), name: "stale_flow", reason: "file_hash_mismatch" });
+    { status: "invalid", workspace: fs.realpathSync(workspace), name: "stale_flow", reason: "file_hash_mismatch", revision: staleRevision });
   assert.doesNotMatch(stale.stdout, /Standalone secret body|main\.ts|0{64}/);
 
   const hashed = run(["hash", "main.ts"]);
@@ -178,7 +189,7 @@ test("packaged codetour knowledge lists metadata, verifies a read and hashes evi
   fs.mkdirSync(empty);
   const absent = spawnPackagedSync(["knowledge", "list"], { cwd: empty, env, encoding: "utf8" });
   assert.equal(absent.status, 3, absent.stderr);
-  assert.deepEqual(JSON.parse(absent.stdout), { status: "empty", workspace: fs.realpathSync(empty), entries: [] });
+  assert.deepEqual(JSON.parse(absent.stdout), { status: "empty", workspace: fs.realpathSync(empty), entries: [], invalid: [] });
 });
 
 test("packaged codetour knowledge saves a proposal that a second invocation discovers and rereads", () => {
@@ -204,16 +215,27 @@ test("packaged codetour knowledge saves a proposal that a second invocation disc
   const saved = run(["save", "--workspace", workspace, "--proposal", proposal]);
   assert.equal(saved.status, 0, saved.stderr);
   assert.equal(saved.stderr, "");
-  assert.deepEqual(JSON.parse(saved.stdout), { status: "saved", workspace: resolved, saved: ["saved_flow"] });
+  assert.deepEqual(JSON.parse(saved.stdout), {
+    status: "saved",
+    workspace: resolved,
+    saved: ["saved_flow"],
+    // One cited path is legitimately thin backing, reported, never refused.
+    warnings: [{ code: "insufficient_backing", name: "saved_flow", distinctEvidencePaths: 1 }],
+  });
   assert.doesNotMatch(saved.stdout, /Standalone consolidation|sha256|[0-9a-f]{64}/);
 
   // A second, independent invocation rediscovers the entry by metadata only.
   const listed = run(["list", "--workspace", workspace]);
   assert.equal(listed.status, 0, listed.stderr);
+  const savedRevision = crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(path.join(workspace, ".tours", ".memory", "knowledge", "saved_flow.md")))
+    .digest("hex");
   assert.deepEqual(JSON.parse(listed.stdout), {
     status: "ok",
     workspace: resolved,
-    entries: [{ name: "saved_flow", description: "Saved offline" }],
+    entries: [{ name: "saved_flow", description: "Saved offline", revision: savedRevision }],
+    invalid: [],
   });
   assert.doesNotMatch(listed.stdout, /Standalone consolidation|sha256/);
 
@@ -225,6 +247,7 @@ test("packaged codetour knowledge saves a proposal that a second invocation disc
     workspace: resolved,
     name: "saved_flow",
     description: "Saved offline",
+    revision: savedRevision,
     body,
     evidence: [{ path: "main.ts", sha256: digest }],
   });
@@ -294,6 +317,7 @@ test("packaged codetour mcp creates a Project Tour in a non-Git workspace withou
       [
         "create_changes_tour",
         "create_project_tour",
+        "get_generation_prompt",
         "knowledge_close_run",
         "knowledge_list",
         "knowledge_read",
@@ -328,10 +352,14 @@ test("packaged codetour mcp exposes the Knowledge tools and the enriched Project
   const digest = crypto.createHash("sha256").update(cited).digest("hex");
   const catalogue = path.join(workspace, ".tours", ".memory", "knowledge");
   fs.mkdirSync(catalogue, { recursive: true });
-  fs.writeFileSync(path.join(catalogue, "packaged_flow.md"),
-    `---\nname: packaged_flow\ndescription: Read through the packaged MCP\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${digest}\n---\nPackaged MCP body.\n`);
-  fs.writeFileSync(path.join(catalogue, "packaged_stale.md"),
-    `---\nname: packaged_stale\ndescription: Cites changed bytes\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${"0".repeat(64)}\n---\nPackaged stale body.\n`);
+  const packagedEntry =
+    `---\nname: packaged_flow\ndescription: Read through the packaged MCP\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${digest}\n---\nPackaged MCP body.\n`;
+  fs.writeFileSync(path.join(catalogue, "packaged_flow.md"), packagedEntry);
+  const packagedRevision = crypto.createHash("sha256").update(packagedEntry).digest("hex");
+  const packagedStaleEntry =
+    `---\nname: packaged_stale\ndescription: Cites changed bytes\nevidence:\n  - type: file\n    path: main.ts\n    sha256: ${"0".repeat(64)}\n---\nPackaged stale body.\n`;
+  fs.writeFileSync(path.join(catalogue, "packaged_stale.md"), packagedStaleEntry);
+  const staleRevision = crypto.createHash("sha256").update(packagedStaleEntry).digest("hex");
   const client = new Client(
     { name: "standalone-knowledge-test-client", version: "0.0.0" },
     { capabilities: {} }
@@ -348,10 +376,10 @@ test("packaged codetour mcp exposes the Knowledge tools and the enriched Project
     assert.equal(listed.isError, false, listed.text);
     assert.equal(listed.structured.status, "ok");
     assert.deepEqual(listed.structured.entries, [
-      { name: "packaged_flow", description: "Read through the packaged MCP" },
+      { name: "packaged_flow", description: "Read through the packaged MCP", revision: packagedRevision },
     ]);
     assert.deepEqual(listed.structured.invalid, [
-      { name: "packaged_stale", reason: "file_hash_mismatch" },
+      { name: "packaged_stale", reason: "file_hash_mismatch", revision: staleRevision },
     ]);
     assert.doesNotMatch(listed.text + JSON.stringify(listed.structured), /Packaged MCP body|Packaged stale body|sha256/);
 
@@ -375,7 +403,12 @@ test("packaged codetour mcp exposes the Knowledge tools and the enriched Project
       }],
     });
     assert.equal(created.isError, false, created.text);
-    assert.deepEqual(created.structured, { status: "created", workspace: ".", created: ["packaged_saved"] });
+    assert.deepEqual(created.structured, {
+      status: "created",
+      workspace: ".",
+      created: ["packaged_saved"],
+      warnings: [{ code: "insufficient_backing", name: "packaged_saved", distinctEvidencePaths: 1 }],
+    });
     const reread = await callTool(client, "knowledge_read", { name: "packaged_saved" });
     assert.equal(reread.structured.body, "Packaged saved body.\n");
 
