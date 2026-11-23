@@ -3,8 +3,8 @@ import {
   loadKnowledgeLibrary,
 } from "codetour-knowledge";
 import type {
+  KnowledgeCatalogueEntry,
   KnowledgeFailureReason,
-  KnowledgeMetadata,
 } from "codetour-knowledge";
 
 // The Knowledge surface of the existing CodeTour MCP server (spec #223,
@@ -54,14 +54,24 @@ export interface KnowledgeInvalidEntry {
    * the bytes that failed instead of on a body nobody may read.
    */
   revision?: string;
+  /**
+   * The KO daughter of the refusing level, on a Composed Knowledge Entry: the
+   * reason describes the dependency step, so the repair needs a target (spec
+   * #288). Never her revision, her evidence or her body.
+   */
+  via?: string;
 }
 
-/** One bounded page of catalogue metadata (name, description, revision), never a body. */
+/** One bounded page of catalogue metadata, never a body. */
 export interface KnowledgeCataloguePage {
   /** `empty` means the filtered catalogue has no verified entry; not an error. */
   status: "ok" | "empty";
-  /** Verified entries only: every declared SHA-256 proof matched. */
-  entries: KnowledgeMetadata[];
+  /**
+   * Verified entries only: every declared SHA-256 proof matched. A composed
+   * entry carries her daughters' names, in declared order, and each daughter
+   * keeps her own row (ADR 0055).
+   */
+  entries: KnowledgeCatalogueEntry[];
   /**
    * Catalogue entries that failed validation, listed in full regardless of
    * the query so the failure is visible to fix instead of being hidden.
@@ -142,11 +152,27 @@ export function composedKnowledgeRelation(daughters: readonly string[]): string 
 }
 
 /**
+ * One invalid catalogue row: the reason, the faulty daughter of the refusing
+ * level when there is one, and the revision when the entry file was readable.
+ * `via` is what makes a composed refusal actionable — the reason describes the
+ * dependency step, so the KO daughter is the repair target (spec #288) — and a
+ * daughter's own revision, evidence and body never appear beside her name.
+ */
+function invalidEntryLine(entry: KnowledgeInvalidEntry): string {
+  const details = [
+    ...(entry.via === undefined ? [] : [`daughter ${entry.via}`]),
+    ...(entry.revision === undefined ? [] : [`revision ${entry.revision}`]),
+  ];
+  return `- \`${entry.name}\` — ${entry.reason}${details.length === 0 ? "" : ` (${details.join(", ")})`}`;
+}
+
+/**
  * The lightweight catalogue projection embedded in the Project Tour prompt:
- * names, one-line descriptions and revisions only, bounded by
- * `KNOWLEDGE_PROMPT_CATALOGUE_LIMIT`, with explicit truncation and search
- * guidance. An empty catalogue is stated as normal so the agent does not stop
- * or look for another Knowledge source.
+ * names, one-line descriptions and revisions only, plus the bounded relation of
+ * a composed entry — her type and her daughters' names, never their bodies,
+ * proofs or revisions — bounded by `KNOWLEDGE_PROMPT_CATALOGUE_LIMIT`, with
+ * explicit truncation and search guidance. An empty catalogue is stated as
+ * normal so the agent does not stop or look for another Knowledge source.
  */
 export async function knowledgeCatalogueProjection(root: string): Promise<string> {
   const page = await listKnowledgePage(root, undefined, 0, KNOWLEDGE_PROMPT_CATALOGUE_LIMIT);
@@ -163,7 +189,10 @@ export async function knowledgeCatalogueProjection(root: string): Promise<string
       "a write is conditioned on the revision you read (compare-and-swap), " +
       "so a file that changed since is refused instead of silently " +
       "overwritten, including for an invalid entry whose body must not be " +
-      "read.",
+      "read. An entry of type " +
+      `\`${COMPOSED_KNOWLEDGE_TYPE}\` — one that declares \`dependencies\` — ` +
+      "additionally carries, after its revision, the names of the entries it " +
+      "rests on; each of those entries keeps its own line below.",
     "",
   ];
   if (page.entries.length === 0 && page.invalid.length === 0) {
@@ -176,8 +205,14 @@ export async function knowledgeCatalogueProjection(root: string): Promise<string
     return lines.join("\n");
   }
   for (const entry of page.entries) {
+    // A composed entry carries her relation on her own line, after the
+    // revision: type and daughters' names, bounded, and no daughter masked.
+    const relation =
+      entry.daughterNames === undefined
+        ? ""
+        : ` ${composedKnowledgeRelation(entry.daughterNames)}`;
     lines.push(
-      `- \`${entry.name}\` — ${entry.description} (revision ${entry.revision})`
+      `- \`${entry.name}\` — ${entry.description} (revision ${entry.revision})${relation}`
     );
   }
   lines.push("");
@@ -185,11 +220,7 @@ export async function knowledgeCatalogueProjection(root: string): Promise<string
     lines.push(
       "Catalogue entries that failed validation — never rely on them; fix or " +
         "remove them before consolidating:",
-      ...page.invalid.map((entry) =>
-        entry.revision === undefined
-          ? `- \`${entry.name}\` — ${entry.reason}`
-          : `- \`${entry.name}\` — ${entry.reason} (revision ${entry.revision})`
-      ),
+      ...page.invalid.map(invalidEntryLine),
       ""
     );
   }
