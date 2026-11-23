@@ -1,4 +1,5 @@
 const ts = require('typescript');
+const path = require('node:path');
 
 // The 10 primitives that are allowed
 const ALLOWED_PRIMITIVES = new Set([
@@ -341,8 +342,13 @@ function validateTypes(code, fileName) {
     
     // Override to provide our code and the primitive definitions
     const originalGetSourceFile = host.getSourceFile.bind(host);
+    // The host is asked for the file in TypeScript's normalised spelling
+    // (forward slashes, canonical drive letter), so the comparison is made on
+    // resolved paths: a raw string comparison missed the virtual file on
+    // Windows and the compiler reported TS6053 instead of the code's errors.
+    const isCandidate = name => path.resolve(name).toLowerCase() === path.resolve(fileName).toLowerCase();
     host.getSourceFile = (fn, languageVersion) => {
-      if (fn === fileName) {
+      if (isCandidate(fn)) {
         return ts.createSourceFile(fn, code, languageVersion, true);
       }
       // Return primitive definitions for a special file

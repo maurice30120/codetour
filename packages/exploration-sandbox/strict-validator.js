@@ -26,7 +26,12 @@ function validateStrict(code, params) {
   const options = { strict: true, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None, types: [], lib: ['lib.es2022.d.ts'], skipLibCheck: true, noEmit: true };
   const host = ts.createCompilerHost(options);
   const original = host.getSourceFile.bind(host);
-  host.getSourceFile = (name, version, ...args) => name === file ? ts.createSourceFile(name, source, version, true) : original(name, version, ...args);
+  // TypeScript normalises a path before asking the host for it: forward slashes
+  // and, on Windows, a canonicalised drive letter. Comparing the spelling as
+  // given would miss the virtual root and make the host look for it on disk,
+  // which fails with TS6053 instead of reporting the candidate's own errors.
+  const isCandidate = name => path.resolve(name).toLowerCase() === path.resolve(file).toLowerCase();
+  host.getSourceFile = (name, version, ...args) => isCandidate(name) ? ts.createSourceFile(name, source, version, true) : original(name, version, ...args);
   const program = ts.createProgram([file], options, host);
   const prefixLines = prefix.split('\n').length - 1;
   const diagnostics = ts.getPreEmitDiagnostics(program).filter(d => !d.file || d.file.fileName === file);
