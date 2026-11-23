@@ -35,6 +35,11 @@ jobs:
       - run: npm ci --prefix packages/description-renderer
       - run: npm ci --prefix packages/knowledge
       - run: npm ci --prefix packages/mcp-server
+      # npm packs the local `file:` dependencies when they are installed, and a
+      # packed copy of codetour-knowledge without its dist shadows the built one
+      # for every harness test — including the pre-commit guard's fixture. The
+      # local dependency is therefore built before the harness installs it.
+      - run: npm run build --prefix packages/knowledge
       - run: npm ci --prefix packages/exploration-poc
       - run: npm run test
       - run: npm test --prefix packages/exploration-poc

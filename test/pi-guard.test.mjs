@@ -28,6 +28,11 @@ import {
 const WORKSPACE = "/workspace/with spaces";
 const SESSION = "pi-session-1";
 
+// Run states expire after a day, so fixtures are stamped from one instant of
+// this run: a fixed calendar date in the past would silently expire them.
+const NOW = Date.now();
+const at = (offsetMs = 0) => new Date(NOW + offsetMs).toISOString();
+
 function state(overrides = {}) {
   const base = createRunState({
     runId: newRunId(),
@@ -35,7 +40,7 @@ function state(overrides = {}) {
     sessionId: SESSION,
     kind: "project",
     request: null,
-    at: "2026-11-20T10:00:00.000Z",
+    at: at(),
   });
   return { ...base, ...overrides };
 }
@@ -78,8 +83,8 @@ test("an expired run state never drives the guard", () => {
 });
 
 test("two open runs: the newest one wins, so one stop asks for one continuation", () => {
-  const older = state({ tourCreated: true, updatedAt: "2026-11-20T10:00:00.000Z" });
-  const newer = state({ tourCreated: true, updatedAt: "2026-11-20T11:00:00.000Z" });
+  const older = state({ tourCreated: true, updatedAt: at(-60 * 60 * 1000) });
+  const newer = state({ tourCreated: true, updatedAt: at() });
   const selected = selectContinuation([older, newer], { workspace: WORKSPACE, sessionId: SESSION });
   assert.equal(selected?.runId, newer.runId);
 });

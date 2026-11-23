@@ -19,7 +19,9 @@ test('hashing a workspace file is deterministic and reports the workspace-relati
   await mkdir(join(root, 'src'));
   await writeFile(join(root, 'src', 'main.ts'), 'cited bytes\n');
   const hashed = await hashWorkspaceFile(root, 'src/main.ts');
-  assert.deepEqual(hashed, { status: 'ok', path: join('src', 'main.ts'), sha256: sha256('cited bytes\n') });
+  // A cited path is spelled with forward slashes whatever the platform: the
+  // catalogue's proof has to read the same everywhere.
+  assert.deepEqual(hashed, { status: 'ok', path: 'src/main.ts', sha256: sha256('cited bytes\n') });
   // Hashing is pure: a second call sees the same bytes and the same digest.
   assert.deepEqual(await hashWorkspaceFile(root, join('.', 'src', 'main.ts')), hashed);
 });
