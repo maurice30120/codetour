@@ -766,7 +766,11 @@ const KNOWLEDGE_SAVE_DESCRIPTION =
   "cycle and the two bounds are refused as `dependency_cycle`, " +
   "`dependency_depth_exceeded` and `dependency_node_limit_exceeded`. An append " +
   "never accepts `dependencies`, and a replace of a composed entry redeclares " +
-  "the whole list or is refused (reason `dependencies_incomplete`). " +
+  "every daughter it carried — it may add one or reorder the list, never drop " +
+  "one, a swap included — or is refused: a missing list as " +
+  "`dependencies_incomplete`, a list that drops a " +
+  "daughter the entry carried as `dependencies_removed`, naming the first " +
+  "dropped one in `via`. " +
   "Results are observable: \"created\" names " +
   "the published entries, \"appended\" names the enriched one, \"replaced\" " +
   "names the rewritten one, \"no_change\" is a completed assessment that " +

@@ -436,8 +436,11 @@ with `dependency_missing` or `dependency_invalid` and names her in `via`; a cycl
 and the two bounds are refused as `dependency_cycle`, `dependency_depth_exceeded`
 and `dependency_node_limit_exceeded`, the node bound being checked before the
 first daughter past it is even read. An `append` never accepts `dependencies`,
-and a `replace` of a composed entry redeclares the whole list or is refused as
-`dependencies_incomplete`.
+and a `replace` of a composed entry redeclares every daughter it carried, in any
+order and possibly with an added one — a swap included, since the engine cannot
+tell an intended replacement from an oversight — or is refused:
+`dependencies_incomplete` for a missing list, `dependencies_removed` for a list
+that drops a daughter the entry carried, naming the first dropped one in `via`.
 
 An `append` or `replace` of several entries is refused with reason
 `mode_requires_single_entry` and an unrecognized mode with `unknown_mode`: one call

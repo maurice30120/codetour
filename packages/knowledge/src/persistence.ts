@@ -193,16 +193,18 @@ export type KnowledgeSaveRejectionReason =
    * Dependency-step refusals of a proposed Composed Knowledge Entry (spec
    * #288). They are the read path's own reasons, spelled the same, so a write
    * and a read of the same declaration refuse it the same way: a daughter
-   * absent from the catalogue, one whose own read refuses, a cycle, the two
-   * bounds, and a complete list that a rewrite of a composed entry must
-   * redeclare.
+   * absent from the catalogue, one whose own read refuses, a cycle, and the two
+   * bounds. A rewrite of a composed entry earns two list refusals of its own:
+   * a missing list (`dependencies_incomplete`) and a list that drops a daughter
+   * the entry carried (`dependencies_removed`, the dropped daughter in `via`).
    */
   | 'dependency_missing'
   | 'dependency_invalid'
   | 'dependency_cycle'
   | 'dependency_depth_exceeded'
   | 'dependency_node_limit_exceeded'
-  | 'dependencies_incomplete';
+  | 'dependencies_incomplete'
+  | 'dependencies_removed';
 
 /**
  * One refused entry: its name whenever the proposal declared a usable one, the
@@ -1141,10 +1143,23 @@ export async function saveKnowledgeProposal(root: string, proposal: unknown): Pr
         return { status: 'conflict', conflicts: [{ name: entry.name, reason: 'revision_conflict' }] };
       }
       // No downgrade (spec #288): a composed target redeclares at least two
-      // daughters. The engine never completes a missing list, because losing an
-      // entry's structure must never be a side effect of a rewrite.
-      if (declaredDaughters.get(entry.name) === undefined && historicalDependencies(bytes, entry.name) !== undefined) {
-        return { status: 'invalid', rejected: [{ name: entry.name, reason: 'dependencies_incomplete' }] };
+      // daughters, and never fewer than it carried. The engine never completes a
+      // missing list, because losing an entry's structure must never be a side
+      // effect of a rewrite. A rewrite may add a daughter or reorder the list;
+      // dropping one is refused — a swap included, because the engine cannot
+      // tell an intended replacement from an oversight — and the first dropped
+      // name is reported in `via` so the caller knows what to restore.
+      const historical = historicalDependencies(bytes, entry.name);
+      if (historical !== undefined) {
+        const declared = declaredDaughters.get(entry.name);
+        if (declared === undefined) {
+          return { status: 'invalid', rejected: [{ name: entry.name, reason: 'dependencies_incomplete' }] };
+        }
+        const kept = new Set(declared);
+        const dropped = historical.map(dependency => dependency.name).find(name => !kept.has(name));
+        if (dropped !== undefined) {
+          return { status: 'invalid', rejected: [{ name: entry.name, reason: 'dependencies_removed', via: dropped }] };
+        }
       }
       carryFallbackOrigins(entry, bytes);
     }

@@ -235,7 +235,10 @@ test('a replace never downgrades a composed entry: the complete list is redeclar
   const root = await realRoot('knowledge-composed-no-downgrade-');
   t.after(() => rm(root, { recursive: true, force: true }));
   const daughters = await workspaceWithTwoDaughters(root);
-  assert.equal((await saveKnowledgeProposal(root, { entries: [motherEntry()] })).status, 'saved');
+  const third = await seedAtomic(root, 'child_three', 'gamma.ts');
+  assert.equal((await saveKnowledgeProposal(root, {
+    entries: [motherEntry({ dependencies: [{ name: 'child_one' }, { name: 'child_two' }, { name: 'child_three' }] })]
+  })).status, 'saved');
   const revision = await readRevision(root, 'mother');
   const historical = await readFile(entryPath(root, 'mother'), 'utf8');
 
@@ -250,27 +253,50 @@ test('a replace never downgrades a composed entry: the complete list is redeclar
 
   // Losing the structure of an entry must never be a side effect of a rewrite,
   // and the engine never fills a missing list in.
-  for (const [label, override] of [
-    ['without a list', {}],
-    ['with one daughter', { dependencies: [{ name: 'child_one' }] }]
-  ] as Array<[string, Record<string, unknown>]>) {
+  const refuse = async (label: string, override: Record<string, unknown>, reason: string, via?: string): Promise<void> => {
     const [refusal] = rejected(await saveKnowledgeProposal(root, { mode: 'replace', entries: [rewrite(override)] }));
-    assert.equal(refusal.reason, 'dependencies_incomplete', JSON.stringify(label));
+    assert.equal(refusal.reason, reason, label);
+    if (via !== undefined) assert.equal(refusal.via, via, label);
     assert.equal(await readFile(entryPath(root, 'mother'), 'utf8'), historical, `${label}: nothing was written`);
-  }
+  };
+  await refuse('without a list', {}, 'dependencies_incomplete');
+  await refuse('with one daughter', { dependencies: [{ name: 'child_one' }] }, 'dependencies_incomplete');
+  // "The complete list" is every daughter the entry carried, not merely two:
+  // a rewrite may add or reorder, never quietly drop one — a swap included,
+  // since a replacement is indistinguishable from an oversight. The first
+  // dropped daughter is named in `via`, so the caller knows what to restore.
+  await refuse(
+    'dropping one of three',
+    { dependencies: [{ name: 'child_one' }, { name: 'child_two' }] },
+    'dependencies_removed',
+    'child_three'
+  );
+  // A replacement is refused like a removal: the engine cannot tell an intended
+  // swap from an oversight, so the historical daughter must be restored.
+  const fourth = await seedAtomic(root, 'child_four', 'delta.ts');
+  await refuse(
+    'swapping one for another',
+    { dependencies: [{ name: 'child_one' }, { name: 'child_two' }, { name: 'child_four' }] },
+    'dependencies_removed',
+    'child_three'
+  );
 
-  // The complete list is accepted, and the rewrite pins what the catalogue
-  // holds now.
+  // A list that still carries every historical daughter is accepted, in any
+  // order, and it may add one: the rewrite pins what the catalogue holds now.
   const replaced = await saveKnowledgeProposal(root, {
     mode: 'replace',
-    entries: [rewrite({ dependencies: [{ name: 'child_two' }, { name: 'child_one' }] })]
+    entries: [rewrite({
+      dependencies: [{ name: 'child_three' }, { name: 'child_one' }, { name: 'child_two' }, { name: 'child_four' }]
+    })]
   });
   assert.equal(replaced.status, 'replaced', JSON.stringify(replaced));
   const published = await read(root, 'mother');
   assert.equal(published.status, 'valid', JSON.stringify(published));
   assert.deepEqual((published as { dependencies: unknown }).dependencies, [
+    { name: 'child_three', sha256: third },
+    { name: 'child_one', sha256: daughters.one },
     { name: 'child_two', sha256: daughters.two },
-    { name: 'child_one', sha256: daughters.one }
+    { name: 'child_four', sha256: fourth }
   ]);
 });
 

@@ -428,8 +428,9 @@ export function registerKnowledgeCommand(program: Command): void {
     // `dependencies` is the only way to compose an entry from the CLI: two
     // daughters at least, names only — the engine resolves each file and pins
     // her revision itself. An append never accepts the field, and a replace of
-    // a composed entry redeclares the whole list or is refused
-    // (`dependencies_incomplete`).
+    // a composed entry redeclares every daughter it carried or is refused:
+    // `dependencies_incomplete` for a missing list, `dependencies_removed` for
+    // one that drops a daughter — a swap included.
     .option("--proposal <file>", 'proposal JSON: {"mode"?,"entries":[{"name","description","body","evidence":[{"path","sha256"?}],"dependencies":[{"name"}]?,"expectedRevision"?}]} or, for append, {"mode":"append","entries":[{"name","addition","evidence"?,"expectedRevision"}]}')
     .option("--mode <mode>", 'write mode: "create" (default), "append" or "replace"')
     .option("--expected-revision <token>", "convenience: Knowledge Revision of the appended or replaced entry; required by --mode append and --mode replace")

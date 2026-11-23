@@ -48,8 +48,11 @@ is refused the same way on both sides, with the read path's own reasons —
 faulty daughter of its level in `via`. The node bound is checked before the first
 daughter past it is resolved, so a forged declaration cannot make a write read
 the catalogue past the budget a read of it would refuse. An `append` never
-declares daughters, and a `replace` of a composed entry redeclares the whole list
-or is refused as `dependencies_incomplete`. `verifiedList(query)` is the
+declares daughters, and a `replace` of a composed entry redeclares every daughter
+it carried — a rewrite may add or reorder one, never quietly drop it, a swap
+included. A missing list is refused as `dependencies_incomplete`, and a list
+that drops a daughter the entry carried as `dependencies_removed`, naming the
+first dropped daughter in `via`. `verifiedList(query)` is the
 catalogue row that carries the daughters' names; `catalog()` and `list(query)`
 stay metadata only.
 
