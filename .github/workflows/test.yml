@@ -87,7 +87,11 @@ jobs:
       - name: Verify toolchain
         run: node --version && npm --version
       - run: npm ci
+      # The server's build reads both local packages, and npm packs them at
+      # install time: their dist must exist before the server installs them.
+      - run: npm ci --prefix packages/description-renderer
       - run: npm ci --prefix packages/knowledge
+      - run: npm run build --prefix packages/description-renderer
       - run: npm run build --prefix packages/knowledge
       - run: npm ci --prefix packages/mcp-server
       # The run-log writer is read from the built server; the packaging step is
