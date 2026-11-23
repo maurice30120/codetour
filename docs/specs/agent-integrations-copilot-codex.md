@@ -1,6 +1,14 @@
 # Spécification — Intégrations d’agents Copilot et Codex
 
-**Statut :** prête pour implémentation · **Sources :** distribution et
+> **Abandonné le 2026-11-23.** Le plan détaillé a été fermé `not_planned` avec
+> #136 et ses sous-tickets Install 01–11 (#137–#147). Ce document reste la
+> référence du besoin tel qu’il était cadré ; il n’est **pas** une file
+> d’attente. Les parties livrées indépendamment (serveur MCP partagé, plugin
+> Copilot `packages/copilot-plugin`, ADR 0041) ne doivent pas être déduites de
+> ce plan. Toute reprise repart d’une spec courte. Voir
+> [l’index des specs](roadmap-specifications.md).
+
+**Statut :** historique — anciennement « prête pour implémentation » · **Sources :** distribution et
 portage sélectif fournis le 30 octobre 2026 · **Base :** PR #82 ; les PR #43,
 #30 et les adaptateurs existants sont des
 références, pas des implémentations à fusionner automatiquement.

@@ -148,24 +148,6 @@ références d’implémentation.
   le packaging VSIX et les vérifications de non-régression sur les lecteurs
   autonomes, ACP, MCP, Mermaid, images et Git.
 
-## Distribution CLI et intégrations d’agents — priorité à planifier
-
-Compléter la distribution autonome de CodeTour et l’installation des intégrations
-Copilot/Codex selon les [spécifications fonctionnelles consolidées](docs/specs/roadmap-specifications.md).
-Le CLI existant, les comportements #82 et le serveur MCP partagé restent la
-baseline ; cette initiative n’a pas encore de priorité relative ni de date.
-
-- [ ] Ajouter le registre commun et le contrat des adaptateurs.
-- [ ] Ajouter les commandes `--agents`, `--install`, `--uninstall` et
-  `--doctor`, sans régression des commandes de lecture ou MCP.
-- [ ] Compléter les adaptateurs Copilot et Codex, en préservant les
-  configurations utilisateur existantes et en mutualisant leurs règles de
-  configuration.
-- [ ] Étendre le packaging autonome aux adaptateurs et aux plateformes cibles.
-- [ ] Publier et tester les artefacts CLI/VSIX sur les PR et releases.
-- [ ] Valider les installations sur des environnements propres et documenter les
-  parcours utilisateur.
-
 ## Priorité 2 — Qualité des Tours
 
 - [ ] Évaluer les Tours selon l’exactitude, la concision, la progression

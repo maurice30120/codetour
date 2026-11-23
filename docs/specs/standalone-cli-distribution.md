@@ -1,6 +1,13 @@
 # Spécification — Distribution autonome CodeTour CLI
 
-**Statut :** prête pour implémentation · **Source :** spécification fournie le
+> **Abandonné le 2026-11-23.** Le plan détaillé a été fermé `not_planned` avec
+> #136 et ses sous-tickets Install 01–11 (#137–#147). Ce document décrit le
+> besoin tel qu’il était cadré ; il n’est **pas** une file d’attente. La
+> distribution terminal/MCP et l’artefact autonome existent déjà (ADR 0041) et
+> ne dépendent pas de ce plan. Toute reprise repart d’une spec courte. Voir
+> [l’index des specs](roadmap-specifications.md).
+
+**Statut :** historique — anciennement « prête pour implémentation » · **Source :** spécification fournie le
 30 octobre 2026, sections 1–3 et 8–14 · **Branche de référence :**
 `feature/specs-77-79-80-integration` (PR #82)
 

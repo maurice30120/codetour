@@ -85,7 +85,20 @@ dates ni de dépendances supplémentaires.
 Chaque lot garde ses tests et son commit distincts. Les PR de référence ne
 sont pas fusionnées automatiquement.
 
-### Distribution CLI et intégrations
+### Distribution CLI et intégrations — abandonné le 2026-11-23
+
+**Statut : historique, aucune action attendue.** Cette initiative n’a jamais reçu
+de priorité relative ni de date, et son plan détaillé (#136 « Installation et mise
+à jour unifiées CodeTour » et ses onze sous-tickets [Install 01–11] #137–#147) a
+été fermé `not_planned` le 2026-11-23. Les cases ci-dessous restent décochées
+volontairement : elles décrivent le besoin tel qu’il était cadré, pas un travail
+en cours.
+
+Ce qui a été livré depuis, indépendamment de ce plan : le serveur MCP partagé,
+l’artefact autonome (ADR 0041), le plugin Copilot `packages/copilot-plugin` et la
+distribution terminal/MCP. Toute reprise d’un installateur unifié (`--install`,
+`--uninstall`, `--doctor`, auto-configuration Codex) doit repartir d’une spec
+courte fondée sur ces artefacts, et non d’une réouverture de ces tickets.
 
 1. **Ticket 01 — Architecture des intégrations.**
 2. **Ticket 02 — Commandes CLI** : dépend du ticket 01.
@@ -116,5 +129,6 @@ Les artefacts ne sont annoncés comme validés que si les tests et contrôles de
 packaging requis réussissent.
 
 La priorité relative de la distribution CLI par rapport aux priorités déjà
-classées dans `ROADMAP.md` reste à planifier ; cet index ne lui attribue pas de
-date ni de priorité artificielle.
+classées dans `ROADMAP.md` n’est plus une question ouverte : cette initiative est
+abandonnée en l’état (voir la section « Distribution CLI et intégrations —
+abandonné le 2026-11-23 » ci-dessus).
