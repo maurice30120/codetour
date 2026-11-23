@@ -5,7 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { canonicalWorkspacePath, sameWorkspace, stripTrailingSeparator } from '../src/index';
 
-const root = (prefix: string): string => realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+// The rule's answer is the native real path (ADR 0056), which is also the
+// fixture's spelling: on Windows the JavaScript resolution keeps an 8.3 name
+// the rule expands.
+const root = (prefix: string): string => realpathSync.native(mkdtempSync(join(tmpdir(), prefix)));
 
 test('the canonical workspace strips the trailing separator and resolves the path', () => {
   const directory = root('knowledge-workspace-');
