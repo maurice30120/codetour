@@ -2,6 +2,7 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { canonicalWorkspacePath } from "codetour-knowledge";
 import {
   callTool,
   commitFile,
@@ -293,7 +294,12 @@ test("fails with GIT_REPOSITORY_REQUIRED outside a git repository", async () => 
       });
       assert.equal(response.isError, true);
       assert.equal(structuredCode(response), "GIT_REPOSITORY_REQUIRED");
-      assert.ok(response.text.includes(root), "the error must identify the configured workspace");
+      // The server names the workspace it was configured with, in the canonical
+      // spelling every surface uses (ADR 0056).
+      assert.ok(
+        response.text.includes(canonicalWorkspacePath(root)),
+        "the error must identify the configured workspace"
+      );
       assert.match(response.text, /workspacePath/, "the error must explain how to select the repository");
     });
   } finally {
