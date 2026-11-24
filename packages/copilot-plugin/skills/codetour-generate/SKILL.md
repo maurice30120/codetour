@@ -28,7 +28,7 @@ decomposition steps and never prescribes a second anchor or verification pass.
    (without command syntax, empty for a standard Tour). Search for that exact
    tool name if deferred. It resolves the workspace, creates the guarded
    `runId` and returns the shared MCP prompt: follow it exactly, keeping that
-   `runId` for creation and consolidation. If a generation prompt is already
+   `runId` for creation. If a generation prompt is already
    supplied, follow it directly instead of preparing another run. If the
    adapter tool fails, report its error and stop.
 2. Only if the adapter tool is absent, use the MCP prompt
@@ -46,13 +46,7 @@ decomposition steps and never prescribes a second anchor or verification pass.
    invent a title or goal.
 3. Create the Tour with the CodeTour MCP `create_project_tour` (or
    `create_changes_tour`) tool — never by
-   writing `.tour` JSON by hand and never by answering in prose. Create and
-   consolidate with the `runId` from the served prompt when one is given.
-4. After the Tour, the consolidation step is mandatory: call `knowledge_save`
-   with zero, one or more entries, or `knowledge_close_run` if the run is
-   deliberately skipped. Save only durable facts (verified invariants, architecture,
-   conventions), never details specific to this tour. With zero entries, state
-   why nothing durable qualified. Report only what the MCP returned.
+   writing `.tour` JSON by hand and never by answering in prose. Create with the `runId` from the served prompt when one is given.
 5. Hosts often give the agent no way to call `prompts/get` (only the adapter
    can). Then call the CodeTour tool `get_generation_prompt` (Copilot:
    `codetour-get_generation_prompt`) with `type` (`project` or `changes`),
@@ -64,14 +58,14 @@ decomposition steps and never prescribes a second anchor or verification pass.
    `create_changes_tour`) with the exact parameters (and `runId`, if one was
    given) that the prompt states. Do not search for tools again, do not call
    `get_generation_prompt` a second time and do not invent fallback calls; the
-   creation and consolidation tools you already resolved stay valid for the
+   creation tools you already resolved stay valid for the
    whole run.
    `runId` is optional: `get_generation_prompt` serves none (only the
    `/codetour` adapter creates one). Without one, omit `runId` from every call;
    never pass an empty string.
    Conclude a prompt is unavailable only after that call explicitly fails;
    if so, the creation tools alone carry the contract and may be used directly
-   (omit `runId`). Still apply the language, review-mode and consolidation rules.
+   (omit `runId`). Still apply the language, review-mode rules.
 6. Only if no CodeTour **tool** is found after that search, say so and stop:
    check `copilot mcp list` first and recommend a reinstall only if `codetour`
    is not listed; then give the repair command `codetour --install copilot` and point at

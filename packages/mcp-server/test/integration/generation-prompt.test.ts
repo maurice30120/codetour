@@ -626,3 +626,19 @@ test("get_generation_prompt serves the same prompt as prompts/get for hosts with
     rmrf(root);
   }
 });
+
+
+test("generation exposes no memory tools or consolidation instructions", async () => {
+  const root = tempDir();
+  try {
+    await withServer(root, async client => {
+      const tools = (await client.listTools()).tools.map(tool => tool.name);
+      assert.ok(tools.includes("create_project_tour"));
+      assert.ok(!tools.some(name => name.startsWith("knowledge_")));
+      for (const type of ["project", "changes"]) {
+        const result = await client.callTool({ name: "get_generation_prompt", arguments: { type, runId: "test-run" } });
+        assert.doesNotMatch(JSON.stringify(result), /knowledge|consolidat/i);
+      }
+    });
+  } finally { rmrf(root); }
+});

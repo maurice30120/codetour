@@ -1,3 +1,5 @@
+> **Memory interruption:** CodeTour no longer exposes or uses Knowledge or consolidation. A replacement in TokenEconomizer is planned but is not yet available; existing CodeTour knowledge is not migrated. Tour generation remains available.
+
 # CodeTour IA
 
 **Explore a codebase, understand a branch, and ask questions right beside the code.**
@@ -81,8 +83,7 @@ Codex, configured with your chosen provider. Installing the extension alone does
 not generate tours. You can record and replay tours without an AI agent.
 
 The extension bundles a local MCP server exposing `create_project_tour` and
-`create_changes_tour`, plus the `knowledge_list`, `knowledge_read` and
-`knowledge_save` tools over the workspace Knowledge catalogue. VS Code and
+`create_changes_tour`. VS Code and
 GitHub Copilot discover a server for each
 workspace folder automatically. For Codex, run **CodeTour IA: Configure MCP for
 Codex** from the Command Palette. After moving or updating the extension, use
@@ -223,134 +224,10 @@ node "$CODETOUR_ROOT/dist/cli.js" mcp
 ```
 
 The process speaks MCP over stdio with the same tools as the extension — both
-Tour creation tools and the four Knowledge tools — from one shared server
+Tour creation tools and the generation prompt tool — from one shared server
 implementation; the working directory is the Tour Workspace, or pass
 `--workspace-root`. See the [standalone distribution guide](docs/standalone-distribution.md) for
 packaged-launcher client configuration.
-
-### Read and save a Knowledge catalogue
-
-`codetour knowledge` is the deterministic, offline surface for the Knowledge
-entries under `<workspace>/.tours/.memory/knowledge/`. It needs no model, no
-API key and no network. Pass `--workspace <dir>` to choose the project
-explicitly; otherwise the current directory is resolved once and used for
-every proof. Exactly one JSON object is written to stdout; diagnostics go to
-stderr.
-
-```bash
-cd /path/to/project
-node "$CODETOUR_ROOT/dist/cli.js" knowledge list
-node "$CODETOUR_ROOT/dist/cli.js" knowledge list --query dispatch
-node "$CODETOUR_ROOT/dist/cli.js" knowledge read dispatch_flow
-node "$CODETOUR_ROOT/dist/cli.js" knowledge hash src/main.ts
-node "$CODETOUR_ROOT/dist/cli.js" knowledge save --proposal proposal.json
-```
-
-`list` verifies each entry and returns names, descriptions and each entry's
-Knowledge Revision — the opaque SHA-256 of the entry file bytes — for matching
-valid entries; `invalid` reports every refused entry by name, reason and
-revision, regardless of the query, and `list` returns exit 3 when no valid
-entry matches. Neither list contains bodies, cited paths or evidence hashes:
-the revision is the one token it exposes. `read` returns the same revision and
-the Markdown body only when every declared proof verifies; otherwise it reports
-an `invalid` reason and the revision without the body, a cited path or a hash
-value. `hash` prints the deterministic digest for preparing evidence, and
-`save` takes `--mode` (`create`, `append` or `replace`) and
-`--expected-revision` for the two amend modes.
-
-#### Save a proposal
-
-`save` validates a whole proposal and persists it atomically, or publishes
-nothing. A proposal file is a JSON object with one key:
-
-```json
-{
-  "entries": [
-    {
-      "name": "dispatch_flow",
-      "description": "How tool calls dispatch",
-      "body": "Markdown body, interpreted never executed.\n",
-      "evidence": [{ "path": "src/main.ts" }, { "path": "docs/dispatch.md", "sha256": "<64 hex>" }]
-    }
-  ]
-}
-```
-
-`name` is a canonical identifier equal to the entry file name, `description`
-is one non-empty line and `evidence` cites at least one workspace-relative
-path. A relative `--proposal` path is resolved from the directory the CLI is
-launched in; the entry's evidence paths are always resolved against the
-workspace. An omitted `sha256` is computed from the cited bytes; a declared one is
-verified and normalized, so a stale or forged digest is refused. Paths outside
-the workspace, escaping symbolic links, missing or non-regular files and
-unsupported (`symbol`) proofs are refused the same way they are on read.
-
-The same entry can be described with convenience flags instead of a file
-(`--body-file` is resolved against the workspace, `--evidence` is repeatable):
-
-```bash
-node "$CODETOUR_ROOT/dist/cli.js" knowledge save \
-  --name dispatch_flow --description "How tool calls dispatch" \
-  --body-file docs/dispatch.md --evidence src/main.ts
-```
-
-A proposal is all-or-nothing: every entry is validated first, an existing
-`<name>.md` is never overwritten, and any refusal leaves the catalogue
-untouched. An empty `entries` list is a valid, explicit no-op. Results:
-
-| status | meaning | exit |
-| --- | --- | --- |
-| `saved` | every entry was published; `saved` lists the names | 0 |
-| `appended` | the historical body was kept and the addition inserted; `appended` lists the name | 0 |
-| `replaced` | one entry was rewritten in full against the revision read; `replaced` lists the name | 0 |
-| `no_change` | the append added nothing literally new; nothing was written | 0 |
-| `no-op` | zero entries were proposed; nothing was created | 0 |
-| `conflict` | a name already exists (`name_conflict`) or no longer carries the revision read (`revision_conflict`); `conflicts` lists it, nothing was written | 4 |
-| `invalid` | at least one entry or the proposal shape is invalid; `rejected` lists names and reasons, nothing was written | 4 |
-
-Exit statuses are stable: `0` success, `1` internal error, `2` usage error
-(unreadable proposal or body file, ambiguous input, unusable workspace), `3`
-absence (empty catalogue, unknown entry, missing file), `4` invalid (malformed
-contract, stale or forged hash, unsupported proof, path outside the workspace,
-symlink escape, name conflict).
-
-Evidence validity is not semantic correctness: a `saved` or `valid` result
-proves the declared sources still hash as declared, not that the explanation is
-accurate, complete or the best one.
-
-The same Knowledge contract is exposed by the existing MCP server (VS Code
-extension, `codetour mcp`, and the `codetour-mcp` npm package) as
-`knowledge_list` (verified metadata only, with invalid entries reported for
-fixing), `knowledge_read` (verified body or a refusal
-with no content), `knowledge_save` (one observable consolidation outcome:
-`created`, `appended`, `replaced`, `no_change`, `completed_zero`, `conflict`,
-`invalid` or `failed`) and
-`knowledge_close_run` (an explicit `skipped` closure for a generation run). The
-`generate_project_tour` MCP prompt adds the user's original request, a bounded
-catalogue projection and an explicit decomposition/consolidation method before
-generation. Those instructions travel only through `prompts/get`: a client that
-calls the tools directly does not receive them. See the
-[MCP server documentation](packages/mcp-server/README.md#generation-prompts-promptsget)
-for the exact composition, catalogue bounds, refusal reasons and the
-untrusted-data boundary.
-
-### The Knowledge workflow lives in the plugin
-
-The standalone `codetour-knowledge` skill is retired: the Copilot plugin is the
-only CodeTour guidance. Discovery goes through the MCP `knowledge_list`
-(metadata only; entries whose evidence no longer matches are listed under
-`invalid` with their reason, to fix or remove — see ADR 0044), reference reads
-through `knowledge_read` (a body is returned only when every declared SHA-256
-proof still matches), the Tour method travels only in the served
-`generate_project_tour` prompt, and consolidation goes through
-`knowledge_save`, `knowledge_close_run` and the plugin's `agentStop` guard.
-The `codetour knowledge` CLI commands remain for use outside Copilot.
-`codetour --install copilot` and `--uninstall copilot` remove a
-`~/.copilot/skills/codetour-knowledge/` directory an older CLI wrote, so no
-second, conflicting CodeTour skill is loaded next to the plugin. Limits stay
-as they were: a `valid` read or a `saved` proposal proves only that declared
-evidence still matches; it is not a semantic guarantee that the explanation is
-correct or complete.
 
 ### Install every compatible agent
 
@@ -414,21 +291,7 @@ The controlled adapter resolves one workspace, fetches `prompts/get`
 phrase **before** calling the agent, and fails visibly when the server or the
 prompt is unavailable: no analysis starts and no fallback prompt is used. It
 writes `<workspace>/.tours/.log/codetour-run-<runId>.json` before sending; the
-MCP records the Tour creation and the consolidation closure under that same
-`runId`. The plugin's `agentStop` hook reads only that server trace. It is inert
-for ordinary conversations, other sessions or workspaces, `stop_hook_active`, a
-run without a Tour, any closure (including `completed_zero`) and any storage
-failure. For one incomplete run it asks for at most one continuation to call
-`knowledge_save` or `knowledge_close_run`, then stays inert.
-
-Limits are real, not implied guarantees: a run started through a direct skill or
-direct MCP calls has no run state and is unguarded; hooks disabled or a plugin
-not loaded means no guard; the MCP results and the run state always report the
-truth, and a missing closure is reported as an omission, never assumed. The
-consolidation closure is all-or-nothing today, so `partial` is reserved. See
-[ADR 0041](docs/adr/0041-deliver-codetour-as-an-agent-plugins-1-0-plugin-with-one-guarded-run.md)
-and the [plugin README](packages/copilot-plugin/README.md) for the exact file
-format, expiry and outcomes.
+MCP records Tour creation under the same `runId`. The hook records available usage metrics and does not block completion after Tour creation. See the [plugin README](packages/copilot-plugin/README.md) for details.
 
 ### Choose an agent in the terminal reader
 
@@ -453,8 +316,7 @@ A direct `pi install ./packages/pi-plugin` installs the same package without
 that launcher. The package declares the existing `codetour mcp` server with
 `pi.registerMcpServer` (`deferred` exposure, real `ctx.cwd` as workspace), ships
 the `codetour-generate` skill rewritten on the `mcp__codetour__*` tool names,
-and hosts the consolidation guard as an `agent_before_settle` handler instead of
-a subprocess hook. `/codetour` opens the native **Générer / Lire** menu.
+and releases the MCP connection when the agent settles. `/codetour` opens the native **Générer / Lire** menu.
 After the generation choices, Pi writes the run state and invokes the skill. Pi exposes MCP
 tools but not MCP prompts, so the served prompt is fetched with
 `get_generation_prompt` rather than `prompts/get`.
@@ -465,13 +327,6 @@ pi list                       # codetour-pi-plugin, from the managed directory
 pi mcp list                   # the codetour server registered by the extension
 codetour --agents             # integration state and repair command
 ```
-
-Both plugins record the same additive `knowledge` block in the run state (ADR
-0045): the verified catalogue the run's own `knowledge_list` returned, the
-invalid entries with their reasons, and the entries its `knowledge_read`
-served. The closing line reports it on both hosts — `ctx.ui.notify` in Pi, one
-clause on the `agentStop` stderr line in Copilot — and an absent block means
-"not measured", never "zero".
 
 ### Try the experimental Copilot adapter
 

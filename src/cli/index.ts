@@ -20,7 +20,6 @@ import { runInternalOpenVsCode } from "./internalOpenVscode";
 import { openTourInVsCode } from "./openInVscode";
 import { defaultTerminalSession, handOffTtyToTourReader, HANDOFF_FLAG } from "./ttyHandoff";
 import { resolveTourSelection } from "./tourResolution";
-import { isKnowledgeInvocation, registerKnowledgeCommand, reportKnowledgeUsageError } from "./knowledge";
 
 const USAGE = "Usage: codetour [tour] [--renderer terminal|html|vscode]";
 
@@ -90,7 +89,6 @@ function buildProgram(): Command {
     });
   // The native Knowledge family is deterministic and works outside Git: its
   // positional subcommands never reach the Tour reader.
-  registerKnowledgeCommand(command);
   return command;
 }
 
@@ -354,12 +352,6 @@ async function main(): Promise<void> {
     // A command with subcommands but no action prints its help and raises
     // `commander.help`: that is an informational success, not a JSON result.
     if ((error as CommanderError).code === "commander.help") return;
-    // The Knowledge family keeps one JSON object on stdout and its documented
-    // usage status, including for commander's own parse diagnostics.
-    if (isKnowledgeInvocation(process.argv)) {
-      reportKnowledgeUsageError(error);
-      return;
-    }
     throw toCliError(error as CommanderError);
   }
 }

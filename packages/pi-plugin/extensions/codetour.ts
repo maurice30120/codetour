@@ -247,7 +247,7 @@ export default function codetourPlugin(pi: ExtensionAPI) {
     pi.registerMcpServer(SERVER_NAME, {
       command: launcher.command,
       args: [...launcher.args, "--workspace-root", workspace],
-      description: "CodeTour: guided code tours and verified Knowledge.",
+      description: "CodeTour: guided code tours.",
       exposure: "deferred",
     });
     registeredOnDemand = true;
@@ -278,7 +278,7 @@ export default function codetourPlugin(pi: ExtensionAPI) {
     // terminal, or the Tour at its active step in VS Code through the CLI's
     // Open-in-VS Code surface (ticket #244's contract). Never a textual
     // summary, whatever the choice; reading never opens an independent window.
-    if (!isClosed(state) || offered.has(state.runId)) return;
+    if (offered.has(state.runId)) return;
     offered.add(state.runId);
     const question = openingQuestion(state);
     if (!question) return;
@@ -351,39 +351,7 @@ export default function codetourPlugin(pi: ExtensionAPI) {
       if (state.workspace !== workspace || state.sessionId !== sessionId) continue;
       await report(ctx, state);
     }
-    if (event.aborted) {
-      releaseMcp();
-      return;
-    }
-
-    const candidate = selectContinuation(listed.states, { workspace, sessionId });
-    if (!candidate) {
-      releaseMcp();
-      return;
-    }
-
-    const marked = await updateRunState(workspace, candidate.runId, (state: Record<string, any>) =>
-      state.continuationUsed
-        ? null
-        : { ...state, continuationUsed: true, updatedAt: new Date().toISOString() }
-    );
-    if (!marked.updated) {
-      releaseMcp();
-      return;
-    }
-
-    return {
-      entries: [
-        ...event.entries,
-        {
-          type: "custom_message" as const,
-          customType: "codetour-consolidation",
-          content: continuationMessage(candidate),
-          display: false,
-        },
-      ],
-      continue: true,
-    };
+    releaseMcp();
   });
 
   pi.registerCommand("codetour", {

@@ -164,125 +164,13 @@ test("an appended or replaced closure carrying changed names closes the run", as
   }
 });
 
-test("an incomplete run receives exactly one bounded continuation", () => {
+test("a created Tour finishes without a consolidation continuation", () => {
   const { root, workspace } = workspaceWithSpaces();
   try {
     const state = writeState(workspace, { tourCreated: true, tourPath: ".tours/project.tour" });
-    const first = runHook(payload({ cwd: workspace }));
-    assert.equal(first.output.decision, "block");
-    assert.match(first.output.reason, new RegExp(state.runId));
-    assert.match(first.output.reason, /knowledge_save/);
-    assert.match(first.output.reason, /knowledge_close_run/);
-    assert.match(first.output.reason, /Do not create the Tour again/);
-    assert.equal(readState(workspace, state.runId).continuationUsed, true);
-
-    // The host re-enters with stop_hook_active; the counter alone is enough.
     assert.deepEqual(runHook(payload({ cwd: workspace })).output, {});
-    assert.deepEqual(runHook(payload({ cwd: workspace, stop_hook_active: true })).output, {});
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("two concurrent hook invocations produce at most one block", async () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    const state = writeState(workspace, { tourCreated: true });
-    const invoke = () => new Promise(resolve => {
-      const child = spawn(process.execPath, [hook], { stdio: ["pipe", "pipe", "pipe"] });
-      let stdout = "";
-      child.stdout.setEncoding("utf8");
-      child.stdout.on("data", chunk => { stdout += chunk; });
-      child.once("close", code => resolve({ code, output: JSON.parse(stdout) }));
-      child.stdin.end(JSON.stringify(payload({ cwd: workspace })));
-    });
-    const results = await Promise.all([invoke(), invoke(), invoke()]);
-    assert.equal(results.filter(result => result.output.decision === "block").length, 1);
-    assert.equal(readState(workspace, state.runId).continuationUsed, true);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("two runs in one session each get their own single continuation", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    const olderTime = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    const newerTime = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const older = writeState(workspace, {
-      runId: "run-aaaaaaaaaaaaaaaa",
-      tourCreated: true,
-      at: olderTime,
-      updatedAt: olderTime
-    });
-    const newer = writeState(workspace, {
-      runId: "run-bbbbbbbbbbbbbbbb",
-      tourCreated: true,
-      at: newerTime,
-      updatedAt: newerTime
-    });
-    const first = runHook(payload({ cwd: workspace }));
-    assert.equal(first.output.decision, "block");
-    assert.match(first.output.reason, new RegExp(newer.runId), "the newest run is chosen first");
-    // The second run remains open and can be closed by the agent or by a later
-    // generation; this stop does not block twice.
-    assert.equal(readState(workspace, older.runId).continuationUsed, false);
-    assert.equal(readState(workspace, newer.runId).continuationUsed, true);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("a resumed session keeps its run state and bounds the continuation", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    const state = writeState(workspace, {
-      tourCreated: true,
-      at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
-    });
-    assert.equal(runHook(payload({ cwd: workspace })).output.decision, "block");
-    assert.equal(readState(workspace, state.runId).continuationUsed, true);
-    assert.deepEqual(runHook(payload({ cwd: workspace })).output, {});
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("an expired run and a symlinked workspace path are handled deterministically", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    writeState(workspace, {
-      runId: "run-cccccccccccccccc",
-      tourCreated: true,
-      at: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-    });
-    assert.deepEqual(runHook(payload({ cwd: workspace })).output, {});
-    const link = path.join(root, "linked workspace");
-    symlinkSync(workspace, link, "dir");
-    writeState(workspace, {
-      runId: "run-dddddddddddddddd",
-      tourCreated: true,
-      at: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
-    assert.equal(runHook(payload({ cwd: link })).output.decision, "block");
-    // The comparison is symmetric: a state recorded under another spelling of
-    // the same root — here the link rather than its target — is still this
-    // run's, so a writer using one spelling and a hook reading the other agree
-    // (ADR 0056).
-    writeState(workspace, {
-      runId: "run-eeeeeeeeeeeeeeee",
-      workspace: link,
-      tourCreated: true,
-      at: new Date().toISOString(),
-      updatedAt: new Date(Date.now() + 1000).toISOString()
-    });
-    assert.equal(runHook(payload({ cwd: workspace })).output.decision, "block");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+    assert.equal(readState(workspace, state.runId).continuationUsed, false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test("storage failures and corrupt state never block and never throw", () => {
@@ -636,7 +524,7 @@ test("an unavailable session events file records an explicit unobserved report",
     // The guard still asks for the missing consolidation while the usage
     // snapshot cannot be observed.
     const blocked = runHook(payload({ cwd: workspace }));
-    assert.equal(blocked.output.decision, "block");
+    assert.deepEqual(blocked.output, {});
     const usage = readState(workspace, state.runId).metrics.usage;
     assert.equal(usage.observed, false);
     assert.equal(usage.reason, "missing");

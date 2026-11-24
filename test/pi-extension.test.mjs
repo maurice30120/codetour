@@ -240,7 +240,7 @@ test("the native generation menu sends the selected review mode only after confi
   }
 });
 
-test("the guard is inert before a Tour and asks for exactly one continuation after", async () => {
+test("a created Tour finishes without a consolidation continuation", async () => {
   const { root, workspace } = workspaceWithSpaces();
   try {
     const host = fakeHost();
@@ -276,11 +276,7 @@ test("the guard is inert before a Tour and asks for exactly one continuation aft
       { entries: [], aborted: false, context: {} },
       context.ctx
     );
-    assert.equal(first.continue, true);
-    assert.equal(first.entries.length, 1);
-    assert.equal(first.entries[0].customType, "codetour-consolidation");
-    assert.equal(first.entries[0].display, false);
-    assert.match(first.entries[0].content, new RegExp(`runId "${runId}"`));
+    assert.equal(first, undefined);
 
     const second = await host.handlers.get("agent_before_settle")(
       { entries: [], aborted: false, context: {} },

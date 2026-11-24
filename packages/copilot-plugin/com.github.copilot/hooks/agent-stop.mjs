@@ -254,40 +254,7 @@ async function decide(input) {
   const listed = await listRunStates(workspace);
   for (const problem of listed.problems) diagnostic(`ignored run state (${problem})`);
   await recordUsageMetrics(workspace, sessionId, listed.states);
-  const candidates = listed.states.filter(state =>
-    sameWorkspace(state.workspace, workspace) &&
-    state.sessionId === sessionId &&
-    state.tourCreated === true &&
-    !state.continuationUsed &&
-    !isClosed(state)
-  );
-  if (candidates.length === 0) return HOOK_OUTPUT;
-
-  // Two generations can be open for one session. One stop asks for at most one
-  // continuation: the newest incomplete run is chosen and marked under the
-  // cross-process lock, so a concurrent hook invocation cannot also block.
-  const chosen = candidates[0];
-  let result;
-  try {
-    result = await updateRunState(workspace, chosen.runId, state => {
-      if (state.continuationUsed || isClosed(state) || state.tourCreated !== true) return null;
-      return {
-        ...state,
-        continuationUsed: true,
-        updatedAt: new Date().toISOString()
-      };
-    });
-  } catch (error) {
-    // A failed mark must not block: without the mark the one-continuation
-    // bound cannot be guaranteed, so the safe answer is to let the agent stop.
-    diagnostic(`could not record the continuation (${error?.message || error})`);
-    return HOOK_OUTPUT;
-  }
-  if (!result.updated) {
-    if (result.reason && result.reason !== "noop") diagnostic(`could not record the continuation (${result.reason})`);
-    return HOOK_OUTPUT;
-  }
-  return { decision: "block", reason: continuationReason(result.state) };
+  return HOOK_OUTPUT;
 }
 
 async function main() {
