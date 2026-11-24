@@ -59,8 +59,7 @@ test("the plugin hook is deterministic and bounded by its declaration and source
   assert.doesNotMatch(hook, /fetch\(|https?:|openai|anthropic|chat\.completions/i, "the hook must not call a model or the network");
   assert.doesNotMatch(hook, /knowledgeDirectory|\.memory\/knowledge|saveKnowledgeProposal|writeFile/i, "the hook must not write Knowledge");
   assert.match(hook, /stop_hook_active/);
-  assert.match(hook, /continuationUsed/);
-  assert.match(hook, /decision: "block"/);
+  assert.doesNotMatch(hook, /decision: "block"/);
 });
 
 test("the plugin skill defers to the served MCP prompt instead of duplicating it", () => {
@@ -71,8 +70,7 @@ test("the plugin skill defers to the served MCP prompt instead of duplicating it
   assert.match(skill, /not[\s\S]{0,40}copied here/i);
   // The plugin is the primary path and uses the MCP Knowledge tools directly.
   assert.match(skill, /primary CodeTour path/i);
-  assert.match(skill, /knowledge_save/);
-  assert.match(skill, /knowledge_close_run/);
+  assert.doesNotMatch(skill, /knowledge_save|knowledge_close_run/);
   // The superseded CLI-first skill is not mentioned at all: naming it as a
   // fallback would invite a host to route the workflow through it.
   assert.doesNotMatch(skill, /optional fallback/i);

@@ -230,12 +230,10 @@ test(
           "create_changes_tour",
           "create_project_tour",
           "get_generation_prompt",
-          "knowledge_close_run",
-          "knowledge_list",
-          "knowledge_read",
-          "knowledge_save",
         ]
       );
+      const prompt = await client.getPrompt({ name: "generate_project_tour", arguments: { request: "Explain hello" } });
+      assert.doesNotMatch(JSON.stringify(prompt), /knowledge|consolidat/i);
       const response = await callTool(client, "create_project_tour", {
         title: "Subcommand Tour",
         steps: [{ file: "hello.txt", description: "Created through the codetour mcp subcommand." }],

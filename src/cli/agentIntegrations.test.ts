@@ -268,7 +268,7 @@ test("the plugin declares one workspace-scoped CodeTour MCP server exposing the 
     }, workspace);
     assert.ok(tools.includes("create_project_tour"), `tools: ${tools.join(", ")}`);
     assert.ok(tools.includes("create_changes_tour"), `tools: ${tools.join(", ")}`);
-    assert.ok(tools.includes("knowledge_save"), `tools: ${tools.join(", ")}`);
+    assert.ok(!tools.some(tool => tool.startsWith("knowledge_")), `tools: ${tools.join(", ")}`);
   } finally {
     rmSync(workspace, { recursive: true, force: true, maxRetries: 50, retryDelay: 100 });
   }

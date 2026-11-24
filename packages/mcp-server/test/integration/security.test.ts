@@ -74,7 +74,7 @@ test("rejects an active scheme in the tour-level description", async () => {
   }
 });
 
-test("exposes exactly the two Tour tools and the four Knowledge tools", async () => {
+test("exposes exactly the two Tour tools and the prompt tool", async () => {
   const root = tempDir();
   try {
     await withServer(root, async (client) => {
@@ -84,10 +84,6 @@ test("exposes exactly the two Tour tools and the four Knowledge tools", async ()
         "create_changes_tour",
         "create_project_tour",
         "get_generation_prompt",
-        "knowledge_close_run",
-        "knowledge_list",
-        "knowledge_read",
-        "knowledge_save",
       ]);
       const project = tools.tools.find((tool) => tool.name === "create_project_tour");
       assert.ok(project);

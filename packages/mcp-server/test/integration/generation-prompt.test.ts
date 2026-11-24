@@ -114,19 +114,16 @@ async function readResourceText(
   return content.text ?? "";
 }
 
-test("tool guidance gives a valid Mermaid example and Knowledge name rule", async () => {
+test("tool guidance gives a valid Mermaid example", async () => {
   const root = tempDir();
   try {
     await withServer(root, async client => {
       const tools = (await client.listTools()).tools;
       const project = tools.find(tool => tool.name === "create_project_tour");
-      const save = tools.find(tool => tool.name === "knowledge_save");
       assert.ok(project?.description);
-      assert.ok(save?.description);
       const example = project.description.match(/`(Client -->[^`]+)`/);
       assert.ok(example, "the project tool supplies an edge-label example");
       await renderMermaidDiagram(`flowchart LR\n${example[1]}`, "light");
-      assert.match(save.description, /knowledge-lecture-verifiee/);
       assert.match(
         project.description,
         /pattern: "export function createServer"/,
@@ -229,39 +226,6 @@ test("the Project Tour prompt verifies claims against code and traces flows end 
         text.includes("provides or names in the request"),
         "the prompt must examine the files the user provides"
       );
-    });
-  } finally {
-    rmrf(root);
-  }
-});
-
-test("every served generation prompt scopes knowledge rules and requires cited backing", async () => {
-  const root = tempDir();
-  try {
-    await withServer(root, async (client) => {
-      const surfaces = [
-        await readResourceText(client, PROJECT_TOUR_PROMPT_RESOURCE_URI),
-        await readResourceText(client, changesTourPromptUri("neutral")),
-        await readResourceText(client, changesTourPromptUri("critical")),
-      ];
-      for (const text of surfaces) {
-        assert.ok(
-          text.includes("general rule or an exception"),
-          "the prompt must distinguish general rules from their exceptions"
-        );
-        assert.ok(
-          text.includes("not proven general"),
-          "the prompt must refuse to generalize from a single path"
-        );
-        assert.ok(
-          text.includes("every claim of the body is backed"),
-          "the prompt must back every body claim with the cited files"
-        );
-        assert.ok(
-          text.includes("every file a reader needs"),
-          "the prompt must require the evidence a reader needs"
-        );
-      }
     });
   } finally {
     rmrf(root);

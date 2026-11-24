@@ -100,16 +100,10 @@ test("the closing offer opens the real reader or asks for VS Code; the spawn liv
   assert.doesNotMatch(reader, /vscode:\/\//);
 });
 
-test("the guard is bounded: one continuation, marked under the run-state lock", () => {
+test("the settle handler releases the connection without a continuation", () => {
   const extension = source("extensions/codetour.ts");
   assert.match(extension, /pi\.on\("agent_before_settle"/);
-  assert.match(extension, /continue: true/);
-  assert.match(extension, /continuationUsed/);
-  assert.match(extension, /selectContinuation\(/);
-  const guard = source("lib/guard.mjs");
-  assert.match(guard, /state\.continuationUsed !== true/);
-  assert.match(guard, /isClosed\(state\)/);
-  assert.doesNotMatch(guard, /fetch\(|https?:\/\//);
+  assert.doesNotMatch(extension, /continue: true/);
 });
 
 test("the skill defers to the served prompt and names the Pi tool prefix", () => {
@@ -119,8 +113,6 @@ test("the skill defers to the served prompt and names the Pi tool prefix", () =>
     "mcp__codetour__get_generation_prompt",
     "mcp__codetour__create_project_tour",
     "mcp__codetour__create_changes_tour",
-    "mcp__codetour__knowledge_save",
-    "mcp__codetour__knowledge_close_run",
   ]) {
     assert.ok(skill.includes(tool), `the skill must name ${tool}`);
   }
