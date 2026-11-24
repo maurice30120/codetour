@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { CodeTour } from "../../store";
@@ -17,7 +17,7 @@ import type { TourReader, } from "./reader";
 /**
  * The end-to-end proof of ticket #241: the composition the CLI entry point
  * performs — the TTY-validated reader over its injected collaborators — plays
- * a real, existing Tour end to end on the view-model seam. No PTY, no VT
+ * a representative Tour end to end on the view-model seam. No PTY, no VT
  * decoding, no window: everything is asserted at the reading interface, with
  * the narration engine and the conversation responder faked at the module
  * boundary and every other collaborator real (content, Step context, diff).
@@ -162,10 +162,17 @@ function compose(tour: CodeTour, root: string, columns = 120, rows = 40): Compos
 }
 
 test("the composed CLI reader plays a Tour of this repository end to end on the view-model seam", async () => {
-  // The workspace's own demo Tour: an existing .tour file with Mermaid in its
-  // explanatory Markdown and file+pattern code anchors.
+  // Keep the sample independent of project Tours, which users may remove.
   const tour = loadTour(
-    readFileSync(path.join(projectRoot, ".tours", "lecture-navigation-2026.tour"), "utf8"),
+    JSON.stringify({
+      title: "Lecture et navigation des Tours",
+      steps: [
+        { title: "Vue d'ensemble", file: "src/store/tourSchema.ts", line: 1, description: "**Diagram — Lecture**\n\n```mermaid\nflowchart LR\n  Stockage --> Lecture\n```" },
+        { title: "Schéma", file: "src/store/tourSchema.ts", line: 1, description: "Le schéma charge les étapes." },
+        { title: "Lecteur", file: "src/cli/reader/reader.ts", line: 1, description: "Le lecteur présente les étapes." },
+        { title: "Terminal", file: "src/cli/terminal.ts", line: 1, description: "Le terminal compose le lecteur." }
+      ]
+    }),
     "test://demo-tour"
   );
   assert.ok(tour.steps.length > 3, "the demo Tour carries several Steps");
@@ -174,7 +181,7 @@ test("the composed CLI reader plays a Tour of this repository end to end on the 
     // Opening settles the first render: the reader is on Step 1 (spec #93).
     await reader.open();
     const first = reader.getState();
-    assert.equal(first.tourTitle, "Lecture et navigation des Tours");
+    assert.equal(first.tourTitle, "Lecture et navigation des Tours", JSON.stringify(first));
     assert.deepEqual(first.stepCount, { index: 0, count: tour.steps.length });
     assert.equal(first.displayedStep, 0);
     assert.equal(first.rendering, false);
