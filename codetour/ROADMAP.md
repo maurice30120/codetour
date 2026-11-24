@@ -155,7 +155,7 @@ références d’implémentation.
 - [ ] Vérifier la génération sur des fixtures déterministes représentant une
   application, une bibliothèque et une CLI, ainsi que sur ce dépôt comme cas
   multi-composants.
-- [ ] Compléter la validation sans écriture (`dryRun`) par un aperçu de la
+- [ ] Ajouter avant l’écriture un aperçu de la
   comparaison, de la destination, du nombre d’étapes et des ancres. Exiger une
   confirmation explicite avant tout remplacement ; ne jamais remplacer après
   une validation échouée.

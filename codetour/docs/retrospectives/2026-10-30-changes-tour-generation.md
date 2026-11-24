@@ -2,7 +2,7 @@
 
 Session du 30 octobre 2026. Objectif : produire un Changes Tour critique des
 changements commités de la branche courante, en conservant les contrats Git,
-ancres, validation, destination et dry-run.
+ancres, validation et destination.
 
 ## Difficultés et pistes d’amélioration
 
@@ -11,7 +11,7 @@ ancres, validation, destination et dry-run.
 **Observation :** la recherche des outils disponibles ne faisait pas apparaître
 `create_changes_tour`. Il a fallu inspecter l’extension CodeTour, lancer le CLI
 MCP local, puis envoyer des messages JSON-RPC pour lire les instructions et
-appeler l’outil. Le serveur a bien exécuté le dry-run puis la création, mais ce
+appeler l’outil. Le serveur a bien validé puis créé le Tour, mais ce
 détour alourdit le parcours et rend l’interface moins évidente pour l’agent.
 
 **Piste :** exposer les outils MCP CodeTour comme outils appelables dans la
@@ -43,21 +43,7 @@ les instructions critiques et les specs concernées. Pour le mode critique,
 identifier les issues citées par les commits et charger leurs exigences
 pertinentes avant d’examiner tout le dépôt.
 
-### 4. Rendre le cycle dry-run → persistance réutilisable — priorité moyenne
-
-**Observation :** la proposition a été préparée et envoyée deux fois via des
-requêtes MCP construites manuellement. Le dry-run a trouvé des ancres valides,
-mais a aussi signalé deux fichiers locaux exclus et un dépassement du maximum
-conseillé de 15 étapes. La création finale a conservé 21 étapes, conformément
-au caractère consultatif de cette limite.
-
-**Piste :** proposer un flux réutilisable qui conserve le contenu validé du
-dry-run, demande seulement les corrections nécessaires, puis rappelle le même
-outil sans `dryRun`. L’agent peut regrouper les étapes proches lorsque cela
-améliore la lecture, sans supprimer une couverture distincte uniquement pour
-faire disparaître l’avertissement.
-
-### 5. Séparer preuves automatisées et acceptation sur plateformes — priorité
+### 4. Séparer preuves automatisées et acceptation sur plateformes — priorité
    moyenne
 
 **Observation :** la revue a relevé que la preuve réelle de narration Windows
@@ -78,6 +64,6 @@ autonome sur macOS et Windows. Aucun nouvel outil de lint ou de test n’est
 proposé ici : les difficultés observées concernaient surtout la découvrabilité
 des outils et le choix du périmètre.
 
-Le dry-run MCP a validé les 21 étapes et la création a réussi. Le serveur a
+Le MCP a validé les 21 étapes et la création a réussi. Le serveur a
 signalé que deux modifications locales étaient exclues ; elles sont restées
 hors du Changes Tour, conformément au périmètre demandé.

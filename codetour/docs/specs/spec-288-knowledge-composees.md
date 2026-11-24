@@ -96,7 +96,7 @@ Rien de tout cela n'a été mesuré. L'option est retenue sur le critère du plu
 
 - La **projection du catalogue** est décrite juste au-dessus : plate, une ligne par entrée, une relation compacte et bornée sur les composées, aucune fille masquée, aucun corps ni preuve détaillée dans le catalogue.
 - Le prompt de génération servi par `prompts/get` gagne les règles de décision de §6 : compléter ou corriger une atomique du même sujet ⇒ `append`/`replace` sur cette atomique ; découverte indépendante ⇒ atomique possible ; composée ⇒ au moins deux sources distinctes réellement pertinentes **et** une conclusion transversale nouvelle et réutilisable ; rien ⇒ `completed_zero` ou `skipped`. Il précise le format des dépendances — nommer les filles, ne fournir aucun digest — et l'interdiction d'injecter leurs corps.
-- Le rappel des consultations ajouté après `create_project_tour` / `create_changes_tour` reste limité à l'identifiant, au nom et à la description, sans corps et sans rappel sur `dryRun` ou sur un échec.
+- Le rappel des consultations ajouté après `create_project_tour` / `create_changes_tour` reste limité à l'identifiant, au nom et à la description, sans corps et sans rappel sur un échec.
 - La **surface MCP** et le **run-state** gardent leur forme : `used` continue de compter les entrées dont une lecture a servi un corps valide — une composée compte, ses filles non, puisqu'aucun de leurs corps n'est servi.
 
 ## Testing Decisions

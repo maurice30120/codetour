@@ -10,7 +10,7 @@ The recorded interactive session is `0df242c6-cd9b-4312-9d95-9aa9b60feb5a`. The 
 | Before 09:28:17 | `/codetour` displayed Read/Generate, then Project Tour/Changes Tour; Generate → Project Tour was selected. No review-mode question appeared. |
 | 09:28:17.481 | The host received the Project Tour generation prompt via `session.send`. |
 | 09:28:22.160 | First analysis tool (`glob`), after the generation choices. |
-| 09:29:42.075 | Shared `create_project_tour` validated the real agent's six-step proposal with `dryRun: true`. |
+| 09:29:42.075 | Shared `create_project_tour` validated the real agent's six-step proposal before writing. |
 | 09:29:58.481 | The same tool created `.tours/project.tour`, six steps, no validation warnings. |
 | Before 09:30:29 | `/codetour generate changes` displayed Neutral/Critical; Neutral was selected. |
 | 09:30:29.864 | The agent began Git analysis after receiving `reviewMode: "neutral"`. |
