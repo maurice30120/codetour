@@ -1,8 +1,0 @@
-{
-  "generation": "0000000000000036",
-  "manifest_sha256": "f467e1e3b3cb0bcba9e4a9ed3a6cdfd150b746c6dacbc7b1807ff0683c009edb",
-  "session_id": "77c3b8a8-4288-57f2-4e54-535cb81aac64",
-  "snapshot_sequence": 36,
-  "store_format": "mistral.vibe.unified-session-store/v1",
-  "store_format_minor": 10
-}

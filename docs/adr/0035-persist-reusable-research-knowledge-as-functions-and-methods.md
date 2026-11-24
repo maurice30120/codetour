@@ -1,3 +1,5 @@
+> Historical decision: superseded by [spec #304](https://github.com/maurice30120/codetour/issues/304), which removes CodeTour memory without migration.
+
 # Persist reusable research knowledge as Memory Functions and Memory Methods
 
 The Research Harness memory held only Memory Functions, which forces every reusable finding to be a deterministic TypeScript operation even when it is really a search method needing interpretation. We add a second Memory Entry kind, the Memory Method: short Markdown instructions that the agent reads and interprets, never executes. Both kinds live in one Memory Catalogue, are discovered together, and are created only by a Consolidation Run, which picks function, method or nothing per finding.

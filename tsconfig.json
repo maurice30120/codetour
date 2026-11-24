@@ -20,9 +20,6 @@
       "codetour-mcp": [
         "packages/mcp-server/dist/src/cli"
       ],
-      "codetour-knowledge": [
-        "packages/knowledge/dist/src/index"
-      ],
       "codetour-workspace-identity": [
         "packages/workspace-identity"
       ]

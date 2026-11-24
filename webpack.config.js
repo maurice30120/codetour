@@ -36,12 +36,6 @@ const config = {
       "codetour-mcp": path.resolve(
         __dirname,
         "packages/mcp-server/dist/src/cli.js"
-      ),
-      // The native Knowledge contract is the same module the historical
-      // harness shim re-exports (ADR 0039).
-      "codetour-knowledge": path.resolve(
-        __dirname,
-        "packages/knowledge/dist/src/index.js"
       )
     }
   },
@@ -95,16 +89,10 @@ const mcpConfig = {
     "@resvg/resvg-js": RESVG_EXTERNAL,
     ...OPTIONAL_NATIVE_EXTERNALS
   },
-  // The embedded server uses the same shared Knowledge contract as the CLI
-  // bundle and the VS Code extension bundle.
   resolve: {
     extensions: [".ts", ".js", ".json"],
     alias: {
-      "codetour-workspace-identity": path.resolve(__dirname, "packages/workspace-identity/index.js"),
-      "codetour-knowledge": path.resolve(
-        __dirname,
-        "packages/knowledge/dist/src/index.js"
-      )
+      "codetour-workspace-identity": path.resolve(__dirname, "packages/workspace-identity/index.js")
     }
   },
   devtool: "source-map",

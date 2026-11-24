@@ -1,3 +1,5 @@
+> Historical memory terminology below describes functionality removed by [spec #304](https://github.com/maurice30120/codetour/issues/304); Tour and workspace terminology remains applicable.
+
 # Glossary Map
 
 ## Contexts

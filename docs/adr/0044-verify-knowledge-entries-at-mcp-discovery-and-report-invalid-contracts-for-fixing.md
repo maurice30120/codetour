@@ -1,3 +1,5 @@
+> Historical decision: superseded by [spec #304](https://github.com/maurice30120/codetour/issues/304), which removes CodeTour memory without migration.
+
 # Verify Knowledge entries at MCP discovery and report invalid contracts for fixing
 
 ADR 0040 exposed `knowledge_list` as metadata-only discovery: the catalogue

@@ -1,3 +1,5 @@
+> Historical decision: superseded by [spec #304](https://github.com/maurice30120/codetour/issues/304), which removes CodeTour memory without migration.
+
 # Scope the native deterministic Knowledge CLI against the hybrid Memory ADRs
 
 Spec #223 makes one part of the experimental Knowledge contract native: an installable `codetour knowledge` CLI that discovers the catalogue, reads one entry behind the same deterministic evidence gate, and hashes workspace files for preparing evidence. It runs in any project, needs no network, no model and no API key, and never orchestrates a task; it reads and hashes files only. This ADR fixes how that boundary relates to ADR 0035, ADR 0036 and ADR 0038 without rewriting them.

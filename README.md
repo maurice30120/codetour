@@ -189,7 +189,6 @@ build the CLI:
 ```bash
 npm ci
 npm ci --prefix packages/description-renderer
-npm ci --prefix packages/knowledge
 npm ci --prefix packages/mcp-server
 npm run build
 CODETOUR_ROOT="$PWD"
@@ -401,7 +400,6 @@ Use **Node.js 24.18.0** and **npm 12.0.1**, pinned in the repository.
 ```bash
 npm ci
 npm ci --prefix packages/description-renderer
-npm ci --prefix packages/knowledge
 npm ci --prefix packages/mcp-server
 npm test
 npm run package

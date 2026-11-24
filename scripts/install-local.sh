@@ -37,7 +37,6 @@ code_cmd="$(command -v code || true)"
 # Install dependencies only where they are missing; a repeat run stays fast.
 [ -d node_modules ] || npm ci
 [ -d packages/description-renderer/node_modules ] || npm ci --prefix packages/description-renderer
-[ -d packages/knowledge/node_modules ] || npm ci --prefix packages/knowledge
 [ -d packages/mcp-server/node_modules ] || npm ci --prefix packages/mcp-server
 
 printf 'Building and packaging the VSIX from %s...\n' "$root"

@@ -58,14 +58,5 @@ const renderer = stage(
   "codetour-description-renderer",
   path.join(packageRoot, "packages", "description-renderer")
 );
-// `codetour-knowledge` declares zod ^4 for its own builds and the monorepo
-// resolves that version; in the packed artifact it resolves the host package's
-// zod, which supports the same restricted schema subset. No zod schema object
-// ever crosses the package boundary: the MCP server only calls the compiled
-// functions, so the two zod majors never meet.
-const knowledge = stage(
-  "codetour-knowledge",
-  path.join(packageRoot, "packages", "knowledge")
-);
 
-console.log(`Staged ${renderer} and ${knowledge} in the MCP package.`);
+console.log(`Staged ${renderer} and workspace identity in the MCP package.`);

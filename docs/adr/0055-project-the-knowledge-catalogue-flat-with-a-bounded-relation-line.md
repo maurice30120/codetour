@@ -1,3 +1,5 @@
+> Historical decision: superseded by [spec #304](https://github.com/maurice30120/codetour/issues/304), which removes CodeTour memory without migration.
+
 # Project the Knowledge catalogue flat, with a bounded relation line for composed entries
 
 A composed Knowledge Entry is invisible in the catalogue: an agent reads a list of names, descriptions and revisions, and nothing says that one entry rests on three others. That is the one thing the projection has to fix, and we decide it without measuring — the flat list gains, on a composed entry's own line, its type and the **names** of its daughters, bounded with an explicit omission marker. Daughters keep their own lines. The alternative presentation — a hierarchy with relations nested under each mother — was rejected because it costs a new format and an indirection for shared daughters to carry exactly the same information, and no measurement exists to show it earns that surface.

@@ -20,9 +20,6 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "codetour-knowledge": [
-        "../knowledge/dist/src/index"
-      ],
       "codetour-workspace-identity": [
         "../workspace-identity"
       ]

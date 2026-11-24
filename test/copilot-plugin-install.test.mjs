@@ -189,8 +189,7 @@ test("the real Copilot CLI installs, inspects and uninstalls the Agent Plugins 1
       stopReason: "end_turn",
       stop_hook_active: false
     });
-    assert.equal(blocked.decision, "block");
-    assert.match(blocked.reason, new RegExp(runId));
+    assert.deepEqual(blocked, {}, "a created Tour does not require consolidation");
     assert.deepEqual(runHook(hook, workspace, {
       sessionId: "session-real-cli",
       cwd: workspace,

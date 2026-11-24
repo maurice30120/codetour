@@ -1,3 +1,5 @@
+> Historical decision: superseded by [spec #304](https://github.com/maurice30120/codetour/issues/304), which removes CodeTour memory without migration.
+
 # Store Memory Methods as identifier-named files written only by the harness
 
 A Memory Method is one flat file `methods/<name>.md` beside `functions/` in `.tours/.memory/`, with `name` and `description` frontmatter. Its name follows the Memory Function rule (a valid TypeScript identifier) and must equal the file name, instead of the kebab-case `SKILL.md` directory first proposed. Methods are not meant to be loaded by external agent-skill tooling, and sharing the naming rule keeps one convention across the catalogue.

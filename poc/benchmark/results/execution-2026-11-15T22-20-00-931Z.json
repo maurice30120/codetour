@@ -1,8 +1,0 @@
-{
-  "spec": 174,
-  "verdict": "NO-GO",
-  "success": false,
-  "phase": "preconditions",
-  "started_at": "2026-11-15T22:19:58.199Z",
-  "reason": "NO-GO: NO-GO: sealed manifest artifacts changed"
-}

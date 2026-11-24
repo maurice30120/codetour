@@ -1,3 +1,5 @@
+> Historical decision: superseded by [spec #304](https://github.com/maurice30120/codetour/issues/304), which removes CodeTour memory without migration.
+
 # Expose the Knowledge core through the existing MCP server
 
 Spec #223 makes Knowledge native and deterministic (ADR 0039), and ticket #227

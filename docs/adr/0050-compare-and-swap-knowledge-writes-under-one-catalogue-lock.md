@@ -1,3 +1,5 @@
+> Historical decision: superseded by [spec #304](https://github.com/maurice30120/codetour/issues/304), which removes CodeTour memory without migration.
+
 # Compare-and-swap Knowledge writes under one catalogue lock, keyed by a byte-digest revision
 
 Spec #232 needs to amend an existing Knowledge Entry, not only create one. A filesystem offers a compare-and-swap for *creation* — a hard link fails when the target exists, which is what makes `create` safe today without any lock — but none for *replacement*: `rename` overwrites unconditionally, so two writers that both read revision R silently lose one addition. We decide that all three `knowledge_save` modes take one catalogue-wide lock (`.tours/.memory/knowledge/.catalogue.lock`, exclusive create plus stale reclaim, the pattern already used for the Run State), and that the revision token handed to `append` and `replace` is the SHA-256 of the entry file's complete bytes.

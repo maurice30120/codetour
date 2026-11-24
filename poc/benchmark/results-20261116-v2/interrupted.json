@@ -1,5 +1,0 @@
-{
-  "at": "2026-11-16T06:36:31.717210+00:00",
-  "measured_runs_started": false,
-  "reason": "Pilot CodeTour hit default 8 iterations because options followed positional arguments; interrupted before sealing. In-flight pilot provider usage may be incomplete; excluded from all metrics."
-}

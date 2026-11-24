@@ -1,3 +1,5 @@
+> Historical decision: superseded by [spec #304](https://github.com/maurice30120/codetour/issues/304), which removes CodeTour memory without migration.
+
 # Record Knowledge catalogue lists and usage in the run state
 
 ADR 0044 made discovery serve only verified Knowledge contracts and report

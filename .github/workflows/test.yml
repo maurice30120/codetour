@@ -27,7 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        suite: [compiled, renderer, knowledge, mcp-server, scripts, exploration, package, standalone]
+        suite: [compiled, renderer, mcp-server, scripts, package, standalone]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -41,12 +41,7 @@ jobs:
         run: node --version && npm --version
       - run: npm ci
       - run: npm ci --prefix packages/description-renderer
-      - run: npm ci --prefix packages/knowledge
-      # npm packs file: dependencies at install time; build knowledge first.
-      - run: npm run build --prefix packages/knowledge
       - run: npm ci --prefix packages/mcp-server
-      - run: npm ci --prefix packages/exploration-poc
-      - run: npm ci --prefix packages/exploration-sandbox
       - name: Build application
         if: contains(fromJSON('["compiled", "mcp-server", "scripts", "standalone"]'), matrix.suite)
         run: npm run build
@@ -59,18 +54,12 @@ jobs:
       - name: Renderer tests
         if: matrix.suite == 'renderer'
         run: npm test --prefix packages/description-renderer
-      - name: Knowledge tests
-        if: matrix.suite == 'knowledge'
-        run: npm test --prefix packages/knowledge
       - name: MCP server tests
         if: matrix.suite == 'mcp-server'
         run: npm test --prefix packages/mcp-server
       - name: Script tests
         if: matrix.suite == 'scripts'
-        run: node --test test/copilot-adapter.test.mjs test/copilot-hook.test.mjs test/copilot-plugin-install.test.mjs test/pi-guard.test.mjs test/pi-plugin-install.test.mjs test/pi-extension.test.mjs test/cli-resolution.test.mjs test/pre-commit-hook.test.mjs test/knowledge-cli.test.mjs
-      - name: Exploration tests
-        if: matrix.suite == 'exploration'
-        run: npm test --prefix packages/exploration-poc
+        run: node --test test/copilot-adapter.test.mjs test/copilot-hook.test.mjs test/copilot-plugin-install.test.mjs test/pi-guard.test.mjs test/pi-plugin-install.test.mjs test/pi-extension.test.mjs test/cli-resolution.test.mjs test/pre-commit-hook.test.mjs
       - name: Package extension
         if: matrix.suite == 'package'
         run: npm run package
@@ -101,12 +90,10 @@ jobs:
       - name: Verify toolchain
         run: node --version && npm --version
       - run: npm ci
-      # The server's build reads both local packages, and npm packs them at
+      # The server's build reads local renderer, and npm packs them at
       # install time: their dist must exist before the server installs them.
       - run: npm ci --prefix packages/description-renderer
-      - run: npm ci --prefix packages/knowledge
       - run: npm run build --prefix packages/description-renderer
-      - run: npm run build --prefix packages/knowledge
       - run: npm ci --prefix packages/mcp-server
       # The run-log writer is read from the built server; the packaging step is
       # skipped because it stages the renderer payload this lane never uses.

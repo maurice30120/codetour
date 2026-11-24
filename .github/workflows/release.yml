@@ -44,7 +44,6 @@ jobs:
       # The symbol fingerprinter vendors its tree-sitter runtime and grammars
       # from these dev dependencies: without them the packaged extension ships
       # a Knowledge contract that fails closed on every symbol proof.
-      - run: npm ci --prefix packages/knowledge
       - run: npm ci --prefix packages/mcp-server
       - name: Package platform VSIX
         run: npm run package

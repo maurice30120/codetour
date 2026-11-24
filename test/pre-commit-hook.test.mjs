@@ -36,7 +36,7 @@ function shareSetup(root, { withBuild = true } = {}) {
   symlinkSync(path.join(repository, "node_modules"), path.join(root, "node_modules"), "dir");
   if (!withBuild) return;
   symlinkSync(path.join(repository, "dist"), path.join(root, "dist"), "dir");
-  for (const packageName of ["description-renderer", "knowledge", "mcp-server"]) {
+  for (const packageName of ["description-renderer", "mcp-server"]) {
     mkdirSync(path.join(root, "packages", packageName), { recursive: true });
     symlinkSync(
       path.join(repository, "packages", packageName, "dist"),
@@ -44,27 +44,7 @@ function shareSetup(root, { withBuild = true } = {}) {
       "dir"
     );
   }
-  // the knowledge build resolves its vendored tree-sitter runtime through the
-  // package's node_modules, exactly as in the repository
-  if (!existsSync(path.join(root, "packages", "knowledge", "node_modules"))) {
-    symlinkSync(
-      path.join(repository, "packages", "knowledge", "node_modules"),
-      path.join(root, "packages", "knowledge", "node_modules"),
-      "dir"
-    );
-  }
-  // The harness runs its whitelisted primitives in a worker that resolves
-  // quickjs-emscripten through the sandbox package's own node_modules, so the
-  // fixture carries that directory too instead of inheriting the checkout's
-  // hoisting by accident.
-  if (!existsSync(path.join(root, "packages", "exploration-sandbox", "node_modules"))) {
-    mkdirSync(path.join(root, "packages", "exploration-sandbox"), { recursive: true });
-    symlinkSync(
-      path.join(repository, "packages", "exploration-sandbox", "node_modules"),
-      path.join(root, "packages", "exploration-sandbox", "node_modules"),
-      "dir"
-    );
-  }
+
 }
 
 // A fixture repository holds the tracked files the fast guard reads: the
@@ -90,54 +70,7 @@ function createRepository({ withBuild = true } = {}) {
     path.join(repository, "test/copilot-adapter.test.mjs"),
     path.join(root, "test/copilot-adapter.test.mjs")
   );
-  // check:fast also guards packages/exploration-poc, so the fixture carries the
-  // package sources its type check and tests read.
-  for (const packageName of ["exploration-poc", "knowledge"]) {
-    mkdirSync(path.join(root, "packages", packageName), { recursive: true });
-    const entries = ["package.json", "tsconfig.json", "src", "test"];
-    if (packageName === "knowledge") entries.push("scripts");
-    for (const entry of entries) {
-      cpSync(
-        path.join(repository, "packages", packageName, entry),
-        path.join(root, "packages", packageName, entry),
-        { recursive: true }
-      );
-    }
-  }
-  symlinkSync(
-    path.join(repository, "packages", "exploration-poc", "node_modules"),
-    path.join(root, "packages", "exploration-poc", "node_modules"),
-    "dir"
-  );
-  // the knowledge build vendors the tree-sitter runtime through its scripts
-  symlinkSync(
-    path.join(repository, "packages", "knowledge", "node_modules"),
-    path.join(root, "packages", "knowledge", "node_modules"),
-    "dir"
-  );
-  // The conformance spec imports the sandbox by relative path, so the fixture
-  // carries the runtime files its worker loads instead of the whole package.
-  mkdirSync(path.join(root, "packages", "exploration-sandbox"), { recursive: true });
-  for (const entry of [
-    "package.json",
-    "index.js",
-    "worker.js",
-    "validation.js",
-    "typescript-validator.js",
-    "strict-validator.js",
-    "primitives.d.ts",
-    "strict-primitives.d.ts"
-  ]) {
-    cpSync(
-      path.join(repository, "packages", "exploration-sandbox", entry),
-      path.join(root, "packages", "exploration-sandbox", entry)
-    );
-  }
-  symlinkSync(
-    path.join(repository, "packages", "exploration-sandbox", "node_modules"),
-    path.join(root, "packages", "exploration-sandbox", "node_modules"),
-    "dir"
-  );
+  cpSync(path.join(repository, "packages/workspace-identity"), path.join(root, "packages/workspace-identity"), { recursive: true });
   shareSetup(root, { withBuild });
   assert.equal(git(root, "init", "-q").status, 0);
   assert.equal(git(root, "config", "user.email", "guard@example.test").status, 0);

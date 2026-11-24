@@ -1,8 +1,0 @@
-{
-  "spec": 174,
-  "verdict": "NO-GO",
-  "success": false,
-  "phase": "preconditions",
-  "started_at": "2026-11-15T22:29:01.914Z",
-  "reason": "NO-GO: NO-GO: G1 (Authentic Vibe) failed; G2 (Total instrumentation) failed"
-}

@@ -1,1 +1,0 @@
-Vibe invocation reported an error: {"message":"spawn app-server: failed to spawn `/private/tmp/spec174-vibe-retain-journals-20261116/vibe-app-server`: No such file or directory (os error 2)","code":null}. Evidence: /tmp/spec174-vibe-retain-journals-20261116/sentinel-evidence

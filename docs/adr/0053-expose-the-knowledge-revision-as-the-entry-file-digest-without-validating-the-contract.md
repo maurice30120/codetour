@@ -1,3 +1,5 @@
+> Historical decision: superseded by [spec #304](https://github.com/maurice30120/codetour/issues/304), which removes CodeTour memory without migration.
+
 # Expose each Knowledge Entry's revision as the digest of its file bytes, without validating the contract
 
 Spec #232 needs a compare-and-swap token so a write can be conditioned on the entry an agent actually read. We decide that a Knowledge Entry's **Knowledge Revision** is the SHA-256 of the complete Markdown file bytes, exposed as an opaque token by discovery, read, the catalogue projection served by `prompts/get`, and the Native Knowledge CLI.

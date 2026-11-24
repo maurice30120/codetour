@@ -1,3 +1,5 @@
+> Historical decision: superseded by [spec #304](https://github.com/maurice30120/codetour/issues/304), which removes CodeTour memory without migration.
+
 # Keep the experimental Knowledge mode manual, deterministic and exclusive of Memory Functions
 
 Spec #219 compares producing the same Tour with and without prepared context, so the Research Harness gains an experimental `--knowledge` mode beside the historical `--memory`. Entries are prepared by hand before the run: one Markdown file per entry in a catalogue fixed at `<workspace>/.tours/.memory/knowledge`, under the existing hidden memory root (ADR 0037's single-memory-location rule holds; the #207 root discrepancy stays deferred). Each entry's frontmatter cites its evidence as SHA-256 hashes of the cited file bytes, and the harness is the sole read gate: before a body is returned, every declared proof is verified in code with no LLM in the loop, and a missing, modified, forged or escaping source refuses the read as a bare `invalid`, so stale or hostile content never reaches the model.
