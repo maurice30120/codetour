@@ -28,7 +28,6 @@ export interface ProjectParams {
   title?: string;
   description?: string;
   fileName?: string;
-  dryRun?: boolean;
   steps?: unknown[];
 }
 
@@ -68,13 +67,6 @@ export interface SuccessResult {
   warnings: Warning[];
 }
 
-export interface ValidatedResult {
-  status: "validated";
-  title: string;
-  stepCount: number;
-  warnings: Warning[];
-}
-
 export interface ErrorResult {
   status: "error";
   code: string;
@@ -82,7 +74,7 @@ export interface ErrorResult {
   issues?: Issue[];
 }
 
-export type ToolResult = SuccessResult | ValidatedResult | ErrorResult;
+export type ToolResult = SuccessResult | ErrorResult;
 
 export interface WorkspaceContext {
   root: string;

@@ -30,7 +30,6 @@ import {
   SuccessResult,
   TourFile,
   TourStep,
-  ValidatedResult,
   Warning,
   WorkspaceContext,
 } from "./types";
@@ -257,8 +256,8 @@ const SIMPLE_ANCHOR_GUIDANCE =
 const PROJECT_TOUR_WORKFLOW_GUIDANCE =
   "Recommended workflow: (1) explore the codebase before writing — read the entry points and the " +
   "main modules, not just file names; (2) author the complete content yourself; (3) call this tool " +
-  "with dryRun omitted to create the tour; validation runs before writing, and if it reports " +
-  "issues, correct them and retry. Use dryRun true only to validate without writing. " +
+  "to create the tour; validation runs before writing, and if it reports " +
+  "issues, correct them and retry. " +
   "What makes a useful Project Tour: orient the reader first (a directory or no-locator step on " +
   "where the work lives), then follow one coherent route — entry point, main components, how they " +
   "collaborate — rather than a flat file listing. Explain each step's role and why it matters, and " +
@@ -293,10 +292,9 @@ const PROJECT_TOUR_ORIENTATION_GUIDANCE =
 const CHANGES_TOUR_WORKFLOW_GUIDANCE =
   "Recommended workflow: (1) inspect the actual comparison before writing — the diff from the " +
   "merge-base to headRef, the affected source, and the tests — and base every statement on what " +
-  "the code does, never on commit messages or file names alone; (2) call this tool with dryRun " +
-  "omitted to create the tour; checks run before writing. Correct reported issues and retry; " +
+  "the code does, never on commit messages or file names alone; (2) call this tool " +
+  "to create the tour; checks run before writing. Correct reported issues and retry; " +
   "if HEAD moved, re-read the comparison and resubmit the new SHA with matching content. " +
-  "Use dryRun true only to validate without writing. " +
   "What makes a useful Changes Tour: open with a directory step orienting the reader to where the " +
   "work happened; group related changes into one coherent review path; for each major change " +
   "explain what it does, how it is implemented, and its observable behavioral effect; anchor the " +
@@ -370,9 +368,6 @@ const PROJECT_TOUR_DESCRIPTION =
   "You author the complete content; the server validates it and atomically writes the tour file, " +
   "replacing the previous file at that destination only on success. Validation issues are returned together; " +
   "correct the reported issues before retrying. Failure preserves the previous tour. " +
-  "Pass dryRun true to rehearse a complete proposal: the same validation runs (anchors, Mermaid, rules), " +
-  "the response reports status \"validated\" with the same warnings, and no file is written even when " +
-  "the proposal is valid. " +
   "Optional workspacePath selects a directory relative to the configured workspace root for this call. " +
   "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. " +
   TOUR_LANGUAGE_GUIDANCE +
@@ -431,9 +426,6 @@ const CHANGES_TOUR_DESCRIPTION =
   "description, and atomically writes the tour file, replacing the previous file at that destination " +
   "only on success. Failure preserves it. Correct reported validation issues before retrying; if HEAD " +
   "changed, re-analyze the comparison and submit the new SHA with matching content. " +
-  "Pass dryRun true to rehearse the proposal: the Git checks (HEAD match, base resolution, merge-base, " +
-  "anchors against headRef) and the same validation still run, the response reports status \"validated\" " +
-  "with the same warnings, and no file is written even when the proposal is valid. " +
   "Optional workspacePath selects a repository or subdirectory relative to the configured workspace root for this call. " +
   "All anchors and .tours paths are relative to that directory. It must remain inside the configured workspace. " +
   TOUR_LANGUAGE_GUIDANCE +
@@ -450,7 +442,7 @@ const issueSchema = z.object({
   message: z.string(),
 });
 const toolResultSchema = z.object({
-  status: z.enum(["created", "error", "validated"]),
+  status: z.enum(["created", "error"]),
   title: z.string().optional(),
   path: z.string().optional(),
   stepCount: z.number().int().nonnegative().optional(),
@@ -482,12 +474,6 @@ const projectToolInputSchema = z
       .describe(
         "Optional bare file name (no path separators) under which the tour is written inside .tours/; the .tour suffix is appended when absent."
       ),
-    dryRun: z
-      .unknown()
-      .optional()
-      .describe(
-        "Validate the complete proposal (rules, anchors, Mermaid) without writing the tour file."
-      ),
     steps: z
       .unknown()
       .optional()
@@ -518,12 +504,6 @@ const changesToolInputSchema = z
       .optional()
       .describe(
         "Optional bare file name (no path separators) under which the tour is written inside .tours/; the .tour suffix is appended when absent."
-      ),
-    dryRun: z
-      .unknown()
-      .optional()
-      .describe(
-        "Validate the complete proposal (rules, anchors, Mermaid, Git checks) without writing the tour file."
       ),
     steps: z
       .unknown()
@@ -627,9 +607,8 @@ function projectTourGenerationPrompt(): string {
       "you have verified in the analyzed head snapshot, rather than a guessed line " +
       "number, so the anchor survives edits.",
     ANCHOR_PATTERN_STEP,
-    "- Create the tour with the `create_project_tour` tool with dryRun omitted to persist. " +
-      "Validation runs before writing; correct reported issues and retry. Use dryRun true " +
-      "only when validation without writing is needed.",
+    "- Create the tour with the `create_project_tour` tool. " +
+      "Validation runs before writing; correct reported issues and retry.",
     "- Some hosts register MCP tools with a server-name prefix: Copilot exposes " +
       "this tool as `codetour-create_project_tour`. Search for the tool under " +
       "whichever name your session registers it; the tool contract is unchanged.",
@@ -646,7 +625,7 @@ function projectTourGenerationPrompt(): string {
 
 // Changes Tour generation prompt served by the CHANGES_TOUR_PROMPT_RESOURCE_TEMPLATE
 // resource for the requested review mode. Both modes share the contract
-// clauses (Git comparison, Tour Anchors, validation, destination, dryRun);
+// clauses (Git comparison, Tour Anchors, validation, destination);
 // the critical mode additionally embeds the shared review skill pack with the
 // instruction to follow it in full before any analysis or step writing. The
 // announcement step comes after that pack so every served prompt, in every
@@ -682,9 +661,8 @@ function changesTourGenerationPrompt(reviewMode: "neutral" | "critical"): string
       "rejected with MISSING_CHANGED_FILE_ANCHOR. Changes that only delete files are " +
       "exempt, and deleted files are explained with no-locator steps.",
     ANCHOR_PATTERN_STEP,
-    "- Create the tour with the `create_changes_tour` tool with dryRun omitted to persist. " +
-      "Validation runs before writing; correct reported issues and retry. Use dryRun true " +
-      "only when validation without writing is needed.",
+    "- Create the tour with the `create_changes_tour` tool. " +
+      "Validation runs before writing; correct reported issues and retry.",
     "- Some hosts register MCP tools with a server-name prefix: Copilot exposes " +
       "this tool as `codetour-create_changes_tour`. Search for the tool under " +
       "whichever name your session registers it; the tool contract is unchanged.",
@@ -996,20 +974,7 @@ async function handleCreateProjectTour(
     ...orientationStepWarnings(finalSteps),
   ];
 
-  // The title is computed before the dry-run branch so a rehearsal also
-  // returns the title that the persisted write would carry.
   const title = params.title ?? "Project Overview";
-
-  // Rehearsal: the proposal is fully validated but never written, so an
-  // agent can verify its content before replacing the previous tour.
-  if (params.dryRun === true) {
-    return validatedResponse(
-      title,
-      finalSteps.length,
-      warnings,
-      `Validated Project Tour proposal "${title}" with ${finalSteps.length} step(s); nothing was written (dryRun).`
-    );
-  }
 
   const tour: TourFile = {
     $schema: CODETOUR_SCHEMA_URI,
@@ -1211,14 +1176,6 @@ async function handleCreateChangesTour(
   // Rehearsal: every check has run (Git, anchors against headRef, renames,
   // Mermaid, warnings) but the tour is never written. The title that the
   // persisted write would carry is returned with it.
-  if (params.dryRun === true) {
-    return validatedResponse(
-      title,
-      finalSteps.length,
-      warnings,
-      `Validated Changes Tour proposal "${title}" with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}); nothing was written (dryRun).`
-    );
-  }
   // Enrich the description automatically with the provenance, base, and head
   // so the reader always knows the analyzed scope.
   const provenance = includesLocalChanges
@@ -1437,24 +1394,6 @@ function successResponse(
     status: "created",
     title,
     path: relativePath,
-    stepCount,
-    warnings,
-  };
-  return {
-    content: [{ type: "text", text: resultText(message, warnings) }],
-    structuredContent: result as unknown as Record<string, unknown>,
-  };
-}
-
-function validatedResponse(
-  title: string,
-  stepCount: number,
-  warnings: Warning[],
-  message: string
-): ToolResponse {
-  const result: ValidatedResult = {
-    status: "validated",
-    title,
     stepCount,
     warnings,
   };

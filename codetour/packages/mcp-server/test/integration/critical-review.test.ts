@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
-import * as fs from "node:fs";
 import {
   callTool,
   commitFile,
@@ -363,32 +362,6 @@ test("rejects an invalid reviewMode over stdio and preserves the previous tour",
       assert.ok(issuePaths(response).includes("reviewMode"));
       assert.deepEqual(readTourFile(root, ".tours/changes.tour"), before);
     });
-  } finally {
-    rmrf(root);
-  }
-});
-
-test("dryRun with reviewMode critical validates without writing", async () => {
-  const { root, baseSha, head } = await setupCriticalRepo();
-  try {
-    await withServer(root, async (client) => {
-      const response = await callTool(client, "create_changes_tour", {
-        baseRef: baseSha,
-        headRef: head,
-        reviewMode: "critical",
-        dryRun: true,
-        steps: [{ description: "Rehearsed.", file: "feature.js" }],
-      });
-      assert.equal(response.isError, false, response.text);
-      assert.equal(response.structured.status, "validated");
-      assert.equal(response.structured.path, undefined);
-      assert.equal(response.structured.title, "Changes on feature");
-    });
-    assert.equal(
-      fs.existsSync(`${root}/.tours/changes.tour`),
-      false,
-      "dryRun must not create the tour file"
-    );
   } finally {
     rmrf(root);
   }

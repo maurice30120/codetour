@@ -454,24 +454,6 @@ test("rejects with MISSING_CHANGED_FILE_ANCHOR when no step anchors a changed fi
   }
 });
 
-test("rejects a dry-run without a changed-file anchor too", async () => {
-  const { root, baseSha, head } = await setupRepo();
-  try {
-    await withServer(root, async (client) => {
-      const response = await callTool(client, "create_changes_tour", {
-        baseRef: baseSha,
-        headRef: head,
-        dryRun: true,
-        steps: [{ description: "Only context, no anchors." }],
-      });
-      assert.equal(response.isError, true);
-      assert.equal(structuredCode(response), "MISSING_CHANGED_FILE_ANCHOR");
-    });
-  } finally {
-    rmrf(root);
-  }
-});
-
 test("accepts a step anchoring a changed file", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
@@ -742,75 +724,6 @@ test(
   }
 );
 
-test("dryRun validates the proposal and writes nothing", async () => {
-  const { root, baseSha, head } = await setupRepo();
-  try {
-    await withServer(root, async (client) => {
-      const first = await callTool(client, "create_changes_tour", {
-        baseRef: baseSha,
-        headRef: head,
-        steps: [{ description: "Original.", file: "feature.txt" }],
-      });
-      assert.equal(first.isError, false, first.text);
-
-      const response = await callTool(client, "create_changes_tour", {
-        baseRef: baseSha,
-        headRef: head,
-        dryRun: true,
-        title: "Rehearsal",
-        steps: [{ description: "Rehearsed.", file: "feature.txt" }],
-      });
-      assert.equal(response.isError, false, response.text);
-      assert.equal(response.structured.status, "validated");
-      assert.equal(response.structured.stepCount, 1);
-      assert.equal(response.structured.path, undefined);
-      assert.equal(response.structured.title, "Rehearsal");
-
-      const defaultTitle = await callTool(client, "create_changes_tour", {
-        baseRef: baseSha,
-        headRef: head,
-        dryRun: true,
-        steps: [{ description: "Default title rehearsal.", file: "feature.txt" }],
-      });
-      assert.equal(defaultTitle.isError, false, defaultTitle.text);
-      assert.equal(defaultTitle.structured.status, "validated");
-      assert.equal(
-        defaultTitle.structured.title,
-        "Changes on feature",
-        "a dry-run without a title must return the default title that would be written"
-      );
-    });
-    const tour = readTourFile(root, ".tours/changes.tour");
-    assert.equal(tour.title, "Changes on feature");
-    assert.equal(((tour.steps as unknown[])[0] as { description: string }).description, "Original.");
-  } finally {
-    rmrf(root);
-  }
-});
-
-test("dryRun still fails with STALE_HEAD when headRef does not match HEAD", async () => {
-  const { root, baseSha } = await setupRepo();
-  try {
-    await withServer(root, async (client) => {
-      const response = await callTool(client, "create_changes_tour", {
-        baseRef: baseSha,
-        headRef: "0".repeat(40),
-        dryRun: true,
-        steps: [{ description: "Rehearsed." }],
-      });
-      assert.equal(response.isError, true);
-      assert.equal(structuredCode(response), "STALE_HEAD");
-    });
-    assert.equal(
-      fs.existsSync(path.join(root, ".tours/changes.tour")),
-      false,
-      "dryRun must not create the tour file"
-    );
-  } finally {
-    rmrf(root);
-  }
-});
-
 test("writes the tour under the provided fileName with the suffix appended", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
@@ -873,7 +786,7 @@ test("rejects a fileName with a path separator", async () => {
   }
 });
 
-test("rejects an empty fileName and reports it in dryRun too", async () => {
+test("rejects an empty fileName", async () => {
   const { root, baseSha, head } = await setupRepo();
   try {
     await withServer(root, async (client) => {
@@ -881,7 +794,6 @@ test("rejects an empty fileName and reports it in dryRun too", async () => {
         baseRef: baseSha,
         headRef: head,
         fileName: "   ",
-        dryRun: true,
         steps: [{ description: "d", file: "feature.txt" }],
       });
       assert.equal(response.isError, true);

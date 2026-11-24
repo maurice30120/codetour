@@ -457,53 +457,6 @@ test("accepts and rejects local images in a changes tour", async () => {
   }
 });
 
-test("dryRun validates image references without writing the tour file", async () => {
-  const root = tempDir();
-  try {
-    writeImageFile(root, ".tours/images/project/architecture.png", TINY_PNG);
-    await withServer(root, async (client) => {
-      const first = await callTool(client, "create_project_tour", {
-        title: "Baseline",
-        steps: [{ description: "Original step." }],
-      });
-      assert.equal(first.isError, false, first.text);
-
-      const valid = await callTool(client, "create_project_tour", {
-        title: "Rehearsal",
-        dryRun: true,
-        steps: [
-          {
-            description:
-              "See ![the architecture](.tours/images/project/architecture.png).",
-          },
-        ],
-      });
-      assert.equal(valid.isError, false, valid.text);
-      assert.equal(valid.structured.status, "validated");
-
-      const invalid = await callTool(client, "create_project_tour", {
-        title: "Rehearsal",
-        dryRun: true,
-        steps: [
-          {
-            description:
-              "See ![the architecture](.tours/images/project/missing.png).",
-          },
-        ],
-      });
-      assert.equal(invalid.isError, true);
-      assert.equal(structuredCode(invalid), "INVALID_PROPOSAL");
-      assert.deepEqual(issuePaths(invalid), [
-        "steps[0].description.image[0]",
-      ]);
-    });
-    const tour = readTourFile(root, ".tours/project.tour");
-    assert.equal(tour.title, "Baseline");
-  } finally {
-    rmrf(root);
-  }
-});
-
 test("rejects a local image reference whose path contains spaces when the file is missing", async () => {
   const root = tempDir();
   try {

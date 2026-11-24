@@ -33,7 +33,7 @@ function changesTourPromptUri(reviewMode: string): string {
 // user's orientation clause may follow it.
 function assertAnnouncementStep(text: string, persistenceClause: string): void {
   assert.ok(text.includes("Validation runs before writing; correct reported issues and retry."));
-  assert.ok(text.includes("only when validation without writing is needed."));
+  assert.ok(!text.includes("without writing is needed"));
   assert.ok(!text.includes("Rehearse first"));
   const marker = "Announce the created tour";
   const index = text.indexOf(marker);
@@ -189,7 +189,7 @@ test("serves the Project Tour generation prompt resource", async () => {
         "the prompt explains when to escape a literal pattern"
       );
       // The prompt ends with the announcement step for the created tour.
-      assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertAnnouncementStep(text, "Validation runs before writing");
       assertUnavailableToolGuidance(text);
     });
   } finally {
@@ -268,12 +268,11 @@ test("serves the neutral Changes Tour generation prompt", async () => {
       assert.ok(text.includes("codetour-create_changes_tour"));
       assert.ok(text.includes("neutral"), "the prompt must cite the mode");
       // Contract clauses: Git comparison, Tour Anchors, validation,
-      // destination, dryRun.
+      // destination.
       assert.ok(text.includes("merge-base"));
       assert.ok(text.includes("Tour Anchor"));
-      assert.ok(text.includes("validation"));
+      assert.ok(text.includes("Validation runs before writing"));
       assert.ok(text.includes(".tours/changes.tour"));
-      assert.ok(text.includes("dryRun"));
       // Neutral mode: factual explanation, no quality judgment, and no
       // embedded review skill.
       assert.ok(text.includes("factually"));
@@ -302,7 +301,7 @@ test("serves the neutral Changes Tour generation prompt", async () => {
         "the prompt supplies a simple literal anchor-pattern example"
       );
       // The prompt ends with the announcement step for the created tour.
-      assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertAnnouncementStep(text, "Validation runs before writing");
       assertUnavailableToolGuidance(text);
     });
   } finally {
@@ -322,12 +321,11 @@ test("serves the critical Changes Tour generation prompt with the embedded skill
       assert.ok(text.includes("create_changes_tour"));
       assert.ok(text.includes("critical"), "the prompt must cite the mode");
       // Contract clauses: Git comparison, Tour Anchors, validation,
-      // destination, dryRun.
+      // destination.
       assert.ok(text.includes("merge-base"));
       assert.ok(text.includes("Tour Anchor"));
       assert.ok(text.includes("validation"));
       assert.ok(text.includes(".tours/changes.tour"));
-      assert.ok(text.includes("dryRun"));
       // The critical prompt embeds the shared review skill pack (the one
       // served by codetour://review/critical-instructions) and requires
       // reading it before any analysis or step writing.
@@ -337,7 +335,7 @@ test("serves the critical Changes Tour generation prompt with the embedded skill
       assert.ok(text.includes("MIT"));
       assert.ok(text.includes("before any analysis"));
       // Critical mode ends with the same announcement step.
-      assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertAnnouncementStep(text, "Validation runs before writing");
       assertUnavailableToolGuidance(text);
     });
   } finally {
@@ -408,7 +406,7 @@ test("serves the Project Tour generation prompt without orientation", async () =
         !text.includes("Tour orientation"),
         "no orientation clause without a brief"
       );
-      assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertAnnouncementStep(text, "Validation runs before writing");
     });
   } finally {
     rmrf(root);
@@ -435,7 +433,7 @@ test("composes the Project Tour generation prompt with the user's orientation", 
         "the composed prompt sets the Tour's language from the brief"
       );
       // The announcement step survives composition with the orientation.
-      assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertAnnouncementStep(text, "Validation runs before writing");
     });
   } finally {
     rmrf(root);
@@ -455,14 +453,14 @@ test("composes the Changes Tour generation prompt with review mode and orientati
       assert.ok(text.includes("create_changes_tour"));
       assert.ok(text.includes("neutral"));
       assert.ok(text.includes(brief));
-      assertAnnouncementStep(text, "dryRun omitted to persist");
+      assertAnnouncementStep(text, "Validation runs before writing");
       const withoutBrief = await client.getPrompt({
         name: GENERATE_CHANGES_TOUR_PROMPT_NAME,
         arguments: { reviewMode: "critical" },
       });
       const criticalText = promptText(withoutBrief.messages);
       assert.ok(criticalText.includes("critical"));
-      assertAnnouncementStep(criticalText, "dryRun omitted to persist");
+      assertAnnouncementStep(criticalText, "Validation runs before writing");
     });
   } finally {
     rmrf(root);

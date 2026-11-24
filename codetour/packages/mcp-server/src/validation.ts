@@ -166,14 +166,13 @@ function reportUnknownFields(
   }
 }
 
-const PROJECT_PARAM_FIELDS = ["workspacePath", "runId", "title", "description", "fileName", "dryRun", "steps"] as const;
+const PROJECT_PARAM_FIELDS = ["workspacePath", "runId", "title", "description", "fileName", "steps"] as const;
 const CHANGES_PARAM_FIELDS = [
   "workspacePath",
   "runId",
   "title",
   "description",
   "fileName",
-  "dryRun",
   "steps",
   "baseRef",
   "headRef",
@@ -294,13 +293,6 @@ function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
       } else {
         params.fileName = `${stem}.tour`;
       }
-    }
-  }
-  if (raw.dryRun !== undefined) {
-    if (typeof raw.dryRun !== "boolean") {
-      issues.push({ path: "dryRun", message: "must be a boolean" });
-    } else {
-      params.dryRun = raw.dryRun;
     }
   }
   if (raw.steps === undefined) {
