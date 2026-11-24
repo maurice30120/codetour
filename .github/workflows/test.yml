@@ -19,6 +19,9 @@ permissions:
 
 jobs:
   test:
+    defaults:
+      run:
+        working-directory: codetour
     # Pull requests test the merge result; pushes test only the default branch.
     # This avoids duplicate feature-branch runs while retaining post-merge CI.
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch)
@@ -33,7 +36,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version-file: .nvmrc
+          node-version-file: codetour/.nvmrc
       - name: Install pinned npm
         run: npm install --global npm@12.0.1
         working-directory: ${{ runner.temp }}
@@ -68,6 +71,9 @@ jobs:
         run: npm run test:standalone
 
   diagnose-run-log:
+    defaults:
+      run:
+        working-directory: codetour
     # A permanent, on-demand investigation lane: it replays the run-log contract
     # end to end and prints every spelling of the workspace, so a machine-specific
     # mismatch (8.3 short paths, mapped drives, symlinked checkouts) is read
@@ -83,7 +89,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version-file: .nvmrc
+          node-version-file: codetour/.nvmrc
       - name: Install pinned npm
         run: npm install --global npm@12.0.1
         working-directory: ${{ runner.temp }}

@@ -1,29 +1,3 @@
-dist
-node_modules
-.vscode-test/
-*.vsix
-.DS_Store
-.agents/
-skills-lock.json
-.vscode
-AGENTS.md
-docs/agents/
-.vibe
-.vibe/skills
-.pi/
-.scratch/
-rapport-difficultes-mcp-codetour.md
-.playwright-mcp/
-
-# Local provider credentials
-.env.local
-
-# Regenerable mock-data reports (not benchmark evidence)
-/poc/exploration-benchmark/report-generation/report-sample-*.json
-/poc/exploration-benchmark/report-generation/report-sample-*.md
-
-# Local research diagnostics may contain workspace content
-.tours/.log/
-
-# Local harness config (may hold the Mistral API key)
-.tours/config.json
+/wt-*/
+/.tokeneconomizer-venv/
+/.DS_Store
