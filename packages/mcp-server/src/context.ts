@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { canonicalWorkspacePath } from "codetour-knowledge";
+import { canonicalWorkspacePath } from "codetour-workspace-identity";
 import { Issue, WorkspaceContext } from "./types";
 
 // Workspace context: one canonical spelling for the supplied root and its real

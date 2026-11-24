@@ -19,6 +19,7 @@
     "dist/src",
     "dist/node_modules/codetour-description-renderer",
     "dist/node_modules/codetour-knowledge",
+    "dist/node_modules/codetour-workspace-identity",
     "dist/package.json",
     "dist/schema.json",
     "schema.json",
@@ -45,7 +46,8 @@
     "jsdom": "26.1.0",
     "mermaid": "11.12.2",
     "safe-regex2": "^5.1.1",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "codetour-workspace-identity": "file:../workspace-identity"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -3,7 +3,10 @@
     "module": "commonjs",
     "target": "ES2019",
     "outDir": "out",
-    "lib": ["ES2019", "DOM"],
+    "lib": [
+      "ES2019",
+      "DOM"
+    ],
     "sourceMap": true,
     "rootDir": "src",
     "strict": true,
@@ -19,9 +22,16 @@
       ],
       "codetour-knowledge": [
         "packages/knowledge/dist/src/index"
+      ],
+      "codetour-workspace-identity": [
+        "packages/workspace-identity"
       ]
     }
   },
-  "include": ["src"],
-  "exclude": ["node_modules"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

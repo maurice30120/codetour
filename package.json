@@ -743,7 +743,8 @@
     "vscode-jsonrpc": "8.2.0",
     "webpack": "^5.75.0",
     "webpack-cli": "^5.0.1",
-    "webpack-merge": "^5.8.0"
+    "webpack-merge": "^5.8.0",
+    "codetour-workspace-identity": "file:packages/workspace-identity"
   },
   "scripts": {
     "build": "npm --prefix packages/description-renderer run build && npm --prefix packages/knowledge run build && npm --prefix packages/mcp-server run build && webpack --mode production && node scripts/prepare-resvg-runtime.js && node scripts/copy-knowledge-vendor.js",
@@ -751,7 +752,7 @@
     "watch": "webpack --mode development --watch",
     "package": "node scripts/package-extension.js",
     "vscode:prepublish": "npm run build",
-    "test": "npm run build && node scripts/sync-renderer-dep.js && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test && npm --prefix packages/description-renderer test && npm --prefix packages/knowledge test && npm --prefix packages/mcp-server test && node --test test/copilot-adapter.test.mjs test/copilot-hook.test.mjs test/copilot-plugin-install.test.mjs test/pi-guard.test.mjs test/pi-plugin-install.test.mjs test/pi-extension.test.mjs test/cli-resolution.test.mjs test/pre-commit-hook.test.mjs test/knowledge-cli.test.mjs",
+    "test": "npm --prefix packages/workspace-identity test && npm run build && node scripts/sync-renderer-dep.js && tsc -p tsconfig.test.json && node scripts/run-compiled-tests.js dist/test && npm --prefix packages/description-renderer test && npm --prefix packages/knowledge test && npm --prefix packages/mcp-server test && node --test test/copilot-adapter.test.mjs test/copilot-hook.test.mjs test/copilot-plugin-install.test.mjs test/pi-guard.test.mjs test/pi-plugin-install.test.mjs test/pi-extension.test.mjs test/cli-resolution.test.mjs test/pre-commit-hook.test.mjs test/knowledge-cli.test.mjs",
     "cli": "node dist/cli.js",
     "package:standalone": "node scripts/package-standalone.js",
     "test:standalone": "node --test test/standalone-package.test.js",

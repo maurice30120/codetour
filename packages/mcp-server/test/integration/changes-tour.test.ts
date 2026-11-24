@@ -2,7 +2,7 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { canonicalWorkspacePath } from "codetour-knowledge";
+import { canonicalWorkspacePath } from "codetour-workspace-identity";
 import {
   callTool,
   commitFile,

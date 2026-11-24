@@ -26,6 +26,7 @@ const config = {
   resolve: {
     extensions: [".ts", ".js", ".json"],
     alias: {
+      "codetour-workspace-identity": path.resolve(__dirname, "packages/workspace-identity/index.js"),
       "codetour-description-renderer": path.resolve(
         __dirname,
         "packages/description-renderer/dist/src/index.js"
@@ -99,6 +100,7 @@ const mcpConfig = {
   resolve: {
     extensions: [".ts", ".js", ".json"],
     alias: {
+      "codetour-workspace-identity": path.resolve(__dirname, "packages/workspace-identity/index.js"),
       "codetour-knowledge": path.resolve(
         __dirname,
         "packages/knowledge/dist/src/index.js"

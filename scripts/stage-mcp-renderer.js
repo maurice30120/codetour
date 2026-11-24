@@ -46,6 +46,14 @@ function stage(name, sourceRoot) {
   return manifest.name;
 }
 
+const identityRoot = path.join(packageRoot, "packages", "workspace-identity");
+const identityTarget = path.join(stagedModules, "codetour-workspace-identity");
+fs.rmSync(identityTarget, { recursive: true, force: true });
+fs.mkdirSync(identityTarget, { recursive: true });
+for (const file of ["index.js", "index.d.ts", "package.json"]) {
+  fs.copyFileSync(path.join(identityRoot, file), path.join(identityTarget, file));
+}
+
 const renderer = stage(
   "codetour-description-renderer",
   path.join(packageRoot, "packages", "description-renderer")

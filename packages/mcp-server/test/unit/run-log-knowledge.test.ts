@@ -2,7 +2,7 @@ import * as assert from "node:assert";
 import { realpathSync, symlinkSync } from "node:fs";
 import * as path from "node:path";
 import { test } from "node:test";
-import { canonicalWorkspacePath } from "codetour-knowledge";
+import { canonicalWorkspacePath } from "codetour-workspace-identity";
 import {
   readRunState,
   recordKnowledgeListing,

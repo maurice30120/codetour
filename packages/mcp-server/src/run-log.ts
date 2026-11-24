@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { canonicalWorkspacePath } from "codetour-knowledge";
+import { canonicalWorkspacePath } from "codetour-workspace-identity";
 
 /**
  * The CodeTour generation run log (spec #223, ticket #228).

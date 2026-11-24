@@ -28,7 +28,8 @@
     "test": "npm run build && node ../../scripts/run-compiled-tests.js dist/test"
   },
   "dependencies": {
-    "zod": "^4.0.0"
+    "zod": "^4.0.0",
+    "codetour-workspace-identity": "file:../workspace-identity"
   },
   "devDependencies": {
     "@types/node": "24.13.3",

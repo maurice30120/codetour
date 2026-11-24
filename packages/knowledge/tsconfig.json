@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "node16",
     "moduleResolution": "node16",
     "outDir": "dist",
@@ -13,7 +15,18 @@
     "skipLibCheck": true,
     "sourceMap": true,
     "declaration": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "codetour-workspace-identity": [
+        "../workspace-identity"
+      ]
+    }
   },
-  "include": ["src", "test"]
+  "include": [
+    "src",
+    "test"
+  ]
 }
