@@ -1,0 +1,181 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "CodeTour : architecture et coopération des trois surfaces",
+  "description": "Un Tour de l'architecture de CodeTour qui suit un parcours cohérent : activation de l'extension, déclaration du serveur MCP, entrée et outils du serveur, validation et écriture atomique, découverte partagée, boucle de rafraîchissement, lecteur VS Code, puis CLI, lecteur terminal, reprise dans VS Code, bundles et intégrations d'agents.\n\nLe fil directeur est la coopération : l'extension et le CLI démarrent le même serveur MCP, le serveur écrit dans `.tours/`, et l'extension voit ce fichier grâce à un watcher — sans aucun couplage direct entre le générateur et le lecteur.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour enregistre et rejoue des visites guidées de code : une suite d'étapes ancrées dans des fichiers, lues dans l'éditeur ou dans un terminal. Trois surfaces exécutables livrent ce service depuis un même dépôt : l'extension VS Code, le CLI `codetour` et le serveur MCP `codetour-mcp`, que les agents IA appellent pour générer les Tours.\n\n**Diagram — Context view**\n\n```mermaid\nflowchart TB\n  Dev[\"Développeur\"]\n  Agent[\"Agent IA (Copilot, Pi, Codex)\"]\n  Editor[\"VS Code\"]\n  Repo[\"Dépôt Git du workspace\"]\n  CodeTour[\"CodeTour\"]\n  Dev -->|\"demande un Tour (commande)\"| Agent\n  Dev -->|\"lit les étapes (éditeur ou terminal)\"| CodeTour\n  Agent -->|\"appelle les outils MCP (stdio)\"| CodeTour\n  Editor -->|\"charge l'extension (activation)\"| CodeTour\n  CodeTour -->|\"lit et écrit les fichiers .tour (système de fichiers)\"| Repo\n  CodeTour -->|\"exécute git (processus)\"| Repo\n```\n\n**Diagram — Containers**\n\n```mermaid\nflowchart TB\n  Agent[\"Agent IA\"]\n  Git[\"Dépôt Git\"]\n  subgraph EXT[\"Extension VS Code\"]\n    Activation[\"activate() et registerMcpProvider()\"]\n    Player[\"Player : lecture des étapes\"]\n  end\n  subgraph CLI[\"CLI codetour\"]\n    Entry[\"cli/index.ts : Commander\"]\n    Terminal[\"terminal.ts : lecteur TTY\"]\n  end\n  subgraph MCP[\"Serveur MCP codetour-mcp\"]\n    Tools[\"server.ts : create_project_tour\"]\n  end\n  subgraph STORE[\"Tours .tours/*.tour\"]\n    Files[\"Fichiers .tour\"]\n  end\n  Agent -->|\"appelle les outils (JSON-RPC sur stdio)\"| Tools\n  Activation -->|\"lance dist/mcp-server.js (stdio, un processus par dossier)\"| Tools\n  Entry -->|\"transmet ses arguments à runMcpCli (stdio)\"| Tools\n  Tools -->|\"écrit le fichier (renommage atomique)\"| Files\n  Files -->|\"watcher : discoverTours()\"| Activation\n  Activation -->|\"store.tours (MobX)\"| Player\n  Terminal -->|\"ouvre une URI d'ouverture\"| Activation\n  Tools -->|\"exécute git (processus)\"| Git\n```\n\nOù vit le code :\n\n- [src/](src) — extension VS Code (`extension.ts`, `player/`, `store/`) et CLI ([src/cli/](src/cli)).\n\n- [packages/mcp-server/](packages/mcp-server) — serveur MCP : outils, validation, persistance.\n\n- [src/core/](src/core) — contrat de découverte partagé par les deux lecteurs.\n\n- [.tours/](.tours) — Tours sur disque, dont les fichiers réservés `.tours/project.tour` et `.tours/changes.tour`.\n\n- [packages/copilot-plugin/](packages/copilot-plugin) et [packages/pi-plugin/](packages/pi-plugin) — intégrations installées par le CLI, qui déclarent le serveur MCP aux agents.",
+      "questions": [
+        "Pourquoi l'extension et le CLI partagent-ils un serveur plutôt que deux générateurs ?",
+        "Quelle surface lit un Tour sans VS Code ?",
+        "Où sont stockés les Tours générés ?"
+      ]
+    },
+    {
+      "title": "L'extension entre en scène",
+      "description": "`activate()` compose l'extension en un point d'entrée unique : intégrations desktop (donc le fournisseur MCP), notebook, player, recorder, Live Share, gestionnaire d'URI, puis l'API publique rendue aux autres extensions. La découverte des Tours n'a lieu que si un dossier est ouvert, et l'invite de démarrage est sautée quand un lien a déjà lancé une visite.\n\nLe premier appel compte pour la suite : `registerDesktopIntegrations(context)` n'agit qu'en mode bureau. C'est l'explication directe de l'absence du fournisseur MCP dans un VS Code web, indépendamment de la présence du serveur dans le VSIX.",
+      "questions": [
+        "Que se passe-t-il dans un VS Code web à l'activation ?",
+        "Pourquoi l'invite de démarrage est-elle sautée après un lien ?",
+        "Quelle API l'extension expose-t-elle aux autres extensions ?"
+      ],
+      "file": "src/extension.ts",
+      "pattern": "export async function activate"
+    },
+    {
+      "title": "L'extension déclare le serveur MCP",
+      "description": "`registerMcpProvider` est la première couture entre l'extension et le serveur : elle déclare un `McpStdioServerDefinition` par dossier de workspace, exécuté avec `process.execPath` et le drapeau `ELECTRON_RUN_AS_NODE`, sur le `dist/mcp-server.js` empaqueté dans le VSIX. Le `cwd` de chaque définition est le dossier du workspace, ce qui donne au serveur son périmètre : un processus par dossier.\n\nVS Code et Copilot découvrent ces définitions par la contribution `mcpServerDefinitionProviders` du manifeste. Pour Codex, deux commandes dédiées (`codetourIA.configureCodexMcp` et `codetourIA.repairCodexMcp`) enregistrent le même binaire dans la configuration de Codex, avec les mêmes arguments.",
+      "questions": [
+        "Pourquoi un processus MCP par dossier de workspace ?",
+        "Que se passe-t-il quand le workspace a plusieurs dossiers ?",
+        "Comment l'extension répare-t-elle une configuration Codex obsolète ?"
+      ],
+      "file": "src/mcp.ts",
+      "pattern": "export function registerMcpProvider"
+    },
+    {
+      "title": "Une seule entrée pour trois distributions",
+      "description": "`runMcpCli` est le point d'entrée partagé : le binaire npm `codetour-mcp`, le bundle du VSIX et la sous-commande `codetour mcp` passent tous par cette fonction. Elle analyse `--workspace-root`, vérifie que le dossier est lisible et énumérable **avant** tout protocole, puis connecte un `StdioServerTransport`.\n\nLe serveur ne sert qu'un workspace : le répertoire courant du processus par défaut, `--workspace-root` n'existant que pour les clients qui ne contrôlent pas ce répertoire. La session se termine quand le client ferme stdin, et un argument invalide ou un workspace inaccessible sort en code 1 avec un diagnostic sur stderr.",
+      "questions": [
+        "Pourquoi la vérification du workspace précède-t-elle le protocole ?",
+        "Qui termine la session MCP ?",
+        "Quel code de sortie pour un argument inconnu ?"
+      ],
+      "file": "packages/mcp-server/src/cli.ts",
+      "pattern": "export async function runMcpCli"
+    },
+    {
+      "title": "Les outils du serveur MCP",
+      "description": "`createServer` enregistre outils, ressources et prompts sur une seule instance : `create_project_tour`, `create_changes_tour`, `get_generation_prompt`, les ressources d'instructions et les prompts de génération. Le handler de `create_project_tour` ne demande aucun accès Git : il valide la proposition, compose le fichier avec la clé `$schema` de CodeTour et le titre par défaut `Project Overview`.\n\nLa destination est réservée : `.tours/project.tour`, ou `.tours/<fileName>.tour` quand un nom est fourni. `create_changes_tour` suit le même pipeline mais contrôle en plus HEAD, la ref de base et le merge-base avant d'écrire `.tours/changes.tour`.",
+      "questions": [
+        "Pourquoi un Project Tour exige-t-il moins de contrôles qu'un Changes Tour ?",
+        "Qui écrit le contenu explicatif : le serveur ou l'agent ?",
+        "Que devient la réponse en cas d'échec de validation ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "\"create_project_tour\","
+    },
+    {
+      "title": "La validation commune avale tout",
+      "description": "`validateTourProposal` est le prélude partagé aux deux outils : paramètres, fences Mermaid, sélection du workspace, images locales et phase structurelle des étapes, tous les problèmes agrégés en une seule réponse `INVALID_PROPOSAL`. Le type `TourProposalKind` matérialise les deux familles de proposition.\n\nLa validation d'un Changes Tour est volontairement scindée : structure ici, ancres contre le commit analysé seulement après résolution de la comparaison Git. Cette séparation permet de renvoyer les codes d'erreur précis (`STALE_HEAD`, `INVALID_BASE_REF`) au lieu d'une erreur générique.",
+      "questions": [
+        "Pourquoi agréger tous les problèmes en une seule réponse ?",
+        "Quand les ancres d'un Changes Tour sont-elles vérifiées ?",
+        "Quels contrôles sont communs aux deux types de Tour ?"
+      ],
+      "file": "packages/mcp-server/src/proposal-validation.ts",
+      "pattern": "TourProposalKind = \"project\""
+    },
+    {
+      "title": "L'écriture atomique",
+      "description": "`writeTourAtomic` est la seule frontière d'écriture du serveur : le contenu part dans un fichier temporaire du même dossier, est synchronisé sur disque, puis renommé sur la cible. Un échec ne laisse donc jamais de Tour partiel et préserve la version précédente.\n\nAvant d'écrire, le dossier réel est résolu et comparé à la racine réelle du workspace : une sortie hors du périmètre, y compris via un lien symbolique, est refusée. Le fichier ainsi écrit est exactement ce que l'extension va détecter ensuite.",
+      "questions": [
+        "Que se passe-t-il si le renommage échoue ?",
+        "Pourquoi comparer le chemin réel et non le chemin demandé ?",
+        "Le Tour précédent survit-il à une validation invalide ?"
+      ],
+      "file": "packages/mcp-server/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic"
+    },
+    {
+      "title": "La découverte est un contrat partagé",
+      "description": "`MAIN_TOUR_FILES` et `SUB_TOUR_DIRECTORIES` fixent les emplacements des Tours : `.tour`, `.vscode/main.tour`, `main.tour`, puis `.vscode/tours`, `.github/tours` et `.tours`. `discoverToursFromRoot` reçoit un adaptateur de système de fichiers au lieu d'accéder au disque : chaque hôte fournit le sien — `vscode.workspace.fs` avec des `Uri` dans `src/store/provider.ts`, `fs` et `pathToFileURL` dans `discover()` du CLI.\n\nLes deux appliquent ensuite `visibleTours` : tri par titre et évaluation des expressions `when` avec jexl selon la plateforme. C'est ce contrat unique qui garantit que l'extension et le CLI voient le même ensemble de Tours.",
+      "questions": [
+        "Comment un Tour apparaît-il à la fois dans l'extension et dans le CLI ?",
+        "Comment les expressions when filtrent-elles les Tours ?",
+        "Où se configure un répertoire de Tours personnalisé ?"
+      ],
+      "file": "src/core/tourDiscovery.ts",
+      "pattern": "export const MAIN_TOUR_FILES"
+    },
+    {
+      "title": "La boucle de rafraîchissement",
+      "description": "Après la découverte, l'extension publie le résultat dans un store MobX unique (`store.tours`) et met à jour le contexte `hasTours`. Un `createFileSystemWatcher` sur les répertoires de Tours relance `discoverTours` à chaque création, modification ou suppression.\n\nC'est la boucle qui referme la coopération : le fichier écrit par le serveur MCP devient visible sans rechargement de fenêtre. Le provider rafraîchit aussi le Tour actif sans interrompre la lecture, et termine la visite si le fichier a disparu.",
+      "questions": [
+        "Quel événement du système de fichiers déclenche une redécouverte ?",
+        "Que devient le Tour actif quand son fichier est supprimé ?",
+        "Pourquoi passer par un store observable ?"
+      ],
+      "file": "src/store/provider.ts",
+      "pattern": "vscode\\.workspace\\.createFileSystemWatcher"
+    },
+    {
+      "title": "La surface de lecture VS Code",
+      "description": "`registerPlayerModule` installe le lecteur de l'éditeur : contrôleur de commentaires, arbre des Tours dans l'Explorer, barre d'état, décorations, fournisseur de documents virtuels pour les diffs et webview des descriptions. Une réaction MobX sur `store.activeTour` repeint l'étape courante à chaque navigation, entrée en édition ou ouverture de la vue étendue.\n\nLe player est le consommateur final du store : il ne connaît ni le CLI ni le serveur MCP. Toute la coopération passe donc par des fichiers et par l'état partagé, jamais par un appel direct entre les trois surfaces.",
+      "questions": [
+        "Quels éléments d'interface le player enregistre-t-il ?",
+        "Comment une étape est-elle rendue après un changement de Tour ?",
+        "Le player dépend-il du serveur MCP ?"
+      ],
+      "file": "src/player/index.ts",
+      "pattern": "export function registerPlayerModule"
+    },
+    {
+      "title": "Le CLI et sa sous-commande mcp",
+      "description": "`buildProgram` décrit la surface du CLI avec Commander : un argument optionnel (titre ou nom de fichier), `--renderer terminal|html|vscode`, les drapeaux d'intégration d'agents et des options internes consommées par les adaptateurs. La sous-commande `mcp` transmet ses arguments bruts à `runMcpCli`, sans reparser ni revalider côté CLI.\n\nC'est ainsi que `codetour mcp` expose dans un terminal exactement le serveur du VSIX. Le reste du fichier est le chemin de lecture : racine du dépôt via `git rev-parse`, découverte, sélection éventuelle, puis rendu.",
+      "questions": [
+        "Pourquoi le CLI ne revalide-t-il pas les arguments de la sous-commande mcp ?",
+        "Quel renderer est utilisé par défaut ?",
+        "D'où le CLI déduit-il la racine du dépôt ?"
+      ],
+      "file": "src/cli/index.ts",
+      "pattern": "const exitCode = await runMcpCli"
+    },
+    {
+      "title": "Le lecteur terminal",
+      "description": "`runTerminalTour` est le lecteur par défaut : il refuse de démarrer hors TTY, monte un hôte TermDOM dans le terminal appelant, puis délègue à `composeTerminalReader` et à une surface qui repeint le modèle de vue à chaque changement. Le terminal reste le propriétaire de l'affichage (écran alterné, restauration à la fin), et aucune fenêtre indépendante n'est ouverte.\n\nUne erreur de rendu initiale démonte la surface avant que le diagnostic n'atteigne le terminal, pour ne pas laisser l'écran alterné cassé. Les descriptions y sont converties en texte, images et diagrammes compris.",
+      "questions": [
+        "Pourquoi le lecteur exige-t-il un TTY ?",
+        "Comment un diagramme est-il rendu dans le terminal ?",
+        "Que se passe-t-il si la première étape ne peut pas être rendue ?"
+      ],
+      "file": "src/cli/terminal.ts",
+      "pattern": "export async function runTerminalTour"
+    },
+    {
+      "title": "Reprendre le Tour dans VS Code",
+      "description": "Le CLI peut passer la main à l'extension : `buildTourOpenUri` encode le chemin du Tour relatif au workspace, le numéro d'étape en base 1 (le lecteur interne travaille en base 0) et, quand elle est connue, la racine du workspace. La décision est pure et testée en processus ; seul l'exécuteur lance le système.\n\nCe n'est pas une ouverture de fichier : c'est le contrat d'URI de l'extension, qui garantit que l'étape demandée s'ouvre dans la fenêtre qui connaît réellement ce Tour.",
+      "questions": [
+        "Pourquoi l'étape est-elle transmise en base 1 ?",
+        "Pourquoi ne pas simplement ouvrir le fichier du Tour ?",
+        "Que se passe-t-il si le Tour est en dehors du workspace ?"
+      ],
+      "file": "src/cli/openInVscode.ts",
+      "pattern": "export function buildTourOpenUri"
+    },
+    {
+      "title": "L'extension reçoit le lien",
+      "description": "`URIHandler` est l'autre extrémité du contrat : il vérifie d'abord que l'URI vise bien un dossier ouvert de cette fenêtre (message d'erreur explicite sinon), déclenche la découverte, puis résout le Tour par son chemin canonique et démarre l'étape demandée. Un lien sans paramètre de Tour démarre le Tour par défaut, et un Tour introuvable produit une erreur plutôt qu'un silence.\n\n**Diagram — Séquence du passage du CLI à l'extension**\n\n```mermaid\nsequenceDiagram\n  participant U as Utilisateur\n  participant C as CLI codetour\n  participant E as Extension VS Code\n  U->>C: choisit la surface VS Code\n  C->>E: URI d'ouverture (tour, step, workspace)\n  E->>E: handleUri vérifie le workspace et résout le Tour\n  E-->>U: ouvre l'étape demandée dans l'éditeur\n```\n\nC'est aussi ce handler qui sert les liens publics partagés entre développeurs.",
+      "questions": [
+        "Que vérifie le handler avant de démarrer un Tour ?",
+        "Comment un lien public sans Tour se comporte-t-il ?",
+        "Pourquoi un lien d'un autre workspace est-il refusé ?"
+      ],
+      "file": "src/extension.ts",
+      "pattern": "export class URIHandler implements vscode.UriHandler"
+    },
+    {
+      "title": "Trois bundles, une implémentation",
+      "description": "Une seule passe webpack produit trois bundles : `extension-node.js` pour l'extension, `mcp-server.js` pour le serveur empaqueté dans le VSIX, et `cli.js` pour le binaire npm `codetour`. L'alias `codetour-mcp` pointe vers `packages/mcp-server/dist/src/cli.js`.\n\nC'est ce qui rend la coopération vérifiable : la sous-commande `codetour mcp` embarque littéralement la même entrée que le binaire `codetour-mcp` et que le serveur du VSIX. Une seule implémentation de validation et de persistance, trois distributions.",
+      "questions": [
+        "Pourquoi aliaser codetour-mcp plutôt que copier le code ?",
+        "Quel bundle le VSIX charge-t-il comme serveur ?",
+        "Quel bundle porte la commande codetour ?"
+      ],
+      "file": "webpack.config.js",
+      "pattern": "const mcpConfig = \\{"
+    },
+    {
+      "title": "Brancher les agents hors VS Code",
+      "description": "Le registre d'intégrations d'agents expose, pour chaque hôte, détection, état, installation, désinstallation et diagnostic derrière le contrat `AgentIntegration`. `--install` écrit les fichiers de plugin embarqués dans le bundle : le plugin Copilot déclare le serveur `codetour` en stdio avec le répertoire de session comme workspace, et le plugin Pi enregistre le serveur à la demande avec une exposition différée.\n\nDans les deux cas, l'agent ne reçoit pas une copie du serveur : il démarre `codetour mcp` et obtient donc la même validation, les mêmes règles Git et la même persistance que l'extension.",
+      "questions": [
+        "Quelles opérations chaque intégration d'agent doit-elle fournir ?",
+        "Comment le plugin Pi évite-t-il de charger l'outil sans /codetour ?",
+        "Pourquoi le plugin déclare-t-il un workspace explicite ?"
+      ],
+      "file": "src/cli/agentIntegrations.ts",
+      "pattern": "export interface AgentIntegration"
+    }
+  ]
+}

@@ -1,0 +1,170 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Créer un Project Tour ou un Changes Tour : points communs et différences",
+  "description": "Deux outils de création coexistent dans `codetour-mcp` : `create_project_tour` et `create_changes_tour`. Ce Tour suit les deux parcours depuis l'adaptateur qui choisit le type jusqu'à l'écriture atomique du fichier `.tour`, et marque à chaque étape ce qui est mutualisé et ce qui diverge.\n\nLe fil conducteur est le suivant : la mécanique de validation, d'ancrage, de persistance et de journalisation est commune ; ce qui change est la **source de vérité des ancres** (le workspace ou le commit analysé), les **paramètres d'entrée**, les **avertissements** et les **métadonnées écrites** dans le fichier.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "`codetour-mcp` est un serveur MCP local qui ne génère aucun contenu : un agent IA lui envoie une proposition de Tour, le serveur la valide de façon déterministe, puis l'écrit dans le workspace du processus. Il expose deux outils de création, `create_project_tour` et `create_changes_tour`, et ce Tour explique ce qu'ils partagent et ce qui les distingue.\n\n**Diagram — Vue de contexte**\n\n```mermaid\nflowchart LR\n  Dev[\"Développeur\"] -->|\"demande un Project Tour ou un Changes Tour (/codetour)\"| Host[\"Hôte de l'agent : Pi, Copilot, extension VS Code\"]\n  Host -->|\"appelle create_project_tour ou create_changes_tour (JSON-RPC sur stdio)\"| Server[\"codetour-mcp\"]\n  Server -->|\"lit les fichiers et les images d'ancrage (fs)\"| Workspace[(\"Sources du workspace\")]\n  Server -->|\"exécute rev-parse, merge-base, diff et ls-tree (CLI git)\"| Git[(\"Dépôt Git\")]\n  Server -->|\"écrit la Tour validée (rename atomique)\"| Tours[(\".tours/*.tour\")]\n```\n\nL'hôte de l'agent est un système externe : il décide du type de Tour et porte le dialogue avec l'utilisateur. Le dépôt Git est externe au serveur, mais seule la création d'un Changes Tour le consulte.\n\n**Diagram — Conteneurs**\n\n```mermaid\nflowchart TB\n  subgraph Process[\"codetour-mcp — un processus Node par workspace\"]\n    Cli[\"cli.ts : workspace vérifié, transport stdio\"]\n    Wiring[\"server.ts : prompts, ressources, outils, handlers\"]\n    Check[\"validation.ts et proposal-validation.ts : règles déterministes\"]\n    Write[\"persistence.ts : écriture atomique\"]\n  end\n  subgraph Store[\"Système de fichiers du workspace\"]\n    Source[(\"Sources, Tours, images\")]\n    RunLog[(\".tours/.log\")]\n  end\n  Wiring -->|\"délègue chaque proposition\"| Check\n  Check -->|\"lit les ancres\"| Source\n  Wiring -->|\"valide puis écrit\"| Write\n  Write -->|\"remplace le fichier cible\"| Source\n  Wiring -->|\"enregistre l'identité de run\"| RunLog\n```\n\n**Où lire le code**\n\n- [packages/mcp-server/src](packages/mcp-server/src) : entrée du serveur, prompts, validation, persistance.\n\n- [packages/pi-plugin/extensions](packages/pi-plugin/extensions) : adaptateur qui choisit le type et le mode de revue.\n\n- [packages/mcp-server/test/integration](packages/mcp-server/test/integration) : `project-tour.test.ts` et `changes-tour.test.ts` figent les deux contrats.\n\n- [.tours](.tours) : destination des Tours générés.",
+      "questions": [
+        "Qui décide qu'un Tour est un Project Tour ou un Changes Tour ?",
+        "Quelle partie du serveur est identique pour les deux outils ?",
+        "Pourquoi le serveur sert-il un seul workspace ?"
+      ]
+    },
+    {
+      "title": "Le choix du type, et du mode de revue seulement pour un Changes Tour",
+      "description": "La divergence commence dans l'adaptateur. La commande `/codetour` propose trois entrées — `Project Tour`, `Changes Tour — Neutre`, `Changes Tour — Critique` — puis fixe `type` et, uniquement pour un Changes Tour, `reviewMode`.\n\nLe mode de revue n'a donc aucune existence côté Project Tour : il ne figure ni dans les paramètres de `create_project_tour`, ni dans son prompt. `parseChoices` accepte aussi le type en argument direct (`/codetour generate changes critical …`) et renvoie le reste des mots comme demande de l'utilisateur, transmise verbatim.\n\nL'adaptateur crée ensuite l'identité de run, écrit un état de run dans `.tours/.log` avec le `kind` choisi, puis lance la skill avec `type`, `reviewMode` (changes uniquement), `runId` et `request`.",
+      "questions": [
+        "Pourquoi le mode de revue n'existe-t-il que pour un Changes Tour ?",
+        "Que se passe-t-il si l'utilisateur annule le dialogue de choix ?",
+        "Quel est le rôle du runId créé avant la génération ?"
+      ],
+      "file": "packages/pi-plugin/extensions/codetour.ts",
+      "pattern": "type = choice === \"Project Tour\""
+    },
+    {
+      "title": "Un seul outil pour servir les deux contrats de prompt",
+      "description": "Les deux générations passent par le même outil `get_generation_prompt`, destiné aux hôtes qui ne peuvent pas appeler `prompts/get`. Il accepte `type` (`project` ou `changes`) et, pour un Changes Tour seulement, `reviewMode` avec `neutral` par défaut.\n\nLa composition est presque identique : le prompt servi du type demandé, la demande originale de l'utilisateur, l'orientation (`brief`) et la section d'identité de run. Une différence d'ordre subsiste : l'orientation précède la demande pour un Project Tour, alors que la demande précède l'orientation pour un Changes Tour.\n\nLes mêmes textes composés alimentent les prompts MCP `generate_project_tour` et `generate_changes_tour` : il n'existe qu'une source de vérité par type de Tour.",
+      "questions": [
+        "Pourquoi un outil get_generation_prompt existe-t-il en plus des prompts MCP ?",
+        "Quelles sections de prompt sont communes aux deux types ?",
+        "Pourquoi l'ordre de la demande et de l'orientation diffère-t-il ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "GET_GENERATION_PROMPT_TOOL,"
+    },
+    {
+      "title": "Deux ressources de prompt : fixe contre paramétrée par le mode",
+      "description": "Le prompt du Project Tour est une ressource à URI fixe, car il n'a aucun paramètre. Celui du Changes Tour est une `ResourceTemplate` dont le segment `{reviewMode}` n'accepte que `neutral` et `critical` ; toute autre valeur produit une erreur MCP `InvalidParams`.\n\nLes deux constructeurs partagent les clauses de contrat : motif d'ancre simple, règle de langue, consigne de destination réservée et étape finale d'annonce du Tour créé avec son titre et son chemin exacts.\n\nLe Changes Tour ajoute une clause absente du Project Tour — lire la pull/merge request via `gh` ou `glab` quand elle existe, sinon dire qu'aucun contexte de demande n'a été trouvé. En mode `critical`, le pack d'instructions de revue est embarqué dans le prompt ; ce mode reste une donnée de génération et n'est jamais persisté dans le fichier `.tour`.",
+      "questions": [
+        "Pourquoi le prompt du Changes Tour est-il un template de ressource ?",
+        "Que contient le pack de revue critique et où est-il écrit ?",
+        "Quelle clause de prompt n'existe que pour un Changes Tour ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "function changesTourGenerationPrompt"
+    },
+    {
+      "title": "Un prélude de validation partagé, exécuté avant toute différence",
+      "description": "Les deux handlers appellent le même `validateTourProposal`. Ce prélude valide d'abord les paramètres selon le type, puis les fences Mermaid, le confinement du `workspacePath`, les images référencées et la structure des étapes, en agrégeant tous les problèmes dans une seule réponse `INVALID_PROPOSAL`.\n\nDeux points valent d'être notés. Le nom du répertoire d'images attendu dépend du type mais pas de la mécanique : `.tours/images/<nom-du-tour>/` où le nom vaut `project` ou `changes` par défaut.\n\nEt surtout, la phase d'ancrage choisit sa source : un Project Tour valide ses ancres contre le workspace (`kind: \"workspace\"`), tandis qu'un Changes Tour reste structurel ici (`kind: \"structure\"`), parce que ses ancres seront stagées après résolution de la comparaison Git.",
+      "questions": [
+        "Pourquoi les erreurs sont-elles agrégées au lieu d'être renvoyées une par une ?",
+        "Pourquoi un Changes Tour ne valide-t-il pas ses ancres dans ce prélude ?",
+        "D'où vient le nom du répertoire d'images d'un Tour ?"
+      ],
+      "file": "packages/mcp-server/src/proposal-validation.ts",
+      "pattern": "const mermaidIssues = await validateMermaidDescriptions"
+    },
+    {
+      "title": "ChangesParams est un sur-ensemble de ProjectParams",
+      "description": "Les paramètres communs sont validés une seule fois dans `validateCommonParams` : `workspacePath`, `runId`, `title`, `description`, `fileName` et `steps`, avec le rejet des schémas d'URI actifs dans la description et la contrainte d'un `fileName` sans séparateur de chemin.\n\n`validateChangesParams` ajoute quatre champs obligatoires ou propres au Changes Tour : `baseRef` non vide et ne commençant pas par `-` (pour qu'il ne soit jamais lu comme une option Git), `headRef` en SHA complet de 40 caractères hexadécimaux, `includeUncommittedChanges` booléen et `reviewMode` limité à `neutral` ou `critical`.\n\nLe type `ChangesParams` étendu de `ProjectParams` dans `types.ts` reflète exactement cette relation : un Changes Tour est un Project Tour plus une comparaison Git et un mode de revue.",
+      "questions": [
+        "Quels paramètres sont communs aux deux outils ?",
+        "Pourquoi baseRef ne peut-il pas commencer par un tiret ?",
+        "Que vaut le mode de revue quand il est omis ?"
+      ],
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "export function validateChangesParams"
+    },
+    {
+      "title": "Les mêmes règles d'ancre, deux référentiels",
+      "description": "`AnchorSource` exprime la seule vraie différence de la validation d'étape : `workspace`, `structure` ou `commit`. Toutes les autres règles sont identiques quel que soit le type de Tour.\n\nCes règles communes sont strictes : un seul localisateur principal (`file` ou `directory`), `line`, `pattern` et `selection` valides seulement avec un `file`, `line` et `pattern` mutuellement exclusifs, motif de 200 caractères maximum, regex sûre, et exactement une occurrence dans le fichier.\n\nSeule la résolution du localisateur change : `checkAnchor` résout le chemin réel, lit le fichier et refuse les symlinks qui sortent du workspace ; `checkCommitAnchor` consulte la carte d'ancres du commit analysé et répond « does not exist in the analyzed commit ».",
+      "questions": [
+        "Pourquoi line et pattern sont-ils mutuellement exclusifs ?",
+        "Quelle protection empêche une regex de bloquer le serveur ?",
+        "Que se passe-t-il si un motif apparaît deux fois dans le fichier ?"
+      ],
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "export type AnchorSource"
+    },
+    {
+      "title": "Project Tour : des ancres dans le workspace, aucun accès Git",
+      "description": "`handleCreateProjectTour` ne touche jamais à Git : un Project Tour fonctionne dans n'importe quel répertoire, y compris hors dépôt. Ses étapes sont validées contre l'état courant des fichiers.\n\nIl applique ensuite ses propres règles de sortie : titre par défaut `Project Overview`, fichier sans `ref` pour rester lisible à mesure que le projet évolue, et avertissements `orientationStepWarnings` en plus de la limite indicative de quinze étapes.\n\nLa destination est `.tours/project.tour`, ou `.tours/<fileName>.tour` quand un nom est fourni. Un `runId` fourni mais invalide est refusé par `INVALID_RUN_ID` avant toute écriture.",
+      "questions": [
+        "Pourquoi un Project Tour ne porte-t-il pas de ref ?",
+        "Quel titre est utilisé quand aucun titre n'est fourni ?",
+        "Que se passe-t-il si le runId est invalide ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleCreateProjectTour"
+    },
+    {
+      "title": "Les avertissements d'orientation sont réservés au Project Tour",
+      "description": "`orientationStepWarnings` vérifie que la première étape est une étape d'orientation sans localisateur, avec au moins un diagramme, et que ce premier diagramme reste sous le seuil de lisibilité de douze nœuds.\n\nCes contrôles produisent des avertissements (`ORIENTATION_STEP_MISSING_OVERVIEW`, `ORIENTATION_STEP_DIAGRAM_TOO_LARGE`) et non des rejets : la Tour est créée malgré tout. Ils ne sont appelés que par le handler projet, ce qui explique qu'un Changes Tour puisse s'ouvrir sur une étape ancrée sans déclencher ces codes.",
+      "questions": [
+        "Pourquoi ces contrôles sont-ils des avertissements et non des erreurs ?",
+        "Pourquoi un Changes Tour n'a-t-il pas besoin d'étape d'orientation ?",
+        "Que mesure exactement la limite de douze nœuds ?"
+      ],
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "export function orientationStepWarnings"
+    },
+    {
+      "title": "Changes Tour : la comparaison Git conditionne la création",
+      "description": "`handleCreateChangesTour` enchaîne des contrôles qui n'ont aucun équivalent côté projet : appartenance à un dépôt Git (`GIT_REPOSITORY_REQUIRED`), HEAD existant, puis égalité stricte entre `headRef` et le HEAD courant (`STALE_HEAD`).\n\nLa base est ensuite résolue en SHA complet avant tout usage (`INVALID_BASE_REF` si `rev-parse --verify` échoue), puis `merge-base` est calculée ; une erreur de calcul produit le même code. Un intervalle sans aucun commit, et sans changement local explicitement inclus, renvoie `NO_CHANGES` sans remplacer le Tour précédent.\n\nLes changements non commités sont exclus par défaut avec l'avertissement `UNCOMMITTED_CHANGES_EXCLUDED`, ou inclus explicitement avec `UNCOMMITTED_CHANGES_INCLUDED` : dans ce cas le Tour décrit un état non reproductible et perd son `ref`.",
+      "questions": [
+        "Pourquoi le serveur refuse-t-il un headRef qui n'est plus le HEAD ?",
+        "Pourquoi la base est-elle résolue en SHA avant d'appeler Git ?",
+        "Que devient le Tour précédent quand il n'y a aucun changement ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleCreateChangesTour"
+    },
+    {
+      "title": "Le HEAD est relu juste avant l'écriture",
+      "description": "Un Changes Tour lit ses ancres dans l'arbre du commit analysé, pas dans le checkout : `ls-tree --full-tree -r -t` énumère l'arbre, seuls les fichiers demandés sont chargés par `cat-file blob`, et les modes distinguent fichiers réguliers, arbres et entrées non ancrables (symlinks, sous-modules).\n\n`workspacePrefix` adapte les chemins quand le workspace est un sous-répertoire du dépôt : les fichiers listés sont ramenés à des chemins relatifs au workspace.\n\nComme les lectures Git prennent du temps, le handler relit le HEAD immédiatement avant la persistance et refuse d'écrire si la valeur a bougé : une analyse devenue obsolète ne remplace jamais le Tour précédent.",
+      "questions": [
+        "Pourquoi lire les ancres dans le commit plutôt que dans le checkout ?",
+        "Comment le serveur gère-t-il un workspace qui est un sous-répertoire du dépôt ?",
+        "Que protège la seconde lecture du HEAD ?"
+      ],
+      "file": "packages/mcp-server/src/git.ts",
+      "pattern": "export async function readCommitAnchors"
+    },
+    {
+      "title": "Seconde phase : renommage, baseFile et décor de diff",
+      "description": "`stageCommitAnchors` rejoue la validation des étapes avec la carte d'ancres du commit quand aucun changement local n'est inclus. C'est la phase qui n'existe que pour un Changes Tour.\n\nElle calcule aussi les renommages détectés par `git diff --name-status --find-renames`, puis vérifie chaque `baseFile` déclaré : il doit correspondre exactement à l'ancien chemin du renommage détecté, sinon l'issue `steps[i].baseFile` rejette la proposition.\n\nLe handler décore ensuite les étapes ancrées sur un fichier avec `display: \"diff\"` et le `baseFile` détecté ; les étapes sans fichier, ou générées avec des changements locaux, restent des étapes de navigation ordinaire.",
+      "questions": [
+        "Pourquoi la validation des ancres est-elle scindée en deux phases ?",
+        "Que vérifie exactement le champ baseFile ?",
+        "Quand une étape de Changes Tour n'affiche-t-elle pas le diff ?"
+      ],
+      "file": "packages/mcp-server/src/proposal-validation.ts",
+      "pattern": "export async function stageCommitAnchors"
+    },
+    {
+      "title": "MISSING_CHANGED_FILE_ANCHOR : une règle propre au Changes Tour",
+      "description": "Un Changes Tour doit ancrer au moins un fichier que la comparaison a réellement modifié. `changedFilesAvailableToAnchor` établit la liste des fichiers ancrables : dans l'arbre du commit pour une analyse sans changement local, sur le disque quand les changements locaux sont inclus.\n\nLe contrôle distingue un fichier supprimé d'un fichier existant, ce qui exempte les branches de suppression pure : quand aucun fichier n'est ancrable, la règle n'a rien à vérifier et reste satisfaite.\n\nEn cas d'échec, le message liste jusqu'à cinq fichiers candidats et le Tour précédent est conservé. Un Project Tour n'a pas d'équivalent : hors étape d'orientation, il peut être entièrement explicatif.",
+      "questions": [
+        "Pourquoi les branches de suppression pure sont-elles exemptées ?",
+        "Un Changes Tour peut-il ancrer un fichier inchangé ?",
+        "Que contient le message d'erreur produit ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "const anchorableChangedFiles"
+    },
+    {
+      "title": "Le fichier écrit n'a pas la même forme",
+      "description": "Les deux handlers construisent le même squelette de fichier — `$schema`, `title`, `description` optionnelle, `steps` — mais seul le Changes Tour y ajoute des métadonnées de comparaison.\n\nEn mode commit uniquement, il écrit `ref` (le SHA analysé) et `baseRef` (le merge-base résolu), et ajoute à la description une provenance indiquant l'intervalle exact. Quand les changements locaux sont inclus, `ref` et `baseRef` sont omis et la provenance précise que l'état n'est pas reproductible.\n\nLe titre par défaut diffère aussi : `Changes on <branche>`, ou `Changes at <sha court>` sur un HEAD détaché, contre `Project Overview` pour un Project Tour.",
+      "questions": [
+        "Quelles métadonnées le Project Tour n'écrit-il jamais ?",
+        "Pourquoi ref et baseRef disparaissent-ils quand les changements locaux sont inclus ?",
+        "Comment le titre est-il choisi quand aucun titre n'est fourni ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "display: \"diff\" as const"
+    },
+    {
+      "title": "Une fin de parcours commune : schéma, écriture atomique, journal",
+      "description": "Quel que soit le type, `persistTour` valide le fichier contre le schéma CodeTour draft-04 (`SCHEMA_VALIDATION_FAILED` sinon), puis `writeTourAtomic` écrit dans un fichier temporaire du même répertoire, synchronise et renomme sur la cible. Si le répertoire de sortie échappe au workspace réel, `OUTPUT_PATH_ESCAPES_WORKSPACE` est renvoyé et l'ancien Tour survit à l'échec.\n\n**Diagram — Fin de parcours commune**\n\n```mermaid\nflowchart LR\n  Tour[\"Tour proposé\"] -->|\"valide le schéma draft-04\"| Schema[\"validateCodetourTour\"]\n  Schema -->|\"écrit puis renomme\"| Atomic[\"writeTourAtomic\"]\n  Atomic -->|\"remplace\"| File[(\".tours/<nom>.tour\")]\n  Atomic -->|\"puis\"| Log[\"appendRunIdentity\"]\n  Log -->|\"met à jour\"| State[(\".tours/.log\")]\n```\n\nLa réponse de succès est identique dans les deux cas (`status`, `title`, `path`, `stepCount`, `warnings`). Le journal de run enregistre le même résultat via `recordTourCreated`, avec `kind` valant `project` ou `changes` : une écriture de journal qui échoue ne transforme jamais un Tour créé en erreur.",
+      "questions": [
+        "Pourquoi le renommage atomique préserve-t-il le Tour précédent ?",
+        "Que renvoie le serveur si la cible sort du workspace ?",
+        "Quelle différence de journalisation existe entre les deux types ?"
+      ],
+      "file": "packages/mcp-server/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic"
+    }
+  ]
+}

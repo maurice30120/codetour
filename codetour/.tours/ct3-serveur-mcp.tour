@@ -1,0 +1,144 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Réception, validation et sauvegarde d'un Tour dans codetour-mcp",
+  "description": "Parcours complet d'une proposition de Tour dans le serveur MCP `codetour-mcp` : de l'appel `create_project_tour` reçu sur stdio jusqu'au fichier `.tours/project.tour` écrit atomiquement.\n\nChaque étape s'appuie sur le code réel du package `packages/mcp-server` : entry point, câblage des outils, prédicat de validation partagé, règles d'ancrage, validation de schéma et écriture atomique.\n\nLe Tour suit volontairement le sens de la donnée : entrée, contexte, schéma d'entrée permissif, handler, pipeline de validation, contrôles d'ancres, fichier cible, puis persistance et réponse.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "`codetour-mcp` est un serveur MCP local : un agent IA lui envoie une **proposition de Tour** (titre, étapes, ancres) et le serveur décide seul si elle est acceptable, puis l'écrit dans le workspace. Il ne génère aucun contenu : il valide de façon déterministe et persiste.\n\nLe serveur sert exactement **un workspace** : le répertoire de travail du processus, ou celui passé à `--workspace-root`. Toutes les ancres, la validation et la destination du fichier sont relatives à ce répertoire.\n\n**Diagram — Vue de contexte**\n\n```mermaid\nflowchart LR\n  Dev[\"Développeur\"] -->|\"demande un Tour en langage naturel\"| Host[\"Hôte MCP : Copilot, Pi, extension VS Code\"]\n  Host -->|\"appelle l'outil create_project_tour (JSON-RPC sur stdio)\"| Server[\"codetour-mcp\"]\n  Server -->|\"lit les fichiers pour vérifier les ancres (fs)\"| Workspace[(\"Sources du workspace\")]\n  Server -->|\"écrit la Tour validée (rename atomique)\"| Tours[(\"Fichiers .tours\")]\n```\n\nL'hôte MCP est un système externe : le serveur ne dialogue jamais avec l'utilisateur, il répond à un appel d'outil et renvoie soit une création confirmée, soit une liste d'erreurs structurées.\n\n**Diagram — Conteneurs**\n\n```mermaid\nflowchart TB\n  subgraph Process[\"codetour-mcp — processus Node lancé par l'hôte\"]\n    Cli[\"cli.ts : parsing, probe du workspace, transport stdio\"]\n    Wiring[\"server.ts : outils, prompts, ressources\"]\n    Check[\"validation.ts et proposal-validation.ts : règles déterministes\"]\n    Write[\"persistence.ts : écriture atomique\"]\n  end\n  subgraph Store[\"Workspace — système de fichiers\"]\n    SourceFiles[(\"Sources du projet\")]\n    TourFiles[(\".tours/*.tour\")]\n    RunLog[(\".tours/.log/*.json\")]\n  end\n  Cli -->|\"câble puis connecte\"| Wiring\n  Wiring -->|\"délègue chaque proposition\"| Check\n  Check -->|\"lit les ancres\"| SourceFiles\n  Wiring -->|\"valide puis écrit la Tour\"| Write\n  Write -->|\"remplace le fichier cible\"| TourFiles\n  Wiring -->|\"enregistre l'identité de run\"| RunLog\n```\n\nLes deux conteneurs sont le processus serveur (une seule exécution, un seul workspace) et le système de fichiers du workspace, qui porte à la fois les sources lues et les fichiers écrits.\n\n**Où lire le code**\n\n- `packages/mcp-server/src` : entry point, validation, persistance.\n\n- `packages/mcp-server/src/server.ts` : descriptions d'outils, câblage MCP, handlers des deux outils de création.\n\n- `packages/mcp-server/schema.json` et `src/codetour-schema.ts` : schéma CodeTour utilisé comme dernier filet.\n\n- `packages/mcp-server/test/integration` : tests d'intégration qui pilotent le serveur par un vrai client MCP.\n\n- `.tours/` : destination des Tours générés.",
+      "questions": [
+        "Quelle différence y a-t-il entre ce que fait le serveur et ce que fait l'agent qui l'appelle ?",
+        "Pourquoi le serveur ne sert-il qu'un seul workspace ?",
+        "Où sont écrits les fichiers que produit ce serveur ?"
+      ]
+    },
+    {
+      "title": "Le point d'entrée : parsing, probe du workspace et stdio",
+      "description": "`main.ts` n'est qu'un wrapper : il appelle `runMcpCli` du module partagé `cli.ts`, utilisé aussi par le binaire npm `codetour-mcp`, le serveur embarqué dans l'extension et la sous-commande `codetour mcp`. Un seul chemin de démarrage évite que le parsing, les diagnostics et le cycle de vie divergent entre distributions.\n\n`runMcpCli` parse `argv` (`--help`, `--version`, `--workspace-root <dir>`), puis vérifie que le workspace est utilisable **avant** de démarrer le protocole : `createContext`, `accessSync` en lecture/exécution, et surtout un `readdirSync` de contrôle, car `access()` ne vérifie pas les ACL sous Windows.\n\nEnsuite le serveur est créé et connecté à un `StdioServerTransport` ; le processus attend ensuite la fermeture de `stdin`, qui signifie la fin de session côté client. Les diagnostics sortent sur `stderr` et le code de sortie distingue arguments invalides (1) et session terminée normalement (0).",
+      "questions": [
+        "Pourquoi le workspace est-il validé avant la connexion au transport MCP ?",
+        "Que se passe-t-il quand le client ferme stdin ?",
+        "Quels codes de sortie ce point d'entrée peut-il renvoyer ?"
+      ],
+      "file": "packages/mcp-server/src/cli.ts",
+      "pattern": "export async function runMcpCli"
+    },
+    {
+      "title": "Un contexte de workspace canonique",
+      "description": "Toutes les décisions de sécurité du serveur reposent sur deux chemins : le chemin canonique du workspace et son chemin réel. `createContext` utilise `canonicalWorkspacePath` (du package `codetour-workspace-identity`) pour n'avoir qu'une seule orthographe, puis refuse un chemin qui n'est pas un répertoire.\n\nLe commentaire du module documente le motif : les contrôles de confinement comparent des chemins réels, et le journal de run enregistre ce que lisent les hooks ; si les deux côtés n'utilisent pas la même orthographe (nom court 8.3 d'un côté, forme longue de l'autre sous Windows), une cible pourtant interne est interprétée comme une évasion.\n\n`selectContext`, dans le même module, permet à un appel de **restreindre** le workspace via `workspacePath`, jamais de l'étendre : chemin relatif obligatoire, ni `..`, ni chemin absolu, et vérification finale que le répertoire réel reste sous la racine réelle.",
+      "file": "packages/mcp-server/src/context.ts",
+      "pattern": "export function createContext"
+    },
+    {
+      "title": "Le câblage MCP : outils, prompts et ressources",
+      "description": "`createServer` construit l'objet `McpServer` (capacités `tools`, `resources`, `prompts`). C'est le point où le serveur expose sa surface : les ressources du prompt de génération et des instructions de revue critique, les prompts `generate_project_tour` et `generate_changes_tour`, l'outil `get_generation_prompt` (destiné aux hôtes qui ne peuvent pas appeler `prompts/get`), puis les deux outils de création.\n\nCe module porte aussi les textes : descriptions d'outils, et le prompt projet en plusieurs morceaux (`MISSING_TOOL_GUIDANCE`, `ANCHOR_PATTERN_STEP`, `LANGUAGE_STEP`…) assemblés par `projectTourGenerationPrompt`. Ces textes sont des **données de génération** adressées à l'agent, pas la validation : la validation vit dans `validation.ts`.\n\n`createServer` ne lit ni n'écrit aucun fichier à la création : il ne fait qu'enregistrer des handlers qui recevront un contexte de workspace déjà validé par `cli.ts`.",
+      "questions": [
+        "Quelles capacités MCP ce serveur déclare-t-il ?",
+        "Pourquoi un outil get_generation_prompt existe-t-il en plus des prompts MCP ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "export function createServer\\(workspaceRoot: string\\): McpServer"
+    },
+    {
+      "title": "Un schéma d'entrée volontairement permissif",
+      "description": "Le schéma d'entrée de l'outil n'est pas strict : chaque champ est `z.unknown().optional()` et l'objet accepte des champs supplémentaires via `.passthrough()`. La raison est écrite juste au-dessus dans le fichier : le SDK MCP rejetterait lui-même les arguments hors schéma, ce qui empêcherait de renvoyer **toutes** les erreurs en une seule réponse.\n\nConséquence pratique : un champ inconnu, un `steps` vide ou un `fileName` avec séparateur de chemin arrivent intacts jusqu'au handler, et c'est `validation.ts` qui produit les `Issue` correspondantes. Le schéma sert donc de documentation et de contrat de transport, pas de filtre.\n\nLe schéma de sortie, lui, est bien structuré (`status`, `title`, `path`, `stepCount`, `warnings`, `code`, `message`, `issues`), car il décrit ce que le serveur renvoie et ce que les hôtes peuvent lire de façon fiable.",
+      "questions": [
+        "Pourquoi ne pas valider directement dans le schéma zod du SDK ?",
+        "Quel est l'intérêt d'agréger toutes les erreurs en une réponse ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "const projectToolInputSchema = z"
+    },
+    {
+      "title": "L'outil create_project_tour et le filet safeToolCall",
+      "description": "L'enregistrement de l'outil relie un nom, sa description, le schéma d'entrée permissif, le schéma de sortie structuré et un handler qui passe par `safeToolCall`. Le handler reçoit les arguments bruts, sans cast ni validation préalable du SDK.\n\n`safeToolCall` convertit une exception inattendue en **résultat structuré** `INTERNAL_ERROR` au lieu de la laisser remonter en erreur de protocole MCP : beaucoup de clients remplacent le payload d'une erreur MCP par un message générique, ce qui ferait perdre le diagnostic. Le texte reste ainsi dans la réponse, dans la même forme que les autres échecs.\n\nLe même montage sert `create_changes_tour` : un seul wrapper d'erreur, un seul schéma de sortie, deux handlers qui partagent le même prélude de validation.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "\"create_project_tour\","
+    },
+    {
+      "title": "Le handler : valider, avertir, persister",
+      "description": "`handleCreateProjectTour` orchestre la création dans un ordre précis. Il appelle `validateTourProposal(\"project\", ...)`, et si le résultat n'est pas `ok`, relaie directement le payload de rejet (`INVALID_PROPOSAL` ou `TOUR_STEPS_REQUIRED`). Il traite ensuite le `runId` : une valeur vide est considérée comme absente, une valeur non conforme au format du journal donne `INVALID_RUN_ID`.\n\nViennent les avertissements non bloquants : `stepLimitWarnings` au-delà de quinze étapes, et `orientationStepWarnings` sur la forme de l'étape d'orientation. Le titre prend la valeur fournie, sinon `Project Overview`.\n\nLa Tour est alors construite : `$schema` fixé à l'URI CodeTour, titre, description optionnelle, étapes. Aucun `ref` ni `baseRef` n'est attaché — une Project Tour reste lisible au fil des évolutions du code et n'exige aucun accès Git.\n\n**Diagram — Séquence d'une création réussie**\n\n```mermaid\nsequenceDiagram\n  participant Host as Hôte MCP\n  participant Handler as handleCreateProjectTour\n  participant Validation as validateTourProposal\n  participant Persist as persistTour\n  Host->>Handler: create_project_tour avec les arguments\n  Handler->>Validation: valider params, étapes, Mermaid, images\n  Validation-->>Handler: proposal ok, ou rejection agrégée\n  Handler->>Persist: TourFile et chemin cible\n  Persist-->>Handler: null si écrit, sinon erreur\n  Handler-->>Host: structuredContent status created et warnings\n```",
+      "questions": [
+        "Pourquoi une Project Tour n'a-t-elle pas de champ ref ?",
+        "Quels avertissements n'empêchent pas l'écriture ?",
+        "Que devient un runId vide envoyé par un agent ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function handleCreateProjectTour"
+    },
+    {
+      "title": "Le prélude de validation partagé",
+      "description": "`validateTourProposal` est le prédicat commun aux deux outils. Il enchaîne, dans cet ordre : validation des paramètres (`validateProjectParams` ou `validateChangesParams`), extraction des étapes brutes, validation des blocs Mermaid de chaque description, sélection du contexte de workspace, validation des références d'images, puis validation structurelle des étapes.\n\nDeux branches court-circuitent le reste : sans `steps` (ou avec un tableau vide) et sans erreur Mermaid ou image, la réponse est le code dédié `TOUR_STEPS_REQUIRED` ; sinon les problèmes sont fusionnés et renvoyés en une seule fois sous `INVALID_PROPOSAL`, avec `paramIssues`, puis Mermaid, puis contexte, puis images, puis étapes.\n\nLe module explique aussi pourquoi la validation des étapes est en une ou deux phases : une Project Tour valide ses ancres directement contre le workspace (`kind: \"workspace\"`), tandis qu'une Changes Tour est d'abord validée structurellement, puis rejouée contre le commit analysé par `stageCommitAnchors` une fois la comparaison Git résolue.\n\n**Diagram — Ordre des contrôles**\n\n```mermaid\nflowchart TD\n  A[\"validateProjectParams / validateChangesParams\"] --> B[\"validateMermaidDescriptions\"]\n  B --> C[\"selectContext via workspacePath\"]\n  C --> D[\"validateImageDescriptions\"]\n  D --> E[\"validateSteps\"]\n  E --> F[\"Issues agrégées\"]\n  F -->|\"au moins une erreur\"| G[\"rejection INVALID_PROPOSAL\"]\n  F -->|\"aucune erreur\"| H[\"proposal ok, steps normalisés\"]\n```",
+      "questions": [
+        "Dans quel ordre les contrôles sont-ils exécutés ?",
+        "Pourquoi les erreurs sont-elles agrégées plutôt que renvoyées une par une ?",
+        "Quelle est la différence entre les phases de validation d'une Project Tour et d'une Changes Tour ?"
+      ],
+      "file": "packages/mcp-server/src/proposal-validation.ts",
+      "pattern": "kind: TourProposalKind,"
+    },
+    {
+      "title": "Ce que les paramètres doivent respecter",
+      "description": "`validateCommonParams` traite les champs communs aux deux outils. Les champs inconnus sont refusés avec la liste des champs autorisés (`PROJECT_PARAM_FIELDS`), ce qui rejette explicitement des champs comme `when`, `commands`, `uri` ou les capacités V2.\n\n`title` et `description` sont optionnels ; une description qui contient un schéma d'URI actif est refusée, à savoir `command`, `file`, `vscode`, `vscode-insiders` ou `javascript`. Le but est qu'une description générée ne puisse pas déclencher une action dans l'éditeur ou le terminal.\n\n`runId` est normalisé (`trim`) et une valeur vide est traitée comme absente, jamais comme une identité invalide : les hôtes qui servent `get_generation_prompt` n'ont aucune identité d'adaptateur à transmettre. `fileName` est ramené à un nom nu : suffixe `.tour` ajouté si absent, séparateurs de chemin et valeurs `.` ou `..` refusés, car l'écriture reste confinée à `.tours/`. Enfin `steps` est obligatoire et doit être un tableau.",
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "function validateCommonParams"
+    },
+    {
+      "title": "Les règles d'une étape et de son ancre",
+      "description": "`validateSteps` valide chaque étape indépendamment et n'accepte le tableau que si aucune étape n'a produit d'`Issue` : une seule étape fautive suffit à faire échouer la proposition, et les étapes valides ne sont jamais écrites partiellement.\n\n`validateStep` applique les règles d'ancrage : `description` obligatoire, champs inconnus refusés, au plus une cible primaire (un `file` **ou** un `directory`, jamais les deux), et `line`, `pattern`, `selection`, `display`, `baseFile` valides seulement avec un `file`. `line` et `pattern` sont mutuellement exclusifs. Les `questions` sont limitées en nombre et en forme, et une description contenant un schéma d'URI actif est refusée.\n\nLe type `AnchorSource` décide où l'existence est vérifiée : `workspace` (lecture du fichier réel), `structure` (pas de vérification, utilisé pour une première phase de Changes Tour) ou `commit` (existence et contenu lus dans le commit analysé). Les bornes (`line`, `selection`) sont ensuite comparées au contenu réel, ligne par ligne.",
+      "questions": [
+        "Que se passe-t-il si une seule étape du tableau est invalide ?",
+        "Peut-on avoir à la fois file et directory sur une étape ?"
+      ],
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "export function validateSteps"
+    },
+    {
+      "title": "Sécurité des ancres : regex bornée et confinement réel",
+      "description": "Quand une étape utilise `pattern`, le serveur construit une `RegExp` à partir de la chaîne fournie. Trois garde-fous s'appliquent : la longueur est plafonnée (`MAX_PATTERN_LENGTH` vaut 200 caractères, pour éviter le backtracking catastrophique sur un fichier entier), `safeRegex` refuse les expressions dangereuses, et le nombre d'occurrences doit valoir exactement un — sinon le message demande une sous-chaîne littérale plus longue ou une ligne vérifiée.\n\nLes bornes sont également vérifiées : une `line` au-delà du nombre de lignes du fichier est rejetée, tout comme une `selection` dont les positions dépassent la ligne ou la colonne disponible, ou dont le début est après la fin.\n\nPour un ancrage fichier ou répertoire du workspace, `checkAnchor` résout le chemin réel puis compare au `realRoot` : un lien symbolique qui sortirait du workspace est refusé, un chemin absolu aussi, et le type réel doit correspondre (`isFile()` pour `file`, `isDirectory()` pour `directory`). Le contenu n'est lu qu'après ce contrôle.",
+      "questions": [
+        "Combien d'occurrences un pattern doit-il trouver pour être accepté ?",
+        "Pourquoi le serveur résout-il le chemin réel avant de lire un fichier ?"
+      ],
+      "file": "packages/mcp-server/src/validation.ts",
+      "pattern": "if \\(pattern !== undefined"
+    },
+    {
+      "title": "La destination : .tours/project.tour",
+      "description": "La destination est calculée séparément de la validation. Sans `fileName`, la valeur réservée `PROJECT_TOUR_PATH` s'applique : `.tours/project.tour` ; pour une Changes Tour, `.tours/changes.tour`. Avec un `fileName`, `tourTargetPath` préfixe toujours par `.tours/`, et la validation des paramètres a déjà garanti que le nom est nu.\n\nC'est ce couple validation plus préfixe qui empêche un appel de faire écrire un fichier ailleurs dans le workspace : le nom fourni ne peut pas contenir de séparateur, et le préfixe n'est jamais négociable.",
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "function tourTargetPath"
+    },
+    {
+      "title": "Le dernier filet : validation de schéma puis écriture",
+      "description": "`persistTour` est le point de passage obligé avant le disque. Il valide d'abord la Tour complète avec `validateCodetourTour` : un validateur Ajv compilé sur `schema.json` avec `allErrors: true`, la draft-04 activée et `schemaId: \"id\"`. Un échec produit `SCHEMA_VALIDATION_FAILED` — l'input schema du serveur est plus strict que le schéma CodeTour, ce dernier garantit seulement que le fichier reste lisible par le player existant.\n\nLe contenu est sérialisé par `serializeTour` (JSON indenté avec un saut de ligne final), puis écrit par `writeTourAtomic`. Une `OutputPathError` est convertie en `OUTPUT_PATH_ESCAPES_WORKSPACE`, et toute autre erreur remonte : dans tous les cas, la Tour précédente reste intacte.\n\nLa validation ayant eu lieu avant l'écriture, aucun fichier partiel ni Tour invalide ne peut remplacer une Tour existante.",
+      "questions": [
+        "Pourquoi valider une seconde fois avec le schéma CodeTour ?",
+        "Que se passe-t-il pour la Tour précédente si la validation échoue ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function persistTour"
+    },
+    {
+      "title": "L'écriture atomique dans le workspace",
+      "description": "`writeTourAtomic` implémente la sauvegarde réelle : `mkdir` récursif du répertoire cible, résolution du répertoire **réel** via `realpathSync`, puis comparaison avec `ctx.realRoot` — un répertoire qui résout hors du workspace lève `OutputPathError` avant toute écriture.\n\nLe contenu est ensuite écrit dans un fichier temporaire du même répertoire (`.nom.tmp-<pid>-<timestamp>`), synchronisé par `handle.sync()`, puis renommé sur la cible. Le renommage dans le même répertoire est ce qui rend l'opération atomique : un lecteur voit soit l'ancienne version complète, soit la nouvelle, jamais un fichier tronqué.\n\nSi le renommage échoue, le temporaire est supprimé au mieux avant de propager l'erreur, pour ne pas laisser de résidu dans `.tours/`.",
+      "questions": [
+        "Pourquoi écrire dans un fichier temporaire avant de renommer ?",
+        "Comment le serveur empêche-t-il une écriture hors du workspace ?"
+      ],
+      "file": "packages/mcp-server/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic"
+    },
+    {
+      "title": "Réponse structurée et journal de run",
+      "description": "Après l'écriture, `handleCreateProjectTour` renvoie `successResponse` : un texte lisible (message et avertissements) et un `structuredContent` avec `status` à `created`, le titre, le chemin relatif au workspace, le nombre d'étapes et les avertissements.\n\n`appendRunIdentity` ajoute ensuite le `runId` à ce `structuredContent` et tente d'enregistrer la création dans le journal de run, sous `.tours/.log/codetour-run-<runId>.json`. Le fichier existe déjà : l'adaptateur contrôlé l'écrit avant de contacter l'agent, et `recordTourCreated` y marque `tourCreated`, `tourPath` et `tourTitle` pour que le garde `agentStop` constate une création authentifiée plutôt qu'une simple intention.\n\nUn échec du journal n'annule jamais une création réussie : `appendRunIdentity` capture l'erreur et expose `runRecorded: false` avec la raison, au lieu de transformer une Tour écrite en erreur.",
+      "questions": [
+        "Quels champs le structuredContent d'un succès contient-il ?",
+        "Que se passe-t-il si l'enregistrement du journal de run échoue ?",
+        "Où se trouve le journal de run et qui le lit ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "async function appendRunIdentity"
+    }
+  ]
+}

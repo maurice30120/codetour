@@ -1,0 +1,115 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Un fichier .tour, et ce qu'est une étape",
+  "description": "Comment un fichier `.tour` est structuré dans CodeTour : où il est cherché, quelle enveloppe JSON il accepte, et ce que représente exactement une étape — une explication, une destination et une position.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour transforme une explication en visite guidée : un fichier `.tour` contient un titre et une liste ordonnée d'étapes, chaque étape pointant vers un endroit précis du code. L'extension VS Code et la commande `codetour` lisent ces fichiers ; un serveur MCP les écrit lorsqu'un agent génère une visite.\n\nCe parcours ne décrit que le fichier : où il est cherché, quelle enveloppe il accepte, et ce qu'est exactement une étape.\n\n**Diagram — Context view**\n```mermaid\nflowchart LR\n P[\"Développeuse : comprendre ou expliquer du code\"] -->|\"enregistre et parcourt des visites (VS Code, terminal)\"| C[\"CodeTour\"]\n A[\"Agent IA : produire une visite\"] -->|\"soumet une proposition via MCP (stdio)\"| C\n C -->|\"lit et affiche le code et les diffs (fs, git)\"| R[\"Dépôt du workspace\"]\n```\n\n**Diagram — Containers**\n```mermaid\nflowchart LR\n P[\"Développeuse\"] -->|\"utilise l'éditeur\"| D\n P -->|\"lance la commande codetour\"| L\n A[\"Agent IA\"] -->|\"appelle create_project_tour (stdio)\"| S\n subgraph EXT[\"Extension VS Code\"]\n  D[\"Découverte, lecture, enregistrement\"]\n end\n subgraph CLI[\"Lecteur en terminal\"]\n  L[\"Découverte et rendu dans le terminal\"]\n end\n subgraph MCP[\"Serveur MCP\"]\n  S[\"Validation et écriture\"]\n end\n subgraph STO[\"Workspace\"]\n  F[\"Fichiers .tour et code du dépôt\"]\n end\n D -->|\"lit et écrit\"| F\n L -->|\"lit\"| F\n S -->|\"écrit la visite validée\"| F\n```\n\nOù lire le code :\n\n- le format et la découverte : [src/store](src/store), [src/core](src/core) et [schema.json](schema.json)\n\n- la lecture d'une étape : [src/cli](src/cli) et [src/player](src/player)\n\n- l'écriture : [src/recorder](src/recorder) et [packages/mcp-server](packages/mcp-server/src)\n\n- la référence utilisateur : [docs/user-guide.md](docs/user-guide.md)",
+      "questions": [
+        "Quelles sont les deux surfaces qui lisent ces fichiers ?",
+        "Le fichier .tour est-il du YAML, du JSON ou autre chose ?",
+        "Quel est le seul champ vraiment obligatoire d'une étape ?"
+      ]
+    },
+    {
+      "title": "Où un fichier .tour est cherché",
+      "description": "`SUB_TOUR_DIRECTORIES` fixe les trois dossiers parcourus récursivement : `.vscode/tours`, `.github/tours` et `.tours`. `MAIN_TOUR_FILES` ajoute trois emplacements uniques à la racine — `.tour`, `.vscode/main.tour`, `main.tour`. Le réglage `customTourDirectory` ajoute un quatrième dossier à cette liste, sans en remplacer aucun.\n\n`discoverToursFromRoot` lit ces dossiers, saute le sous-dossier `.memory`, puis lit les fichiers racine ; les sous-visites sortent avant les fichiers racine. Un fichier illisible ou invalide est avalé par le `catch` du lecteur de fichier et n'apparaît simplement pas dans la liste : aucune erreur n'est remontée à l'utilisateur.",
+      "questions": [
+        "Que se passe-t-il si deux visites portent le même titre ?",
+        "Peut-on ranger des visites dans des sous-dossiers profonds ?",
+        "Pourquoi un fichier .tour invalide ne produit-il aucune erreur ?"
+      ],
+      "file": "src/core/tourDiscovery.ts",
+      "pattern": "export const SUB_TOUR_DIRECTORIES"
+    },
+    {
+      "title": "Le format est décrit deux fois",
+      "description": "L'en-tête de ce module pose la règle : le format exécuté est décrit par les schémas zod, et `schema.json` reste fourni à l'éditeur pour l'autocomplétion (`$schema: https://aka.ms/codetour-schema`). Les deux s'accordent sur les champs obligatoires, mais `schema.json` ignore trois propriétés que le runtime accepte : `contents`, `icon` et `markerTitle`.\n\n`parseTourFile` fait `TourFileSchema.parse(JSON.parse(contents))` : une syntaxe JSON cassée ou un champ au mauvais type lève une exception qui nomme les chemins fautifs. `loadTour` l'appelle puis attache l'identité de l'hôte (`id`) au contenu chargé, sans rien ajouter au fichier sur le disque.",
+      "questions": [
+        "Pourquoi garder deux descriptions du même format ?",
+        "Que se passe-t-il si un champ a le mauvais type ?",
+        "D'où vient l'identifiant d'une visite chargée ?"
+      ],
+      "file": "src/store/tourSchema.ts",
+      "pattern": "export function parseTourFile"
+    },
+    {
+      "title": "L'enveloppe : les champs de la racine",
+      "description": "Seuls deux champs racine sont obligatoires : `title` et `steps`. Les autres restent optionnels : `description` (infobulle dans l'arbre), `ref` et `baseRef` (version de référence et comparaison de diff), `isPrimary` (visite principale du dépôt), `nextTour` (visite suivante), `stepMarker` (marqueur de ligne dans le code) et `when` (condition d'affichage).\n\n`when` est présenté ici comme « évalué comme JavaScript », mais le code l'évalue avec jexl sur un contexte réduit à `isLinux`, `isMac`, `isWindows` et `isWeb`. Une visite dont la condition est fausse est retirée de la liste par `visibleTours`, après un tri alphabétique des titres.",
+      "questions": [
+        "Quels champs racine peuvent masquer une visite ?",
+        "À quoi servent ref et baseRef ensemble ?",
+        "La condition when est-elle vraiment du JavaScript ?"
+      ],
+      "file": "schema.json",
+      "pattern": "\"required\": \\[\"title\", \"steps\"\\],"
+    },
+    {
+      "title": "Une étape : une explication, une destination",
+      "description": "Une étape porte trois choses : une explication, une destination, et une position facultative. `description` est le seul champ obligatoire côté `schema.json`, mais zod lui donne une valeur par défaut vide — les visites enregistrées l'omettent parfois, et l'étape s'affiche alors sans texte.\n\nLa destination est unique, comme l'annonce le commentaire du schéma : `file`, `directory`, `contents`, `uri` ou `view`. `baseFile` et `display: \"diff\"` ne prennent sens qu'avec un `file` comparé entre `baseRef` et `ref`. La position affine une destination fichier, avec `line`, `selection` ou `pattern`. `title`, `questions` (quatre au maximum) et `commands` complètent l'étape sans changer sa cible.",
+      "questions": [
+        "Peut-on écrire une étape sans description ?",
+        "Combien de destinations une étape peut-elle viser ?",
+        "À quoi servent exactement questions et commands ?"
+      ],
+      "file": "src/store/tourSchema.ts",
+      "pattern": "export const CodeTourStepSchema"
+    },
+    {
+      "title": "La destination décide de l'affichage",
+      "description": "Le lecteur teste les destinations dans un ordre fixe : un diff, puis un contenu embarqué (`contents`), puis un fichier ou une URI de fichier, puis un dossier, et enfin `none` si l'étape n'a aucune destination. C'est cet ordre qui décide de ce que voit le lecteur, et il contredit la documentation : `docs/user-guide.md` annonce que `directory` prend le pas sur `file`, alors que `targetPath` traite le fichier avant le dossier.\n\nUn fichier absent ou une lecture Git impossible ne casse pas la visite : le contexte devient `unavailable` avec un diagnostic, et l'étape reste lisible. Une URI qui n'est pas un fichier local arrive également en `unavailable`.",
+      "questions": [
+        "Pourquoi le fichier l'emporte-t-il sur le dossier ici ?",
+        "Que devient une étape dont le fichier a été supprimé ?",
+        "Qu'est-ce qu'un contenu embarqué dans une étape ?"
+      ],
+      "file": "src/cli/stepContext.ts",
+      "pattern": "export function resolveReadonlyStepContext"
+    },
+    {
+      "title": "La position : line, selection ou pattern",
+      "description": "`line`, `selection` et `pattern` ne changent pas la destination : ils décident seulement de la fenêtre affichée. Une `selection` impose sa ligne de début ; sinon `line` l'emporte. `pattern` n'est essayé que si `line` manque : l'expression est compilée avec le drapeau `m` et seule la première correspondance compte.\n\nLe contexte rendu est un extrait numéroté de cinq lignes autour de la zone visée. Une expression invalide ou sans correspondance n'est pas une erreur : `contextForCode` rend alors le fichier entier. Sans aucune position, l'étape devient une explication du fichier complet.",
+      "questions": [
+        "Pourquoi préférer pattern à line dans une visite versionnée ?",
+        "Que se passe-t-il si le pattern ne correspond plus ?",
+        "Combien de lignes de contexte le lecteur affiche-t-il ?"
+      ],
+      "file": "src/cli/stepContext.ts",
+      "pattern": "function contextForCode"
+    },
+    {
+      "title": "Dans l'éditeur, l'étape devient une navigation",
+      "description": "Les positions du fichier sont en base 1 et VS Code travaille en base 0 : `line` devient `line - 1`, et une `selection` devient un `Selection` avec ses colonnes de début et de fin.\n\nTrois détails du fichier se voient ici. Un `file` sans position cherche le `pattern` de l'étape, ou à défaut le marqueur `stepMarker` de la visite. Sans ligne trouvée, l'étape atterrit en fin de fichier. Un fichier introuvable affiche un avertissement et bascule l'étape sur le document virtuel, pour que la visite continue. Après le code, `directory` révèle le dossier dans l'explorateur, `view` focalise une vue, et `commands` s'exécutent.",
+      "questions": [
+        "Pourquoi les positions du fichier sont-elles en base 1 ?",
+        "Comment le marqueur stepMarker évite-t-il les numéros de ligne ?",
+        "Que fait une étape qui n'a aucun fichier ?"
+      ],
+      "file": "src/player/index.ts",
+      "pattern": "const hasCodeAnchor = step.file !== undefined"
+    },
+    {
+      "title": "Un fichier .tour réel",
+      "description": "Ce fichier montre l'enveloppe en pratique : `$schema`, un `title`, une `description`, puis `steps`. La première étape n'a aucun localisateur — seulement `title` et `description` —, elle présente donc la visite elle-même plutôt qu'une portion de code.\n\nLes étapes suivantes ajoutent une destination : `file` plus `pattern` pour survivre aux déplacements de lignes, ou `line` quand la ligne est déjà stable. Chaque `description` est du Markdown, et celle de l'étape d'ouverture contient deux blocs Mermaid.",
+      "questions": [
+        "Pourquoi la première étape n'a-t-elle pas de fichier ?",
+        "Pourquoi certaines étapes utilisent-elles pattern et d'autres line ?",
+        "Le JSON du fichier est-il indenté pour la lecture humaine ?"
+      ],
+      "file": ".scratch/spec219-b-model/.tours/architecture_codetour_extension_mcp.tour",
+      "pattern": "\"steps\": \\["
+    },
+    {
+      "title": "Ce que le fichier ne contient pas",
+      "description": "À l'écriture, l'enregistreur compose le fichier : il ajoute `$schema`, retire l'`id` attribué au chargement, retire aussi `markerTitle` — un titre lu dans le code à partir de `stepMarker`, jamais persisté — puis sérialise en JSON indenté de deux espaces.\n\nCôté lecture, les schémas restent `looseObject` : une propriété inconnue traverse la découverte, la lecture et la sauvegarde sans être perdue. Un fichier `.tour` peut donc porter des champs destinés à un autre outil sans que CodeTour les efface.",
+      "questions": [
+        "Quels champs sont ajoutés puis retirés à l'écriture ?",
+        "Une propriété inconnue survit-elle à un aller-retour ?",
+        "Comment markerTitle est-il calculé depuis le code ?"
+      ],
+      "file": "src/recorder/commands.ts",
+      "pattern": "export async function saveTour"
+    }
+  ]
+}

@@ -1,0 +1,205 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Le parcours d'un Tour, de l'agent au lecteur",
+  "description": "Ce Tour suit un Tour de bout en bout : la commande qui confie la génération à un agent, le serveur MCP qui valide la proposition et écrit le fichier `.tour`, puis les deux lecteurs qui redécouvrent ce même fichier — l'extension VS Code et le CLI terminal. Chaque étape s'ancre sur le code qui fait le lien avec la précédente, pour reconstituer un seul parcours plutôt qu'une liste de composants.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour produit et lit des visites guidées de code : un agent écrit les explications, un fichier `.tour` les conserve, et un lecteur les rejoue sur le code. Ce Tour suit un Tour de bout en bout, de la commande qui confie la génération à l'agent jusqu'à l'affichage de sa dernière étape dans un lecteur.\n\n**Diagram — Context view**\n\n```mermaid\nflowchart LR\n  Dev[\"Développeur\"]\n  Agent[\"Agent IA (Tour Generator)\"]\n  CodeTour[\"CodeTour\"]\n  FS[\"Système de fichiers du workspace\"]\n  Dev -->|\"demande un Tour (commande /codetour)\"| CodeTour\n  CodeTour -->|\"transmet la consigne à l'agent (message et skill, serveur MCP sur stdio)\"| Agent\n  Agent -->|\"crée le Tour (create_project_tour sur stdio)\"| CodeTour\n  CodeTour -->|\"écrit et relit les fichiers .tour (fs, vscode.workspace.fs)\"| FS\n  Dev -->|\"lit le Tour (panneau VS Code ou terminal)\"| CodeTour\n```\n\n**Diagram — Containers**\n\n```mermaid\nflowchart TD\n  subgraph CodeTour\n    MCP[\"Serveur MCP codetour-mcp (processus Node sur stdio)\"]\n    EXT[\"Extension VS Code (hôte d'extension)\"]\n    CLI[\"CLI codetour (processus Node, lecteur terminal)\"]\n    STORE[\".tours/ — fichiers .tour\"]\n    MCP -->|\"écrit le fichier .tour (écriture atomique)\"| STORE\n    EXT -->|\"découvre et lit les fichiers (vscode.workspace.fs)\"| STORE\n    CLI -->|\"découvre et lit les fichiers (fs.readFile)\"| STORE\n  end\n  Agent[\"Agent IA\"] -->|\"appelle create_project_tour (MCP sur stdio)\"| MCP\n  Dev[\"Développeur\"] -->|\"suit la visite (commentaires et panneau)\"| EXT\n  Dev -->|\"suit la visite (TTY)\"| CLI\n  CLI -->|\"ouvre le Tour dans l'éditeur (URI de l'extension)\"| EXT\n```\n\nLes zones du dépôt suivies par ce parcours :\n\n- [packages/pi-plugin](packages/pi-plugin) — l'adaptateur Pi : la commande `/codetour`, l'identité de run et le dialogue d'ouverture final.\n\n- [packages/mcp-server/src](packages/mcp-server/src) — le serveur MCP : prompt servi à l'agent, validation de la proposition, écriture atomique.\n\n- [.tours](.tours) — les destinations réservées des Tours générés, dont `.tours/project.tour`.\n\n- [src/store](src/store) et [src/player](src/player) — la découverte des fichiers et la lecture dans VS Code.\n\n- [src/cli](src/cli) — la découverte partagée et le lecteur terminal.\n\nLe parcours commence par la commande qui met l'agent au travail.",
+      "questions": [
+        "Quel est le rôle de chacun des quatre conteneurs du schéma ?",
+        "Pourquoi le fichier `.tour` est-il le seul lien entre génération et lecture ?"
+      ]
+    },
+    {
+      "title": "Le point de départ : la commande /codetour",
+      "description": "Tout part de la commande `/codetour` du plugin Pi. Sans argument, elle propose **Générer** ou **Lire** ; en génération, elle demande le type de Tour — et, pour un Changes Tour seulement, le mode de revue.\n\n`connectMcp` enregistre alors le serveur MCP `codetour` à la demande, avec `--workspace-root` sur le workspace courant, puis attend que ses outils soient réellement disponibles (100 tentatives de 100 ms) avant de continuer : aucun Tour n'est demandé à un serveur absent.\n\nEnsuite, un identifiant de run est créé, l'état de run est écrit, et une invocation de skill portant `type`, `reviewMode`, `runId` et `request` est envoyée comme message utilisateur. À cet instant, l'agent a la consigne complète ; il n'a encore rien produit.",
+      "questions": [
+        "Que se passe-t-il si le serveur MCP ne répond pas dans le délai imparti ?",
+        "Pourquoi le mode de revue n'est-il demandé que pour un Changes Tour ?"
+      ],
+      "file": "packages/pi-plugin/extensions/codetour.ts",
+      "pattern": "pi\\.registerCommand\\(\"codetour\", \\{"
+    },
+    {
+      "title": "Une identité de run avant le premier appel",
+      "description": "Chaque génération laisse une trace dans `.tours/.log/`, un fichier d'état par run. Le fichier est écrit **avant** de contacter l'agent et retient le workspace, la session, le type de Tour et la demande.\n\nLe même contrat sur disque est implémenté deux fois : ici côté serveur MCP, et dans le jumeau JavaScript du plugin ([packages/pi-plugin/lib/run-log.mjs](packages/pi-plugin/lib/run-log.mjs)). Les deux implémentations partagent le format pour que l'état écrit par l'adaptateur soit celui que le serveur complétera après la création.\n\nCe fichier est la seule preuve de bout en bout qu'un Tour a vraiment été créé : ni le texte de l'assistant, ni la présence d'un appel d'outil ne suffisent.",
+      "questions": [
+        "Que contient l'état de run avant la création du Tour ?",
+        "Pourquoi l'état de run vit-il sous `.tours/.log/` plutôt qu'en mémoire du processus ?"
+      ],
+      "file": "packages/mcp-server/src/run-log.ts",
+      "pattern": "export const RUN_LOG_DIRECTORY = path\\.join\\(\"\\.tours\", \"\\.log\"\\);"
+    },
+    {
+      "title": "Le serveur MCP : un workspace, stdio",
+      "description": "L'entrée `runMcpCli` parse `--workspace-root` (ou prend le répertoire courant), vérifie que le dossier est accessible et énumérable, le canonicalise via `createContext`, puis connecte un `StdioServerTransport`.\n\nUn processus sert exactement un workspace. Le client possède stdin : la fin du flux termine la session et rend le processus au lanceur.\n\nLa même entrée est partagée par le binaire npm (`src/main.ts`), le serveur embarqué de l'extension et la sous-commande `codetour mcp` du CLI ([src/cli/index.ts](src/cli/index.ts)), qui transmet ses arguments bruts — le parsing, la validation et l'aide ne peuvent donc pas diverger entre distributions.",
+      "questions": [
+        "Pourquoi le serveur refuse-t-il un workspace inaccessible avant de démarrer le protocole ?",
+        "Quel est l'effet de la fermeture de stdin sur la session MCP ?"
+      ],
+      "file": "packages/mcp-server/src/cli.ts",
+      "pattern": "const server = createServer\\(workspaceRoot\\);"
+    },
+    {
+      "title": "Le contrat servi à l'agent : le prompt",
+      "description": "Le serveur sert les instructions de génération par `prompts/get`, et par l'outil `get_generation_prompt` pour les hôtes qui ne peuvent pas appeler `prompts/get`. Les deux chemins composent le même texte.\n\nLe prompt est assemblé par run : la demande de l'utilisateur reproduite mot pour mot, la phrase d'orientation, puis l'identité de run. Il se termine par l'ordre explicite d'appeler l'outil de création avec ces paramètres exacts.\n\nC'est la première moitié du contrat : l'agent ne rédige jamais le fichier lui-même, il propose une structure que le serveur validera.",
+      "questions": [
+        "Que reçoit l'agent en plus des instructions de rédaction ?",
+        "Pourquoi l'identité de run figure-t-elle dans le prompt ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "GET_GENERATION_PROMPT_TOOL,"
+    },
+    {
+      "title": "create_project_tour : l'appel de l'agent",
+      "description": "L'outil `create_project_tour` est enregistré avec un schéma d'entrée volontairement permissif : le SDK MCP ne doit pas rejeter lui-même une proposition mal formée, sinon le serveur ne pourrait pas agréger les erreurs et les expliquer.\n\nChaque handler passe par `safeToolCall`, qui transforme une exception inattendue en résultat d'erreur structuré `INTERNAL_ERROR`. Le client garde ainsi le diagnostic au lieu d'un message générique de protocole.\n\n`handleCreateProjectTour` enchaîne ensuite : validation, avertissements, construction du `TourFile`, destination, persistance, réponse de succès portant le chemin, le titre et le nombre d'étapes.",
+      "questions": [
+        "Pourquoi le schéma d'entrée de l'outil est-il permissif ?",
+        "Que devient une exception imprévue levée dans le handler ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "\\(args\\) => safeToolCall\\(args, \\(input\\) => handleCreateProjectTour\\(ctx, input\\)\\)"
+    },
+    {
+      "title": "La validation avant toute écriture",
+      "description": "Les deux outils de création partagent un prélude unique : validation des paramètres, des blocs Mermaid, du workspace sélectionné, des images référencées, puis validation structurelle des étapes.\n\nTous les problèmes sont agrégés en une seule réponse `INVALID_PROPOSAL`, pour que l'agent corrige sa proposition en un seul cycle plutôt qu'en plusieurs allers-retours. Une liste d'étapes absente ou vide a son propre cas, `TOUR_STEPS_REQUIRED`.\n\nPour un Project Tour, ce prélude suffit : les ancres sont vérifiées dans le workspace, sans aucun accès Git. Le parcours d'un Changes Tour, lui, ajoute une seconde phase Git — c'est la différence étudiée dans le Tour `ct4-project-vs-changes`.",
+      "questions": [
+        "Pourquoi agréger toutes les erreurs au lieu de s'arrêter à la première ?",
+        "Pourquoi un Project Tour n'a-t-il besoin d'aucune vérification Git ?"
+      ],
+      "file": "packages/mcp-server/src/proposal-validation.ts",
+      "pattern": "const invalid = \\(issues: Issue\\[\\]\\): ProposalRejection => \\(\\{"
+    },
+    {
+      "title": "La destination : .tours/project.tour",
+      "description": "Un Project Tour sans nom de fichier va dans la destination réservée `.tours/project.tour` ; un Changes Tour utilise `.tours/changes.tour`. Ces deux chemins sont réservés et remplacés seulement après une validation complète.\n\nUn `fileName` explicite est confiné dans `.tours/` : le Tour généré ne peut pas se répandre ailleurs dans le workspace.\n\nCette ligne est le point exact où le parcours de génération désigne l'emplacement que les lecteurs chercheront à l'étape suivante du Tour.",
+      "questions": [
+        "Que devient un `fileName` fourni par l'agent ?",
+        "Pourquoi réserver deux destinations distinctes pour les deux types de Tour ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "const PROJECT_TOUR_PATH = \"\\.tours/project\\.tour\";"
+    },
+    {
+      "title": "Le dernier filet : le schéma CodeTour",
+      "description": "Avant d'écrire, `persistTour` valide l'objet construit avec `validateCodetourTour`. Une proposition qui a passé la validation du serveur mais ne respecte pas le schéma CodeTour échoue ici, en `SCHEMA_VALIDATION_FAILED`.\n\nL'échec intervient avant tout accès au disque : le fichier précédent reste intact, et l'agent reçoit une erreur qu'il peut corriger.\n\nLe contrôle est donc à deux niveaux : la validation du serveur protège la génération, le schéma protège le format que les lecteurs savent ouvrir.",
+      "questions": [
+        "Pourquoi deux validations successives plutôt qu'une seule ?",
+        "Qu'advient-il du fichier existant si cette validation échoue ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "const schemaResult = validateCodetourTour\\(tour\\);"
+    },
+    {
+      "title": "L'écriture atomique",
+      "description": "`writeTourAtomic` écrit le contenu dans un fichier temporaire du même répertoire, appelle `sync`, puis renomme ce fichier sur la destination. Une panne en cours d'écriture ne laisse jamais de fichier partiel.\n\nAvant d'écrire, le répertoire de destination est résolu par `realpath` et comparé au workspace réel : un lien symbolique ne peut pas faire sortir l'écriture du workspace, et un écart produit `OUTPUT_PATH_ESCAPES_WORKSPACE`.\n\nLe contenu sérialisé est le JSON du Tour, indenté sur deux espaces et terminé par un saut de ligne — la forme exacte que les lecteurs reliront.",
+      "questions": [
+        "Pourquoi écrire dans un fichier temporaire avant de renommer ?",
+        "Comment le confinement au workspace est-il vérifié à l'écriture ?"
+      ],
+      "file": "packages/mcp-server/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic\\("
+    },
+    {
+      "title": "Le run log confirme la création",
+      "description": "Une fois le fichier écrit, la réponse de succès reçoit l'identité de run, puis `recordTourCreated` met à jour l'état de run : `tourCreated`, `tourPath` et `tourTitle`.\n\nL'échec du run log ne transforme jamais un Tour créé en erreur : la réponse porte alors `runRecorded: false` et sa raison. La création du Tour et sa traçabilité restent deux choses distinctes.\n\nC'est ce champ `tourCreated` que l'adaptateur lira à la fin de la session pour savoir qu'il existe un vrai Tour à ouvrir.",
+      "questions": [
+        "Pourquoi l'échec du run log n'est-il pas une erreur de l'outil ?",
+        "Quels faits le run log enregistre-t-il à la création ?"
+      ],
+      "file": "packages/mcp-server/src/server.ts",
+      "pattern": "const recorded = await recordTourCreated\\(root, runId, kind, tourPath, tourTitle\\);"
+    },
+    {
+      "title": "La frontière : un fichier, deux lecteurs",
+      "description": "`loadTour` donne au fichier une identité de Tour : il parse le JSON selon le schéma runtime et attache l'`id` fourni par le lecteur. Le schéma est permissif sur les propriétés inconnues, qui survivent à un aller-retour découverte/sauvegarde.\n\nC'est ici que génération et lecture se rencontrent : le serveur MCP ne transmet pas un objet en mémoire, il laisse un fichier, et le lecteur reconstruit le Tour à partir de ce fichier. Aucun des deux côtés ne dépend du code de l'autre.\n\n**Diagram — Sequence view**\n\n```mermaid\nsequenceDiagram\n  participant A as Agent IA\n  participant M as Serveur MCP\n  participant F as .tours/project.tour\n  participant L as Lecteur (VS Code ou terminal)\n  A->>M: create_project_tour(steps, title, ...)\n  M->>M: valider params, ancres, schéma\n  M->>F: écrire atomiquement (temp puis rename)\n  M-->>A: status created, path, title, stepCount\n  L->>F: découvrir puis lire\n  F-->>L: titre, étapes, ancres\n```",
+      "questions": [
+        "Pourquoi le Tour lu est-il reconstruit depuis le fichier plutôt que transmis en mémoire ?",
+        "Que deviennent les propriétés du fichier que le lecteur ne connaît pas ?"
+      ],
+      "file": "src/store/tourSchema.ts",
+      "pattern": "export function loadTour\\(contents: string, id: string\\): CodeTour \\{"
+    },
+    {
+      "title": "Côté VS Code : la découverte",
+      "description": "Les lecteurs cherchent les Tours aux mêmes endroits, et `.tours` figure dans cette liste : c'est exactement le répertoire où le serveur MCP vient d'écrire. La découverte est indépendante de l'hôte, partagée entre VS Code et le CLI.\n\nDans l'extension, [src/store/provider.ts](src/store/provider.ts) fournit le système de fichiers de VS Code, filtre les Tours visibles selon leur condition `when`, et installe un observateur sur `**/{.vscode/tours,.github/tours,.tours}/**/*.tour`.\n\nChaque création, modification ou suppression relance la découverte : un Tour généré pendant que l'éditeur est ouvert apparaît donc sans redémarrage.",
+      "questions": [
+        "Pourquoi la découverte est-elle partagée plutôt que réimplémentée par chaque lecteur ?",
+        "Quand un Tour nouvellement écrit devient-il visible dans l'éditeur ?"
+      ],
+      "file": "src/core/tourDiscovery.ts",
+      "pattern": "export const SUB_TOUR_DIRECTORIES = \\[\"\\.vscode/tours\", \"\\.github/tours\", \"\\.tours\"\\];"
+    },
+    {
+      "title": "Démarrer la visite dans VS Code",
+      "description": "`startCodeTour` protège d'abord un éventuel brouillon d'étape non enregistré, puis délègue à `startCodeTourInternal`.\n\nCette fonction installe le lecteur (`startPlayer`, qui crée le contrôleur de commentaires), borne l'étape demandée dans l'intervalle valide du Tour, puis publie l'état de lecture : `store.activeTour` avec le Tour, l'étape et la racine du workspace.\n\nElle met aussi à jour les contextes VS Code qui activent les commandes de visite. Le lecteur est prêt ; il reste à produire le rendu de l'étape.",
+      "questions": [
+        "Pourquoi l'index d'étape est-il borné plutôt que rejeté ?",
+        "Que contient l'état actif d'une visite ?"
+      ],
+      "file": "src/store/actions.ts",
+      "pattern": "function startCodeTourInternal\\("
+    },
+    {
+      "title": "Le rendu suit la position de lecture",
+      "description": "Une réaction MobX observe le mode d'affichage, l'édition en cours, l'identité du Tour actif et les champs de chaque étape : titre, description, ligne, fichier, `display`, répertoire, vue.\n\nQuand cette clé change, la réaction appelle `renderCurrentStep`. Naviguer, changer de mode ou modifier une étape emprunte donc le même chemin de rendu.\n\nLe contenu affiché vient des données du fichier `.tour` chargé : le lecteur ne rejoue pas la génération, il rend la proposition validée et écrite.",
+      "questions": [
+        "Pourquoi une seule réaction suffit-elle pour tous les modes d'affichage ?",
+        "Quels champs d'étape déclenchent un nouveau rendu ?"
+      ],
+      "file": "src/player/index.ts",
+      "pattern": "store\\.isExpandedViewOpen,"
+    },
+    {
+      "title": "Côté terminal : découverte et résolution",
+      "description": "Le CLI exige un worktree Git (`repositoryRoot` échoue sinon), puis découvre les Tours avec le même module de découverte que l'extension, mais sur le système de fichiers Node. Il lit aussi `codetour.customTourDirectory` dans `.vscode/settings.json` quand ce réglage existe.\n\nLa sélection d'un Tour passe par le contrat partagé `resolveTourSelection` ([src/cli/tourResolution.ts](src/cli/tourResolution.ts)) : titre exact, repli sur le nom de fichier, raccourci quand un seul Tour existe ; une sélection ambiguë produit la liste des Tours disponibles.\n\nLe rendu par défaut est le lecteur terminal ; `--renderer html` et `--renderer vscode` ouvrent les autres surfaces.",
+      "questions": [
+        "Pourquoi le CLI exige-t-il un worktree Git alors que le serveur MCP n'en a pas besoin ?",
+        "Comment un Tour est-il choisi quand plusieurs fichiers existent ?"
+      ],
+      "file": "src/cli/index.ts",
+      "pattern": "const root = repositoryRoot\\(process\\.cwd\\(\\)\\);"
+    },
+    {
+      "title": "Le lecteur terminal : un modèle de vue, pas des cellules",
+      "description": "Le lecteur terminal est décrit par un contrat unique : `open`, `navigateTo`, `pressKey`, `resize`, `toggleVoice`, `ask`, `close`. Chaque appel rend le modèle de vue structuré de l'état de lecture — aucun DOM, aucune cellule de terminal.\n\nL'adaptateur fait le reste : il peint ce modèle et traduit les touches en événements. `runTerminalTour` ([src/cli/terminal.ts](src/cli/terminal.ts)) refuse un terminal non interactif et compose le lecteur avec `composeTerminalReader`.\n\nLes deux lecteurs, VS Code et terminal, partent donc du même fichier et exposent les mêmes faits : titre, étape active, ancre, description.",
+      "questions": [
+        "Pourquoi le lecteur ne connaît-il rien du terminal ?",
+        "Que se passe-t-il si l'entrée standard n'est pas un TTY ?"
+      ],
+      "file": "src/cli/reader/reader.ts",
+      "pattern": "export interface TourReader \\{"
+    },
+    {
+      "title": "La fin de la génération : Terminal ou VS Code",
+      "description": "À la fin de la session, le plugin relit les états de run, ne garde que ceux du workspace et de la session courants, et vérifie `tourCreated`. Les faits sont annoncés une seule fois par run.\n\nIl pose alors une seule question : **Terminal** ou **VS Code**. Terminal lance le lecteur réel dans ce même terminal, avec stdin/stdout hérités, et rend la main à la fin de la lecture ; une session non interactive dégrade vers la commande à recopier, jamais vers un résumé.\n\nVS Code passe par la surface non interactive du CLI. Dans les deux cas, la génération se termine par une lecture réelle.",
+      "questions": [
+        "Pourquoi le résumé textuel est-il exclu comme fin de génération ?",
+        "Que se passe-t-il si le terminal de la session n'est pas interactif ?"
+      ],
+      "file": "packages/pi-plugin/extensions/codetour.ts",
+      "pattern": "const choice = await ctx\\.ui\\.select\\(question, openingOptions\\(\\)\\);"
+    },
+    {
+      "title": "Le chemin VS Code : rouvrir le Tour dans l'éditeur",
+      "description": "`codetour --internal-open-vscode <tour> [workspace]` résout le chemin du Tour, le charge et le valide avec `loadTour` — un fichier absent ou malformé échoue avant qu'une fenêtre ne s'ouvre.\n\n`openTourInVsCode` ([src/cli/openInVscode.ts](src/cli/openInVscode.ts)) vérifie que la commande `code` répond, canonicalise le workspace, puis planifie deux lancements : `code <workspace>`, une attente de 2 secondes, puis `code --open-url` avec l'URI `openTour` de l'extension, qui porte le fichier relatif au workspace et l'étape comptée à partir de 1.\n\nC'est l'extension qui décidera de la suite, et c'est l'objet de la dernière étape.",
+      "questions": [
+        "Pourquoi ouvrir le workspace avant d'envoyer l'URI du Tour ?",
+        "Quels faits l'URI transmet-elle à l'extension ?"
+      ],
+      "file": "src/cli/internalOpenVscode.ts",
+      "pattern": "await openTourInVsCode\\(\\{ workspaceRoot: workspace, tourId, step: 0 \\}, deps\\);"
+    },
+    {
+      "title": "La boucle se ferme dans l'URIHandler de l'extension",
+      "description": "L'URIHandler de l'extension reçoit l'URI, vérifie que la fenêtre courante contient bien le workspace visé — sinon il refuse —, déclenche la découverte, puis lit la requête.\n\nLe numéro d'étape public est converti en index interne (`step - 1`), et le Tour est retrouvé par le chemin de son fichier. L'ouverture se termine par `startCodeTour(tour, stepNumber)`, la fonction vue à l'étape « Démarrer la visite ».\n\nLe Tour généré rentre donc dans le lecteur par le même chemin qu'un Tour écrit à la main, et reste, pour les sessions suivantes, un simple fichier `.tour` découvert comme les autres.",
+      "questions": [
+        "Pourquoi l'extension refuse-t-elle une URI destinée à un autre workspace ?",
+        "Comment le numéro d'étape public devient-il l'index interne du lecteur ?"
+      ],
+      "file": "src/extension.ts",
+      "pattern": "startCodeTour\\(tour, stepNumber\\);"
+    }
+  ]
+}
