@@ -21,28 +21,30 @@ import {
 // `guard.mjs`.
 
 test("a created Tour proposes the default reading path on its exact title", () => {
-  const command = readerCommand({ tourCreated: true, tourTitle: "Payment Flow", tourPath: ".tours/payment.tour" });
+  const command = readerCommand({ tourTitle: "Payment Flow", tourPath: ".tours/payment.tour" });
   assert.equal(command, 'codetour "Payment Flow"');
 });
 
 test("a title with quotes and spaces is quoted safely", () => {
-  const command = readerCommand({ tourCreated: true, tourTitle: 'Rates "on claim"', tourPath: ".tours/rates.tour" });
+  const command = readerCommand({ tourTitle: 'Rates "on claim"', tourPath: ".tours/rates.tour" });
   assert.equal(command, 'codetour "Rates \\"on claim\\""');
 });
 
 test("without a title the recorded Tour file drives the reader directly", () => {
-  const command = readerCommand({ tourCreated: true, tourTitle: null, tourPath: ".tours/changes.tour" });
+  const command = readerCommand({ tourTitle: null, tourPath: ".tours/changes.tour" });
   assert.equal(command, 'codetour --internal-tour ".tours/changes.tour"');
 });
 
-test("no Tour, no command and no question", () => {
-  const state = { tourCreated: false, tourTitle: null, tourPath: null };
+test("no recorded creation, no command and no question", () => {
+  // A journal record always carries the created Tour; an attributed creation
+  // is exactly what the offer consumes.
+  const state = { tourTitle: null, tourPath: null };
   assert.equal(readerCommand(state), null);
   assert.equal(openingQuestion(state), null);
   assert.equal(readerCommand(null), null);
   assert.equal(openingQuestion(null), null);
-  assert.equal(readerCommand({ tourCreated: true, tourTitle: "", tourPath: null }), null);
-  assert.equal(readerCommand({ tourCreated: true, tourTitle: null, tourPath: "" }), null);
+  assert.equal(readerCommand({ tourTitle: "", tourPath: null }), null);
+  assert.equal(readerCommand({ tourTitle: null, tourPath: "" }), null);
 });
 
 test("the dialogue offers exactly the two real openings, never a summary", () => {
@@ -53,29 +55,29 @@ test("the dialogue offers exactly the two real openings, never a summary", () =>
 
 test("the question names the created Tour", () => {
   assert.equal(
-    openingQuestion({ tourCreated: true, tourTitle: "Payment Flow", tourPath: ".tours/payment.tour" }),
+    openingQuestion({ tourTitle: "Payment Flow", tourPath: ".tours/payment.tour" }),
     'Open "Payment Flow" now?'
   );
   // Without a title the Tour file identifies it.
   assert.equal(
-    openingQuestion({ tourCreated: true, tourTitle: null, tourPath: ".tours/changes.tour" }),
+    openingQuestion({ tourTitle: null, tourPath: ".tours/changes.tour" }),
     'Open the Tour in changes.tour now?'
   );
 });
 
 test("the VS Code choice walks the CLI's Open-in-VS Code surface on the Tour file", () => {
-  const command = vscodeCommand({ tourCreated: true, tourPath: ".tours/payment.tour" });
+  const command = vscodeCommand({ tourPath: ".tours/payment.tour" });
   assert.equal(command, 'codetour --internal-open-vscode ".tours/payment.tour"');
 });
 
 test("a Tour path with spaces is quoted in the VS Code contract", () => {
-  const command = vscodeCommand({ tourCreated: true, tourPath: ".tours/my tour.tour" });
+  const command = vscodeCommand({ tourPath: ".tours/my tour.tour" });
   assert.equal(command, 'codetour --internal-open-vscode ".tours/my tour.tour"');
 });
 
 test("no Tour file recorded, no VS Code contract", () => {
-  assert.equal(vscodeCommand({ tourCreated: false, tourPath: null }), null);
-  assert.equal(vscodeCommand({ tourCreated: true, tourPath: "" }), null);
+  assert.equal(vscodeCommand({ tourPath: null }), null);
+  assert.equal(vscodeCommand({ tourPath: "" }), null);
   assert.equal(vscodeCommand(null), null);
 });
 
@@ -104,7 +106,6 @@ function fakeSpawn(script = {}) {
 }
 
 const STATE = {
-  tourCreated: true,
   tourTitle: "Payment Flow",
   tourPath: ".tours/payment.tour",
   workspace: "/tmp/fake-workspace",
@@ -123,8 +124,8 @@ test("the spawn plan drives the launcher CLI's reader in the workspace, never it
   assert.equal(plan.cwd, "/tmp/fake-workspace");
 });
 
-const state1 = { tourCreated: true, tourTitle: "Payment Flow", tourPath: null, workspace: "/tmp/ws" };
-const state2 = { tourCreated: true, tourTitle: "", tourPath: null, workspace: "/tmp/ws" };
+const state1 = { tourTitle: "Payment Flow", tourPath: null, workspace: "/tmp/ws" };
+const state2 = { tourTitle: "", tourPath: null, workspace: "/tmp/ws" };
 
 test("without a recorded Tour file the plan falls back to the default reading path", () => {
   const plan = readerSpawnPlan(state1, { command: "codetour", args: ["mcp"] });
@@ -132,7 +133,7 @@ test("without a recorded Tour file the plan falls back to the default reading pa
   assert.deepEqual(plan.args, ["Payment Flow"]);
   assert.equal(plan.cwd, "/tmp/ws");
   assert.equal(readerSpawnPlan(state2, LAUNCHER), null);
-  assert.equal(readerSpawnPlan({ tourCreated: false }, LAUNCHER), null);
+  assert.equal(readerSpawnPlan({}, LAUNCHER), null);
 });
 
 test("Terminal opens the real reader immediately, in this terminal, and waits for the reading", async () => {
@@ -196,7 +197,7 @@ test("a failed spawn degrades to the documented command instead of crashing", as
 
 test("no Tour to read, no spawn plan, no degraded command", async () => {
   const { spawn, calls } = fakeSpawn();
-  const outcome = await playInTerminal({ tourCreated: false }, LAUNCHER, {
+  const outcome = await playInTerminal({}, LAUNCHER, {
     spawn,
     isInteractive: () => true,
   });

@@ -1,60 +1,161 @@
 ---
 name: codetour-generate
-description: Generate a CodeTour Project Tour or Changes Tour through the shared CodeTour MCP server. Normally start from the /codetour command, which connects MCP on demand.
+description: Create a CodeTour Project Tour or Changes Tour by exploring the workspace and submitting a JSON proposal to the CodeTour command line. Normally started from the /codetour command.
 ---
 
-# CodeTour generation entry point
+# CodeTour generation
 
-This skill is the Pi entry point of the CodeTour package. The Tour instructions
-are **not** copied here: they live once in the shared CodeTour MCP server and
-are served per run by `get_generation_prompt`. This skill only boots a
-generation; it never restates a Tour method, never duplicates the decomposition
-steps and never prescribes a second anchor or verification pass.
+Create exactly one Tour per request by handing a JSON proposal to the CodeTour
+command line. The CLI validates the proposal, applies the workspace, Git, image,
+Mermaid and confinement rules, and writes the `.tour` file atomically. This
+skill never writes a `.tour` file, never edits an existing Tour, never answers
+with a step list, an excerpt or a prose summary in place of the Tour, and calls
+no tool of a server: the CLI does the work.
 
-The /codetour command connects the CodeTour MCP server on demand before invoking this skill. A direct skill invocation requires an already connected CodeTour server. In Pi its tools are
-named `mcp__codetour__<tool>`: `mcp__codetour__get_generation_prompt`,
-`mcp__codetour__create_project_tour`, `mcp__codetour__create_changes_tour`. Use tool
-search if they are not declared, and search for the `codetour` server name
-before concluding they are missing.
+## Arguments
 
-1. Resolve the user's choices before exploring the project. Honor choices
-   already explicit in the command or in natural language: "review my branch
-   critically" means `changes` and `critical`, with no questions to repeat.
-   The `/codetour` command normally supplies them as `type=…`, `reviewMode=…`,
-   `runId=…` and `request=…` arguments; those arguments are authoritative and
-   are not command syntax to quote back. If the type is still missing, ask the
-   user with a short question offering **Project Tour** (architecture,
-   structure and execution paths) or **Changes Tour** (explain and review the
-   branch's changes). For a Changes Tour only, if the review mode is missing,
-   ask once for **neutral** (factual explanation) or **critical** (explanation
-   plus review findings). Present labels in the user's language. If a required
-   choice is cancelled, declined or unresolved, stop without generating; never
-   silently default. Project Tours have no review mode.
-2. If a `runId` was given, keep it for every call of this run and never invent
-   another one. If none was given, omit `runId` from every call and never pass
-   an empty string.
-3. Call `mcp__codetour__get_generation_prompt` with `type` (`project` or
-   `changes`), `reviewMode` for changes only, the user's actual `request` (the
-   `request=` argument without the command syntax, empty for a standard Tour)
-   and the `runId` when you have one. Follow the returned prompt exactly. If
-   that call explicitly fails, the creation tools alone carry the contract: use
-   them directly with the same choices, the same `runId` and the language,
-   review-mode rules below.
-4. Create the Tour with `mcp__codetour__create_project_tour` (or
-   `mcp__codetour__create_changes_tour`) — never by writing `.tour` JSON by hand
-   and never by answering in prose. Pass the `runId` when you have one.
-6. When the generation is over, let the Pi extension offer **Terminal** or
-   **VS Code** for the created Tour when a `runId` was supplied. The extension
-   opens the chosen surface and reports any failure. If there is no `runId`,
-   offer `codetour "<Tour title>"` for the interactive Terminal reader (or
-   `codetour --internal-tour "<tour path>"` without a title) and
-   `codetour --internal-open-vscode "<tour path>"` for VS Code, to run at the
-   workspace root. In either case, never replace the
-   Tour with a step list, excerpt or prose summary.
-8. Only if no CodeTour tool is found after that search, say so and stop. The
-   extension registers the server *only* during a `/codetour` generation;
-   direct skill calls require a separate, already connected `codetour` server.
-   Recommend `/codetour` for the on-demand path, and diagnose a failed
-   connection with the package README's `/codetour` section. A reinstallation
-   (`codetour --install pi`) is needed only when the plugin itself is missing.
-   A text answer is not a Tour.
+The `/codetour` command passes its choices as free-text arguments. They are
+authoritative and are not command syntax to quote back.
+
+- `type=project|changes` — the Tour kind.
+- `reviewMode=neutral|critical` — Changes Tours only.
+- `codetour-cli=[...]` — a JSON array of argv words: the CodeTour CLI installed
+  with `codetour --install pi`. Run exactly those words. Without this argument,
+  run `codetour` from `PATH`.
+- `request=...` — the user's own words; always the last argument.
+
+Resolve what is missing before exploring, and honour what the command or the
+natural language already states: "review my branch critically" means `changes`
+with `critical`, with no question to repeat.
+
+- Type missing: ask once — **Project Tour** (architecture, structure and
+  execution paths) or **Changes Tour** (understand or review the branch's
+  changes).
+- Changes Tour review mode missing: ask once — **neutral** (factual
+  explanation) or **critical** (explanation plus review findings).
+- Present the labels in the user's language. Never default silently, and stop
+  without creating anything when a required choice is cancelled or unresolved.
+
+Project Tours have no review mode.
+
+## Orientation, language and workspace
+
+- **Orientation**: the user's stated goal scopes the Tour. Honour it instead of
+  asking again what is already explicit.
+- **Language**: write the title, the description and every step in the
+  user's language — not the language of the code, of the commit messages or of
+  this document.
+- **Workspace**: choose it at generation time. Default to the workspace root of
+  the session; when the user names another project, pass that directory. Every
+  creation takes an explicit `--workspace <dir>`, and nothing is written
+  outside it.
+
+## 1. Explore before writing
+
+Read the entry points and the main modules, not just the file names, and base
+every statement on the code you read.
+
+- **Project Tour**: follow one coherent route from the project's purpose and
+  entry points through its key components and how they collaborate. Anchor each
+  claim at the code that justifies it. Choose representative files rather than
+  listing every module.
+- **Changes Tour**: inspect the actual comparison — the diff from the merge-base
+  to `HEAD`, the affected source and the tests. Group related changes into one
+  review path anchored at the changed lines. Report test coverage factually and
+  never claim a test result you did not observe.
+
+## 2. Build the proposal
+
+One JSON document. A Project Tour:
+
+```json
+{
+  "title": "Payment flow",
+  "description": "Markdown summary of the Tour.",
+  "fileName": "payment.tour",
+  "steps": [
+    { "title": "Overview", "description": "**Diagram — Context view**\n\n```mermaid\nflowchart LR\n  Client -->|\"pays (HTTPS)\"| API\n```" },
+    { "title": "Entry point", "description": "Markdown explanation.", "file": "src/server.ts", "pattern": "export function createServer" }
+  ]
+}
+```
+
+A Changes Tour is the same document plus:
+
+```json
+{
+  "baseRef": "<branch, tag or merge-base SHA>",
+  "headRef": "<full 40-character HEAD SHA>",
+  "includeUncommittedChanges": false,
+  "reviewMode": "neutral"
+}
+```
+
+Step fields: `description` (required, Markdown), `title`, `questions` (at most
+four non-empty strings, in the user's language), `file`, `line`, `pattern`,
+`selection`, `directory`, `baseFile`, `display`.
+
+The CLI enforces these rules, and a rejected proposal writes nothing:
+
+- the first step is a locator-free orientation step (no `file`, no `directory`)
+  with at least one Mermaid diagram, introduced by a caption line such as
+  `**Diagram — Context view**`;
+- at most one locator per step: `file` or `directory`, relative to the
+  workspace root;
+- `line`, `pattern` and `selection` only with `file`; `line` and `pattern` are
+  mutually exclusive;
+- `pattern` is a short literal copied from one line and matching exactly once in
+  the file — escape regular-expression metacharacters or use a verified `line`;
+- `questions` at most four non-empty strings;
+- a Changes Tour needs `baseRef` and the full 40-character `headRef` SHA.
+
+Optional `fileName` is a bare name (no path separator): the Tour is always
+written under `.tours/`, `.tours/project.tour` or `.tours/changes.tour` by
+default.
+
+## 3. Create the Tour
+
+Run the command through your shell tool, from the workspace root — the CLI
+records the Pi session only when the host exported it to that shell:
+
+```sh
+<cli> create-project-tour --workspace . --proposal -
+<cli> create-changes-tour --workspace . --proposal -
+```
+
+`<cli>` is the `codetour-cli` argument when given, `codetour` otherwise; quote
+each argv word so a path with spaces stays one word. Pipe the proposal on
+standard input, or write it to a file and pass `--proposal <file>` when the
+document is large. Standard output carries exactly one JSON document; standard
+error carries diagnostics only.
+
+## 4. Read the result
+
+- Exit `0` with `{"ok":true,"kind","tourPath","title","stepCount","warnings"}`:
+  the Tour exists at `tourPath`. Report its title and path in one line and do
+  not describe it again.
+- Exit `1` with `{"ok":false,"code","message","issues":[{"path","message"}]}`:
+  nothing was written. Correct every reported `path`, rebuild the proposal and
+  run the command again. Never claim a Tour was created.
+- Exit `2`: the command line or the proposal file is unusable — a missing
+  `--workspace`, an unreadable proposal file. Fix the invocation instead of
+  retrying blindly.
+- `warnings` on a success are advisory: mention them in one line at most.
+
+## 5. Hand over to a reader
+
+The extension reports the Tours it attributed to this response and offers
+**Terminal** or **VS Code**; do not duplicate that question when it did.
+Otherwise offer, to run at the workspace root:
+
+- `codetour "<Tour title>"` for the interactive terminal reader, or
+  `codetour --internal-tour "<tour path>"` without a title;
+- `codetour --internal-open-vscode "<tour path>"` for VS Code.
+
+Never replace the Tour with a step list, an excerpt or a prose summary.
+
+## When the CLI cannot run
+
+If the command fails because it cannot be found, the CLI is not on `PATH` and no
+`codetour-cli` argument was supplied: say so, recommend `codetour --install pi`
+to reinstall the integration, and stop. A text answer is not a Tour.

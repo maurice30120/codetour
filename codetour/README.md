@@ -334,18 +334,20 @@ from the same CLI revision, without a checkout or network:
    `codetour` on `PATH` cannot serve the session.
 
 A direct `pi install ./packages/pi-plugin` installs the same package without
-that launcher. The package declares the existing `codetour mcp` server with
-`pi.registerMcpServer` (`deferred` exposure, real `ctx.cwd` as workspace), ships
-the `codetour-generate` skill rewritten on the `mcp__codetour__*` tool names,
-and releases the MCP connection when the agent settles. `/codetour` opens the native **Générer / Lire** menu.
-After the generation choices, Pi writes the run state and invokes the skill. Pi exposes MCP
-tools but not MCP prompts, so the served prompt is fetched with
-`get_generation_prompt` rather than `prompts/get`.
+that launcher. `/codetour` opens the native **Générer / Lire** menu; the
+generation choices are delivered to the `codetour-generate` skill, which
+explores the workspace and creates the Tour with the installed CLI
+(`codetour create-project-tour --workspace . --proposal -`). No MCP server is
+registered and no run state is written. When the response settles, the
+extension reads the creation journal and reports the Tours that response
+created, with one token reading; the report never blocks and stays silent when
+nothing is attributed. The [plugin README](packages/pi-plugin/README.md)
+documents the surface and its verified limits (TUI-only report, no response
+identity, sub-agent sessions not attributable).
 
 ```sh
 codetour --install pi         # package + declaration
 pi list                       # codetour-pi-plugin, from the managed directory
-pi mcp list                   # the codetour server registered by the extension
 codetour --agents             # integration state and repair command
 ```
 

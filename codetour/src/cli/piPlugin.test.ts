@@ -22,8 +22,8 @@ test("the embedded Pi package matches the versioned sources", () => {
   for (const required of [
     "package.json",
     "extensions/codetour.ts",
-    "lib/guard.mjs",
-    "lib/run-log.mjs",
+    "lib/journal.mjs",
+    "lib/reader.mjs",
     "skills/codetour-generate/SKILL.md",
   ]) {
     assert.ok(PI_PLUGIN_FILES[required], `${required} is missing from the embedded package`);
@@ -37,6 +37,9 @@ test("the Pi manifest declares its resources and no runtime dependency", () => {
   assert.deepEqual(manifest.pi.skills, ["./skills"]);
   assert.deepEqual(manifest.peerDependencies, { "@earendil-works/pi-coding-agent": "*" });
   assert.equal(manifest.dependencies, undefined);
+  // The package no longer advertises a server it does not use.
+  assert.equal(manifest.keywords.includes("mcp"), false);
+  assert.doesNotMatch(manifest.description, /MCP/);
   for (const host of [
     "@earendil-works/pi-coding-agent",
     "@earendil-works/pi-ai",
@@ -52,38 +55,39 @@ test("the Pi manifest declares its resources and no runtime dependency", () => {
   }
 });
 
-test("the extension declares one MCP server and never generates a Tour itself", () => {
+test("the extension registers no MCP server and never generates a Tour itself", () => {
   const extension = source("extensions/codetour.ts");
-  assert.match(extension, /registerMcpServer\(SERVER_NAME/);
-  assert.match(extension, /const SERVER_NAME = "codetour"/);
-  assert.match(extension, /"--workspace-root"/);
-  assert.match(extension, /exposure: "deferred"/);
-  assert.match(extension, /unregisterMcpServer\(SERVER_NAME\)/);
-  // Registration must happen only in the explicit /codetour flow, never
-  // at session startup. The guard releases the server when the run settles.
-  const startup = extension.slice(
-    extension.indexOf('pi.on("session_start"'),
-    extension.indexOf('pi.on("agent_before_settle"')
-  );
-  assert.doesNotMatch(startup, /registerMcpServer\(/);
-  const command = extension.slice(extension.indexOf('pi.registerCommand("codetour"'));
-  assert.match(command, /connectMcp\(workspace\)/);
-  assert.match(extension, /releaseMcp\(\)/);
-  // The Tour method lives in the served MCP prompt; the extension must not
-  // write Tours or Knowledge, and must not carry a fallback prompt.
+  assert.doesNotMatch(extension, /registerMcpServer|unregisterMcpServer|getAllTools/);
+  assert.doesNotMatch(extension, /mcp__codetour__|--workspace-root|exposure: "deferred"/);
+  // The Tour method lives in the skill and the rules in the CLI; the extension
+  // must not write Tours, call the network or spawn the creation itself.
   assert.doesNotMatch(extension, /\.tour["'`]?\s*,\s*JSON\.stringify|writeFile\([^)]*\.tour/);
   assert.doesNotMatch(extension, /fetch\(|https?:\/\//, "the extension must not call the network");
   assert.doesNotMatch(extension, /saveKnowledgeProposal/);
 });
 
+test("the end-of-response report reads the creation journal and never continues", () => {
+  const extension = source("extensions/codetour.ts");
+  for (const name of ["readCreations", "selectCreated", "summaryLines", "tokenLine"]) {
+    assert.ok(extension.includes(name), `the report must consume lib/journal.mjs (${name})`);
+  }
+  // `agent_settled` is Pi's final, notification-only boundary: it cannot ask
+  // for a continuation, and the actionable settle event is not handled.
+  assert.match(extension, /pi\.on\("agent_start"/);
+  assert.match(extension, /pi\.on\("agent_end"/);
+  assert.match(extension, /pi\.on\("agent_settled"/);
+  assert.doesNotMatch(extension, /agent_before_settle/);
+  assert.doesNotMatch(extension, /continue:\s*true/);
+  // The MCP-era run-state machinery is gone.
+  assert.doesNotMatch(extension, /run-log|RunState|guard\.mjs|continuationMessage/);
+});
+
 test("the closing offer opens the real reader or asks for VS Code; the spawn lives in lib/reader.mjs", () => {
   const extension = source("extensions/codetour.ts");
-  // The end of generation asks the user (ticket #242): the real interactive
-  // reader of the created Tour — spawned immediately, in the same terminal
-  // (review F2) — or the Tour at its active step in VS Code (compressed
-  // through the explicit uri contract, ticket #244). The decision logic AND
-  // the reader spawn live in the lib/reader.mjs module; the extension only
-  // asks and debouches the outcome.
+  // The end of response asks the user: the real interactive reader of the
+  // created Tour — spawned immediately, in the same terminal — or the Tour at
+  // its active step in VS Code. The decision logic AND the reader spawn live in
+  // the lib/reader.mjs module; the extension only asks and debouches.
   for (const word of ["openingOptions", "openingQuestion", "playInTerminal", "vscodeCommand"]) {
     assert.ok(extension.includes(word), `the extension must consume lib/reader.mjs (${word})`);
   }
@@ -100,38 +104,52 @@ test("the closing offer opens the real reader or asks for VS Code; the spawn liv
   assert.doesNotMatch(reader, /vscode:\/\//);
 });
 
-test("the settle handler releases the connection without a continuation", () => {
-  const extension = source("extensions/codetour.ts");
-  assert.match(extension, /pi\.on\("agent_before_settle"/);
-  assert.doesNotMatch(extension, /continue: true/);
-});
-
-test("the skill defers to the served prompt and names the Pi tool prefix", () => {
+test("the skill creates the Tour with the CLI and names no MCP tool", () => {
   const skill = source("skills/codetour-generate/SKILL.md");
   assert.match(skill, /^---\nname: codetour-generate\ndescription: .+\n---\n/);
-  for (const tool of [
-    "mcp__codetour__get_generation_prompt",
-    "mcp__codetour__create_project_tour",
-    "mcp__codetour__create_changes_tour",
-  ]) {
-    assert.ok(skill.includes(tool), `the skill must name ${tool}`);
-  }
-  assert.match(skill, /codetour --install pi/);
+  assert.doesNotMatch(skill, /mcp__|MCP/);
+  // The creation surface of DESIGN §2, with the explicit workspace.
+  assert.match(skill, /create-project-tour --workspace/);
+  assert.match(skill, /create-changes-tour --workspace/);
+  assert.match(skill, /--proposal/);
+  // The skill never writes a Tour file itself.
+  assert.doesNotMatch(skill, /\.tour\s*["'`]?\s*,\s*JSON\.stringify|writeFile/);
+  assert.match(skill, /Exit `0`/);
+  assert.match(skill, /Exit `1`/);
+  assert.match(skill, /Exit `2`/);
+  assert.match(skill, /issues/);
   assert.doesNotMatch(skill, /ask_user/);
-  // The skill boots a generation; it never restates the Tour method.
-  assert.doesNotMatch(skill, /Mermaid|anchor pattern|decomposition step/i);
+});
+
+test("the skill carries the kind, the review mode, the orientation and the workspace choice", () => {
+  const skill = source("skills/codetour-generate/SKILL.md");
+  // Both kinds and both review modes, in the user's language.
+  assert.match(skill, /type=project\|changes/);
+  assert.match(skill, /reviewMode=neutral\|critical/);
+  assert.match(skill, /neutral.*critical/is);
+  // Orientation and language are user-facing decisions, not silent defaults.
+  assert.match(skill, /Orientation/);
+  assert.match(skill, /Language/);
+  assert.match(skill, /user's language/);
+  // The workspace is chosen at generation time and always explicit.
+  assert.match(skill, /Workspace/);
+  assert.match(skill, /--workspace <dir>/);
+  // The CLI travels with the skill, with the documented PATH fallback.
+  assert.match(skill, /codetour-cli/);
+  assert.match(skill, /PATH/);
+  assert.match(skill, /codetour --install pi/);
 });
 
 test("the skill ends the generation with the two real openings, never a summary", () => {
   const skill = source("skills/codetour-generate/SKILL.md");
-  // The real interactive reader (ticket #241): the default reading path and
-  // the direct Tour-file path, run at the workspace root.
+  // The real interactive reader: the default reading path and the direct
+  // Tour-file path, run at the workspace root.
   assert.match(skill, /codetour "<Tour title>"/);
   assert.match(skill, /codetour --internal-tour/);
-  // The Open-in-VS Code contract (ticket #244): the CLI's opening command,
-  // the only spelling of the opening (single seam).
+  // The Open-in-VS Code contract: the CLI's opening command, the only spelling
+  // of the opening (single seam).
   assert.match(skill, /--internal-open-vscode/);
   assert.doesNotMatch(skill, /code --open-url/);
   // No textual summary answers for the reader, whatever the choice.
-  assert.match(skill, /never replace the\s+Tour with a step list/i);
+  assert.match(skill, /never replace the Tour with a step list/i);
 });

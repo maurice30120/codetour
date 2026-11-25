@@ -30,8 +30,8 @@ const files = walk(sourceDir);
 for (const required of [
   "package.json",
   "extensions/codetour.ts",
-  "lib/guard.mjs",
-  "lib/run-log.mjs",
+  "lib/journal.mjs",
+  "lib/reader.mjs",
   "skills/codetour-generate/SKILL.md"
 ]) {
   if (!files.includes(required)) {

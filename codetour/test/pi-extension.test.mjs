@@ -1,30 +1,28 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import plugin from "../packages/pi-plugin/extensions/codetour.ts";
-import { updateRunState } from "../packages/pi-plugin/lib/run-log.mjs";
+import { CREATIONS_DIRECTORY } from "../packages/pi-plugin/lib/journal.mjs";
 import { TERMINAL_OPTION, VSCODE_OPTION } from "../packages/pi-plugin/lib/reader.mjs";
 
-// The extension wiring itself, exercised without a Pi process: a fake host
-// records what the extension registers, and a real temporary workspace holds
-// the run state. Node strips the TypeScript types, so the shipped file is what
-// runs here.
+// The Pi extension at its hook boundary: the events Pi emits, and what the
+// extension tells the user through `ctx.ui.notify`.
+//
+// No Pi process runs here. A fake host records the handlers and commands the
+// extension registers, and a real temporary workspace holds the creation
+// journal the CLI writes. Node strips the TypeScript types, so the shipped file
+// is what runs.
 
-// A connected session lists the server's tools; Pi registers them as
-// `mcp__<server>__<tool>` once the server connected.
-const CONNECTED_TOOLS = ["mcp__codetour__get_generation_prompt", "mcp__codetour__create_project_tour"];
+const SESSION = "pi-session-test";
+const USAGE_TURN_1 = { input: 1522, output: 118, cacheRead: 0, cacheWrite: 0, totalTokens: 1640 };
+const USAGE_TURN_2 = { input: 142, output: 35, cacheRead: 1536, cacheWrite: 0, totalTokens: 1713 };
 
-function fakeHost(
-  execResult = { code: 0, stdout: "", stderr: "", killed: false, truncated: false },
-  extension = plugin,
-  tools = [...CONNECTED_TOOLS]
-) {
+function fakeHost(execResult = { code: 0, stdout: "", stderr: "" }, extension = plugin) {
   const handlers = new Map();
-  const servers = [];
-  const unregistered = [];
   const commands = new Map();
   const notifications = [];
   const sent = [];
@@ -32,15 +30,6 @@ function fakeHost(
   const pi = {
     on(event, handler) {
       handlers.set(event, handler);
-    },
-    getAllTools() {
-      return tools.map(tool => ({ name: tool }));
-    },
-    registerMcpServer(name, config) {
-      servers.push({ name, config });
-    },
-    unregisterMcpServer(name) {
-      unregistered.push(name);
     },
     registerCommand(name, definition) {
       commands.set(name, definition);
@@ -54,10 +43,10 @@ function fakeHost(
     },
   };
   extension(pi);
-  return { handlers, servers, unregistered, commands, notifications, sent, executions, tools };
+  return { handlers, commands, notifications, sent, executions };
 }
 
-function fakeContext(workspace) {
+function fakeContext(workspace, { hasUI = true, sessionId = SESSION, entries } = {}) {
   const notifications = [];
   const selections = [];
   const selects = [];
@@ -67,6 +56,7 @@ function fakeContext(workspace) {
     selects,
     ctx: {
       cwd: workspace,
+      hasUI,
       ui: {
         notify: (message, level) => notifications.push({ message, level }),
         select: async (title, options) => {
@@ -74,69 +64,420 @@ function fakeContext(workspace) {
           return selections.shift();
         },
       },
-      sessionManager: { getSessionId: () => "pi-session-test" },
+      sessionManager: {
+        getSessionId: () => sessionId,
+        getEntries: () => entries ?? [],
+      },
     },
   };
 }
 
-function workspaceWithSpaces() {
+function temporaryWorkspace() {
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-pi-extension-"));
   const workspace = path.join(root, "work space");
   mkdirSync(workspace, { recursive: true });
-  // The extension carries the canonical spelling (ADR 0056): the native real
-  // path, which expands an 8.3 name on Windows.
+  // The canonical spelling the CLI records and the hook compares (ADR 0056).
   return { root, workspace: realpathSync.native(workspace) };
 }
 
-function runFiles(workspace) {
-  try {
-    return readdirSync(path.join(workspace, ".tours", ".log"));
-  } catch {
-    return [];
-  }
+function journalDirectory(workspace) {
+  return path.join(workspace, ...CREATIONS_DIRECTORY.split(path.sep));
 }
 
-test("MCP is registered only when generation starts", async () => {
-  const { root, workspace } = workspaceWithSpaces();
+// The journal names its files by creation time, so successive creations of one
+// response are ordered by name: the report follows the creation order.
+let creationIndex = 0;
+
+/** One creation record as the CLI writes it. */
+function writeCreation(workspace, overrides = {}) {
+  const record = {
+    version: 1,
+    workspace,
+    tourPath: path.join(workspace, ".tours", "project.tour"),
+    tourTitle: "Payment flow",
+    kind: "project",
+    at: new Date().toISOString(),
+    sessionId: SESSION,
+    responseId: null,
+    host: "pi",
+    ...overrides,
+  };
+  const directory = journalDirectory(workspace);
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(
+    path.join(
+      directory,
+      `${String(Date.parse(record.at)).padStart(13, "0")}-${creationIndex++}-${Math.random()
+        .toString(16)
+        .slice(2)}.json`
+    ),
+    `${JSON.stringify(record, null, 2)}\n`,
+    "utf8"
+  );
+  return record;
+}
+
+/** Drive one whole response: start, one run's messages, then the settlement. */
+async function respond(host, ctx, { usages = [USAGE_TURN_1, USAGE_TURN_2], aborted = false } = {}) {
+  await host.handlers.get("agent_start")({ type: "agent_start" }, ctx);
+  await host.handlers.get("agent_end")(
+    { type: "agent_end", messages: usages.map(usage => ({ role: "assistant", usage })) },
+    ctx
+  );
+  return host.handlers.get("agent_settled")({ type: "agent_settled", aborted }, ctx);
+}
+
+function summaryMessages(notifications) {
+  return notifications.filter(entry => entry.message.startsWith("CodeTour: "));
+}
+
+function tokenMessages(notifications) {
+  return notifications.filter(entry => entry.message.startsWith("CodeTour tokens"));
+}
+
+test("one creation of the response is reported with its title and its path", async () => {
+  const { root, workspace } = temporaryWorkspace();
   try {
-    const host = fakeHost(undefined, pi => {
-      const register = pi.registerMcpServer;
-      pi.registerMcpServer = (name, config) => {
-        register(name, config);
-        host.tools.push(...CONNECTED_TOOLS);
-      };
-      plugin(pi);
-    }, []);
-    const { ctx } = fakeContext(workspace);
-    await host.handlers.get("session_start")({ reason: "startup" }, ctx);
-    assert.equal(host.servers.length, 0);
-    await host.commands.get("codetour").handler("project", ctx);
-    assert.equal(host.servers.length, 1);
-    assert.equal(host.servers[0].name, "codetour");
-    assert.equal(host.servers[0].config.exposure, "deferred");
-    assert.deepEqual(host.servers[0].config.args, ["mcp", "--workspace-root", workspace]);
-    assert.equal(host.sent.length, 1);
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({ type: "agent_start" }, context.ctx);
+    const record = writeCreation(workspace);
+    await host.handlers.get("agent_end")({ type: "agent_end", messages: [] }, context.ctx);
+    const result = await host.handlers.get("agent_settled")({ aborted: false }, context.ctx);
+
+    assert.equal(result, undefined, "the hook never answers the host");
+    const [summary] = summaryMessages(context.notifications);
+    assert.equal(summary.message, `CodeTour: "Payment flow" (${record.tourPath})`);
+    assert.equal(summary.level, "info");
+    // One token reading for the response, and only one.
+    assert.equal(tokenMessages(context.notifications).length, 1);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("the connection check stays passive: no mcp_servers_change handler", async () => {
-  const host = fakeHost();
-  // Handling that event would make CodeTour the extension that connects
-  // registered MCP servers, and Pi would stop reporting that nothing does.
-  assert.equal(host.handlers.has("mcp_servers_change"), false);
-  assert.deepEqual([...host.handlers.keys()].sort(), ["agent_before_settle", "session_start"]);
+test("several creations of one response are all reported, with one token reading", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({ type: "agent_start" }, context.ctx);
+    const project = writeCreation(workspace);
+    const changes = writeCreation(workspace, {
+      tourPath: path.join(workspace, ".tours", "changes.tour"),
+      tourTitle: "Renderer changes",
+      kind: "changes",
+    });
+    await respondTail(host, context.ctx);
+
+    assert.deepEqual(
+      summaryMessages(context.notifications).map(entry => entry.message),
+      [
+        `CodeTour: "Payment flow" (${project.tourPath})`,
+        `CodeTour: "Renderer changes" (${changes.tourPath})`,
+      ]
+    );
+    assert.equal(tokenMessages(context.notifications).length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
-test("reading an existing Tour uses its identity without a connected MCP server", async () => {
-  const { root, workspace } = workspaceWithSpaces();
+async function respondTail(host, ctx, usages = [USAGE_TURN_1, USAGE_TURN_2]) {
+  await host.handlers.get("agent_end")(
+    { messages: usages.map(usage => ({ role: "assistant", usage })) },
+    ctx
+  );
+  return host.handlers.get("agent_settled")({ aborted: false }, ctx);
+}
+
+test("no creation means no report at all", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await respond(host, context.ctx);
+    assert.deepEqual(context.notifications, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("another session's creation is never reported", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace, { sessionId: "another-session" });
+    await respondTail(host, context.ctx);
+    assert.deepEqual(context.notifications, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a creation without a session identity is never reported", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace, { sessionId: null, host: null });
+    await respondTail(host, context.ctx);
+    assert.deepEqual(context.notifications, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a creation made before this response is never reported", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    // The previous response created it.
+    writeCreation(workspace, { at: new Date(Date.now() - 60_000).toISOString() });
+    await host.handlers.get("agent_start")({}, context.ctx);
+    await respondTail(host, context.ctx);
+    assert.deepEqual(context.notifications, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an aborted response reports nothing", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    await respondTail(host, context.ctx);
+    context.notifications.length = 0;
+    const result = await host.handlers.get("agent_settled")({ aborted: true }, context.ctx);
+    assert.equal(result, undefined);
+    assert.deepEqual(context.notifications, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the same response is reported once, however often the host settles it", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    await respondTail(host, context.ctx);
+    await host.handlers.get("agent_settled")({ aborted: false }, context.ctx);
+    assert.equal(summaryMessages(context.notifications).length, 1);
+    assert.equal(tokenMessages(context.notifications).length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the response reading splits input, output and cache exactly once", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    await respondTail(host, context.ctx);
+    const [tokens] = tokenMessages(context.notifications);
+    // `totalTokens` (1640 + 1713) is never added to the cache: input and cache
+    // are disjoint on Pi.
+    assert.equal(tokens.message, "CodeTour tokens: input 1,664 / output 153 / cache 1,536");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a missing usage reads as unavailable, never as zero", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    await respondTail(host, context.ctx, []);
+    const [tokens] = tokenMessages(context.notifications);
+    assert.equal(tokens.message, "CodeTour tokens: unavailable for this response.");
+    // The creation is still reported: token unavailability never fails it.
+    assert.equal(summaryMessages(context.notifications).length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an all-zero usage reads as unavailable, never as zero", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    await respondTail(host, context.ctx, [
+      { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 },
+    ]);
+    assert.equal(
+      tokenMessages(context.notifications)[0].message,
+      "CodeTour tokens: unavailable for this response."
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a partial usage is qualified as approximate", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    await host.handlers.get("agent_end")(
+      { messages: [{ role: "assistant", usage: USAGE_TURN_1 }, { role: "assistant" }] },
+      context.ctx
+    );
+    await host.handlers.get("agent_settled")({ aborted: false }, context.ctx);
+    assert.equal(
+      tokenMessages(context.notifications)[0].message,
+      "CodeTour tokens (approximate): input 1,522 / output 118 / cache 0"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("without a run message the session entries give an approximate reading", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    const stampedAt = new Date().toISOString();
+    context.ctx.sessionManager.getEntries = () => [
+      { type: "message", role: "user", timestamp: stampedAt },
+      { type: "message", role: "assistant", timestamp: stampedAt, usage: USAGE_TURN_1 },
+    ];
+    writeCreation(workspace);
+    // `agent_end` never delivered a message (retry, compaction, host quirk).
+    await host.handlers.get("agent_settled")({ aborted: false }, context.ctx);
+    assert.equal(
+      tokenMessages(context.notifications)[0].message,
+      "CodeTour tokens (approximate): input 1,522 / output 118 / cache 0"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a repeated run of the response is qualified as approximate", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    // A retry or a queued follow-up re-enters the loop inside one response:
+    // the messages of the last run no longer cover the whole response.
+    for (const usage of [USAGE_TURN_1, USAGE_TURN_2]) {
+      await host.handlers.get("agent_end")({ messages: [{ role: "assistant", usage }] }, context.ctx);
+    }
+    await host.handlers.get("agent_settled")({ aborted: false }, context.ctx);
+    assert.equal(
+      tokenMessages(context.notifications)[0].message,
+      "CodeTour tokens (approximate): input 142 / output 35 / cache 1,536"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a retried run does not hide the creation of the earlier run", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    await host.handlers.get("agent_end")({ messages: [] }, context.ctx);
+    // The run is retried inside the same response.
+    await host.handlers.get("agent_start")({}, context.ctx);
+    await respondTail(host, context.ctx);
+    assert.equal(summaryMessages(context.notifications).length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an unreadable journal leaves the response silent instead of failing", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    // A file where the journal directory belongs: every read fails.
+    mkdirSync(path.dirname(journalDirectory(workspace)), { recursive: true });
+    writeFileSync(journalDirectory(workspace), "not a directory", "utf8");
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await respond(host, context.ctx);
+    assert.deepEqual(context.notifications, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the hook never continues, never blocks and never writes a Tour", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    // Only notification-only events are handled; the actionable settle event
+    // and the MCP registry are untouched.
+    assert.deepEqual(
+      [...host.handlers.keys()].sort(),
+      ["agent_end", "agent_settled", "agent_start"]
+    );
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    const settled = await respondTail(host, context.ctx);
+    assert.equal(settled, undefined);
+    // Nothing but the summary and the token line: no opening dialogue when the
+    // host has no UI, no execution, no message sent to the agent.
+    assert.deepEqual(host.executions, []);
+    assert.deepEqual(host.sent, []);
+    assert.equal(context.selects.length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("print and JSON modes report without offering a dialogue", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace, { hasUI: false });
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    await respondTail(host, context.ctx);
+    assert.equal(summaryMessages(context.notifications).length, 1);
+    assert.equal(context.selects.length, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("reading an existing Tour still works without any MCP server", async () => {
+  const { root, workspace } = temporaryWorkspace();
   try {
     const tours = [
       { id: "file:///first.tour", title: "Shared Tour" },
       { id: "file:///second.tour", title: "Shared Tour" },
     ];
-    const host = fakeHost({ code: 0, stdout: JSON.stringify(tours), stderr: "" }, plugin, []);
+    const host = fakeHost({ code: 0, stdout: JSON.stringify(tours), stderr: "" });
     const context = fakeContext(workspace);
     context.selections.push("Lire", "2. Shared Tour");
     await host.commands.get("codetour").handler("", context.ctx);
@@ -148,85 +489,46 @@ test("reading an existing Tour uses its identity without a connected MCP server"
       { command: "codetour", args: ["--internal-list-tours"], options: { cwd: workspace } },
     ]);
     assert.match(context.notifications[0].message, /--internal-tour-id.*second\.tour/);
-    assert.equal(host.sent.length, 0);
-    assert.deepEqual(runFiles(workspace), []);
+    assert.deepEqual(host.sent, []);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("a cancelled generation selection starts nothing and writes no run state", async () => {
-  const { root, workspace } = workspaceWithSpaces();
+test("explicit choices deliver the skill invocation and create no run state", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.commands.get("codetour").handler("changes critical explain the renderer", context.ctx);
+    assert.equal(host.sent.length, 1);
+    assert.match(
+      host.sent[0].text,
+      /^\/skill:codetour-generate type=changes reviewMode=critical request=explain the renderer$/
+    );
+    assert.deepEqual(host.sent[0].options, { expandPromptTemplates: true });
+    // The generation is the agent's own: no state file, no MCP registration.
+    assert.deepEqual(readdirSync(workspace), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a cancelled generation selection starts nothing", async () => {
+  const { root, workspace } = temporaryWorkspace();
   try {
     const host = fakeHost();
     const context = fakeContext(workspace);
     await host.commands.get("codetour").handler("generate", context.ctx);
-    assert.equal(host.sent.length, 0);
+    assert.deepEqual(host.sent, []);
     assert.match(context.notifications[0].message, /generation cancelled/);
-    assert.equal(runFiles(workspace).length, 0);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("an unconnected CodeTour server refuses the generation with the repair steps", async () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    const host = fakeHost(undefined, plugin, []);
-    const context = fakeContext(workspace);
-    await host.commands.get("codetour").handler("project", context.ctx);
-    // No choice dialogue, no run state, no skill invocation, no hint that the
-    // generation is operational.
-    assert.equal(context.selects.length, 0);
-    assert.equal(host.sent.length, 0);
-    assert.equal(runFiles(workspace).length, 0);
-    assert.equal(context.notifications.length, 1);
-    const [diagnostic] = context.notifications;
-    assert.equal(diagnostic.level, "error");
-    assert.deepEqual(host.unregistered, ["codetour"]);
-    assert.match(diagnostic.message, /"codetour" MCP server could not connect/);
-    assert.match(diagnostic.message, /mcp__codetour__\*/);
-    assert.match(diagnostic.message, /pi config/);
-    assert.match(diagnostic.message, /-builtin:mcp/);
-    assert.match(diagnostic.message, /\/reload/);
-    assert.match(diagnostic.message, /No run state was created/);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-
-test("explicit choices write the run state and deliver the skill invocation", async () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    const host = fakeHost();
-    const context = fakeContext(workspace);
-    await host.commands
-      .get("codetour")
-      .handler("changes critical explain the renderer", context.ctx);
-    assert.equal(host.sent.length, 1);
-    const invocation = host.sent[0].text;
-    assert.match(
-      invocation,
-      /^\/skill:codetour-generate type=changes reviewMode=critical runId=[A-Za-z0-9_-]{8,} request=explain the renderer$/
-    );
-    assert.deepEqual(host.sent[0].options, { expandPromptTemplates: true });
-
-    const runId = invocation.match(/runId=(\S+)/)[1];
-    const file = path.join(workspace, ".tours", ".log", `codetour-run-${runId}.json`);
-    const state = JSON.parse(readFileSync(file, "utf8"));
-    assert.equal(state.kind, "changes");
-    assert.equal(state.request, "explain the renderer");
-    assert.equal(state.sessionId, "pi-session-test");
-    assert.equal(state.tourCreated, false);
-    assert.equal(state.continuationUsed, false);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("the native generation menu sends the selected review mode only after confirmation", async () => {
-  const { root, workspace } = workspaceWithSpaces();
+test("the native generation menu sends the selected review mode", async () => {
+  const { root, workspace } = temporaryWorkspace();
   try {
     const host = fakeHost();
     const context = fakeContext(workspace);
@@ -240,175 +542,93 @@ test("the native generation menu sends the selected review mode only after confi
   }
 });
 
-test("a created Tour finishes without a consolidation continuation", async () => {
-  const { root, workspace } = workspaceWithSpaces();
+test("the installed launcher travels to the skill, without the retired mcp subcommand", async () => {
+  const { root, workspace } = temporaryWorkspace();
   try {
-    const host = fakeHost();
+    const packageDir = path.join(root, "installed plugin");
+    cpSync(path.resolve("packages/pi-plugin"), packageDir, { recursive: true });
+    writeFileSync(
+      path.join(packageDir, "launcher.json"),
+      JSON.stringify({ command: "/custom node", args: ["/custom cli.js", "mcp"] }),
+      "utf8"
+    );
+    const { default: installed } = await import(
+      pathToFileURL(path.join(packageDir, "extensions/codetour.ts")).href
+    );
+    const host = fakeHost(undefined, installed);
     const context = fakeContext(workspace);
     await host.commands.get("codetour").handler("project", context.ctx);
-    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
-
-    const before = await host.handlers.get("agent_before_settle")(
-      { entries: [], aborted: false, context: {} },
-      context.ctx
+    assert.equal(
+      host.sent[0].text,
+      '/skill:codetour-generate type=project codetour-cli=["/custom node","/custom cli.js"]'
     );
-    assert.equal(before, undefined);
-
-    await updateRunState(workspace, runId, state => ({
-      ...state,
-      tourCreated: true,
-      tourPath: ".tours/project.tour",
-      tourTitle: "Project",
-      knowledge: {
-        version: 1,
-        observed: true,
-        at: new Date().toISOString(),
-        listings: 1,
-        valid: ["billing-retry"],
-        validTotal: 2,
-        complete: true,
-        invalid: [{ name: "stale-auth", reason: "proof_hash_mismatch" }],
-        used: ["billing-retry"],
-      },
-    }));
-
-    const first = await host.handlers.get("agent_before_settle")(
-      { entries: [], aborted: false, context: {} },
-      context.ctx
-    );
-    assert.equal(first, undefined);
-
-    const second = await host.handlers.get("agent_before_settle")(
-      { entries: [], aborted: false, context: {} },
-      context.ctx
-    );
-    assert.equal(second, undefined);
-
-    // The closing line and the invalid detail are reported once, not per stop.
-    const closing = context.notifications.filter(entry => entry.message.startsWith("CodeTour run"));
-    assert.equal(closing.length, 1);
-    assert.match(closing[0].message, /Knowledge 2 valid \/ 1 invalid, 1 used \(billing-retry\)/);
-    const invalid = context.notifications.filter(entry => entry.message.startsWith("CodeTour knowledge invalid:"));
-    assert.equal(invalid.length, 1);
-    assert.match(invalid[0].message, /stale-auth — proof_hash_mismatch/);
-    assert.equal(invalid[0].level, "warning");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("an aborted settle never asks for a continuation", async () => {
-  const { root, workspace } = workspaceWithSpaces();
+test("a creation is offered to the terminal reader, once", async () => {
+  const { root, workspace } = temporaryWorkspace();
   try {
     const host = fakeHost();
     const context = fakeContext(workspace);
-    await host.commands.get("codetour").handler("project", context.ctx);
-    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
-    await updateRunState(workspace, runId, state => ({ ...state, tourCreated: true }));
-    const result = await host.handlers.get("agent_before_settle")(
-      { entries: [], aborted: true, context: {} },
-      context.ctx
-    );
-    assert.equal(result, undefined);
-    const state = JSON.parse(
-      readFileSync(path.join(workspace, ".tours", ".log", `codetour-run-${runId}.json`), "utf8")
-    );
-    assert.equal(state.continuationUsed, false);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("the end-of-generation ask offers the terminal reader and VS Code", async () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    const host = fakeHost();
-    const context = fakeContext(workspace);
-    await host.commands.get("codetour").handler("project", context.ctx);
-    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
-    await updateRunState(workspace, runId, state => ({
-      ...state,
-      tourCreated: true,
-      tourPath: ".tours/payment.tour",
-      tourTitle: "Payment Flow",
-      consolidation: { status: "created", at: new Date().toISOString() },
-    }));
+    await host.handlers.get("agent_start")({}, context.ctx);
+    const record = writeCreation(workspace, { tourTitle: "Payment Flow" });
     context.selections.push(TERMINAL_OPTION);
-    const settled = await host.handlers.get("agent_before_settle")(
-      { entries: [], aborted: false, context: {} },
-      context.ctx
-    );
-    // A closed run asks for no continuation: the dialogue is the last word.
-    assert.equal(settled, undefined);
-    // Exactly one ask, naming the created Tour and the two real openings.
+    await respondTail(host, context.ctx);
     assert.equal(context.selects.length, 1);
     assert.match(context.selects[0].title, /"Payment Flow"/);
     assert.deepEqual(context.selects[0].options.length, 2);
-    // The terminal choice hands over the exact real reader command; no
-    // step list or summary ever answers for the reader.
-    const commands = context.notifications.filter(entry => entry.message.includes('codetour "Payment Flow"'));
-    assert.equal(commands.length, 1);
-    assert.match(commands[0].message, /workspace root/);
-    assert.match(commands[0].message, /never an independent window/);
-    // The ask is once per run: a later settle of the same run never asks again.
-    await updateRunState(workspace, runId, state => ({
-      ...state,
-      knowledge: { version: 1, observed: true, at: new Date().toISOString(), listings: 1, valid: [], invalid: [], used: [] },
-    }));
-    await host.handlers.get("agent_before_settle")(
-      { entries: [], aborted: false, context: {} },
-      context.ctx
+    // The terminal is not interactive in this test process: the documented
+    // hand-over command is reported instead, never a summary in the Tour's
+    // place.
+    const handOver = context.notifications.find(entry =>
+      entry.message.includes(`codetour "Payment Flow"`)
     );
+    assert.ok(handOver, `expected the reader hand-over, got ${JSON.stringify(context.notifications)}`);
+    assert.match(handOver.message, /never an independent window/);
+    // A second settlement of the same window asks nothing again.
+    await host.handlers.get("agent_settled")({ aborted: false }, context.ctx);
     assert.equal(context.selects.length, 1);
+    assert.ok(record.tourPath);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
 test("the VS Code choice delegates to the explicit open-in-VS Code contract", async () => {
-  const { root, workspace } = workspaceWithSpaces();
+  const { root, workspace } = temporaryWorkspace();
   try {
     const host = fakeHost();
     const context = fakeContext(workspace);
-    await host.commands.get("codetour").handler("project", context.ctx);
-    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
-    await updateRunState(workspace, runId, state => ({
-      ...state,
-      tourCreated: true,
-      tourPath: ".tours/payment.tour",
-      tourTitle: null,
-      consolidation: { status: "skipped", at: new Date().toISOString() },
-    }));
+    await host.handlers.get("agent_start")({}, context.ctx);
+    const record = writeCreation(workspace);
     context.selections.push(VSCODE_OPTION);
-    await host.handlers.get("agent_before_settle")(
-      { entries: [], aborted: false, context: {} },
-      context.ctx
-    );
-    assert.equal(context.selects.length, 1);
-    assert.deepEqual(host.executions, [{
-      command: "codetour",
-      args: ["--internal-open-vscode", ".tours/payment.tour", workspace],
-      options: { cwd: workspace },
-    }]);
+    await respondTail(host, context.ctx);
+    assert.deepEqual(host.executions, [
+      {
+        command: "codetour",
+        args: ["--internal-open-vscode", record.tourPath, workspace],
+        options: { cwd: workspace },
+      },
+    ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("a failed VS Code opening reports the failure and a manual fallback", async () => {
-  const { root, workspace } = workspaceWithSpaces();
+test("a failed VS Code opening reports the failure and the manual command", async () => {
+  const { root, workspace } = temporaryWorkspace();
   try {
-    const host = fakeHost({ code: 1, stderr: "VS Code unavailable", stdout: "", killed: false, truncated: false });
+    const host = fakeHost({ code: 1, stderr: "VS Code unavailable", stdout: "" });
     const context = fakeContext(workspace);
-    await host.commands.get("codetour").handler("project", context.ctx);
-    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
-    await updateRunState(workspace, runId, state => ({
-      ...state, tourCreated: true, tourPath: ".tours/payment.tour", tourTitle: null,
-      consolidation: { status: "skipped", at: new Date().toISOString() },
-    }));
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
     context.selections.push(VSCODE_OPTION);
-    await host.handlers.get("agent_before_settle")({ entries: [], aborted: false, context: {} }, context.ctx);
-    const warning = context.notifications.find(entry => entry.level === "warning" && entry.message.includes("VS Code unavailable"));
+    await respondTail(host, context.ctx);
+    const warning = context.notifications.find(
+      entry => entry.level === "warning" && entry.message.includes("VS Code unavailable")
+    );
     assert.ok(warning);
     assert.match(warning.message, /codetour --internal-open-vscode/);
   } finally {
@@ -416,50 +636,65 @@ test("a failed VS Code opening reports the failure and a manual fallback", async
   }
 });
 
-test("VS Code uses the installed launcher and preserves paths with spaces", async () => {
-  const { root, workspace } = workspaceWithSpaces();
+test("a declined opening leaves no substitute text", async () => {
+  const { root, workspace } = temporaryWorkspace();
   try {
-    const packageDir = path.join(root, "installed plugin");
-    cpSync(path.resolve("packages/pi-plugin"), packageDir, { recursive: true });
-    writeFileSync(path.join(packageDir, "launcher.json"), JSON.stringify({ command: "/custom node", args: ["/custom cli.js", "mcp"] }));
-    const { default: installed } = await import(pathToFileURL(path.join(packageDir, "extensions/codetour.ts")).href);
-    const host = fakeHost(undefined, installed);
+    const host = fakeHost();
     const context = fakeContext(workspace);
-    await host.commands.get("codetour").handler("project", context.ctx);
-    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
-    await updateRunState(workspace, runId, state => ({
-      ...state, tourCreated: true, tourPath: ".tours/my tour.tour", tourTitle: null,
-      consolidation: { status: "skipped", at: new Date().toISOString() },
-    }));
-    context.selections.push(VSCODE_OPTION);
-    await host.handlers.get("agent_before_settle")({ entries: [], aborted: false, context: {} }, context.ctx);
-    assert.deepEqual(host.executions, [{ command: "/custom node", args: ["/custom cli.js", "--internal-open-vscode", ".tours/my tour.tour", workspace], options: { cwd: workspace } }]);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace, { tourTitle: "Payment Flow" });
+    await respondTail(host, context.ctx);
+    assert.equal(context.selects.length, 1);
+    const handOver = context.notifications.filter(entry =>
+      /--internal-|never an independent window|code --open-url/.test(entry.message)
+    );
+    assert.deepEqual(handOver, []);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("a cancelled ask hands over nothing and no summary replaces the reader", async () => {
-  const { root, workspace } = workspaceWithSpaces();
+test("a Tour created by the real CLI in this response is reported end to end", async () => {
+  const { root, workspace } = temporaryWorkspace();
   try {
+    const cli = path.resolve("dist", "cli.js");
+    const proposal = {
+      title: "Orientation",
+      description: "A deterministic end-to-end creation.",
+      steps: [
+        {
+          title: "Overview",
+          description:
+            "**Diagram — entry and store**\n\n```mermaid\nflowchart LR\n  A[entry] --> B[store]\n```",
+        },
+        { title: "Entry", description: "The entry point.", file: "index.js", line: 1 },
+      ],
+    };
+    writeFileSync(path.join(workspace, "index.js"), "console.log('hi');\n", "utf8");
+
     const host = fakeHost();
     const context = fakeContext(workspace);
-    await host.commands.get("codetour").handler("project", context.ctx);
-    const runId = host.sent[0].text.match(/runId=(\S+)/)[1];
-    await updateRunState(workspace, runId, state => ({
-      ...state,
-      tourCreated: true,
-      tourPath: ".tours/payment.tour",
-      tourTitle: "Payment Flow",
-      consolidation: { status: "created", at: new Date().toISOString() },
-    }));
-    await host.handlers.get("agent_before_settle")(
-      { entries: [], aborted: false, context: {} },
-      context.ctx
+    await host.handlers.get("agent_start")({}, context.ctx);
+    // What the skill does through the agent's shell: the CLI creates the Tour
+    // from the workspace root, with the Pi session the host exported.
+    const created = spawnSync(
+      process.execPath,
+      [cli, "create-project-tour", "--workspace", workspace, "--proposal", "-"],
+      {
+        encoding: "utf8",
+        input: JSON.stringify(proposal),
+        env: { ...process.env, PI_SESSION_ID: SESSION, CODETOUR_SESSION_ID: "" },
+      }
     );
-    assert.equal(context.selects.length, 1);
-    // Declined: no opening command and no textual stand-in for the reader.
-    assert.equal(context.notifications.filter(entry => /codetour|code --open-url/.test(entry.message)).length, 0);
+    assert.equal(created.status, 0, created.stderr || created.stdout);
+    const result = JSON.parse(created.stdout);
+    assert.equal(result.ok, true);
+    await respondTail(host, context.ctx);
+
+    const [summary] = summaryMessages(context.notifications);
+    assert.equal(summary.message, `CodeTour: "Orientation" (${result.tourPath})`);
+    // The written Tour is the one the record names.
+    assert.equal(path.isAbsolute(result.tourPath), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
