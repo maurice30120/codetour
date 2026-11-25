@@ -33,17 +33,16 @@ import packageJson from "../package.json";
 // The MCP server exposes the two Tour creation tools (`create_project_tour`
 // and `create_changes_tour`) and the four Knowledge tools of spec #223
 // (`knowledge_list`, `knowledge_read`, `knowledge_save`,
-// `knowledge_close_run`). The AI agent writes
-// the content; the server only validates proposals, applies Git and security
-// rules, and atomically writes the corresponding reserved Tour file or
-// Knowledge entry. Knowledge bodies are untrusted data: the server returns
-// them, it never obeys them.
+// `knowledge_close_run`). The AI agent writes the content; the creation rules
+// themselves (validation, Git and security rules, the atomic write) live in
+// `packages/tour-generation`, which the CLI uses too. Knowledge bodies are
+// untrusted data: the server returns them, it never obeys them.
 //
 // Tool input schemas remain intentionally permissive (`z.unknown()` plus
 // `.passthrough()`): the MCP SDK would reject arguments that do not match a
 // strict schema itself, which would break the requirement to aggregate all
 // validation errors into one response. Full field-by-field validation is
-// therefore performed in validation.ts.
+// therefore performed by the shared rules package.
 
 const SERVER_NAME = "codetour-mcp";
 const SERVER_VERSION = packageJson.version;
