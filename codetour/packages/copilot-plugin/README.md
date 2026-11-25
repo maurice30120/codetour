@@ -17,85 +17,100 @@ warning). `copilot plugin uninstall codetour` removes it.
 | Path | Role |
 | --- | --- |
 | `plugin.json` | Agent Plugins 1.0 manifest (`$schema`, name, version, metadata). |
-| `mcp.json` | Declares the **existing** `codetour mcp` stdio server. It is the single MCP registration for a plugin session. |
-| `skills/codetour-generate/SKILL.md` | Minimal generation entry point that defers to the MCP prompt. |
+| `skills/codetour-generate/SKILL.md` | The generation entry point: the CLI creation commands, the proposal shape and the failure handling. |
 | `com.github.copilot/hooks/hooks.json` | Copilot `agentStop` hook declaration. |
-| `com.github.copilot/hooks/agent-stop.mjs` | Usage metrics hook; it never blocks Tour completion. |
-| `com.github.copilot/lib/run-log.mjs` | Run-state format shared by the adapter and the hook. |
+| `com.github.copilot/hooks/agent-stop.mjs` | End-of-response summary: the created Tours and one token reading. It never blocks. |
+| `com.github.copilot/lib/run-log.mjs` | The creation-journal and session-transcript readers the hook uses. |
+| `mcp.json` | Kept until ticket #325 removes it: neither the skill nor the hook above uses a server. |
 
-## The served prompt is the only Tour method
+## Generation
 
-The plugin does not carry Tour instructions. The adapter calls
-`prompts/get` `generate_project_tour` (or `generate_changes_tour`) with the
-user's request, the orientation phrase and the run identity, then sends the
-composed message unchanged. An unreachable server or an empty prompt is a
-visible failure; there is no fallback prompt.
+`/codetour-generate`, or a plain request to explain the codebase or review the
+branch, follows
+[`skills/codetour-generate/SKILL.md`](skills/codetour-generate/SKILL.md): it
+resolves the Tour type, the review mode (Changes Tours only) and the orientation
+phrase, explores the workspace, then hands a JSON proposal to the installed CLI
+from the workspace root:
 
-## One CodeTour MCP server
-
-`mcp.json` declares `codetour mcp --workspace-root ${COPILOT_SESSION_CWD}`,
-launched from the `codetour` on `PATH`. The extension no longer joins an MCP
-server, and `codetour --install copilot` removes a `codetour` entry that an
-older release wrote into `~/.copilot/mcp-config.json`. A same-named entry that
-this CLI did not write is preserved and reported: remove it yourself if it
-would duplicate the plugin's server.
-
-## Run state and the agentStop hook
-
-The hook records available usage metrics and lets the agent stop after Tour creation. CodeTour memory is temporarily unavailable while Knowledge moves to TokenEconomizer; existing knowledge is not migrated.
-
-## Pre-launch report
-
-Every generation reports its integration before the first agent request
-(ADR 0043), as `session.log` info lines:
-
-```text
-CodeTour pre-launch: adapter /…/extensions/codetour/adapter.mjs (installed)
-CodeTour pre-launch: launcher node /…/dist/cli.js mcp --workspace-root /real/workspace
-CodeTour pre-launch: workspace /real/workspace
-CodeTour pre-launch: extension /…/.copilot/extensions/codetour (adapter.mjs, extension.mjs, run-log.mjs)
-CodeTour pre-launch: plugin v0.1.2 at /…/installed-plugins/_direct/codetour-plugin-…; MCP launcher node /…/dist/cli.js mcp --workspace-root ${COPILOT_SESSION_CWD} (build v0.1.2)
-CodeTour pre-launch: user mcp-config /…/.copilot/mcp-config.json: no extra CodeTour server
+```sh
+codetour create-project-tour --workspace "<absolute workspace root>" < proposal.json
+codetour create-changes-tour --workspace "<absolute workspace root>" < proposal.json
 ```
 
-One problem is reported at error level, never as a stop — the report tells
-the truth and starting the run stays the user's:
+The CLI validates the proposal, writes the Tour atomically and answers with one
+JSON document on standard output: `ok: true` with the absolute `tourPath`, or
+`ok: false` with `code`, `message` and the `issues` to correct. Nothing needs to
+be installed beside the CLI and no repository checkout is involved.
 
-- the CodeTour plugin is not installed in the Copilot home (no
-  `config.json` entry, no `CODETOUR_COPILOT_PLUGIN_DIR`): run
-  `codetour --install copilot` from the build that should serve;
-- the plugin's launcher does not exist on disk (a moved or deleted
-  checkout): sessions would get no CodeTour tools;
-- the plugin's launcher points at another build (`plugin.json` version
-  differs from the package.json beside the launched CLI): a stale or
-  foreign build serves the session — the trial case of a personal plugin
-  left pointing at another checkout;
-- the user `mcp-config.json` also declares a `codetour` MCP server: the
-  session would load the CodeTour tools twice;
-- more than one CodeTour extension directory exists under the extensions
-  root.
+## The agentStop summary
 
-The same facts are recorded in the run state's `metrics.integration`
-launcher, workspace, adapter origin, extension files, plugin version and
-launcher build, user config declaration and `problems` - so the trial
-record per runId shows which integration was actually loaded. The scan is
-offline (no `copilot` invocation, no network) and reads exactly the paths
-the installer writes; `COPILOT_HOME` relocates it,
-`CODETOUR_COPILOT_EXTENSIONS_DIR`, `CODETOUR_COPILOT_MCP_CONFIG` and
-`CODETOUR_COPILOT_PLUGIN_DIR` override single surfaces.
+The hook is purely informative. It reads two files it does not own and writes
+one marker:
+
+- the **creation journal** the CLI appends to after a successful write,
+  `<workspace>/.tours/.log/creations/<createdAtMs>-<pid>-<rand>.json`, whose
+  record carries the workspace, the absolute Tour path, the title, the kind, the
+  creation time and the session identity of the creating process;
+- the **session transcript** the Copilot CLI names in the hook payload
+  (`transcriptPath`, the session's `events.jsonl`), for the response boundary
+  and the token figures.
+
+A Tour is reported only when its attribution is established: the payload
+`sessionId` matches the record's session identity (a record without one, or
+with another agent's host, is never attributed), the canonical workspace is the
+payload `cwd`, and the record was created inside the current response —
+between the last `user.message` and the stop. All attributed Tours are printed
+with their absolute path, oldest first.
+
+One token reading follows, for the response as a whole and never per Tour:
+
+```text
+CodeTour: 2 Tours created in this response
+CodeTour: "Flux de facturation" — /workspace/.tours/billing.tour
+CodeTour: "Revue critique des changements" — /workspace/.tours/review.tour
+CodeTour: tokens 38,608 in (of which 18,818 cached reads, 19,784 cached writes), 23 out
+```
+
+- `inputTokens` already contains the cache reads and writes, so cache is shown
+  as a part of the input total and is never added to it; `reasoningTokens` is a
+  subset of the output.
+- Figures the session never recorded are omitted; a window with no usage record
+  says `tokens unavailable (…)`, never zero.
+- A fallback boundary (no `user.message` in the transcript, the resumed-session
+  case) labels the whole reading `(approximate)`.
+- One reading per response: the hook writes
+  `<workspace>/.tours/.log/creations/.reported/<sessionId>-<responseStartMs>`
+  and stays silent on a second stop of the same response.
+
+No creation identified means no output at all. The hook always exits 0 and
+always answers `{}`: it never blocks, never asks for a continuation and never
+calls a model. It cannot fail a creation — a journal it cannot read is a
+diagnostic, and an unavailable token figure only shortens the summary.
 
 ## Requirements
 
-- GitHub Copilot CLI 1.0.106 or later (verified with 1.0.106; the bundled
-  runtime reports 1.0.114). The plugin relies on `${COPILOT_SESSION_CWD}` and
-  `${PLUGIN_ROOT}` expansion and on the `agentStop` hook contract.
-- `codetour` on `PATH` for a direct `copilot plugin install` of this source
-  (the CLI-managed install generates an absolute launcher).
+- GitHub Copilot CLI 1.0.106 or later (verified with 1.0.114). The plugin relies
+  on `${PLUGIN_ROOT}` expansion and on the `agentStop` hook payload
+  (`sessionId`, `timestamp`, `cwd`, `transcriptPath`, `stopReason`,
+  `stop_hook_active`).
+- `codetour` on `PATH` for a direct `copilot plugin install` of this source (the
+  CLI-managed install generates an absolute launcher).
 - Node on `PATH` for the hook command (`node "${PLUGIN_ROOT}/…"`).
-- Hooks enabled in Copilot. If hooks are disabled or the plugin is not loaded,
-  no guard runs: run state and MCP results still report the truth, and no
-  consolidation is implied.
+- Session usage records in the transcript: without them the summary reports the
+  tokens as unavailable.
+
+### Verified limits
+
+- The hook writes to stderr, as the previous hook did. On Copilot CLI 1.0.114
+  stderr is not shown in prompt mode (`-p`) and the only honoured `agentStop`
+  output is `{}` or a block decision, which would cost a model turn; the
+  interactive TUI could not be exercised during recon. The summary is therefore
+  produced on every stop but is not proven visible in every mode.
+- `agentStop` is not guaranteed once per response (a `task_complete` stop adds
+  one); the response marker is what keeps the reading single.
+- The session events format is Copilot-internal, so every figure degrades to
+  "unavailable" instead of failing the stop.
 - macOS and Linux path handling uses Node APIs and has been exercised with
-  spaces in both the installed plugin path and the workspace path. Windows was
-  not executed in this environment; the hook uses `exec`-free Node APIs and the
+  spaces in the installed plugin path and the workspace path. Windows was not
+  executed in this environment; the hook uses `exec`-free Node APIs and the
   declaration quotes `${PLUGIN_ROOT}`, but Windows remains unverified.

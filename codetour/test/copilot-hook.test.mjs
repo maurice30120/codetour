@@ -1,15 +1,27 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  createRunState,
-  listRunStates,
-  runLogDirectory,
-  runStatePath
+  creationsDirectory,
+  reportedDirectory
 } from "../packages/copilot-plugin/com.github.copilot/lib/run-log.mjs";
+
+// The Copilot plugin's end-of-response summary, exercised through the real hook
+// script: a document on stdin, `{}` on stdout, one summary on stderr. The
+// attribution inputs are the ones the host really provides (payload `cwd`,
+// `sessionId`, `timestamp`, `transcriptPath`), the creation journal the CLI
+// writes, and nothing else.
 
 const hook = path.resolve("packages/copilot-plugin/com.github.copilot/hooks/agent-stop.mjs");
 
@@ -17,21 +29,55 @@ function workspaceWithSpaces() {
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-"));
   const workspace = path.join(root, "work space");
   mkdirSync(workspace, { recursive: true });
-  return { root, workspace };
+  return { root, workspace: realpathSync(workspace) };
 }
 
-function writeState(workspace, overrides = {}) {
-  const base = createRunState({
-    runId: "run-0123456789abcdef",
-    workspace: realpathSync(workspace),
-    sessionId: "session-a",
+function iso(milliseconds) {
+  return new Date(milliseconds).toISOString();
+}
+
+// One creation record, exactly as `packages/tour-generation/src/journal.ts`
+// writes it: `<createdAtMs>-<pid>-<rand>.json` under
+// `<workspace>/.tours/.log/creations/`.
+function writeCreation(workspace, overrides = {}) {
+  const at = overrides.at ?? iso(Date.now() - 1000);
+  const record = {
+    version: 1,
+    workspace,
+    tourPath: path.join(workspace, ".tours", "project.tour"),
+    tourTitle: "Project Overview",
     kind: "project",
-    request: "generate project Explique le flux."
-  });
-  const state = { ...base, ...overrides };
-  mkdirSync(runLogDirectory(workspace), { recursive: true });
-  writeFileSync(runStatePath(workspace, state.runId), `${JSON.stringify(state, null, 2)}\n`);
-  return state;
+    at,
+    sessionId: "session-a",
+    responseId: null,
+    host: "copilot",
+    ...overrides
+  };
+  const directory = creationsDirectory(workspace);
+  mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, `${Date.parse(at)}-${process.pid}-0123abcd.json`);
+  writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
+  return { record, file };
+}
+
+function writeTranscript(root, events) {
+  const file = path.join(root, "events.jsonl");
+  writeFileSync(file, events.map(event => JSON.stringify(event)).join("\n") + "\n");
+  return file;
+}
+
+function userMessage(at) {
+  return { type: "user.message", timestamp: iso(at), data: { content: "explique le flux" } };
+}
+
+function sessionStart(at) {
+  return { type: "session.start", timestamp: iso(at), data: { sessionId: "session-a", copilotVersion: "1.0.114" } };
+}
+
+// Copilot CLI 1.0.114 session usage record: `inputTokens` already includes the
+// cache reads and writes, `reasoningTokens` is a subset of the output.
+function usageRecord(at, usage) {
+  return { type: "session.usage_record", timestamp: iso(at), data: { usage } };
 }
 
 function payload(overrides = {}) {
@@ -39,7 +85,7 @@ function payload(overrides = {}) {
     sessionId: "session-a",
     timestamp: Date.now(),
     cwd: overrides.cwd,
-    transcriptPath: "/tmp/transcript.jsonl",
+    transcriptPath: overrides.transcriptPath,
     stopReason: "end_turn",
     stop_hook_active: false,
     ...overrides
@@ -52,524 +98,526 @@ function runHook(input) {
     encoding: "utf8",
     timeout: 20000
   });
-  assert.equal(result.status, 0, result.stderr);
-  return { output: JSON.parse(result.stdout), stderr: result.stderr };
+  assert.equal(result.status, 0, `the hook always exits 0: ${result.stderr}`);
+  assert.deepEqual(JSON.parse(result.stdout), {}, "the hook always answers {}");
+  return result.stderr;
 }
 
-function readState(workspace, runId) {
-  return JSON.parse(readFileSync(runStatePath(workspace, runId), "utf8"));
+function summaryLines(stderr) {
+  return stderr.split("\n").filter(line => line.startsWith("CodeTour:"));
 }
 
-test("an ordinary conversation is inert with no run state", () => {
+test("a response without a creation prints nothing", () => {
   const { root, workspace } = workspaceWithSpaces();
   try {
-    assert.deepEqual(runHook(payload({ cwd: workspace })).output, {});
+    const now = Date.now();
+    const transcriptPath = writeTranscript(root, [sessionStart(now - 60000), userMessage(now - 30000)]);
+    const stderr = runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }));
+    assert.equal(stderr.trim(), "", "no attributed creation and no reading: silence, diagnostics included");
+    // Nothing to attribute is decided from the journal alone: an unreadable
+    // transcript never reaches the ordinary conversation as a diagnostic.
+    assert.equal(
+      runHook(payload({ cwd: workspace, timestamp: now, transcriptPath: path.join(root, "absent.jsonl") })).trim(),
+      ""
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("a run belonging to another session or workspace is inert", () => {
+test("malformed payloads, an unusable workspace and a missing transcript stay silent", () => {
   const { root, workspace } = workspaceWithSpaces();
   try {
-    writeState(workspace);
-    assert.deepEqual(runHook(payload({ cwd: workspace, sessionId: "session-b" })).output, {});
-    assert.deepEqual(runHook(payload({ cwd: path.join(root, "other workspace") })).output, {});
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("malformed payloads and an unreadable workspace never block", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    writeState(workspace);
-    for (const input of ["not json", "", "null", JSON.stringify({ sessionId: "session-a" })]) {
-      assert.deepEqual(runHook(input).output, {});
+    const now = Date.now();
+    writeCreation(workspace, { at: iso(now - 20000) });
+    const transcriptPath = writeTranscript(root, [userMessage(now - 40000)]);
+    for (const input of [
+      "not json",
+      "",
+      "null",
+      JSON.stringify({ sessionId: "session-a" }),
+      JSON.stringify({ timestamp: now, cwd: workspace, transcriptPath })
+    ]) {
+      assert.deepEqual(summaryLines(runHook(input)), []);
     }
-    assert.deepEqual(runHook(payload({ cwd: path.join(workspace, "missing") })).output, {});
+    assert.deepEqual(
+      summaryLines(runHook(payload({ cwd: path.join(workspace, "missing"), timestamp: now, transcriptPath }))),
+      []
+    );
+    const missing = runHook(
+      payload({ cwd: workspace, timestamp: now, transcriptPath: path.join(root, "absent.jsonl") })
+    );
+    assert.deepEqual(summaryLines(missing), [], "no transcript, no response boundary, no attribution");
+    assert.match(missing, /CodeTour agentStop: tokens not observed/, "the limit is reported as a diagnostic");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("stop_hook_active lets the agent stop and leaves the run untouched", () => {
+test("a hook-triggered re-entry never repeats the summary", () => {
   const { root, workspace } = workspaceWithSpaces();
   try {
-    const state = writeState(workspace, { tourCreated: true });
-    assert.deepEqual(runHook(payload({ cwd: workspace, stop_hook_active: true })).output, {});
-    assert.deepEqual(
-      runHook(payload({ cwd: workspace, stopHookActive: true })).output,
-      {},
+    const now = Date.now();
+    writeCreation(workspace, { at: iso(now - 5000) });
+    const transcriptPath = writeTranscript(root, [userMessage(now - 30000)]);
+    assert.equal(
+      runHook(payload({ cwd: workspace, timestamp: now, transcriptPath, stop_hook_active: true })).trim(),
+      ""
+    );
+    assert.equal(
+      runHook(payload({ cwd: workspace, timestamp: now, transcriptPath, stopHookActive: true })).trim(),
+      "",
       "the SDK spelling is honored too"
     );
-    assert.equal(readState(workspace, state.runId).continuationUsed, false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("a run without a created Tour is inert", () => {
+test("one creation of the current response is reported with its title, path and tokens", () => {
   const { root, workspace } = workspaceWithSpaces();
-  try {
-    writeState(workspace, { tourCreated: false });
-    assert.deepEqual(runHook(payload({ cwd: workspace })).output, {});
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-for (const status of ["created", "appended", "replaced", "completed_zero", "partial", "failed", "skipped"]) {
-  test(`a ${status} consolidation closure is inert`, () => {
-    const { root, workspace } = workspaceWithSpaces();
-    try {
-      const state = writeState(workspace, {
-        tourCreated: true,
-        consolidation: { status, runId: "run-0123456789abcdef", at: new Date().toISOString() }
-      });
-      assert.deepEqual(runHook(payload({ cwd: workspace })).output, {});
-      assert.equal(readState(workspace, state.runId).continuationUsed, false);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-}
-
-// The closure of spec #232 carries `created` and `changed` name lists beside
-// its status. Both are assessments, so the hook never asks for a second
-// continuation and the twin reports the closure exactly as the MCP wrote it.
-test("an appended or replaced closure carrying changed names closes the run", async () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    const closures = [
-      { status: "appended", changed: ["dispatch_flow"] },
-      { status: "replaced", changed: ["dispatch_flow", "billing_flow"] },
-      { status: "created", created: ["new_flow"], changed: ["dispatch_flow"] },
-      { status: "partial", created: ["new_flow"], changed: ["dispatch_flow"], outcome: "conflict" }
-    ];
-    for (const closure of closures) {
-      const state = writeState(workspace, {
-        tourCreated: true,
-        consolidation: { ...closure, runId: "run-0123456789abcdef", at: new Date().toISOString() }
-      });
-      assert.deepEqual(runHook(payload({ cwd: workspace })).output, {}, closure.status);
-      const after = readState(workspace, state.runId);
-      assert.equal(after.continuationUsed, false, `${closure.status}: no continuation is used`);
-      assert.deepEqual(after.consolidation, state.consolidation, `${closure.status}: the closure is reported as recorded`);
-      const [listed] = (await listRunStates(workspace)).states;
-      assert.deepEqual(listed.consolidation, state.consolidation, `${closure.status}: the twin reports created and changed`);
-    }
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("a created Tour finishes without a consolidation continuation", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    const state = writeState(workspace, { tourCreated: true, tourPath: ".tours/project.tour" });
-    assert.deepEqual(runHook(payload({ cwd: workspace })).output, {});
-    assert.equal(readState(workspace, state.runId).continuationUsed, false);
-  } finally { rmSync(root, { recursive: true, force: true }); }
-});
-
-test("storage failures and corrupt state never block and never throw", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    // The run log location is a file instead of a directory.
-    mkdirSync(path.join(workspace, ".tours"), { recursive: true });
-    writeFileSync(runLogDirectory(workspace), "not a directory\n");
-    const blocked = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(blocked.output, {});
-    assert.match(blocked.stderr, /run log directory|ignored/);
-
-    // A malformed state document is reported and ignored.
-    rmSync(runLogDirectory(workspace), { force: true });
-    mkdirSync(runLogDirectory(workspace), { recursive: true });
-    writeFileSync(path.join(runLogDirectory(workspace), "codetour-run-run-eeeeeeeeeeeeeeee.json"), "{not json");
-    const corrupt = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(corrupt.output, {});
-    assert.match(corrupt.stderr, /malformed/);
-
-    // An unwritable run directory cannot record the continuation, so the hook
-    // lets the agent stop instead of blocking without its bound. Windows has
-    // no directory mode a process cannot write to: the platform property the
-    // case rests on does not exist there.
-    if (process.platform !== "win32") {
-      const state = writeState(workspace, { tourCreated: true });
-      chmodSync(runLogDirectory(workspace), 0o555);
-      const unwritable = runHook(payload({ cwd: workspace }));
-      assert.deepEqual(unwritable.output, {});
-      assert.equal(readState(workspace, state.runId).continuationUsed, false);
-      chmodSync(runLogDirectory(workspace), 0o755);
-    }
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("the run log enumerates only well-formed, unexpired state files", async () => {
-  const { root, workspace } = workspaceWithSpaces();
-  try {
-    writeState(workspace, { runId: "run-ffffffffffffffff", tourCreated: true });
-    writeFileSync(path.join(runLogDirectory(workspace), "foreign.json"), "{}");
-    writeFileSync(path.join(runLogDirectory(workspace), "codetour-run-broken.json"), "{}");
-    const listed = await listRunStates(workspace);
-    assert.equal(listed.states.length, 1);
-    assert.equal(listed.states[0].runId, "run-ffffffffffffffff");
-    assert.equal(listed.problems.length, 1);
-    assert.match(listed.problems[0], /broken/);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-function writeSessionEvents(directory, sessionId, events) {
-  const sessionDirectory = path.join(directory, sessionId);
-  mkdirSync(sessionDirectory, { recursive: true });
-  writeFileSync(
-    path.join(sessionDirectory, "events.jsonl"),
-    events.map(event => JSON.stringify(event)).join("\n") + "\n"
-  );
-  return sessionDirectory;
-}
-
-// Usage fixtures follow the Copilot CLI 1.0.114 session events format
-// observed in real runs (~/.copilot/session-state/<sessionId>/events.jsonl):
-// one JSON object per line with a top-level type, data and timestamp.
-function sessionEventsFixture({ runAt, generationAt, tourAt, consolidationAt, beforeAt }) {
-  return [
-    {
-      type: "session.start",
-      id: "event-start",
-      data: {
-        sessionId: "session-a",
-        version: 1,
-        copilotVersion: "1.0.114",
-        context: {
-          cwd: "/tmp/whatever",
-          branch: "spec-223-integration",
-          headCommit: "9ef32c823585261377d1e767ac0da4637e16213b"
-        }
-      }
-    },
-    {
-      type: "session.usage_record",
-      id: "event-before",
-      timestamp: beforeAt,
-      data: { usage: { model: "gpt-5-mini", inputTokens: 1000, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, duration: 100 } }
-    },
-    {
-      type: "session.usage_record",
-      id: "event-generation",
-      timestamp: generationAt,
-      data: { usage: { model: "claude-sonnet-5.5", inputTokens: 364887, outputTokens: 123, cacheReadTokens: 305382, cacheWriteTokens: 59489, reasoningTokens: 0, duration: 4000 } }
-    },
-    {
-      type: "tool.execution_start",
-      id: "event-create-start",
-      timestamp: new Date(Date.parse(tourAt) - 2000).toISOString(),
-      data: { toolCallId: "call-1", toolName: "codetour-create_project_tour", model: "claude-sonnet-5.5" }
-    },
-    {
-      type: "tool.execution_complete",
-      id: "event-create-complete",
-      timestamp: tourAt,
-      data: { toolCallId: "call-1", model: "claude-sonnet-5.5", success: true }
-    },
-    {
-      type: "session.usage_record",
-      id: "event-consolidation",
-      timestamp: consolidationAt,
-      data: { usage: { model: "claude-sonnet-5.5", inputTokens: 124662, outputTokens: 307, cacheReadTokens: 121669, cacheWriteTokens: 2989, reasoningTokens: 0, duration: 800 } }
-    },
-    {
-      type: "tool.execution_start",
-      id: "event-save-start",
-      timestamp: consolidationAt,
-      data: { toolCallId: "call-2", toolName: "codetour-knowledge_save", model: "claude-sonnet-5.5" }
-    },
-    {
-      type: "tool.execution_complete",
-      id: "event-save",
-      timestamp: new Date(Date.parse(consolidationAt) + 1000).toISOString(),
-      data: { toolCallId: "call-2", success: true }
-    }
-  ];
-}
-
-test("a stop matching a session run records the usage snapshot with its phases", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-"));
-  const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;
-  process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = sessions;
   try {
     const now = Date.now();
-    const runAt = new Date(now - 120000).toISOString();
-    const beforeAt = new Date(now - 3600000).toISOString();
-    const state = writeState(workspace, {
-      at: runAt,
-      tourCreated: true,
-      consolidation: { status: "completed_zero", runId: "run-0123456789abcdef", at: new Date(now - 15000).toISOString() }
+    const { record } = writeCreation(workspace, {
+      at: iso(now - 20000),
+      tourPath: path.join(workspace, ".tours", "flux.tour"),
+      tourTitle: "Flux de facturation"
     });
-    writeSessionEvents(sessions, "session-a", sessionEventsFixture({
-      runAt,
-      beforeAt,
-      generationAt: new Date(now - 90000).toISOString(),
-      tourAt: new Date(now - 60000).toISOString(),
-      consolidationAt: new Date(now - 30000).toISOString()
-    }));
-    const result = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(result.output, {}, "a closed run still lets the agent stop");
-    const recorded = readState(workspace, state.runId).metrics;
-    assert.equal(recorded.version, 1);
-    const usage = recorded.usage;
-    assert.equal(usage.observed, true);
-    assert.equal(usage.source, "copilot-session-events-v1");
-    assert.equal(usage.model, "claude-sonnet-5.5");
-    assert.equal(usage.copilotVersion, "1.0.114");
-    assert.equal(usage.projectState.headCommit, "9ef32c823585261377d1e767ac0da4637e16213b");
-    // Records before the run stay out of the run's sums.
-    assert.equal(usage.totals.records, 2);
-    assert.equal(usage.totals.inputTokens, 364887 + 124662);
-    assert.equal(usage.totals.outputTokens, 123 + 307);
-    assert.equal(usage.totals.durationMs, 4000 + 800);
-    assert.deepEqual(usage.calls, {successful: {create_project_tour: 1, knowledge_save: 1}, refused: {}});
-    assert.equal(usage.windows.boundaryObserved, true);
-    assert.equal(usage.windows.generation.fromAt, runAt);
-    assert.equal(usage.windows.generation.inputTokens, 364887, "input tokens include the cached reads the session reported");
-    assert.equal(usage.windows.generation.cacheReadTokens, 305382);
-    assert.equal(usage.windows.generation.records, 1);
-    assert.equal(usage.windows.consolidation.inputTokens, 124662);
-    assert.equal(usage.windows.consolidation.cacheWriteTokens, 2989);
-    assert.equal(usage.windows.consolidation.outputTokens, 307);
-  } finally {
-    if (previousStateDir === undefined) delete process.env.CODETOUR_COPILOT_SESSION_STATE_DIR; else process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = previousStateDir;
-    rmSync(root, { recursive: true, force: true });
-    rmSync(sessions, { recursive: true, force: true });
-  }
-});
-
-test("a created Tour reports its name and consumed tokens on stderr", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-report-"));
-  const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;
-  process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = sessions;
-  try {
-    const now = Date.now();
-    const runAt = new Date(now - 120000).toISOString();
-    writeState(workspace, {
-      at: runAt,
-      tourCreated: true,
-      tourPath: ".tours/changes.tour",
-      tourTitle: "Revue critique des changements",
-      consolidation: { status: "completed_zero", runId: "run-0123456789abcdef", at: new Date(now - 15000).toISOString() }
-    });
-    writeSessionEvents(sessions, "session-a", sessionEventsFixture({
-      runAt,
-      beforeAt: new Date(now - 3600000).toISOString(),
-      generationAt: new Date(now - 90000).toISOString(),
-      tourAt: new Date(now - 60000).toISOString(),
-      consolidationAt: new Date(now - 30000).toISOString()
-    }));
-    const first = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(first.output, {});
-    assert.match(
-      first.stderr,
-      /CodeTour usage: run run-0123456789abcdef "Revue critique des changements" \(\.tours\/changes\.tour\)/
-    );
-    assert.match(first.stderr, /generation 364,887 in \/ 123 out \(305,382 cached\)/);
-    assert.match(first.stderr, /consolidation 124,662 in \/ 307 out \(121,669 cached\)/);
-    assert.match(first.stderr, /total 489,549 in \/ 430 out \(427,051 cached\)/);
-    assert.match(first.stderr, /claude-sonnet-5\.5/);
-    // The newest stop recomputes the same figures: the line is not repeated.
-    const second = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(second.output, {});
-    assert.equal((second.stderr.match(/CodeTour usage:/g) || []).length, 0);
-  } finally {
-    if (previousStateDir === undefined) delete process.env.CODETOUR_COPILOT_SESSION_STATE_DIR; else process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = previousStateDir;
-    rmSync(root, { recursive: true, force: true });
-    rmSync(sessions, { recursive: true, force: true });
-  }
-});
-
-test("the closing line reports the Knowledge sets and never changes the decision", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-knowledge-"));
-  const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;
-  process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = sessions;
-  try {
-    // A closed run is inert for the guard: this test proves the additive
-    // Knowledge clause is built from the run state, not from the decision.
-    writeState(workspace, {
-      tourCreated: true,
-      tourPath: ".tours/project.tour",
-      tourTitle: "Tour du projet",
-      consolidation: { status: "created", runId: "run-0123456789abcdef", at: new Date().toISOString() },
-      knowledge: {
-        version: 1,
-        observed: true,
-        at: new Date().toISOString(),
-        listings: 2,
-        valid: ["billing-retry", "auth-refresh"],
-        validTotal: 9,
-        complete: false,
-        invalid: [{ name: "stale-auth", reason: "proof_hash_mismatch" }],
-        used: ["billing-retry", "auth-refresh"]
-      }
-    });
-    const first = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(first.output, {});
-    assert.match(first.stderr, /Knowledge 9 valid \/ 1 invalid, 2 used \(billing-retry, auth-refresh\)/);
-    // Invalid entries are a list of actions: always complete, with the reason.
-    assert.match(first.stderr, /CodeTour knowledge invalid: stale-auth — proof_hash_mismatch/);
-    const second = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(second.output, {});
-    assert.equal((second.stderr.match(/CodeTour usage:/g) || []).length, 0);
-    assert.equal((second.stderr.match(/CodeTour knowledge invalid:/g) || []).length, 0);
-  } finally {
-    if (previousStateDir === undefined) delete process.env.CODETOUR_COPILOT_SESSION_STATE_DIR; else process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = previousStateDir;
-    rmSync(root, { recursive: true, force: true });
-    rmSync(sessions, { recursive: true, force: true });
-  }
-});
-
-test("an unobserved usage snapshot is reported as such, never omitted", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-unobserved-"));
-  const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;
-  process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = sessions;
-  try {
-    writeState(workspace, {
-      tourCreated: true,
-      tourPath: ".tours/project.tour",
-      tourTitle: "Project Overview",
-      continuationUsed: true
-    });
-    const result = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(result.output, {});
-    assert.match(
-      result.stderr,
-      /CodeTour usage: run run-0123456789abcdef "Project Overview" \(\.tours\/project\.tour\) — usage not observed \(missing\)/
-    );
-  } finally {
-    if (previousStateDir === undefined) delete process.env.CODETOUR_COPILOT_SESSION_STATE_DIR; else process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = previousStateDir;
-    rmSync(root, { recursive: true, force: true });
-    rmSync(sessions, { recursive: true, force: true });
-  }
-});
-
-test("another run of the same session bounds the first run's usage window", () => {
-
-  const { root, workspace } = workspaceWithSpaces();
-  const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-"));
-  const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;
-  process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = sessions;
-  try {
-    const now = Date.now();
-    const firstAt = new Date(now - 120000).toISOString();
-    const secondAt = new Date(now - 60000).toISOString();
-    const first = writeState(workspace, { runId: "run-aaaaaaaaaaaaaaaa", at: firstAt });
-    const second = writeState(workspace, {
-      runId: "run-bbbbbbbbbbbbbbbb",
-      at: secondAt,
-      tourCreated: true,
-      consolidation: { status: "completed_zero", runId: "run-bbbbbbbbbbbbbbbb", at: secondAt }
-    });
-    writeSessionEvents(sessions, "session-a", [
-      ...sessionEventsFixture({
-        runAt: firstAt,
-        beforeAt: new Date(now - 3600000).toISOString(),
-        generationAt: new Date(now - 120000 + 10000).toISOString(),
-        tourAt: new Date(now - 120000 + 20000).toISOString(),
-        consolidationAt: new Date(now - 120000 + 30000).toISOString()
-      }).filter(event => event.id !== "event-save"),
-      {
-        type: "session.usage_record",
-        id: "event-second-run",
-        timestamp: new Date(now - 60000 + 10000).toISOString(),
-        data: { usage: { model: "claude-sonnet-5.5", inputTokens: 400, outputTokens: 20, cacheReadTokens: 380, cacheWriteTokens: 10, reasoningTokens: 0, duration: 700 } }
-      },
-      {
-        type: "tool.execution_complete",
-        id: "event-second-save",
-        timestamp: new Date(now - 40000).toISOString(),
-        data: { toolCallId: "call-3", toolName: "codetour-knowledge_save", success: true }
-      }
-    ]);
-    runHook(payload({ cwd: workspace }));
-    const firstUsage = readState(workspace, first.runId).metrics.usage;
-    assert.equal(firstUsage.totals.inputTokens, 364887 + 124662, "the first run's window stops before the second run starts");
-    assert.equal(firstUsage.windows.boundaryObserved, true);
-    assert.ok(firstUsage.windows.consolidation, "the first run observed its Tour creation boundary");
-    const secondUsage = readState(workspace, second.runId).metrics.usage;
-    assert.equal(secondUsage.totals.inputTokens, 400);
-    assert.equal(secondUsage.windows.boundaryObserved, false, "no Tour creation completion is claimed for a run that has none");
-    assert.equal(secondUsage.windows.consolidation, null);
-    assert.equal(secondUsage.windows.generation.inputTokens, 400, "without a boundary the window stays entirely in generation");
-  } finally {
-    if (previousStateDir === undefined) delete process.env.CODETOUR_COPILOT_SESSION_STATE_DIR; else process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = previousStateDir;
-    rmSync(root, { recursive: true, force: true });
-    rmSync(sessions, { recursive: true, force: true });
-  }
-});
-
-test("an unavailable session events file records an explicit unobserved report", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-empty-"));
-  const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;
-  process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = sessions;
-  try {
-    const state = writeState(workspace, { tourCreated: true });
-    // The guard still asks for the missing consolidation while the usage
-    // snapshot cannot be observed.
-    const blocked = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(blocked.output, {});
-    const usage = readState(workspace, state.runId).metrics.usage;
-    assert.equal(usage.observed, false);
-    assert.equal(usage.reason, "missing");
-    assert.match(usage.file, /events\.jsonl$/);
-    // After the marked continuation the run lets the agent stop.
-    const second = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(second.output, {});
-  } finally {
-    if (previousStateDir === undefined) delete process.env.CODETOUR_COPILOT_SESSION_STATE_DIR; else process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = previousStateDir;
-    rmSync(root, { recursive: true, force: true });
-    rmSync(sessions, { recursive: true, force: true });
-  }
-});
-
-test("malformed session events lose only the metrics, never the guard", () => {
-  const { root, workspace } = workspaceWithSpaces();
-  const sessions = mkdtempSync(path.join(os.tmpdir(), "codetour-hook-events-noise-"));
-  const previousStateDir = process.env.CODETOUR_COPILOT_SESSION_STATE_DIR;
-  process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = sessions;
-  try {
-    const now = Date.now();
-    const runAt = new Date(now - 120000).toISOString();
-    const state = writeState(workspace, {
-      at: runAt,
-      tourCreated: true,
-      consolidation: { status: "completed_zero", runId: "run-0123456789abcdef", at: new Date(now - 15000).toISOString() }
-    });
-    writeSessionEvents(sessions, "session-a", [
-      "{not json",
-      ...sessionEventsFixture({
-        runAt,
-        beforeAt: new Date(now - 3600000).toISOString(),
-        generationAt: new Date(now - 90000).toISOString(),
-        tourAt: new Date(now - 60000).toISOString(),
-        consolidationAt: new Date(now - 30000).toISOString()
+    const transcriptPath = writeTranscript(root, [
+      sessionStart(now - 600000),
+      userMessage(now - 40000),
+      usageRecord(now - 35000, {
+        inputTokens: 18821,
+        outputTokens: 1160,
+        cacheReadTokens: 18818,
+        cacheWriteTokens: 966,
+        reasoningTokens: 868
       })
     ]);
-    const result = runHook(payload({ cwd: workspace }));
-    assert.deepEqual(result.output, {}, "a closed run lets the agent stop, noise included");
-    const recorded = readState(workspace, state.runId).metrics;
-    assert.equal(recorded.usage.observed, true, "the noisy file does not invalidate the readable records");
-    assert.equal(recorded.usage.totals.inputTokens, 364887 + 124662);
+    const stderr = runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 1 Tour created in this response",
+      `CodeTour: "${record.tourTitle}" — ${record.tourPath}`,
+      "CodeTour: tokens 18,821 in (of which 18,818 cached reads, 966 cached writes), 1,160 out"
+    ]);
   } finally {
-    if (previousStateDir === undefined) delete process.env.CODETOUR_COPILOT_SESSION_STATE_DIR; else process.env.CODETOUR_COPILOT_SESSION_STATE_DIR = previousStateDir;
     rmSync(root, { recursive: true, force: true });
-    rmSync(sessions, { recursive: true, force: true });
+  }
+});
+
+test("several creations of the response are all reported, in creation order", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    writeCreation(workspace, {
+      at: iso(now - 30000),
+      tourPath: path.join(workspace, ".tours", "project.tour"),
+      tourTitle: "Project Overview"
+    });
+    writeCreation(workspace, {
+      at: iso(now - 20000),
+      tourPath: path.join(workspace, ".tours", "review.tour"),
+      tourTitle: "Revue critique des changements",
+      kind: "changes"
+    });
+    const transcriptPath = writeTranscript(root, [
+      userMessage(now - 40000),
+      usageRecord(now - 30000, { inputTokens: 100, outputTokens: 10 })
+    ]);
+    const stderr = runHook(payload({ cwd: workspace, timestamp: Date.now(), transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 2 Tours created in this response",
+      `CodeTour: "Project Overview" — ${path.join(workspace, ".tours", "project.tour")}`,
+      `CodeTour: "Revue critique des changements" — ${path.join(workspace, ".tours", "review.tour")}`,
+      "CodeTour: tokens 100 in, 10 out"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a creation of another session, another workspace or before the response is excluded", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  const other = path.join(root, "other workspace");
+  mkdirSync(other, { recursive: true });
+  try {
+    const now = Date.now();
+    const transcriptPath = writeTranscript(root, [userMessage(now - 40000)]);
+    // Another session, a record without a session identity, a record of another
+    // host, a creation older than this response and one from the future.
+    writeCreation(workspace, { at: iso(now - 20000), sessionId: "session-b", tourTitle: "Autre session" });
+    writeCreation(workspace, { at: iso(now - 20000), sessionId: null, tourTitle: "Sans session" });
+    writeCreation(workspace, { at: iso(now - 20000), host: "pi", tourTitle: "Autre hôte" });
+    writeCreation(workspace, { at: iso(now - 90000), tourTitle: "Réponse précédente" });
+    writeCreation(workspace, { at: iso(now + 60000), tourTitle: "Horloge en avance" });
+    assert.equal(
+      runHook(payload({ cwd: workspace, timestamp: now, transcriptPath })).trim(),
+      "",
+      "none of those creations is attributed to this response"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a creation of the same session in another workspace is excluded", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  const other = path.join(root, "other workspace");
+  mkdirSync(other, { recursive: true });
+  try {
+    const now = Date.now();
+    // A record that names this session but another workspace root.
+    writeCreation(workspace, { at: iso(now - 20000), workspace: realpathSync(other), tourTitle: "Ailleurs" });
+    const transcriptPath = writeTranscript(root, [userMessage(now - 40000)]);
+    assert.equal(runHook(payload({ cwd: workspace, timestamp: now, transcriptPath })).trim(), "");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the response boundary is the last user message before the stop", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    // Created in the previous response: before the last user message.
+    writeCreation(workspace, { at: iso(now - 50000), tourTitle: "Réponse précédente" });
+    writeCreation(workspace, { at: iso(now - 20000), tourTitle: "Réponse courante" });
+    const transcriptPath = writeTranscript(root, [
+      userMessage(now - 90000),
+      usageRecord(now - 60000, { inputTokens: 5000, outputTokens: 50 }),
+      userMessage(now - 40000),
+      usageRecord(now - 30000, { inputTokens: 400, outputTokens: 40 })
+    ]);
+    const stderr = runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 1 Tour created in this response",
+      `CodeTour: "Réponse courante" — ${path.join(workspace, ".tours", "project.tour")}`,
+      "CodeTour: tokens 400 in, 40 out"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a response without a user message falls back to the session start and says it is approximate", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    writeCreation(workspace, { at: iso(now - 20000), tourTitle: "Project Overview" });
+    const transcriptPath = writeTranscript(root, [
+      sessionStart(now - 60000),
+      usageRecord(now - 30000, { inputTokens: 300, outputTokens: 30 })
+    ]);
+    const stderr = runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 1 Tour created in this response (approximate)",
+      `CodeTour: "Project Overview" — ${path.join(workspace, ".tours", "project.tour")}`,
+      "CodeTour: tokens 300 in, 30 out (approximate)"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("missing usage is reported as unavailable, never as zero", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    writeCreation(workspace, { at: iso(now - 20000) });
+    const transcriptPath = writeTranscript(root, [userMessage(now - 40000)]);
+    const stderr = runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 1 Tour created in this response",
+      `CodeTour: "Project Overview" — ${path.join(workspace, ".tours", "project.tour")}`,
+      "CodeTour: tokens unavailable (no usage records in this response)"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("partial usage reports only the figures the session recorded", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    writeCreation(workspace, { at: iso(now - 20000) });
+    const transcriptPath = writeTranscript(root, [
+      userMessage(now - 40000),
+      usageRecord(now - 30000, { inputTokens: 2500, cacheReadTokens: 2400 })
+    ]);
+    const stderr = runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 1 Tour created in this response",
+      `CodeTour: "Project Overview" — ${path.join(workspace, ".tours", "project.tour")}`,
+      "CodeTour: tokens 2,500 in (of which 2,400 cached reads)"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("usage records without token figures are unavailable, not a zero reading", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    writeCreation(workspace, { at: iso(now - 20000) });
+    const transcriptPath = writeTranscript(root, [
+      userMessage(now - 40000),
+      usageRecord(now - 30000, { model: "claude-sonnet-5.5", duration: 400 })
+    ]);
+    const stderr = runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 1 Tour created in this response",
+      `CodeTour: "Project Overview" — ${path.join(workspace, ".tours", "project.tour")}`,
+      "CodeTour: tokens unavailable (no token figures in this response)"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("cache is shown as a part of the input total, never added to it", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    writeCreation(workspace, { at: iso(now - 20000) });
+    const transcriptPath = writeTranscript(root, [
+      userMessage(now - 40000),
+      usageRecord(now - 35000, { inputTokens: 18821, outputTokens: 3, cacheReadTokens: 0, cacheWriteTokens: 18818 }),
+      usageRecord(now - 30000, { inputTokens: 19787, outputTokens: 20, cacheReadTokens: 18818, cacheWriteTokens: 966 })
+    ]);
+    const stderr = runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 1 Tour created in this response",
+      `CodeTour: "Project Overview" — ${path.join(workspace, ".tours", "project.tour")}`,
+      // 18,821 + 19,787 in; 18,818 read; 18,818 + 966 written. The input total
+      // already contains both cache figures (recon §5.c).
+      "CodeTour: tokens 38,608 in (of which 18,818 cached reads, 19,784 cached writes), 23 out"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a second stop of the same response prints no second reading", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    writeCreation(workspace, { at: iso(now - 20000) });
+    const transcriptPath = writeTranscript(root, [
+      userMessage(now - 40000),
+      usageRecord(now - 30000, { inputTokens: 700, outputTokens: 70 })
+    ]);
+    const first = runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }));
+    assert.equal(summaryLines(first).length, 3);
+    const second = runHook(payload({ cwd: workspace, timestamp: now + 500, transcriptPath }));
+    assert.equal(second.trim(), "", "the response was already reported");
+    const sentinels = readdirSync(reportedDirectory(workspace));
+    assert.deepEqual(sentinels, [`session-a-${now - 40000}`], "the marker names the session and the response start");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a later response of the same session reports its own creation again", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    const transcriptPath = writeTranscript(root, [
+      userMessage(now - 40000),
+      usageRecord(now - 35000, { inputTokens: 700, outputTokens: 70 })
+    ]);
+    writeCreation(workspace, { at: iso(now - 30000), tourTitle: "Première réponse" });
+    assert.equal(summaryLines(runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }))).length, 3);
+    // A new user message opens a new response, the transcript grows with it.
+    writeTranscript(root, [
+      userMessage(now - 40000),
+      usageRecord(now - 35000, { inputTokens: 700, outputTokens: 70 }),
+      userMessage(now - 5000),
+      usageRecord(now - 2000, { inputTokens: 1500, outputTokens: 150 })
+    ]);
+    writeCreation(workspace, { at: iso(now - 1000), tourTitle: "Seconde réponse" });
+    const stderr = runHook(payload({ cwd: workspace, timestamp: now + 100, transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 1 Tour created in this response",
+      `CodeTour: "Seconde réponse" — ${path.join(workspace, ".tours", "project.tour")}`,
+      "CodeTour: tokens 1,500 in, 150 out"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("one creation of many responses in the same second uses the millisecond boundary", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const boundary = Date.parse("2026-01-02T03:04:05.678Z");
+    // Exactly on the boundary: attributed, the window is [start, stop].
+    writeCreation(workspace, { at: iso(boundary), tourTitle: "À la frontière" });
+    writeCreation(workspace, { at: iso(boundary - 1), tourTitle: "Juste avant" });
+    const transcriptPath = writeTranscript(root, [userMessage(boundary)]);
+    const stderr = runHook(payload({ cwd: workspace, timestamp: boundary + 10000, transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 1 Tour created in this response",
+      `CodeTour: "À la frontière" — ${path.join(workspace, ".tours", "project.tour")}`,
+      "CodeTour: tokens unavailable (no usage records in this response)"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an unreadable journal or an unwritable marker never fails the stop", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    const transcriptPath = writeTranscript(root, [userMessage(now - 40000)]);
+    // The creation directory is a file: the journal cannot be enumerated.
+    mkdirSync(path.join(workspace, ".tours", ".log"), { recursive: true });
+    writeFileSync(creationsDirectory(workspace), "not a directory\n");
+    const unreadable = runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }));
+    assert.deepEqual(summaryLines(unreadable), []);
+    assert.match(unreadable, /CodeTour agentStop: ignored creation record/);
+
+    // A corrupt record is ignored, a readable one is still reported.
+    rmSync(creationsDirectory(workspace), { force: true });
+    writeCreation(workspace, { at: iso(now - 20000), tourTitle: "Lisible" });
+    writeFileSync(path.join(creationsDirectory(workspace), `${now - 25000}-1-deadbeef.json`), "{not json");
+    assert.deepEqual(summaryLines(runHook(payload({ cwd: workspace, timestamp: now, transcriptPath }))).slice(1, 2), [
+      `CodeTour: "Lisible" — ${path.join(workspace, ".tours", "project.tour")}`
+    ]);
+
+    // The marker directory cannot be created: the summary is still printed.
+    const blocked = path.join(workspace, ".tours", ".log", "creations", ".reported");
+    rmSync(blocked, { recursive: true, force: true });
+    writeFileSync(blocked, "not a directory\n");
+    const stderr = runHook(payload({ cwd: workspace, timestamp: now + 1, transcriptPath }));
+    assert.equal(summaryLines(stderr).length, 3, "the summary does not depend on the marker");
+    assert.ok(statSync(blocked).isFile());
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// End to end: the command the skill documents, run by the agent with the session
+// identity the Copilot CLI exports to tool processes, then the hook on the very
+// response that ran it. This is the whole path — proposal on standard input, one
+// JSON document back, one journal record, one summary — and not a fixture.
+const cli = path.resolve("dist/cli.js");
+
+function cleanCreationEnv(extra = {}) {
+  const { CODETOUR_SESSION_ID, CODETOUR_RESPONSE_ID, CODETOUR_HOST, PI_SESSION_ID, ...rest } = process.env;
+  return { ...rest, ...extra };
+}
+
+function runCreation(cwd, args, input, env) {
+  const result = spawnSync(process.execPath, [cli, ...args], {
+    cwd,
+    encoding: "utf8",
+    input,
+    env: cleanCreationEnv(env),
+    timeout: 120000
+  });
+  return result;
+}
+
+test("the command from the skill creates a Tour that the hook then reports", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const now = Date.now();
+    const transcriptPath = writeTranscript(root, [
+      userMessage(now - 40000),
+      usageRecord(now - 30000, { inputTokens: 2400, outputTokens: 240, cacheReadTokens: 2000 })
+    ]);
+    const created = runCreation(
+      workspace,
+      ["create-project-tour", "--workspace", workspace],
+      JSON.stringify({
+        title: "Flux de facturation",
+        steps: [{ title: "Vue d'ensemble", description: "Où le travail se trouve." }]
+      }),
+      { COPILOT_AGENT_SESSION_ID: "session-a" }
+    );
+    assert.equal(created.status, 0, created.stderr);
+    const result = JSON.parse(created.stdout);
+    assert.equal(result.ok, true);
+    // The stop happens after the creation: the payload stamp is the end of the
+    // response window.
+    const stderr = runHook(payload({ cwd: workspace, timestamp: Date.now(), transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 1 Tour created in this response",
+      `CodeTour: "Flux de facturation" — ${result.tourPath}`,
+      "CodeTour: tokens 2,400 in (of which 2,000 cached reads), 240 out"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a critical Changes Tour created by the CLI in the same response is reported too", () => {
+  const { root, workspace } = workspaceWithSpaces();
+  try {
+    const git = (...args) => execFileSync("git", args, { cwd: workspace, encoding: "utf8" }).trim();
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "test@example.com");
+    git("config", "user.name", "Test User");
+    git("config", "commit.gpgsign", "false");
+    writeFileSync(path.join(workspace, "base.txt"), "base\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    const baseRef = git("rev-parse", "HEAD");
+    writeFileSync(path.join(workspace, "feature.ts"), "export function feature() {}\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "feature");
+    const headRef = git("rev-parse", "HEAD");
+
+    const now = Date.now();
+    const transcriptPath = writeTranscript(root, [
+      userMessage(now - 60000),
+      usageRecord(now - 50000, { inputTokens: 900, outputTokens: 90 })
+    ]);
+    const env = { COPILOT_AGENT_SESSION_ID: "session-a" };
+    const project = runCreation(
+      workspace,
+      ["create-project-tour", "--workspace", workspace],
+      JSON.stringify({ title: "Architecture", steps: [{ description: "Vue d'ensemble." }] }),
+      env
+    );
+    assert.equal(project.status, 0, project.stderr);
+    const changes = runCreation(
+      workspace,
+      ["create-changes-tour", "--workspace", workspace],
+      JSON.stringify({
+        baseRef,
+        headRef,
+        reviewMode: "critical",
+        title: "Revue critique des changements",
+        steps: [{ description: "Constat : la fonction n'est jamais appelée.", file: "feature.ts", line: 1 }]
+      }),
+      env
+    );
+    assert.equal(changes.status, 0, changes.stderr);
+
+    const stderr = runHook(payload({ cwd: workspace, timestamp: Date.now(), transcriptPath }));
+    assert.deepEqual(summaryLines(stderr), [
+      "CodeTour: 2 Tours created in this response",
+      `CodeTour: "Architecture" — ${JSON.parse(project.stdout).tourPath}`,
+      `CodeTour: "Revue critique des changements" — ${JSON.parse(changes.stdout).tourPath}`,
+      "CodeTour: tokens 900 in, 90 out"
+    ]);
+
+    // Reading is untouched by this ticket: the Tours the documented command
+    // created are the ones the existing reader discovers.
+    const listed = spawnSync(process.execPath, [cli, "--internal-list-tours"], {
+      cwd: workspace,
+      encoding: "utf8"
+    });
+    assert.equal(listed.status, 0, listed.stderr);
+    assert.deepEqual(
+      JSON.parse(listed.stdout).map(tour => tour.title).sort(),
+      ["Architecture", "Revue critique des changements"]
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
