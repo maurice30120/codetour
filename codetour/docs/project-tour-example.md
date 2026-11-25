@@ -8,22 +8,22 @@ première étape donne une carte du système sans pointer vers un fichier ; les
 {
   "$schema": "https://aka.ms/codetour-schema",
   "title": "Découvrir CodeTour IA",
-  "description": "Un parcours du point d'entrée MCP jusqu'au rendu des descriptions enrichies dans l'extension VS Code.",
+  "description": "Un parcours de la création d'un Tour par le CLI jusqu'au rendu des descriptions enrichies dans l'extension VS Code.",
   "steps": [
     {
       "title": "Vue d'ensemble",
-      "description": "CodeTour IA aide les développeurs à comprendre un projet grâce à des parcours guidés affichés dans Visual Studio Code. Un agent IA analyse le workspace et propose le contenu ; le serveur MCP local le valide et l'enregistre avant que l'extension ne le présente au lecteur.\n\n**Diagram — Vue contexte**\n\n```mermaid\nflowchart LR\n    Auteur[\"Auteur du tour — veut expliquer le projet\"]\n    Lecteur[\"Lecteur — veut comprendre le code\"]\n    Agent[\"Agent IA compatible MCP\"]\n    Systeme[\"CodeTour IA\"]\n    VSCode[\"Visual Studio Code\"]\n    Auteur -->|demande un parcours en langage naturel| Agent\n    Agent -->|propose le contenu via MCP stdio| Systeme\n    Systeme -->|affiche le parcours via API d'extension| VSCode\n    Lecteur -->|parcourt les étapes dans l'interface| VSCode\n```\n\n**Diagram — Conteneurs**\n\n```mermaid\nflowchart LR\n    Agent[\"Agent IA\"]\n    Lecteur[\"Lecteur\"]\n    subgraph Extension[\"Conteneur — extension VS Code\"]\n        Webview[\"Interface et rendu du tour\"]\n    end\n    subgraph Serveur[\"Conteneur — serveur MCP local\"]\n        MCP[\"Validation et création du tour\"]\n    end\n    subgraph Stockage[\"Conteneur — stockage workspace\"]\n        Tours[(\"Fichiers .tours/*.tour\")]\n    end\n    Agent -->|soumet une proposition via MCP stdio| MCP\n    MCP -->|écrit atomiquement au format JSON| Tours\n    Webview -->|lit le tour depuis le workspace| Tours\n    Lecteur -->|consulte les étapes dans VS Code| Webview\n```\n\n### Zones du workspace\n\n- Extension VS Code et interface : [`src/`](../src/)\n- Serveur MCP local : [`packages/mcp-server/`](../packages/mcp-server/)\n- Rendu Markdown et Mermaid partagé : [`packages/description-renderer/`](../packages/description-renderer/)"
+      "description": "CodeTour IA aide les développeurs à comprendre un projet grâce à des parcours guidés affichés dans Visual Studio Code. Un agent IA analyse le workspace et propose le contenu ; le CLI CodeTour le valide et l'enregistre avant que l'extension ne le présente au lecteur.\n\n**Diagram — Vue contexte**\n\n```mermaid\nflowchart LR\n    Auteur[\"Auteur du tour — veut expliquer le projet\"]\n    Lecteur[\"Lecteur — veut comprendre le code\"]\n    Agent[\"Agent IA avec le skill CodeTour\"]\n    Systeme[\"CodeTour IA\"]\n    VSCode[\"Visual Studio Code\"]\n    Auteur -->|demande un parcours en langage naturel| Agent\n    Agent -->|soumet une proposition JSON au CLI| Systeme\n    Systeme -->|affiche le parcours via API d'extension| VSCode\n    Lecteur -->|parcourt les étapes dans l'interface| VSCode\n```\n\n**Diagram — Conteneurs**\n\n```mermaid\nflowchart LR\n    Agent[\"Agent IA\"]\n    Lecteur[\"Lecteur\"]\n    subgraph Extension[\"Conteneur — extension VS Code\"]\n        Webview[\"Interface et rendu du tour\"]\n    end\n    subgraph Creation[\"Conteneur — paquet de création\"]\n        MCP[\"Validation et création du tour\"]\n    end\n    subgraph Stockage[\"Conteneur — stockage workspace\"]\n        Tours[(\"Fichiers .tours/*.tour\")]\n    end\n    Agent -->|soumet une proposition JSON au CLI| MCP\n    MCP -->|écrit atomiquement au format JSON| Tours\n    Webview -->|lit le tour depuis le workspace| Tours\n    Lecteur -->|consulte les étapes dans VS Code| Webview\n```\n\n### Zones du workspace\n\n- Extension VS Code et interface : [`src/`](../src/)\n- Validation et création du tour : [`packages/tour-generation/`](../packages/tour-generation/)\n- Rendu Markdown et Mermaid partagé : [`packages/description-renderer/`](../packages/description-renderer/)"
     },
     {
       "title": "Le contrat du Project Tour",
-      "description": "La description de l'outil indique à l'agent comment construire un parcours cohérent. Elle impose notamment une première étape d'orientation avant les ancres de code.",
-      "file": "packages/mcp-server/src/server.ts",
-      "pattern": "const PROJECT_TOUR_DESCRIPTION ="
+      "description": "Le skill et la validation imposent notamment une première étape d'orientation, sans ancre de code, avant les étapes ancrées.",
+      "file": "packages/tour-generation/src/creation.ts",
+      "pattern": "export async function createProjectTour"
     },
     {
       "title": "La validation des étapes",
-      "description": "Le serveur vérifie ensuite chaque description et chaque locator avant toute écriture. Une ancre par `pattern` doit être une expression régulière sûre qui ne correspond qu'à un seul emplacement.",
-      "file": "packages/mcp-server/src/validation.ts",
+      "description": "La création vérifie ensuite chaque description et chaque locator avant toute écriture. Une ancre par `pattern` doit être une expression régulière sûre qui ne correspond qu'à un seul emplacement.",
+      "file": "packages/tour-generation/src/validation.ts",
       "pattern": "export function validateSteps\\("
     },
     {

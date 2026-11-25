@@ -1,6 +1,6 @@
 # CodeTour
 
-CodeTour is a VS Code extension that records and plays back guided tours of a codebase, plus an MCP server through which an AI agent authors those tours.
+CodeTour is a VS Code extension that records and plays back guided tours of a codebase, plus a generation skill and a local CLI through which an AI agent authors those tours.
 
 ## Language
 

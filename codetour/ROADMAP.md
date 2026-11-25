@@ -30,9 +30,9 @@ L’objectif est de proposer des Tours générés par une IA pour expliquer un p
 
 ## Priorité 1 — Modes de génération
 
-### Questions de l’agent guidées par le MCP
+### Questions de l’agent guidées par le skill de génération
 
-Guider le Tour Generator pour qu’il précise l’intention du lecteur avant de générer un Tour, en s’appuyant sur les descriptions des outils MCP pour proposer des questions pertinentes.
+Guider le Tour Generator pour qu’il précise l’intention du lecteur avant de générer un Tour, en s’appuyant sur les consignes du skill `codetour-generate` pour proposer des questions pertinentes.
 
 - [ ] Demander uniquement les informations absentes de la demande ou du contexte du projet, et réutiliser les réponses déjà données.
 - [ ] Pour une demande de revue, demander si le lecteur souhaite une explication neutre des changements ou une évaluation avec le skill `code-review` ; distinguer l’explication de remarques existantes de la réalisation d’une nouvelle revue.
@@ -45,14 +45,15 @@ Guider le Tour Generator pour qu’il précise l’intention du lecteur avant de
   que si le lecteur le mentionne ; sinon, adapter le Tour au contexte. Une
   préférence facultative sans réponse signifie « aucune préférence » et ne
   bloque pas la génération.
-- [ ] Utiliser les réponses pour sélectionner un Project Tour ou un Changes Tour et adapter son périmètre, l’ordre des Tour Steps, le détail et les diagrammes, en conservant les deux outils MCP spécialisés.
+- [ ] Utiliser les réponses pour sélectionner un Project Tour ou un Changes Tour et adapter son périmètre, l’ordre des Tour Steps, le détail et les diagrammes, en conservant les deux commandes de création (`create-project-tour`, `create-changes-tour`).
 - [ ] Traiter l’absence de préférence facultative comme un choix neutre et
   poursuivre avec le comportement standard ; bloquer uniquement si une donnée
   indispensable manque.
-- [ ] Pour une revue critique, un client MCP direct doit lire
-  `codetour://review/critical-instructions` avant l’appel MCP ; l’adaptateur
-  Copilot, lui, lit `codetour://generate/changes-tour/critical`, qui porte le
-  même contrat. En cas d’échec de lecture, arrêter explicitement la génération
+- [ ] Pour une revue critique, le skill doit lire le pack
+  `references/` livré à côté de son `SKILL.md`
+  (`codetour-adaptation.md`, `upstream-code-review.md`,
+  `upstream-LICENSE.txt`) avant d’écrire la moindre étape. En cas d’échec de
+  lecture, arrêter explicitement la génération
   critique au lieu de produire
   silencieusement un Tour neutre ou de présenter un Tour sans revue comme
   critique. Si aucune source de spécification n’est trouvée, poursuivre avec
@@ -101,8 +102,9 @@ Expliquer l’intention, l’implémentation et les effets des changements depui
   distante locale de la branche courante, sinon la branche par défaut locale.
   Ne pas effectuer de fetch automatique. Annoncer le ref et le commit résolus
   avant l’analyse ; si aucun ref local fiable n’existe, demander une base.
-  Transmettre ensuite un `baseRef` explicite au MCP et préserver son contrat
-  de validation et de comparaison. La comparaison résolue reste enregistrée.
+  Transmettre ensuite un `baseRef` explicite à la commande de création et
+  préserver son contrat de validation et de comparaison. La comparaison résolue
+  reste enregistrée.
 - [ ] Mettre en évidence les effets sur les tests, la configuration et les migrations.
 - [ ] Proposer un parcours centré sur les impacts, couvrant les consommateurs, les contrats et les comportements concernés au-delà des fichiers modifiés, en justifiant chaque relation par le code et en distinguant les impacts potentiels des effets observés.
 - [ ] Ajouter un exemple de Changes Tour à la documentation.
@@ -130,9 +132,9 @@ La PR #82 reste la source de vérité ; les anciennes PR servent uniquement de
 références d’implémentation.
 
 - [ ] **Lot 1 — Mermaid (E + F)** : fournir des diagnostics précis pour les
-  légendes et diagrammes invalides ; aligner les instructions MCP et les
-  diagnostics sur une grammaire commune, sans second parseur ni correction
-  silencieuse.
+  légendes et diagrammes invalides ; aligner les consignes du skill de génération
+  et les diagnostics sur une grammaire commune, sans second parseur ni
+  correction silencieuse.
 - [ ] **Lot 2 — WebView et basculement (A + D)** : ajouter la lecture dans un
   panneau latéral VS Code et permettre de basculer entre commentaires et
   WebView sans perdre l’étape, son contexte, sa progression ou ses conversations
@@ -141,12 +143,14 @@ références d’implémentation.
   enregistrer ou annuler une description ; préserver les brouillons avec les
   choix Save/Discard/Cancel et protéger les écritures contre les courses.
   Dépend du lot 2.
-- [ ] **Lot 4 — Configuration Codex (G)** : ajouter la configuration et la
-  réparation explicite du serveur MCP pour Codex CLI, sans écrasement silencieux
-  de la configuration utilisateur. Peut avancer en parallèle des lots 1 à 3.
+- [ ] **Lot 4 — Configuration Codex (G)** : ~~ajouter la configuration et la
+  réparation explicite du serveur MCP pour Codex CLI~~ — sans objet depuis
+  [ADR 0057](docs/adr/0057-create-tours-with-a-skill-and-a-local-cli-and-ship-no-mcp-server.md) :
+  CodeTour ne livre plus de serveur, `--doctor` signale la configuration Codex
+  résiduelle avec la commande `codex mcp remove codetour`.
 - [ ] Valider chaque lot séparément, puis exécuter les tests complets, le build,
   le packaging VSIX et les vérifications de non-régression sur les lecteurs
-  autonomes, ACP, MCP, Mermaid, images et Git.
+  autonomes, ACP, la création par le CLI, Mermaid, images et Git.
 
 ## Priorité 2 — Qualité des Tours
 
@@ -173,13 +177,13 @@ un contexte évolutif sans générer ni remplacer dynamiquement ces suggestions.
 - [ ] Ne pas régénérer les questions après une réponse ACP ; les suggestions
   restent stables pendant la session de lecture.
 
-### Format des images au moment de l’appel MCP
+### Format des images au moment de la création
 
 **Priorité : moyenne. Catégorie : navigation et économie d’outils.**
 
 Le format des images locales est déjà décrit dans le guide utilisateur. Le rendre visible au point d’usage doit éviter au Tour Generator d’explorer le renderer ou de supposer une solution en base64 avant de consulter cette référence ciblée.
 
-- [ ] Ajouter aux consignes Markdown partagées par les descriptions des outils, dans [`packages/mcp-server/src/server.ts`](packages/mcp-server/src/server.ts), une indication courte : « Images locales : `![Schéma](./docs/schema.png)`, chemin depuis la racine du workspace. Une étape purement illustrée n’a pas d’ancre de code. »
+- [ ] Ajouter aux consignes Markdown partagées par la validation de création, dans [`packages/tour-generation/src/validation.ts`](packages/tour-generation/src/validation.ts), une indication courte : « Images locales : `![Schéma](./docs/schema.png)`, chemin depuis la racine du workspace. Une étape purement illustrée n’a pas d’ancre de code. »
 - [ ] Pointer vers la section [File References du guide utilisateur](docs/user-guide.md#file-references) pour les détails ; conserver le PNG dans le dépôt et une référence courte dans la description du Tour Step.
 - [ ] Garder ce renseignement au point d’usage, sans ajouter de règle globale à `AGENTS.md` ni recopier le guide dans un nouveau skill.
 - [ ] Avertir sans bloquer lorsqu’une image auteur en `data:` URI dépasse

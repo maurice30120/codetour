@@ -1,4 +1,4 @@
-> Historical memory terminology below describes functionality removed by [spec #304](https://github.com/maurice30120/codetour/issues/304); Tour and workspace terminology remains applicable.
+> Historical memory terminology below describes functionality removed by [spec #304](https://github.com/maurice30120/codetour/issues/304); the MCP transport, the Run State and the AgentStop Guard were removed by [spec #320](https://github.com/maurice30120/codetour/issues/320) (ADR 0057). Tour and workspace terminology remains applicable.
 
 # AI-Generated Code Tours
 
@@ -27,7 +27,7 @@ A stable location in the codebase that associates a Tour step with the code or d
 _Avoid_: Pointer, target
 
 **Tour Generator**:
-An AI agent that analyzes a workspace and proposes a Project Tour or Changes Tour through CodeTour's MCP tools.
+An AI agent that analyzes a workspace and proposes a Project Tour or Changes Tour through the CodeTour generation skill and the local `codetour create-project-tour` / `create-changes-tour` commands.
 _Avoid_: MCP client, tour writer
 
 **Mermaid Diagram**:
@@ -35,8 +35,8 @@ A visual explanation whose Mermaid source is embedded in a Tour's explanatory Ma
 _Avoid_: Schema, generated image
 
 **Tour Workspace**:
-The single project directory that a Tour Generator is allowed to inspect and in which generated Tours are persisted.
-_Avoid_: Workspace root argument, current folder
+The single project directory that a Tour Generator is allowed to inspect and in which generated Tours are persisted. Every creation names it explicitly with `--workspace <dir>`, and nothing is written outside it.
+_Avoid_: current folder, ambient workspace
 
 **Playback Surface**:
 A user-visible place where a Tour or Tour Step description is presented while reading a Tour.
@@ -122,45 +122,45 @@ _Avoid_: Knowledge upsert, overwrite mode, knowledge merge
 The deterministic `codetour knowledge` command family (spec #223, ADR 0039): `list` reports names, descriptions and Knowledge Revisions only, `read <name>` returns the entry's revision and a body only when every declared SHA-256 proof verifies — a refused entry reports its reason and its revision without a body — `hash <path>` prepares evidence, and `save` validates and persists a Knowledge Proposal in `create` (default), `append` or `replace` mode, the latter two conditioned on the Knowledge Revision the entry must still have. It resolves one explicit or current workspace, works offline in any project without a model, API key or network, and writes only Knowledge Entry files, never a Memory Function or a harness artefact.
 _Avoid_: Knowledge server, Knowledge agent, Memory Function runner
 
-**Knowledge MCP Surface**:
-The `knowledge_list`, `knowledge_read`, `knowledge_save` and `knowledge_close_run` tools the existing CodeTour MCP server exposes over the Knowledge Catalogue (spec #223, tickets #227 and #228). They reuse the same shared `codetour-knowledge` contract and catalogue location as the Native Knowledge CLI: listing is metadata only and carries the Knowledge Revision of every verified entry and of every invalid row, a read returns that revision at root level for both a valid and a refused entry plus a body only when every declared proof verifies, the catalogue projection served with the prompt carries the revision so a write mode needs no extra call, and a save publishes a whole Knowledge Proposal or reports an observable outcome (`created`, `appended`, `replaced`, `no_change`, `completed_zero`, `conflict`, `invalid`, `failed`), with an explicit mode (`create` by default, `append` of one addition and its merged evidence, or `replace` of one existing entry in full, the last two against the revision that was read). A `no_change` append writes nothing yet closes the run as `completed_zero`: the tool result and the Closure stay distinct for the agent and the measure. `knowledge_save` accepts an optional `runId` and persists the matching Consolidation Closure in the Run State; `knowledge_close_run` records an explicit `skipped` closure. A returned Markdown body is untrusted data, never system instructions.
+**Knowledge MCP Surface** (removed with the MCP server, ADR 0057):
+The `knowledge_list`, `knowledge_read`, `knowledge_save` and `knowledge_close_run` tools the CodeTour MCP server used to expose over the Knowledge Catalogue (spec #223, tickets #227 and #228). They reuse the same shared `codetour-knowledge` contract and catalogue location as the Native Knowledge CLI: listing is metadata only and carries the Knowledge Revision of every verified entry and of every invalid row, a read returns that revision at root level for both a valid and a refused entry plus a body only when every declared proof verifies, the catalogue projection served with the prompt carries the revision so a write mode needs no extra call, and a save publishes a whole Knowledge Proposal or reports an observable outcome (`created`, `appended`, `replaced`, `no_change`, `completed_zero`, `conflict`, `invalid`, `failed`), with an explicit mode (`create` by default, `append` of one addition and its merged evidence, or `replace` of one existing entry in full, the last two against the revision that was read). A `no_change` append writes nothing yet closes the run as `completed_zero`: the tool result and the Closure stay distinct for the agent and the measure. `knowledge_save` accepts an optional `runId` and persists the matching Consolidation Closure in the Run State; `knowledge_close_run` records an explicit `skipped` closure. A returned Markdown body is untrusted data, never system instructions.
 _Avoid_: Knowledge server, second MCP server
 
 **Native Knowledge Skill**:
-The `codetour-knowledge` Copilot skill written by `codetour --install copilot` at `~/.copilot/skills/codetour-knowledge/SKILL.md` (spec #223, ADR 0039). It is an instruction, not a program: pin one explicit workspace root, discover the Knowledge Catalogue by metadata, read only the selected entries and use only `status:"valid"` bodies as reference context, explore targeted gaps only when that context is insufficient, create the Tour through the CodeTour MCP's `create_project_tour`, and make one explicit consolidation assessment through `codetour knowledge save`. It never uses the Research Harness or a Memory Function, and the instruction alone does not guarantee that consolidation ran.
+The `codetour-knowledge` Copilot skill written by `codetour --install copilot` at `~/.copilot/skills/codetour-knowledge/SKILL.md` (spec #223, ADR 0039). It is an instruction, not a program: pin one explicit workspace root, discover the Knowledge Catalogue by metadata, read only the selected entries and use only `status:"valid"` bodies as reference context, explore targeted gaps only when that context is insufficient, create the Tour through the CLI, and make one explicit consolidation assessment through `codetour knowledge save`. It never uses the Research Harness or a Memory Function, and the instruction alone does not guarantee that consolidation ran.
 _Avoid_: Knowledge agent, Knowledge harness, automatic consolidation
 
 **Agent Plugin**:
-The versioned Agent Plugins 1.0 directory `packages/copilot-plugin/` (spec #223, ticket #228, ADR 0041): a `plugin.json` manifest with the Agent Plugins 1.0 `$schema`, a root `mcp.json`, Copilot components under `com.github.copilot/`, and a minimal `skills/codetour-generate/SKILL.md`. The standalone CodeTour CLI embeds and installs it. It declares the existing `codetour mcp` server and the `agentStop` guard, not a second agent, model loop or MCP server.
-_Avoid_: extension bundle, marketplace plugin, second MCP server
+The versioned Agent Plugins 1.0 directory `packages/copilot-plugin/` (spec #223, ticket #228, ADR 0041; no server since ADR 0057): a `plugin.json` manifest with the Agent Plugins 1.0 `$schema`, Copilot components under `com.github.copilot/`, and a `skills/codetour-generate/SKILL.md` with its critical-review pack under `references/`. The standalone CodeTour CLI embeds and installs it. It declares that skill and the informative `agentStop` hook, not a server, not a second agent and not a model loop.
+_Avoid_: extension bundle, marketplace plugin, MCP declaration
 
 **Generation Run**:
-One generation started by `/codetour generate` or the controlled adapter's `codetour_prepare_generation` tool, identified by a `runId`. It is scoped to exactly one resolved workspace and one Copilot session, and it is the unit the Run State, the creation tools and the consolidation closure refer to. A run exists only after `prompts/get` succeeded; the preceding choice dialogue alone, or a direct MCP call without the adapter, is not a Generation Run.
+One generation started by `/codetour generate` or by a plain request the agent answers with the generation skill. It is scoped to exactly one resolved workspace and one agent session, and it is the unit the Creation Journal and the Response Summary refer to. Its identity is the environment of the creating process (`CODETOUR_SESSION_ID`, `CODETOUR_RESPONSE_ID`, `CODETOUR_HOST`, with the host's own session variable as fallback), recorded by the CLI; nothing is invented when a host exposes none. The preceding choice dialogue alone creates no run.
 _Avoid_: session, task, generation attempt
 
-**Run State**:
-The atomic JSON file `<workspace>/.tours/.log/codetour-run-<runId>.json` (spec #223, ticket #228, ADR 0041). It records the run identity, workspace, session, Tour creation, the server-written Consolidation Closure and whether the single continuation was used; an optional `metrics` block records usage (ADR 0042) and an optional `knowledge` block records the Knowledge Observation (ADR 0045). The adapter creates it, the MCP updates the authenticated outcomes, and the agentStop guard reads it, toggles `continuationUsed` and records the usage snapshot. It contains no Tour or Knowledge content.
-_Avoid_: hook cache, agent memory, transcript
+**Creation Journal**:
+The record the CLI appends after a successful write, one file per creation under `<workspace>/.tours/.log/creations/<createdAtMs>-<pid>-<rand>.json` (spec #320, DESIGN §3), carrying `version`, `workspace`, the absolute `tourPath`, `tourTitle`, `kind`, `at`, `sessionId`, `responseId` and `host`. It replaces the guarded Run State of the MCP era: it is written atomically, never appended to a shared file, pruned by readers after 24 hours of age, and it only describes what was created. Observability only: a failed journal write never fails or reports a failed creation.
+_Avoid_: run state, hook cache, agent memory, transcript
 
-**Run Usage Metrics**:
-The additive, optional `metrics` object of a Run State (spec #223, ADR 0042). The adapter writes the preparation facts only it knows (command start, served-prompt composition time, send stamp) and the Pre-Launch Report; the agentStop guard recomputes a snapshot from the Copilot session's own usage records at each stop: model, Copilot version, project state, CodeTour tool calls (successful results and refusals, joined start/completion by `toolCallId`), tokens and cache, with generation and consolidation windows split at the last successful Tour creation. Metrics are never an authenticated outcome, never feed the guard, and an unobservable snapshot is reported as `observed:false` instead of being omitted.
-_Avoid_: run telemetry claims, token report, cost accounting
+**Response Summary**:
+What the `agentStop` hook prints, on stderr, at the end of a response that created something (spec #320, DESIGN §4): the titles and paths of the Tours this response created and that the Creation Journal attributes to it, then at most one token reading for the response as a whole — `input`, `output`, `cache`, never per Tour and never counting cache twice. A reading whose scope is not exact is labelled approximate; an unavailable reading says unavailable, never zero. The summary is never a decision: it never blocks, never asks for a continuation and never changes the agent's exit status.
+_Avoid_: run telemetry claims, cost accounting, guard decision
 
 **Pre-Launch Report**:
-The integration display the adapter emits before serving a generation prompt, after any agent-driven choice dialogue (spec #223, ADR 0043): the running adapter file and its origin, the launcher the CLI resolves, the resolved workspace, the installed extension files, the installed plugin (version, cache path, MCP launcher and the build version beside the launcher script) and the user `mcp-config.json` declaration. One problem per hazard (missing plugin, missing launcher, launcher serving another build, a second `codetour` MCP server in the user config, duplicate extension directories) is reported at error level and never stops the run. The same facts are recorded in `metrics.integration`.
+The integration display a host emits before a generation (spec #223, ADR 0043): the resolved workspace, the installed integration files, the installed plugin or package and the CLI that will serve the session. The MCP launcher and the user `mcp-config.json` declaration it used to report are gone with the transport (ADR 0057); the surviving hazards are a missing integration, a launcher serving another build and duplicate integration directories. One problem per hazard is reported at error level and never stops the run.
 _Avoid_: integration banner, doctor output, gate
 
 **Knowledge Observation**:
-The additive, optional `knowledge` object of a Run State (ADR 0045): what the run's own Knowledge discovery verified and what it actually read. `valid` is the union of verified names across the run's `knowledge_list` calls, `validTotal` the largest catalogue size observed, `complete` true only when one listing was untruncated, `invalid` the latest listing's failing entries with their reasons, and `used` the distinct entries whose body `knowledge_read` served (a refusal is not a use). The MCP server records it when a Knowledge call carries the run identity; it triggers no second scan and never feeds a guard decision, and its absence means "not measured", never "zero".
+The additive, optional `knowledge` object of a Run State (ADR 0045): what the run's own Knowledge discovery verified and what it actually read. `valid` is the union of verified names across the run's `knowledge_list` calls, `validTotal` the largest catalogue size observed, `complete` true only when one listing was untruncated, `invalid` the latest listing's failing entries with their reasons, and `used` the distinct entries whose body `knowledge_read` served (a refusal is not a use). The MCP server recorded it when a Knowledge call carried the run identity (removed with that server, ADR 0057); it triggered no second scan and never fed a guard decision, and its absence meant "not measured", never "zero".
 _Avoid_: knowledge metrics, validation report, catalogue cache
 
-**Consolidation Closure**:
-The server-written verdict that closes one Generation Run in the Run State: `created`, `appended`, `replaced`, `completed_zero`, `failed` (with its `outcome`), `skipped`, or the reserved `partial`. `created` and `changed` accumulate by union the names the run's save calls actually published and modified — appended to or rewritten — distinct from each other, and the status follows a fixed precedence (`created` above `appended` and `replaced`, both above `completed_zero`, with the `appended`/`replaced` tie broken by `replaced`) so it never depends on the order of the calls. `completed_zero` is an explicit assessment with nothing to persist, not an omission; a refused write is never counted as a success; a run with no closure is incomplete and is the only case the agentStop hook may ask to close once.
+**Consolidation Closure** (historical, removed with the Run State in ADR 0057):
+The verdict that closed one Generation Run in the Run State: `created`, `appended`, `replaced`, `completed_zero`, `failed` (with its `outcome`), `skipped`, or the reserved `partial`. `created` and `changed` accumulate by union the names the run's save calls actually published and modified — appended to or rewritten — distinct from each other, and the status follows a fixed precedence (`created` above `appended` and `replaced`, both above `completed_zero`, with the `appended`/`replaced` tie broken by `replaced`) so it never depends on the order of the calls. `completed_zero` is an explicit assessment with nothing to persist, not an omission; a refused write is never counted as a success; a run with no closure is incomplete and is the only case the agentStop hook may ask to close once.
 _Avoid_: consolidation summary, agent claim, omitted Knowledge
 
-**AgentStop Guard**:
-The deterministic Copilot `agentStop` hook of the Agent Plugin (spec #223, ticket #228, ADR 0041). It is inert for ordinary conversations, other sessions or workspaces, `stop_hook_active`, a run without a created Tour, any Consolidation Closure, and any storage failure. For one incomplete Generation Run it returns at most one `{decision:"block"}` asking for `knowledge_save` or `knowledge_close_run`, after marking `continuationUsed`. Independently of the decision it records the Run Usage Metrics snapshot for every run of this session (ADR 0042). It never calls a model and never creates Tour or Knowledge content.
-_Avoid_: auto-consolidation, retry loop, second agent
+**AgentStop Hook**:
+The Copilot `agentStop` hook of the Agent Plugin (spec #223, ticket #228, ADR 0041; informative since spec #320, DESIGN §4). It reads the Creation Journal and the session transcript the payload names, then prints the Response Summary on stderr and always answers `{}` with exit 0. It is inert for an ordinary conversation, another session or workspace, `stop_hook_active`, a creation it cannot attribute and any storage failure, and it stays silent on a second stop of the same response window. It never blocks, never asks for a continuation, never calls a model and never writes Tour content (ADR 0057).
+_Avoid_: guard, auto-consolidation, retry loop, second agent
 
 **Research Run**:
 One execution of the Research Harness on a Research Question. It may use Memory Entries but never creates one.
