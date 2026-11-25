@@ -20,6 +20,11 @@ import {
 
 const SESSION = "01a212c3-e2e1-7637-85e8-e0c0e49eed8e";
 
+// The instant the journal fixtures are read at. Records older than the 24 h
+// attribution window are dropped, so the read instant travels with the
+// fixtures instead of depending on the machine clock.
+const READ_NOW = Date.parse("2026-01-01T12:00:00.000Z");
+
 function workspace(directory = "work space") {
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-pi-journal-"));
   const ws = path.join(root, directory);
@@ -59,7 +64,7 @@ test("every readable creation record of the journal is read", async () => {
   try {
     writeRecord(ws, "1700000000000-1-aaaa.json", record({ workspace: ws }));
     writeRecord(ws, "1700000000001-1-bbbb.json", record({ workspace: ws, tourTitle: "Renderer" }));
-    const { records, problems } = await readCreations(ws);
+    const { records, problems } = await readCreations(ws, READ_NOW);
     assert.deepEqual(problems, []);
     assert.deepEqual(
       records.map(entry => entry.tourTitle),
@@ -77,11 +82,35 @@ test("an unreadable or foreign entry is reported, never read as a creation", asy
     writeRecord(ws, "1700000000001-1-bbbb.json", "{ not json");
     writeRecord(ws, "1700000000002-1-cccc.json", { version: 1, workspace: ws });
     writeRecord(ws, "notes.md", "kept\n");
-    const { records, problems } = await readCreations(ws);
+    const { records, problems } = await readCreations(ws, READ_NOW);
     assert.equal(records.length, 1);
     assert.equal(problems.length, 2);
     assert.match(problems[0], /1700000000001-1-bbbb\.json/);
     assert.match(problems[1], /1700000000002-1-cccc\.json/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a record older than the 24 h attribution window is dropped, not reported", async () => {
+  const { root, workspace: ws } = workspace();
+  try {
+    writeRecord(
+      ws,
+      "1700000000000-1-aaaa.json",
+      record({ workspace: ws, at: new Date(READ_NOW - 25 * 60 * 60 * 1000).toISOString() })
+    );
+    writeRecord(
+      ws,
+      "1700000000001-1-bbbb.json",
+      record({ workspace: ws, at: new Date(READ_NOW - 60 * 1000).toISOString() })
+    );
+    const { records, problems } = await readCreations(ws, READ_NOW);
+    assert.deepEqual(problems, []);
+    assert.deepEqual(
+      records.map(entry => entry.tourPath),
+      ["/tmp/workspace/.tours/project.tour"]
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

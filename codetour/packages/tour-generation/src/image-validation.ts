@@ -7,8 +7,8 @@ import { Issue, WorkspaceContext } from "./types";
 // Local images follow the geographic split of ADR 0023: images created for a
 // Tour (Tour Images) live under .tours/images/<tour-name>/, while images that
 // belong to the codebase (Project Images) stay wherever they are and may only
-// be referenced, never created, by generation. The MCP server only verifies; it
-// never writes or deletes image files.
+// be referenced, never created, by generation. The creation rules only verify;
+// they never write or delete image files.
 const TOUR_IMAGES_DIRECTORY = ".tours/images";
 
 // Per-image size limit: image bytes are inlined into descriptions at read
@@ -19,8 +19,8 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAGIC_BYTES = 8;
 
 // Storage and validation rules for local images, stated at the point of use so
-// the agent complies before calling (the server only verifies; it never
-// writes or deletes image files).
+// a generated proposal complies before it is submitted (the rules only verify;
+// they never write or delete image files).
 export const IMAGE_TOOL_GUIDANCE =
   "Images: embed them with Markdown image syntax, `![caption](relative/path.png)`, " +
   "with a path relative to the workspace root; ordinary links remain HTTPS-only, and " +
@@ -119,7 +119,7 @@ function isPngOrJpeg(realPath: string): boolean {
   }
 }
 
-// Scan every description the server validates (the Tour-level description and
+// Scan every description the creation validates (the Tour-level description and
 // each step description) for local image references, mirroring the Mermaid
 // scan: all failures aggregate into one INVALID_PROPOSAL response.
 function isPlainObject(value: unknown): value is Record<string, unknown> {

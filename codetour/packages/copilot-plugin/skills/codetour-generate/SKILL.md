@@ -47,8 +47,9 @@ itself stay inside it.
 
 One JSON object, with the fields the CLI validates:
 
-- `title` (required), `description`, `fileName` (a bare name, written under
-  `.tours/`), `steps` (at least one).
+- `title` (optional: the CLI defaults a Project Tour to `Project Overview` and
+  a Changes Tour to `Changes on <branch>`), `description`, `fileName` (a bare
+  name, written under `.tours/`), `steps` (at least one).
 - A step carries a `title`, a Markdown `description`, and optionally one anchor:
   `file` with `line` and/or `pattern`, `directory`, `selection`
   (`{start: {line, character}, end: {...}}`), `display: "diff"` with
@@ -86,10 +87,11 @@ Exit codes say what happened:
 | --- | --- |
 | `0` | the Tour was created; standard output holds the result document |
 | `1` | the proposal, its validation or the creation was refused |
-| `2` | usage or IO failure: missing or unknown argument, unusable workspace, unreadable proposal |
+| `2` | usage or IO failure: missing or unknown argument, unusable workspace, unreadable proposal, explicit `--help` |
 
-Standard output carries exactly one JSON document. Standard error carries
-diagnostics only.
+Standard output carries exactly one JSON document whenever a creation is
+attempted, and a usage answer (`--help`, exit `2`) leaves it empty. Standard
+error carries diagnostics only.
 
 ## 5. Handle the result
 

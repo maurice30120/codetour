@@ -23,8 +23,6 @@ export interface TourStep {
 
 export interface ProjectParams {
   workspacePath?: string;
-  /** Optional CodeTour generation run identity (spec #223, ticket #228). */
-  runId?: string;
   title?: string;
   description?: string;
   fileName?: string;
@@ -58,23 +56,6 @@ export interface Warning {
   code: string;
   message: string;
 }
-
-export interface SuccessResult {
-  status: "created";
-  title: string;
-  path: string;
-  stepCount: number;
-  warnings: Warning[];
-}
-
-export interface ErrorResult {
-  status: "error";
-  code: string;
-  message: string;
-  issues?: Issue[];
-}
-
-export type ToolResult = SuccessResult | ErrorResult;
 
 export interface WorkspaceContext {
   root: string;
@@ -113,7 +94,8 @@ export interface CreateTourOptions {
   proposal: unknown;
   /**
    * Name of the entry point the report addresses, so a rejection names the
-   * command the caller actually ran. Defaults to the MCP tool name.
+   * command the caller actually ran. Without one, the entry point is named
+   * after the Tour kind: `create-project-tour` or `create-changes-tour`.
    */
   surface?: string;
 }

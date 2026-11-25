@@ -3,8 +3,8 @@
 // A caller supplies the workspace to create in and the proposal it received;
 // the entry points validate, apply the Git, image, Mermaid and
 // workspace-confinement rules, write the Tour file atomically, and return the
-// outcome as a value. The MCP server and the CLI both consume this package, so
-// neither owns a second copy of the rules.
+// outcome as a value. The command-line surface is the only consumer, so the
+// rules live here once instead of in each surface.
 
 export { createChangesTour, createProjectTour } from "./creation";
 export {

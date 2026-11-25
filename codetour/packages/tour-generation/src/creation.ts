@@ -35,8 +35,8 @@ import { MAX_RECOMMENDED_STEPS, orientationStepWarnings } from "./validation";
 // workspace to create in and the proposal exactly as it arrived, validate it,
 // apply the Git, image, Mermaid and workspace-confinement rules, write the
 // Tour file atomically, and report the outcome as a value. Nothing here writes
-// to a stream or reads a command line, so the MCP server and the CLI share the
-// same rules instead of reimplementing them.
+// to a stream or reads a command line, so the command-line surface stays a thin
+// adapter over these rules instead of reimplementing them.
 //
 // Validation always precedes the write: a rejected proposal writes no file and
 // leaves any existing Tour untouched.
@@ -55,9 +55,10 @@ function tourTargetPath(defaultPath: string, fileName?: string): string {
   return fileName === undefined ? defaultPath : `.tours/${fileName}`;
 }
 
-/** The name of the entry point a rejection addresses, per surface. */
+// The name of the entry point a rejection addresses: the caller's own surface
+// name, or the command of that kind when the caller named none.
 function surfaceName(kind: TourKind, options: CreateTourOptions): string {
-  return options.surface ?? `create_${kind}_tour`;
+  return options.surface ?? `create-${kind}-tour`;
 }
 
 function failure(code: string, message: string, issues?: CreationFailure["issues"]): CreationFailure {

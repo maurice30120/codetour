@@ -13,6 +13,13 @@ import path from "node:path";
 // The journal is observability only: an unreadable, foreign or malformed entry
 // is a diagnostic, never a reason to report a Tour or to fail a response.
 //
+// The Copilot hook reads the same journal through its own copy of these rules
+// (`packages/copilot-plugin/com.github.copilot/lib/run-log.mjs`). The two copies
+// ship in two host packages and stay separate files, so they must not disagree
+// about what a record is or how long one may be attributed: the same contract,
+// the same maximum age and the same tolerance are pinned by
+// `test/journal-parity.test.mjs`.
+//
 // Pure decisions plus one directory read, so the attribution rules can be
 // tested without a Pi session.
 
@@ -20,6 +27,9 @@ import path from "node:path";
 export const CREATIONS_DIRECTORY = path.join(".tours", ".log", "creations");
 
 export const CREATION_RECORD_VERSION = 1;
+
+/** Records older than this can no longer be attributed (DESIGN §3). */
+export const CREATION_RECORD_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 // The workspace spelling every comparison uses (ADR 0056). Node has *two*
 // realpath implementations with different answers on Windows: `realpathSync`
@@ -74,11 +84,12 @@ export function isCreationRecord(value) {
 }
 
 /**
- * Every readable creation record of this workspace, in file order, with the
- * entries that could not be read. A missing journal is not a problem: most
- * workspaces never created a Tour.
+ * Every attributable creation record of this workspace, oldest first, with the
+ * entries that could not be read. A record older than the maximum age is
+ * dropped silently — it can no longer belong to any response — and a missing
+ * journal is not a problem: most workspaces never created a Tour.
  */
-export async function readCreations(workspace) {
+export async function readCreations(workspace, now = Date.now()) {
   const directory = creationDirectory(workspace);
   let names;
   try {
@@ -102,11 +113,15 @@ export async function readCreations(workspace) {
       continue;
     }
     if (!isCreationRecord(parsed)) {
-      problems.push(`${name}: not a creation record`);
+      problems.push(`${name}: malformed`);
       continue;
     }
+    // An expired record keeps neither its Tours nor a diagnostic: it is left
+    // for pruning.
+    if (now - Date.parse(parsed.at) > CREATION_RECORD_MAX_AGE_MS) continue;
     records.push(parsed);
   }
+  records.sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
   return { records, problems };
 }
 

@@ -13,6 +13,8 @@ import { createInterface } from "node:readline";
 
 /** Creation records, relative to the workspace root (journal.ts writes them). */
 export const CREATIONS_DIRECTORY = path.join(".tours", ".log", "creations");
+/** The journal version this reader understands. */
+export const CREATION_RECORD_VERSION = 1;
 /** Response markers, relative to the workspace root. */
 export const REPORTED_DIRECTORY = path.join(CREATIONS_DIRECTORY, ".reported");
 /** Readers ignore older creation records (spec #320). */
@@ -57,18 +59,30 @@ export function reportedDirectory(workspace) {
   return path.join(workspace, REPORTED_DIRECTORY);
 }
 
-/** Whether a parsed document is one creation record of the current version. */
+/**
+ * Whether a parsed document is one creation record of the current version.
+ *
+ * The identity fields are part of the contract (DESIGN §3): a creating process
+ * that observes no session, response or host writes `null`, so a field that is
+ * absent or of another type is a foreign record, not an anonymous creation. The
+ * Pi hook keeps a copy of this rule in `packages/pi-plugin/lib/journal.mjs` and
+ * the two may not disagree (`test/journal-parity.test.mjs`).
+ */
 export function isCreationRecord(value) {
+  if (!value || typeof value !== "object") return false;
+  const optionalString = candidate => candidate === null || typeof candidate === "string";
   return (
-    Boolean(value) &&
-    typeof value === "object" &&
-    value.version === 1 &&
+    value.version === CREATION_RECORD_VERSION &&
     typeof value.workspace === "string" &&
+    value.workspace !== "" &&
     typeof value.tourPath === "string" &&
     value.tourPath !== "" &&
     typeof value.tourTitle === "string" &&
     typeof value.at === "string" &&
-    Number.isFinite(Date.parse(value.at))
+    Number.isFinite(Date.parse(value.at)) &&
+    optionalString(value.sessionId) &&
+    optionalString(value.responseId) &&
+    optionalString(value.host)
   );
 }
 

@@ -39,8 +39,8 @@ export const STEP_FIELDS = [
 
 export const MAX_RECOMMENDED_STEPS = 15;
 
-// Readability limit for the first diagram of the orientation step, shared with
-// the tool guidance in server.ts so the advised and enforced values stay equal.
+// Readability limit for the first diagram of the orientation step: exceeding it
+// is a warning, never a rejection.
 export const MAX_RECOMMENDED_DIAGRAM_NODES = 12;
 
 export function orientationStepWarnings(steps: TourStep[]): Warning[] {
@@ -101,7 +101,7 @@ function diagramNodeCount(source: string): number {
 }
 
 // Cap the length of agent-supplied anchor patterns: a hand-crafted regular
-// expression can hang the server process through catastrophic backtracking
+// expression can hang the creation process through catastrophic backtracking
 // when matched against an entire file, so only short, focused patterns are
 // accepted.
 export const MAX_QUESTIONS = 4;
@@ -166,10 +166,9 @@ function reportUnknownFields(
   }
 }
 
-const PROJECT_PARAM_FIELDS = ["workspacePath", "runId", "title", "description", "fileName", "steps"] as const;
+const PROJECT_PARAM_FIELDS = ["workspacePath", "title", "description", "fileName", "steps"] as const;
 const CHANGES_PARAM_FIELDS = [
   "workspacePath",
-  "runId",
   "title",
   "description",
   "fileName",
@@ -251,15 +250,6 @@ function validateCommonParams(raw: RawObject, issues: Issue[]): ProjectParams {
   const workspacePath = isOptionalString(raw, "workspacePath", "workspacePath", issues);
   if (workspacePath !== undefined) {
     params.workspacePath = workspacePath;
-  }
-  // The generation run identity is opaque to the Tour: the adapters and the
-  // MCP run log own its format. It is validated only as a non-empty string so
-  // a malformed value cannot reach the run log as a path component. A blank
-  // value is treated as absent, never as an invalid identity: hosts serving
-  // `get_generation_prompt` have no adapter identity to pass.
-  const runId = isOptionalString(raw, "runId", "runId", issues);
-  if (runId !== undefined && runId.trim() !== "") {
-    params.runId = runId.trim();
   }
   const title = isOptionalString(raw, "title", "title", issues);
   if (title !== undefined) {
