@@ -400,9 +400,9 @@ export default function codetourPlugin(pi: ExtensionAPI) {
     handler: async (rawArgs, ctx) => {
       let input = rawArgs.trim();
       if (!input) {
-        const choice = await ctx.ui.select("CodeTour", ["Générer", "Lire"]);
+        const choice = await ctx.ui.select("CodeTour", ["Generate", "Read"]);
         if (choice === undefined) return;
-        input = choice === "Générer" ? "generate" : "read";
+        input = choice === "Generate" ? "generate" : "read";
       }
       if (/^read(?:\s|$)/.test(input)) {
         const title = input.slice(4).trim().replace(/^(["'])(.*)\1$/, "$2");
@@ -418,10 +418,10 @@ export default function codetourPlugin(pi: ExtensionAPI) {
       let type = choices.type;
       let reviewMode = choices.reviewMode;
       if (!type) {
-        const choice = await ctx.ui.select("Quel tour générer ?", [
+        const choice = await ctx.ui.select("Which tour should be generated?", [
           "Project Tour",
-          "Changes Tour — Neutre",
-          "Changes Tour — Critique",
+          "Changes Tour — Neutral",
+          "Changes Tour — Critical",
         ]);
         if (!choice) {
           ctx.ui.notify("CodeTour: generation cancelled.", "info");
@@ -429,16 +429,16 @@ export default function codetourPlugin(pi: ExtensionAPI) {
         }
         type = choice === "Project Tour" ? "project" : "changes";
         if (type === "changes") {
-          reviewMode = choice === "Changes Tour — Critique" ? "critical" : "neutral";
+          reviewMode = choice === "Changes Tour — Critical" ? "critical" : "neutral";
         }
       }
       if (type === "changes" && !reviewMode) {
-        const mode = await ctx.ui.select("Mode de revue", ["Neutre", "Critique"]);
+        const mode = await ctx.ui.select("Review mode", ["Neutral", "Critical"]);
         if (!mode) {
           ctx.ui.notify("CodeTour: generation cancelled.", "info");
           return;
         }
-        reviewMode = mode === "Critique" ? "critical" : "neutral";
+        reviewMode = mode === "Critical" ? "critical" : "neutral";
       }
 
       const workspace = await realWorkspace(ctx.cwd);

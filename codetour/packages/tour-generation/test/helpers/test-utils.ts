@@ -4,8 +4,8 @@ import * as os from "os";
 import * as path from "path";
 import { validateCodetourTour } from "../../src/codetour-schema";
 
-// Test helpers of the creation rules. They stay free of any MCP dependency so
-// the package's tests run against the rules alone.
+// Test helpers of the creation rules: the package's tests run against the rules
+// alone, with no host or command-line surface in between.
 
 export function git(args: string[], cwd: string): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve) => {

@@ -3,7 +3,8 @@
 This document adapts the upstream `code-review` skill by Matt Pocock
 (reproduced verbatim in the skill pack, MIT licensed) to CodeTour Changes
 Tours. It is the authoritative instruction set for every
-`create_changes_tour` call with `reviewMode: "critical"`. In neutral mode
+Changes Tour created with `reviewMode: "critical"` through
+`codetour create-changes-tour`. In neutral mode
 (the default) this adaptation does not apply: produce the current factual
 Changes Tour with no quality judgments.
 
@@ -21,9 +22,9 @@ final tool call would be too late.
 Run both review axes on the exact comparison the Changes Tour will
 describe: the diff from the merge-base of the base reference to the
 analyzed head commit, plus explicitly included uncommitted changes when
-requested. Never substitute another range. The MCP server's Git checks,
+requested. Never substitute another range. The creation command's Git checks,
 validation, snapshots, and anchor verification remain the sole authority:
-when your analysis and the server disagree, the server wins.
+when your analysis and the command result disagree, the command wins.
 
 ## 3. Standards axis — always
 
@@ -40,8 +41,8 @@ when your analysis and the server disagree, the server wins.
   - a **risk / code smell** — a heuristic judgement from the upstream smell
     baseline, always presented as such, never as a violation.
 - Do not report as a new finding anything a tool already guarantees
-  (compiler and type errors, formatter and linter output, the MCP server's
-  own validation). Recycling guaranteed results adds noise, not review
+  (compiler and type errors, formatter and linter output, the creation
+  command's own validation). Recycling guaranteed results adds noise, not review
   value.
 
 ## 4. Spec axis — only when a source is found

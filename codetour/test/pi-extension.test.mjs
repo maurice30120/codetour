@@ -479,10 +479,10 @@ test("reading an existing Tour still works without any MCP server", async () => 
     ];
     const host = fakeHost({ code: 0, stdout: JSON.stringify(tours), stderr: "" });
     const context = fakeContext(workspace);
-    context.selections.push("Lire", "2. Shared Tour");
+    context.selections.push("Read", "2. Shared Tour");
     await host.commands.get("codetour").handler("", context.ctx);
     assert.deepEqual(context.selects, [
-      { title: "CodeTour", options: ["Générer", "Lire"] },
+      { title: "CodeTour", options: ["Generate", "Read"] },
       { title: "Select a CodeTour", options: ["1. Shared Tour", "2. Shared Tour"] },
     ]);
     assert.deepEqual(host.executions, [
@@ -532,7 +532,7 @@ test("the native generation menu sends the selected review mode", async () => {
   try {
     const host = fakeHost();
     const context = fakeContext(workspace);
-    context.selections.push("Changes Tour — Critique");
+    context.selections.push("Changes Tour — Critical");
     await host.commands.get("codetour").handler("explain the payment flow", context.ctx);
     assert.equal(host.sent.length, 1);
     assert.match(host.sent[0].text, /type=changes reviewMode=critical/);

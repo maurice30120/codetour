@@ -112,9 +112,8 @@ four non-empty strings, in the user's language), `file`, `line`, `pattern`,
 
 The CLI enforces these rules, and a rejected proposal writes nothing:
 
-- the first step is a locator-free orientation step (no `file`, no `directory`)
-  with at least one Mermaid diagram, introduced by a caption line such as
-  `**Diagram — Context view**`;
+- a Mermaid fence carries its caption on the nearest non-blank line above it,
+  such as `**Diagram — Context view**`;
 - at most one locator per step: `file` or `directory`, relative to the
   workspace root;
 - `line`, `pattern` and `selection` only with `file`; `line` and `pattern` are
@@ -123,6 +122,11 @@ The CLI enforces these rules, and a rejected proposal writes nothing:
   the file — escape regular-expression metacharacters or use a verified `line`;
 - `questions` at most four non-empty strings;
 - a Changes Tour needs `baseRef` and the full 40-character `headRef` SHA.
+
+Two readability rules are warnings, never refusals: the first step should be a
+locator-free orientation step (no `file`, no `directory`) with at least one
+Mermaid diagram, and that first diagram should stay small enough to read. The
+success document lists them; the Tour is still created.
 
 Optional `fileName` is a bare name (no path separator): the Tour is always
 written under `.tours/`, `.tours/project.tour` or `.tours/changes.tour` by
@@ -141,8 +145,9 @@ records the Pi session only when the host exported it to that shell:
 `<cli>` is the `codetour-cli` argument when given, `codetour` otherwise; quote
 each argv word so a path with spaces stays one word. Pipe the proposal on
 standard input, or write it to a file and pass `--proposal <file>` when the
-document is large. Standard output carries exactly one JSON document; standard
-error carries diagnostics only.
+document is large. Standard output carries exactly one JSON document whenever a
+creation is attempted, and a usage answer (`--help`, exit `2`) leaves it empty;
+standard error carries diagnostics only.
 
 ## 4. Read the result
 
@@ -153,8 +158,9 @@ error carries diagnostics only.
   nothing was written. Correct every reported `path`, rebuild the proposal and
   run the command again. Never claim a Tour was created.
 - Exit `2`: the command line or the proposal file is unusable — a missing
-  `--workspace`, an unreadable proposal file. Fix the invocation instead of
-  retrying blindly.
+  `--workspace`, an unreadable proposal file, or an explicit `--help`. Fix the
+  invocation instead of retrying blindly; standard output holds no result
+  document.
 - `warnings` on a success are advisory: mention them in one line at most.
 
 ## 5. Hand over to a reader

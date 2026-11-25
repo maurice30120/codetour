@@ -510,15 +510,20 @@ test("create-changes-tour refuses a stale head, an unknown base and an empty com
   assert.deepEqual(tourFiles(root), []);
 });
 
-test("create-project-tour --help prints its usage without creating anything", () => {
+test("create-project-tour --help prints its usage on stderr and creates nothing", () => {
   const root = workspace();
 
-  const result = runCli(root, ["create-project-tour", "--help"]);
+  // Exit 0 promises a created Tour, so a usage text must never travel on
+  // stdout: an agent that reads stdout as a result document would report a
+  // Tour that does not exist.
+  for (const flag of ["--help", "-h"]) {
+    const result = runCli(root, ["create-project-tour", flag]);
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stderr, "");
-  assert.match(result.stdout, /Usage: codetour create-project-tour --workspace <dir> \[--proposal <file\|->\]/);
-  assert.equal(existsSync(path.join(root, ".tours")), false);
+    assert.equal(result.status, 2, result.stderr);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /Usage: codetour create-project-tour --workspace <dir> \[--proposal <file\|->\]/);
+    assert.equal(existsSync(path.join(root, ".tours")), false);
+  }
 });
 
 test("a usage or IO failure exits with 2 and prints no result document", () => {
@@ -561,6 +566,32 @@ test("a usage or IO failure exits with 2 and prints no result document", () => {
   assert.equal(unusableWorkspace.status, 2);
   assert.equal(unusableWorkspace.stdout, "");
   assert.match(unusableWorkspace.stderr, /CodeTour: --workspace is not an accessible directory/);
+});
+
+test("an unexpected creation error exits 1 with a failure document, never empty stdout", () => {
+  const root = workspace();
+  // A `.tours` file where the Tours directory must go makes the atomic write
+  // fail with a file-system error the creation rules do not classify: the
+  // command must still answer with one JSON document.
+  writeFileSync(path.join(root, ".tours"), "not a directory\n");
+
+  const result = runCli(root, [
+    "create-project-tour",
+    "--workspace",
+    root,
+    "--proposal",
+    proposalFile("unexpected.json", {
+      title: "Broken",
+      steps: [{ description: "Anything." }]
+    })
+  ]);
+
+  assert.equal(result.status, 1);
+  const failure = JSON.parse(result.stdout);
+  assert.equal(failure.ok, false);
+  assert.equal(failure.code, "INTERNAL_ERROR");
+  assert.match(failure.message, /tours/);
+  assert.match(result.stderr, /CodeTour: internal error/);
 });
 
 test("a proposal that is not JSON is refused with a failure document", () => {

@@ -70,7 +70,7 @@ export async function validateTourProposal(
   kind: TourProposalKind,
   args: unknown,
   defaultContext: WorkspaceContext,
-  surface: string = `create_${kind}_tour`
+  surface: string = `create-${kind}-tour`
 ): Promise<ProposalValidation<ProjectParams | ChangesParams>> {
   const invalid = (issues: Issue[]): ProposalRejection => ({
     ok: false,

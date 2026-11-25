@@ -47,11 +47,11 @@ argument the skill uses `codetour` from `PATH`.
 
 ## `/codetour`
 
-`/codetour` opens the native Pi menu **Générer / Lire**. **Lire** lists the
+`/codetour` opens the native Pi menu **Generate / Read**. **Read** lists the
 workspace Tours and plays the selected Tour in Pi's terminal. Press `q` to
 return to Pi. Use `/codetour read "Tour title"` to open a Tour directly.
 
-**Générer** collects the choices (Project Tour, or Changes Tour with a neutral
+**Generate** collects the choices (Project Tour, or Changes Tour with a neutral
 or critical review), then delivers
 `/skill:codetour-generate type=… [reviewMode=…] [codetour-cli=…] [request=…]`
 to the agent. No run state is written and no server is registered: the agent

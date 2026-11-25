@@ -39,7 +39,7 @@ export { MERMAID_TOOL_GUIDANCE };
 async function parseMermaid(source: string): Promise<void> {
   // renderMermaidDiagram uses the exact locked Mermaid engine and the same
   // strict configuration as playback. Its PNG is intentionally discarded:
-  // this call is the offline syntax-validation seam for the MCP server.
+  // this call is the offline syntax-validation seam of the creation rules.
   await renderMermaidDiagram(source, "light");
 }
 

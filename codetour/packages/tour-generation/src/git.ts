@@ -3,8 +3,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { WorkspaceContext } from "./types";
 
-// All server Git operations invoke the `git` command line in the configured
-// workspace. The Changes Tour depends on this history for merge-base lookup,
+// All Git operations of the creation rules invoke the `git` command line in the
+// configured workspace. The Changes Tour depends on this history for merge-base lookup,
 // HEAD SHA verification, changed-file listing, and uncommitted-change
 // detection.
 

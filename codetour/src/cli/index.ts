@@ -321,7 +321,8 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
     console.log(JSON.stringify({id: resolved.id, title: resolved.title}));
     return;
   }
-  // Only select identities from this workspace's discovered list. Copilot
+  // An explicitly selected identity is resolved in this workspace's discovered
+  // list: an unknown or stale id fails instead of falling back to a prompt.
   let selected: CodeTour | undefined;
   if (options.internalTourId) {
     selected = tours.find(tour => tour.id === options.internalTourId);

@@ -13,7 +13,7 @@ import type { CreationFailure, CreationResult, TourKind } from "codetour-tour-ge
 //   1  the proposal, the validation or the creation failed; a failure
 //      document is printed, never a success one
 //   2  usage or IO failure: missing or unknown argument, unusable workspace,
-//      unreadable proposal file
+//      unreadable proposal file, explicit help request
 
 export interface CreationCommandIO {
   out: (text: string) => void;
@@ -191,8 +191,11 @@ export async function runCreateTourCommand(
   try {
     const parsed = parseArguments(argv);
     if (parsed.help) {
-      io.out(usage(kind));
-      return EXIT_CREATED;
+      // Exit 0 means a Tour was created, so usage text never travels on
+      // stdout: an explicit help request is a usage answer, and stdout stays
+      // empty.
+      io.err(usage(kind));
+      return EXIT_USAGE;
     }
     const workspaceRoot = resolveWorkspace(parsed.workspace as string);
     const proposal = await readProposal(parsed.proposal);
@@ -229,6 +232,19 @@ export async function runCreateTourCommand(
       reportFailure(io, failure);
       return EXIT_REFUSED;
     }
-    throw error;
+    // An unclassified failure still owes the caller one JSON document on
+    // stdout: exit 1 promises a failure document, and an empty stdout would
+    // read as a crash the skill cannot act on.
+    const failure: CreationFailure = {
+      ok: false,
+      code: "INTERNAL_ERROR",
+      message: error instanceof Error ? error.message : String(error),
+    };
+    io.out(JSON.stringify(failureDocument(failure)));
+    io.err(`CodeTour: internal error: ${failure.message}`);
+    if (error instanceof Error && error.stack !== undefined) {
+      io.err(error.stack);
+    }
+    return EXIT_REFUSED;
   }
 }
