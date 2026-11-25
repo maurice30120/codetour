@@ -241,8 +241,11 @@ export default function codetourPlugin(pi: ExtensionAPI) {
   // §5.c), so the boundary is this instant, compared with the creation
   // records' own `at`.
   let responseStart: number | undefined;
-  // The usage of the assistant messages of this response, from `agent_end`.
+  // The usage of the last run's assistant messages, and how many runs the
+  // response contained (`agent_end` may repeat for a retry or a queued
+  // follow-up inside one response).
   let runUsages: unknown[] = [];
+  let runCount = 0;
 
   // Observability must not become a chorus: one report per response window,
   // and one opening dialogue per created Tour whatever the host re-emits.
@@ -253,16 +256,23 @@ export default function codetourPlugin(pi: ExtensionAPI) {
    * The end-of-response report: the Tours this response created, then its
    * single token reading. Silent when no creation is attributed.
    */
-  async function reportResponse(ctx: ExtensionContext, created: CreationRecord[]): Promise<void> {
+  async function reportResponse(
+    ctx: ExtensionContext,
+    created: CreationRecord[],
+    windowStart: number
+  ): Promise<void> {
     for (const line of summaryLines(created)) {
       ctx.ui.notify(line, "info");
     }
-    // A reading from the run's own messages is exact; the session entries
-    // cannot be bounded to the response, so that reading is approximate.
+    // The reading is exact only when it covers the whole response: a single
+    // run, whose messages `agent_end` delivered. A repeated run (retry,
+    // compaction retry, queued follow-up) leaves only the last one, and the
+    // session entries cannot be bounded to the response at all, so both are
+    // labelled approximate.
     const fromRun = runUsages.length > 0;
-    const usages =
-      fromRun || responseStart === undefined ? runUsages : sessionUsages(ctx, responseStart);
-    ctx.ui.notify(tokenLine(tokenReading(usages, { approximate: !fromRun })), "info");
+    const usages = fromRun ? runUsages : sessionUsages(ctx, windowStart);
+    const approximate = !fromRun || runCount !== 1;
+    ctx.ui.notify(tokenLine(tokenReading(usages, { approximate })), "info");
   }
 
   /**
@@ -339,15 +349,16 @@ export default function codetourPlugin(pi: ExtensionAPI) {
     }
   }
 
+  // The window opens at the first run of the response, so a retry or a queued
+  // follow-up does not hide the creations of the runs before it.
   pi.on("agent_start", () => {
-    responseStart = Date.now();
+    if (responseStart === undefined) responseStart = Date.now();
     runUsages = [];
+    runCount = 0;
   });
 
-  // `agent_end` closes each low-level run: the last one of the response is the
-  // one whose messages the reading covers (a retry or a compaction retry
-  // replaces the figure instead of adding to it).
   pi.on("agent_end", (event) => {
+    runCount += 1;
     runUsages = responseUsages(event);
   });
 
@@ -356,6 +367,7 @@ export default function codetourPlugin(pi: ExtensionAPI) {
   // in print mode too. Nothing below returns a value.
   pi.on("agent_settled", async (event, ctx) => {
     const start = responseStart;
+    responseStart = undefined;
     if (event?.aborted === true || start === undefined) return;
     if (reportedResponses.has(start)) return;
     reportedResponses.add(start);
@@ -370,7 +382,7 @@ export default function codetourPlugin(pi: ExtensionAPI) {
         now: Date.now(),
       }) as CreationRecord[];
       if (created.length === 0) return;
-      await reportResponse(ctx, created);
+      await reportResponse(ctx, created, start);
       for (const record of created) {
         // One dialogue per Tour: a host that cannot open one still gets the
         // report, and the next Tour keeps its own offer.

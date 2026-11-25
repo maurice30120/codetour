@@ -376,6 +376,45 @@ test("without a run message the session entries give an approximate reading", as
   }
 });
 
+test("a repeated run of the response is qualified as approximate", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    // A retry or a queued follow-up re-enters the loop inside one response:
+    // the messages of the last run no longer cover the whole response.
+    for (const usage of [USAGE_TURN_1, USAGE_TURN_2]) {
+      await host.handlers.get("agent_end")({ messages: [{ role: "assistant", usage }] }, context.ctx);
+    }
+    await host.handlers.get("agent_settled")({ aborted: false }, context.ctx);
+    assert.equal(
+      tokenMessages(context.notifications)[0].message,
+      "CodeTour tokens (approximate): input 142 / output 35 / cache 1,536"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a retried run does not hide the creation of the earlier run", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    await host.handlers.get("agent_end")({ messages: [] }, context.ctx);
+    // The run is retried inside the same response.
+    await host.handlers.get("agent_start")({}, context.ctx);
+    await respondTail(host, context.ctx);
+    assert.equal(summaryMessages(context.notifications).length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("an unreadable journal leaves the response silent instead of failing", async () => {
   const { root, workspace } = temporaryWorkspace();
   try {
