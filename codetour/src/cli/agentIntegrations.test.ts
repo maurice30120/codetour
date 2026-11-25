@@ -3,7 +3,8 @@ import * as assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import {
-  copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
+  chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync,
+  statSync, writeFileSync
 } from "node:fs";
 import * as os from "os";
 import * as path from "path";
@@ -18,32 +19,61 @@ function temporaryDirectory(prefix: string): string {
 
 // Agent commands are machine-level actions: they must work outside any Git
 // worktree, so every run uses an empty temporary directory as its workspace.
-function run(cwd: string, args: string[], env: Record<string, string> = {}) {
+function agentEnvironment(cwd: string, overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    // COPILOT_HOME redirects the user directory itself, so the retired-skill
+    // removal never reads or deletes the real ~/.copilot/skills directory.
+    COPILOT_HOME: path.join(cwd, "copilot-home"),
+    CODETOUR_COPILOT_MCP_CONFIG: path.join(cwd, "mcp-config.json"),
+    CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(cwd, "copilot-extensions"),
+    // The Agent Plugins 1.0 directory is installed directly in tests: the
+    // real `copilot plugin install` is exercised by
+    // test/copilot-plugin-install.test.mjs against the installed CLI.
+    CODETOUR_COPILOT_PLUGIN_DIR: path.join(cwd, "copilot-plugin"),
+    // Same for Pi: the package and its declaration stay in the workspace.
+    PI_CODING_AGENT_DIR: path.join(cwd, "pi-agent"),
+    ...overrides
+  };
+}
+
+function run(cwd: string, args: string[], overrides: Record<string, string> = {}) {
   return spawnSync(process.execPath, [cli, ...args], {
-    cwd, encoding: "utf8",
-    // The Copilot user configuration is machine state: every run redirects it
-    // into the temporary workspace so a test never reads or writes the real
-    // ~/.copilot/mcp-config.json, nor the real ~/.copilot/skills directory.
-    env: {
-      ...process.env,
-      // COPILOT_HOME redirects the user directory itself, so the retired-skill
-      // removal never reads or deletes the real ~/.copilot/skills directory.
-      COPILOT_HOME: path.join(cwd, "copilot-home"),
-      CODETOUR_COPILOT_MCP_CONFIG: path.join(cwd, "mcp-config.json"),
-      CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(cwd, "copilot-extensions"),
-      // The Agent Plugins 1.0 directory is installed directly in tests: the
-      // real `copilot plugin install` is exercised by
-      // test/copilot-plugin-install.test.mjs against the installed CLI.
-      CODETOUR_COPILOT_PLUGIN_DIR: path.join(cwd, "copilot-plugin"),
-      // Same for Pi: the package and its declaration stay in the workspace.
-      PI_CODING_AGENT_DIR: path.join(cwd, "pi-agent"),
-      ...env
-    }
+    cwd, encoding: "utf8", env: agentEnvironment(cwd, overrides)
+  });
+}
+
+// The picker only runs on a terminal, which no test runner provides. The
+// repository already drives its terminal surfaces through a Python
+// pseudo-terminal (`test/standalone-terminal-smoke.py`); the same helper
+// answers the picker. A host without `python3` skips the run.
+const ptyDriver = path.resolve(__dirname, "../../../test/agent-picker-pty.py");
+const python = spawnSync("python3", ["--version"], { encoding: "utf8" });
+const ptySkip = python.status === 0 ? false : "python3 is not available for a pseudo-terminal run";
+
+// Answer the picker at a real terminal: the transcript carries both the
+// offered list and the outcome of the install.
+function answerPicker(cwd: string, answer: string) {
+  return spawnSync("python3", [ptyDriver, process.execPath, cli, answer], {
+    cwd, encoding: "utf8", timeout: 180000, env: agentEnvironment(cwd)
   });
 }
 
 function pluginDirectory(workspace: string): string {
   return path.join(workspace, "copilot-plugin");
+}
+
+function extensionDirectory(workspace: string): string {
+  return path.join(workspace, "copilot-extensions");
+}
+
+// Every file under a managed directory: an install that leaves a current
+// installation alone changes neither the list nor the timestamps.
+function managedFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const entryPath = path.join(directory, entry.name);
+    return entry.isDirectory() ? managedFiles(entryPath) : [entryPath];
+  }).sort();
 }
 
 function skillFile(workspace: string): string {
@@ -396,6 +426,65 @@ test("a failed plugin installation restores the previous adapter and skill", () 
   }
 });
 
+test("`--agents` and `--doctor` report an absent host with the command that installs it", () => {
+  const workspace = temporaryDirectory("codetour-agents-absent-");
+  const emptyPath = path.join(workspace, "empty-path");
+  mkdirSync(emptyPath, { recursive: true });
+  try {
+    const agents = run(workspace, ["--agents"], { PATH: emptyPath });
+    assert.equal(agents.status, 0, agents.stderr);
+    for (const id of ["copilot", "pi", "vscode"]) {
+      assert.match(agents.stdout, new RegExp(`^  absent: .*'codetour --install ${id}'`, "m"));
+    }
+    const doctor = run(workspace, ["--doctor"], { PATH: emptyPath });
+    assert.equal(doctor.status, 0, doctor.stderr);
+    assert.match(doctor.stdout, /^copilot: absent\. /m);
+    assert.match(doctor.stdout, /^pi: absent\. /m);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("a host that cannot host the integration is reported incompatible and installs nothing", {
+  skip: process.platform === "win32"
+}, () => {
+  const workspace = temporaryDirectory("codetour-agents-incompatible-");
+  const bin = path.join(workspace, "bin");
+  mkdirSync(bin);
+  try {
+    // A Copilot CLI old enough to answer --version but without the `plugin`
+    // command: the host exists, it cannot host an Agent Plugins 1.0 plugin.
+    const copilot = path.join(bin, "copilot");
+    writeFileSync(copilot, [
+      "#!/bin/sh",
+      "if [ \"$1\" = \"--version\" ]; then echo 'GitHub Copilot CLI 0.0.4.'; exit 0; fi",
+      "exit 64"
+    ].join("\n") + "\n");
+    chmodSync(copilot, 0o755);
+    const env = {
+      PATH: bin + path.delimiter + (process.env.PATH ?? ""),
+      COPILOT_HOME: path.join(workspace, "copilot-home"),
+      CODETOUR_COPILOT_MCP_CONFIG: path.join(workspace, "mcp-config.json"),
+      CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(workspace, "copilot-extensions"),
+      // No managed plugin override: the real prerequisite decides.
+      CODETOUR_COPILOT_PLUGIN_DIR: "",
+      PI_CODING_AGENT_DIR: path.join(workspace, "pi-agent")
+    };
+    const runCli = (args: string[]) => spawnSync(process.execPath, [cli, ...args], {
+      cwd: workspace, encoding: "utf8", env: { ...process.env, ...env }
+    });
+    const agents = runCli(["--agents"]);
+    assert.equal(agents.status, 0, agents.stderr);
+    assert.match(agents.stdout, /^  incompatible: .*has no 'plugin' command/m);
+    const installed = runCli(["--install", "copilot"]);
+    assert.equal(installed.status, 1);
+    assert.match(installed.stderr, /has no 'plugin' command/);
+    assert.ok(!existsSync(path.join(workspace, "copilot-extensions")), "nothing was written");
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
 test("the agent diagnostics report a missing plugin and a legacy duplicate", () => {
   const workspace = temporaryDirectory("codetour-plugin-status-");
   try {
@@ -408,7 +497,7 @@ test("the agent diagnostics report a missing plugin and a legacy duplicate", () 
     assert.match(agents.stdout, /pi\tPi coding agent/);
     assert.match(agents.stdout, /incomplete/);
     assert.match(agents.stdout, /plugin is missing/);
-    assert.match(run(workspace, ["--doctor"]).stdout, /copilot: .*integration incomplete/);
+    assert.match(run(workspace, ["--doctor"]).stdout, /^copilot: incomplete\. /m);
 
     assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
     const file = path.join(workspace, "mcp-config.json");
@@ -420,7 +509,77 @@ test("the agent diagnostics report a missing plugin and a legacy duplicate", () 
     const repaired = run(workspace, ["--install", "copilot"]);
     assert.equal(repaired.status, 0, repaired.stderr);
     assert.equal(mcpConfig(workspace).mcpServers!.codetour, undefined);
-    assert.match(run(workspace, ["--doctor"]).stdout, /integration installed\./);
+    assert.match(run(workspace, ["--doctor"]).stdout, /^copilot: installed\. /m);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("a repair install rewrites nothing that is already current", async () => {
+  const workspace = temporaryDirectory("codetour-idempotent with spaces-");
+  try {
+    assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
+    // A legacy entry this CLI owns makes the Copilot integration outdated while
+    // every installed file is current: the repair must touch the configuration
+    // and leave the files alone.
+    writeFileSync(
+      path.join(workspace, "mcp-config.json"),
+      JSON.stringify({ mcpServers: { codetour: { type: "local", command: "codetour", args: ["mcp"], tools: ["*"] } } }, null, 2) + "\n"
+    );
+    const files = () => [
+      ...managedFiles(extensionDirectory(workspace)),
+      ...managedFiles(pluginDirectory(workspace))
+    ];
+    const before = files().map(file => [file, statSync(file).mtimeMs]);
+    assert.ok(before.length > 0, "the install wrote its files");
+    // Filesystem timestamps are coarse on some filesystems: a rewrite in the
+    // same tick as the first install would be invisible.
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const repaired = run(workspace, ["--install", "copilot"]);
+    assert.equal(repaired.status, 0, repaired.stderr);
+    assert.equal(mcpConfig(workspace).mcpServers!.codetour, undefined, "the legacy entry was repaired");
+    assert.deepEqual(files().map(file => [file, statSync(file).mtimeMs]), before, "no current file is rewritten");
+    assert.deepEqual(files(), before.map(([file]) => file), "no file is duplicated");
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("a repair install of a missing Pi declaration keeps the package files", async () => {
+  const workspace = temporaryDirectory("codetour-idempotent-pi-");
+  try {
+    assert.equal(run(workspace, ["--install", "pi"]).status, 0);
+    const packageDirectory = path.join(workspace, "pi-agent", "packages", "codetour-plugin");
+    const before = managedFiles(packageDirectory).map(file => [file, statSync(file).mtimeMs]);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    // The declaration is what drifted, not the package.
+    writeFileSync(path.join(workspace, "pi-agent", "settings.json"), "{}\n");
+    const repaired = run(workspace, ["--install", "pi"]);
+    assert.equal(repaired.status, 0, repaired.stderr);
+    assert.deepEqual(
+      managedFiles(packageDirectory).map(file => [file, statSync(file).mtimeMs]), before,
+      "no current package file is rewritten"
+    );
+    const settings = JSON.parse(readFileSync(path.join(workspace, "pi-agent", "settings.json"), "utf8"));
+    assert.deepEqual(settings.packages, [path.resolve(packageDirectory)], "the declaration is written once");
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("install, report and uninstall work in a path containing spaces", () => {
+  const workspace = temporaryDirectory("codetour paths with spaces-");
+  try {
+    const installed = run(workspace, ["--install", "pi"]);
+    assert.equal(installed.status, 0, installed.stderr);
+    assert.ok(existsSync(path.join(workspace, "pi-agent", "packages", "codetour-plugin", "package.json")));
+    const agents = run(workspace, ["--agents"]);
+    assert.match(agents.stdout, /^pi\tPi coding agent$/m);
+    assert.match(agents.stdout, /^  installed: .*with spaces/m);
+    const removed = run(workspace, ["--uninstall", "pi"]);
+    assert.equal(removed.status, 0, removed.stderr);
+    assert.ok(!existsSync(path.join(workspace, "pi-agent", "packages", "codetour-plugin")));
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
@@ -474,6 +633,34 @@ test("an uninstall removes only the files this installation owns", () => {
   }
 });
 
+test("vscode stays a valid explicit agent outside the generation picker", () => {
+  const workspace = temporaryDirectory("codetour-agents-vscode-");
+  const emptyPath = path.join(workspace, "empty-path");
+  mkdirSync(emptyPath, { recursive: true });
+  try {
+    // Naming the reader integration is accepted; only its missing host stops
+    // it, never the fact that the picker does not offer it.
+    const installed = run(workspace, ["--install", "vscode"], { PATH: emptyPath });
+    assert.equal(installed.status, 1);
+    assert.doesNotMatch(installed.stderr, /Unsupported agent/);
+    assert.match(installed.stderr, /'code' command was not found on PATH/);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("an agent named explicitly is installed even when the batch excludes it", () => {
+  const workspace = temporaryDirectory("codetour-agents-disabled-explicit-");
+  try {
+    const installed = run(workspace, ["--install", "pi"], { CODETOUR_DISABLE_AGENTS: "pi,vscode" });
+    assert.equal(installed.status, 0, installed.stderr);
+    assert.match(installed.stdout, /^  pi: installed$/m);
+    assert.ok(existsSync(path.join(workspace, "pi-agent", "packages", "codetour-plugin", "package.json")));
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
 test("an unsupported agent is explicit and an install works outside a Git worktree", () => {
   const workspace = temporaryDirectory("codetour-agents-");
   try {
@@ -496,12 +683,12 @@ test("an unsupported agent is explicit and an install works outside a Git worktr
   }
 });
 
-test("--install with no agent installs every compatible agent and reports the rest", () => {
+test("--install all installs every compatible agent and reports the rest", () => {
   const workspace = temporaryDirectory("codetour-agents-install-all-");
   try {
     // VS Code is excluded: a batch must never install an extension into the
     // developer's real editor from a test.
-    const result = run(workspace, ["--install"], { CODETOUR_DISABLE_AGENTS: "vscode" });
+    const result = run(workspace, ["--install", "all"], { CODETOUR_DISABLE_AGENTS: "vscode" });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /^Agent integrations:$/m);
     assert.match(result.stdout, /^  copilot: (installed|already-installed|skipped)/m);
@@ -526,12 +713,63 @@ test("--install with no agent installs every compatible agent and reports the re
   }
 });
 
-test("--install all is the same batch as --install with no value", () => {
-  const workspace = temporaryDirectory("codetour-agents-install-all-alias-");
+test("--install without a value and without a terminal names the alternatives and installs nothing", () => {
+  const workspace = temporaryDirectory("codetour-agents-install-no-terminal-");
   try {
-    const result = run(workspace, ["--install", "all"], { CODETOUR_DISABLE_AGENTS: "vscode" });
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /^Agent integrations:$/m);
+    // piped stdin is not a terminal: the picker cannot ask, and installing
+    // every agent instead would decide for the caller.
+    const result = run(workspace, ["--install"], { CODETOUR_DISABLE_AGENTS: "vscode" });
+    assert.equal(result.status, 1);
+    assert.doesNotMatch(result.stdout, /Agent integrations:/, "nothing is reported as installed");
+    assert.match(result.stderr, /needs an interactive terminal/);
+    assert.match(result.stderr, /--install <agent>/);
+    assert.match(result.stderr, /--install all/);
+    assert.ok(!existsSync(path.join(workspace, "copilot-plugin", "plugin.json")));
+    assert.ok(!existsSync(path.join(workspace, "pi-agent", "packages", "codetour-plugin")));
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("an absent host keeps an installed integration reported by its installation state", () => {
+  const workspace = temporaryDirectory("codetour-agents-absent-installed-");
+  const emptyPath = path.join(workspace, "empty-path");
+  mkdirSync(emptyPath, { recursive: true });
+  try {
+    assert.equal(run(workspace, ["--install", "pi"]).status, 0);
+    // The files are on disk, so `--agents` reports them even where no Pi
+    // binary exists: an installed integration stays removable.
+    const agents = run(workspace, ["--agents"], { PATH: emptyPath });
+    assert.equal(agents.status, 0, agents.stderr);
+    assert.match(agents.stdout, /^pi\tPi coding agent$/m);
+    assert.match(agents.stdout, /^  installed: /m);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("the picker installs the agent chosen at a real terminal", { skip: ptySkip }, () => {
+  const workspace = temporaryDirectory("codetour picker with spaces-");
+  try {
+    const result = answerPicker(workspace, "2");
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /1\. GitHub Copilot CLI \(/);
+    assert.match(result.stdout, /2\. Pi coding agent \(/);
+    assert.match(result.stdout, /^  pi: installed$/m);
+    assert.ok(existsSync(path.join(workspace, "pi-agent", "packages", "codetour-plugin", "package.json")));
+    assert.ok(!existsSync(path.join(workspace, "copilot-plugin")), "the unselected agent is untouched");
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("an empty answer at a real terminal installs nothing", { skip: ptySkip }, () => {
+  const workspace = temporaryDirectory("codetour picker cancel-");
+  try {
+    const result = answerPicker(workspace, "");
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /No agent selected; nothing was installed\./);
+    assert.ok(!existsSync(path.join(workspace, "pi-agent", "packages", "codetour-plugin")));
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
@@ -544,7 +782,7 @@ test("an absent agent is skipped with its reason and does not fail the batch", (
   try {
     // No agent CLI is reachable: every integration reports why it is skipped,
     // and the exit code stays zero because nothing failed.
-    const result = run(workspace, ["--install"], { PATH: emptyPath });
+    const result = run(workspace, ["--install", "all"], { PATH: emptyPath });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /^  copilot: skipped \(/m);
     assert.match(result.stdout, /^  pi: skipped \(/m);
@@ -558,7 +796,7 @@ test("an absent agent is skipped with its reason and does not fail the batch", (
 test("--uninstall with no agent removes every integration this CLI installed", () => {
   const workspace = temporaryDirectory("codetour-agents-uninstall-all-");
   try {
-    const installed = run(workspace, ["--install"], { CODETOUR_DISABLE_AGENTS: "vscode" });
+    const installed = run(workspace, ["--install", "all"], { CODETOUR_DISABLE_AGENTS: "vscode" });
     assert.equal(installed.status, 0, installed.stderr);
     const removed = run(workspace, ["--uninstall"], { CODETOUR_DISABLE_AGENTS: "vscode" });
     assert.equal(removed.status, 0, removed.stderr);

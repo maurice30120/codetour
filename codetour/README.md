@@ -228,10 +228,24 @@ implementation; the working directory is the Tour Workspace, or pass
 `--workspace-root`. See the [standalone distribution guide](docs/standalone-distribution.md) for
 packaged-launcher client configuration.
 
-### Install every compatible agent
+### Select the agents to install
 
-`codetour --install` installs the integration of **every host this machine
-actually has**, from one CLI revision, without a checkout or network:
+`codetour --install` lists the agents this delivery generates Tours with — the
+GitHub Copilot CLI and the Pi coding agent — with their current state, and
+installs the ones you choose:
+
+```text
+Select the CodeTour agents to install; the VS Code extension stays available with 'codetour --install vscode'.
+  1. GitHub Copilot CLI (installed)
+  2. Pi coding agent (absent)
+Agent numbers or ids (empty to cancel): 1,2
+```
+
+A numbered answer, an agent id, or both are accepted; an empty answer installs
+nothing. Without an interactive terminal the command fails with one
+instruction instead of installing everything. `codetour --install all` is the
+non-interactive batch over **every host this machine actually has**, from one
+CLI revision, without a checkout or network:
 
 ```text
 Agent integrations:
@@ -240,14 +254,22 @@ Agent integrations:
   vscode: skipped (No CodeTour .vsix was found in the current directory or next to the CLI. …)
 ```
 
-Compatibility means the host is present and its install prerequisite is met. An
+Compatibility means the host is present and can hold the integration. An
 absent host is **skipped with its reason**, never a fatal error; an agent that
 fails is reported and makes the command exit non-zero without stopping the
-others. `--install <agent>` still names exactly one agent, `--install all` is
-the batch, and `--uninstall` removes every integration this CLI installed.
-`CODETOUR_DISABLE_AGENTS=vscode,pi` keeps agents out of a batch (CI, a shared
-account, a machine served by another build); naming an agent explicitly ignores
-it.
+others. `--install <agent>` names exactly one agent, and `--uninstall` removes
+every integration this CLI installed. `CODETOUR_DISABLE_AGENTS=vscode,pi` keeps
+agents out of a batch (CI, a shared account, a machine served by another
+build); naming an agent explicitly ignores it.
+
+`codetour --agents` reports one state per agent: `absent` (the host is not
+installed), `incompatible` (the host is installed but cannot hold the
+integration), `not-installed`, `installed`, `outdated` or `incomplete`, each
+with one line saying what is wrong and what to run. Reinstalling an
+installation that is already current rewrites nothing, and an uninstall
+removes only the files this CLI wrote: a modified or foreign file at a managed
+path is reported and left in place, and third-party settings, packages and
+skills are preserved.
 
 ### Install the Copilot plugin
 

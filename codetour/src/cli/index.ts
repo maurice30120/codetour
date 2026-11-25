@@ -14,6 +14,7 @@ import { runMcpCli } from "codetour-mcp";
 import { runCreateTourCommand } from "./createTour";
 import { createStandaloneTourHtml } from "./html";
 import { doctor, installAgents, listAgents, uninstallAgents, agentIds } from "./agentIntegrations";
+import { installChosenAgents, generationAgentIds, terminalSelectionSession } from "./agentSelection";
 import { resolveReadonlyStepContext } from "./stepContext";
 import { readTourImages } from "./stepImages";
 import { runTerminalTour } from "./terminal";
@@ -53,7 +54,8 @@ function buildProgram(): Command {
     .option("--renderer <type>", "open the Tour as terminal (default), html, or vscode")
     .option(
       "--install [agent]",
-      "install an agent integration: " + agentIds() + "; with no value or 'all', every compatible agent"
+      "install an agent integration: " + agentIds() +
+        "; with no value, choose from the generation agents (" + generationAgentIds() + "); with 'all', every compatible agent"
     )
     .option(
       "--uninstall [agent]",
@@ -218,8 +220,11 @@ async function openFileInBrowser(file: string): Promise<void> {
   });
 }
 
-// `--install` without a value is `true`: it means "every compatible agent",
-// exactly like the explicit `all`.
+// `--install` without a value is the interactive picker (decision §8 of spec
+// #320): the terminal chooses among the generation agents. `all` keeps the
+// non-interactive batch, and any other value names one agent.
+// `--uninstall` has no picker: without a value it removes every integration
+// this CLI installed, which stays scriptable.
 function agentId(value: string | boolean): string | undefined {
   if (typeof value !== "string") return undefined;
   return value === "all" ? undefined : value;
@@ -268,8 +273,10 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
     await doctor();
     return;
   }
-  if (options.install) {
-    const report = await installAgents(agentId(options.install));
+  if (options.install !== undefined) {
+    const report = typeof options.install === "string"
+      ? await installAgents(agentId(options.install))
+      : await installChosenAgents(terminalSelectionSession());
     if (report.failed) process.exitCode = 1;
     return;
   }

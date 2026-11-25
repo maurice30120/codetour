@@ -7,6 +7,18 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Added
 
+- `codetour --install` with no value is an interactive picker over the agents
+  that generate Tours in this delivery (GitHub Copilot CLI and Pi): numbered
+  selection, agent ids, and an empty answer that installs nothing. Without an
+  interactive terminal the command fails with one instruction instead of
+  installing every agent; `--install all` remains the non-interactive batch,
+  and `--install <agent>`, `--uninstall <agent>`, `--agents` and `--doctor`
+  stay scriptable. `--agents` and `--doctor` report one state per agent —
+  `absent`, `incompatible`, `not-installed`, `installed`, `outdated`,
+  `incomplete` — with a line saying what is wrong and what to run; the VS Code
+  extension remains installable by name but is never offered by the picker.
+  Reinstalling a current installation rewrites no file, and uninstall keeps
+  removing only what this CLI wrote. See spec #320.
 - The native `codetour knowledge` CLI. `list` discovers catalogue metadata
   without bodies, `read` returns a body only when every declared `file` proof
   still hashes to its SHA-256, `hash` prepares evidence deterministically, and
