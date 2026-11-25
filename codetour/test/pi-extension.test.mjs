@@ -398,6 +398,24 @@ test("a repeated run of the response is qualified as approximate", async () => {
   }
 });
 
+test("a restarted agent run does not report its partial cache reading as exact", async () => {
+  const { root, workspace } = temporaryWorkspace();
+  try {
+    const host = fakeHost();
+    const context = fakeContext(workspace);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    await host.handlers.get("agent_end")({ messages: [{ role: "assistant", usage: USAGE_TURN_1 }] }, context.ctx);
+    await host.handlers.get("agent_start")({}, context.ctx);
+    writeCreation(workspace);
+    await host.handlers.get("agent_end")({ messages: [{ role: "assistant", usage: USAGE_TURN_2 }] }, context.ctx);
+    await host.handlers.get("agent_settled")({ aborted: false }, context.ctx);
+    assert.equal(tokenMessages(context.notifications)[0].message,
+      "CodeTour tokens (approximate): input 142 / output 35 / cache 1,536");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("a retried run does not hide the creation of the earlier run", async () => {
   const { root, workspace } = temporaryWorkspace();
   try {

@@ -238,11 +238,11 @@ export default function codetourPlugin(pi: ExtensionAPI) {
   // §5.c), so the boundary is this instant, compared with the creation
   // records' own `at`.
   let responseStart: number | undefined;
-  // The usage of the last run's assistant messages, and how many runs the
-  // response contained (`agent_end` may repeat for a retry or a queued
-  // follow-up inside one response).
+  // The usage of the last run's assistant messages, and how many starts and
+  // ends the response contained. Either can repeat or be missing on recovery.
   let runUsages: unknown[] = [];
   let runCount = 0;
+  let runStarts = 0;
 
   // Observability must not become a chorus: one report per response window,
   // and one opening dialogue per created Tour whatever the host re-emits.
@@ -268,7 +268,7 @@ export default function codetourPlugin(pi: ExtensionAPI) {
     // labelled approximate.
     const fromRun = runUsages.length > 0;
     const usages = fromRun ? runUsages : sessionUsages(ctx, windowStart);
-    const approximate = !fromRun || runCount !== 1;
+    const approximate = !fromRun || runCount !== 1 || runStarts !== 1;
     ctx.ui.notify(tokenLine(tokenReading(usages, { approximate })), "info");
   }
 
@@ -349,9 +349,13 @@ export default function codetourPlugin(pi: ExtensionAPI) {
   // The window opens at the first run of the response, so a retry or a queued
   // follow-up does not hide the creations of the runs before it.
   pi.on("agent_start", () => {
-    if (responseStart === undefined) responseStart = Date.now();
+    if (responseStart === undefined) {
+      responseStart = Date.now();
+      runCount = 0;
+      runStarts = 0;
+    }
+    runStarts += 1;
     runUsages = [];
-    runCount = 0;
   });
 
   pi.on("agent_end", (event) => {
