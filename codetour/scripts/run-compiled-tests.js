@@ -39,9 +39,9 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
-// Some integration tests package the MCP server, whose prepack hook refreshes
-// its staged renderer. Run test files serially so that refresh cannot race
-// with another test process loading the staged package.
+// Some integration tests drive the packaging scripts, which refresh the staged
+// renderer. Run test files serially so that refresh cannot race with another
+// test process loading the staged package.
 const result = spawnSync(process.execPath, ["--test", "--test-concurrency=1", ...testFiles], {
   stdio: "inherit"
 });

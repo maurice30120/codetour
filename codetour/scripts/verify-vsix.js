@@ -2,7 +2,6 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const { verifyCriticalResource } = require("./verify-critical-resource");
 
 function fail(message) {
   throw new Error(message);
@@ -96,17 +95,11 @@ async function verify(artifact, target) {
       );
     }
 
-    const mcp = spawnSync(
-      process.execPath,
-      [path.join(extensionRoot, "dist", "mcp-server.js"), "--version"],
-      { cwd: extensionRoot, encoding: "utf8" }
-    );
-    if (mcp.status !== 0 || !/^\d+\.\d+\.\d+/u.test((mcp.stdout || "").trim())) {
-      fail(`The unpacked MCP server did not start: ${mcp.stderr || mcp.stdout}`);
+    // The extension registers no MCP server any more (ADR 0057): a server
+    // bundle in the package would be a transport this release does not ship.
+    if (fs.existsSync(path.join(extensionRoot, "dist", "mcp-server.js"))) {
+      fail("The VSIX contains the removed dist/mcp-server.js server bundle.");
     }
-
-    await verifyCriticalResource(process.execPath,
-      [path.join(extensionRoot, "dist", "mcp-server.js")], extensionRoot);
 
     const size = fs.statSync(artifact).size;
     console.log(`Verified unpacked ${path.basename(artifact)}: ${files.length} files, ${size} bytes, PNG OK.`);

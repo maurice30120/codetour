@@ -31,17 +31,11 @@ const config = {
         __dirname,
         "packages/description-renderer/dist/src/index.js"
       ),
-      // The creation rules are shared by the CLI subcommands and the MCP
-      // server, so both bundles resolve them from the same build output.
+      // The creation rules are shared by the extension's caller and the CLI
+      // subcommands, so both bundles resolve them from the same build output.
       "codetour-tour-generation": path.resolve(
         __dirname,
         "packages/tour-generation/dist/src/index.js"
-      ),
-      // The CLI bundle embeds the shared MCP server entry exactly once, from
-      // the same source as the npm binary and the VSIX server bundle.
-      "codetour-mcp": path.resolve(
-        __dirname,
-        "packages/mcp-server/dist/src/cli.js"
       )
     }
   },
@@ -87,33 +81,6 @@ const nodeConfig = {
   ]
 };
 
-const mcpConfig = {
-  mode: "production",
-  target: "node18",
-  entry: "./packages/mcp-server/dist/src/main.js",
-  externals: {
-    "@resvg/resvg-js": RESVG_EXTERNAL,
-    ...OPTIONAL_NATIVE_EXTERNALS
-  },
-  resolve: {
-    extensions: [".ts", ".js", ".json"],
-    alias: {
-      "codetour-workspace-identity": path.resolve(__dirname, "packages/workspace-identity/index.js"),
-      // A separate alias map: the MCP bundle is built from the mcp-server
-      // output, so the shared creation rules must be resolvable here too.
-      "codetour-tour-generation": path.resolve(
-        __dirname,
-        "packages/tour-generation/dist/src/index.js"
-      )
-    }
-  },
-  devtool: "source-map",
-  output: {
-    path: path.resolve(__dirname, "dist"),
-    filename: "mcp-server.js"
-  }
-};
-
 const cliConfig = {
   ...nodeConfig,
   entry: "./src/cli/index.ts",
@@ -123,8 +90,8 @@ const cliConfig = {
     // markdown-it (through the shared renderer) requires the deprecated
     // `punycode` core module, which prints a DeprecationWarning on every
     // start. Point the external at the userland package (tracked as a
-    // standalone dependency closure, like @b9g/termdom) so `codetour mcp`
-    // writes nothing to stderr, like the codetour-mcp binary.
+    // standalone dependency closure, like @b9g/termdom) so the reader and the
+    // creation commands write nothing to stderr.
     punycode: "commonjs punycode/"
   },
   plugins: [
@@ -133,4 +100,4 @@ const cliConfig = {
   ]
 };
 
-module.exports = [nodeConfig, mcpConfig, cliConfig];
+module.exports = [nodeConfig, cliConfig];

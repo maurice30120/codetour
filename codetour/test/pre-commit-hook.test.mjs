@@ -36,7 +36,7 @@ function shareSetup(root, { withBuild = true } = {}) {
   symlinkSync(path.join(repository, "node_modules"), path.join(root, "node_modules"), "dir");
   if (!withBuild) return;
   symlinkSync(path.join(repository, "dist"), path.join(root, "dist"), "dir");
-  for (const packageName of ["description-renderer", "tour-generation", "mcp-server"]) {
+  for (const packageName of ["description-renderer", "tour-generation"]) {
     mkdirSync(path.join(root, "packages", packageName), { recursive: true });
     symlinkSync(
       path.join(repository, "packages", packageName, "dist"),
@@ -48,7 +48,7 @@ function shareSetup(root, { withBuild = true } = {}) {
 }
 
 // A fixture repository holds the tracked files the fast guard reads: the
-// sources it type-checks and the Copilot adapter suite it runs.
+// sources it type-checks and the Copilot hook suite it runs.
 function createRepository({ withBuild = true } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), "codetour-pre-commit-"));
   fixtures.push(root);
@@ -56,7 +56,6 @@ function createRepository({ withBuild = true } = {}) {
     ".githooks",
     ".gitattributes",
     ".gitignore",
-    ".github/extensions",
     "scripts",
     "src",
     "tsconfig.json",
@@ -66,9 +65,15 @@ function createRepository({ withBuild = true } = {}) {
     cpSync(path.join(repository, entry), path.join(root, entry), { recursive: true });
   }
   mkdirSync(path.join(root, "test"));
+  mkdirSync(path.join(root, "packages/copilot-plugin"), { recursive: true });
   cpSync(
-    path.join(repository, "test/copilot-adapter.test.mjs"),
-    path.join(root, "test/copilot-adapter.test.mjs")
+    path.join(repository, "packages/copilot-plugin/com.github.copilot"),
+    path.join(root, "packages/copilot-plugin/com.github.copilot"),
+    { recursive: true }
+  );
+  cpSync(
+    path.join(repository, "test/copilot-hook.test.mjs"),
+    path.join(root, "test/copilot-hook.test.mjs")
   );
   cpSync(path.join(repository, "packages/workspace-identity"), path.join(root, "packages/workspace-identity"), { recursive: true });
   shareSetup(root, { withBuild });
@@ -127,21 +132,21 @@ test("a commit that breaks the type check is refused before it reaches history",
   assert.match(result.stderr, /src\/extension\.ts\(\d+,\d+\): error TS2322/);
 });
 
-test("a commit that breaks the Copilot adapter tests is refused before it reaches history", () => {
+test("a commit that breaks the Copilot hook tests is refused before it reaches history", () => {
   const root = createRepository();
   const before = head(root);
-  const adapter = path.join(root, ".github/extensions/codetour/adapter.mjs");
+  const hook = path.join(root, "packages/copilot-plugin/com.github.copilot/hooks/agent-stop.mjs");
   writeFileSync(
-    adapter,
-    readFileSync(adapter, "utf8").replace("Starting CodeTour: ", "Starting: ")
+    hook,
+    readFileSync(hook, "utf8").replace('report(`${own.length} ${own.length === 1 ? "Tour" : "Tours"} created in this response', 'report(`${own.length} created')
   );
 
-  const result = commit(root, "break the Copilot adapter");
+  const result = commit(root, "break the Copilot hook");
 
   assert.notEqual(result.status, 0, "the guard must refuse the commit");
   assert.equal(head(root), before, "a refused commit must leave history untouched");
   assert.match(result.stderr, /pre-commit/);
-  assert.match(result.stderr, /Starting CodeTour/);
+  assert.match(result.stderr, /Tour created in this response/);
 });
 
 test("the guard runs from a linked worktree and a subdirectory", () => {

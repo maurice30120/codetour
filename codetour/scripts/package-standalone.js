@@ -15,17 +15,14 @@ const targets = {
   "win32-x64": ["zip", "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821"]
 };
 
-// Measured standalone budget for dist/cli.js. The bundle carried the reader
-// at 5,948,925 bytes; embedding the shared MCP entry (SDK, validation and
-// their dependencies) measured 6,855,754 bytes; embedding the shared Knowledge
-// contract (spec #223) measured 7,977,595 bytes, so the budget leaves a finite
-// margin above the measured size instead of growing unbounded. Update it with
-// a new measurement when the bundle intentionally grows.
-const MAX_CLI_BUNDLE_BYTES = 8_500_000;
-
-// The MCP server entry must ship exactly once, inside dist/cli.js. The usage
-// banner is the marker: it appears once per copy of the shared entry.
-const MCP_ENTRY_MARKER = "Usage: codetour-mcp";
+// Measured standalone budget for dist/cli.js. The bundle carries the reader,
+// the terminal surface, the two creation commands and the plugin files the
+// installer writes; removing the embedded MCP server measured 6,901,524 bytes
+// (the retired entry and its dependencies are gone, the frozen legacy snapshot
+// is in), so the budget keeps a finite margin above the measurement instead of
+// growing unbounded. Update it with a new measurement when the bundle
+// intentionally grows.
+const MAX_CLI_BUNDLE_BYTES = 8_000_000;
 
 function command(bin, args) {
   const result = spawnSync(bin, args, { encoding: "utf8" });
@@ -44,47 +41,9 @@ function assertWithinBudget(file, budget = MAX_CLI_BUNDLE_BYTES) {
   }
 }
 
-// Reject an artifact that carries a second MCP server entry: a standalone
-// server file anywhere in dist, or a second copy of the entry marker in any
-// bundle. The one allowed carrier is dist/cli.js, with exactly one copy.
-function assertSingleMcpServer(output) {
-  const carriers = [];
-  const walk = directory => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const entryPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        walk(entryPath);
-        continue;
-      }
-      if (entry.name === "mcp-server.js") {
-        throw new Error(
-          `The standalone artifact must not ship a second MCP server entry: ${path.relative(output, entryPath)}`
-        );
-      }
-      if (entry.name.endsWith(".js")) {
-        const occurrences =
-          fs.readFileSync(entryPath, "utf8").split(MCP_ENTRY_MARKER).length - 1;
-        if (occurrences > 0) {
-          carriers.push({ file: path.relative(output, entryPath), occurrences });
-        }
-      }
-    }
-  };
-  walk(path.join(output, "dist"));
-  const single =
-    carriers.length === 1 &&
-    carriers[0].file === path.join("dist", "cli.js") &&
-    carriers[0].occurrences === 1;
-  if (!single) {
-    throw new Error(
-      `The standalone artifact must contain the MCP server exactly once, inside dist/cli.js (found ${JSON.stringify(carriers)})`
-    );
-  }
-}
-
-// Launcher scripts for the single `codetour` command: reading and `mcp` are
-// both served by dist/cli.js, and every argument is forwarded (`%*` on
-// Windows, `"$@"` on POSIX).
+// Launcher scripts for the single `codetour` command: reading and the creation
+// subcommands are both served by dist/cli.js, and every argument is forwarded
+// (`%*` on Windows, `"$@"` on POSIX).
 function launcherScript(platform) {
   return platform === "win32"
     ? '@echo off\r\n"%~dp0node.exe" "%~dp0dist\\cli.js" %*\r\nexit /b %errorlevel%\r\n'
@@ -155,13 +114,6 @@ function main() {
     // trailing slash bypasses the core-module name).
     copyDependency("@b9g/termdom", root);
     copyDependency("punycode/", root);
-    // Enforce the single-server invariant on the assembled artifact.
-    try {
-      assertSingleMcpServer(output);
-    } catch (error) {
-      fs.rmSync(output, { recursive: true, force: true });
-      throw error;
-    }
     if (process.platform === "win32") {
       fs.writeFileSync(path.join(output, "codetour.cmd"), launcherScript("win32"));
     } else {
@@ -176,4 +128,4 @@ if (require.main === module) {
 }
 
 // Exported for the standalone packaging tests.
-module.exports = { main, assertSingleMcpServer, assertWithinBudget, launcherScript, MAX_CLI_BUNDLE_BYTES };
+module.exports = { main, assertWithinBudget, launcherScript, MAX_CLI_BUNDLE_BYTES };

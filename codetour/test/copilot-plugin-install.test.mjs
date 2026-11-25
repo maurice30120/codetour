@@ -21,7 +21,7 @@ import { creationsDirectory } from "../packages/copilot-plugin/com.github.copilo
 //
 // The local path deliberately contains spaces and the temporary home is a
 // separate directory: this is the cross-platform path contract the plugin's
-// hook command and MCP launcher must survive.
+// hook command must survive. The plugin declares no MCP server (ADR 0057).
 
 const pluginSource = path.resolve("packages/copilot-plugin");
 const copilot = spawnSync("copilot", ["--version"], { encoding: "utf8" });
@@ -73,7 +73,10 @@ test("codetour --install copilot installs the plugin into a temporary COPILOT_HO
     });
     assert.equal(installed.status, 0, installed.stderr);
     assert.match(installed.stdout, /Installed the CodeTour plugin/);
-    assert.ok(existsSync(path.join(home, "extensions", "codetour", "adapter.mjs")));
+    // The retired MCP adapter is gone: nothing is written into the extension
+    // directory, and no server is registered by any install path.
+    assert.ok(!existsSync(path.join(home, "extensions", "codetour")),
+      "the MCP-routed adapter of the previous release is not installed");
     assert.ok(!existsSync(path.join(home, "skills", "codetour-knowledge", "SKILL.md")),
       "the retired standalone Knowledge skill is not installed; the plugin is the only guidance");
 
@@ -81,15 +84,10 @@ test("codetour --install copilot installs the plugin into a temporary COPILOT_HO
     assert.equal(plugins.status, 0, plugins.stderr);
     assert.ok(JSON.parse(plugins.stdout).some(plugin => plugin.name === "codetour"));
     const mcp = spawnSync("copilot", ["mcp", "list"], { env, encoding: "utf8" });
-    assert.match(mcp.stdout, /codetour \(local\)/);
-    const details = spawnSync("copilot", ["mcp", "get", "codetour", "--json"], { env, encoding: "utf8" });
-    const server = JSON.parse(details.stdout).codetour;
-    assert.equal(server.command, process.execPath, "the installed plugin uses the verified runtime");
-    assert.match(server.args[0], /dist\/cli\.js$/);
-    assert.deepEqual(server.args.slice(1), ["mcp", "--workspace-root", "${COPILOT_SESSION_CWD}"]);
+    assert.doesNotMatch(mcp.stdout, /codetour \(local\)/, "the plugin declares no server");
     const skills = spawnSync("copilot", ["skill", "list"], { env, encoding: "utf8" });
     assert.match(skills.stdout, /codetour-generate/);
-    assert.ok(!existsSync(path.join(home, "mcp-config.json")), "the plugin is the only registration");
+    assert.ok(!existsSync(path.join(home, "mcp-config.json")), "no user-level registration is written");
 
     const removed = spawnSync(process.execPath, [cliPath, "--uninstall", "copilot"], {
       cwd: workspace, env, encoding: "utf8", timeout: 240000
@@ -130,30 +128,22 @@ test("the real Copilot CLI installs, inspects and uninstalls the Agent Plugins 1
     assert.match(cached.cache_path, /plugin source with spaces/);
     for (const relative of [
       "plugin.json",
-      "mcp.json",
       "com.github.copilot/hooks/hooks.json",
       "com.github.copilot/hooks/agent-stop.mjs",
       "com.github.copilot/lib/run-log.mjs",
-      "skills/codetour-generate/SKILL.md"
+      "skills/codetour-generate/SKILL.md",
+      "skills/codetour-generate/references/codetour-adaptation.md",
+      "skills/codetour-generate/references/upstream-code-review.md",
+      "skills/codetour-generate/references/upstream-LICENSE.txt"
     ]) {
       assert.ok(existsSync(path.join(cached.cache_path, ...relative.split("/"))), `${relative} was installed`);
     }
-
-    // One MCP server, sourced from the plugin, launched by the existing
-    // `codetour mcp` command and scoped to the Copilot session workspace.
-    const mcp = cli(home, ["mcp", "list"], root);
-    assert.equal(mcp.status, 0, mcp.stderr);
-    assert.match(mcp.stdout, /Plugin servers:/);
-    assert.match(mcp.stdout, /codetour \(local\)/);
-    const details = cli(home, ["mcp", "get", "codetour", "--json"], root);
-    assert.equal(details.status, 0, details.stderr);
-    const server = JSON.parse(details.stdout).codetour;
-    assert.equal(server.source, "plugin");
-    assert.equal(server.sourcePlugin, "codetour");
-    assert.equal(server.command, "codetour");
-    assert.deepEqual(server.args, ["mcp", "--workspace-root", "${COPILOT_SESSION_CWD}"]);
-    assert.equal(server.cwd, "${PLUGIN_ROOT}");
-    assert.match(server.env.PLUGIN_ROOT, /plugin source with spaces/, "PLUGIN_ROOT resolves to the installed cache");
+    // The plugin declares no server: the retired declaration is not shipped and
+    // nothing is registered for the session.
+    assert.equal(existsSync(path.join(cached.cache_path, "mcp.json")), false);
+    const declared = cli(home, ["mcp", "list"], root);
+    assert.equal(declared.status, 0, declared.stderr);
+    assert.doesNotMatch(declared.stdout, /codetour \(local\)/);
 
     const skills = cli(home, ["skill", "list"], root);
     assert.equal(skills.status, 0, skills.stderr);
@@ -237,7 +227,6 @@ test("the real Copilot CLI installs, inspects and uninstalls the Agent Plugins 1
     const after = cli(home, ["plugin", "list", "--json"], root);
     assert.equal(after.status, 0, after.stderr);
     assert.equal(JSON.parse(after.stdout).find(plugin => plugin.name === "codetour"), undefined);
-    assert.doesNotMatch(cli(home, ["mcp", "list"], root).stdout, /codetour \(local\)/);
     assert.doesNotMatch(cli(home, ["skill", "list"], root).stdout, /codetour-generate/);
     assert.equal(installedPlugin(home), undefined);
   } finally {
