@@ -23,19 +23,48 @@ export interface InstallationStatus {
   detail: string;
 }
 
+/**
+ * What `--agents` and `--doctor` report for one agent: the host is `absent`
+ * (its command is not installed), `incompatible` (it is installed but cannot
+ * host this integration), or the installation state of the integration
+ * itself. Each state carries one line of detail saying what is wrong and what
+ * to run. Spec #320, decision §5.
+ */
+export type AgentState =
+  | "absent"
+  | "incompatible"
+  | "not-installed"
+  | "installed"
+  | "outdated"
+  | "incomplete";
+
+export interface AgentReport {
+  id: string;
+  displayName: string;
+  state: AgentState;
+  detail: string;
+}
+
 export interface AgentIntegration {
   id: string;
   displayName: string;
+  /**
+   * This host generates Tours from the CodeTour skill in this delivery, so the
+   * interactive picker offers it. The VS Code extension is a reader
+   * integration: `--install vscode` still names it explicitly.
+   */
+  supportsGeneration: boolean;
   detect(): Promise<DetectionResult>;
   status(): Promise<InstallationStatus>;
   install(): Promise<void>;
   uninstall(): Promise<void>;
   /**
-   * Why this integration cannot be installed on this machine, or `undefined`
-   * when it can. A detected agent whose prerequisite is missing is skipped
-   * with its reason instead of failing the other agents' installation.
+   * Why this detected host cannot host the integration (too old, unsupported
+   * surface, no distributable extension on this machine), or `undefined` when
+   * it can. A detected agent whose prerequisite is missing is skipped with its
+   * reason instead of failing the other agents' installation.
    */
-  prerequisite?(): Promise<string | undefined>;
+  prerequisite?(detection: DetectionResult): Promise<string | undefined>;
 }
 
 const execFileAsync = (executable: string, args: string[]): Promise<string | undefined> =>
@@ -397,14 +426,23 @@ async function restoreManagedFiles(
   return unrestored;
 }
 
+// Write one managed file, unless it already holds exactly this content: a
+// reinstall that changes nothing must not touch the filesystem, and the
+// content is the proof of ownership. Returns whether anything was written.
+async function writeIfChanged(target: string, content: string): Promise<boolean> {
+  const existing = await fs.readFile(target, "utf8").catch(() => undefined);
+  if (existing === content) return false;
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  await fs.writeFile(target, content, "utf8");
+  if (await fs.readFile(target, "utf8") !== content) {
+    throw new Error(`Could not verify ${target} after installation.`);
+  }
+  return true;
+}
+
 async function writeManagedFiles(directory: string): Promise<void> {
   for (const [name, content] of Object.entries(expectedPluginFiles())) {
-    const target = path.join(directory, ...name.split("/"));
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, content, "utf8");
-    if (await fs.readFile(target, "utf8") !== content) {
-      throw new Error(`Could not verify ${target} after installation.`);
-    }
+    await writeIfChanged(path.join(directory, ...name.split("/")), content);
   }
 }
 
@@ -459,11 +497,18 @@ async function assertPluginCacheOwned(directory: string | undefined): Promise<vo
   }
 }
 
-async function installCopilotPlugin(): Promise<void> {
+// Install the plugin through Copilot's own plugin manager. Returns whether the
+// Copilot-managed cache changed: a plugin whose files are all current is left
+// in place, so a reinstall that changes nothing does not churn the cache.
+async function installCopilotPlugin(): Promise<boolean> {
+  const existing = await installedCopilotPlugin();
+  if (existing) {
+    const states = await pluginFileStates(existing.cachePath);
+    if (existing.cachePath && states.every(file => file.state === "current")) return false;
+  }
   const staging = await fs.mkdtemp(path.join(os.tmpdir(), "codetour-plugin-"));
   try {
     await writeManagedFiles(staging);
-    const existing = await installedCopilotPlugin();
     if (existing) {
       // A reinstall replaces the previous plugin (the documented upgrade
       // path); an uninstall preserves extra files instead.
@@ -485,6 +530,7 @@ async function installCopilotPlugin(): Promise<void> {
     if (!after) {
       throw new Error("Copilot reported a successful install but lists no 'codetour' plugin.");
     }
+    return true;
   } finally {
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
   }
@@ -530,9 +576,18 @@ async function removeLegacyCodetourMcpRegistration(): Promise<string> {
   return `Removed the legacy 'codetour' MCP server from ${mcpFile}; the plugin is now the single registration.`;
 }
 
+// The plugin is installed through `copilot plugin install`, so only a Copilot
+// CLI that ships the `plugin` command can host this integration. Asking the
+// host for that command answers "too old or unsupported" without this CLI
+// inventing a version floor.
+async function copilotSupportsPlugins(): Promise<boolean> {
+  return (await execFileAsync("copilot", ["plugin", "--help"])) !== undefined;
+}
+
 const copilotIntegration: AgentIntegration = {
   id: "copilot",
   displayName: "GitHub Copilot CLI",
+  supportsGeneration: true,
   async detect() {
     const version = await execFileAsync("copilot", ["--version"]);
     return version
@@ -617,7 +672,8 @@ const copilotIntegration: AgentIntegration = {
     if (allMissing && !pluginPresent) {
       return {
         state: "not-installed" as const,
-        detail: `No CodeTour adapter in ${directory} and no CodeTour plugin installed.`
+        detail: `No CodeTour adapter in ${directory} and no CodeTour plugin installed. ` +
+          "Run 'codetour --install copilot' to install them."
       };
     }
     return {
@@ -643,24 +699,24 @@ const copilotIntegration: AgentIntegration = {
     const previousPlugin = await readManagedFiles(override);
     const pluginStatesBefore = await pluginFileStates(override);
     const pluginDiffering = pluginStatesBefore.filter(file => file.state === "modified").map(file => file.name);
+    // Whether this run left a plugin behind that a rollback must remove.
     let pluginInstalledByThisRun = false;
+    let pluginChanged = false;
     let retiredSkillDirectory: string | undefined;
     try {
       await fs.mkdir(directory, { recursive: true });
       for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
-        const target = path.join(directory, name);
-        await fs.writeFile(target, content, "utf8");
-        // Verify the written file and its path before reporting success.
-        if (await fs.readFile(target, "utf8") !== content) {
-          throw new Error(`Could not verify ${target} after installation.`);
-        }
+        await writeIfChanged(path.join(directory, name), content);
       }
       if (override) {
+        const statesBefore = await pluginFileStates(override);
         await fs.mkdir(override, { recursive: true });
         await writeManagedFiles(override);
+        pluginChanged = statesBefore.some(file => file.state !== "current");
       } else {
-        await installCopilotPlugin();
-        pluginInstalledByThisRun = true;
+        const created = !(await installedCopilotPlugin());
+        pluginChanged = await installCopilotPlugin();
+        pluginInstalledByThisRun = created && pluginChanged;
       }
       retiredSkillDirectory = await removeRetiredKnowledgeSkill();
     } catch (error) {
@@ -690,7 +746,11 @@ const copilotIntegration: AgentIntegration = {
       console.log(`Replaced differing plugin files (${pluginDiffering.join(", ")}).`);
     }
     const pluginLocation = override || await installedCopilotPlugin().then(plugin => plugin?.cachePath);
-    console.log(`Installed the CodeTour plugin${pluginLocation ? ` in ${pluginLocation}` : ""}.`);
+    console.log(
+      pluginChanged
+        ? `Installed the CodeTour plugin${pluginLocation ? ` in ${pluginLocation}` : ""}.`
+        : `The CodeTour plugin${pluginLocation ? ` in ${pluginLocation}` : ""} is already current.`
+    );
     console.log("Run 'copilot plugin list' and 'copilot mcp list' to confirm the 'codetour' plugin and its server.");
     console.log("Run 'copilot skill list' to confirm the plugin's 'codetour-generate' skill.");
     const legacy = await removeLegacyCodetourMcpRegistration();
@@ -699,12 +759,16 @@ const copilotIntegration: AgentIntegration = {
     console.log("(Load Only or Load & Augment), then run /codetour to read or generate a Tour.");
     console.log("hooks disabled means no guard, and the MCP results remain the source of truth.");
   },
-  async prerequisite() {
+  async prerequisite(detection) {
     // A managed override writes the plugin files directly; every other path
     // goes through `copilot plugin install`, which needs the CLI.
     if (copilotPluginOverride()) return undefined;
-    const detection = await this.detect();
-    return detection.state === "detected" ? undefined : detection.detail;
+    if (detection.state !== "detected") return detection.detail;
+    if (!await copilotSupportsPlugins()) {
+      return "The installed GitHub Copilot CLI has no 'plugin' command, so it cannot host the CodeTour plugin. " +
+        "Update it ('copilot update'), then run 'codetour --install copilot'.";
+    }
+    return undefined;
   },
   async uninstall() {
     const directory = copilotExtensionDirectory();
@@ -841,9 +905,13 @@ async function readPiSettings(file: string): Promise<PiSettings> {
 }
 
 async function writePiSettings(file: string, settings: PiSettings): Promise<void> {
+  // A settings file that already holds this declaration and nothing else this
+  // install changes is left byte for byte in place.
+  const content = `${JSON.stringify(settings, null, 2)}\n`;
   try {
+    if (await fs.readFile(file, "utf8").catch(() => undefined) === content) return;
     await fs.mkdir(path.dirname(file), { recursive: true });
-    await fs.writeFile(file, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+    await fs.writeFile(file, content, "utf8");
   } catch (error) {
     throw new Error(
       `Could not write ${file} (${error instanceof Error ? error.message : String(error)}). ` +
@@ -941,18 +1009,14 @@ async function pruneEmptyDirectories(directory: string): Promise<void> {
 
 async function writePiManagedFiles(directory: string): Promise<void> {
   for (const [name, content] of Object.entries(expectedPiPluginFiles())) {
-    const target = path.join(directory, ...name.split("/"));
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, content, "utf8");
-    if ((await fs.readFile(target, "utf8")) !== content) {
-      throw new Error(`Could not verify ${target} after installation.`);
-    }
+    await writeIfChanged(path.join(directory, ...name.split("/")), content);
   }
 }
 
 const piIntegration: AgentIntegration = {
   id: "pi",
   displayName: "Pi coding agent",
+  supportsGeneration: true,
   async detect() {
     const version = await execFileAsync("pi", ["--version"]);
     return version
@@ -976,7 +1040,8 @@ const piIntegration: AgentIntegration = {
     if (states.every((file) => file.state === "missing") && !declared) {
       return {
         state: "not-installed" as const,
-        detail: `No CodeTour package in ${directory} and no declaration in ${settingsFile}.`,
+        detail: `No CodeTour package in ${directory} and no declaration in ${settingsFile}. ` +
+          "Run 'codetour --install pi' to install both.",
       };
     }
     if (declared && states.every((file) => file.state === "current")) {
@@ -1083,6 +1148,7 @@ function findVsix(): string | undefined {
 const vscodeIntegration: AgentIntegration = {
   id: "vscode",
   displayName: "Visual Studio Code",
+  supportsGeneration: false,
   async detect() {
     const version = await execFileAsync("code", ["--version"]);
     return version
@@ -1101,10 +1167,12 @@ const vscodeIntegration: AgentIntegration = {
     const installed = listing.split(/\r?\n/).some(id => id.trim() === VSCODE_EXTENSION_ID);
     return installed
       ? { state: "installed" as const, detail: `Extension ${VSCODE_EXTENSION_ID} is installed.` }
-      : { state: "not-installed" as const, detail: `Extension ${VSCODE_EXTENSION_ID} is not installed.` };
+      : {
+        state: "not-installed" as const,
+        detail: `Extension ${VSCODE_EXTENSION_ID} is not installed. Run 'codetour --install vscode' to install it.`
+      };
   },
-  async prerequisite() {
-    const detection = await this.detect();
+  async prerequisite(detection) {
     if (detection.state !== "detected") return detection.detail;
     if (!findVsix()) {
       return (
@@ -1183,7 +1251,8 @@ function disabledAgents(): Set<string> {
   );
 }
 
-function selectedIntegrations(id: string | undefined): AgentIntegration[] {
+function selectedIntegrations(id: string | string[] | undefined): AgentIntegration[] {
+  if (Array.isArray(id)) return id.map(findAgentIntegration);
   if (id && id !== ALL_AGENTS) return [findAgentIntegration(id)];
   const disabled = disabledAgents();
   return agentIntegrations.filter((integration) => !disabled.has(integration.id));
@@ -1206,29 +1275,29 @@ function reportOutcomes(outcomes: AgentOutcome[]): void {
 }
 
 /**
- * Install one agent, `all` of them, or (with no id) every *compatible* agent.
+ * Install the named agents, or with no id every *compatible* agent.
  *
- * Compatibility is "the agent is present and its install prerequisite is
- * met": an absent agent is skipped with its reason, so a machine without one
- * CLI never blocks the others. A failing agent does not stop the batch either;
- * it is reported, and `failed` tells the caller to exit non-zero.
+ * Compatibility is "the agent is present and its host can hold the
+ * integration": an absent host is skipped with its reason, so a machine
+ * without one CLI never blocks the others. A failing agent does not stop the
+ * batch either; it is reported, and `failed` tells the caller to exit
+ * non-zero. A list of ids (an interactive selection) is as explicit as a
+ * single id: each one asked for by name must install.
  */
-export async function installAgents(id?: string): Promise<AgentBatchReport> {
+export async function installAgents(id?: string | string[]): Promise<AgentBatchReport> {
   const outcomes: AgentOutcome[] = [];
-  const explicit = Boolean(id && id !== ALL_AGENTS);
+  const explicit = Array.isArray(id) || Boolean(id && id !== ALL_AGENTS);
   for (const integration of selectedIntegrations(id)) {
     const base = { id: integration.id, displayName: integration.displayName };
     try {
-      // A batch installs the agents this machine actually uses; naming one
+      // A batch installs the agents this machine actually uses; naming an
       // agent is the instruction, so its missing prerequisite is a failure.
-      if (!explicit) {
-        const detection = await integration.detect();
-        if (detection.state !== "detected") {
-          outcomes.push({ ...base, result: "skipped", detail: detection.detail });
-          continue;
-        }
+      const detection = await integration.detect();
+      if (!explicit && detection.state !== "detected") {
+        outcomes.push({ ...base, result: "skipped", detail: detection.detail });
+        continue;
       }
-      const reason = await integration.prerequisite?.();
+      const reason = await integration.prerequisite?.(detection);
       if (reason) {
         outcomes.push({ ...base, result: explicit ? "failed" : "skipped", detail: reason });
         continue;
@@ -1253,7 +1322,7 @@ export async function installAgents(id?: string): Promise<AgentBatchReport> {
  * see as installed. Uninstalling does not need the agent CLI to be present:
  * the files and declarations this CLI wrote are removable without it.
  */
-export async function uninstallAgents(id?: string): Promise<AgentBatchReport> {
+export async function uninstallAgents(id?: string | string[]): Promise<AgentBatchReport> {
   const outcomes: AgentOutcome[] = [];
   for (const integration of selectedIntegrations(id)) {
     const base = { id: integration.id, displayName: integration.displayName };
@@ -1283,22 +1352,48 @@ export function findAgentIntegration(id: string): AgentIntegration {
   return integration;
 }
 
+/**
+ * What one agent's state is, for `--agents` and `--doctor`: the host's
+ * availability first, then the integration's own installation state.
+ *
+ * An installed integration is reported by its installation state even when
+ * its host is missing: the files are still on disk, and the uninstall must
+ * still find them.
+ */
+export async function reportAgent(integration: AgentIntegration): Promise<AgentReport> {
+  const base = { id: integration.id, displayName: integration.displayName };
+  const detection = await integration.detect();
+  const status = await integration.status();
+  if (status.state !== "not-installed") return { ...base, state: status.state, detail: status.detail };
+  if (detection.state === "absent") {
+    return {
+      ...base,
+      state: "absent",
+      detail: `${detection.detail} Install ${integration.displayName}, then run 'codetour --install ${integration.id}'.`
+    };
+  }
+  const reason = await integration.prerequisite?.(detection);
+  if (reason) return { ...base, state: "incompatible", detail: reason };
+  return { ...base, state: status.state, detail: status.detail };
+}
+
+export async function reportAgents(integrations: AgentIntegration[]): Promise<AgentReport[]> {
+  const reports: AgentReport[] = [];
+  for (const integration of integrations) reports.push(await reportAgent(integration));
+  return reports;
+}
+
 export async function listAgents(): Promise<void> {
-  for (const integration of agentIntegrations) {
-    const detection = await integration.detect();
-    const status = await integration.status();
-    console.log(`${integration.id}\t${integration.displayName}`);
-    console.log(`  ${detection.state === "detected" ? `detected (${detection.detail})` : detection.detail}`);
-    console.log(`  ${status.state}: ${status.detail}`);
+  for (const report of await reportAgents(agentIntegrations)) {
+    console.log(`${report.id}\t${report.displayName}`);
+    console.log(`  ${report.state}: ${report.detail}`);
   }
 }
 
 export async function doctor(): Promise<void> {
   const git = spawnSync("git", ["--version"], { encoding: "utf8", windowsHide: true });
   console.log(git.status === 0 ? `OK: ${firstLine(git.stdout)}` : "Missing: git is not available on PATH.");
-  for (const integration of agentIntegrations) {
-    const detection = await integration.detect();
-    const status = await integration.status();
-    console.log(`${integration.id}: ${detection.state} (${detection.detail}); integration ${status.state}. ${status.detail}`);
+  for (const report of await reportAgents(agentIntegrations)) {
+    console.log(`${report.id}: ${report.state}. ${report.detail}`);
   }
 }
