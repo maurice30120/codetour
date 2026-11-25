@@ -53,8 +53,8 @@ test("--install pi writes the package, the launcher and one declaration", () => 
     for (const file of [
       "package.json",
       "extensions/codetour.ts",
-      "lib/guard.mjs",
-      "lib/run-log.mjs",
+      "lib/journal.mjs",
+      "lib/reader.mjs",
       "skills/codetour-generate/SKILL.md",
       "launcher.json",
     ]) {
@@ -76,6 +76,19 @@ test("--install pi writes the package, the launcher and one declaration", () => 
 
     const settings = readSettings(home);
     assert.deepEqual(packageSources(settings), [path.resolve(pluginDir(home))]);
+
+    // The installed skill needs neither a checkout nor a server: it creates the
+    // Tour with the CLI the launcher records.
+    const skill = readFileSync(
+      path.join(pluginDir(home), "skills", "codetour-generate", "SKILL.md"),
+      "utf8"
+    );
+    assert.doesNotMatch(skill, /mcp__/);
+    assert.match(skill, /create-project-tour --workspace/);
+    assert.match(skill, /create-changes-tour --workspace/);
+    assert.match(skill, /codetour-cli/);
+    const extension = readFileSync(path.join(pluginDir(home), "extensions", "codetour.ts"), "utf8");
+    assert.doesNotMatch(extension, /registerMcpServer/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

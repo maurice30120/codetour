@@ -10,7 +10,7 @@ codetour --install pi
 
 A plain `pi install ./packages/pi-plugin` installs the same directory directly;
 `pi remove ./packages/pi-plugin` removes it. The managed install writes
-`launcher.json` so the session starts the CLI that performed the installation
+`launcher.json` so the session uses the CLI that performed the installation
 instead of whatever `codetour` happens to be on `PATH`.
 
 ## Contents
@@ -18,121 +18,117 @@ instead of whatever `codetour` happens to be on `PATH`.
 | Path | Role |
 | --- | --- |
 | `package.json` | Pi package manifest (`pi.extensions`, `pi.skills`, peer dependency on the host). |
-| `extensions/codetour.ts` | Registers the shared `codetour mcp` server **on demand** for `/codetour`, releases it after the run, and releases it after generation. |
-| `lib/run-log.mjs` | The run-state contract this package reads and the only fields it writes. |
-| `lib/guard.mjs` | The guard decision and the closing line. |
+| `extensions/codetour.ts` | `/codetour` (generate or read a Tour) and the end-of-response report: the Tours the response created, then its token reading. |
+| `lib/journal.mjs` | Reads the creation journal and attributes a creation to a response; the token reading and the summary lines. |
 | `lib/reader.mjs` | The end-of-generation opening dialogue: the real interactive reader (terminal) or the Tour at its active step (VS Code). |
-| `skills/codetour-generate/SKILL.md` | Minimal generation entry point that defers to the served MCP prompt. |
+| `skills/codetour-generate/SKILL.md` | The generation entry point: the agent explores the workspace and creates the Tour with the CLI. |
 
-## On-demand CodeTour MCP
+## No MCP server, no checkout
 
-The Pi extension does **not** register the CodeTour MCP server at session
-startup. Ordinary conversations do not get CodeTour tool definitions or a
-CodeTour server summary. The explicit `/codetour` command registers the
-existing server for the current workspace after the user has selected the Tour
-kind and review mode:
+The package needs neither an MCP server nor a CodeTour repository. The skill
+explores the workspace the session is in and calls the installed CodeTour CLI
+from the workspace root:
 
-```text
-codetour mcp --workspace-root <real workspace>
+```sh
+codetour create-project-tour --workspace . --proposal -
+codetour create-changes-tour --workspace . --proposal -
 ```
 
-The extension waits for Pi's built-in MCP host to connect the server (up to ten
-seconds), then starts the skill. Exposure remains `deferred`: even during a
-generation, the seven CodeTour tools are discovered through tool search, not
-declared to the model up front. After the run finishes, fails, or is aborted,
-the extension unregisters **only its own** MCP registration. Previously loaded
-tool definitions may still appear in a conversation's history; unregistration
-cannot erase historical context or restore spent tokens.
+The proposal is one JSON document on standard input (or in a file passed to
+`--proposal`); the result is one JSON document on standard output, with exit
+code `0` for a created Tour, `1` for a rejected proposal and `2` for a usage or
+IO failure. A rejected proposal lists the `issues` to correct and writes
+nothing.
 
-A user or project `mcp.json` entry named `codetour` takes precedence. When
-its tools are already connected, the extension reuses them and never removes
-that external registration. The extension never writes a global MCP config.
-
-`/mcp` may therefore show no CodeTour server before `/codetour`, or after
-a run has finished. This is expected. If Pi's built-in MCP support is disabled
-or replaced, `/codetour` refuses to start and reports how to restore it.
-
-Invoke `/codetour` to start the on-demand flow. Invoking the skill directly
-without a configured CodeTour server does not register MCP on its own.
+The extension passes the CLI it knows as the skill argument
+`codetour-cli=["<command>","<args>"…]` (the recorded launcher, minus the retired
+`mcp` subcommand); without that argument the skill uses `codetour` from `PATH`.
 
 ## `/codetour`
 
 `/codetour` opens the native Pi menu **Générer / Lire**. **Lire** lists the
 workspace Tours and plays the selected Tour in Pi's terminal. Press `q` to
 return to Pi. Use `/codetour read "Tour title"` to open a Tour directly.
-Reading uses the installed CLI and works with MCP disconnected.
 
-**Générer** opens a native menu for Project and Changes Tours.
+**Générer** collects the choices (Project Tour, or Changes Tour with a neutral
+or critical review), then delivers
+`/skill:codetour-generate type=… [reviewMode=…] [codetour-cli=…] [request=…]`
+to the agent. No run state is written and no server is registered: the agent
+creates the Tour itself with the CLI. A cancelled choice starts nothing.
 
-`/codetour` first collects the requested choices, then connects the shared
-MCP server on demand. It waits until at least one `mcp__codetour__*` tool is
-listed by `pi.getAllTools()` before creating the run state or invoking the skill.
-If a server cannot connect within the bounded wait, the extension unregisters
-its attempted registration and reports the two likely causes: built-in MCP
-support is disabled or replaced, or connection startup failed/timed out.
-Repair: enable the built-in support with `pi config` (Built-in → mcp) or remove
-`-builtin:mcp` from settings, then `/reload`. On a subsequent `/codetour`,
-`/mcp` should show `codetour` connected during generation, and tool search
-should discover its seven tools. A refused command creates no run state.
+## The end-of-response report
 
+When a response settles (`agent_settled`), the extension reads
+`<workspace>/.tours/.log/creations/` — the journal the CLI writes after every
+successful creation — and reports, once per response:
 
-After the native choices, the command creates a run identity, writes `.tours/.log/codetour-run-<runId>.json`, then
-delivers `/skill:codetour-generate type=… [reviewMode=…] runId=… [request=…]`.
-The agent asks the MCP for the served prompt and creates the Tour itself.
+- one line per Tour created **by this response**: title and path;
+- one token reading for the response: `input`, `output`, `cache`, with
+  `(approximate)` when the scope is not exact and `unavailable` when the host
+  reports nothing.
 
-Pi exposes MCP **tools** but not MCP **prompts**, so the served prompt is
-obtained with `get_generation_prompt` rather than `prompts/get`. The prompt text
-is the same one the Copilot adapter fetches.
+The report never blocks, never asks for a continuation, never calls a model and
+never changes the exit status. It has nothing to say when no creation is
+attributed, and it prints at most one token reading per response.
 
-A cancelled choice stops the command with no run state. An unconnected MCP
-server refuses the command after the choices but before creating any run state,
-with the diagnostic and repair steps above. A failed workspace resolution, a failed state write or a refused
-delivery removes the state and reports the error; no fallback prompt exists.
+Attribution requires the same canonical workspace, the same session identity
+(the CLI's `PI_SESSION_ID` equals `ctx.sessionManager.getSessionId()`), and a
+creation record not older than the response's `agent_start`. A creation without
+a session identity is never reported; an unreadable or foreign journal entry is
+ignored.
 
-## Generation completion
+Verified limits of this surface (Pi 1.6.0):
 
-The extension releases the MCP connection when the agent settles after Tour creation. CodeTour memory is temporarily unavailable while Knowledge moves to TokenEconomizer; existing knowledge is not migrated.
+- **The report is visible in the interactive TUI only.** It goes through
+  `ctx.ui.notify`; in `-p` and `--mode json` the host gives extensions a no-op
+  UI context (`ctx.hasUI === false`), and no extension API writes to stdout. The
+  creation itself is unaffected.
+- **Pi has no response identity.** There is no `PI_RESPONSE_ID`, and the
+  extension context carries no run id, so the response boundary is the
+  `agent_start` timestamp compared with each record's `at`. `responseId` stays
+  `null` in the journal; the extension never invents one.
+- **Only creations made through the agent's shell tool are attributable.**
+  `pi.exec()` does not export `PI_SESSION_ID`, so a child spawned by the
+  extension has no session identity — the skill must run the creation command
+  through its shell tool.
+- **Sub-agent sessions are not attributable**: the sub-agent's shell exports the
+  sub-agent's `PI_SESSION_ID`, while the parent hook sees the parent session, so
+  the report stays silent instead of attributing the creation to the wrong
+  session.
+- Token figures come from the `Usage` of the assistant messages of the response
+  (`agent_end`); some providers report all-zero usage, which is shown as
+  unavailable, never as zero. `input` already excludes the cache, so `cache`
+  (`cacheRead + cacheWrite`) is never added twice.
 
 ## The opening dialogue
 
-When a Tour is created, the extension reports the
-closing line and then asks the user how to open the created Tour — never a
-step list or a summary in the Tour's place:
+When a Tour is attributed to the response, the extension reports it and then
+asks the user how to open it — never a step list or a summary in the Tour's
+place:
 
-- **Terminal** — the real interactive reader, spawned at once from the
-  managed launcher (the `launcher.json` CLI, not whatever `codetour` happens
-  to be on `PATH`): `codetour --internal-tour "<tour path>"` (or the default
-  reading path on the recorded title). The spawn inherits the session's
-  terminal — always the Playback Surface, never a PTY or an independent
-  window — the extension waits for the reading to end, then the terminal is
-  back with the session. A non-interactive session or a failed spawn degrades
-  to the documented hand-over command, never a crash (ticket #242, review
-  fix F2).
-- **VS Code** — the managed launcher executes `--internal-open-vscode "<tour path>"` at the
-  workspace root: the Open-in-VS Code contract of ticket #244, the Tour at its
-  active step (the first one right after generation). The decision lives once
-  in the CLI's `openInVscode` module (canonical workspace and the
-  VS Code-absent case); a failure is reported with a
-  manual command. During reading, pressing `o` in the terminal reader performs
-  the same opening at the currently displayed Step.
+- **Terminal** — the real interactive reader, spawned at once from the managed
+  launcher (the `launcher.json` CLI, not whatever `codetour` happens to be on
+  `PATH`): `codetour --internal-tour "<tour path>"` (or the default reading path
+  on the recorded title). The spawn inherits the session's terminal — never a
+  PTY or an independent window — the extension waits for the reading to end,
+  then the terminal is back with the session. A non-interactive session or a
+  failed spawn degrades to the documented hand-over command, never a crash.
+- **VS Code** — the managed launcher executes
+  `--internal-open-vscode "<tour path>"` at the workspace root: the
+  Open-in-VS Code contract of ticket #244, the Tour at its active step. The
+  decision lives once in the CLI's `openInVscode` module; a failure is reported
+  with a manual command.
 
-The ask is once per run; a declined ask hands over nothing and leaves no
-substitute text.
+The ask is once per created Tour; a declined ask hands over nothing and leaves
+no substitute text.
 
 ## Requirements
 
-- A Pi version that supports `registerMcpServer`, `registerCommand`,
-  `agent_before_settle` with `continue: true`, `getAllTools()`, and package
-  manifests.
-- **Pi's built-in MCP support must be enabled.** On-demand registrations are
-  connected by it; a settings file that disables it
-  (`"extensions": ["-builtin:mcp"]`, or `-builtin:mcp` in a project override),
-  or an installed extension that replaces it (such as `pi-mcp-adapter`),
-  leaves the `codetour` server registered but unconnected, and Pi reports
-  `MCP server "codetour" is registered, but no loaded extension connects MCP
-  servers`. Generation refuses to start in that case; the diagnostic and its
-  repair are stated once, in [`/codetour`](#codetour) above. `pi mcp list`
-  cannot confirm a connection, because shell commands do not load extensions.
-- `codetour` on `PATH` for a direct `pi install` of this source (the managed
-  install writes an absolute launcher).
-- No Node subprocess and no extra hook runtime: everything runs inside Pi.
+- A Pi version that supports package manifests with `pi.skills` and
+  `pi.extensions`, `registerCommand`, `agent_start` / `agent_end` /
+  `agent_settled`, and `ctx.ui.notify`.
+- The CodeTour CLI: the managed install records its absolute path in
+  `launcher.json` and passes it to the skill; a direct `pi install` of this
+  source expects `codetour` on `PATH`.
+- No Node subprocess and no extra hook runtime: everything runs inside Pi. The
+  CLI is run by the agent's shell tool, as part of the generation it performs.

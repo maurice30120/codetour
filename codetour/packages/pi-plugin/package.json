@@ -2,12 +2,12 @@
   "name": "codetour-pi-plugin",
   "version": "0.1.0",
   "type": "module",
-  "description": "CodeTour: guided Tours through the shared MCP server and generation skill.",
+  "description": "CodeTour: guided Tours created by the agent through the CodeTour command line, with an end-of-response summary.",
   "keywords": [
     "pi-package",
     "codetour",
     "tours",
-    "mcp",
+    "cli",
     "pi"
   ],
   "license": "MIT",

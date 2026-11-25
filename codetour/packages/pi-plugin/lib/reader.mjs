@@ -1,6 +1,6 @@
 // The opening dialogue of the Pi plugin (ticket #242).
 //
-// At the end of a generation the plugin asks the user to open the created Tour
+// At the end of a response the plugin asks the user to open each created Tour
 // through one of the two real surfaces — never a textual summary:
 //
 //   Terminal : the shipped CLI's real interactive reader, on the reader
@@ -19,10 +19,22 @@
 // to the session. The VS Code choice only names the exact command; the
 // extension never opens a PTY and never runs a shell.
 //
+// The recorded Tour is a creation-journal record (DESIGN §3): the hook only
+// asks for a creation it has attributed to the response, and the record always
+// carries the created Tour's title and absolute path.
+//
 // Pure decisions plus one injected spawn; no I/O beyond that, so the dialogue
-// can be tested without a Pi session, exactly like `guard.mjs`.
+// can be tested without a Pi session, exactly like `journal.mjs`.
 
 import { spawn as nodeSpawn } from "node:child_process";
+
+/** Whether this record names a Tour the dialogue can open. */
+function createdTour(state) {
+  if (!state || typeof state !== "object") return false;
+  const hasPath = typeof state.tourPath === "string" && state.tourPath !== "";
+  const hasTitle = typeof state.tourTitle === "string" && state.tourTitle !== "";
+  return hasPath || hasTitle;
+}
 
 /** Quote one word for the shell command shown to the reader. */
 function shellQuote(value) {
@@ -38,7 +50,7 @@ function shellQuote(value) {
  * reader directly when no title is available.
  */
 export function readerCommand(state) {
-  if (!state || state.tourCreated !== true) return null;
+  if (!createdTour(state)) return null;
   if (typeof state.tourTitle === "string" && state.tourTitle !== "") {
     return `codetour ${shellQuote(state.tourTitle)}`;
   }
@@ -58,7 +70,7 @@ export function readerCommand(state) {
  * exists to read.
  */
 export function readerSpawnPlan(state, launcher) {
-  if (!state || state.tourCreated !== true) return null;
+  if (!createdTour(state)) return null;
   const cwd = typeof state.workspace === "string" && state.workspace !== ""
     ? state.workspace
     : undefined;
@@ -73,7 +85,9 @@ export function readerSpawnPlan(state, launcher) {
 
 export function readerInvocation(launcher, args, cwd) {
   const base = Array.isArray(launcher?.args) ? [...launcher.args] : [];
-  if (base[base.length - 1] === "mcp") base.pop();
+  // `launcher.json` still records the retired `mcp` subcommand; reading is a
+  // top-level subcommand (ticket #325 removes it from the recorded shape).
+  if (base.length > 0 && base[base.length - 1] === "mcp") base.pop();
   const command = typeof launcher?.command === "string" && launcher.command !== ""
     ? launcher.command
     : "codetour";
@@ -154,7 +168,7 @@ export function openingOptions() {
 
 /** The end-of-generation question, or null without a Tour to open. */
 export function openingQuestion(state) {
-  if (!state || state.tourCreated !== true) return null;
+  if (!createdTour(state)) return null;
   if (typeof state.tourTitle === "string" && state.tourTitle !== "") {
     return `Open ${shellQuote(state.tourTitle)} now?`;
   }
@@ -172,7 +186,7 @@ export function openingQuestion(state) {
  * VS Code-absent case — stays in the T5 decision module behind this surface.
  */
 export function vscodeCommand(state) {
-  if (!state || state.tourCreated !== true) return null;
+  if (!createdTour(state)) return null;
   if (typeof state.tourPath === "string" && state.tourPath !== "") {
     return `codetour --internal-open-vscode ${shellQuote(state.tourPath)}`;
   }

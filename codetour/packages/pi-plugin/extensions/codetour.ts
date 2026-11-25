@@ -3,22 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
-  createRunState,
-  listRunStates,
-  newRunId,
-  pruneRunStates,
-  removeRunState,
-  updateRunState,
-  writeRunState,
-} from "../lib/run-log.mjs";
-import {
-  closingLine,
-  continuationMessage,
-  displayKey,
-  isClosed,
-  knowledgeDetailLines,
-  selectContinuation,
-} from "../lib/guard.mjs";
+  readCreations,
+  selectCreated,
+  summaryLines,
+  tokenLine,
+  tokenReading,
+} from "../lib/journal.mjs";
 import {
   TERMINAL_OPTION,
   VSCODE_OPTION,
@@ -34,18 +24,20 @@ import {
 
 // CodeTour for Pi.
 //
-// This extension is the Pi host of the shared CodeTour surfaces: it registers
-// the existing `codetour mcp` server only when `/codetour` is invoked, starts
-// a controlled generation, and asks for the one bounded consolidation
-// continuation the MCP's run state allows. It never generates a Tour, never
-// restates the Tour method, and never writes Tour or Knowledge content: the
-// served MCP prompt owns the method and the MCP tools own persistence.
+// The package is two surfaces:
 //
-// The package ships standalone (it is installed from its own directory), so it
-// carries its own copy of the run-state contract in `lib/run-log.mjs`.
+//  - the `codetour-generate` skill, which makes the agent create a Tour with
+//    the CodeTour CLI (`codetour create-project-tour` / `create-changes-tour`)
+//    from the workspace it is in: no MCP server and no CodeTour checkout;
+//  - this extension, which reads the creation journal when a response settles
+//    and reports, once, the Tours that response created and the response's
+//    token reading.
+//
+// The report is purely informative (DESIGN §4): it never blocks, never asks for
+// a continuation, never calls a model, never writes Tour content, and never
+// changes the agent's exit status. It has nothing to say when no creation is
+// attributed to the response.
 
-const SERVER_NAME = "codetour";
-const MCP_TOOL_PREFIX = `mcp__${SERVER_NAME}__`;
 const PACKAGE_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const SKILL_COMMAND = "/skill:codetour-generate";
 
@@ -57,13 +49,24 @@ interface Launcher {
   args: string[];
 }
 
+interface CreationRecord {
+  workspace: string;
+  tourPath: string;
+  tourTitle: string;
+  kind: RunKind;
+  at: string;
+  sessionId: string | null;
+  responseId: string | null;
+  host: string | null;
+}
+
 /**
  * The CLI that serves the session. `codetour --install pi` writes
  * `launcher.json` next to this file with the absolute runtime and script of the
  * installing CLI, so a stale `codetour` on PATH cannot serve an older build.
  * Without it (a checkout run by hand), PATH is the documented fallback.
  */
-async function resolveLauncher(): Promise<Launcher> {
+async function installedLauncher(): Promise<Launcher | undefined> {
   try {
     const raw = await fs.readFile(path.join(PACKAGE_ROOT, "launcher.json"), "utf8");
     const parsed = JSON.parse(raw) as { command?: unknown; args?: unknown };
@@ -76,9 +79,21 @@ async function resolveLauncher(): Promise<Launcher> {
       return { command: parsed.command, args: parsed.args as string[] };
     }
   } catch {
-    // No managed launcher: fall through to PATH.
+    // No managed launcher: PATH is the documented fallback.
   }
-  return { command: "codetour", args: ["mcp"] };
+  return undefined;
+}
+
+/**
+ * The argv words of the CLI to call: the recorded launcher when installed,
+ * `codetour` from PATH otherwise. `launcher.json` still records the retired
+ * `mcp` subcommand; every surface here calls top-level subcommands (ticket #325
+ * removes it from the recorded shape).
+ */
+function cliWords(launcher: Launcher | undefined): string[] {
+  const words = launcher ? [launcher.command, ...launcher.args] : ["codetour"];
+  if (words.length > 1 && words[words.length - 1] === "mcp") words.pop();
+  return words;
 }
 
 async function realWorkspace(cwd: string): Promise<string | undefined> {
@@ -89,35 +104,6 @@ async function realWorkspace(cwd: string): Promise<string | undefined> {
   } catch {
     return undefined;
   }
-}
-
-/**
- * Whether this session really carries the CodeTour MCP tools.
- *
- * Registering the server is not connecting it: Pi's built-in MCP support
- * connects registered servers in the background, and a connected server's
- * tools are registered as `mcp__<server>__<tool>` (`getAllTools()` lists them
- * whatever their exposure, and a withdrawn tool becomes `hidden`). A
- * registered server without a tool is therefore either still connecting or
- * never connected, because the built-in support is disabled or replaced.
- *
- * Reading the tool registry is deliberately passive: handling
- * `mcp_servers_change` would mark this extension as the one that connects
- * registered servers and would suppress Pi's own diagnostic instead of
- * reporting the real cause.
- */
-function codeTourToolsPresent(pi: ExtensionAPI): boolean {
-  return pi.getAllTools().some((tool) => tool.name.startsWith(MCP_TOOL_PREFIX));
-}
-
-/** Explain a failed on-demand connection after the registration is released. */
-function mcpNotConnectedMessage(): string {
-  return [
-    `CodeTour: the "${SERVER_NAME}" MCP server could not connect; no ${MCP_TOOL_PREFIX}* tools appeared.`,
-    "Pi's built-in MCP support may be disabled or replaced, or connection startup may have timed out.",
-    "Enable it with `pi config` (Built-in → mcp), or remove `-builtin:mcp` from settings, then `/reload` and try again.",
-    "No run state was created.",
-  ].join(" ");
 }
 
 interface GenerationChoices {
@@ -154,16 +140,45 @@ function parseChoices(raw: string): GenerationChoices {
 function skillInvocation(choices: {
   type: RunKind;
   reviewMode?: ReviewMode;
-  runId: string;
+  cli?: string[];
   request: string;
 }): string {
   const parts = [SKILL_COMMAND, `type=${choices.type}`];
   if (choices.type === "changes" && choices.reviewMode) {
     parts.push(`reviewMode=${choices.reviewMode}`);
   }
-  parts.push(`runId=${choices.runId}`);
+  // The installed CLI travels as one JSON array of argv words: skill arguments
+  // are free text, so a single self-delimiting token keeps a path with spaces
+  // intact (DESIGN §9). Without a recorded launcher the skill uses PATH.
+  if (choices.cli) parts.push(`codetour-cli=${JSON.stringify(choices.cli)}`);
   if (choices.request) parts.push(`request=${choices.request}`);
   return parts.join(" ");
+}
+
+/** The usage of the assistant messages of the last agent run of the response. */
+function responseUsages(event: { messages?: unknown } | undefined): unknown[] {
+  const messages = Array.isArray(event?.messages) ? event.messages : [];
+  return messages
+    .filter((message: any) => message?.role === "assistant")
+    .map((message: any) => message.usage);
+}
+
+/**
+ * Fallback reading of the same response from the session entries, used when
+ * `agent_end` delivered no message. It cannot be bounded exactly, so the
+ * reading is reported as approximate.
+ */
+function sessionUsages(ctx: ExtensionContext, since: number): unknown[] {
+  const entries =
+    typeof ctx.sessionManager?.getEntries === "function" ? ctx.sessionManager.getEntries() : [];
+  if (!Array.isArray(entries)) return [];
+  return entries
+    .filter((entry: any) => entry?.type === "message" && entry.role === "assistant")
+    .filter((entry: any) => {
+      const at = Date.parse(entry.timestamp);
+      return !Number.isFinite(at) || at >= since;
+    })
+    .map((entry: any) => entry.usage);
 }
 
 interface DiscoveredTour {
@@ -172,13 +187,14 @@ interface DiscoveredTour {
 }
 
 async function readTour(pi: ExtensionAPI, ctx: ExtensionContext, title: string) {
-  const launcher = await resolveLauncher();
+  const words = cliWords(await installedLauncher());
+  const cli = { command: words[0], args: words.slice(1) };
   const workspace = await realWorkspace(ctx.cwd);
   if (!workspace) throw new Error(`${ctx.cwd} is not a usable workspace.`);
 
   const resolve = async (args: string[]) => {
-    const cli = readerInvocation(launcher, args, workspace);
-    const result = await pi.exec(cli.command, cli.args, { cwd: workspace });
+    const invocation = readerInvocation(cli, args, workspace);
+    const result = await pi.exec(invocation.command, invocation.args, { cwd: workspace });
     if (result.code !== 0) throw new Error(result.stderr.trim() || `CLI exited with code ${result.code}.`);
     return JSON.parse(result.stdout);
   };
@@ -196,7 +212,7 @@ async function readTour(pi: ExtensionAPI, ctx: ExtensionContext, title: string) 
     if (!selected) throw new Error("Invalid Tour selection.");
   }
 
-  const { plan, command } = existingTourReader(selected.id, launcher, workspace);
+  const { plan, command } = existingTourReader(selected.id, cli, workspace);
   const play = () => runTerminalReader(plan, command);
   const outcome = ctx.hasUI && interactiveSession()
     ? await ctx.ui.custom<Awaited<ReturnType<typeof play>>>(async (tui, _theme, _keys, done) => {
@@ -220,83 +236,67 @@ async function readTour(pi: ExtensionAPI, ctx: ExtensionContext, title: string) 
 }
 
 export default function codetourPlugin(pi: ExtensionAPI) {
-  // One closing line per run and per distinct set of facts: observability must
-  // not become a chorus on every stop of a long conversation.
-  const reported = new Map<string, string>();
+  // The response window of DESIGN §4: `agent_start` opens it and
+  // `agent_settled` closes it. Pi exposes no response identity (#323 recon
+  // §5.c), so the boundary is this instant, compared with the creation
+  // records' own `at`.
+  let responseStart: number | undefined;
+  // The usage of the assistant messages of this response, from `agent_end`.
+  let runUsages: unknown[] = [];
 
-  // The opening dialogue is asked once per run: observability must not become
-  // a chorus, and the user answers the end of the generation only once.
-  const offered = new Set<string>();
+  // Observability must not become a chorus: one report per response window,
+  // and one opening dialogue per created Tour whatever the host re-emits.
+  const reportedResponses = new Set<number>();
+  const offeredTours = new Set<string>();
 
-  // The built-in MCP host connects registrations made after session startup.
-  // Keep no CodeTour server or tool definitions in an ordinary Pi session.
-  // A user-configured MCP server of the same name takes precedence, and is
-  // never unregistered by CodeTour.
-  let registeredOnDemand = false;
-
-  function releaseMcp(): void {
-    if (!registeredOnDemand) return;
-    pi.unregisterMcpServer(SERVER_NAME);
-    registeredOnDemand = false;
+  /**
+   * The end-of-response report: the Tours this response created, then its
+   * single token reading. Silent when no creation is attributed.
+   */
+  async function reportResponse(ctx: ExtensionContext, created: CreationRecord[]): Promise<void> {
+    for (const line of summaryLines(created)) {
+      ctx.ui.notify(line, "info");
+    }
+    // A reading from the run's own messages is exact; the session entries
+    // cannot be bounded to the response, so that reading is approximate.
+    const fromRun = runUsages.length > 0;
+    const usages =
+      fromRun || responseStart === undefined ? runUsages : sessionUsages(ctx, responseStart);
+    ctx.ui.notify(tokenLine(tokenReading(usages, { approximate: !fromRun })), "info");
   }
 
-  async function connectMcp(workspace: string): Promise<boolean> {
-    // Respect an existing, connected user/project registration.
-    if (codeTourToolsPresent(pi)) return true;
-    const launcher = await resolveLauncher();
-    pi.registerMcpServer(SERVER_NAME, {
-      command: launcher.command,
-      args: [...launcher.args, "--workspace-root", workspace],
-      description: "CodeTour: guided code tours.",
-      exposure: "deferred",
-    });
-    registeredOnDemand = true;
-
-    // Runtime registrations connect asynchronously. Do not send the skill or
-    // create a run state until its tools are actually available. A bounded
-    // wait also reports disabled/replaced built-in MCP without hanging Pi.
-    for (let attempt = 0; attempt < 100; attempt += 1) {
-      if (codeTourToolsPresent(pi)) return true;
-      await new Promise<void>((resolve) => setTimeout(resolve, 100));
-    }
-    releaseMcp();
-    return false;
-  }
-
-  async function report(ctx: ExtensionContext, state: Record<string, any>): Promise<void> {
-    if (state.tourCreated !== true) return;
-    const key = `${displayKey(state)}|${isClosed(state)}`;
-    if (key === "|false") return;
-    if (reported.get(state.runId) === key) return;
-    reported.set(state.runId, key);
-    ctx.ui.notify(closingLine(state), "info");
-    for (const line of knowledgeDetailLines(state)) {
-      ctx.ui.notify(line, "warning");
-    }
-    // At the end of the generation (the run is closed), ask the user how to
-    // open the created Tour (ticket #242): the real interactive reader in the
-    // terminal, or the Tour at its active step in VS Code through the CLI's
-    // Open-in-VS Code surface (ticket #244's contract). Never a textual
-    // summary, whatever the choice; reading never opens an independent window.
-    if (offered.has(state.runId)) return;
-    offered.add(state.runId);
-    const question = openingQuestion(state);
+  /**
+   * The opening dialogue of ticket #242, re-pointed at the creation journal:
+   * the real interactive reader in this terminal, or the Tour at its active
+   * step in VS Code. Never a textual summary, never an independent window, and
+   * never a second question for the same Tour.
+   */
+  async function offerReader(
+    ctx: ExtensionContext,
+    record: CreationRecord,
+    workspace: string
+  ): Promise<void> {
+    const key = `${record.tourPath}|${record.at}`;
+    if (offeredTours.has(key)) return;
+    offeredTours.add(key);
+    // Print and JSON modes have no dialogue to offer (ctx.hasUI === false).
+    if (ctx.hasUI === false) return;
+    const tour = { tourPath: record.tourPath, tourTitle: record.tourTitle, workspace };
+    const question = openingQuestion(tour);
     if (!question) return;
     const choice = await ctx.ui.select(question, openingOptions());
+    const words = cliWords(await installedLauncher());
     if (choice === TERMINAL_OPTION) {
-      // The real reader opens immediately (review F2): the launcher CLI is
-      // spawned with inherited stdio — this very terminal, never an
-      // independent window — and the call returns only when the reading ends,
-      // which hands the terminal back to the session. A non-interactive
-      // session or a failed spawn degrades to the documented hand-over
-      // command, never a crash and never a summary in the Tour's place.
-      const outcome = await playInTerminal(state, await resolveLauncher());
+      // The real reader opens immediately: the installed CLI is spawned with
+      // inherited stdio — this very terminal, never an independent window — and
+      // the call returns only when the reading ends. A non-interactive session
+      // or a failed spawn degrades to the documented hand-over command.
+      const outcome = await playInTerminal(tour, { command: words[0], args: words.slice(1) });
       if (outcome.degraded && outcome.command) {
         ctx.ui.notify(
           outcome.reason
             ? `CodeTour: ${outcome.reason} Run ${outcome.command} at the ` +
-              `workspace root — the reader plays in this terminal, never an ` +
-              "independent window."
+              "workspace root — the reader plays in this terminal, never an independent window."
             : `Run ${outcome.command} at the workspace root — the reader plays ` +
               "in this terminal, never an independent window.",
           "warning"
@@ -309,49 +309,81 @@ export default function codetourPlugin(pi: ExtensionAPI) {
         );
       }
     } else if (choice === VSCODE_OPTION) {
-      const command = vscodeCommand(state);
+      const command = vscodeCommand(tour);
       if (!command) {
         ctx.ui.notify("CodeTour: the created Tour has no path to open in VS Code.", "warning");
         return;
       }
-      const launcher = await resolveLauncher();
-      const args = [...launcher.args];
-      if (args[args.length - 1] === "mcp") args.pop();
       try {
-        const result = await pi.exec(launcher.command, [...args, "--internal-open-vscode", state.tourPath, ctx.cwd], { cwd: ctx.cwd });
+        const result = await pi.exec(
+          words[0],
+          [...words.slice(1), "--internal-open-vscode", record.tourPath, ctx.cwd],
+          { cwd: ctx.cwd }
+        );
         if (result.code !== 0) {
-          ctx.ui.notify(`CodeTour: could not open the Tour in VS Code: ${result.stderr.trim() || `exit ${result.code}`}. Run ${command} at the workspace root.`, "warning");
+          ctx.ui.notify(
+            `CodeTour: could not open the Tour in VS Code: ${
+              result.stderr.trim() || `exit ${result.code}`
+            }. Run ${command} at the workspace root.`,
+            "warning"
+          );
         }
       } catch (error) {
-        ctx.ui.notify(`CodeTour: could not open the Tour in VS Code: ${error instanceof Error ? error.message : String(error)}. Run ${command} at the workspace root.`, "warning");
+        ctx.ui.notify(
+          `CodeTour: could not open the Tour in VS Code: ${
+            error instanceof Error ? error.message : String(error)
+          }. Run ${command} at the workspace root.`,
+          "warning"
+        );
       }
     }
   }
 
-  pi.on("session_start", async (_event, ctx) => {
-    // No MCP registration at startup: ordinary conversations pay no CodeTour
-    // tool or server-description cost. Only /codetour opts into the MCP.
-    const workspace = await realWorkspace(ctx.cwd);
-    if (workspace) await pruneRunStates(workspace).catch(() => undefined);
+  pi.on("agent_start", () => {
+    responseStart = Date.now();
+    runUsages = [];
   });
 
-  // The bounded consolidation guard: the Pi equivalent of the Copilot
-  // `agentStop` hook, in process instead of a subprocess. It reads the run
-  // state only, is inert for an ordinary conversation or a closed run, and asks
-  // for at most one continuation, marked under the cross-process lock.
-  pi.on("agent_before_settle", async (event, ctx) => {
-    const workspace = await realWorkspace(ctx.cwd);
-    if (!workspace) return;
-    const sessionId = ctx.sessionManager.getSessionId();
-    const listed = await listRunStates(workspace);
-    for (const problem of listed.problems) {
-      ctx.ui.notify(`CodeTour: ignored run state (${problem})`, "warning");
+  // `agent_end` closes each low-level run: the last one of the response is the
+  // one whose messages the reading covers (a retry or a compaction retry
+  // replaces the figure instead of adding to it).
+  pi.on("agent_end", (event) => {
+    runUsages = responseUsages(event);
+  });
+
+  // `agent_settled` is Pi's final, notification-only boundary: it cannot ask
+  // for a continuation, it fires once per settled response, and it is emitted
+  // in print mode too. Nothing below returns a value.
+  pi.on("agent_settled", async (event, ctx) => {
+    const start = responseStart;
+    if (event?.aborted === true || start === undefined) return;
+    if (reportedResponses.has(start)) return;
+    reportedResponses.add(start);
+    try {
+      const workspace = await realWorkspace(ctx.cwd);
+      if (!workspace) return;
+      const { records } = await readCreations(workspace);
+      const created = selectCreated(records, {
+        workspace,
+        sessionId: ctx.sessionManager.getSessionId(),
+        since: start,
+        now: Date.now(),
+      }) as CreationRecord[];
+      if (created.length === 0) return;
+      await reportResponse(ctx, created);
+      for (const record of created) {
+        // One dialogue per Tour: a host that cannot open one still gets the
+        // report, and the next Tour keeps its own offer.
+        try {
+          await offerReader(ctx, record, workspace);
+        } catch {
+          // An opening never fails the response.
+        }
+      }
+    } catch {
+      // The journal is observability only: a reading failure is never a
+      // response failure and never a Tour to report.
     }
-    for (const state of listed.states) {
-      if (state.workspace !== workspace || state.sessionId !== sessionId) continue;
-      await report(ctx, state);
-    }
-    releaseMcp();
   });
 
   pi.registerCommand("codetour", {
@@ -405,52 +437,19 @@ export default function codetourPlugin(pi: ExtensionAPI) {
         ctx.ui.notify(`CodeTour: ${ctx.cwd} is not a usable workspace.`, "error");
         return;
       }
-      try {
-        if (!(await connectMcp(workspace))) {
-          ctx.ui.notify(mcpNotConnectedMessage(), "error");
-          return;
-        }
-      } catch (error) {
-        releaseMcp();
-        ctx.ui.notify(
-          `CodeTour: could not register the on-demand MCP server (${
-            error instanceof Error ? error.message : String(error)
-          }).`,
-          "error"
-        );
-        return;
-      }
-      const sessionId = ctx.sessionManager.getSessionId();
-      const runId = newRunId();
-      try {
-        await writeRunState(
-          workspace,
-          createRunState({
-            runId,
-            workspace,
-            sessionId,
-            kind: type,
-            request: choices.request || null,
-          })
-        );
-      } catch (error) {
-        ctx.ui.notify(
-          `CodeTour: could not create the run state (${
-            error instanceof Error ? error.message : String(error)
-          }).`,
-          "error"
-        );
-        releaseMcp();
-        return;
-      }
+      // The agent creates the Tour with the installed CLI; no run state, no
+      // MCP registration and nothing to release afterwards.
       try {
         pi.sendUserMessage(
-          skillInvocation({ type, reviewMode, runId, request: choices.request }),
+          skillInvocation({
+            type,
+            reviewMode,
+            cli: await cliForSkill(),
+            request: choices.request,
+          }),
           { expandPromptTemplates: true }
         );
       } catch (error) {
-        await removeRunState(workspace, runId);
-        releaseMcp();
         ctx.ui.notify(
           `CodeTour: could not start the generation (${
             error instanceof Error ? error.message : String(error)
@@ -460,4 +459,10 @@ export default function codetourPlugin(pi: ExtensionAPI) {
       }
     },
   });
+
+  /** The argv words the skill must call, recorded only when the CLI is known. */
+  async function cliForSkill(): Promise<string[] | undefined> {
+    const launcher = await installedLauncher();
+    return launcher ? cliWords(launcher) : undefined;
+  }
 }
