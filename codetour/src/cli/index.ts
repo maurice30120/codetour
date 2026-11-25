@@ -11,6 +11,7 @@ import { loadTour } from "../store/tourSchema";
 import { discoverToursFromRoot, visibleTours } from "../core/tourDiscovery";
 import { renderDescription } from "codetour-description-renderer";
 import { runMcpCli } from "codetour-mcp";
+import { runCreateTourCommand } from "./createTour";
 import { createStandaloneTourHtml } from "./html";
 import { doctor, installAgents, listAgents, uninstallAgents, agentIds } from "./agentIntegrations";
 import { resolveReadonlyStepContext } from "./stepContext";
@@ -87,8 +88,26 @@ function buildProgram(): Command {
       const exitCode = await runMcpCli(args);
       if (exitCode !== 0) process.exit(exitCode);
     });
-  // The native Knowledge family is deterministic and works outside Git: its
-  // positional subcommands never reach the Tour reader.
+  // Tour creation: an agent hands over its JSON proposal and gets one JSON
+  // result. Like `mcp`, these commands parse their own arguments and own their
+  // exit codes, so the reader's error contract is untouched. They are
+  // reserved tokens: a Tour with that exact title reaches the reader through
+  // the numbered prompt or --internal-tour-id.
+  for (const kind of ["project", "changes"] as const) {
+    command
+      .command("create-" + kind + "-tour [args...]")
+      .description(
+        "create a CodeTour " +
+          (kind === "project" ? "Project" : "Changes") +
+          " Tour from a JSON proposal"
+      )
+      .allowUnknownOption()
+      .passThroughOptions()
+      .helpOption(false)
+      .action(async (args: string[]) => {
+        process.exitCode = await runCreateTourCommand(kind, args);
+      });
+  }
   return command;
 }
 
