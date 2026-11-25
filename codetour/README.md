@@ -454,6 +454,7 @@ For real VS Code playback checks and screenshots, follow the
 [desktop smoke-test guide](test/vscode/README.md).
 
 - [CI and platform builds](docs/ci.md)
+- [Example Knowledge cards](docs/knowledge-exemple/README.md)
 - [Description renderer](packages/description-renderer/README.md)
 - [Changelog](CHANGELOG.md)
 - [Migration guide](MIGRATION.md)
