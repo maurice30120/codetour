@@ -4,8 +4,8 @@ import type { CreationFailure, CreationResult, TourKind } from "codetour-tour-ge
 
 // Tour creation from the command line: an agent hands over its JSON proposal
 // and gets one JSON result. The business rules live in the shared
-// `codetour-tour-generation` package, so the CLI and the MCP server apply the
-// same validation, the same confinement and the same atomic write.
+// `codetour-tour-generation` package, so this surface applies the same
+// validation, the same confinement and the same atomic write as every caller.
 //
 // Output contract (DESIGN §2): stdout carries exactly one JSON document,
 // stderr carries diagnostics only, and the exit code says how to react.

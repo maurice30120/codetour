@@ -71,7 +71,9 @@ test("--install pi writes the package, the launcher and one declaration", () => 
     // `codetour` on PATH cannot serve the session.
     const launcher = JSON.parse(readFileSync(path.join(pluginDir(home), "launcher.json"), "utf8"));
     assert.equal(launcher.command, process.execPath);
-    assert.equal(launcher.args[launcher.args.length - 1], "mcp");
+    // The recorded launcher names no subcommand: the retired `mcp` token is
+    // gone, so every surface adds its own top-level one.
+    assert.deepEqual(launcher.args.filter(arg => arg === "mcp"), []);
     assert.ok(path.isAbsolute(launcher.args[0]));
 
     const settings = readSettings(home);

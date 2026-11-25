@@ -111,9 +111,9 @@ const STATE = {
   workspace: "/tmp/fake-workspace",
 };
 
-const LAUNCHER = { command: "/usr/local/bin/node", args: ["/opt/codetour/cli.js", "mcp"] };
+const LAUNCHER = { command: "/usr/local/bin/node", args: ["/opt/codetour/cli.js"] };
 
-test("the spawn plan drives the launcher CLI's reader in the workspace, never its mcp subcommand", () => {
+test("the spawn plan drives the recorded CLI's reader in the workspace", () => {
   const plan = readerSpawnPlan(STATE, LAUNCHER);
   assert.equal(plan.command, "/usr/local/bin/node");
   assert.deepEqual(plan.args, [
@@ -128,7 +128,7 @@ const state1 = { tourTitle: "Payment Flow", tourPath: null, workspace: "/tmp/ws"
 const state2 = { tourTitle: "", tourPath: null, workspace: "/tmp/ws" };
 
 test("without a recorded Tour file the plan falls back to the default reading path", () => {
-  const plan = readerSpawnPlan(state1, { command: "codetour", args: ["mcp"] });
+  const plan = readerSpawnPlan(state1, { command: "codetour", args: [] });
   assert.equal(plan.command, "codetour");
   assert.deepEqual(plan.args, ["Payment Flow"]);
   assert.equal(plan.cwd, "/tmp/ws");

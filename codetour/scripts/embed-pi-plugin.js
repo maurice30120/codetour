@@ -32,7 +32,10 @@ for (const required of [
   "extensions/codetour.ts",
   "lib/journal.mjs",
   "lib/reader.mjs",
-  "skills/codetour-generate/SKILL.md"
+  "skills/codetour-generate/SKILL.md",
+  "skills/codetour-generate/references/codetour-adaptation.md",
+  "skills/codetour-generate/references/upstream-code-review.md",
+  "skills/codetour-generate/references/upstream-LICENSE.txt"
 ]) {
   if (!files.includes(required)) {
     throw new Error(`The Pi plugin is missing ${required} in ${sourceDir}.`);

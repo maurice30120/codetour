@@ -137,3 +137,24 @@ test("a failing selected agent is reported and makes the picker exit non-zero", 
     rmSync(workspace, { recursive: true, force: true });
   }
 });
+
+test("an install from a process that is not the CLI records the portable launcher", async () => {
+  const workspace = mkdtempSync(path.join(os.tmpdir(), "codetour-selection-launcher-"));
+  const entry = process.env.CODETOUR_CLI_ENTRY;
+  try {
+    offlineEnvironment(workspace);
+    // The picker runs inside the test process, which is not the CLI: it must
+    // record the documented command instead of naming (and probing) the test
+    // script as the installed launcher.
+    delete process.env.CODETOUR_CLI_ENTRY;
+    const report = await installChosenAgents(session("pi"));
+    assert.equal(report.failed, false);
+    const launcher = JSON.parse(readFileSync(
+      path.join(workspace, "pi agent dir", "packages", "codetour-plugin", "launcher.json"), "utf8"));
+    assert.deepEqual(launcher, { command: "codetour", args: [] });
+  } finally {
+    if (entry === undefined) delete process.env.CODETOUR_CLI_ENTRY;
+    else process.env.CODETOUR_CLI_ENTRY = entry;
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});

@@ -17,8 +17,8 @@ if (!result.ok) {
 Design constraints:
 
 - **No transport** — nothing here reads a command line, a stream or a protocol
-  message. The CLI subcommands and the MCP server are thin surfaces over this
-  package, so both apply exactly the same rules.
+  message. The CLI subcommands are thin surfaces over this package, so every
+  caller applies exactly the same rules.
 - **Validation before any write** — a rejected proposal writes no file and leaves
   an existing Tour untouched. Errors are aggregated into one `issues` list so a
   caller can correct its proposal in one cycle.

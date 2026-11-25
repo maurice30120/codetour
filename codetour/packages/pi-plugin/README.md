@@ -22,12 +22,13 @@ instead of whatever `codetour` happens to be on `PATH`.
 | `lib/journal.mjs` | Reads the creation journal and attributes a creation to a response; the token reading and the summary lines. |
 | `lib/reader.mjs` | The end-of-generation opening dialogue: the real interactive reader (terminal) or the Tour at its active step (VS Code). |
 | `skills/codetour-generate/SKILL.md` | The generation entry point: the agent explores the workspace and creates the Tour with the CLI. |
+| `skills/codetour-generate/references/` | The critical-review pack a `critical` Changes Tour follows: the CodeTour adaptation, the verbatim upstream skill and its MIT license. |
 
-## No MCP server, no checkout
+## No server, no checkout
 
-The package needs neither an MCP server nor a CodeTour repository. The skill
-explores the workspace the session is in and calls the installed CodeTour CLI
-from the workspace root:
+The package needs neither a server nor a CodeTour repository. The skill explores
+the workspace the session is in and calls the installed CodeTour CLI from the
+workspace root:
 
 ```sh
 codetour create-project-tour --workspace . --proposal -
@@ -41,8 +42,8 @@ IO failure. A rejected proposal lists the `issues` to correct and writes
 nothing.
 
 The extension passes the CLI it knows as the skill argument
-`codetour-cli=["<command>","<args>"…]` (the recorded launcher, minus the retired
-`mcp` subcommand); without that argument the skill uses `codetour` from `PATH`.
+`codetour-cli=["<command>","<args>"…]` (the recorded launcher); without that
+argument the skill uses `codetour` from `PATH`.
 
 ## `/codetour`
 

@@ -28,10 +28,13 @@ const files = walk(sourceDir);
 
 for (const required of [
   "plugin.json",
-  "mcp.json",
   "com.github.copilot/hooks/hooks.json",
   "com.github.copilot/hooks/agent-stop.mjs",
-  "skills/codetour-generate/SKILL.md"
+  "com.github.copilot/lib/run-log.mjs",
+  "skills/codetour-generate/SKILL.md",
+  "skills/codetour-generate/references/codetour-adaptation.md",
+  "skills/codetour-generate/references/upstream-code-review.md",
+  "skills/codetour-generate/references/upstream-LICENSE.txt"
 ]) {
   if (!files.includes(required)) {
     throw new Error(`The Copilot plugin is missing ${required} in ${sourceDir}.`);
@@ -42,12 +45,10 @@ const manifest = JSON.parse(fs.readFileSync(path.join(sourceDir, "plugin.json"),
 if (manifest.$schema !== "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json") {
   throw new Error("plugin.json must declare the Agent Plugins 1.0 $schema.");
 }
-const mcp = JSON.parse(fs.readFileSync(path.join(sourceDir, "mcp.json"), "utf8"));
-if (mcp.$schema !== "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json") {
-  throw new Error("mcp.json must declare the Agent Plugins 1.0 $schema.");
-}
-if (!mcp.mcpServers || !mcp.mcpServers.codetour) {
-  throw new Error("mcp.json must declare exactly the existing codetour server.");
+// The plugin declares no MCP server (ADR 0057): a transport declaration would
+// launch a command this release no longer ships.
+if (fs.existsSync(path.join(sourceDir, "mcp.json"))) {
+  throw new Error("The Copilot plugin must not declare an MCP server: remove mcp.json.");
 }
 
 const banner = [

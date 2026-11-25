@@ -1,7 +1,7 @@
 /**
  * One canonical spelling for a workspace root, shared by every surface that
- * writes or compares one: the VS Code extension, the terminal reader, the MCP
- * server and the plugin hooks.
+ * writes or compares one: the VS Code extension, the terminal reader, the
+ * creation CLI, its journal and the plugin hooks.
  *
  * A comparison is only meaningful if both sides spell the root the same way,
  * and two spellings of one directory are the norm, not the exception: a
