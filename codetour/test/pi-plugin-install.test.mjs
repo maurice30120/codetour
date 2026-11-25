@@ -156,11 +156,13 @@ test("--agents reports the pi integration alongside the others", () => {
     const result = run(home, ["--agents"]);
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /^pi\tPi coding agent$/m);
-    assert.match(result.stdout, /not-installed/);
+    // Nothing is installed yet: the state names the host when this machine has
+    // no Pi binary, and the installation otherwise.
+    assert.match(result.stdout, /^  (absent|not-installed|incompatible): /m);
     assert.equal(run(home, ["--install", "pi"]).status, 0);
     const after = run(home, ["--agents"]);
     assert.match(after.stdout, /^pi\tPi coding agent$/m);
-    assert.match(after.stdout, /installed/);
+    assert.match(after.stdout, /^  installed: /m);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

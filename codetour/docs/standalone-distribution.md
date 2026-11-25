@@ -75,10 +75,22 @@ or globally installed Node.js is required:
 ### Install agent integrations with `codetour --install`
 
 The same launcher registers CodeTour with AI agents through a registry of
-integrations. `codetour --agents` lists every registered agent with its
-detection and installation state, and `codetour --doctor` reports the CLI's
-own dependencies next to every integration. Unknown agent ids are explicit
-rejections, never silent installs.
+integrations. `codetour --agents` lists every registered agent with its state
+and one line of detail, and `codetour --doctor` reports the CLI's own
+dependencies next to every integration. Unknown agent ids are explicit
+rejections, never silent installs. The state is `absent` (the host is not
+installed), `incompatible` (the host is installed but cannot hold the
+integration), `not-installed`, `installed`, `outdated` or `incomplete`; an
+installed integration keeps reporting its own files when its host is missing,
+because they stay removable.
+
+`codetour --install` with no value asks which agents to install: it lists the
+generation agents of this delivery (Pi and Copilot CLI) with their state and
+reads a numbered answer, an agent id, or both. An empty answer installs
+nothing. Without an interactive terminal the command fails and names the
+alternatives instead of installing everything. `codetour --install all` is
+the non-interactive batch over every compatible agent, and `--install <agent>`
+still names exactly one.
 
 `codetour --install copilot` writes the experimental Copilot CLI adapter
 (see [the adapter documentation](copilot-cli-adapter.md)) into the user's
@@ -101,7 +113,10 @@ plugin, skill or adapter as an incomplete integration.
 the `code` CLI when a `.vsix` is found next to the launcher or in the current
 directory (or through `CODETOUR_VSIX`), and verifies the installed extension
 afterwards. `codetour --uninstall vscode` removes the extension. An absent
-VS Code CLI is a clear message, not a failed command.
+VS Code CLI is a clear message, not a failed command, and a host without a
+distributable `.vsix` is reported as `incompatible`. The extension is a
+reader integration: it stays available by name and is never part of the
+generation picker.
 
 For a client that cannot set the working directory, omit `cwd` and pass
 `"--workspace-root", "/path/to/workspace"` in `args` instead. `codetour mcp`
