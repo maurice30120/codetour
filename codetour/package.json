@@ -756,7 +756,6 @@
     "package:standalone": "node scripts/package-standalone.js",
     "test:standalone": "node --test test/standalone-package.test.js",
     "embed:copilot-plugin": "node scripts/embed-copilot-plugin.js",
-    "sync:copilot-run-log": "node scripts/sync-copilot-run-log.js",
     "embed:pi-plugin": "node scripts/embed-pi-plugin.js"
   },
   "prettier": {

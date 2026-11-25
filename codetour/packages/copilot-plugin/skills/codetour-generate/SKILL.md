@@ -1,72 +1,118 @@
 ---
 name: codetour-generate
-description: Generate a CodeTour Project Tour or Changes Tour through the shared CodeTour MCP server. Use when the user asks to explain, tour or onboard onto a codebase, or to review the branch's changes, with CodeTour.
+description: Generate a CodeTour Project Tour or Changes Tour by handing a JSON proposal to the CodeTour CLI. Use when the user asks to explain, tour or onboard onto a codebase, or to review the branch's changes, with CodeTour.
 user-invocable: true
 ---
 
-# CodeTour generation entry point
+# CodeTour generation
 
-This plugin is the primary CodeTour path for Copilot. The Tour instructions are
-**not** copied here. They live once in the shared CodeTour MCP server and are
-served per run by `prompts/get` (`generate_project_tour`). This skill only boots
-a generation; it never restates a Tour method, never duplicates the
-decomposition steps and never prescribes a second anchor or verification pass.
+This skill creates a real Tour file in the workspace with the `codetour` CLI.
+The proposal travels on standard input, the CLI validates it against the
+workspace, writes the Tour atomically, and answers with one JSON document. A
+Tour is never written by hand and never replaced by prose.
 
-1. Resolve the user's choices before exploring the project. Honor choices
-   already explicit in the command or in natural language: "review my branch
-   critically" means `changes` and `critical`, with no questions to repeat.
-   If the type is missing, use `ask_user` with two choices: **Project Tour**
-   (architecture, structure and execution paths) or **Changes Tour** (explain
-   and review the branch's changes). For a Changes Tour only, if the review
-   mode is missing, use a second `ask_user` with **neutral** (factual
-   explanation) or **critical** (explanation plus review findings). Present
-   labels in the user's language. If a required choice is cancelled,
-   declined or unresolved, stop without generating; never silently default.
-   Project Tours have no review mode.
-   Once resolved, call the extension tool `codetour_prepare_generation` with
-   `type`, `reviewMode` for changes only, and the user's actual `request`
-   (without command syntax, empty for a standard Tour). Search for that exact
-   tool name if deferred. It resolves the workspace, creates the guarded
-   `runId` and returns the shared MCP prompt: follow it exactly, keeping that
-   `runId` for creation. If a generation prompt is already
-   supplied, follow it directly instead of preparing another run. If the
-   adapter tool fails, report its error and stop.
-2. Only if the adapter tool is absent, use the MCP prompt
-   directly: call `prompts/get` `generate_project_tour` with the user's actual
-   request as `request` (without the command prefix) and the orientation
-   phrase as `brief`, then follow the returned prompt exactly. This is the same
-   plugin workflow, not a separate method. If `prompts/get` is not callable,
-   use `get_generation_prompt` (step 5).
-   **Changes Tour**: use the review mode already resolved in step 1.
-   Call `prompts/get` `generate_changes_tour`
-   with that `reviewMode`, the user's request and the `runId`, and follow the
-   returned prompt. Project Tours never ask for a review mode.
-   Also gather the PR/MR context first: `gh` (GitHub) or `glab` (GitLab) if
-   installed, or the link the user gave. With no context, say so and never
-   invent a title or goal.
-3. Create the Tour with the CodeTour MCP `create_project_tour` (or
-   `create_changes_tour`) tool — never by
-   writing `.tour` JSON by hand and never by answering in prose. Create with the `runId` from the served prompt when one is given.
-5. Hosts often give the agent no way to call `prompts/get` (only the adapter
-   can). Then call the CodeTour tool `get_generation_prompt` (Copilot:
-   `codetour-get_generation_prompt`) with `type` (`project` or `changes`),
-   `reviewMode`, the user's request and any `runId`: it returns the same prompt,
-   to follow exactly. Copilot may defer CodeTour tools: search for the
-   `codetour-` prefix with the tool search before concluding they are missing.
-   Once `get_generation_prompt` has returned, the contract is complete: your
-   next tool call is the creation tool (`create_project_tour` or
-   `create_changes_tour`) with the exact parameters (and `runId`, if one was
-   given) that the prompt states. Do not search for tools again, do not call
-   `get_generation_prompt` a second time and do not invent fallback calls; the
-   creation tools you already resolved stay valid for the
-   whole run.
-   `runId` is optional: `get_generation_prompt` serves none (only the
-   `/codetour` adapter creates one). Without one, omit `runId` from every call;
-   never pass an empty string.
-   Conclude a prompt is unavailable only after that call explicitly fails;
-   if so, the creation tools alone carry the contract and may be used directly
-   (omit `runId`). Still apply the language, review-mode rules.
-6. Only if no CodeTour **tool** is found after that search, say so and stop:
-   check `copilot mcp list` first and recommend a reinstall only if `codetour`
-   is not listed; then give the repair command `codetour --install copilot` and point at
-   `copilot mcp list`. A text answer is not a Tour.
+`codetour` on `PATH` is the documented default. When the invocation carries a
+`codetour-cli=<absolute invocation>` argument, run that value instead of
+`codetour`, with the same arguments; nothing else changes.
+
+## 1. Resolve the choices
+
+Honor what the user already said: "review my branch critically" means a Changes
+Tour with `reviewMode: "critical"`, and nothing is asked twice. Ask only for
+what is missing, once per question, and stop without generating if the user
+cancels or declines; never silently default.
+
+- **Type** — a **Project Tour** (architecture, structure and execution paths)
+  or a **Changes Tour** (explain and review the branch's changes).
+- **Review mode** — Changes Tours only: `neutral` (factual explanation) or
+  `critical` (explanation plus review findings). Project Tours have none.
+- **Orientation and language** — a phrase that orients the Tour ("focus on the
+  rendering pipeline") is optional; it also sets the language the Tour is
+  written in. Without one, write the Tour in the language of the user's request.
+
+## 2. Work in the workspace root
+
+Every command runs at the workspace root, and `--workspace` receives that root
+as an absolute path (`git rev-parse --show-toplevel`, or the directory the user
+named). One creation addresses one workspace: every anchor and the Tour file
+itself stay inside it.
+
+## 3. Build the proposal
+
+One JSON object, with the fields the CLI validates:
+
+- `title` (required), `description`, `fileName` (a bare name, written under
+  `.tours/`), `steps` (at least one).
+- A step carries a `title`, a Markdown `description`, and optionally one anchor:
+  `file` with `line` and/or `pattern`, `directory`, `selection`
+  (`{start: {line, character}, end: {...}}`), `display: "diff"` with
+  `baseFile`. A step without an anchor is explanatory, which is what the
+  orientation step should be.
+- A Changes Tour also carries `reviewMode` (`neutral` or `critical`), and
+  optionally `baseRef`, `headRef` and `includeUncommittedChanges`. Read the
+  PR/MR context with `gh` or `glab` when the user gave none, and say what you
+  used; never invent a title, a goal or a finding.
+- `questions` (at most four short strings) attach the questions the reader
+  should answer at that step.
+
+Explore the workspace before proposing anything: every `file`, `line` and
+`pattern` is verified against the files on disk before a single byte is
+written.
+
+## 4. Hand the proposal over
+
+```sh
+codetour create-project-tour --workspace "<absolute workspace root>" <<'JSON'
+{"title": "…", "steps": [{"title": "…", "description": "…"}]}
+JSON
+
+codetour create-changes-tour --workspace "<absolute workspace root>" <<'JSON'
+{"title": "…", "reviewMode": "critical", "steps": [{"title": "…", "description": "…"}]}
+JSON
+```
+
+`--proposal <file>` reads the proposal from a file instead of standard input;
+both carry the same document.
+
+Exit codes say what happened:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | the Tour was created; standard output holds the result document |
+| `1` | the proposal, its validation or the creation was refused |
+| `2` | usage or IO failure: missing or unknown argument, unusable workspace, unreadable proposal |
+
+Standard output carries exactly one JSON document. Standard error carries
+diagnostics only.
+
+## 5. Handle the result
+
+Success (`{"ok": true, …}`) reports `kind`, `title`, `tourPath` (absolute),
+`stepCount` and `warnings`. Report the title and the path to the user, and read
+the warnings: they are readability advice, not failures.
+
+Refusal (`{"ok": false, "code": …, "message": …, "issues": [...]}`) wrote
+nothing: fix **every** `issues` entry (`path` names the field, `message` says
+what is wrong), then resubmit the corrected proposal. Do not retry the same
+document and do not lower the Tour's quality to get past a validation.
+
+Exit code `2` means the command line itself was unusable (a missing
+`--workspace`, an unknown option, an unreadable proposal file). Report the
+diagnostic; do not retry it blindly.
+
+If `codetour` is missing, say so and stop: the generation needs the CLI on
+`PATH`, and `codetour --install copilot` reinstalls this plugin when the skill
+itself is missing. A text answer is not a Tour.
+
+## 6. Hand the Tour over to a reader
+
+Never replace the created Tour with a step list, an excerpt or a summary. Offer
+the real readers, to run at the workspace root:
+
+- Terminal — `codetour "<Tour title>"`, or
+  `codetour --internal-tour "<tour path>"` to open the file directly;
+- VS Code — `codetour --internal-open-vscode "<tour path>"`, which opens the
+  Tour at its first step.
+
+A reading failure is reported with the command to run manually; it never
+invalidates the Tour that was created.

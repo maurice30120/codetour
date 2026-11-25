@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createRunState, runLogDirectory, runStatePath } from "../packages/copilot-plugin/com.github.copilot/lib/run-log.mjs";
+import { creationsDirectory } from "../packages/copilot-plugin/com.github.copilot/lib/run-log.mjs";
 
 // Real verifications against the installed GitHub Copilot CLI. The plugin is
 // installed into a temporary COPILOT_HOME so the developer's own configuration
@@ -52,12 +52,12 @@ function installedPlugin(home) {
 
 function runHook(hook, workspace, payload) {
   const result = spawnSync(process.execPath, [hook], {
-    input: JSON.stringify(payload),
+    input: JSON.stringify({ cwd: workspace, ...payload }),
     encoding: "utf8",
     timeout: 20000
   });
   assert.equal(result.status, 0, result.stderr);
-  return JSON.parse(result.stdout);
+  return { output: JSON.parse(result.stdout), stderr: result.stderr };
 }
 
 test("codetour --install copilot installs the plugin into a temporary COPILOT_HOME", { skip }, () => {
@@ -168,35 +168,69 @@ test("the real Copilot CLI installs, inspects and uninstalls the Agent Plugins 1
       assert.equal(config.mcpServers?.codetour, undefined);
     }
 
-    // The installed hook script runs in place, with a workspace path that also
-    // contains spaces, and reads only the server-written run state.
+    // The installed hook script runs in place, from a workspace path that also
+    // contains spaces, on the payload the Copilot CLI really sends: it answers
+    // `{}` and summarizes the creation journal of the current response.
     const workspace = path.join(root, "workspace with spaces");
     mkdirSync(workspace, { recursive: true });
-    const runId = "run-real-cli-0123456789";
-    const state = createRunState({
-      runId,
-      workspace: realpathSync(workspace),
-      sessionId: "session-real-cli",
-      kind: "project"
-    });
-    mkdirSync(runLogDirectory(workspace), { recursive: true });
-    writeFileSync(runStatePath(workspace, runId), JSON.stringify({ ...state, tourCreated: true }, null, 2) + "\n");
+    const realWorkspace = realpathSync(workspace);
+    const now = Date.now();
+    const responseStart = now - 30000;
+    const transcriptPath = path.join(root, "events.jsonl");
+    writeFileSync(
+      transcriptPath,
+      [
+        { type: "user.message", timestamp: new Date(responseStart).toISOString(), data: { content: "un flux" } },
+        {
+          type: "session.usage_record",
+          timestamp: new Date(now - 20000).toISOString(),
+          data: { usage: { inputTokens: 2000, outputTokens: 200, cacheReadTokens: 1800 } }
+        }
+      ]
+        .map(event => JSON.stringify(event))
+        .join("\n") + "\n"
+    );
+    const tourPath = path.join(realWorkspace, ".tours", "installed.tour");
+    mkdirSync(creationsDirectory(realWorkspace), { recursive: true });
+    writeFileSync(
+      path.join(creationsDirectory(realWorkspace), `${now - 25000}-1-0123abcd.json`),
+      JSON.stringify({
+        version: 1,
+        workspace: realWorkspace,
+        tourPath,
+        tourTitle: "Flux installé",
+        kind: "project",
+        at: new Date(now - 25000).toISOString(),
+        sessionId: "session-real-cli",
+        responseId: null,
+        host: "copilot"
+      })
+    );
     const hook = path.join(cached.cache_path, "com.github.copilot", "hooks", "agent-stop.mjs");
-    const blocked = runHook(hook, workspace, {
+    const first = runHook(hook, workspace, {
       sessionId: "session-real-cli",
-      cwd: workspace,
-      transcriptPath: path.join(root, "transcript.jsonl"),
+      timestamp: now,
+      transcriptPath,
       stopReason: "end_turn",
       stop_hook_active: false
     });
-    assert.deepEqual(blocked, {}, "a created Tour does not require consolidation");
-    assert.deepEqual(runHook(hook, workspace, {
+    assert.deepEqual(first.output, {}, "the summary is never a decision");
+    assert.match(first.stderr, /CodeTour: 1 Tour created in this response/);
+    assert.ok(first.stderr.includes(tourPath), "the created Tour is reported with its absolute path");
+    assert.match(
+      first.stderr,
+      /CodeTour: tokens 2,000 in \(of which 1,800 cached reads\), 200 out/,
+      "the input total already contains the cache"
+    );
+    const second = runHook(hook, workspace, {
       sessionId: "session-real-cli",
-      cwd: workspace,
-      transcriptPath: path.join(root, "transcript.jsonl"),
+      timestamp: now + 500,
+      transcriptPath,
       stopReason: "end_turn",
       stop_hook_active: false
-    }), {}, "a second stop is inert");
+    });
+    assert.deepEqual(second.output, {}, "a second stop is inert");
+    assert.equal(second.stderr.trim(), "", "one reading per response");
 
     const removed = cli(home, ["plugin", "uninstall", "codetour"], root);
     assert.equal(removed.status, 0, removed.stderr || removed.stdout);
