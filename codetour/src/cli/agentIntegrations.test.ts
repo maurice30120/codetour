@@ -493,6 +493,45 @@ test("an uninstall of the Pi package migrates the retired surfaces too", () => {
   }
 });
 
+test("--doctor reports the leftovers it cannot remove and their manual command", () => {
+  const workspace = temporaryDirectory("codetour-doctor-retired-");
+  const bin = path.join(workspace, "bin");
+  mkdirSync(bin);
+  try {
+    // A Codex CLI that still declares the server this release stopped shipping.
+    const codex = path.join(bin, "codex");
+    writeFileSync(codex, [
+      "#!/bin/sh",
+      "if [ \"$1\" = \"mcp\" ] && [ \"$2\" = \"get\" ] && [ \"$3\" = \"codetour\" ]; then",
+      "  echo '[mcp_servers.codetour]'; exit 0",
+      "fi",
+      "exit 64"
+    ].join("\n") + "\n");
+    chmodSync(codex, 0o755);
+    assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
+    // A same-named server this CLI did not write, and an edited adapter file.
+    writeFileSync(
+      path.join(workspace, "mcp-config.json"),
+      JSON.stringify({ mcpServers: { codetour: { command: "someone-elses-codetour", args: ["serve"] } } }, null, 2) + "\n"
+    );
+    const adapterDirectory = path.join(workspace, "copilot-extensions");
+    mkdirSync(adapterDirectory, { recursive: true });
+    writeFileSync(path.join(adapterDirectory, "adapter.mjs"), "// an edit of the user\n");
+
+    const doctor = run(workspace, ["--doctor"], { PATH: bin + path.delimiter + (process.env.PATH ?? "") });
+    assert.equal(doctor.status, 0, doctor.stderr);
+    // The install and uninstall migrate; --doctor only reports, so nothing moved.
+    assert.match(doctor.stdout, /declares a 'codetour' MCP server this CLI did not write/);
+    assert.match(doctor.stdout, /remove that mcpServers entry yourself/);
+    assert.match(doctor.stdout, /retired: .*adapter\.mjs is preserved\./);
+    assert.match(doctor.stdout, /retired: Codex still declares a 'codetour' MCP server/);
+    assert.match(doctor.stdout, /codex mcp remove codetour/);
+    assert.equal(readFileSync(path.join(adapterDirectory, "adapter.mjs"), "utf8"), "// an edit of the user\n");
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
 test("a migration preserves every file it cannot prove is CodeTour's", () => {
   const workspace = temporaryDirectory("codetour-migration-preserved-");
   try {
