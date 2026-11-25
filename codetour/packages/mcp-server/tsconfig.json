@@ -22,6 +22,9 @@
     "paths": {
       "codetour-workspace-identity": [
         "../workspace-identity"
+      ],
+      "codetour-tour-generation": [
+        "../tour-generation/dist/src/index"
       ]
     }
   },

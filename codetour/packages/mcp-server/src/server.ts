@@ -4,42 +4,26 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import * as fs from "fs";
 import * as path from "path";
-import { isValidRunId, recordTourCreated } from "./run-log";
-import { createContext } from "./context";
 import {
-  changedFiles,
-  committedDiffIsEmpty,
-  currentBranchName,
-  currentHeadSha,
-  isGitRepository,
-  mergeBase,
+  IMAGE_TOOL_GUIDANCE,
+  MAX_RECOMMENDED_DIAGRAM_NODES,
+  MERMAID_TOOL_GUIDANCE,
+  createChangesTour,
+  createContext,
+  createProjectTour,
   normalizeSlashes,
-  readCommitAnchors,
-  resolveCommit,
-  uncommittedChanges,
-  workspacePrefix,
-} from "./git";
-import { OutputPathError, writeTourAtomic } from "./persistence";
-import { stageCommitAnchors, validateTourProposal } from "./proposal-validation";
-import { validateCodetourTour } from "./codetour-schema";
-import {
+} from "codetour-tour-generation";
+import type {
+  CreationFailure,
+  CreatedTour,
   ErrorResult,
   Issue,
   SuccessResult,
-  TourFile,
-  TourStep,
   Warning,
   WorkspaceContext,
-} from "./types";
-import {
-  MAX_RECOMMENDED_DIAGRAM_NODES,
-  MAX_RECOMMENDED_STEPS,
-  orientationStepWarnings,
-} from "./validation";
-import { MERMAID_TOOL_GUIDANCE } from "./mermaid-validation";
-import { IMAGE_TOOL_GUIDANCE } from "./image-validation";
+} from "codetour-tour-generation";
+import { isValidRunId, recordTourCreated } from "./run-log";
 import {
   CRITICAL_REVIEW_RESOURCE_URI,
   criticalReviewSkillPack,
@@ -49,19 +33,17 @@ import packageJson from "../package.json";
 // The MCP server exposes the two Tour creation tools (`create_project_tour`
 // and `create_changes_tour`) and the four Knowledge tools of spec #223
 // (`knowledge_list`, `knowledge_read`, `knowledge_save`,
-// `knowledge_close_run`). The AI agent writes
-// the content; the server only validates proposals, applies Git and security
-// rules, and atomically writes the corresponding reserved Tour file or
-// Knowledge entry. Knowledge bodies are untrusted data: the server returns
-// them, it never obeys them.
+// `knowledge_close_run`). The AI agent writes the content; the creation rules
+// themselves (validation, Git and security rules, the atomic write) live in
+// `packages/tour-generation`, which the CLI uses too. Knowledge bodies are
+// untrusted data: the server returns them, it never obeys them.
 //
 // Tool input schemas remain intentionally permissive (`z.unknown()` plus
 // `.passthrough()`): the MCP SDK would reject arguments that do not match a
 // strict schema itself, which would break the requirement to aggregate all
 // validation errors into one response. Full field-by-field validation is
-// therefore performed in validation.ts.
+// therefore performed by the shared rules package.
 
-const CODETOUR_SCHEMA_URI = "https://aka.ms/codetour-schema";
 const SERVER_NAME = "codetour-mcp";
 const SERVER_VERSION = packageJson.version;
 
@@ -188,14 +170,6 @@ function originalRequestSection(request: string | undefined): string {
   ].join("\n");
 }
 
-// A blank runId means "no run": get_generation_prompt serves no identity (only
-// the controlled adapter creates one), and agents often pass an empty string.
-function withoutBlankRunId<T extends { runId?: unknown }>(params: T): T {
-  return typeof params.runId === "string" && !params.runId.trim()
-    ? { ...params, runId: undefined }
-    : params;
-}
-
 // The run identity section names the CodeTour generation this prompt belongs
 // to. The identity is created by the controlled adapter and written to
 // `.tours/.log/` before the agent is contacted; passing it back to the MCP
@@ -209,18 +183,6 @@ function runIdentitySection(runId: string | undefined): string {
   return raw
     ? `## Run identity\n\nRun identity: \`${raw}\`\n\nPass it as \`runId\` to the creation tool. Do not invent another identifier.\n`
     : "## Run identity (optional)\n\nNo run identity was provided; omit runId from the creation tool.\n";
-}
-
-// Fixed destinations reserved for generated Tours. They are replaced only
-// after complete validation and ignored while detecting a dirty workspace (see
-// git.ts).
-const PROJECT_TOUR_PATH = ".tours/project.tour";
-const CHANGES_TOUR_PATH = ".tours/changes.tour";
-
-// A custom `fileName` is always confined to the `.tours` directory next to the
-// reserved destinations; without one the reserved default applies.
-function tourTargetPath(defaultPath: string, fileName?: string): string {
-  return fileName === undefined ? defaultPath : `.tours/${fileName}`;
 }
 
 const MARKDOWN_WRITING_GUIDANCE =
@@ -952,6 +914,58 @@ function safeToolCall(
   );
 }
 
+// The MCP tools are a thin surface over the shared creation rules: the server
+// checks the run identity it alone records, hands the proposal to
+// `packages/tour-generation`, and reports the outcome in the MCP tool result
+// shape. Validation, the Git, image and Mermaid checks, workspace confinement
+// and the atomic write all live in that package, so the CLI applies exactly the
+// same rules.
+function errorFromCreation(failure: CreationFailure): ToolResponse {
+  return errorResponse({
+    status: "error",
+    code: failure.code,
+    message: failure.message,
+    issues: failure.issues,
+  });
+}
+
+// The generation run identity is adapter-only bookkeeping: it never reaches the
+// Tour file, so a malformed value is rejected before a creation starts.
+function requestedRunId(args: unknown): { runId?: string; failure?: ToolResponse } {
+  const raw =
+    typeof args === "object" && args !== null && !Array.isArray(args)
+      ? (args as Record<string, unknown>).runId
+      : undefined;
+  const runId = typeof raw === "string" ? raw.trim() : "";
+  if (!runId) return {};
+  if (!isValidRunId(runId)) {
+    return {
+      failure: errorResponse(
+        "INVALID_RUN_ID",
+        "The runId must be a CodeTour generation identity."
+      ),
+    };
+  }
+  return { runId };
+}
+
+// A proposal field read for the human-readable success message only. After a
+// successful creation these fields are the strings the rules accepted.
+function proposalField(args: unknown, key: string): string {
+  const value =
+    typeof args === "object" && args !== null && !Array.isArray(args)
+      ? (args as Record<string, unknown>)[key]
+      : undefined;
+  return typeof value === "string" ? value : "";
+}
+
+// The Tour path as the tool reports it: relative to the configured workspace
+// root and forward-slashed, so a narrowed `workspacePath` yields
+// "sub/.tours/project.tour".
+function tourResultPath(defaultContext: WorkspaceContext, created: CreatedTour): string {
+  return normalizeSlashes(path.relative(defaultContext.root, created.tourPath));
+}
+
 // Create a Project Tour: no Git access is required, the tour works in any
 // workspace, and it is never attached to a `ref` so it remains viewable as the
 // project evolves.
@@ -959,385 +973,76 @@ async function handleCreateProjectTour(
   defaultContext: WorkspaceContext,
   args: unknown
 ): Promise<ToolResponse> {
-  const result = await validateTourProposal("project", args, defaultContext);
+  const identity = requestedRunId(args);
+  if (identity.failure) {
+    return identity.failure;
+  }
+  const result = await createProjectTour({
+    workspaceRoot: defaultContext.root,
+    proposal: args,
+  });
   if (!result.ok) {
-    return errorResponse(result.rejection);
-  }
-  const { ctx, steps: finalSteps } = result.proposal;
-  const params = withoutBlankRunId(result.proposal.params);
-  if (params.runId !== undefined && !isValidRunId(params.runId)) {
-    return errorResponse("INVALID_RUN_ID", "The runId must be a CodeTour generation identity.");
+    return errorFromCreation(result);
   }
 
-  const warnings = [
-    ...stepLimitWarnings(finalSteps),
-    ...orientationStepWarnings(finalSteps),
-  ];
-
-  const title = params.title ?? "Project Overview";
-
-  const tour: TourFile = {
-    $schema: CODETOUR_SCHEMA_URI,
-    title,
-    ...(params.description !== undefined ? { description: params.description } : {}),
-    steps: finalSteps,
-  };
-
-  const targetPath = tourTargetPath(PROJECT_TOUR_PATH, params.fileName);
-  const writeFailure = await persistTour(ctx, targetPath, tour);
-  if (writeFailure) {
-    return writeFailure;
-  }
-
-  const relativePath = normalizeSlashes(
-    path.relative(defaultContext.root, path.join(ctx.root, targetPath))
-  );
+  const relativePath = tourResultPath(defaultContext, result);
   const response = successResponse(
     relativePath,
-    title,
-    finalSteps.length,
-    warnings,
-    `Created Project Tour "${title}" at ${targetPath} with ${finalSteps.length} step(s).`
+    result.title,
+    result.stepCount,
+    result.warnings,
+    `Created Project Tour "${result.title}" at ${relativePath} with ${result.stepCount} step(s).`
   );
   await appendRunIdentity(
     response,
     defaultContext.realRoot,
-    params.runId,
+    identity.runId,
     "project",
     relativePath,
-    title
+    result.title
   );
   return response;
 }
 
-// Create a Changes Tour: analyze committed changes from the merge-base of
-// `baseRef` to `headRef`. `headRef` must be the full SHA of the current HEAD;
-// otherwise generation fails with STALE_HEAD to avoid a stale explanation. By
-// default only committed changes are included; `includeUncommittedChanges`
-// enables explaining local work.
+// Create a Changes Tour: the shared rules analyze committed changes from the
+// merge-base of `baseRef` to `headRef`.
 async function handleCreateChangesTour(
   defaultContext: WorkspaceContext,
   args: unknown
 ): Promise<ToolResponse> {
-  const result = await validateTourProposal("changes", args, defaultContext);
+  const identity = requestedRunId(args);
+  if (identity.failure) {
+    return identity.failure;
+  }
+  const result = await createChangesTour({
+    workspaceRoot: defaultContext.root,
+    proposal: args,
+  });
   if (!result.ok) {
-    return errorResponse(result.rejection);
-  }
-  const { ctx } = result.proposal;
-  const params = withoutBlankRunId(result.proposal.params);
-  if (params.runId !== undefined && !isValidRunId(params.runId)) {
-    return errorResponse("INVALID_RUN_ID", "The runId must be a CodeTour generation identity.");
+    return errorFromCreation(result);
   }
 
-  const baseRef = params.baseRef as string;
-  const headRef = params.headRef as string;
-  const includeUncommittedChanges = params.includeUncommittedChanges === true;
-
-  // The Changes Tour depends on Git history and fails outside a repository.
-  if (!(await isGitRepository(ctx))) {
-    return errorResponse(
-      "GIT_REPOSITORY_REQUIRED",
-      `create_changes_tour requires a Git repository, but the configured workspace root (${ctx.root}) is not inside one. ` +
-        "Select a repository with workspacePath, or restart codetour-mcp in the repository to analyze (or pass it via --workspace-root), rather than its parent directory."
-    );
-  }
-
-  // The analyzed SHA must exactly match the current HEAD; otherwise the
-  // explanation might not correspond to the snapshot read again.
-  const currentHead = await currentHeadSha(ctx);
-  if (currentHead === null) {
-    return errorResponse(
-      "STALE_HEAD",
-      "The repository has no commits, so there is no HEAD to analyze."
-    );
-  }
-  if (headRef !== currentHead) {
-    return errorResponse(
-      "STALE_HEAD",
-      `The provided headRef ${headRef} does not match the current HEAD (${currentHead}). The analysis is stale; re-run it against the current HEAD.`
-    );
-  }
-
-  // Resolve the base reference to a full commit SHA up front: only a verified
-  // SHA is ever passed as a positional Git argument, so an agent-supplied
-  // string can never be interpreted as a Git option.
-  const resolvedBaseSha = await resolveCommit(ctx, baseRef);
-  if (resolvedBaseSha === null) {
-    return errorResponse(
-      "INVALID_BASE_REF",
-      `Unable to resolve the base ref ${baseRef} to a commit in this repository.`
-    );
-  }
-
-  let mergeBaseSha: string;
-  try {
-    mergeBaseSha = await mergeBase(ctx, resolvedBaseSha, headRef);
-  } catch (error) {
-    return errorResponse(
-      "INVALID_BASE_REF",
-      `Unable to compute the merge-base between ${baseRef} and ${headRef}: ${(error as Error).message}`
-    );
-  }
-
-  // Without committed changes (and without included local work), return
-  // NO_CHANGES and preserve the previous Changes Tour: an empty tour never
-  // replaces a useful one.
-  const uncommitted = await uncommittedChanges(ctx);
-  const includesLocalChanges = includeUncommittedChanges && uncommitted.length > 0;
-  const staged = await stageCommitAnchors(result.proposal, {
-    mergeBaseSha,
-    includesLocalChanges,
-  });
-  if (staged.issues.length > 0) {
-    return errorResponse(
-      "INVALID_PROPOSAL",
-      "The create_changes_tour arguments are invalid.",
-      staged.issues
-    );
-  }
-  if (
-    (await committedDiffIsEmpty(ctx, mergeBaseSha, headRef)) &&
-    (!includeUncommittedChanges || uncommitted.length === 0)
-  ) {
-    return errorResponse(
-      "NO_CHANGES",
-      `No committed changes between the merge-base of ${baseRef} (${mergeBaseSha}) and ${headRef}. The previous tour file was preserved.`
-    );
-  }
-
-  // Uncommitted changes are excluded by default with a warning, or explicitly
-  // included; in that case the Tour has no `ref` and reports that the result
-  // describes a non-reproducible local state.
-  const warnings: Warning[] = [];
-  if (includesLocalChanges) {
-    warnings.push({
-      code: "UNCOMMITTED_CHANGES_INCLUDED",
-      message:
-        "Uncommitted changes were explicitly included; the tour describes a local state that is not reproducible from Git.",
-    });
-  } else if (uncommitted.length > 0) {
-    warnings.push({
-      code: "UNCOMMITTED_CHANGES_EXCLUDED",
-      message: `${uncommitted.length} uncommitted change(s) were excluded from the analysis (staged, unstaged or untracked).`,
-    });
-  }
-
-  const finalSteps = staged.steps.map((step) => {
-    const { display, baseFile, ...ordinaryStep } = step;
-    if (includesLocalChanges || step.file === undefined) return ordinaryStep;
-    const file = path.posix.normalize(normalizeSlashes(step.file));
-    return { ...ordinaryStep, file, display: "diff" as const, baseFile: staged.renames.get(file) };
-  });
-  const warningsFromStepLimit = stepLimitWarnings(finalSteps);
-  warnings.push(...warningsFromStepLimit);
-
-  // A Changes Tour must anchor at least one file the comparison actually
-  // modified. The former advisory warning let a whole tour describe a change
-  // set without ever pointing at it, so the agent had to regenerate. Deleted
-  // files cannot host an anchor; when every changed file is gone (a
-  // deletion-only branch), the rule has nothing to anchor and stays satisfied.
-  const anchorableChangedFiles = await changedFilesAvailableToAnchor(
-    ctx,
-    mergeBaseSha,
-    headRef,
-    uncommitted,
-    includeUncommittedChanges
-  );
-  if (
-    anchorableChangedFiles.length > 0 &&
-    !finalSteps.some(
-      (step) =>
-        step.file !== undefined &&
-        anchorableChangedFiles.includes(normalizeSlashes(step.file))
-    )
-  ) {
-    const listed = anchorableChangedFiles.slice(0, 5).join(", ");
-    const suffix =
-      anchorableChangedFiles.length > 5
-        ? ` and ${anchorableChangedFiles.length - 5} more`
-        : "";
-    return errorResponse(
-      "MISSING_CHANGED_FILE_ANCHOR",
-      `No step anchors a file modified by these changes. Add at least one step ` +
-        `with file and a line or a short unique pattern on one of: ${listed}${suffix}. ` +
-        "The previous tour file was preserved.",
-      [
-        {
-          path: "steps",
-          message:
-            `must anchor at least one changed file (${listed}${suffix}) ` +
-            "with file plus line or pattern; deletion-only changes are exempt",
-        },
-      ]
-    );
-  }
-
-  const title = params.title ?? (await defaultChangesTitle(ctx, headRef));
-  // Rehearsal: every check has run (Git, anchors against headRef, renames,
-  // Mermaid, warnings) but the tour is never written. The title that the
-  // persisted write would carry is returned with it.
-  // Enrich the description automatically with the provenance, base, and head
-  // so the reader always knows the analyzed scope.
-  const provenance = includesLocalChanges
-    ? `Generated from the merge-base of \`${baseRef}\` (\`${mergeBaseSha}\`) to \`${headRef}\`, including uncommitted changes (non-reproducible local state).`
-    : `Generated from the merge-base of \`${baseRef}\` (\`${mergeBaseSha}\`) to \`${headRef}\`.`;
-  const description =
-    params.description !== undefined
-      ? `${params.description}\n\n${provenance}`
-      : provenance;
-
-  const tour: TourFile = {
-    $schema: CODETOUR_SCHEMA_URI,
-    title,
-    description,
-    ...(!includesLocalChanges ? { ref: headRef, baseRef: mergeBaseSha } : {}),
-    steps: finalSteps,
-  };
-
-  // HEAD may advance during the Git reads above. Reading it again at the last
-  // moment prevents stale analysis from replacing the previous Changes Tour.
-  const headImmediatelyBeforePersistence = await currentHeadSha(ctx);
-  if (headImmediatelyBeforePersistence !== headRef) {
-    return errorResponse(
-      "STALE_HEAD",
-      headImmediatelyBeforePersistence === null
-        ? "The repository no longer has a HEAD to persist this analysis against. The previous tour file was preserved."
-        : `The provided head ${headRef} no longer matches the current HEAD (${headImmediatelyBeforePersistence}). The analysis became stale before persistence; re-run it against the current HEAD.`
-    );
-  }
-
-  const targetPath = tourTargetPath(CHANGES_TOUR_PATH, params.fileName);
-  const writeFailure = await persistTour(ctx, targetPath, tour);
-  if (writeFailure) {
-    return writeFailure;
-  }
-
-  const relativePath = normalizeSlashes(
-    path.relative(defaultContext.root, path.join(ctx.root, targetPath))
-  );
+  const relativePath = tourResultPath(defaultContext, result);
   const response = successResponse(
     relativePath,
-    title,
-    finalSteps.length,
-    warnings,
-    `Created Changes Tour "${title}" at ${targetPath} with ${finalSteps.length} step(s) for head ${headRef} (base ${baseRef}).`
+    result.title,
+    result.stepCount,
+    result.warnings,
+    `Created Changes Tour "${result.title}" at ${relativePath} with ` +
+      `${result.stepCount} step(s) for head ${proposalField(args, "headRef")} ` +
+      `(base ${proposalField(args, "baseRef")}).`
   );
   await appendRunIdentity(
     response,
     defaultContext.realRoot,
-    params.runId,
+    identity.runId,
     "changes",
     relativePath,
-    title
+    result.title
   );
   return response;
 }
 
-// Non-blocking warning when a Tour exceeds fifteen steps.
-function stepLimitWarnings(steps: TourStep[]): Warning[] {
-  if (steps.length <= MAX_RECOMMENDED_STEPS) {
-    return [];
-  }
-  return [
-    {
-      code: "STEP_LIMIT_EXCEEDED",
-      message: `The tour has ${steps.length} steps; the recommended maximum is ${MAX_RECOMMENDED_STEPS}.`,
-    },
-  ];
-}
-
-// Validate the generated Tour against the general CodeTour schema, then write
-// it atomically. If validation fails, the previous file remains intact.
-async function persistTour(
-  ctx: WorkspaceContext,
-  relativePath: string,
-  tour: TourFile
-): Promise<ToolResponse | null> {
-  const schemaResult = validateCodetourTour(tour);
-  if (!schemaResult) {
-    return errorResponse(
-      "SCHEMA_VALIDATION_FAILED",
-      "The generated tour did not validate against the CodeTour schema.",
-      []
-    );
-  }
-  try {
-    await writeTourAtomic(ctx, relativePath, serializeTour(tour));
-  } catch (error) {
-    if (error instanceof OutputPathError) {
-      return errorResponse("OUTPUT_PATH_ESCAPES_WORKSPACE", error.message);
-    }
-    throw error;
-  }
-  return null;
-}
-
-// Files modified by the committed diff, converted to paths relative to the
-// workspace (the workspace may be a repository subdirectory).
-async function changedFilesInWorkspace(
-  ctx: WorkspaceContext,
-  mergeBaseSha: string,
-  headRef: string
-): Promise<string[]> {
-  const files = await changedFiles(ctx, mergeBaseSha, headRef);
-  const prefix = normalizeSlashes(await workspacePrefix(ctx));
-  return files
-    .map(normalizeSlashes)
-    .filter((file) => file.startsWith(prefix))
-    .map((file) => file.slice(prefix.length));
-}
-
-// Changed paths that a step can actually anchor. A committed-only tour reads
-// anchors from the analyzed commit, so a file deleted there is not anchorable
-// even if a working-tree copy exists; an included-local-changes tour reads the
-// workspace, so only a regular file present on disk qualifies. The distinction
-// is what keeps a deletion-only branch from being rejected.
-async function changedFilesAvailableToAnchor(
-  ctx: WorkspaceContext,
-  mergeBaseSha: string,
-  headRef: string,
-  uncommitted: ReadonlyArray<{ path: string }>,
-  includesLocalChanges: boolean
-): Promise<string[]> {
-  const changed = await changedFilesInWorkspace(ctx, mergeBaseSha, headRef);
-  if (includesLocalChanges) {
-    for (const entry of uncommitted) {
-      if (!changed.includes(entry.path)) {
-        changed.push(entry.path);
-      }
-    }
-    return changed.filter((file) => {
-      try {
-        return fs.statSync(path.resolve(ctx.root, file)).isFile();
-      } catch {
-        return false;
-      }
-    });
-  }
-  if (changed.length === 0) return [];
-  const anchors = await readCommitAnchors(ctx, headRef, []);
-  return changed.filter(
-    (file) =>
-      anchors.get(path.posix.normalize(normalizeSlashes(file)))?.kind === "file"
-  );
-}
-
-// Default Changes Tour title: "Changes on <branch>", falling back to the short
-// SHA when HEAD is detached.
-async function defaultChangesTitle(
-  ctx: WorkspaceContext,
-  headRef: string
-): Promise<string> {
-  const branch = await currentBranchName(ctx);
-  if (branch && branch !== "HEAD") {
-    return `Changes on ${branch}`;
-  }
-  return `Changes at ${headRef.slice(0, 7)}`;
-}
-
-function serializeTour(tour: TourFile): string {
-  return JSON.stringify(tour, null, 2) + "\n";
-}
 
 interface ToolResponse {
   [key: string]: unknown;

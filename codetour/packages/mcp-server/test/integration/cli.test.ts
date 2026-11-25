@@ -241,11 +241,18 @@ test(
       assert.equal(response.isError, false, response.text);
       assert.equal(response.structured.status, "created");
       assert.equal(response.structured.path, ".tours/project.tour");
-      // The session wrote exactly the reserved Tour file and nothing else.
+      // The session wrote exactly the reserved Tour file and its creation
+      // journal record: the journal documents the creation (DESIGN §3) and
+      // carries no Tour content.
       const after = listFilesRecursively(root);
+      const createdFiles = after.filter(entry => !before.includes(entry));
       assert.deepEqual(
-        after.filter(entry => !before.includes(entry)),
+        createdFiles.filter(entry => !entry.startsWith(".tours/.log")),
         [".tours", ".tours/project.tour"]
+      );
+      assert.equal(
+        createdFiles.filter(entry => /^\.tours\/\.log\/creations\/[^/]+\.json$/.test(entry)).length,
+        1
       );
     } finally {
       if (client) await stopServer(client);

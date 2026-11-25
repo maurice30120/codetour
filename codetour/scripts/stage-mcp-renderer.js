@@ -1,11 +1,11 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-// The npm package ships its two local monorepo dependencies inside
+// The npm package ships its local monorepo dependencies inside
 // dist/node_modules, where Node resolves them from dist/src: npm cannot carry
-// a `file:` sibling path dependency into an installed tarball. Both packages
-// are built first (root `npm run build` builds them in order) and only their
-// public build output is copied.
+// a `file:` sibling path dependency into an installed tarball. They are built
+// first (root `npm run build` builds them in order) and only their public build
+// output is copied.
 const packageRoot = path.resolve(__dirname, "..");
 const stagedModules = path.join(
   packageRoot,
@@ -59,4 +59,13 @@ const renderer = stage(
   path.join(packageRoot, "packages", "description-renderer")
 );
 
-console.log(`Staged ${renderer} and workspace identity in the MCP package.`);
+// The creation rules are an installed dependency of the MCP server: their
+// compiled output ships inside dist/node_modules, next to the renderer.
+const tourGeneration = stage(
+  "codetour-tour-generation",
+  path.join(packageRoot, "packages", "tour-generation")
+);
+
+console.log(
+  `Staged ${renderer}, ${tourGeneration} and workspace identity in the MCP package.`
+);

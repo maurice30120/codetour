@@ -195,16 +195,61 @@ test("packaged codetour mcp creates a Project Tour in a non-Git workspace withou
     assert.equal(response.structured.status, "created");
     const tour = JSON.parse(fs.readFileSync(path.join(workspace, ".tours", "project.tour"), "utf8"));
     assert.equal(tour.title, "Standalone Tour");
-    // The session wrote exactly the reserved Tour file and nothing else.
+    // The session wrote exactly the reserved Tour file and its creation
+    // journal record, and nothing else.
     const after = listFilesRecursively(workspace);
+    const createdFiles = after.filter(entry => !before.includes(entry));
     assert.deepEqual(
-      after.filter(entry => !before.includes(entry)),
+      createdFiles.filter(entry => !entry.startsWith(".tours/.log")),
       [".tours", ".tours/project.tour"]
+    );
+    assert.equal(
+      createdFiles.filter(entry => /^\.tours\/\.log\/creations\/[^/]+\.json$/.test(entry)).length,
+      1
     );
     assert.equal(stderrChunks.join(""), "");
   } finally {
     await client.close();
   }
+});
+
+test("packaged codetour creates a Tour with no MCP server running", () => {
+  const workspace = path.join(shared.tmp, "cli creation workspace");
+  fs.mkdirSync(workspace);
+  fs.writeFileSync(path.join(workspace, "hello.txt"), "hello standalone\n");
+  const proposal = path.join(shared.tmp, "cli proposal.json");
+  fs.writeFileSync(
+    proposal,
+    JSON.stringify({
+      title: "Standalone CLI Tour",
+      steps: [
+        { title: "Introduction", description: "Created by the packaged CLI.", file: "hello.txt", line: 1 }
+      ]
+    })
+  );
+
+  const result = spawnPackagedSync(
+    ["create-project-tour", "--workspace", workspace, "--proposal", proposal],
+    { cwd: shared.tmp, env: restrictedEnv(), encoding: "utf8" }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, "");
+  const created = JSON.parse(result.stdout);
+  assert.equal(created.ok, true);
+  assert.equal(created.kind, "project");
+  assert.equal(created.title, "Standalone CLI Tour");
+  const tour = JSON.parse(fs.readFileSync(path.join(workspace, ".tours", "project.tour"), "utf8"));
+  assert.equal(tour.title, "Standalone CLI Tour");
+  assert.equal(tour.steps[0].file, "hello.txt");
+  // The creation wrote the Tour and its journal record only: no MCP server was
+  // started, and no other file appeared in the workspace.
+  const created_files = listFilesRecursively(workspace).filter(entry => entry.startsWith(".tours"));
+  assert.ok(created_files.includes(".tours/project.tour"), created_files.join(", "));
+  assert.ok(
+    created_files.some(entry => /^\.tours\/\.log\/creations\/\d+-\d+-[0-9a-f]+\.json$/.test(entry)),
+    created_files.join(", ")
+  );
 });
 
 test("packaged codetour mcp serves --workspace-root from a different working directory", async () => {

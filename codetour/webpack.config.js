@@ -31,6 +31,12 @@ const config = {
         __dirname,
         "packages/description-renderer/dist/src/index.js"
       ),
+      // The creation rules are shared by the CLI subcommands and the MCP
+      // server, so both bundles resolve them from the same build output.
+      "codetour-tour-generation": path.resolve(
+        __dirname,
+        "packages/tour-generation/dist/src/index.js"
+      ),
       // The CLI bundle embeds the shared MCP server entry exactly once, from
       // the same source as the npm binary and the VSIX server bundle.
       "codetour-mcp": path.resolve(
@@ -92,7 +98,13 @@ const mcpConfig = {
   resolve: {
     extensions: [".ts", ".js", ".json"],
     alias: {
-      "codetour-workspace-identity": path.resolve(__dirname, "packages/workspace-identity/index.js")
+      "codetour-workspace-identity": path.resolve(__dirname, "packages/workspace-identity/index.js"),
+      // A separate alias map: the MCP bundle is built from the mcp-server
+      // output, so the shared creation rules must be resolvable here too.
+      "codetour-tour-generation": path.resolve(
+        __dirname,
+        "packages/tour-generation/dist/src/index.js"
+      )
     }
   },
   devtool: "source-map",

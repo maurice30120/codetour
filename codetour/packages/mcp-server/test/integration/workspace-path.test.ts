@@ -31,7 +31,10 @@ test("creates a changes tour in an explicitly selected repository below a non-Gi
     const tour = readTourFile(repo, ".tours/changes.tour");
     assert.equal(tour.ref, headRef);
     assert.equal((tour.steps as Array<{ file: string }>)[0].file, "feature.txt");
-    assert.ok(!fs.existsSync(path.join(root, ".tours")));
+    // The configured root only receives the creation journal (observability of
+    // the creation, DESIGN §3), never a Tour file; the other repository stays
+    // untouched.
+    assert.ok(!fs.existsSync(path.join(root, ".tours", "changes.tour")));
     assert.ok(!fs.existsSync(path.join(other, ".tours")));
   } finally {
     rmrf(root);

@@ -36,7 +36,7 @@ function shareSetup(root, { withBuild = true } = {}) {
   symlinkSync(path.join(repository, "node_modules"), path.join(root, "node_modules"), "dir");
   if (!withBuild) return;
   symlinkSync(path.join(repository, "dist"), path.join(root, "dist"), "dir");
-  for (const packageName of ["description-renderer", "mcp-server"]) {
+  for (const packageName of ["description-renderer", "tour-generation", "mcp-server"]) {
     mkdirSync(path.join(root, "packages", packageName), { recursive: true });
     symlinkSync(
       path.join(repository, "packages", packageName, "dist"),
