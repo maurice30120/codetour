@@ -1,9 +1,8 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { COPILOT_PLUGIN_FILES } from "./copilot-plugin.generated";
-import { COPILOT_EXTENSION_FILES } from "./copilot-extension.generated";
 
 const root = path.resolve(__dirname, "../../..");
 const pluginSource = path.join(root, "packages", "copilot-plugin");
@@ -35,78 +34,96 @@ test("the plugin manifest declares Agent Plugins 1.0 and only allowed fields", (
   }
 });
 
-test("the plugin declares exactly one MCP server: the existing codetour mcp command", () => {
-  const mcp = JSON.parse(source("mcp.json"));
-  assert.equal(mcp.$schema, "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json");
-  assert.deepEqual(Object.keys(mcp.mcpServers), ["codetour"]);
-  const server = mcp.mcpServers.codetour;
-  assert.equal(server.type, "stdio");
-  assert.equal(server.command, "codetour");
-  assert.deepEqual(server.args, ["mcp", "--workspace-root", "${COPILOT_SESSION_CWD}"]);
-  // The plugin must never declare a second server or a server-side copy of the
-  // generation logic.
-  assert.equal(Object.keys(mcp.mcpServers).length, 1);
+test("the plugin manifest advertises the CLI generation, not a server transport", () => {
+  const manifest = JSON.parse(source("plugin.json"));
+  assert.doesNotMatch(manifest.description, /\bmcp\b/i);
+  assert.match(manifest.description, /CodeTour CLI/);
+  assert.deepEqual(manifest.keywords, ["codetour", "tours", "copilot"]);
 });
 
-test("the plugin hook is deterministic and bounded by its declaration and source", () => {
+test("the plugin hook is deterministic, bounded and reads the host payload", () => {
   const hooks = JSON.parse(source("com.github.copilot/hooks/hooks.json"));
   assert.equal(hooks.version, 1);
   assert.equal(hooks.hooks.agentStop.length, 1);
   assert.equal(hooks.hooks.agentStop[0].type, "command");
   assert.match(hooks.hooks.agentStop[0].command, /\$\{PLUGIN_ROOT\}\/com\.github\.copilot\/hooks\/agent-stop\.mjs/);
   assert.ok(hooks.hooks.agentStop[0].timeoutSec > 0 && hooks.hooks.agentStop[0].timeoutSec <= 60);
+
   const hook = source("com.github.copilot/hooks/agent-stop.mjs");
   assert.doesNotMatch(hook, /fetch\(|https?:|openai|anthropic|chat\.completions/i, "the hook must not call a model or the network");
-  assert.doesNotMatch(hook, /knowledgeDirectory|\.memory\/knowledge|saveKnowledgeProposal|writeFile/i, "the hook must not write Knowledge");
-  assert.match(hook, /stop_hook_active/);
-  assert.doesNotMatch(hook, /decision: "block"/);
+  assert.doesNotMatch(hook, /knowledgeDirectory|\.memory\/knowledge|saveKnowledgeProposal/i, "the hook must not write Knowledge");
+  assert.doesNotMatch(hook, /decision\s*:\s*"block"|"decision"/, "the hook never asks for a continuation");
+  assert.match(hook, /stop_hook_active/, "a hook-triggered re-entry is honored");
+  // The response is attributed from the host payload plus the two observability
+  // documents, never from the run state the retired guard read.
+  assert.match(hook, /input\.sessionId/);
+  assert.match(hook, /input\.timestamp/);
+  assert.match(hook, /input\.cwd/);
+  assert.match(hook, /input\.transcriptPath/);
+  assert.doesNotMatch(hook, /codetour-run-|runState|continuationUsed/i);
+  assert.match(hook, /process\.stderr\.write/, "the summary goes to the human channel, never to the hook protocol");
 });
 
-test("the plugin skill defers to the served MCP prompt instead of duplicating it", () => {
+test("the plugin skill carries the CLI creation workflow and names no server surface", () => {
   const skill = source("skills/codetour-generate/SKILL.md");
   assert.match(skill, /^---\nname: codetour-generate\n/);
-  assert.match(skill, /prompts\/get/);
-  assert.match(skill, /generate_project_tour/);
-  assert.match(skill, /not[\s\S]{0,40}copied here/i);
-  // The plugin is the primary path and uses the MCP Knowledge tools directly.
-  assert.match(skill, /primary CodeTour path/i);
+  assert.match(skill, /user-invocable: true/);
+  // The workflow is the CLI: explicit workspace, proposal on stdin, one JSON
+  // document back, exit codes, issues to fix.
+  assert.match(skill, /codetour create-project-tour --workspace/);
+  assert.match(skill, /codetour create-changes-tour --workspace/);
+  assert.match(skill, /standard input/);
+  assert.match(skill, /exactly one JSON document/);
+  assert.match(skill, /`0` \| the Tour was created/);
+  assert.match(skill, /`1` \| the proposal, its validation or the creation was refused/);
+  assert.match(skill, /`2` \| usage or IO failure/);
+  assert.match(skill, /`issues`/);
+  assert.match(skill, /reviewMode/);
+  assert.match(skill, /critical/);
+  assert.match(skill, /orientation/i);
+  assert.match(skill, /language/i);
+  // No server surface may be named: no tool, no prompt, no server command.
+  assert.doesNotMatch(skill, /\bmcp\b/i);
+  assert.doesNotMatch(skill, /prompts\/get|get_generation_prompt|codetour_prepare_generation/);
+  assert.doesNotMatch(skill, /create_project_tour|create_changes_tour/);
+  assert.doesNotMatch(skill, /copilot mcp list/);
   assert.doesNotMatch(skill, /knowledge_save|knowledge_close_run/);
-  // The superseded CLI-first skill is not mentioned at all: naming it as a
-  // fallback would invite a host to route the workflow through it.
-  assert.doesNotMatch(skill, /optional fallback/i);
-  assert.doesNotMatch(skill, /codetour-knowledge/i);
-  // It must not route the workflow to the superseded CLI-first skill.
-  assert.doesNotMatch(skill, /use it for the complete Tour workflow/i);
-  assert.doesNotMatch(skill, /codetour knowledge (?:list|read|save|hash)/i);
-  // The full Tour / consolidation method belongs to the MCP prompt only.
-  assert.doesNotMatch(skill, /## Decomposition method/);
-  assert.doesNotMatch(skill, /atomic questions/i);
-  assert.doesNotMatch(skill, /create_project_tour.*steps.*description/is);
 });
 
-test("the hook and the adapter share one byte-identical run-log contract", () => {
-  const canonical = source("com.github.copilot/lib/run-log.mjs");
-  const extensionSource = readFileSync(
-    path.join(root, ".github", "extensions", "codetour", "run-log.mjs"),
-    "utf8"
-  );
-  // The extension copy is the single source of truth; the plugin copy is
-  // generated by scripts/sync-copilot-run-log.js. Compare both source files
-  // directly so an edit to either one fails even before re-embedding.
-  assert.equal(
-    canonical,
-    extensionSource,
-    "the plugin run-log diverges from .github/extensions/codetour/run-log.mjs; run node scripts/sync-copilot-run-log.js"
-  );
-  assert.equal(
-    COPILOT_EXTENSION_FILES["run-log.mjs"],
-    canonical,
-    "the extension copy diverges from packages/copilot-plugin/com.github.copilot/lib/run-log.mjs"
-  );
-  const adapter = COPILOT_EXTENSION_FILES["adapter.mjs"];
-  assert.match(adapter, /from "\.\/run-log\.mjs"/);
+test("the plugin skill keeps the reader hand-over rules", () => {
+  const skill = source("skills/codetour-generate/SKILL.md");
+  assert.match(skill, /codetour "<Tour title>"/);
+  assert.match(skill, /codetour --internal-tour "<tour path>"/);
+  assert.match(skill, /codetour --internal-open-vscode "<tour path>"/);
+  assert.match(skill, /never replace the created Tour with a step list/i);
+});
+
+test("the hook reads its journal and usage helpers from the plugin library", () => {
   const hook = source("com.github.copilot/hooks/agent-stop.mjs");
   assert.match(hook, /from "\.\.\/lib\/run-log\.mjs"/);
+  const library = source("com.github.copilot/lib/run-log.mjs");
+  for (const helper of [
+    "creationsDirectory",
+    "reportedDirectory",
+    "isCreationRecord",
+    "listCreations",
+    "readResponseWindow",
+    "summarizeUsage",
+    "isReported",
+    "markReported"
+  ]) {
+    assert.match(library, new RegExp(`export (?:async )?function ${helper}\\b`), `${helper} is exported`);
+  }
+  // The run-state contract this ticket stops using is gone from the plugin: no
+  // reader or writer of `codetour-run-*.json` remains here.
+  assert.doesNotMatch(library, /createRunState|listRunStates|recordRunMetrics|RUN_FILE_PREFIX/);
+  // The plugin copy is hand-written now; the extension's copy no longer feeds
+  // it, so the byte-for-byte sync script is gone with the contract.
+  assert.equal(
+    existsSync(path.join(root, "scripts", "sync-copilot-run-log.js")),
+    false,
+    "the plugin library is no longer generated from the Copilot extension copy"
+  );
 });
 
 test("the installed plugin totals exactly the declared components", () => {

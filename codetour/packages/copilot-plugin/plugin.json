@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codetour",
   "version": "0.1.2",
-  "description": "CodeTour: guided Tours through the shared MCP server and generation skill.",
+  "description": "CodeTour: guided Tours generated with the CodeTour CLI.",
   "author": {
     "name": "CodeTour"
   },
@@ -12,7 +12,6 @@
   "keywords": [
     "codetour",
     "tours",
-    "mcp",
     "copilot"
   ]
 }

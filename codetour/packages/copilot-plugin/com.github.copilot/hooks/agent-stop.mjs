@@ -2,165 +2,111 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
-  collectSessionUsage,
-  listRunStates,
-  recordRunMetrics,
-  sameWorkspace,
-  summarizeRunUsage,
-  updateRunState
+  canonicalWorkspace,
+  isReported,
+  listCreations,
+  markReported,
+  readResponseWindow,
+  summarizeUsage
 } from "../lib/run-log.mjs";
 
-// Copilot agentStop guard for one CodeTour generation run.
+// Copilot `agentStop` summary: what this response created, and what it cost.
 //
-// Deterministic, no model, no Knowledge write. It reads the run state the
-// controlled generation entry point wrote and the consolidation closure the
-// CodeTour MCP server persisted. It returns the Copilot hook decision on
-// stdout:
-//   {}                                  let the agent stop (the default)
-//   {"decision":"block","reason":"..."} ask for ONE continuation
+// Purely informative. The hook writes its summary to stderr, answers `{}` on
+// stdout whatever happens, and exits 0: it never blocks, never asks for a
+// continuation, never calls a model and never writes Tour content (spec #320).
 //
-// Besides the guard decision, every stop that matches a CodeTour run of this
-// session records one usage snapshot (spec #223 observability) into the run
-// state's metrics: model, project state, calls, tokens and cache split into
-// generation and consolidation, built from the Copilot session usage records.
-// The snapshot never feeds the decision, never reports a Tour or Knowledge
-// outcome, and an unreadable session events file is a diagnostic, not a block.
+// Two sources, both foreign and both tolerant: the creation journal the CodeTour
+// CLI appends to after a successful write (`<workspace>/.tours/.log/creations/`)
+// and the session transcript the Copilot CLI owns (`transcriptPath`). A Tour is
+// reported only when the attribution is established: same workspace, same
+// `sessionId` as the payload, created inside this response — the window between
+// the last `user.message` and the stop — and not in the future. A creation
+// without a session identity, or one the transcript cannot place, is never
+// guessed into the summary.
 //
-// Inert when: the conversation is not a CodeTour run for this session and
-// workspace, the stop is already a hook-triggered re-entry, this run already
-// used its continuation, the Tour was not created (nothing to consolidate) or
-// any consolidation closure exists (created, appended, replaced,
-// completed_zero, partial, failed, skipped). Storage failures are diagnostics,
-// never a block.
+// The token reading is one per response, for the response as a whole: no Tour is
+// given a share it cannot have. `inputTokens` already includes the cache reads
+// and writes, so cache is shown as a part of the input total, never added to it;
+// an unreadable or empty window says unavailable, never zero. The
+// `<sessionId>-<responseStart>` marker keeps a second stop of the same response
+// silent.
+//
+// Silences: no payload, a hook-triggered re-entry, an unusable workspace, no
+// session identity, no response boundary, and no attributed creation. Every
+// failure is a diagnostic on stderr, never a decision.
 
 const MAX_INPUT_BYTES = 1024 * 1024;
 const HOOK_OUTPUT = {};
 
 function diagnostic(message) {
-  // stderr is not the hook protocol channel; Copilot keeps it for the user.
   process.stderr.write(`CodeTour agentStop: ${message}\n`);
 }
 
-// The user-facing usage line. Also stderr, so it never enters the hook
-// protocol, and never influences the decision.
 function report(message) {
-  process.stderr.write(`CodeTour usage: ${message}\n`);
+  process.stderr.write(`CodeTour: ${message}\n`);
 }
 
-// Invalid Knowledge entries are a list of actions, so they are always printed
-// in full, one line each, with the machine-readable reason only (ADR 0044).
-function reportKnowledgeDetails(state) {
-  const knowledge = state?.knowledge;
-  if (!knowledge || knowledge.observed !== true) return;
-  if (!Array.isArray(knowledge.invalid)) return;
-  for (const entry of knowledge.invalid) {
-    if (!entry || typeof entry.name !== "string") continue;
-    const reason = typeof entry.reason === "string" ? entry.reason : "invalid";
-    process.stderr.write(`CodeTour knowledge invalid: ${entry.name} — ${reason}\n`);
+const numbers = new Intl.NumberFormat("en-GB");
+
+function formatTokens(value) {
+  return numbers.format(value);
+}
+
+// One line for the response: input as the total that already contains the
+// cache, output beside it. A figure the session never recorded is omitted
+// rather than printed as zero.
+function usageLine(usage, approximate) {
+  const suffix = approximate ? " (approximate)" : "";
+  if (usage.records === 0) {
+    return `tokens unavailable (no usage records in this response)`;
   }
-}
-
-const tokens = new Intl.NumberFormat("en-GB");
-
-function formatTokens(usage) {
-  const input = tokens.format(usage.inputTokens || 0);
-  const output = tokens.format(usage.outputTokens || 0);
-  const cached = usage.cacheReadTokens || 0;
-  return `${input} in / ${output} out${cached > 0 ? ` (${tokens.format(cached)} cached)` : ""}`;
-}
-
-// One readable summary per run: the Tour that was created, its path, the
-// generation and consolidation token phases, and the run total. Unobservable
-// usage is reported as such instead of being omitted.
-function usageReport(state, summary) {
-  const title =
-    typeof state.tourTitle === "string" && state.tourTitle
-      ? state.tourTitle
-      : state.tourPath
-        ? path.basename(state.tourPath)
-        : null;
-  const label = [title ? `"${title}"` : null, state.tourPath ? `(${state.tourPath})` : null]
-    .filter(Boolean)
-    .join(" ");
-  const prefix = `run ${state.runId}${label ? ` ${label}` : ""}`;
-  const knowledge = knowledgeClause(state);
-  if (summary.observed !== true) {
-    const reason = `usage not observed (${summary.reason || "unavailable"})`;
-    return `${prefix} — ${[reason, knowledge].filter(Boolean).join("; ")}`;
+  const { sums, observed } = usage;
+  const parts = [];
+  if (observed.inputTokens) {
+    const cache = [];
+    if (observed.cacheReadTokens) cache.push(`${formatTokens(sums.cacheReadTokens)} cached reads`);
+    if (observed.cacheWriteTokens) cache.push(`${formatTokens(sums.cacheWriteTokens)} cached writes`);
+    parts.push(
+      cache.length === 0
+        ? `${formatTokens(sums.inputTokens)} in`
+        : `${formatTokens(sums.inputTokens)} in (of which ${cache.join(", ")})`
+    );
   }
-  const parts = [`generation ${formatTokens(summary.windows.generation)}`];
-  if (summary.windows.consolidation) {
-    parts.push(`consolidation ${formatTokens(summary.windows.consolidation)}`);
+  if (observed.outputTokens) parts.push(`${formatTokens(sums.outputTokens)} out`);
+  if (parts.length === 0) {
+    return `tokens unavailable (no token figures in this response)`;
   }
-  parts.push(`total ${formatTokens(summary.totals)}`);
-  if (knowledge) parts.push(knowledge);
-  if (summary.model) parts.push(summary.model);
-  return `${prefix} — ${parts.join("; ")}`;
+  return `tokens ${parts.join(", ")}${suffix}`;
 }
 
-// A bounded list of names, because a catalogue can be large while the line
-// stays readable; the run state keeps every name.
-const KNOWLEDGE_NAME_LIMIT = 10;
-
-function formatNames(names) {
-  const shown = names.slice(0, KNOWLEDGE_NAME_LIMIT);
-  const remaining = names.length - shown.length;
-  return remaining > 0 ? `${shown.join(", ")} and ${remaining} more` : shown.join(", ");
+// A creation can only belong to this response when it names this workspace and
+// this session identity: a record without a session, or with another agent's
+// host, is never attributed. The response window is applied afterwards.
+function belongsToSession(record, { workspace, sessionId }) {
+  if (record.sessionId === null || record.sessionId !== sessionId) return false;
+  if (record.host !== null && record.host !== undefined && record.host !== "copilot") return false;
+  return canonicalWorkspace(record.workspace) === workspace;
 }
 
-// The Knowledge clause of the closing line (ADR 0045). It reports what the
-// run's own discovery verified and what it actually read; an absent or
-// unobserved block omits the clause instead of claiming an empty catalogue.
-function knowledgeClause(state) {
-  const knowledge = state?.knowledge;
-  if (!knowledge || typeof knowledge !== "object" || knowledge.observed !== true) {
-    return null;
+function attributed(record, { fromMs, untilMs }) {
+  const at = Date.parse(record.at);
+  return at >= fromMs && at <= untilMs;
+}
+
+function tourPathOf(record, workspace) {
+  return path.isAbsolute(record.tourPath) ? record.tourPath : path.resolve(workspace, record.tourPath);
+}
+
+async function workspaceRealPath(cwd) {
+  if (typeof cwd !== "string" || !cwd) return undefined;
+  try {
+    const real = await fs.realpath(cwd);
+    const stat = await fs.stat(real);
+    return stat.isDirectory() ? canonicalWorkspace(real) : undefined;
+  } catch {
+    return undefined;
   }
-  const names = value =>
-    Array.isArray(value) ? value.filter(name => typeof name === "string") : [];
-  const valid = names(knowledge.valid);
-  const invalid = Array.isArray(knowledge.invalid)
-    ? knowledge.invalid.filter(entry => entry && typeof entry.name === "string")
-    : [];
-  const used = names(knowledge.used);
-  const total =
-    Number.isInteger(knowledge.validTotal) && knowledge.validTotal >= valid.length
-      ? knowledge.validTotal
-      : valid.length;
-  const usedText =
-    used.length === 0 ? "0 used" : `${used.length} used (${formatNames(used)})`;
-  return `Knowledge ${total} valid / ${invalid.length} invalid, ${usedText}`;
-}
-
-// The Knowledge sets move independently of the token figures: a listing or a
-// read changes them while the windows stay still. The line is printed when
-// either side changed, never on every stop.
-function knowledgeChanged(previous, next) {
-  const stable = knowledge => {
-    if (!knowledge || typeof knowledge !== "object") return "";
-    const copy = JSON.parse(JSON.stringify(knowledge));
-    delete copy.at;
-    return JSON.stringify(copy);
-  };
-  return stable(previous) !== stable(next);
-}
-
-// The newest snapshot replaces the previous one, so the line is printed only
-// when the figures actually changed: observability must not become a chorus on
-// every stop of a long conversation.
-function usageChanged(previous, next) {
-  if (!previous || typeof previous !== "object") return true;
-  const stable = usage => {
-    if (!usage || typeof usage !== "object") return "";
-    const copy = JSON.parse(JSON.stringify(usage));
-    delete copy.observedAt;
-    for (const window of [copy.windows?.generation, copy.windows?.consolidation]) {
-      // The stop time moves on every call; the figures are what matters.
-      if (window) delete window.untilAt;
-    }
-    return JSON.stringify(copy);
-  };
-  return stable(previous) !== stable(next);
 }
 
 async function readInput() {
@@ -174,100 +120,55 @@ async function readInput() {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-async function workspaceRealPath(cwd) {
-  if (typeof cwd !== "string" || !cwd) return undefined;
-  try {
-    const real = await fs.realpath(cwd);
-    const stat = await fs.stat(real);
-    return stat.isDirectory() ? real : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-// Any closure means the consolidation step was assessed; the hook never
-// reopens a closed run. Zero creation (`completed_zero`) is deliberately a
-// closure: it is not an omission.
-function isClosed(state) {
-  return state.consolidation !== null && state.consolidation !== undefined;
-}
-
-// Record the usage snapshot for every Generation Run of this session in this
-// workspace (spec #223 observability). This is a recomputation from Copilot's
-// own session usage records, never an accumulation: the newest snapshot at
-// the newest stop replaces the previous one. The windows cannot be attributed
-// more finely than the record timestamps allow, so values are reported with
-// their boundaries instead of being claimed as exact per-runId consumption.
-// Nothing here influences the guard: any failure is a diagnostic.
-async function recordUsageMetrics(workspace, sessionId, states) {
-  const mine = states
-    .filter(state => sameWorkspace(state.workspace, workspace) && state.sessionId === sessionId)
-    .sort((left, right) => (Date.parse(left.at) || 0) - (Date.parse(right.at) || 0));
-  if (mine.length === 0) return;
-  const session = await collectSessionUsage(sessionId);
-  const stopAt = new Date().toISOString();
-  for (let index = 0; index < mine.length; index++) {
-    const summary = summarizeRunUsage(session, {
-      runAt: mine[index].at,
-      stopAt,
-      nextRunAt: index + 1 < mine.length ? mine[index + 1].at : null
-    });
-    try {
-      const recorded = await recordRunMetrics(workspace, mine[index].runId, {usage: summary});
-      if (!recorded.updated && recorded.reason && recorded.reason !== "noop") {
-        diagnostic(`usage metrics not updated (${recorded.reason})`);
-      }
-      const nextState = recorded.state || mine[index];
-      if (
-        recorded.updated &&
-        mine[index].tourCreated === true &&
-        (usageChanged(mine[index].metrics?.usage, summary) ||
-          knowledgeChanged(mine[index].knowledge, nextState.knowledge))
-      ) {
-        report(usageReport(nextState, summary));
-        reportKnowledgeDetails(nextState);
-      }
-    } catch (error) {
-      diagnostic(`could not record usage metrics (${error?.message || error})`);
-    }
-  }
-}
-
-function continuationReason(state) {
-  return [
-    `Finish the CodeTour consolidation for run ${state.runId} before stopping.`,
-    `The Tour was created, but no consolidation closure was recorded for this run.`,
-    `Call knowledge_save with runId "${state.runId}" and the entries array (zero, one or more Knowledge entries).`,
-    `If you deliberately cannot assess the run, call knowledge_close_run with runId "${state.runId}" and status "skipped".`,
-    `Do not create the Tour again, do not invent Knowledge, and do not report persistence that the MCP did not confirm.`
-  ].join(" ");
-}
-
-async function decide(input) {
-  if (!input || typeof input !== "object") return HOOK_OUTPUT;
-  if (input.stop_hook_active === true || input.stopHookActive === true) return HOOK_OUTPUT;
-  const workspace = await workspaceRealPath(input.cwd);
-  if (!workspace) return HOOK_OUTPUT;
+async function reportResponse(input) {
+  if (!input || typeof input !== "object") return;
+  if (input.stop_hook_active === true || input.stopHookActive === true) return;
   const sessionId = typeof input.sessionId === "string" && input.sessionId ? input.sessionId : undefined;
-  if (!sessionId) return HOOK_OUTPUT;
+  if (!sessionId) return;
+  const untilMs = Number.isFinite(input.timestamp) ? input.timestamp : Date.now();
+  const workspace = await workspaceRealPath(input.cwd);
+  if (!workspace) return;
 
-  const listed = await listRunStates(workspace);
-  for (const problem of listed.problems) diagnostic(`ignored run state (${problem})`);
-  await recordUsageMetrics(workspace, sessionId, listed.states);
-  return HOOK_OUTPUT;
+  const listed = await listCreations(workspace, untilMs);
+  // Damage in the journal is worth one diagnostic; an absent one says nothing.
+  for (const problem of listed.problems) diagnostic(`ignored creation record (${problem})`);
+  // An ordinary conversation has no candidate at all: the transcript is not
+  // read and no summary is printed.
+  const candidates = listed.records.filter(record =>
+    belongsToSession(record, { workspace, sessionId })
+  );
+  if (candidates.length === 0) return;
+
+  const window = await readResponseWindow(input.transcriptPath, untilMs);
+  if (!window.observed) {
+    diagnostic(`tokens not observed (${window.reason})`);
+    return;
+  }
+  if (await isReported(workspace, sessionId, window.fromMs)) return;
+
+  const own = candidates.filter(record => attributed(record, { fromMs: window.fromMs, untilMs }));
+  if (own.length === 0) return;
+
+  const approximate = window.approximate ? " (approximate)" : "";
+  report(`${own.length} ${own.length === 1 ? "Tour" : "Tours"} created in this response${approximate}`);
+  for (const record of own) {
+    report(`"${record.tourTitle}" — ${tourPathOf(record, workspace)}`);
+  }
+  report(usageLine(summarizeUsage(window.usageRecords), window.approximate));
+  if (!(await markReported(workspace, sessionId, window.fromMs))) {
+    diagnostic("could not mark the response as reported");
+  }
 }
 
 async function main() {
-  let output = HOOK_OUTPUT;
   try {
-    output = await decide(await readInput());
+    await reportResponse(await readInput());
   } catch (error) {
-    // Malformed payload or an unavailable workspace: never block a
-    // conversation the hook cannot attribute to a CodeTour run.
+    // A malformed payload, an unavailable workspace or any storage failure is
+    // a diagnostic; the conversation stops, untouched.
     diagnostic(`ignored stop (${error?.message || error})`);
-    output = HOOK_OUTPUT;
   }
-  process.stdout.write(`${JSON.stringify(output)}\n`);
+  process.stdout.write(`${JSON.stringify(HOOK_OUTPUT)}\n`);
 }
 
 await main();
