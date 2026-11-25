@@ -134,9 +134,11 @@ test("the installed plugin totals exactly the declared components", () => {
       "com.github.copilot/hooks/agent-stop.mjs",
       "com.github.copilot/hooks/hooks.json",
       "com.github.copilot/lib/run-log.mjs",
-      "mcp.json",
       "plugin.json",
-      "skills/codetour-generate/SKILL.md"
+      "skills/codetour-generate/SKILL.md",
+      "skills/codetour-generate/references/codetour-adaptation.md",
+      "skills/codetour-generate/references/upstream-LICENSE.txt",
+      "skills/codetour-generate/references/upstream-code-review.md"
     ]
   );
 });

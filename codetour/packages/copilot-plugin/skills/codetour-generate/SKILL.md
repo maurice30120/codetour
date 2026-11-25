@@ -26,6 +26,12 @@ cancels or declines; never silently default.
   or a **Changes Tour** (explain and review the branch's changes).
 - **Review mode** — Changes Tours only: `neutral` (factual explanation) or
   `critical` (explanation plus review findings). Project Tours have none.
+- **Critical review method** — a `critical` Changes Tour follows the pack filed
+  in `references/` beside this file; read `references/codetour-adaptation.md`,
+  `references/upstream-code-review.md` and `references/upstream-LICENSE.txt`
+  before exploring, and keep them read while writing. Without that reading the
+  mode would only be a word. A `neutral` Changes Tour and every Project Tour
+  never open the pack.
 - **Orientation and language** — a phrase that orients the Tour ("focus on the
   rendering pipeline") is optional; it also sets the language the Tour is
   written in. Without one, write the Tour in the language of the user's request.

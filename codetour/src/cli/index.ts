@@ -10,7 +10,6 @@ import type { CodeTour } from "../store";
 import { loadTour } from "../store/tourSchema";
 import { discoverToursFromRoot, visibleTours } from "../core/tourDiscovery";
 import { renderDescription } from "codetour-description-renderer";
-import { runMcpCli } from "codetour-mcp";
 import { runCreateTourCommand } from "./createTour";
 import { createStandaloneTourHtml } from "./html";
 import { doctor, installAgents, listAgents, uninstallAgents, agentIds } from "./agentIntegrations";
@@ -24,6 +23,14 @@ import { defaultTerminalSession, handOffTtyToTourReader, HANDOFF_FLAG } from "./
 import { resolveTourSelection } from "./tourResolution";
 
 const USAGE = "Usage: codetour [tour] [--renderer terminal|html|vscode]";
+
+// Only the CLI itself may describe the running script as the installed launcher.
+// An embedder (a compiled test, another tool importing this module) used to be
+// taken for the CLI because it also has a script in `process.argv[1]`, and the
+// install then probed that script with `--version`: a test file re-ran itself
+// instead of answering. The entry publishes its own path once, and the
+// integration code falls back to the portable `codetour` command without it.
+process.env.CODETOUR_CLI_ENTRY = path.resolve(process.argv[1] || "");
 
 // The experimental TTY handoff flag (spike, ticket #243): variadic so the
 // optional workspace root can follow the Tour file. The flag itself is
@@ -78,23 +85,11 @@ function buildProgram(): Command {
     // The mapped messages in toCliError are the CLI's error contract; the
     // framework's own line would duplicate them.
     .configureOutput({ outputError: () => {} });
-  command
-    .command("mcp [args...]")
-    .description("start the CodeTour MCP server over stdio; run 'codetour mcp --help' for its options")
-    .allowUnknownOption()
-    .passThroughOptions()
-    .helpOption(false)
-    .action(async (args: string[]) => {
-      // Raw forwarding: the shared MCP entry owns its own argument parsing,
-      // validation and help, in every directory, Git or not.
-      const exitCode = await runMcpCli(args);
-      if (exitCode !== 0) process.exit(exitCode);
-    });
   // Tour creation: an agent hands over its JSON proposal and gets one JSON
-  // result. Like `mcp`, these commands parse their own arguments and own their
-  // exit codes, so the reader's error contract is untouched. They are
-  // reserved tokens: a Tour with that exact title reaches the reader through
-  // the numbered prompt or --internal-tour-id.
+  // result. These commands parse their own arguments and own their exit codes,
+  // so the reader's error contract is untouched. They are reserved tokens: a
+  // Tour with that exact title reaches the reader through the numbered prompt
+  // or --internal-tour-id.
   for (const kind of ["project", "changes"] as const) {
     command
       .command("create-" + kind + "-tour [args...]")

@@ -51,7 +51,7 @@ tour. [View the light theme](images/screenshots/expanded-description-light.png).
 | **Tour Step Conversations** | Ask follow-up questions grounded in the step’s explanation and displayed code, including Git snapshots and unsaved buffers. |
 | **Suggested questions** | Start a conversation from question buttons supplied with a generated step. |
 | **Native Markdown editing** | Edit an existing step in a VS Code Markdown document, then save it back to the tour with **Save Step**. |
-| **Bundled MCP server** | Let an AI agent create validated tours through two dedicated tools, with automatic discovery in VS Code and commands to configure Codex. |
+| **Agent-generated tours** | Let an AI agent create validated tours through the CodeTour generation skill and the local `codetour create-project-tour` / `create-changes-tour` commands. |
 
 The original recording and playback workflow remains available: file, directory,
 selection, and content steps; Markdown explanations; Git references; linked tours;
@@ -78,48 +78,58 @@ Upgrading from Microsoft CodeTour? Follow [MIGRATION.md](MIGRATION.md).
 
 ## Generate your first tour
 
-You need an AI client with MCP support, such as GitHub Copilot in VS Code or
-Codex, configured with your chosen provider. Installing the extension alone does
-not generate tours. You can record and replay tours without an AI agent.
+Generating Tours needs an AI agent that can run the CodeTour generation skill
+and the local `codetour` command, such as the GitHub Copilot CLI or the Pi
+coding agent. Installing the extension alone does not generate tours; recording
+and replaying Tours never needs an agent. Install the integration with
+`codetour --install` (see [Select the agents to install](#select-the-agents-to-install)).
 
-The extension bundles a local MCP server exposing `create_project_tour` and
-`create_changes_tour`. VS Code and
-GitHub Copilot discover a server for each
-workspace folder automatically. For Codex, run **CodeTour IA: Configure MCP for
-Codex** from the Command Palette. After moving or updating the extension, use
-**CodeTour IA: Repair MCP Configuration for Codex** if its configuration is stale.
-
-Ask your connected AI agent:
+Ask your agent:
 
 **To understand a project**
 
 ```text
-Analyze this repository and use create_project_tour to create a Project Tour
-in English. Explain its purpose, entry points, main components, and execution
-flows. Start with an orientation step and add diagrams where they help.
-Include suggested questions for the most important steps.
+Analyze this repository and create a Project Tour in English with the CodeTour
+skill. Explain its purpose, entry points, main components, and execution flows.
+Start with an orientation step and add diagrams where they help. Include
+suggested questions for the most important steps.
 ```
 
 **To understand a branch**
 
 ```text
-Analyze this branch’s committed changes since main and use create_changes_tour
-to create a Changes Tour in English. Resolve the current HEAD to its full SHA.
+Analyze this branch’s committed changes since main and create a Changes Tour in
+English with the CodeTour skill. Resolve the current HEAD to its full SHA.
 Explain the intent, implementation, impact, and relevant tests. Exclude
 uncommitted changes.
 ```
 
 Replace `main` with your base branch. Project Tours are saved to
-`.tours/project.tour`; Changes Tours to `.tours/changes.tour`. Generating the same
-type again replaces its reserved file after validation. Both tools also accept
-`workspacePath` to target a project inside a larger workspace.
+`.tours/project.tour`; Changes Tours to `.tours/changes.tour`. Generating the
+same type again replaces its reserved file after validation. `--workspace <dir>`
+addresses another project.
 
-The **agent** analyzes the code and writes the explanation. The **local MCP
-server** validates and saves the tour; it does not call a model or access the
-network. Your chosen AI provider may use network services.
+The **agent** analyzes the code and writes the explanation. The **local
+`codetour` command** validates the proposal and saves the Tour; it does not call
+a model or access the network. Your chosen AI provider may use network services.
 
-See the [MCP guide](packages/mcp-server/README.md) for other clients, arguments,
-validation rules, and Git reference policies.
+```sh
+codetour create-project-tour --workspace . --proposal proposal.json
+codetour create-changes-tour --workspace . --proposal proposal.json
+```
+
+The proposal is one JSON document, on standard input when `--proposal` is
+omitted. Standard output carries exactly one JSON result: `0` for a created
+Tour, `1` for a refused proposal that wrote nothing, `2` for a usage or IO
+failure. The [creation rules](packages/tour-generation/README.md) list the
+fields, the validation and the Git reference policy; the
+[skill](packages/copilot-plugin/skills/codetour-generate/SKILL.md) shows the
+whole generation route.
+
+No MCP server is shipped any more: an MCP client that used the `codetour` server
+loses it, and its replacement is this skill plus the CLI. See
+[MIGRATION.md](MIGRATION.md) for the break and the migration of an existing
+installation.
 
 ## Read, ask, and edit
 
@@ -178,10 +188,10 @@ without mixing in another agent’s response. You can stop an answer in progress
 ## Try the standalone readers
 
 The standalone CLI is a preview and needs Git, Node.js 24.18.0 and npm 12.0.1.
-It reads existing Tours from a Git worktree, and `codetour mcp` starts the
-same MCP server as the extension so an agent can create Tours outside VS Code.
-Conversations in these standalone readers are deferred. The existing VS Code
-conversation experience remains available.
+It reads existing Tours from a Git worktree and creates new ones from a JSON
+proposal, with no server and no editor involved. Conversations in these
+standalone readers are deferred. The existing VS Code conversation experience
+remains available.
 
 From this checkout, install the development dependencies as shown below and
 build the CLI:
@@ -189,7 +199,6 @@ build the CLI:
 ```bash
 npm ci
 npm ci --prefix packages/description-renderer
-npm ci --prefix packages/mcp-server
 npm run build
 CODETOUR_ROOT="$PWD"
 ```
@@ -215,18 +224,18 @@ finish. Check that the explanation and relevant source or diff correspond to
 the same Tour Step in both interfaces. Keep the invoking terminal open if using
 the interactive Tour selection prompt.
 
-The CLI bundle also embeds the MCP server, so from any workspace (Git or not):
+The same bundle creates Tours from any workspace (Git or not):
 
 ```bash
 cd /path/to/workspace
-node "$CODETOUR_ROOT/dist/cli.js" mcp
+node "$CODETOUR_ROOT/dist/cli.js" create-project-tour --workspace . --proposal proposal.json
+node "$CODETOUR_ROOT/dist/cli.js" create-changes-tour --workspace . --proposal proposal.json
 ```
 
-The process speaks MCP over stdio with the same tools as the extension — both
-Tour creation tools and the generation prompt tool — from one shared server
-implementation; the working directory is the Tour Workspace, or pass
-`--workspace-root`. See the [standalone distribution guide](docs/standalone-distribution.md) for
-packaged-launcher client configuration.
+`--workspace` is required on every creation, so nothing is written outside the
+workspace you name. See the
+[standalone distribution guide](docs/standalone-distribution.md) for the
+packaged launcher, the artifact layout and the acceptance suite.
 
 ### Select the agents to install
 
@@ -281,38 +290,40 @@ without a checkout or network:
    [`packages/copilot-plugin/`](packages/copilot-plugin/README.md), embedded in
    the CLI bundle by `scripts/embed-copilot-plugin.js`.
 
-The plugin is the single owner of the CodeTour MCP declaration. Its `mcp.json`
-declares the existing `codetour mcp` server scoped to the Copilot session
-workspace, so a plugin session runs one server and one copy of every tool. The
-extension no longer joins a second server, and the install removes only the
-legacy `codetour` entry an older CodeTour release wrote into
-`~/.copilot/mcp-config.json`; a same-named entry written by someone else is
-preserved and reported. The plugin also ships a minimal `codetour-generate`
-skill that defers to the served MCP prompt instead of duplicating the Tour
-method, and an `agentStop` guard.
+The plugin carries no server. It ships the `codetour-generate` skill, which
+explores the workspace and creates the Tour with the installed `codetour`
+command, the critical-review pack a `critical` Changes Tour follows, and an
+informative `agentStop` hook. The install also retires what an older release
+left behind: the MCP-routed adapter in `<COPILOT_HOME>/extensions/codetour`, the
+`codetour` entry of `~/.copilot/mcp-config.json` when its bytes match a launch
+shape this CLI wrote, and the guarded run states of the workspace. A same-named
+server written by someone else is preserved and reported.
 
 Verify the installed surfaces (the plugin needs GitHub Copilot CLI 1.0.106 or
 later; Agent Plugins 1.0 and the `agentStop` contract were verified on 1.0.106):
 
 ```sh
 copilot plugin list           # codetour
-copilot mcp list              # exactly one codetour server, from the plugin
 copilot skill list            # codetour-generate, from the plugin
 codetour --agents             # integration state and repair command
 ```
 
-Run a guarded generation from a trusted Git worktree:
+Generate from a trusted Git worktree:
 
 ```text
 /codetour generate project Explique le flux de paiement
 ```
 
-The controlled adapter resolves one workspace, fetches `prompts/get`
-`generate_project_tour` with the complete original request and the orientation
-phrase **before** calling the agent, and fails visibly when the server or the
-prompt is unavailable: no analysis starts and no fallback prompt is used. It
-writes `<workspace>/.tours/.log/codetour-run-<runId>.json` before sending; the
-MCP records Tour creation under the same `runId`. The hook records available usage metrics and does not block completion after Tour creation. See the [plugin README](packages/copilot-plugin/README.md) for details.
+`/codetour` collects the choices and delivers them to the skill, which resolves
+one workspace, explores it, and hands a JSON proposal to `codetour
+create-project-tour --workspace <dir>`. The CLI validates the proposal, writes
+the Tour atomically and answers with one JSON document; a refused proposal
+writes nothing and reports the fields to fix. When the response settles, the
+hook reads the creation journal (`<workspace>/.tours/.log/creations/`) and
+reports the Tours that response created with one token reading. It never blocks,
+never asks for a continuation and never writes Tour content. See the
+[plugin README](packages/copilot-plugin/README.md) for details and the verified
+limits of that report.
 
 ### Choose an agent in the terminal reader
 
@@ -351,30 +362,34 @@ pi list                       # codetour-pi-plugin, from the managed directory
 codetour --agents             # integration state and repair command
 ```
 
-### Try the experimental Copilot adapter
+### Use it from the Copilot CLI
 
-After building the CLI, follow the [Copilot adapter setup](docs/copilot-cli-adapter.md)
-to make the extension available to Copilot CLI, then start Copilot from a Git
-worktree containing Tours:
+Follow the [Copilot CLI plugin setup](docs/copilot-cli-adapter.md) and start
+Copilot from a trusted Git worktree:
 
 ```bash
-export CODETOUR_CLI="$CODETOUR_ROOT/dist/cli.js"
 copilot --experimental
 ```
 
-Inside Copilot, choose **Lire** in `/codetour` or run:
+Generate with the plugin's skill, or ask for a Tour in plain language:
 
 ```text
-/codetour read "My Tour" --renderer html
+/codetour-generate type=project Explique le flux de paiement
+/codetour-generate type=changes reviewMode=critical Revue de ma branche
 ```
 
-**Lire** uses the terminal when Copilot lends it to the extension and opens
-the selected Tour in VS Code otherwise. For terminal playback in Copilot CLI
-1.0.114, use `/codetour read --renderer terminal`, then press `$` and Enter
-on the empty Copilot prompt and run the displayed command in the shell.
-Press `q` to close the reader and enter `exit` to return to Copilot.
-If the Copilot session has extensions disabled, use its `$` shell and run
-`codetour "My Tour" --renderer vscode`.
+The skill runs the installed `codetour` CLI and the Tour appears under `.tours/`.
+When the response settles, the plugin's hook prints the Tours that response
+created and one token reading; it never blocks. Read them from your shell:
+
+```bash
+codetour "My Tour"
+codetour "My Tour" --renderer html
+```
+
+CodeTour no longer installs a `/codetour` command, an MCP server or a run state
+in the session; the [plugin documentation](docs/copilot-cli-adapter.md) records
+what that previous route did and what replaced it.
 
 For automated checks, run `npm test` from the CodeTour checkout. The real VS
 Code extension smoke tests are separate; see the desktop smoke-test guide below.
@@ -424,18 +439,17 @@ Use **Node.js 24.18.0** and **npm 12.0.1**, pinned in the repository.
 ```bash
 npm ci
 npm ci --prefix packages/description-renderer
-npm ci --prefix packages/mcp-server
 npm test
 npm run package
 ```
 
 Install the local pre-commit guard once per clone with `git config core.hooksPath .githooks`:
-it type-checks and runs the fast Copilot adapter tests before every commit (a few
+it type-checks and runs the fast Copilot hook tests before every commit (a few
 seconds, no full build), and bypasses itself for one commit with
 `CODETOUR_SKIP_PRE_COMMIT=1`. It reuses the last `npm run build`, so build once
 after a fresh clone.
 
-Commit all three `package-lock.json` files when changing dependencies.
+Commit both `package-lock.json` files when changing dependencies.
 For real VS Code playback checks and screenshots, follow the
 [desktop smoke-test guide](test/vscode/README.md).
 

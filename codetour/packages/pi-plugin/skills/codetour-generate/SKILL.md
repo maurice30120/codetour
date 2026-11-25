@@ -32,11 +32,26 @@ with `critical`, with no question to repeat.
   execution paths) or **Changes Tour** (understand or review the branch's
   changes).
 - Changes Tour review mode missing: ask once — **neutral** (factual
-  explanation) or **critical** (explanation plus review findings).
+  explanation) or **critical** (explanation plus review findings, following the
+  method in `references/`).
 - Present the labels in the user's language. Never default silently, and stop
   without creating anything when a required choice is cancelled or unresolved.
 
 Project Tours have no review mode.
+
+## The critical review method
+
+A `critical` Changes Tour follows the pack filed in `references/` beside this
+file. Read it before exploring, and keep it read while writing:
+
+- `references/codetour-adaptation.md` — the two axes (standards and spec), the
+  step integration and the honesty rules of a critical Tour;
+- `references/upstream-code-review.md` — the upstream skill the adaptation is
+  based on, kept verbatim;
+- `references/upstream-LICENSE.txt` — its MIT license, kept verbatim.
+
+Without that reading the mode would only be a word. A `neutral` Changes Tour
+and every Project Tour never open the pack.
 
 ## Orientation, language and workspace
 

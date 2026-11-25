@@ -21,7 +21,10 @@ warning). `copilot plugin uninstall codetour` removes it.
 | `com.github.copilot/hooks/hooks.json` | Copilot `agentStop` hook declaration. |
 | `com.github.copilot/hooks/agent-stop.mjs` | End-of-response summary: the created Tours and one token reading. It never blocks. |
 | `com.github.copilot/lib/run-log.mjs` | The creation-journal and session-transcript readers the hook uses. |
-| `mcp.json` | Kept until ticket #325 removes it: neither the skill nor the hook above uses a server. |
+| `skills/codetour-generate/references/` | The critical-review pack a `critical` Changes Tour follows: the CodeTour adaptation, the verbatim upstream skill and its MIT license. |
+
+The plugin declares no MCP server: generation is the CLI's work, and the hook
+only reads what the CLI wrote (ADR 0057).
 
 ## Generation
 
@@ -93,8 +96,8 @@ diagnostic, and an unavailable token figure only shortens the summary.
   on `${PLUGIN_ROOT}` expansion and on the `agentStop` hook payload
   (`sessionId`, `timestamp`, `cwd`, `transcriptPath`, `stopReason`,
   `stop_hook_active`).
-- `codetour` on `PATH` for a direct `copilot plugin install` of this source (the
-  CLI-managed install generates an absolute launcher).
+- `codetour` on `PATH`: the skill runs the installed CLI from the workspace
+  root, and no launcher is recorded in the plugin.
 - Node on `PATH` for the hook command (`node "${PLUGIN_ROOT}/…"`).
 - Session usage records in the transcript: without them the summary reports the
   tokens as unavailable.

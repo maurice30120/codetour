@@ -2,7 +2,18 @@ import { execFile, spawnSync } from "child_process";
 import { promises as fs, readdirSync, existsSync } from "fs";
 import * as os from "os";
 import * as path from "path";
-import { COPILOT_EXTENSION_FILES } from "./copilot-extension.generated";
+import {
+  LEGACY_COPILOT_PLUGIN_FILES,
+  LEGACY_RUN_LOG_DIRECTORY,
+  LegacySurfaceScan,
+  RemovalOutcome,
+  isLegacyCodetourMcpEntry,
+  isLegacyPiLauncher,
+  removeLegacyCopilotExtension,
+  removeLegacyRunStates,
+  scanLegacyCopilotExtension,
+  scanLegacyRunStates
+} from "./agentMigration";
 import { COPILOT_PLUGIN_FILES } from "./copilot-plugin.generated";
 import { PI_PLUGIN_FILES } from "./pi-plugin.generated";
 
@@ -98,10 +109,10 @@ function copilotExtensionDirectory(): string {
 }
 
 // The standalone Knowledge skill is retired: the Agent Plugins 1.0 plugin is
-// the only CodeTour guidance Copilot loads (served MCP prompt, plugin skill,
-// agentStop hook). An install or uninstall removes a directory an older CLI
-// wrote under the Copilot user directory so two conflicting CodeTour skills
-// cannot coexist; every other skill there belongs to someone else.
+// the only CodeTour guidance Copilot loads (plugin skill and agentStop hook).
+// An install or uninstall removes a directory an older CLI wrote under the
+// Copilot user directory so two conflicting CodeTour skills cannot coexist;
+// every other skill there belongs to someone else.
 async function removeRetiredKnowledgeSkill(): Promise<string | undefined> {
   const skillDirectory = path.join(copilotHome(), "skills", "codetour-knowledge");
   try {
@@ -114,10 +125,11 @@ async function removeRetiredKnowledgeSkill(): Promise<string | undefined> {
   return skillDirectory;
 }
 
-// The Agent Plugins 1.0 plugin is the single owner of the CodeTour MCP server
-// declaration. Production installs go through `copilot plugin install` so the
-// CLI owns the cache and metadata; tests and unusual layouts can write the
-// same embedded files into a managed directory instead.
+// The Agent Plugins 1.0 plugin carries the CodeTour skill and the agentStop
+// hook, and no server of any kind. Production installs go through
+// `copilot plugin install` so the CLI owns the cache and metadata; tests and
+// unusual layouts can write the same embedded files into a managed directory
+// instead.
 const COPILOT_PLUGIN_NAME = "codetour";
 
 function copilotPluginOverride(): string | undefined {
@@ -163,15 +175,6 @@ interface CopilotMcpServer {
   tools?: string[];
   [key: string]: unknown;
 }
-
-// The entry this CLI writes, with every field the launch contract needs. The
-// strict shape removes the non-null assertions a loose read type would force.
-type CodetourMcpEntry = {
-  type: "local";
-  command: string;
-  args: string[];
-  tools: string[];
-};
 
 interface CopilotMcpConfig {
   mcpServers?: Record<string, CopilotMcpServer>;
@@ -220,77 +223,23 @@ async function writeCopilotMcpConfig(file: string, config: CopilotMcpConfig): Pr
   }
 }
 
-// The launcher registered for Copilot must start the CLI that ran the install,
-// not whatever a stale `codetour` on PATH happens to be: an older release can
-// lack the `mcp` command, leaving the session without tools. A Node-script CLI
-// (npm bin, development build, standalone launcher) is addressed through its
-// runtime and absolute script path; a native executable is addressed directly.
-function codetourMcpEntry(): CodetourMcpEntry {
-  const script = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
-  const [command, args]: [string, string[]] =
-    script && existsSync(script) && /\.[cm]?js$/i.test(script)
-      ? [process.execPath, [script, "mcp"]]
-      : ["codetour", ["mcp"]];
-  return { type: "local", command, args, tools: ["*"] };
-}
-
-function sameValues(left: string[], right: string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-// Canonical equality for the entry this CLI writes. JSON key order is not part
-// of an installation, and Copilot's `local` transport is the default when
-// `type` is absent, so both forms describe the same server and neither may
-// trigger a rewrite. The fields that define the launch contract are compared
-// one by one, never through a serialization of the whole object.
-function isCurrentCodetourMcpEntry(
-  entry: CopilotMcpServer | undefined,
-  expected: CodetourMcpEntry
-): boolean {
-  if (!entry) return false;
-  return (entry.type ?? expected.type) === expected.type &&
-    entry.command === expected.command &&
-    Array.isArray(entry.args) && sameValues(entry.args, expected.args) &&
-    Array.isArray(entry.tools) && sameValues(entry.tools, expected.tools);
-}
-
-// Ownership: the uninstall removes exactly the entry this CLI writes, or the
-// documented `codetour mcp` launcher — the stable launch contract of the
-// standalone CLI. A same-named server launched another way belongs to another
-// installation and is preserved: "a local entry whose last argument is mcp" is
-// far too broad and would delete a foreign server.
-function isCodetourMcpEntry(entry: CopilotMcpServer | undefined): boolean {
-  if (!entry || (entry.type ?? "local") !== "local") return false;
-  if (typeof entry.command !== "string" || !Array.isArray(entry.args)) return false;
-  return (entry.command === "codetour" && sameValues(entry.args, ["mcp"])) ||
-    isCurrentCodetourMcpEntry(entry, codetourMcpEntry());
-}
+// Ownership of the retired MCP registration: the entry an older CodeTour CLI
+// wrote, identified by the frozen literal shapes in agentMigration.ts. The
+// writers that produced them are gone, so nothing here is compared against a
+// live launcher.
+const isCodetourMcpEntry = isLegacyCodetourMcpEntry;
 
 interface FileState {
   name: string;
-  state: "current" | "modified" | "missing";
+  // `legacy` is a file an older release wrote and this release replaces or
+  // removes: still ours, never a user edit.
+  state: "current" | "legacy" | "modified" | "missing";
 }
 
-async function copilotFileStates(directory: string): Promise<FileState[]> {
-  const states: FileState[] = [];
-  for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
-    const target = path.join(directory, name);
-    let existing: string;
-    try {
-      existing = await fs.readFile(target, "utf8");
-    } catch {
-      states.push({ name, state: "missing" });
-      continue;
-    }
-    states.push({ name, state: existing === content ? "current" : "modified" });
-  }
-  return states;
-}
-
-// Read a managed adapter file for the rollback snapshot. Only a missing file is
+// Read a managed file for the rollback snapshot. Only a missing file is
 // `undefined`; an unreadable file stops the install before its first write
 // instead of being recorded as "did not exist" and deleted by a rollback.
-async function readCopilotFile(target: string): Promise<string | undefined> {
+async function readManagedFile(target: string): Promise<string | undefined> {
   try {
     return await fs.readFile(target, "utf8");
   } catch (error) {
@@ -299,79 +248,71 @@ async function readCopilotFile(target: string): Promise<string | undefined> {
   }
 }
 
-// A failed install puts the adapter back as it found it: files that existed get
-// their previous content, files this install created are removed. The returned
-// names are the ones a best-effort restore could not repair, so the caller can
-// report them instead of claiming a clean rollback.
-async function restoreCopilotFiles(
-  directory: string,
-  previous: Map<string, string | undefined>
-): Promise<string[]> {
-  const unrestored: string[] = [];
-  for (const [name, content] of previous) {
-    const target = path.join(directory, name);
-    try {
-      if (content === undefined) {
-        await fs.rm(target, { force: true });
-      } else {
-        await fs.writeFile(target, content, "utf8");
-      }
-    } catch {
-      unrestored.push(name);
-    }
-  }
-  return unrestored;
-}
-
-// The exact launcher the installed plugin must use. The CLI that performs the
-// install is known here, so the plugin does not depend on `codetour` being on
-// PATH in every future session: a Node CLI is addressed through its runtime
-// and absolute script path, a native executable directly. The versioned
-// plugin source still declares the portable `codetour` command for a direct
-// `copilot plugin install`; the CLI-generated copy is the verified one.
-function codetourPluginLauncher(): { command: string; args: string[] } {
-  const script = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
-  if (script && existsSync(script)) {
-    // A Node-hosted CLI (npm bin, development build, standalone launcher) is
-    // addressed through a Node runtime; a native executable through itself.
-    if (/\.[cm]?js$/i.test(script) || /(^|[\\/])node(\.exe)?$/i.test(process.execPath)) {
-      return { command: process.execPath, args: [script, "mcp"] };
-    }
-    return { command: process.execPath, args: ["mcp"] };
+// The launcher an installed agent package records so a session uses the CLI
+// that performed the install instead of whatever `codetour` happens to be on
+// PATH. A Node-hosted CLI (npm bin, development build, standalone launcher) is
+// addressed through its runtime and absolute script path; a native executable
+// through itself.
+//
+// The script comes from the entry marker the CLI publishes (see index.ts), not
+// from `process.argv[1]`: an embedder that imports this module is not the CLI,
+// and probing its own script would run it again. Without the marker the
+// documented portable command is recorded, and `verifyLauncher` has nothing to
+// prove.
+function codetourLauncher(): { command: string; args: string[] } {
+  const entry = process.env.CODETOUR_CLI_ENTRY;
+  const script = entry ? path.resolve(entry) : undefined;
+  // A published entry that is not a script file describes no launchable CLI:
+  // the portable command is the honest record.
+  if (script && /\.(?:c|m)?js$/i.test(script) && existsSync(script)) {
+    return { command: process.execPath, args: [script] };
   }
   // An unidentifiable runtime keeps the documented portable command: the
-  // verification below then decides whether the install may proceed.
-  return { command: "codetour", args: ["mcp"] };
+  // launcher is then too generic to be verified from here.
+  return { command: "codetour", args: [] };
 }
 
-function expectedPluginFiles(): Record<string, string> {
-  const files: Record<string, string> = { ...COPILOT_PLUGIN_FILES };
-  const mcp = JSON.parse(files["mcp.json"]) as {
-    mcpServers: Record<string, { type: string; command: string; args: string[] }>;
-  };
-  const launcher = codetourPluginLauncher();
-  mcp.mcpServers.codetour = {
-    type: "stdio",
-    command: launcher.command,
-    args: [...launcher.args, "--workspace-root", "${COPILOT_SESSION_CWD}"]
-  };
-  files["mcp.json"] = `${JSON.stringify(mcp, null, 2)}\n`;
-  return files;
+function isPortableLauncher(launcher: { command: string; args: string[] }): boolean {
+  return launcher.command === "codetour" && launcher.args.length === 0;
 }
 
-function verifyPluginLauncher(): void {
-  const launcher = codetourPluginLauncher();
-  const probe = spawnSync(launcher.command, [...launcher.args, "--version"], {
+function verifyLauncher(agent: string): void {
+  const launcher = codetourLauncher();
+  // Nothing was observed about this process, so there is nothing to prove; the
+  // portable command is verified by the session that runs it.
+  if (isPortableLauncher(launcher)) return;
+  // `--help` is the one invocation every CodeTour CLI answers with exit 0
+  // since the standalone release: it proves the recorded runtime and script
+  // start together, without creating anything.
+  const probe = spawnSync(launcher.command, [...launcher.args, "--help"], {
     encoding: "utf8", windowsHide: true, timeout: 15000
   });
   if (probe.status !== 0) {
     const detail = (probe.stderr || probe.error?.message || "").trim();
     throw new Error(
-      `The CodeTour MCP launch contract could not be verified ('${[launcher.command, ...launcher.args].join(" ")}'). ` +
+      `The CodeTour launch contract could not be verified ('${[launcher.command, ...launcher.args].join(" ")}'). ` +
       (detail ? `${detail} ` : "") +
-      "Keep the CLI at this path, or re-run 'codetour --install copilot' from the installation to use."
+      `Keep the CLI at this path, or re-run 'codetour --install ${agent}' from the installation to use.`
     );
   }
+}
+
+function expectedPluginFiles(): Readonly<Record<string, string>> {
+  return COPILOT_PLUGIN_FILES;
+}
+
+// Files of the retired release that may still sit in the plugin cache. They are
+// CodeTour's, but the host owns the cache: `copilot plugin uninstall` removes
+// them, so they neither block an uninstall nor count as a foreign file.
+async function legacyPluginFiles(directory: string | undefined): Promise<string[]> {
+  if (!directory) return [];
+  const present: string[] = [];
+  for (const name of LEGACY_COPILOT_PLUGIN_FILES) {
+    if (await fs.readFile(path.join(directory, name), "utf8").catch(() => undefined) !== undefined) {
+      present.push(name);
+    }
+  }
+  return present;
 }
 
 // The plugin files are embedded with POSIX relative paths so one map works on
@@ -400,7 +341,7 @@ async function readManagedFiles(
   const previous = new Map<string, string | undefined>();
   if (!directory) return previous;
   for (const name of Object.keys(expectedPluginFiles())) {
-    previous.set(name, await readCopilotFile(path.join(directory, ...name.split("/"))));
+    previous.set(name, await readManagedFile(path.join(directory, ...name.split("/"))));
   }
   return previous;
 }
@@ -465,10 +406,14 @@ function runCommand(executable: string, args: string[], timeout = 120000): Promi
 
 // Files inside the plugin cache that this CLI did not install. The cache is
 // Copilot-managed, but a user may have added notes or patches there; both a
-// replace and an uninstall must refuse rather than delete them.
+// replace and an uninstall must refuse rather than delete them. The MCP
+// declaration of the retired release is CodeTour's, so it never counts here.
 async function pluginForeignFiles(directory: string | undefined): Promise<string[]> {
   if (!directory) return [];
-  const expected = new Set(Object.keys(expectedPluginFiles()));
+  const expected = new Set([
+    ...Object.keys(expectedPluginFiles()),
+    ...LEGACY_COPILOT_PLUGIN_FILES
+  ]);
   const foreign: string[] = [];
   const walk = async (current: string, prefix: string): Promise<void> => {
     let entries;
@@ -504,7 +449,10 @@ async function installCopilotPlugin(): Promise<boolean> {
   const existing = await installedCopilotPlugin();
   if (existing) {
     const states = await pluginFileStates(existing.cachePath);
-    if (existing.cachePath && states.every(file => file.state === "current")) return false;
+    const retired = await legacyPluginFiles(existing.cachePath);
+    if (existing.cachePath && states.every(file => file.state === "current") && retired.length === 0) {
+      return false;
+    }
   }
   const staging = await fs.mkdtemp(path.join(os.tmpdir(), "codetour-plugin-"));
   try {
@@ -543,9 +491,13 @@ async function removeCopilotPlugin(force = false): Promise<void> {
     await assertPluginCacheOwned(existing.cachePath);
     const states = await pluginFileStates(existing.cachePath);
     const foreign = states.filter(file => file.state === "modified").map(file => file.name);
-    if (foreign.length) {
+    // The retired MCP declaration is removed by `copilot plugin uninstall` with
+    // the rest of the cache, so it is never a reason to refuse.
+    const retired = new Set(LEGACY_COPILOT_PLUGIN_FILES);
+    const blocked = foreign.filter(name => !retired.has(name));
+    if (blocked.length) {
       throw new Error(
-        `${foreign.join(", ")} in ${existing.cachePath} differ from this installation and were left untouched. ` +
+        `${blocked.join(", ")} in ${existing.cachePath} differ from this installation and were left untouched. ` +
         "Only files this CLI owns are removed; remove the plugin with 'copilot plugin uninstall codetour' if you accept losing those edits."
       );
     }
@@ -558,22 +510,77 @@ async function removeCopilotPlugin(force = false): Promise<void> {
   }
 }
 
-// The legacy registration is removed only when it is the entry this CLI wrote
-// or the documented `codetour mcp` launcher. Every other server, same name or
-// not, is user configuration and is preserved.
-async function removeLegacyCodetourMcpRegistration(): Promise<string> {
-  const mcpFile = copilotMcpConfigPath();
+// What the user configuration says about the retired server, for the migration
+// report: absent, ours (either frozen launch shape) or a same-named server this
+// CLI cannot prove it wrote.
+type LegacyRegistrationState =
+  | { state: "absent" }
+  | { state: "owned" }
+  | { state: "foreign"; entry: unknown; unreadable?: undefined }
+  | { state: "unreadable"; unreadable: string };
+
+async function legacyRegistrationState(mcpFile: string): Promise<LegacyRegistrationState> {
   let config: CopilotMcpConfig;
   try {
     config = await readCopilotMcpConfig(mcpFile);
   } catch (error) {
-    return `Left ${mcpFile} untouched: ${error instanceof Error ? error.message : String(error)}`;
+    return { state: "unreadable", unreadable: error instanceof Error ? error.message : String(error) };
   }
-  const servers = config.mcpServers;
-  if (!servers || !isCodetourMcpEntry(servers.codetour)) return "";
-  delete servers.codetour;
+  const entry = config.mcpServers?.codetour;
+  if (entry === undefined) return { state: "absent" };
+  return isCodetourMcpEntry(entry) ? { state: "owned" } : { state: "foreign", entry };
+}
+
+// The retired registration is removed only when it matches a frozen launch
+// shape of an older CodeTour CLI. Every other server, same name or not, is user
+// configuration: it is reported with the manual removal instruction and kept.
+async function removeLegacyCodetourMcpRegistration(): Promise<string[]> {
+  const mcpFile = copilotMcpConfigPath();
+  const found = await legacyRegistrationState(mcpFile);
+  if (found.state === "unreadable") {
+    return [`Left ${mcpFile} untouched: ${found.unreadable}`];
+  }
+  if (found.state === "foreign") {
+    return [
+      `Preserved the 'codetour' server in ${mcpFile}: this CLI did not write it. ` +
+      "Remove the 'codetour' entry from its mcpServers yourself if it points at a file this release no longer ships."
+    ];
+  }
+  if (found.state === "absent") return [];
+  const config = await readCopilotMcpConfig(mcpFile);
+  delete config.mcpServers!.codetour;
   await writeCopilotMcpConfig(mcpFile, config);
-  return `Removed the legacy 'codetour' MCP server from ${mcpFile}; the plugin is now the single registration.`;
+  return [`Removed the retired 'codetour' MCP server from ${mcpFile}.`];
+}
+
+function reportMigration(outcome: RemovalOutcome): void {
+  for (const file of outcome.removed) console.log(`Removed the retired CodeTour file ${file}.`);
+  for (const file of outcome.preserved) {
+    console.log(
+      `Preserved ${file}: it does not match the release this CLI retires, so it is yours to remove.`
+    );
+  }
+}
+
+/**
+ * Remove what this release retires and CodeTour can prove it owns. Both
+ * `--install` and `--uninstall` of either generation agent carry it, so an
+ * upgraded machine never keeps a launch command for a server that is gone: the
+ * Copilot adapter directory of the previous release, the `codetour` MCP entry
+ * of a user configuration matching a frozen launch shape, and the guarded run
+ * states of the workspace this command runs in. Everything else is reported and
+ * preserved (DESIGN §11).
+ */
+async function migrateRetiredSurfaces(): Promise<void> {
+  for (const line of await removeLegacyCodetourMcpRegistration()) console.log(line);
+  const outcome: RemovalOutcome = { removed: [], preserved: [] };
+  const collect = (other: RemovalOutcome) => {
+    outcome.removed.push(...other.removed);
+    outcome.preserved.push(...other.preserved);
+  };
+  collect(await removeLegacyCopilotExtension(copilotExtensionDirectory()));
+  collect(await removeLegacyRunStates(path.join(process.cwd(), LEGACY_RUN_LOG_DIRECTORY)));
+  reportMigration(outcome);
 }
 
 // The plugin is installed through `copilot plugin install`, so only a Copilot
@@ -595,12 +602,8 @@ const copilotIntegration: AgentIntegration = {
       : { state: "absent", detail: "The 'copilot' command was not found on PATH." };
   },
   async status() {
-    const directory = copilotExtensionDirectory();
-    const states = await copilotFileStates(directory);
-    const allCurrent = states.every(file => file.state === "current");
-    const allMissing = states.every(file => file.state === "missing");
-    // The plugin lives outside the adapter directory and is reported
-    // separately, with its own ownership states.
+    // The plugin lives outside the retired adapter directory and is reported
+    // with its own ownership states.
     const override = copilotPluginOverride();
     const installed = await installedCopilotPlugin();
     const pluginRoot = override || installed?.cachePath;
@@ -610,91 +613,56 @@ const copilotIntegration: AgentIntegration = {
     const pluginPresent = Boolean(pluginRoot) && pluginStates.some(file => file.state !== "missing");
     const pluginCurrent = pluginPresent && pluginStates.every(file => file.state === "current");
     const pluginChanged = pluginStates.filter(file => file.state !== "current").map(file => file.name);
-    const changed = [
-      ...states.filter(file => file.state !== "current").map(file => file.name),
-      ...(pluginCurrent ? [] : pluginChanged.map(name => `plugin:${name}`))
-    ].join(", ");
+    const retiredInPlugin = await legacyPluginFiles(pluginRoot);
+    const location = pluginRoot ? ` in ${pluginRoot}` : "";
     const mcpFile = copilotMcpConfigPath();
-    let entry: CopilotMcpServer | undefined;
-    let unreadable: string | undefined;
-    try {
-      entry = (await readCopilotMcpConfig(mcpFile)).mcpServers?.codetour;
-    } catch (error) {
-      unreadable = error instanceof Error ? error.message : String(error);
-    }
-    // A legacy entry this CLI owns duplicates the plugin's own server and must
-    // be removed by the next install. A foreign same-named server is preserved
-    // and only reported: the user owns it.
-    const legacyOwned = isCodetourMcpEntry(entry);
-    const legacyCurrent = legacyOwned && isCurrentCodetourMcpEntry(entry, codetourMcpEntry());
-    const foreign = Boolean(entry) && !legacyOwned;
+    const registration = await legacyRegistrationState(mcpFile);
+    const unreadable = registration.state === "unreadable" ? registration.unreadable : undefined;
+    const foreign = registration.state === "foreign";
     const foreignNote = foreign
-      ? ` A same-named 'codetour' server in ${mcpFile} was configured by someone else and is preserved; remove it yourself if it duplicates the plugin.`
+      ? ` A same-named 'codetour' server in ${mcpFile} was configured by someone else and is preserved; remove it yourself.`
       : "";
-    if (allCurrent && pluginCurrent) {
-      if (legacyOwned) {
-        return {
-          state: "outdated" as const,
-          detail: `The adapter and plugin are installed, but a ${legacyCurrent ? "legacy" : "stale"} 'codetour' entry in ${mcpFile} duplicates the plugin's server. ` +
-            "Re-run 'codetour --install copilot' to remove the entry this CLI owns."
-        };
+    const migratedNote = registration.state === "owned"
+      ? ` The retired 'codetour' MCP server this CLI registered is still in ${mcpFile}. ` +
+        "Re-run 'codetour --install copilot' to remove it."
+      : "";
+    if (pluginCurrent && retiredInPlugin.length === 0) {
+      if (registration.state === "owned") {
+        return { state: "outdated" as const, detail: `The CodeTour plugin is installed${location}.${migratedNote}` };
       }
       return {
         state: "installed" as const,
-        detail: `The adapter files are installed in ${directory}, ` +
-          `the CodeTour plugin is installed${pluginRoot ? ` in ${pluginRoot}` : ""}. ` +
-          `The plugin declares the single 'codetour' MCP server.${foreignNote}`
+        detail: `The CodeTour plugin is installed${location}. ` +
+          `It carries the generation skill and the informative agentStop hook, and no server.${foreignNote}`
       };
     }
-    if (allCurrent && !pluginPresent) {
-      return {
-        state: "incomplete" as const,
-        detail: `The adapter files are installed in ${directory}, but the CodeTour plugin is missing. ` +
-          "Re-run 'codetour --install copilot' so Copilot loads the 'codetour' MCP server and the agentStop guard."
-      };
-    }
-    if (allCurrent && pluginPresent) {
+    if (pluginCurrent) {
       return {
         state: "outdated" as const,
-        detail: `The CodeTour plugin in ${pluginRoot} differs from this CLI (${pluginChanged.join(", ")}). ` +
+        detail: `The CodeTour plugin${location} still carries the retired MCP declaration (${retiredInPlugin.join(", ")}). ` +
           "Re-run 'codetour --install copilot' to replace it."
       };
     }
-    if (allCurrent) {
-      return {
-        state: "incomplete" as const,
-        detail: unreadable
-          ? `The adapter files are installed in ${directory}, but ${unreadable}`
-          : `The adapter files are installed in ${directory}, but the CodeTour plugin is incomplete. ` +
-            "Re-run 'codetour --install copilot'."
-      };
-    }
-    if (allMissing && !pluginPresent) {
+    if (!pluginPresent) {
       return {
         state: "not-installed" as const,
-        detail: `No CodeTour adapter in ${directory} and no CodeTour plugin installed. ` +
-          "Run 'codetour --install copilot' to install them."
+        detail: unreadable
+          ? `No CodeTour plugin installed, and ${unreadable}`
+          : `No CodeTour plugin${location ? ` in ${pluginRoot}` : ""} installed. ` +
+            "Run 'codetour --install copilot' to install it." +
+            (registration.state === "owned" ? ` ${mcpFile} still declares the retired 'codetour' server.` : "")
       };
     }
     return {
       state: "outdated" as const,
-      detail: `The installed CodeTour integration differs from this CLI (${changed}). ` +
+      detail: `The CodeTour plugin${location} differs from this CLI (${pluginChanged.join(", ")}). ` +
         "Re-run 'codetour --install copilot' to replace it."
     };
   },
   async install() {
-    const directory = copilotExtensionDirectory();
-    const states = await copilotFileStates(directory);
-    const differing = states.filter(file => file.state === "modified").map(file => file.name);
-    // Everything that can refuse the install runs before the first write: an
-    // unverified MCP launcher would leave a session without tools.
-    verifyPluginLauncher();
-    const previous = new Map<string, string | undefined>();
-    for (const name of Object.keys(COPILOT_EXTENSION_FILES)) {
-      previous.set(name, await readCopilotFile(path.join(directory, name)));
-    }
-    // The plugin is installed in the same transaction as the adapter files: a
-    // failed install restores their previous state too.
+    // The plugin is installed through Copilot's own manager, so the host can
+    // replace the retired declaration with the current files in one step. A
+    // managed override directory is written directly instead.
     const override = copilotPluginOverride();
     const previousPlugin = await readManagedFiles(override);
     const pluginStatesBefore = await pluginFileStates(override);
@@ -704,15 +672,17 @@ const copilotIntegration: AgentIntegration = {
     let pluginChanged = false;
     let retiredSkillDirectory: string | undefined;
     try {
-      await fs.mkdir(directory, { recursive: true });
-      for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
-        await writeIfChanged(path.join(directory, name), content);
-      }
       if (override) {
         const statesBefore = await pluginFileStates(override);
         await fs.mkdir(override, { recursive: true });
         await writeManagedFiles(override);
         pluginChanged = statesBefore.some(file => file.state !== "current");
+        // The override directory is managed by this CLI: the retired
+        // declaration of an older install goes with the files it replaces.
+        for (const name of await legacyPluginFiles(override)) {
+          await fs.rm(path.join(override, name), { force: true });
+          pluginChanged = true;
+        }
       } else {
         const created = !(await installedCopilotPlugin());
         pluginChanged = await installCopilotPlugin();
@@ -720,7 +690,7 @@ const copilotIntegration: AgentIntegration = {
       }
       retiredSkillDirectory = await removeRetiredKnowledgeSkill();
     } catch (error) {
-      const unrestored = await restoreCopilotFiles(directory, previous);
+      const unrestored: string[] = [];
       if (override) {
         unrestored.push(...await restoreManagedFiles(override, previousPlugin));
       } else if (pluginInstalledByThisRun) {
@@ -735,10 +705,6 @@ const copilotIntegration: AgentIntegration = {
       }
       throw error;
     }
-    if (differing.length) {
-      console.log(`Replaced differing adapter files (${differing.join(", ")}) in ${directory}.`);
-    }
-    console.log(`Installed the CodeTour adapter in ${directory}.`);
     if (retiredSkillDirectory) {
       console.log(`Removed the retired standalone Knowledge skill from ${retiredSkillDirectory}.`);
     }
@@ -751,13 +717,13 @@ const copilotIntegration: AgentIntegration = {
         ? `Installed the CodeTour plugin${pluginLocation ? ` in ${pluginLocation}` : ""}.`
         : `The CodeTour plugin${pluginLocation ? ` in ${pluginLocation}` : ""} is already current.`
     );
-    console.log("Run 'copilot plugin list' and 'copilot mcp list' to confirm the 'codetour' plugin and its server.");
-    console.log("Run 'copilot skill list' to confirm the plugin's 'codetour-generate' skill.");
-    const legacy = await removeLegacyCodetourMcpRegistration();
-    if (legacy) console.log(legacy);
+    console.log("Run 'copilot plugin list' to confirm the 'codetour' plugin, and 'copilot skill list' for its skill.");
+    // The retired adapter, registration and run states are ours; anything else
+    // in those directories is reported and left in place.
+    await migrateRetiredSurfaces();
     console.log("Start 'copilot --experimental' in a trusted Git worktree, accept the extension");
     console.log("(Load Only or Load & Augment), then run /codetour to read or generate a Tour.");
-    console.log("hooks disabled means no guard, and the MCP results remain the source of truth.");
+    console.log("Generation runs the CodeTour CLI from the plugin's skill: no server is registered.");
   },
   async prerequisite(detection) {
     // A managed override writes the plugin files directly; every other path
@@ -771,17 +737,8 @@ const copilotIntegration: AgentIntegration = {
     return undefined;
   },
   async uninstall() {
-    const directory = copilotExtensionDirectory();
-    const states = await copilotFileStates(directory);
-    const foreign = states.filter(file => file.state === "modified");
-    if (foreign.length) {
-      throw new Error(
-        `${foreign.map(file => file.name).join(", ")} in ${directory} differ from this installation ` +
-        "and were left untouched. Only files this CLI owns are removed."
-      );
-    }
-    // Remove the plugin first: without it Copilot has no CodeTour MCP server,
-    // and a failure here must not leave the adapter half-removed.
+    // Remove the plugin first: a failure here must not leave a half-removed
+    // integration behind.
     const override = copilotPluginOverride();
     if (override) {
       const pluginStates = await pluginFileStates(override);
@@ -791,18 +748,21 @@ const copilotIntegration: AgentIntegration = {
           await fs.rm(path.join(override, ...file.name.split("/")), { force: true });
         }
       }
+      for (const name of await legacyPluginFiles(override)) {
+        await fs.rm(path.join(override, name), { force: true });
+      }
       if (preserved.length) {
         console.log(`Left ${preserved.join(", ")} in ${override} untouched: they differ from the plugin this CLI installed.`);
       } else {
-        await fs.rmdir(override).catch(() => undefined);
+        // Remove the directories the uninstall emptied, deepest first: an empty
+        // skeleton would make the next `status()` report a half-installed
+        // plugin, exactly like the Pi package.
+        await pruneEmptyDirectories(override);
         console.log(`Removed the CodeTour plugin from ${override}.`);
       }
     } else if (await installedCopilotPlugin()) {
       await removeCopilotPlugin();
       console.log("Uninstalled the CodeTour plugin.");
-    }
-    for (const file of states) {
-      if (file.state === "current") await fs.rm(path.join(directory, file.name));
     }
     // The retired standalone Knowledge skill is removed with the rest of the
     // integration; other skills in the shared directory are untouched.
@@ -810,12 +770,7 @@ const copilotIntegration: AgentIntegration = {
     if (retiredSkillDirectory) {
       console.log(`Removed the retired standalone Knowledge skill from ${retiredSkillDirectory}.`);
     }
-    const remaining = await fs.readdir(directory).catch(() => [] as string[]);
-    // Idempotent: the directory may already be gone from an earlier uninstall.
-    if (!remaining.length) await fs.rmdir(directory).catch(() => undefined);
-    console.log(`Removed the CodeTour adapter from ${directory}.`);
-    const legacy = await removeLegacyCodetourMcpRegistration();
-    if (legacy) console.log(legacy);
+    await migrateRetiredSurfaces();
   }
 };
 
@@ -846,9 +801,9 @@ function piSettingsPath(): string {
 }
 
 function piLauncherFile(): { command: string; args: string[] } {
-  // The extension appends `--workspace-root <real cwd>`; the launcher only
-  // names the runtime and the `mcp` subcommand.
-  return codetourPluginLauncher();
+  // The skill runs the recorded CLI with top-level subcommands; the launcher
+  // names only the runtime and, for a script CLI, its absolute path.
+  return codetourLauncher();
 }
 
 function expectedPiPluginFiles(): Record<string, string> {
@@ -858,13 +813,25 @@ function expectedPiPluginFiles(): Record<string, string> {
   };
 }
 
+/**
+ * The launcher of an older release recorded the retired `mcp` subcommand. It
+ * is still this CLI's file — the install rewrites it and the uninstall removes
+ * it — so it is neither `current` nor a user edit.
+ */
+function isLegacyPiLauncherFile(name: string, content: string): boolean {
+  return name === "launcher.json" && isLegacyPiLauncher(content);
+}
+
 async function piFileStates(directory: string): Promise<FileState[]> {
   const states: FileState[] = [];
   for (const [name, content] of Object.entries(expectedPiPluginFiles())) {
     const target = path.join(directory, ...name.split("/"));
     try {
       const existing = await fs.readFile(target, "utf8");
-      states.push({ name, state: existing === content ? "current" : "modified" });
+      const state = existing === content
+        ? "current" as const
+        : isLegacyPiLauncherFile(name, existing) ? "legacy" as const : "modified" as const;
+      states.push({ name, state });
     } catch {
       states.push({ name, state: "missing" });
     }
@@ -1055,7 +1022,7 @@ const piIntegration: AgentIntegration = {
         state: "incomplete" as const,
         detail:
           `The CodeTour package is declared in ${settingsFile} but ` +
-          `(${changed.join(", ")}) is missing from ${directory}. ` +
+          `(${changed.join(", ")}) is missing from or differs in ${directory}. ` +
           "Re-run 'codetour --install pi'.",
       };
     }
@@ -1072,8 +1039,13 @@ const piIntegration: AgentIntegration = {
     // Everything that can refuse the install runs before the first write, so a
     // failing settings file never leaves half a package behind.
     const settings = await readPiSettings(settingsFile);
+    // Everything that can refuse the install runs before the first write: a
+    // recorded launcher that cannot start this CLI would leave the session
+    // without a generator.
+    verifyLauncher("pi");
     const previousStates = await piFileStates(directory);
     const replaced = previousStates.filter((file) => file.state === "modified").map((file) => file.name);
+    const retired = previousStates.filter((file) => file.state === "legacy").map((file) => file.name);
     const previousFiles = new Map<string, string | undefined>();
     for (const name of Object.keys(expectedPiPluginFiles())) {
       const target = path.join(directory, ...name.split("/"));
@@ -1094,9 +1066,13 @@ const piIntegration: AgentIntegration = {
     if (replaced.length) {
       console.log(`Replaced differing package files (${replaced.join(", ")}) in ${directory}.`);
     }
+    if (retired.length) {
+      console.log(`Replaced the retired package files (${retired.join(", ")}) in ${directory}.`);
+    }
     console.log(`Installed the CodeTour Pi package in ${directory}.`);
     console.log(`Declared it in ${settingsFile} under packages[].`);
     console.log("Run 'pi list' to confirm the package, then '/codetour' in a session to read or generate a Tour.");
+    await migrateRetiredSurfaces();
   },
   async uninstall() {
     const directory = piPluginDirectory();
@@ -1117,13 +1093,14 @@ const piIntegration: AgentIntegration = {
     // files are gone makes Pi report a failed install at every start.
     await writePiSettings(settingsFile, withoutPiPackage(settings, directory));
     for (const file of states) {
-      if (file.state === "current") {
+      if (file.state === "current" || file.state === "legacy") {
         await fs.rm(path.join(directory, ...file.name.split("/")), { force: true });
       }
     }
     await pruneEmptyDirectories(directory);
     console.log(`Removed the CodeTour Pi package from ${directory}.`);
     console.log(`Removed its declaration from ${settingsFile}.`);
+    await migrateRetiredSurfaces();
   },
 };
 
@@ -1390,10 +1367,67 @@ export async function listAgents(): Promise<void> {
   }
 }
 
+/**
+ * Whether the Codex CLI still carries the `codetour` server an older release of
+ * this extension registered for it. CodeTour can no longer reach or repair that
+ * configuration — it has no server to register — so `--doctor` reports it and
+ * prints the client's own removal command instead of editing the client store.
+ */
+function codexDeclaresCodetour(): boolean {
+  const probe = spawnSync("codex", ["mcp", "get", "codetour"], {
+    encoding: "utf8", windowsHide: true, timeout: 10000
+  });
+  return probe.error === undefined && probe.status === 0;
+}
+
+function reportScan(scan: LegacySurfaceScan, ownedHint: string, preservedHint: string): void {
+  for (const file of scan.owned) console.log(`retired: ${file}. ${ownedHint}`);
+  for (const file of scan.preserved) console.log(`retired: ${file} is preserved. ${preservedHint}`);
+}
+
+/**
+ * The retired surfaces `--doctor` reports and never edits: what CodeTour cannot
+ * prove it wrote, or cannot reach at all (spec #320, DESIGN §11).
+ */
+async function reportRetiredSurfaces(): Promise<void> {
+  const mcpFile = copilotMcpConfigPath();
+  const registration = await legacyRegistrationState(mcpFile);
+  if (registration.state === "owned") {
+    console.log(
+      `retired: ${mcpFile} declares the 'codetour' MCP server this release removed; ` +
+      "'codetour --install all' or 'codetour --uninstall all' removes the entry this CLI wrote."
+    );
+  } else if (registration.state === "foreign") {
+    console.log(
+      `retired: ${mcpFile} declares a 'codetour' MCP server this CLI did not write. It is preserved; ` +
+      "remove that mcpServers entry yourself if it points at a file this release no longer ships."
+    );
+  } else if (registration.state === "unreadable") {
+    console.log(`retired: ${registration.unreadable}`);
+  }
+  reportScan(
+    await scanLegacyCopilotExtension(copilotExtensionDirectory()),
+    "The MCP-routed Copilot adapter of the previous release: an install or uninstall removes it.",
+    "It does not match the adapter this CLI installed, so it is yours to remove."
+  );
+  reportScan(
+    await scanLegacyRunStates(path.join(process.cwd(), LEGACY_RUN_LOG_DIRECTORY)),
+    "A guarded run state of the retired agentStop hook: an install or uninstall removes it.",
+    "It does not satisfy the retired run-state contract, so it is yours to remove."
+  );
+  if (codexDeclaresCodetour()) {
+    console.log(
+      "retired: Codex still declares a 'codetour' MCP server pointing at a file this release no longer ships. " +
+      "Remove it with 'codex mcp remove codetour'."
+    );
+  }
+}
+
 export async function doctor(): Promise<void> {
   const git = spawnSync("git", ["--version"], { encoding: "utf8", windowsHide: true });
   console.log(git.status === 0 ? `OK: ${firstLine(git.stdout)}` : "Missing: git is not available on PATH.");
   for (const report of await reportAgents(agentIntegrations)) {
     console.log(`${report.id}: ${report.state}. ${report.detail}`);
   }
+  await reportRetiredSurfaces();
 }

@@ -6,8 +6,8 @@
 # stack is exactly the code in the current checkout:
 #   1. build + package the platform VSIX (npm run package, with its checks);
 #   2. install that VSIX into VS Code;
-#   3. expose the CLI built from this tree on PATH (npm link), as the bundled
-#      copilot plugin declares its MCP server as `codetour mcp`;
+#   3. expose the CLI built from this tree on PATH (npm link), which is the
+#      command the generation skills run;
 #   4. install every compatible agent integration (codetour --install): the
 #      Copilot plugin surfaces and the Pi package are installed on the hosts
 #      this machine actually has, and an absent host is skipped with its reason
@@ -37,7 +37,6 @@ code_cmd="$(command -v code || true)"
 # Install dependencies only where they are missing; a repeat run stays fast.
 [ -d node_modules ] || npm ci
 [ -d packages/description-renderer/node_modules ] || npm ci --prefix packages/description-renderer
-[ -d packages/mcp-server/node_modules ] || npm ci --prefix packages/mcp-server
 
 printf 'Building and packaging the VSIX from %s...\n' "$root"
 npm run package
@@ -78,20 +77,21 @@ codetour --install || fail "codetour --install failed for at least one agent."
 printf '\nInstalled from this checkout:\n'
 printf '  - VS Code extension codetour (maurice30120), %s, from %s\n' "$version" "$(basename "$vsix")"
 printf '  - codetour CLI on PATH -> %s/dist/cli.js\n' "$root"
-printf '  - agent integrations for every host present (Copilot plugin surfaces, Pi package)\n'
-printf '  - MCP for those sessions served by the installed surface as: codetour mcp --workspace-root <workspace>\n'
+printf '  - agent integrations for every host present (Copilot plugin, Pi package)\n'
+printf '  - Tour generation through the skill and: codetour create-project-tour --workspace <workspace>\n'
 printf '\nVerify:\n'
 printf '  code --list-extensions --show-versions | grep codetour\n'
 printf '  codetour --agents\n'
 if command -v copilot >/dev/null 2>&1; then
-  printf '  copilot plugin list && copilot mcp list && copilot skill list\n'
+  printf '  copilot plugin list && copilot skill list\n'
 else
   printf '  (GitHub Copilot CLI not found on PATH; install 1.0.106+ then re-run codetour --install.)\n'
 fi
 if command -v pi >/dev/null 2>&1; then
-  printf '  pi list && pi mcp list\n'
+  printf '  pi list\n'
 else
   printf '  (Pi not found on PATH; install it then re-run codetour --install.)\n'
 fi
-printf '\nReload the VS Code window to load the installed version. For Codex, run the VS Code\n'
-printf 'command "CodeTour IA: Configure MCP for Codex" from the command palette.\n'
+printf '\nReload the VS Code window to load the installed version.\n'
+printf 'CodeTour ships no MCP server: an existing Codex registration is reported by\n'
+printf '"codetour --doctor" and removed with "codex mcp remove codetour".\n'

@@ -1,14 +1,13 @@
 import { test } from "node:test";
 import * as assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
-import { createInterface } from "node:readline";
+import { spawnSync } from "node:child_process";
 import {
-  chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync,
+  chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync,
   statSync, writeFileSync
 } from "node:fs";
 import * as os from "os";
 import * as path from "path";
-import { COPILOT_EXTENSION_FILES } from "./copilot-extension.generated";
+import { LEGACY_COPILOT_EXTENSION_FILES } from "./legacyCopilotExtension";
 import { COPILOT_PLUGIN_FILES } from "./copilot-plugin.generated";
 
 const cli = path.resolve(__dirname, "../../cli.js");
@@ -63,10 +62,6 @@ function pluginDirectory(workspace: string): string {
   return path.join(workspace, "copilot-plugin");
 }
 
-function extensionDirectory(workspace: string): string {
-  return path.join(workspace, "copilot-extensions");
-}
-
 // Every file under a managed directory: an install that leaves a current
 // installation alone changes neither the list nor the timestamps.
 function managedFiles(directory: string): string[] {
@@ -84,91 +79,10 @@ function mcpConfig(workspace: string): { mcpServers?: Record<string, Record<stri
   return JSON.parse(readFileSync(path.join(workspace, "mcp-config.json"), "utf8"));
 }
 
-// Play the Copilot host against the registered launch contract: initialize a
-// stdio session and list its tools. This is the external seam that proves the
-// registration exposes the creation tools, not merely that JSON was written.
-function listRegisteredTools(
-  entry: { command: string; args: string[] },
-  cwd: string
-): Promise<string[]> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(entry.command, entry.args, { cwd, stdio: ["pipe", "pipe", "pipe"] });
-    const lines = createInterface({ input: child.stdout });
-    let stderr = "";
-    let settled = false;
-    const finish = (error?: Error, tools?: string[]) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      lines.close();
-      child.stdin.end();
-      child.kill();
-      if (error) {
-        reject(error);
-        return;
-      }
-      // Windows releases the child's working-directory handle on exit, not on
-      // kill(); the caller removes that temporary directory next. Wait for the
-      // exit before resolving so the cleanup cannot race the server process.
-      if (child.exitCode !== null) resolve(tools!);
-      else child.once("exit", () => resolve(tools!));
-    };
-    const timer = setTimeout(() => finish(new Error(`MCP handshake timed out. ${stderr}`)), 15000);
-    const send = (message: object) => child.stdin.write(JSON.stringify({ jsonrpc: "2.0", ...message }) + "\n");
-    child.on("error", error => finish(error));
-    child.stderr.on("data", chunk => { stderr = (stderr + chunk).slice(-4096); });
-    child.once("close", () => finish(new Error(stderr.trim() || "CodeTour MCP closed before listing tools.")));
-    lines.on("line", line => {
-      const message = JSON.parse(line);
-      if (message.error) {
-        finish(new Error(message.error.message));
-      } else if (message.id === 1) {
-        send({ method: "notifications/initialized" });
-        send({ id: 2, method: "tools/list" });
-      } else if (message.id === 2) {
-        finish(undefined, (message.result?.tools ?? []).map((tool: { name: string }) => tool.name));
-      }
-    });
-    send({
-      id: 1, method: "initialize",
-      params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "codetour-test", version: "1.0.0" } }
-    });
-  });
-}
 
-test("the embedded Copilot adapter matches the repository sources", () => {
-  // The generated module travels inside the CLI bundle; the .mjs files are
-  // the readable source of truth and must never diverge from it.
-  const sourceDir = path.resolve(__dirname, "../../../.github/extensions/codetour");
-  for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
-    assert.equal(
-      readFileSync(path.join(sourceDir, name), "utf8"),
-      content,
-      `${name} in the bundle diverges from .github/extensions/codetour; run node scripts/embed-copilot-extension.js`
-    );
-  }
-});
-
-test("an install writes the adapter files and repeats without changing anything", () => {
-  const workspace = temporaryDirectory("codetour-install-");
-  const extensionDir = path.join(workspace, "copilot-extensions");
-  try {
-    const env = { CODETOUR_COPILOT_EXTENSIONS_DIR: extensionDir };
-    const first = run(workspace, ["--install", "copilot"], env);
-    assert.equal(first.status, 0, first.stderr);
-    assert.match(first.stdout, /Installed the CodeTour adapter/);
-    for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
-      assert.equal(readFileSync(path.join(extensionDir, name), "utf8"), content);
-    }
-    const second = run(workspace, ["--install", "copilot"], env);
-    assert.equal(second.status, 0, second.stderr);
-    for (const [name, content] of Object.entries(COPILOT_EXTENSION_FILES)) {
-      assert.equal(readFileSync(path.join(extensionDir, name), "utf8"), content);
-    }
-  } finally {
-    rmSync(workspace, { recursive: true, force: true });
-  }
-});
+// The retired surfaces this release removes and the ones it can only report
+// are exercised below through the CLI: an install and an uninstall both
+// migrate, and `--doctor` reports what CodeTour cannot prove it wrote.
 
 test("an install removes a leftover standalone Knowledge skill and preserves foreign skills", () => {
   const workspace = temporaryDirectory("codetour-skill-retired-");
@@ -207,7 +121,10 @@ test("an uninstall removes a leftover standalone Knowledge skill too", () => {
     assert.match(removed.stdout, /Removed the retired standalone Knowledge skill/);
     assert.ok(!existsSync(skillFile(workspace)), "the retired skill is removed with the integration");
     assert.equal(readFileSync(foreign, "utf8"), "---\nname: other-skill\n---\nforeign\n");
-    assert.ok(!existsSync(path.join(workspace, "copilot-extensions", "extension.mjs")), "owned adapter files are removed");
+    assert.ok(
+      !existsSync(path.join(workspace, "copilot-extensions")),
+      "the retired adapter directory of the previous release is removed"
+    );
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
@@ -229,21 +146,14 @@ test("an install writes the Agent Plugins 1.0 plugin and keeps foreign servers",
     const install = run(workspace, ["--install", "copilot"]);
     assert.equal(install.status, 0, install.stderr);
     assert.match(install.stdout, /Installed the CodeTour plugin/);
-    assert.match(install.stdout, /Removed the legacy 'codetour' MCP server/);
+    assert.match(install.stdout, /Removed the retired 'codetour' MCP server/);
 
     for (const [name, content] of Object.entries(COPILOT_PLUGIN_FILES)) {
-      if (name === "mcp.json") continue;
       assert.equal(readFileSync(path.join(pluginDirectory(workspace), ...name.split("/")), "utf8"), content);
     }
-    // The installed mcp.json carries the verified absolute launcher of the CLI
-    // that performed the install, not a PATH-dependent command.
-    const installedMcp = JSON.parse(readFileSync(path.join(pluginDirectory(workspace), "mcp.json"), "utf8"));
-    assert.equal(installedMcp.mcpServers.codetour.type, "stdio");
-    assert.equal(installedMcp.mcpServers.codetour.command, process.execPath);
-    assert.deepEqual(
-      installedMcp.mcpServers.codetour.args,
-      [cli, "mcp", "--workspace-root", "${COPILOT_SESSION_CWD}"]
-    );
+    // The plugin declares no server of any kind: the retired declaration is not
+    // installed, and the launch command it named no longer exists.
+    assert.equal(existsSync(path.join(pluginDirectory(workspace), "mcp.json")), false);
     const servers = mcpConfig(workspace).mcpServers!;
     assert.deepEqual(servers.other, { command: "other", args: ["serve"] });
     assert.equal(servers.codetour, undefined, "the legacy entry this CLI wrote is removed");
@@ -276,34 +186,6 @@ test("an install preserves a same-named MCP server it did not configure", () => 
   }
 });
 
-test("the plugin declares one workspace-scoped CodeTour MCP server exposing the creation tools", async () => {
-  const workspace = temporaryDirectory("codetour-plugin-mcp-");
-  try {
-    const installed = run(workspace, ["--install", "copilot"]);
-    assert.equal(installed.status, 0, installed.stderr);
-    const manifest = JSON.parse(readFileSync(path.join(pluginDirectory(workspace), "mcp.json"), "utf8"));
-    assert.equal(manifest.$schema, "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json");
-    assert.deepEqual(Object.keys(manifest.mcpServers), ["codetour"], "exactly one server is declared");
-    assert.equal(manifest.mcpServers.codetour.type, "stdio");
-    assert.equal(manifest.mcpServers.codetour.command, process.execPath);
-    assert.deepEqual(
-      manifest.mcpServers.codetour.args,
-      [cli, "mcp", "--workspace-root", "${COPILOT_SESSION_CWD}"]
-    );
-    // The declaration is a real launch contract: resolve the session-cwd token
-    // against the current CLI bundle and list the tools Copilot would see.
-    const tools = await listRegisteredTools({
-      command: process.execPath,
-      args: [cli, "mcp", "--workspace-root", workspace]
-    }, workspace);
-    assert.ok(tools.includes("create_project_tour"), `tools: ${tools.join(", ")}`);
-    assert.ok(tools.includes("create_changes_tour"), `tools: ${tools.join(", ")}`);
-    assert.ok(!tools.some(tool => tool.startsWith("knowledge_")), `tools: ${tools.join(", ")}`);
-  } finally {
-    rmSync(workspace, { recursive: true, force: true, maxRetries: 50, retryDelay: 100 });
-  }
-});
-
 test("an uninstall removes the plugin and preserves a foreign same-named server", () => {
   const workspace = temporaryDirectory("codetour-plugin-uninstall-");
   try {
@@ -326,14 +208,14 @@ test("an uninstall preserves plugin files edited by the user", () => {
   const workspace = temporaryDirectory("codetour-plugin-uninstall-edited-");
   try {
     assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
-    const edited = path.join(pluginDirectory(workspace), "mcp.json");
+    const edited = path.join(pluginDirectory(workspace), "plugin.json");
     writeFileSync(edited, "// edited by the user\n");
     const foreign = path.join(pluginDirectory(workspace), "notes", "mine.txt");
     mkdirSync(path.dirname(foreign), { recursive: true });
     writeFileSync(foreign, "user notes\n");
     const removed = run(workspace, ["--uninstall", "copilot"]);
     assert.equal(removed.status, 0, removed.stderr);
-    assert.match(removed.stdout, /Left mcp.json .* untouched/);
+    assert.match(removed.stdout, /Left plugin\.json .* untouched/);
     assert.equal(readFileSync(edited, "utf8"), "// edited by the user\n");
     assert.equal(readFileSync(foreign, "utf8"), "user notes\n", "foreign files in the managed directory are preserved");
   } finally {
@@ -354,73 +236,6 @@ test("an unreadable MCP configuration is reported and left untouched while the p
     assert.match(installed.stdout, /Left .*mcp-config\.json untouched/);
     assert.ok(existsSync(configFile), "the unreadable path is left in place");
     assert.ok(existsSync(path.join(pluginDirectory(workspace), "plugin.json")), "the plugin is still installed");
-  } finally {
-    rmSync(workspace, { recursive: true, force: true });
-  }
-});
-
-test("an unlaunchable plugin MCP launcher is rejected before any adapter file is written", () => {
-  const workspace = temporaryDirectory("codetour-plugin-launcher-unverified-");
-  const bundle = path.join(path.dirname(cli), `codetour-cli-unverified-${process.pid}-${process.hrtime.bigint()}`);
-  try {
-    // A runtime whose script path cannot be resolved falls back to the
-    // documented `codetour mcp` launcher; an empty PATH makes it unverifiable.
-    copyFileSync(cli, bundle);
-    const runner = path.join(workspace, "unresolved-runner.js");
-    writeFileSync(runner, [
-      `process.argv[1] = ${JSON.stringify(path.join(workspace, "missing-cli.js"))};`,
-      `require(${JSON.stringify(bundle)});`
-    ].join("\n"));
-    const emptyBin = path.join(workspace, "empty-bin");
-    mkdirSync(emptyBin);
-    const custom = "// a pre-existing custom installation\n";
-    mkdirSync(path.join(workspace, "copilot-extensions"));
-    writeFileSync(path.join(workspace, "copilot-extensions", "extension.mjs"), custom);
-    const installed = spawnSync(process.execPath, [runner, "--install", "copilot"], {
-      cwd: workspace, encoding: "utf8",
-      env: {
-        ...process.env,
-        PATH: emptyBin,
-        COPILOT_HOME: path.join(workspace, "copilot-home"),
-        CODETOUR_COPILOT_MCP_CONFIG: path.join(workspace, "mcp-config.json"),
-        CODETOUR_COPILOT_EXTENSIONS_DIR: path.join(workspace, "copilot-extensions"),
-        CODETOUR_COPILOT_PLUGIN_DIR: pluginDirectory(workspace)
-      }
-    });
-    assert.notEqual(installed.status, 0);
-    assert.match(installed.stderr, /launch contract could not be verified/);
-    assert.equal(
-      readFileSync(path.join(workspace, "copilot-extensions", "extension.mjs"), "utf8"),
-      custom,
-      "an existing adapter file is untouched when the launcher cannot be verified"
-    );
-    assert.ok(!existsSync(path.join(workspace, "copilot-extensions", "adapter.mjs")));
-    assert.ok(!existsSync(path.join(pluginDirectory(workspace), "plugin.json")));
-  } finally {
-    rmSync(bundle, { force: true });
-    rmSync(workspace, { recursive: true, force: true });
-  }
-});
-
-test("a failed plugin installation restores the previous adapter and skill", () => {
-  const workspace = temporaryDirectory("codetour-plugin-rollback-");
-  const extensionDir = path.join(workspace, "copilot-extensions");
-  try {
-    mkdirSync(extensionDir);
-    const custom = "// a pre-existing custom installation\n";
-    writeFileSync(path.join(extensionDir, "extension.mjs"), custom);
-    // A file where the managed plugin directory belongs makes the last write
-    // fail after the adapter files were installed.
-    writeFileSync(pluginDirectory(workspace), "not a directory\n");
-    const installed = run(workspace, ["--install", "copilot"], { CODETOUR_COPILOT_EXTENSIONS_DIR: extensionDir });
-    assert.notEqual(installed.status, 0);
-    assert.equal(
-      readFileSync(path.join(extensionDir, "extension.mjs"), "utf8"),
-      custom,
-      "the replaced adapter file is restored to its previous content"
-    );
-    assert.ok(!existsSync(path.join(extensionDir, "adapter.mjs")), "an adapter file created by the failed install is removed");
-    assert.equal(readFileSync(pluginDirectory(workspace), "utf8"), "not a directory\n", "the user path is untouched");
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
@@ -491,13 +306,16 @@ test("the agent diagnostics report a missing plugin and a legacy duplicate", () 
     assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
     rmSync(pluginDirectory(workspace), { recursive: true, force: true });
 
+    // With the retired adapter gone, a machine without the plugin holds
+    // nothing CodeTour owns: the honest state is `not-installed`, with the
+    // command that installs it.
     const agents = run(workspace, ["--agents"]);
     assert.equal(agents.status, 0, agents.stderr);
     assert.match(agents.stdout, /copilot\tGitHub Copilot CLI/);
     assert.match(agents.stdout, /pi\tPi coding agent/);
-    assert.match(agents.stdout, /incomplete/);
-    assert.match(agents.stdout, /plugin is missing/);
-    assert.match(run(workspace, ["--doctor"]).stdout, /^copilot: incomplete\. /m);
+    assert.match(agents.stdout, /not-installed/);
+    assert.match(agents.stdout, /Run 'codetour --install copilot' to install it/);
+    assert.match(run(workspace, ["--doctor"]).stdout, /^copilot: not-installed\. /m);
 
     assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
     const file = path.join(workspace, "mcp-config.json");
@@ -505,7 +323,7 @@ test("the agent diagnostics report a missing plugin and a legacy duplicate", () 
     const drifted = run(workspace, ["--agents"]);
     assert.equal(drifted.status, 0, drifted.stderr);
     assert.match(drifted.stdout, /outdated/);
-    assert.match(drifted.stdout, /duplicates the plugin's server/);
+    assert.match(drifted.stdout, /retired 'codetour' MCP server this CLI registered/);
     const repaired = run(workspace, ["--install", "copilot"]);
     assert.equal(repaired.status, 0, repaired.stderr);
     assert.equal(mcpConfig(workspace).mcpServers!.codetour, undefined);
@@ -526,10 +344,7 @@ test("a repair install rewrites nothing that is already current", async () => {
       path.join(workspace, "mcp-config.json"),
       JSON.stringify({ mcpServers: { codetour: { type: "local", command: "codetour", args: ["mcp"], tools: ["*"] } } }, null, 2) + "\n"
     );
-    const files = () => [
-      ...managedFiles(extensionDirectory(workspace)),
-      ...managedFiles(pluginDirectory(workspace))
-    ];
+    const files = () => managedFiles(pluginDirectory(workspace));
     const before = files().map(file => [file, statSync(file).mtimeMs]);
     assert.ok(before.length > 0, "the install wrote its files");
     // Filesystem timestamps are coarse on some filesystems: a rewrite in the
@@ -585,51 +400,189 @@ test("install, report and uninstall work in a path containing spaces", () => {
   }
 });
 
-test("a differing adapter is replaced on install", () => {
-  const workspace = temporaryDirectory("codetour-conflict-");
-  const extensionDir = path.join(workspace, "copilot-extensions");
+// Write the adapter files an older CodeTour CLI installed, byte for byte, in
+// the directory the previous release used.
+function installLegacyAdapter(workspace: string): string {
+  const directory = path.join(workspace, "copilot-extensions");
+  mkdirSync(directory, { recursive: true });
+  for (const [name, content] of Object.entries(LEGACY_COPILOT_EXTENSION_FILES)) {
+    writeFileSync(path.join(directory, name), content);
+  }
+  return directory;
+}
+
+test("an install migrates the MCP adapter, the registration and the run states away", () => {
+  const workspace = temporaryDirectory("codetour-migration-install-");
   try {
-    const env = { CODETOUR_COPILOT_EXTENSIONS_DIR: extensionDir };
-    assert.equal(run(workspace, ["--install", "copilot"], env).status, 0);
-    writeFileSync(path.join(extensionDir, "extension.mjs"), "// a pre-existing custom installation\n");
-    const replaced = run(workspace, ["--install", "copilot"], env);
-    assert.equal(replaced.status, 0, replaced.stderr);
-    assert.match(replaced.stdout, /Replaced differing adapter files/);
-    assert.equal(
-      readFileSync(path.join(extensionDir, "extension.mjs"), "utf8"),
-      COPILOT_EXTENSION_FILES["extension.mjs"],
-      "install restored the adapter of this CLI"
+    const adapter = installLegacyAdapter(workspace);
+    // The registration an older CLI wrote, in the documented `codetour mcp`
+    // shape, beside a server this CLI never touched.
+    writeFileSync(
+      path.join(workspace, "mcp-config.json"),
+      JSON.stringify({
+        mcpServers: {
+          other: { command: "other", args: ["serve"] },
+          codetour: { type: "local", command: "codetour", args: ["mcp"], tools: ["*"] }
+        }
+      }, null, 2) + "\n"
     );
+    // A guarded run state of the retired hook, its lock, and the creation
+    // journal and Tours of the current flow, which must survive untouched.
+    const logDirectory = path.join(workspace, ".tours", ".log");
+    mkdirSync(path.join(logDirectory, "creations"), { recursive: true });
+    mkdirSync(path.join(workspace, ".tours", "images"), { recursive: true });
+    writeFileSync(path.join(workspace, ".tours", "kept.tour"), '{"title":"Kept","steps":[]}\n');
+    writeFileSync(path.join(workspace, ".tours", "images", "kept.png"), "png\n");
+    writeFileSync(path.join(logDirectory, "creations", "1-1-aa.json"), "{}\n");
+    const runState = path.join(logDirectory, "codetour-run-abcdefgh.json");
+    writeFileSync(runState, JSON.stringify({
+      version: 1, runId: "abcdefgh", workspace, at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(), sessionId: null, kind: "project", request: null,
+      tourCreated: false, tourPath: null, consolidation: null, continuationUsed: false
+    }));
+    writeFileSync(`${runState}.lock`, "");
+
+    const installed = run(workspace, ["--install", "copilot"]);
+    assert.equal(installed.status, 0, installed.stderr);
+    assert.match(installed.stdout, /Removed the retired CodeTour file .*adapter\.mjs/);
+    assert.match(installed.stdout, /Removed the retired CodeTour file .*run-log\.mjs/);
+    assert.equal(existsSync(adapter), false, "the retired adapter directory is gone");
+    assert.equal(existsSync(runState), false, "the retired run state is gone");
+    assert.equal(existsSync(`${runState}.lock`), false, "its lock goes with it");
+    const servers = mcpConfig(workspace).mcpServers!;
+    assert.deepEqual(servers.other, { command: "other", args: ["serve"] });
+    assert.equal(servers.codetour, undefined, "the registration this CLI wrote is removed");
+    // Everything the current flow owns is untouched.
+    assert.equal(readFileSync(path.join(workspace, ".tours", "kept.tour"), "utf8"), '{"title":"Kept","steps":[]}\n');
+    assert.equal(readFileSync(path.join(workspace, ".tours", "images", "kept.png"), "utf8"), "png\n");
+    assert.equal(readFileSync(path.join(logDirectory, "creations", "1-1-aa.json"), "utf8"), "{}\n");
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
 });
 
-test("an uninstall removes only the files this installation owns", () => {
-  const workspace = temporaryDirectory("codetour-uninstall-");
-  const extensionDir = path.join(workspace, "copilot-extensions");
+test("a second install and an uninstall migrate nothing twice", () => {
+  const workspace = temporaryDirectory("codetour-migration-idempotent-");
   try {
-    const env = { CODETOUR_COPILOT_EXTENSIONS_DIR: extensionDir };
-    assert.equal(run(workspace, ["--install", "copilot"], env).status, 0);
-    writeFileSync(path.join(extensionDir, "other.mjs"), "// a foreign file this CLI never installed\n");
-    const removed = run(workspace, ["--uninstall", "copilot"], env);
+    installLegacyAdapter(workspace);
+    assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
+    const second = run(workspace, ["--install", "copilot"]);
+    assert.equal(second.status, 0, second.stderr);
+    assert.doesNotMatch(second.stdout, /Removed the retired CodeTour file/);
+    const removed = run(workspace, ["--uninstall", "copilot"]);
     assert.equal(removed.status, 0, removed.stderr);
-    assert.ok(!existsSync(path.join(extensionDir, "adapter.mjs")));
-    assert.ok(!existsSync(path.join(extensionDir, "extension.mjs")));
-    assert.equal(
-      readFileSync(path.join(extensionDir, "other.mjs"), "utf8"),
-      "// a foreign file this CLI never installed\n",
-      "files outside this installation were left untouched"
-    );
-    // A modified managed file blocks the uninstall instead of deleting user work.
-    assert.equal(run(workspace, ["--install", "copilot"], env).status, 0);
-    writeFileSync(path.join(extensionDir, "adapter.mjs"), "// edited by the user\n");
-    const blocked = run(workspace, ["--uninstall", "copilot"], env);
-    assert.notEqual(blocked.status, 0);
-    assert.match(blocked.stderr, /left untouched/);
-    assert.equal(readFileSync(path.join(extensionDir, "adapter.mjs"), "utf8"), "// edited by the user\n");
+    assert.doesNotMatch(removed.stdout, /Removed the retired CodeTour file/);
+    assert.ok(!existsSync(path.join(workspace, "copilot-plugin")));
   } finally {
     rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("an uninstall of the Pi package migrates the retired surfaces too", () => {
+  const workspace = temporaryDirectory("codetour-migration-pi-");
+  try {
+    installLegacyAdapter(workspace);
+    assert.equal(run(workspace, ["--install", "pi"]).status, 0);
+    assert.equal(existsSync(path.join(workspace, "copilot-extensions")), false);
+    installLegacyAdapter(workspace);
+    const removed = run(workspace, ["--uninstall", "pi"]);
+    assert.equal(removed.status, 0, removed.stderr);
+    assert.equal(existsSync(path.join(workspace, "copilot-extensions")), false);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("--doctor reports the leftovers it cannot remove and their manual command", () => {
+  const workspace = temporaryDirectory("codetour-doctor-retired-");
+  const bin = path.join(workspace, "bin");
+  mkdirSync(bin);
+  try {
+    // A Codex CLI that still declares the server this release stopped shipping.
+    const codex = path.join(bin, "codex");
+    writeFileSync(codex, [
+      "#!/bin/sh",
+      "if [ \"$1\" = \"mcp\" ] && [ \"$2\" = \"get\" ] && [ \"$3\" = \"codetour\" ]; then",
+      "  echo '[mcp_servers.codetour]'; exit 0",
+      "fi",
+      "exit 64"
+    ].join("\n") + "\n");
+    chmodSync(codex, 0o755);
+    assert.equal(run(workspace, ["--install", "copilot"]).status, 0);
+    // A same-named server this CLI did not write, and an edited adapter file.
+    writeFileSync(
+      path.join(workspace, "mcp-config.json"),
+      JSON.stringify({ mcpServers: { codetour: { command: "someone-elses-codetour", args: ["serve"] } } }, null, 2) + "\n"
+    );
+    const adapterDirectory = path.join(workspace, "copilot-extensions");
+    mkdirSync(adapterDirectory, { recursive: true });
+    writeFileSync(path.join(adapterDirectory, "adapter.mjs"), "// an edit of the user\n");
+
+    const doctor = run(workspace, ["--doctor"], { PATH: bin + path.delimiter + (process.env.PATH ?? "") });
+    assert.equal(doctor.status, 0, doctor.stderr);
+    // The install and uninstall migrate; --doctor only reports, so nothing moved.
+    assert.match(doctor.stdout, /declares a 'codetour' MCP server this CLI did not write/);
+    assert.match(doctor.stdout, /remove that mcpServers entry yourself/);
+    assert.match(doctor.stdout, /retired: .*adapter\.mjs is preserved\./);
+    assert.match(doctor.stdout, /retired: Codex still declares a 'codetour' MCP server/);
+    assert.match(doctor.stdout, /codex mcp remove codetour/);
+    assert.equal(readFileSync(path.join(adapterDirectory, "adapter.mjs"), "utf8"), "// an edit of the user\n");
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("a migration preserves every file it cannot prove is CodeTour's", () => {
+  const workspace = temporaryDirectory("codetour-migration-preserved-");
+  try {
+    const adapter = installLegacyAdapter(workspace);
+    // An edit of an adapter file, a foreign file, a subdirectory, a same-named
+    // server launched another way, and a corrupt run state.
+    writeFileSync(path.join(adapter, "adapter.mjs"), "// edited by the user\n");
+    writeFileSync(path.join(adapter, "notes.txt"), "user notes\n");
+    mkdirSync(path.join(adapter, "extra"));
+    writeFileSync(path.join(adapter, "extra", "patch.mjs"), "// a patch\n");
+    const foreign = { type: "local", command: "someone-elses-codetour", args: ["--stdio", "mcp"], tools: ["*"] };
+    writeFileSync(
+      path.join(workspace, "mcp-config.json"),
+      JSON.stringify({ mcpServers: { codetour: foreign } }, null, 2) + "\n"
+    );
+    const logDirectory = path.join(workspace, ".tours", ".log");
+    mkdirSync(logDirectory, { recursive: true });
+    const corrupt = path.join(logDirectory, "codetour-run-zzzzzzzz.json");
+    writeFileSync(corrupt, "{ not json\n");
+    const registration = readFileSync(path.join(workspace, "mcp-config.json"), "utf8");
+
+    const installed = run(workspace, ["--install", "copilot"]);
+    assert.equal(installed.status, 0, installed.stderr);
+    assert.match(installed.stdout, /Preserved .*adapter\.mjs/);
+    assert.match(installed.stdout, /Preserved .*notes\.txt/);
+    assert.match(installed.stdout, /Preserved .*codetour-run-zzzzzzzz\.json/);
+    assert.match(installed.stdout, /Preserved the 'codetour' server/);
+    assert.equal(readFileSync(path.join(adapter, "adapter.mjs"), "utf8"), "// edited by the user\n");
+    assert.equal(readFileSync(path.join(adapter, "notes.txt"), "utf8"), "user notes\n");
+    assert.equal(readFileSync(path.join(adapter, "extra", "patch.mjs"), "utf8"), "// a patch\n");
+    // The owned files of the same directory are still removed.
+    assert.equal(existsSync(path.join(adapter, "extension.mjs")), false);
+    assert.equal(readFileSync(path.join(workspace, "mcp-config.json"), "utf8"), registration);
+    assert.equal(readFileSync(corrupt, "utf8"), "{ not json\n");
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("the plugins still ship the critical review pack beside their skill", () => {
+  for (const directory of [
+    path.resolve(__dirname, "../../../packages/copilot-plugin"),
+    path.resolve(__dirname, "../../../packages/pi-plugin")
+  ]) {
+    for (const name of [
+      "skills/codetour-generate/references/codetour-adaptation.md",
+      "skills/codetour-generate/references/upstream-code-review.md",
+      "skills/codetour-generate/references/upstream-LICENSE.txt"
+    ]) {
+      assert.ok(existsSync(path.join(directory, ...name.split("/"))), `${name} in ${directory}`);
+    }
   }
 });
 

@@ -25,8 +25,7 @@ if (fs.realpathSync(installedRoot) === fs.realpathSync(rendererRoot)) {
 // The file: dependency is a snapshot taken at install time: rebuilding the
 // renderer does not refresh it, so compiled artifacts that resolve the
 // package by name (the extension test suite) would keep exercising a stale
-// renderer. Refresh the installed copy from the freshly built dist, the same
-// way the MCP server stages its own copy.
+// renderer. Refresh the installed copy from the freshly built dist.
 fs.rmSync(path.join(installedRoot, "dist"), { recursive: true, force: true });
 fs.cpSync(rendererDist, path.join(installedRoot, "dist"), { recursive: true });
 

@@ -26,14 +26,14 @@ Design constraints:
 - **Reuse** — rendered diagrams are reused only in memory when their exact
   source, effective theme, renderer version and rendering options match. A
   theme change can call `clearMermaidRenderCache()` to discard all entries;
-  failures are never kept in the cache. The MCP server (`packages/mcp-server`)
-  will validate Mermaid with the same exact, locked Mermaid version and diagram
-  rules through this package.
+  failures are never kept in the cache. The Tour creation core
+  (`packages/tour-generation`) validates Mermaid with the same exact, locked
+  Mermaid version and diagram rules through this package.
 
 ## Diagram rules
 
 The rules below are implemented in `src/rules.ts` and are the single source of
-truth shared by playback and (later) MCP validation. They are deliberately
+truth shared by playback and by creation-time validation. They are deliberately
 syntactic and dependency-free so both sides evaluate them identically.
 
 - **Fence**: a Mermaid fence is a block whose opening line matches
@@ -53,8 +53,8 @@ syntactic and dependency-free so both sides evaluate them identically.
 - **Count limit**: at most 3 Mermaid fences per description, counted in
   document order. During playback the first three fences are evaluated and each
   fence from the fourth on fails locally with a warning, regardless of its
-  content. Validation (MCP) rejects the whole description when it contains more
-  than 3 fences.
+  content. Creation-time validation rejects the whole description when it
+  contains more than 3 fences.
 - **Size limit**: the UTF-8 byte length of the source (the exact text between
   the opening and closing fence lines) must be at most 20 KB (20480 bytes).
 - **Per-fence evaluation order**: caption, then size, then kind. The first
@@ -83,7 +83,7 @@ generated image is written to the workspace or persisted in VS Code state.
 `DESCRIPTION_RENDERER_VERSION` identifies the output contract represented by
 the cache.
 
-Shared rule surface (for playback and MCP validation):
+Shared rule surface (for playback and creation-time validation):
 
 ```ts
 ALLOWED_DIAGRAM_KINDS: readonly ["flowchart", "sequenceDiagram", "stateDiagram-v2", "classDiagram", "erDiagram"];

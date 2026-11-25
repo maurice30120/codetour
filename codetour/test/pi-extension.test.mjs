@@ -542,14 +542,14 @@ test("the native generation menu sends the selected review mode", async () => {
   }
 });
 
-test("the installed launcher travels to the skill, without the retired mcp subcommand", async () => {
+test("the installed launcher travels to the skill exactly as recorded", async () => {
   const { root, workspace } = temporaryWorkspace();
   try {
     const packageDir = path.join(root, "installed plugin");
     cpSync(path.resolve("packages/pi-plugin"), packageDir, { recursive: true });
     writeFileSync(
       path.join(packageDir, "launcher.json"),
-      JSON.stringify({ command: "/custom node", args: ["/custom cli.js", "mcp"] }),
+      JSON.stringify({ command: "/custom node", args: ["/custom cli.js"] }),
       "utf8"
     );
     const { default: installed } = await import(

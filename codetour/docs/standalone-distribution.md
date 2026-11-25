@@ -1,6 +1,6 @@
 # Standalone CodeTour distribution
 
-The standalone distribution is a single artifact with one launcher and two commands: `codetour` reads existing Tours (HTML or terminal) and `codetour mcp` starts the CodeTour MCP server for Tour creation. It includes the CodeTour CLI bundle with the embedded MCP server, the TermDOM and punycode dependency closures, the platform-specific Mermaid rasterizer, and the official Node.js 24.18.0 runtime. End users do not need to install Node.js, a VS Code extension, or have administrator privileges. Git must be available on PATH because CodeTour discovers the current Git worktree and reads historical snapshots through Git; Project Tours through `codetour mcp` also work before a workspace is a Git repository, but Changes Tours and historical snapshots always require Git.
+The standalone distribution is a single artifact with one launcher and one product: `codetour` reads existing Tours (HTML or terminal) and creates new ones from a JSON proposal (`codetour create-project-tour`, `codetour create-changes-tour`). It includes the CodeTour CLI bundle, the embedded agent-integration files it installs, the TermDOM and punycode dependency closures, the platform-specific Mermaid rasterizer, and the official Node.js 24.18.0 runtime. End users do not need to install Node.js, a VS Code extension, or have administrator privileges. Git must be available on PATH because CodeTour discovers the current Git worktree and reads historical snapshots through Git; Project Tours also work before a workspace is a Git repository, but Changes Tours and historical snapshots always require Git.
 
 ## Build
 
@@ -9,7 +9,6 @@ Build on the target OS and architecture (Windows x64, macOS Intel, or macOS Appl
 ```sh
 npm ci
 npm ci --prefix packages/description-renderer
-npm ci --prefix packages/mcp-server
 npm run build
 npm run package:standalone -- --output /path/to/new/codetour-distribution
 npm run test:standalone
@@ -30,47 +29,33 @@ From any directory inside a Git worktree, run the packaged `codetour` launcher (
 
 The default renderer is the terminal: it opens a separate terminal window. `--renderer html` opens the HTML reader in a browser page. Neither depends on a globally installed Node runtime. The distribution uses the current OS terminal application and Git; it does not install an application or alter system configuration.
 
-### Start the MCP server with `codetour mcp`
+### Create Tours with the packaged launcher
 
-The same launcher starts the CodeTour MCP server, so an agent outside VS Code
-can create Project Tours and Changes Tours and discover, read and save
-Knowledge with the same tools, validation and workspace confinement as the
-extension and the `codetour-mcp` npm package:
+The same launcher creates a Tour from a JSON proposal, so an agent outside VS
+Code can generate one with the skill or on its own. Nothing is served: the CLI
+validates the proposal, applies the workspace, Git, image and Mermaid rules, and
+writes the `.tour` file atomically.
 
 ```sh
 cd /path/to/workspace
-/path/to/codetour-distribution/codetour mcp
+/path/to/codetour-distribution/codetour create-project-tour --workspace . --proposal proposal.json
+/path/to/codetour-distribution/codetour create-changes-tour --workspace . --proposal proposal.json
 ```
 
-The server speaks MCP over stdio and serves exactly one workspace: the process
-working directory by default. Set the working directory when your client can;
-pass `--workspace-root` when it cannot:
+`--workspace <dir>` is required on every creation, so nothing is written
+outside the workspace you name; `--proposal` reads the document from a file, and
+omitting it reads standard input. Standard output carries exactly one JSON
+document — `{"ok":true,…}` with the absolute `tourPath`, or `{"ok":false,…}`
+with the `issues` to correct — and standard error carries diagnostics only.
+Exit codes are `0` for a created Tour, `1` for a refused proposal that wrote
+nothing and `2` for a usage or IO failure. The
+[creation rules](../packages/tour-generation/README.md) list the fields and the
+validation.
 
-```sh
-/path/to/codetour-distribution/codetour mcp --workspace-root /path/to/workspace
-```
-
-`codetour mcp --help` describes the options and `codetour mcp --version`
-reports the MCP server version. Invalid arguments and unusable workspaces fail
-on stderr with a nonzero exit code before the protocol starts. The token `mcp`
-is reserved: a Tour whose title is exactly `mcp` opens through the interactive
-selection prompt instead of the command line.
-
-An MCP client is configured with the packaged launcher, the `mcp` argument and
-the Tour Workspace as working directory; no VS Code extension, network access
-or globally installed Node.js is required:
-
-```json
-{
-  "mcpServers": {
-    "codetour": {
-      "command": "/path/to/codetour-distribution/codetour",
-      "args": ["mcp"],
-      "cwd": "/path/to/workspace"
-    }
-  }
-}
-```
+The retired `mcp` token is now an ordinary word: a Tour titled `mcp` opens like
+any other title. No MCP server ships with this artifact (ADR 0057), and
+`npm run test:standalone` asserts that the artifact carries neither a server
+bundle nor a server declaration.
 
 ### Install agent integrations with `codetour --install`
 
@@ -92,22 +77,22 @@ alternatives instead of installing everything. `codetour --install all` is
 the non-interactive batch over every compatible agent, and `--install <agent>`
 still names exactly one.
 
-`codetour --install copilot` writes the experimental Copilot CLI adapter
-(see [the adapter documentation](copilot-cli-adapter.md)) into the user's
-Copilot extension directory (`~/.copilot/extensions/codetour/`), after
-detection, existing-installation checks and per-file verification. The
-adapter files travel embedded inside the CLI bundle, so the install works
-from any directory with no dependency on this repository. A pre-existing
-installation whose content differs is replaced directly, and the install
-reports which files it replaced. The install also writes the Agent Plugins 1.0
-plugin (its root `mcp.json` declares the `codetour` server with the verified
-absolute launcher) and removes the legacy `codetour` entry an older release
-wrote into `~/.copilot/mcp-config.json`; a foreign same-named entry is
-preserved and reported. `codetour --uninstall copilot` removes the plugin and
-only the files this CLI owns, leaving any other file or server untouched.
-`CODETOUR_COPILOT_MCP_CONFIG` overrides the legacy configuration path for the
-cleanup, and `codetour --agents` or `codetour --doctor` reports a missing
-plugin, skill or adapter as an incomplete integration.
+`codetour --install copilot` writes the Agent Plugins 1.0 plugin — the
+`codetour-generate` skill with its `references/` pack and the informative
+`agentStop` hook, and no server — through `copilot plugin install`, so the host
+owns its cache. The plugin files travel embedded inside the CLI bundle, so the
+install works from any directory with no dependency on this repository. The
+install also migrates what this release retires: the MCP-routed adapter of the
+previous release in `~/.copilot/extensions/codetour` (file by file, only when
+its bytes match that release), the `codetour` entry of
+`~/.copilot/mcp-config.json` when it matches a launch shape a CodeTour CLI
+wrote, the retired `codetour-knowledge` skill and the guarded run states of the
+current workspace. Everything else is preserved and reported, and
+`CODETOUR_COPILOT_MCP_CONFIG` overrides the legacy configuration path.
+`codetour --uninstall copilot` removes the plugin and only the files this CLI
+owns, leaving any other file or server untouched. `codetour --agents` reports
+the integration state, and `codetour --doctor` adds the leftovers it cannot
+prove or reach, with the command that removes each of them.
 
 `codetour --install vscode` installs the CodeTour VS Code extension through
 the `code` CLI when a `.vsix` is found next to the launcher or in the current
@@ -118,13 +103,8 @@ distributable `.vsix` is reported as `incompatible`. The extension is a
 reader integration: it stays available by name and is never part of the
 generation picker.
 
-For a client that cannot set the working directory, omit `cwd` and pass
-`"--workspace-root", "/path/to/workspace"` in `args` instead. `codetour mcp`
-is the stable launch contract for future agent adapters, alongside the
-existing `codetour-mcp` npm binary.
-
-The MCP server is embedded once inside `dist/cli.js` and enforced by the
-packager (see ADR 0030): the artifact never ships a second server entry.
+The launcher records nothing ambient: every creation names its workspace with
+`--workspace`, so a client never depends on a working directory it cannot set.
 Project Tours work before the workspace is a Git repository. Changes Tours,
 merge-base resolution, head validation and historical snapshots still require
 Git on PATH, exactly as the reader does.
@@ -133,11 +113,8 @@ Execution can be blocked by macOS Gatekeeper, Windows security controls, or an e
 
 ## Validation status
 
-`npm run test:standalone` builds an artifact for the running host and tests Tour discovery and HTML output with the packaged runtime. It also launches `codetour mcp` through the packaged launcher with an MCP SDK client in a workspace that is not a Git repository, with a PATH that exposes no global Node executable on macOS: it performs the handshake, lists every tool, creates a Project Tour, lists,
-reads and saves Knowledge and requests the enriched Project Tour prompt,
-verifies the produced files, and checks `--help`, `--version`, invalid
-arguments, inaccessible workspaces and stdin shutdown. The packager rejects an artifact whose CLI bundle exceeds the measured size budget or contains a second MCP server entry.
+`npm run test:standalone` builds an artifact for the running host and tests Tour discovery and HTML output with the packaged runtime, with a PATH that exposes no global Node executable on macOS. It also creates four Tours through the packaged launcher — a Project Tour, a neutral Changes Tour and two critical Changes Tours — in a workspace with and without Git, reads each of them back with the HTML renderer and the terminal reader, and checks that the creation wrote the Tour and its journal record and nothing else. It asserts that the artifact carries no server bundle and no `Usage: codetour-mcp` marker, that the critical-review pack travels inside the bundle, and that the launcher, the licenses and the executable bits are preserved. The packager still rejects an artifact whose CLI bundle exceeds the measured size budget.
 
 On macOS it also runs the packaged terminal reader in a pseudo-terminal and checks that a Tour Step appears and the reader exits. This does not prove the graphical terminal window works, validate Copilot, or replace testing on a fresh machine without a global runtime and without admin access. Windows and both macOS architectures each need their own actual artifact and graphical smoke test before the POC packaging acceptance criterion is complete.
 
-On Windows, `codetour.cmd mcp` forwards every argument to `dist\cli.js` (`%*` in the launcher, covered by the launcher template test), but a real Windows launch of `codetour.cmd mcp` with an MCP client has not been executed on a build machine yet: it must be validated on Windows before release, together with spaced paths through `codetour.cmd`.
+On Windows, `codetour.cmd` forwards every argument to `dist\cli.js` (`%*` in the launcher, covered by the launcher template test), but a real Windows launch of `codetour.cmd` for a creation has not been executed on a build machine yet: it must be validated on Windows before release, together with spaced paths through `codetour.cmd`.

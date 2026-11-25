@@ -1,38 +1,38 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-// Embeds the Markdown skill sources under packages/mcp-server/review-skill/
-// into a generated TypeScript module so the critical review skill pack is
-// guaranteed present offline in every distribution (npm package, VSIX,
-// standalone bundle): the strings travel with the compiled server instead
-// of relying on packaged resource files.
+// Copies the critical-review pack into the shipped skill directories.
 //
-// The Markdown files are the readable source of truth. After editing them,
-// run `node scripts/embed-review-skill.js` and commit both copies; the unit
-// test review-skill.test.ts fails when they diverge.
+// The pack (the CodeTour adaptation, the verbatim upstream skill and its MIT
+// license) is what makes `reviewMode: "critical"` more than a word: both
+// generation skills require reading it before they write a critical Changes
+// Tour. It no longer travels through a server, so each shipped skill carries its
+// own copy next to the SKILL.md that names it.
+//
+// docs/critical-review/ is the readable source of truth. After editing it, run
+// `node scripts/embed-review-skill.js` and commit the copies;
+// src/cli/criticalReviewSkill.test.ts fails when a copy diverges.
 
-const packageRoot = path.resolve(__dirname, "..", "packages", "mcp-server");
-const sourceRoot = path.join(packageRoot, "review-skill");
-const target = path.join(packageRoot, "src", "review-skill.generated.ts");
-
-const sources = [
-  ["UPSTREAM_CODE_REVIEW_SKILL", "upstream-code-review.md"],
-  ["UPSTREAM_CODE_REVIEW_LICENSE", "upstream-LICENSE.txt"],
-  ["CODETOUR_CRITICAL_REVIEW_ADAPTATION", "codetour-adaptation.md"],
+const root = path.resolve(__dirname, "..");
+const sourceDirectory = path.join(root, "docs", "critical-review");
+const skillDirectories = [
+  path.join(root, "packages", "copilot-plugin", "skills", "codetour-generate"),
+  path.join(root, "packages", "pi-plugin", "skills", "codetour-generate")
 ];
 
-const banner = [
-  "// GENERATED FILE - do not edit by hand.",
-  "// Regenerate with `node scripts/embed-review-skill.js` after editing the",
-  "// Markdown sources in packages/mcp-server/review-skill/. The unit test",
-  "// review-skill.test.ts fails when this module diverges from them.",
-  "",
-].join("\n");
+const sources = ["codetour-adaptation.md", "upstream-code-review.md", "upstream-LICENSE.txt"];
 
-const generatedExports = sources.map(([constant, file]) => {
-  const content = fs.readFileSync(path.join(sourceRoot, file), "utf8");
-  return `export const ${constant}: string = ${JSON.stringify(content)};`;
-});
+for (const name of sources) {
+  if (!fs.existsSync(path.join(sourceDirectory, name))) {
+    throw new Error(`The critical-review pack is missing ${name} in ${sourceDirectory}.`);
+  }
+}
 
-fs.writeFileSync(target, `${banner}${generatedExports.join("\n\n")}\n`);
-console.log(`Embedded ${sources.length} skill sources into ${path.relative(packageRoot, target)}`);
+for (const skillDirectory of skillDirectories) {
+  const target = path.join(skillDirectory, "references");
+  fs.mkdirSync(target, { recursive: true });
+  for (const name of sources) {
+    fs.copyFileSync(path.join(sourceDirectory, name), path.join(target, name));
+  }
+  console.log(`Copied the critical-review pack into ${path.relative(root, target)}`);
+}

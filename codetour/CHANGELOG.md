@@ -189,6 +189,44 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
   stop with that cause instead of answering as if a Tour had been created. See
   ADR 0034.
 
+### Removed
+
+- The CodeTour MCP server. `codetour mcp`, `packages/mcp-server/` (server,
+  prompts, resources, `schema.json` copy and the `@modelcontextprotocol/sdk` /
+  `zod` tool-schema dependencies), the `mcp-server.js` webpack bundle and its
+  standalone packaging invariant, the VS Code `registerMcpServerDefinitionProvider`
+  integration and its `mcpServerDefinitionProviders` contribution, the plugin
+  `mcp.json`, and every build/test leg that packaged them are gone. Generation
+  is the agent skill plus `codetour create-project-tour` /
+  `create-changes-tour`. See ADR 0057.
+- The Codex MCP configuration commands (`CodeTour IA: Configure MCP for Codex`,
+  `CodeTour IA: Repair MCP Configuration for Codex`) and `scripts/diagnose-run-log.mjs`.
+  CodeTour ships no server to register, and the guard/metrics diagnostics went
+  with the guarded run. See ADR 0057.
+- The MCP-routed legacy Copilot extension (`.github/extensions/codetour/`, its
+  embed script and generated mirror, and `<COPILOT_HOME>/extensions/codetour`):
+  the Agent Plugins 1.0 plugin's skill supersedes it. The critical-review pack it
+  served now ships in both generation skills as `references/`, generated from
+  `docs/critical-review/` by `scripts/embed-review-skill.js`.
+
+### Compatibility
+
+- **MCP clients are no longer supported.** The `codetour` MCP server, its two
+  creation tools and the `codetour://review/critical-instructions` resource are
+  removed, as is the `codetour` npm package. A client that configured the server
+  must switch to the generation skill and the CLI, or to
+  `codetour create-project-tour` / `create-changes-tour` directly. See
+  MIGRATION.md and ADR 0057.
+- An existing installation migrates through `codetour --install <agent>` and
+  `--uninstall <agent>`: they remove the adapter files, plugin declaration,
+  `mcp-config.json` entry and guarded run states CodeTour can prove it wrote, and
+  preserve everything else. `--doctor` reports the leftovers it cannot prove or
+  reach, including the Codex-side configuration (`codex mcp remove codetour`).
+- Tours are unaffected: `.tour` files written before this change still open with
+  `codetour <title>`, the HTML renderer and the VS Code extension, and a
+  migration never removes or rewrites `.tours/*.tour`, `.tours/images/` or the
+  creation journal under `.tours/.log/creations/`.
+
 ## v0.1.2
 
 ### Added

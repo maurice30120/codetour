@@ -86,14 +86,11 @@ async function installedLauncher(): Promise<Launcher | undefined> {
 
 /**
  * The argv words of the CLI to call: the recorded launcher when installed,
- * `codetour` from PATH otherwise. `launcher.json` still records the retired
- * `mcp` subcommand; every surface here calls top-level subcommands (ticket #325
- * removes it from the recorded shape).
+ * `codetour` from PATH otherwise. Every surface here calls a top-level
+ * subcommand, and `launcher.json` records no subcommand at all.
  */
 function cliWords(launcher: Launcher | undefined): string[] {
-  const words = launcher ? [launcher.command, ...launcher.args] : ["codetour"];
-  if (words.length > 1 && words[words.length - 1] === "mcp") words.pop();
-  return words;
+  return launcher ? [launcher.command, ...launcher.args] : ["codetour"];
 }
 
 async function realWorkspace(cwd: string): Promise<string | undefined> {

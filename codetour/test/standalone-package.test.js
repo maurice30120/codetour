@@ -6,20 +6,8 @@ const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawnSync, spawn } = require("node:child_process");
-const { createRequire } = require("node:module");
 const root = path.resolve(__dirname, "..");
 const packaging = require("../scripts/package-standalone.js");
-const { verifyCriticalResource } = require("../scripts/verify-critical-resource.js");
-
-// The MCP SDK client comes from the MCP server package's installed
-// dependencies; the standalone tests are its consumer-side counterpart.
-const mcpRequire = createRequire(path.join(root, "packages", "mcp-server", "package.json"));
-const { Client } = mcpRequire("@modelcontextprotocol/sdk/client/index.js");
-const { StdioClientTransport } = mcpRequire("@modelcontextprotocol/sdk/client/stdio.js");
-
-const mcpVersion = JSON.parse(
-  fs.readFileSync(path.join(root, "packages", "mcp-server", "package.json"), "utf8")
-).version;
 
 function listFilesRecursively(rootDirectory) {
   const entries = [];
@@ -27,8 +15,7 @@ function listFilesRecursively(rootDirectory) {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const entryPath = path.join(directory, entry.name);
       // Windows path.relative joins with "\" while the expected entries are
-      // forward-slash strings; normalize like the MCP package's test helper
-      // (packages/mcp-server/test/helpers/test-utils.ts, issue #84).
+      // forward-slash strings (issue #84).
       entries.push(path.relative(rootDirectory, entryPath).split(path.sep).join("/"));
       if (entry.isDirectory()) walk(entryPath);
     }
@@ -67,18 +54,6 @@ function spawnPackagedSync(args, options = {}) {
 function spawnPackaged(args, options = {}) {
   const launch = packagedLaunchSpec(args);
   return spawn(launch.command, launch.args, { ...options, shell: launch.shell });
-}
-
-async function callTool(client, name, args) {
-  const result = await client.callTool({ name, arguments: args });
-  return {
-    isError: result.isError ?? false,
-    text: (result.content ?? [])
-      .filter(item => item.type === "text")
-      .map(item => item.text)
-      .join("\n"),
-    structured: result.structuredContent ?? {},
-  };
 }
 
 // One real artifact for the running host, shared by every test in this file.
@@ -158,61 +133,6 @@ test("packaged codetour removes a leftover Knowledge skill offline, never instal
   assert.equal(fs.existsSync(skillDirectory), false);
 });
 
-test("packaged codetour mcp creates a Project Tour in a non-Git workspace without global Node", async () => {
-  const workspace = path.join(shared.tmp, "tour workspace");
-  fs.mkdirSync(workspace);
-  fs.writeFileSync(path.join(workspace, "hello.txt"), "hello standalone\n");
-  const before = listFilesRecursively(workspace);
-  const client = new Client(
-    { name: "standalone-mcp-test-client", version: "0.0.0" },
-    { capabilities: {} }
-  );
-  const transport = new StdioClientTransport({
-    command: shared.launcher,
-    args: ["mcp"],
-    cwd: workspace,
-    env: restrictedEnv(),
-    stderr: "pipe",
-  });
-  const stderrChunks = [];
-  await client.connect(transport);
-  transport.stderr?.on("data", chunk => stderrChunks.push(String(chunk)));
-  try {
-    const tools = await client.listTools();
-    assert.deepEqual(
-      tools.tools.map(tool => tool.name).sort(),
-      [
-        "create_changes_tour",
-        "create_project_tour",
-        "get_generation_prompt",
-      ]
-    );
-    const response = await callTool(client, "create_project_tour", {
-      title: "Standalone Tour",
-      steps: [{ file: "hello.txt", description: "Created by the packaged MCP server." }],
-    });
-    assert.equal(response.isError, false, response.text);
-    assert.equal(response.structured.status, "created");
-    const tour = JSON.parse(fs.readFileSync(path.join(workspace, ".tours", "project.tour"), "utf8"));
-    assert.equal(tour.title, "Standalone Tour");
-    // The session wrote exactly the reserved Tour file and its creation
-    // journal record, and nothing else.
-    const after = listFilesRecursively(workspace);
-    const createdFiles = after.filter(entry => !before.includes(entry));
-    assert.deepEqual(
-      createdFiles.filter(entry => !entry.startsWith(".tours/.log")),
-      [".tours", ".tours/project.tour"]
-    );
-    assert.equal(
-      createdFiles.filter(entry => /^\.tours\/\.log\/creations\/[^/]+\.json$/.test(entry)).length,
-      1
-    );
-    assert.equal(stderrChunks.join(""), "");
-  } finally {
-    await client.close();
-  }
-});
-
 test("packaged codetour creates a Tour with no MCP server running", () => {
   const workspace = path.join(shared.tmp, "cli creation workspace");
   fs.mkdirSync(workspace);
@@ -252,42 +172,7 @@ test("packaged codetour creates a Tour with no MCP server running", () => {
   );
 });
 
-test("packaged codetour mcp serves --workspace-root from a different working directory", async () => {
-  const workspace = path.join(shared.tmp, "remote workspace");
-  const elsewhere = path.join(shared.tmp, "unrelated cwd");
-  fs.mkdirSync(workspace);
-  fs.mkdirSync(elsewhere);
-  fs.writeFileSync(path.join(workspace, "hello.txt"), "hello remote\n");
-  const client = new Client(
-    { name: "standalone-mcp-test-client", version: "0.0.0" },
-    { capabilities: {} }
-  );
-  const transport = new StdioClientTransport({
-    command: shared.launcher,
-    args: ["mcp", "--workspace-root", workspace],
-    cwd: elsewhere,
-    env: restrictedEnv(),
-  });
-  await client.connect(transport);
-  try {
-    const response = await callTool(client, "create_project_tour", {
-      steps: [{ file: "hello.txt", description: "Anchored inside the workspace passed to --workspace-root." }],
-    });
-    assert.equal(response.isError, false, response.text);
-    assert.ok(fs.existsSync(path.join(workspace, ".tours", "project.tour")));
-    assert.equal(fs.existsSync(path.join(elsewhere, ".tours")), false);
-  } finally {
-    await client.close();
-  }
-});
-
-test("the standalone MCP serves the complete critical review skill offline", async () => {
-  const runtime = path.join(shared.artifact, process.platform === "win32" ? "node.exe" : "node");
-  await verifyCriticalResource(runtime,
-    [path.join(shared.artifact, "dist", "cli.js"), "mcp"], shared.tmp);
-});
-
-test("packaged creation and both readers preserve Project and neutral or critical Changes Tours", async () => {
+test("packaged creation and both readers preserve Project and neutral or critical Changes Tours", () => {
   const workspace = path.join(shared.tmp, "generation playback");
   fs.mkdirSync(workspace);
   const git = (...args) => {
@@ -304,42 +189,47 @@ test("packaged creation and both readers preserve Project and neutral or critica
   git("add", "code.ts");
   git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "feature");
   let headRef = git("rev-parse", "HEAD");
-  const client = new Client({ name: "generation-playback-test", version: "0.0.0" }, { capabilities: {} });
-  const transport = new StdioClientTransport({ command: shared.launcher, args: ["mcp"], cwd: workspace, env: restrictedEnv() });
   const cases = [
-    { fileName: "project", tool: "create_project_tour" },
-    { fileName: "neutral", tool: "create_changes_tour", reviewMode: "neutral" },
-    { fileName: "critical-no-spec", tool: "create_changes_tour", reviewMode: "critical",
-      description: "Spec axis not evaluated: no spec source was found." },
-    { fileName: "critical-with-spec", tool: "create_changes_tour", reviewMode: "critical",
-      description: "Spec source: docs/spec.md. No defect established." }
-  ];
-  await client.connect(transport);
-  try {
-    for (const scenario of cases) {
-      if (scenario.fileName === "critical-with-spec") {
-        fs.mkdirSync(path.join(workspace, "docs"));
-        fs.writeFileSync(path.join(workspace, "docs", "spec.md"), "# Requirement\n\nThe delivered constant is 2.\n");
-        git("add", "docs/spec.md");
-        git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "record docs/spec.md");
-        headRef = git("rev-parse", "HEAD");
-      }
-      scenario.headRef = headRef;
-      // Fake Tour Generator: the packaged server supplies instructions before
-      // the author submits steps. MCP validates proposals; it does not review.
-      if (scenario.reviewMode === "critical") {
-        const resource = await client.readResource({ uri: "codetour://review/critical-instructions" });
-        assert.ok(resource.contents.some(content => "text" in content && content.text.includes("Standards")));
-      }
-      const response = await callTool(client, scenario.tool, {
-        title: scenario.fileName, fileName: scenario.fileName,
-        ...(scenario.reviewMode ? { baseRef, headRef, reviewMode: scenario.reviewMode } : {}),
-        ...(scenario.description ? { description: scenario.description } : {}),
-        steps: [{ title: "Introduction", file: "code.ts", line: 1, description: "The delivered constant is 2." }]
-      });
-      assert.equal(response.isError, false, response.text);
+    { fileName: "project", command: "create-project-tour" },
+    { fileName: "neutral", command: "create-changes-tour", reviewMode: "neutral" },
+    {
+      fileName: "critical-no-spec", command: "create-changes-tour", reviewMode: "critical",
+      description: "Spec axis not evaluated: no spec source was found."
+    },
+    {
+      fileName: "critical-with-spec", command: "create-changes-tour", reviewMode: "critical",
+      description: "Spec source: docs/spec.md. No defect established."
     }
-  } finally { await client.close(); }
+  ];
+  for (const scenario of cases) {
+    if (scenario.fileName === "critical-with-spec") {
+      fs.mkdirSync(path.join(workspace, "docs"));
+      fs.writeFileSync(path.join(workspace, "docs", "spec.md"), "# Requirement\n\nThe delivered constant is 2.\n");
+      git("add", "docs/spec.md");
+      git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "record docs/spec.md");
+      headRef = git("rev-parse", "HEAD");
+    }
+    const proposal = path.join(shared.tmp, `${scenario.fileName} proposal.json`);
+    fs.writeFileSync(proposal, JSON.stringify({
+      title: scenario.fileName,
+      fileName: scenario.fileName,
+      ...(scenario.reviewMode ? { baseRef, headRef, reviewMode: scenario.reviewMode } : {}),
+      ...(scenario.description ? { description: scenario.description } : {}),
+      steps: [{ title: "Introduction", file: "code.ts", line: 1, description: "The delivered constant is 2." }]
+    }));
+    // The creation is the CLI's work alone: no server is started, so the only
+    // thing the proposal meets is the packaged bundle.
+    const created = spawnPackagedSync(
+      [scenario.command, "--workspace", workspace, "--proposal", proposal],
+      { cwd: shared.tmp, env: restrictedEnv(), encoding: "utf8" }
+    );
+    assert.equal(created.status, 0, created.stderr);
+    assert.equal(created.stderr, "");
+    const result = JSON.parse(created.stdout);
+    assert.equal(result.ok, true, created.stdout);
+    assert.equal(result.kind, scenario.command === "create-project-tour" ? "project" : "changes");
+    scenario.headRef = headRef;
+  }
   // Readers must resolve committed diff snapshots despite a later dirty edit.
   fs.writeFileSync(path.join(workspace, "code.ts"), "export const dirty = 99;\n");
   for (const scenario of cases) {
@@ -374,97 +264,24 @@ test("packaged creation and both readers preserve Project and neutral or critica
   }
 });
 
-test("packaged codetour mcp help, version and argument diagnostics match codetour-mcp", () => {
-  const workspace = path.join(shared.tmp, "diagnostics workspace");
-  fs.mkdirSync(workspace);
-  const env = { ...restrictedEnv() };
-  const run = args => spawnPackagedSync(args, {
-    cwd: workspace, env, encoding: "utf8"
-  });
-
-  const help = run(["mcp", "--help"]);
-  assert.equal(help.status, 0, help.stderr);
-  assert.match(help.stdout, /Usage: codetour-mcp/);
-  assert.match(help.stdout, /--workspace-root <dir>/);
-
-  const version = run(["mcp", "--version"]);
-  assert.equal(version.status, 0, version.stderr);
-  assert.equal(version.stdout.trim(), mcpVersion);
-  assert.equal(version.stderr, "");
-
-  const unknown = run(["mcp", "--bogus"]);
-  assert.notEqual(unknown.status, 0);
-  assert.match(unknown.stderr, /Unknown argument: --bogus/);
-  assert.equal(unknown.stdout, "");
-
-  const missing = run(["mcp", "--workspace-root"]);
-  assert.notEqual(missing.status, 0);
-  assert.match(missing.stderr, /Missing value for --workspace-root/);
-  assert.equal(missing.stdout, "");
-
-  const inaccessible = run(["mcp", "--workspace-root", path.join(workspace, "missing")]);
-  assert.notEqual(inaccessible.status, 0);
-  assert.match(inaccessible.stderr, /not an accessible directory/);
-  assert.equal(inaccessible.stdout, "");
-});
-
-test("packaged codetour mcp keeps stdout protocol-only and exits when stdin closes", async () => {
-  const workspace = path.join(shared.tmp, "protocol workspace");
-  fs.mkdirSync(workspace);
-  const child = spawnPackaged(["mcp"], {
-    cwd: workspace,
-    env: restrictedEnv(),
-  });
-  let stdout = "";
-  let stderrText = "";
-  child.stdout.on("data", chunk => (stdout += String(chunk)));
-  child.stderr.on("data", chunk => (stderrText += String(chunk)));
-  const exited = new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`server did not exit after stdin close: ${stdout}`)), 10000);
-    child.once("exit", (code, signal) => {
-      clearTimeout(timer);
-      resolve({ code, signal });
-    });
-    child.once("error", error => { clearTimeout(timer); reject(error); });
-  });
-  // Raw JSON-RPC handshake: any banner or reader output on stdout would make
-  // a line fail to parse as a protocol message.
-  const request = JSON.stringify({
-    jsonrpc: "2.0",
-    id: 1,
-    method: "initialize",
-    params: {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "raw-client", version: "0.0.0" },
-    },
-  }) + "\n";
-  await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`no initialize response: ${stdout}`)), 15000);
-    child.stdout.on("data", chunk => {
-      if (String(chunk).includes('"result"')) {
-        clearTimeout(timer);
-        resolve();
-      }
-    });
-    child.stdin.write(request);
-  });
-  child.stdin.end();
-  const { code } = await exited;
-  assert.equal(code, 0);
-  assert.equal(stderrText, "");
-  const lines = stdout.split("\n").filter(line => line.trim() !== "");
-  assert.ok(lines.length >= 1);
-  for (const line of lines) {
-    assert.doesNotThrow(() => JSON.parse(line), `non-protocol stdout: ${line}`);
-  }
-});
-
-test("the artifact contains the MCP server exactly once and preserves permissions and licenses", () => {
-  // Single-server invariant on the real artifact.
-  assert.doesNotThrow(() => packaging.assertSingleMcpServer(shared.artifact));
+test("the artifact ships no MCP server and no declaration of one", () => {
+  // The invariant that replaces the retired single-server check: the artifact
+  // carries the reader, the creation commands and the plugin files, and no
+  // server bundle, marker or launch declaration.
   assert.equal(fs.existsSync(path.join(shared.artifact, "dist", "mcp-server.js")), false);
-  // Licenses travel with the distribution.
+  for (const file of listFilesRecursively(shared.artifact)) {
+    if (!file.endsWith(".js")) continue;
+    const content = fs.readFileSync(path.join(shared.artifact, file), "utf8");
+    assert.doesNotMatch(content, /Usage: codetour-mcp/, `${file} carries an MCP server entry`);
+  }
+  // The critical-review pack travels inside the bundle, so a created critical
+  // Changes Tour has its method offline.
+  const bundle = fs.readFileSync(path.join(shared.artifact, "dist", "cli.js"), "utf8");
+  assert.match(bundle, /\*\*Standards:\*\*/);
+  assert.match(bundle, /Matt Pocock/);
+});
+
+test("the artifact preserves permissions and licenses", () => {
   for (const license of ["NODE-LICENSE", "RESVG-LICENSE", path.join("dist", "cli.js.LICENSE.txt")]) {
     assert.ok(fs.existsSync(path.join(shared.artifact, license)), `missing ${license}`);
   }
@@ -528,35 +345,6 @@ test("the packager rejects a CLI bundle over the measured size budget", () => {
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /budget/);
     assert.equal(fs.existsSync(output), false);
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
-});
-
-test("the packager rejects an artifact that contains a second MCP server entry", () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "codetour-package-duplicate-"));
-  try {
-    const fake = path.join(tmp, "artifact");
-    fs.mkdirSync(path.join(fake, "dist"), { recursive: true });
-    const marker = 'console.log("Usage: codetour-mcp");\n';
-    // A single embedded server passes.
-    fs.writeFileSync(path.join(fake, "dist", "cli.js"), marker);
-    assert.doesNotThrow(() => packaging.assertSingleMcpServer(fake));
-    // A second standalone server entry is rejected.
-    fs.writeFileSync(path.join(fake, "dist", "mcp-server.js"), marker);
-    assert.throws(() => packaging.assertSingleMcpServer(fake), /second MCP server entry/);
-    fs.rmSync(path.join(fake, "dist", "mcp-server.js"));
-    // A second embedded copy in the bundle is rejected too.
-    fs.writeFileSync(path.join(fake, "dist", "cli.js"), marker + marker);
-    assert.throws(() => packaging.assertSingleMcpServer(fake), /exactly once/);
-    // A server marker outside dist/cli.js is rejected.
-    fs.mkdirSync(path.join(fake, "dist", "node_modules", "evil"), { recursive: true });
-    fs.writeFileSync(path.join(fake, "dist", "node_modules", "evil", "evil.js"), marker);
-    fs.rmSync(path.join(fake, "dist", "node_modules", "evil"), { recursive: true, force: true });
-    fs.writeFileSync(path.join(fake, "dist", "cli.js"), marker);
-    fs.mkdirSync(path.join(fake, "dist", "node_modules", "server"), { recursive: true });
-    fs.writeFileSync(path.join(fake, "dist", "node_modules", "server", "server.js"), marker);
-    assert.throws(() => packaging.assertSingleMcpServer(fake), /exactly once/);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

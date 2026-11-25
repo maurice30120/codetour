@@ -62,12 +62,11 @@ export function readerCommand(state) {
 
 /**
  * The spawn plan of the Terminal choice (review F2): the recorded launcher —
- * the very CLI that installed this package — minus its `mcp` subcommand,
- * driving the real interactive reader, in the workspace, at the workspace
- * root. The recorded Tour file drives the reader directly when it exists (the
- * deterministic internal route, no discovery, no selection prompt); the
- * recorded title walks the default reading path otherwise. Null when no Tour
- * exists to read.
+ * the very CLI that installed this package — driving the real interactive
+ * reader, in the workspace, at the workspace root. The recorded Tour file
+ * drives the reader directly when it exists (the deterministic internal route,
+ * no discovery, no selection prompt); the recorded title walks the default
+ * reading path otherwise. Null when no Tour exists to read.
  */
 export function readerSpawnPlan(state, launcher) {
   if (!createdTour(state)) return null;
@@ -85,9 +84,6 @@ export function readerSpawnPlan(state, launcher) {
 
 export function readerInvocation(launcher, args, cwd) {
   const base = Array.isArray(launcher?.args) ? [...launcher.args] : [];
-  // `launcher.json` still records the retired `mcp` subcommand; reading is a
-  // top-level subcommand (ticket #325 removes it from the recorded shape).
-  if (base.length > 0 && base[base.length - 1] === "mcp") base.pop();
   const command = typeof launcher?.command === "string" && launcher.command !== ""
     ? launcher.command
     : "codetour";

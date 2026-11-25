@@ -1,6 +1,6 @@
 #!/bin/sh
 # Fast local guard run before every commit: type checking plus the Copilot
-# adapter tests, so a broken change is refused before it reaches CI.
+# agentStop hook tests, so a broken change is refused before it reaches CI.
 #
 # Install it once per clone (the hook stays in the repository):
 #
@@ -30,7 +30,7 @@ fi
 missing=""
 [ -x node_modules/.bin/tsc ] || missing="$missing node_modules"
 [ -f dist/cli.js ] || missing="$missing dist/"
-for package in description-renderer tour-generation mcp-server; do
+for package in description-renderer tour-generation; do
   [ -d "packages/$package/dist" ] || missing="$missing packages/$package/dist/"
 done
 if [ -n "$missing" ]; then
@@ -40,5 +40,5 @@ if [ -n "$missing" ]; then
   exit 1
 fi
 
-echo "pre-commit: type checking and Copilot adapter tests..." >&2
+echo "pre-commit: type checking and Copilot hook tests..." >&2
 exec npm run --silent check:fast
