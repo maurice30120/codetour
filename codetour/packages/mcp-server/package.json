@@ -17,6 +17,7 @@
   "main": "dist/src/server.js",
   "files": [
     "dist/src",
+    "dist/node_modules/codetour-tour-generation",
     "dist/node_modules/codetour-description-renderer",
     "dist/node_modules/codetour-workspace-identity",
     "dist/package.json",
@@ -41,11 +42,12 @@
     "@resvg/resvg-js": "2.6.2",
     "ajv": "^6.12.6",
     "codetour-description-renderer": "file:../description-renderer",
+    "codetour-tour-generation": "file:../tour-generation",
+    "codetour-workspace-identity": "file:../workspace-identity",
     "jsdom": "26.1.0",
     "mermaid": "11.12.2",
     "safe-regex2": "^5.1.1",
-    "zod": "^3.25.76",
-    "codetour-workspace-identity": "file:../workspace-identity"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

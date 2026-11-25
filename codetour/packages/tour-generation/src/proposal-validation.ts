@@ -5,7 +5,7 @@ import { tourImageDirectoryName, validateImageDescriptions } from "./image-valid
 import { validateMermaidDescriptions } from "./mermaid-validation";
 import {
   ChangesParams,
-  ErrorResult,
+  CreationFailure,
   Issue,
   ProjectParams,
   TourStep,
@@ -36,10 +36,9 @@ import {
 
 export type TourProposalKind = "project" | "changes";
 
-// A rejection is already the error payload of the tool response (the shared
-// ErrorResult shape), so a handler relays it without re-deriving messages or
-// issue lists.
-export type ProposalRejection = ErrorResult;
+// A rejection is already the failure payload a caller reports, so a surface
+// relays it without re-deriving messages or issue lists.
+export type ProposalRejection = CreationFailure;
 
 export interface ValidatedProposal<P extends ProjectParams> {
   // Effective context for anchors and persistence: the selected workspace, or
@@ -58,22 +57,25 @@ export type ProposalValidation<P extends ProjectParams> =
 export async function validateTourProposal(
   kind: "project",
   args: unknown,
-  defaultContext: WorkspaceContext
+  defaultContext: WorkspaceContext,
+  surface?: string
 ): Promise<ProposalValidation<ProjectParams>>;
 export async function validateTourProposal(
   kind: "changes",
   args: unknown,
-  defaultContext: WorkspaceContext
+  defaultContext: WorkspaceContext,
+  surface?: string
 ): Promise<ProposalValidation<ChangesParams>>;
 export async function validateTourProposal(
   kind: TourProposalKind,
   args: unknown,
-  defaultContext: WorkspaceContext
+  defaultContext: WorkspaceContext,
+  surface: string = `create_${kind}_tour`
 ): Promise<ProposalValidation<ProjectParams | ChangesParams>> {
   const invalid = (issues: Issue[]): ProposalRejection => ({
-    status: "error",
+    ok: false,
     code: "INVALID_PROPOSAL",
-    message: `The create_${kind}_tour arguments are invalid.`,
+    message: `The ${surface} arguments are invalid.`,
     issues,
   });
   const { params, issues: paramIssues } =
@@ -97,7 +99,7 @@ export async function validateTourProposal(
       return {
         ok: false,
         rejection: {
-          status: "error",
+          ok: false,
           code: "TOUR_STEPS_REQUIRED",
           message: "A tour requires at least one step.",
         },

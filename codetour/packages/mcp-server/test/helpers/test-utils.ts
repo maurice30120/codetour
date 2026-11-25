@@ -3,8 +3,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { validateCodetourTour } from "../../src/codetour-schema";
-import { git } from "../../src/git";
+import { git, validateCodetourTour } from "codetour-tour-generation";
 
 export { git };
 

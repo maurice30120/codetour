@@ -188,13 +188,16 @@ export function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, "/");
 }
 
-// Any `.tour` file under `.tours/`, and any file under `.tours/images/`, is a
-// Tour generation artifact: a previous generation must not trigger its own
-// dirty workspace warning.
+// Any `.tour` file under `.tours/`, and any file under `.tours/images/` or
+// `.tours/.log/`, is a Tour generation artifact: a previous generation must not
+// trigger its own dirty workspace warning. `.tours/.log/` holds CodeTour's own
+// generation state (the run log and the creation journal), so the next
+// generation must not read it back as a change of the user's workspace.
 function isGenerationArtifact(workspacePath: string): boolean {
   return (
     (workspacePath.startsWith(".tours/") && workspacePath.endsWith(".tour")) ||
-    workspacePath.startsWith(".tours/images/")
+    workspacePath.startsWith(".tours/images/") ||
+    workspacePath.startsWith(".tours/.log/")
   );
 }
 
@@ -244,8 +247,9 @@ export async function uncommittedChanges(
 }
 
 // An untracked `.tours` directory appears as one `?? .tours/` entry in normal
-// mode. Ignore it only when its contents are limited to Tour files and Tour
-// Images under `images/` (generation artifacts).
+// mode. Ignore it only when its contents are limited to generation artifacts:
+// Tour files, Tour Images under `images/`, and CodeTour generation state under
+// `.log/`.
 function toursDirectoryOnlyContainsGenerationArtifacts(
   ctx: WorkspaceContext,
   directory: string
@@ -268,7 +272,11 @@ function toursDirectoryOnlyContainsGenerationArtifacts(
       const file = normalizeSlashes(
         path.relative(absolute, path.join(entry.parentPath, entry.name))
       );
-      return file.endsWith(".tour") || file.startsWith("images/");
+      return (
+        file.endsWith(".tour") ||
+        file.startsWith("images/") ||
+        file.startsWith(".log/")
+      );
     })
   );
 }

@@ -1,5 +1,5 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createContext } from "./context";
+import { createContext } from "codetour-tour-generation";
 import { createServer } from "./server";
 import packageJson from "../package.json";
 import * as fs from "node:fs";
