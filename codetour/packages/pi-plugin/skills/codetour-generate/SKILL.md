@@ -77,9 +77,23 @@ every statement on the code you read.
 - **Changes Tour**: inspect the actual comparison — the diff from the merge-base
   to `HEAD`, the affected source and the tests. Group related changes into one
   review path anchored at the changed lines. Report test coverage factually and
-  never claim a test result you did not observe.
+  never claim a test result you did not observe. When uncommitted changes are
+  excluded, ground every claim about the comparison in the committed diff and
+  files at `headRef`, not the current working tree: dirty or untracked files can
+  contain newer behavior. From the workspace, read committed files with
+  `git show <headRef>:./<workspace-relative-path>` and compare with the
+  merge-base where needed. Never describe an excluded local change as committed,
+  even if it appears in the current skill or project files.
 
 ## 2. Build the proposal
+
+### Mermaid diagrams
+
+When adding a Mermaid diagram, read and follow [the Mermaid reference](references/mermaid.md) before building the proposal.
+
+### Anchors
+
+When adding anchors, read and follow [the anchor reference](references/anchors.md) before submitting the proposal.
 
 One JSON document. A Project Tour:
 

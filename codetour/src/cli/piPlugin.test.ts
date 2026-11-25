@@ -25,9 +25,19 @@ test("the embedded Pi package matches the versioned sources", () => {
     "lib/journal.mjs",
     "lib/reader.mjs",
     "skills/codetour-generate/SKILL.md",
+    "skills/codetour-generate/references/anchors.md",
+    "skills/codetour-generate/references/mermaid.md",
   ]) {
     assert.ok(PI_PLUGIN_FILES[required], `${required} is missing from the embedded package`);
   }
+});
+
+test("both plugins ship the same anchor reference", () => {
+  const reference = "skills/codetour-generate/references/anchors.md";
+  assert.equal(
+    source(reference),
+    readFileSync(path.join(root, "packages", "copilot-plugin", reference), "utf8")
+  );
 });
 
 test("the Pi manifest declares its resources and no runtime dependency", () => {

@@ -136,7 +136,9 @@ test("the installed plugin totals exactly the declared components", () => {
       "com.github.copilot/lib/run-log.mjs",
       "plugin.json",
       "skills/codetour-generate/SKILL.md",
+      "skills/codetour-generate/references/anchors.md",
       "skills/codetour-generate/references/codetour-adaptation.md",
+      "skills/codetour-generate/references/mermaid.md",
       "skills/codetour-generate/references/upstream-LICENSE.txt",
       "skills/codetour-generate/references/upstream-code-review.md"
     ]

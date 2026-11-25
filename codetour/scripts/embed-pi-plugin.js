@@ -33,6 +33,8 @@ for (const required of [
   "lib/journal.mjs",
   "lib/reader.mjs",
   "skills/codetour-generate/SKILL.md",
+  "skills/codetour-generate/references/anchors.md",
+  "skills/codetour-generate/references/mermaid.md",
   "skills/codetour-generate/references/codetour-adaptation.md",
   "skills/codetour-generate/references/upstream-code-review.md",
   "skills/codetour-generate/references/upstream-LICENSE.txt"

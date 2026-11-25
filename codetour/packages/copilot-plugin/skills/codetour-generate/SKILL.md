@@ -45,13 +45,21 @@ itself stay inside it.
 
 ## 3. Build the proposal
 
+### Mermaid diagrams
+
+When adding a Mermaid diagram, read and follow [the Mermaid reference](references/mermaid.md) before building the proposal.
+
+### Anchors
+
+When adding anchors, read and follow [the anchor reference](references/anchors.md) before submitting the proposal.
+
 One JSON object, with the fields the CLI validates:
 
 - `title` (optional: the CLI defaults a Project Tour to `Project Overview` and
   a Changes Tour to `Changes on <branch>`), `description`, `fileName` (a bare
   name, written under `.tours/`), `steps` (at least one).
 - A step carries a `title`, a Markdown `description`, and optionally one anchor:
-  `file` with `line` and/or `pattern`, `directory`, `selection`
+  `file` with either `line` or `pattern`, `directory`, `selection`
   (`{start: {line, character}, end: {...}}`), `display: "diff"` with
   `baseFile`. A step without an anchor is explanatory, which is what the
   orientation step should be.
@@ -62,9 +70,15 @@ One JSON object, with the fields the CLI validates:
 - `questions` (at most four short strings) attach the questions the reader
   should answer at that step.
 
-Explore the workspace before proposing anything: every `file`, `line` and
-`pattern` is verified against the files on disk before a single byte is
-written.
+Explore the workspace before proposing anything and verify each anchor against
+the applicable file version as described in the anchor reference.
+
+For a Changes Tour excluding uncommitted changes, ground every claim in the
+committed diff and files at `headRef`, not the current working tree: dirty or
+untracked files can contain newer behavior. From the workspace, read committed
+files with `git show <headRef>:./<workspace-relative-path>` and compare with the
+merge-base where needed. Never describe an excluded local change as committed,
+even if it appears in the current skill or project files.
 
 ## 4. Hand the proposal over
 

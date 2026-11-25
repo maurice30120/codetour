@@ -100,6 +100,35 @@ test.after(() => {
   }
 });
 
+test("the Mermaid reference is shipped for both hosts and its example passes the CLI", () => {
+  const skillPath = host => path.resolve("packages", `${host}-plugin`, "skills");
+  const pi = readFileSync(path.join(skillPath("pi"), "codetour-generate/references/mermaid.md"), "utf8");
+  const copilot = readFileSync(path.join(skillPath("copilot"), "codetour-generate/references/mermaid.md"), "utf8");
+  assert.equal(pi, copilot);
+  assert.match(pi, /prefix `Diagram —` is literal and\s+stays in English even in a French Tour/);
+  for (const host of ["pi", "copilot"]) {
+    const parent = readFileSync(path.join(skillPath(host), "codetour-generate/SKILL.md"), "utf8");
+    assert.match(parent, /read and follow \[the Mermaid reference\]\(references\/mermaid\.md\)/);
+  }
+  const example = pi.match(/`(A\["Start \(CLI\)"\] --> B\["Create Tour"\])`/);
+  assert.ok(example, "the reference contains the example to validate");
+  const root = workspace();
+  const description = ["**Diagram — Creation flow**", "", "```mermaid", "flowchart LR", example[1], "```"].join("\n");
+  const result = runCli(root, ["create-project-tour", "--workspace", root], {
+    input: JSON.stringify({ title: "Example", steps: [{ description }] })
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).ok, true);
+});
+
+test("both generation skills ground committed-only Changes Tours in the selected commit", () => {
+  for (const host of ["pi", "copilot"]) {
+    const parent = readFileSync(path.resolve("packages", `${host}-plugin`, "skills/codetour-generate/SKILL.md"), "utf8");
+    assert.match(parent, /git show <headRef>:\.\/<workspace-relative-path>/);
+    assert.match(parent, /excluded local change as committed/);
+  }
+});
+
 test("create-project-tour creates a Project Tour from a file proposal", () => {
   const root = workspace({ "code.ts": "export function main() {}\n" });
   const proposal = proposalFile("proposal.json", {

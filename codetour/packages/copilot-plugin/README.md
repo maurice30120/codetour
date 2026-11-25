@@ -21,7 +21,7 @@ warning). `copilot plugin uninstall codetour` removes it.
 | `com.github.copilot/hooks/hooks.json` | Copilot `agentStop` hook declaration. |
 | `com.github.copilot/hooks/agent-stop.mjs` | End-of-response summary: the created Tours and one token reading. It never blocks. |
 | `com.github.copilot/lib/run-log.mjs` | The creation-journal and session-transcript readers the hook uses. |
-| `skills/codetour-generate/references/` | The critical-review pack a `critical` Changes Tour follows: the CodeTour adaptation, the verbatim upstream skill and its MIT license. |
+| `skills/codetour-generate/references/` | Mermaid guidance and the critical-review pack a `critical` Changes Tour follows: the CodeTour adaptation, the verbatim upstream skill and its MIT license. |
 
 The plugin declares no MCP server: generation is the CLI's work, and the hook
 only reads what the CLI wrote (ADR 0057).

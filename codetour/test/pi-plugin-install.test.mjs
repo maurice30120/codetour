@@ -56,6 +56,8 @@ test("--install pi writes the package, the launcher and one declaration", () => 
       "lib/journal.mjs",
       "lib/reader.mjs",
       "skills/codetour-generate/SKILL.md",
+      "skills/codetour-generate/references/mermaid.md",
+      "skills/codetour-generate/references/anchors.md",
       "launcher.json",
     ]) {
       assert.ok(

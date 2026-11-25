@@ -132,6 +132,8 @@ test("the real Copilot CLI installs, inspects and uninstalls the Agent Plugins 1
       "com.github.copilot/hooks/agent-stop.mjs",
       "com.github.copilot/lib/run-log.mjs",
       "skills/codetour-generate/SKILL.md",
+      "skills/codetour-generate/references/mermaid.md",
+      "skills/codetour-generate/references/anchors.md",
       "skills/codetour-generate/references/codetour-adaptation.md",
       "skills/codetour-generate/references/upstream-code-review.md",
       "skills/codetour-generate/references/upstream-LICENSE.txt"
@@ -149,6 +151,7 @@ test("the real Copilot CLI installs, inspects and uninstalls the Agent Plugins 1
     assert.equal(skills.status, 0, skills.stderr);
     assert.match(skills.stdout, /Plugin skills:/);
     assert.match(skills.stdout, /codetour-generate/);
+    assert.doesNotMatch(skills.stdout, /codetour-mermaid/);
 
     // The plugin install must not create a second user-level registration in
     // mcp-config.json: that file is not touched by Copilot's plugin loader.

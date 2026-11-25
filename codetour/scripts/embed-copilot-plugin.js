@@ -32,6 +32,8 @@ for (const required of [
   "com.github.copilot/hooks/agent-stop.mjs",
   "com.github.copilot/lib/run-log.mjs",
   "skills/codetour-generate/SKILL.md",
+  "skills/codetour-generate/references/anchors.md",
+  "skills/codetour-generate/references/mermaid.md",
   "skills/codetour-generate/references/codetour-adaptation.md",
   "skills/codetour-generate/references/upstream-code-review.md",
   "skills/codetour-generate/references/upstream-LICENSE.txt"
