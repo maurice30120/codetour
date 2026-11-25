@@ -681,6 +681,28 @@ test("the journal records an unknown identity as null and follows the Pi session
   assert.equal(records[1].responseId, null);
 });
 
+test("the journal follows the Copilot session identity the CLI exports to tools", () => {
+  const root = workspace();
+  const result = runCli(root, [
+    "create-project-tour",
+    "--workspace",
+    root,
+    "--proposal",
+    proposalFile("proposal.json", { steps: [{ description: "Anything." }] })
+  ], {
+    env: { COPILOT_AGENT_SESSION_ID: "copilot-session-1" }
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const directory = path.join(canonical(root), ".tours", ".log", "creations");
+  const records = readdirSync(directory)
+    .map(name => JSON.parse(readFileSync(path.join(directory, name), "utf8")));
+  assert.equal(records.length, 1);
+  assert.equal(records[0].sessionId, "copilot-session-1");
+  assert.equal(records[0].host, "copilot");
+  assert.equal(records[0].responseId, null);
+});
+
 test("an unavailable journal never fails a creation", () => {
   const root = workspace();
   // A regular file where the journal directory belongs: every journal write

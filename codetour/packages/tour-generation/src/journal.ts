@@ -47,22 +47,28 @@ function nonEmpty(value: string | undefined): string | null {
 }
 
 // The identity is read from the environment of the creating process only: a
-// value CodeTour cannot observe stays null instead of being guessed. The two
+// value CodeTour cannot observe stays null instead of being guessed. The
 // explicit variables name the session, the response and the host; a host that
-// exports its own session variable is only used when it identifies the host
-// (Pi exports PI_SESSION_ID, whose presence also states the host). The Copilot
-// CLI is absent here on purpose: it reports its session identity inside the
-// hook payload, not in the environment of the process the agent spawns, so
-// there is no verified variable to read.
+// exports its own session variable is used when it identifies the host, which
+// is why its presence also states the host name. Both host variables were
+// verified on the installed CLIs: Pi exports PI_SESSION_ID to the bash tool,
+// and the Copilot CLI exports COPILOT_AGENT_SESSION_ID, whose value equals the
+// `sessionId` its agentStop hook receives.
 export function creationIdentity(
   env: Record<string, string | undefined> = process.env
 ): CreationIdentity {
   const explicitSession = nonEmpty(env.CODETOUR_SESSION_ID);
   const piSession = nonEmpty(env.PI_SESSION_ID);
+  const copilotSession = nonEmpty(env.COPILOT_AGENT_SESSION_ID);
+  const [sessionId, observedHost]: [string | null, string | null] =
+    explicitSession !== null ? [explicitSession, null]
+      : piSession !== null ? [piSession, "pi"]
+        : copilotSession !== null ? [copilotSession, "copilot"]
+          : [null, null];
   return {
-    sessionId: explicitSession ?? piSession,
+    sessionId,
     responseId: nonEmpty(env.CODETOUR_RESPONSE_ID),
-    host: nonEmpty(env.CODETOUR_HOST) ?? (explicitSession === null && piSession !== null ? "pi" : null),
+    host: nonEmpty(env.CODETOUR_HOST) ?? observedHost,
   };
 }
 
