@@ -22,7 +22,7 @@ instead of whatever `codetour` happens to be on `PATH`.
 | `lib/journal.mjs` | Reads the creation journal and attributes a creation to a response; the token reading and the summary lines. |
 | `lib/reader.mjs` | The end-of-generation opening dialogue: the real interactive reader (terminal) or the Tour at its active step (VS Code). |
 | `skills/codetour-generate/SKILL.md` | The generation entry point: the agent explores the workspace and creates the Tour with the CLI. |
-| `skills/codetour-generate/references/` | Mermaid guidance and the critical-review pack a `critical` Changes Tour follows: the CodeTour adaptation, the verbatim upstream skill and its MIT license. |
+| `skills/codetour-generate/references/` | The path modules the skill reads before exploring (`project-tour.md`, `changes-tour-neutral.md`, `changes-tour-critical.md`), the Mermaid and anchor guidance, and the critical-review pack only the critical module carries: the CodeTour adaptation, the verbatim upstream skill and its MIT license. |
 
 ## No server, no checkout
 

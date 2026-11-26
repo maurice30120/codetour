@@ -27,17 +27,39 @@ test("the embedded Pi package matches the versioned sources", () => {
     "skills/codetour-generate/SKILL.md",
     "skills/codetour-generate/references/anchors.md",
     "skills/codetour-generate/references/mermaid.md",
+    "skills/codetour-generate/references/project-tour.md",
+    "skills/codetour-generate/references/changes-tour-neutral.md",
+    "skills/codetour-generate/references/changes-tour-critical.md",
   ]) {
     assert.ok(PI_PLUGIN_FILES[required], `${required} is missing from the embedded package`);
   }
 });
 
-test("both plugins ship the same anchor reference", () => {
-  const reference = "skills/codetour-generate/references/anchors.md";
-  assert.equal(
-    source(reference),
-    readFileSync(path.join(root, "packages", "copilot-plugin", reference), "utf8")
+test("both plugins ship the same reference files", () => {
+  const references = Object.keys(PI_PLUGIN_FILES).filter(name =>
+    name.startsWith("skills/codetour-generate/references/")
   );
+  // The shared rules live once: a reference module that drifts between the two
+  // hosts would teach two generations of the same Tour.
+  for (const module of [
+    "anchors",
+    "mermaid",
+    "project-tour",
+    "changes-tour-neutral",
+    "changes-tour-critical",
+  ]) {
+    assert.ok(
+      references.includes(`skills/codetour-generate/references/${module}.md`),
+      `${module}.md is shipped beside the skill`
+    );
+  }
+  for (const reference of references) {
+    assert.equal(
+      source(reference),
+      readFileSync(path.join(root, "packages", "copilot-plugin", reference), "utf8"),
+      `${reference} diverges between the two plugins`
+    );
+  }
 });
 
 test("the Pi manifest declares its resources and no runtime dependency", () => {
@@ -162,4 +184,48 @@ test("the skill ends the generation with the two real openings, never a summary"
   assert.doesNotMatch(skill, /code --open-url/);
   // No textual summary answers for the reader, whatever the choice.
   assert.match(skill, /never replace the Tour with a step list/i);
+});
+
+test("the skill routes each generation path to one module, read before exploring", () => {
+  const skill = source("skills/codetour-generate/SKILL.md");
+  // One public skill and three modules: the type and the review mode name the
+  // module, and the module is read before exploration starts.
+  for (const module of ["project-tour", "changes-tour-neutral", "changes-tour-critical"]) {
+    assert.match(skill, new RegExp(`references/${module}\\.md`), `${module} is routed`);
+  }
+  assert.match(skill, /before exploring/i);
+  // The shared rules stay in the one skill the agent always loads.
+  for (const shared of ["Orientation", "Language", "Workspace", "Mermaid", "Anchors"]) {
+    assert.match(skill, new RegExp(shared), `${shared} stays in the public skill`);
+  }
+});
+
+test("each module carries its path down to the CLI invocation", () => {
+  const module = (name: string) => source(`skills/codetour-generate/references/${name}.md`);
+
+  const project = module("project-tour");
+  assert.match(project, /create-project-tour --workspace <dir> --proposal -/);
+  assert.doesNotMatch(project, /create-changes-tour|baseRef|headRef/);
+
+  const neutral = module("changes-tour-neutral");
+  assert.match(neutral, /create-changes-tour --workspace <dir> --proposal -/);
+  assert.match(neutral, /baseRef/);
+  assert.match(neutral, /headRef/);
+  assert.match(neutral, /merge-base/);
+  assert.match(neutral, /"reviewMode": "neutral"/);
+
+  const critical = module("changes-tour-critical");
+  assert.match(critical, /create-changes-tour --workspace <dir> --proposal -/);
+  assert.match(critical, /baseRef/);
+  assert.match(critical, /headRef/);
+  assert.match(critical, /"reviewMode": "critical"/);
+});
+
+test("the skill documents the mandatory refs of every Changes Tour", () => {
+  const skill = source("skills/codetour-generate/SKILL.md");
+  assert.match(skill, /`baseRef` and `headRef` are mandatory for every Changes Tour/);
+  assert.match(skill, /full 40-character SHA/);
+  // A Changes Tour is the shared document plus exactly these fields: the
+  // module of its path shows the complete document.
+  assert.match(skill, /`includeUncommittedChanges`/);
 });

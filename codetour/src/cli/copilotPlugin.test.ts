@@ -137,10 +137,40 @@ test("the installed plugin totals exactly the declared components", () => {
       "plugin.json",
       "skills/codetour-generate/SKILL.md",
       "skills/codetour-generate/references/anchors.md",
+      "skills/codetour-generate/references/changes-tour-critical.md",
+      "skills/codetour-generate/references/changes-tour-neutral.md",
       "skills/codetour-generate/references/codetour-adaptation.md",
       "skills/codetour-generate/references/mermaid.md",
+      "skills/codetour-generate/references/project-tour.md",
       "skills/codetour-generate/references/upstream-LICENSE.txt",
       "skills/codetour-generate/references/upstream-code-review.md"
     ]
   );
+});
+
+test("the plugin skill routes each generation path to one module", () => {
+  const skill = source("skills/codetour-generate/SKILL.md");
+  for (const module of ["project-tour", "changes-tour-neutral", "changes-tour-critical"]) {
+    assert.match(skill, new RegExp(`references/${module}\\.md`), `${module} is routed`);
+    assert.ok(
+      COPILOT_PLUGIN_FILES[`skills/codetour-generate/references/${module}.md`],
+      `${module}.md is embedded, so it installs offline`
+    );
+  }
+  assert.match(skill, /before exploring/i);
+  // The module spells the CLI `<cli>`; the skill keeps it unambiguous here.
+  assert.match(skill, /`<cli>` is `codetour`/);
+});
+
+test("the Copilot Changes Tour example carries the mandatory refs", () => {
+  const skill = source("skills/codetour-generate/SKILL.md");
+  assert.match(skill, /`baseRef` and `headRef` are mandatory for every Changes Tour/);
+  // The previous example omitted both refs and called them optional: a
+  // Copilot Changes Tour could not have been created from it.
+  assert.doesNotMatch(skill, /optionally `baseRef`/);
+  const example = skill.match(/codetour create-changes-tour[\s\S]*?\nJSON\n/);
+  assert.ok(example, "the Changes Tour example is documented");
+  assert.match(example[0], /"baseRef": "[^"]+"/);
+  assert.match(example[0], /"headRef": "[0-9a-f]{40}"/);
+  assert.match(example[0], /"reviewMode": "critical"/);
 });

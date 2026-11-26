@@ -33,25 +33,31 @@ with `critical`, with no question to repeat.
   changes).
 - Changes Tour review mode missing: ask once — **neutral** (factual
   explanation) or **critical** (explanation plus review findings, following the
-  method in `references/`).
+  method of `references/changes-tour-critical.md`).
 - Present the labels in the user's language. Never default silently, and stop
   without creating anything when a required choice is cancelled or unresolved.
 
 Project Tours have no review mode.
 
-## The critical review method
+## Read the module of the path
 
-A `critical` Changes Tour follows the pack filed in `references/` beside this
-file. Read it before exploring, and keep it read while writing:
+A Tour takes exactly one of three paths, and each has its own reference module
+beside this file. Once the type and the review mode are known, read the module
+of the selected path **before exploring**, and keep it read while you write: it
+carries that path's route, its proposal fields and its creation command, and it
+completes the shared rules below without repeating them.
 
-- `references/codetour-adaptation.md` — the two axes (standards and spec), the
-  step integration and the honesty rules of a critical Tour;
-- `references/upstream-code-review.md` — the upstream skill the adaptation is
-  based on, kept verbatim;
-- `references/upstream-LICENSE.txt` — its MIT license, kept verbatim.
+| Path | Module |
+| --- | --- |
+| Project Tour (`type=project`) | [references/project-tour.md](references/project-tour.md) |
+| Changes Tour, neutral (`reviewMode=neutral`) | [references/changes-tour-neutral.md](references/changes-tour-neutral.md) |
+| Changes Tour, critical (`reviewMode=critical`) | [references/changes-tour-critical.md](references/changes-tour-critical.md) |
 
-Without that reading the mode would only be a word. A `neutral` Changes Tour
-and every Project Tour never open the pack.
+Only the critical module carries the review pack of a critical Changes Tour. A
+Project Tour and a neutral Changes Tour never open it.
+
+Whatever the path, read the entry points and the main modules, not just the file
+names, and base every statement on the code you read.
 
 ## Orientation, language and workspace
 
@@ -65,27 +71,7 @@ and every Project Tour never open the pack.
   creation takes an explicit `--workspace <dir>`, and nothing is written
   outside it.
 
-## 1. Explore before writing
-
-Read the entry points and the main modules, not just the file names, and base
-every statement on the code you read.
-
-- **Project Tour**: follow one coherent route from the project's purpose and
-  entry points through its key components and how they collaborate. Anchor each
-  claim at the code that justifies it. Choose representative files rather than
-  listing every module.
-- **Changes Tour**: inspect the actual comparison — the diff from the merge-base
-  to `HEAD`, the affected source and the tests. Group related changes into one
-  review path anchored at the changed lines. Report test coverage factually and
-  never claim a test result you did not observe. When uncommitted changes are
-  excluded, ground every claim about the comparison in the committed diff and
-  files at `headRef`, not the current working tree: dirty or untracked files can
-  contain newer behavior. From the workspace, read committed files with
-  `git show <headRef>:./<workspace-relative-path>` and compare with the
-  merge-base where needed. Never describe an excluded local change as committed,
-  even if it appears in the current skill or project files.
-
-## 2. Build the proposal
+## Build the proposal
 
 ### Mermaid diagrams
 
@@ -95,30 +81,13 @@ When adding a Mermaid diagram, read and follow [the Mermaid reference](reference
 
 When adding anchors, read and follow [the anchor reference](references/anchors.md) before submitting the proposal.
 
-One JSON document. A Project Tour:
-
-```json
-{
-  "title": "Payment flow",
-  "description": "Markdown summary of the Tour.",
-  "fileName": "payment.tour",
-  "steps": [
-    { "title": "Overview", "description": "**Diagram — Context view**\n\n```mermaid\nflowchart LR\n  Client -->|\"pays (HTTPS)\"| API\n```" },
-    { "title": "Entry point", "description": "Markdown explanation.", "file": "src/server.ts", "pattern": "export function createServer" }
-  ]
-}
-```
-
-A Changes Tour is the same document plus:
-
-```json
-{
-  "baseRef": "<branch, tag or merge-base SHA>",
-  "headRef": "<full 40-character HEAD SHA>",
-  "includeUncommittedChanges": false,
-  "reviewMode": "neutral"
-}
-```
+One JSON document, the same envelope for both kinds: `title`, `description`,
+`fileName` and `steps`.
+`baseRef` and `headRef` are mandatory for every Changes Tour, and `headRef` is
+the full 40-character SHA of the analysed HEAD commit, never an abbreviation.
+`includeUncommittedChanges` is `false` unless the local changes belong to the
+comparison, and `reviewMode` is `neutral` or `critical`. The module of your path
+shows the complete document of that path.
 
 Step fields: `description` (required, Markdown), `title`, `questions` (at most
 four non-empty strings, in the user's language), `file`, `line`, `pattern`,
@@ -137,6 +106,14 @@ The CLI enforces these rules, and a rejected proposal writes nothing:
 - `questions` at most four non-empty strings;
 - a Changes Tour needs `baseRef` and the full 40-character `headRef` SHA.
 
+With `includeUncommittedChanges` left at `false`, the Tour compares committed
+state only: ground every claim in the committed diff and the files at
+`headRef`, not the current working tree — dirty or untracked files can contain
+newer behavior. From the workspace, read committed files with
+`git show <headRef>:./<workspace-relative-path>` and compare with the
+merge-base where needed. Never describe an excluded local change as committed,
+even if it appears in the current skill or project files.
+
 Two readability rules are warnings, never refusals: the first step should be a
 locator-free orientation step (no `file`, no `directory`) with at least one
 Mermaid diagram, and that first diagram should stay small enough to read. The
@@ -146,14 +123,14 @@ Optional `fileName` is a bare name (no path separator): the Tour is always
 written under `.tours/`, `.tours/project.tour` or `.tours/changes.tour` by
 default.
 
-## 3. Create the Tour
+## Create the Tour
 
-Run the command through your shell tool, from the workspace root — the CLI
-records the Pi session only when the host exported it to that shell:
+Run the command of your path through your shell tool, from the workspace root —
+the CLI records the Pi session only when the host exported it to that shell:
 
 ```sh
-<cli> create-project-tour --workspace . --proposal -
-<cli> create-changes-tour --workspace . --proposal -
+<cli> create-project-tour --workspace <dir> --proposal -
+<cli> create-changes-tour --workspace <dir> --proposal -
 ```
 
 `<cli>` is the `codetour-cli` argument when given, `codetour` otherwise; quote
@@ -163,7 +140,7 @@ document is large. Standard output carries exactly one JSON document whenever a
 creation is attempted, and a usage answer (`--help`, exit `2`) leaves it empty;
 standard error carries diagnostics only.
 
-## 4. Read the result
+## Read the result
 
 - Exit `0` with `{"ok":true,"kind","tourPath","title","stepCount","warnings"}`:
   the Tour exists at `tourPath`. Report its title and path in one line and do
@@ -177,7 +154,7 @@ standard error carries diagnostics only.
   document.
 - `warnings` on a success are advisory: mention them in one line at most.
 
-## 5. Hand over to a reader
+## Hand over to a reader
 
 The extension reports the Tours it attributed to this response and offers
 **Terminal** or **VS Code**; do not duplicate that question when it did.

@@ -13,7 +13,9 @@ Tour is never written by hand and never replaced by prose.
 
 `codetour` on `PATH` is the documented default. When the invocation carries a
 `codetour-cli=<absolute invocation>` argument, run that value instead of
-`codetour`, with the same arguments; nothing else changes.
+`codetour`, with the same arguments; nothing else changes. The reference modules
+beside this file spell the CLI `<cli>`, and here `<cli>` is `codetour` unless
+that argument says otherwise.
 
 ## 1. Resolve the choices
 
@@ -26,15 +28,23 @@ cancels or declines; never silently default.
   or a **Changes Tour** (explain and review the branch's changes).
 - **Review mode** — Changes Tours only: `neutral` (factual explanation) or
   `critical` (explanation plus review findings). Project Tours have none.
-- **Critical review method** — a `critical` Changes Tour follows the pack filed
-  in `references/` beside this file; read `references/codetour-adaptation.md`,
-  `references/upstream-code-review.md` and `references/upstream-LICENSE.txt`
-  before exploring, and keep them read while writing. Without that reading the
-  mode would only be a word. A `neutral` Changes Tour and every Project Tour
-  never open the pack.
 - **Orientation and language** — a phrase that orients the Tour ("focus on the
   rendering pipeline") is optional; it also sets the language the Tour is
   written in. Without one, write the Tour in the language of the user's request.
+
+The type and the review mode select the reference module of the path. Read it
+**before exploring**, and keep it read while you write: it carries that path's
+route, its proposal fields and its creation command, and it completes the shared
+rules below without repeating them.
+
+| Path | Module |
+| --- | --- |
+| **Project Tour** | [references/project-tour.md](references/project-tour.md) |
+| **Changes Tour**, `neutral` | [references/changes-tour-neutral.md](references/changes-tour-neutral.md) |
+| **Changes Tour**, `critical` | [references/changes-tour-critical.md](references/changes-tour-critical.md) |
+
+Only the critical module carries the review pack of a critical Changes Tour. A
+Project Tour and a neutral Changes Tour never open it.
 
 ## 2. Work in the workspace root
 
@@ -63,34 +73,49 @@ One JSON object, with the fields the CLI validates:
   (`{start: {line, character}, end: {...}}`), `display: "diff"` with
   `baseFile`. A step without an anchor is explanatory, which is what the
   orientation step should be.
-- A Changes Tour also carries `reviewMode` (`neutral` or `critical`), and
-  optionally `baseRef`, `headRef` and `includeUncommittedChanges`. Read the
-  PR/MR context with `gh` or `glab` when the user gave none, and say what you
-  used; never invent a title, a goal or a finding.
 - `questions` (at most four short strings) attach the questions the reader
   should answer at that step.
+
+`baseRef` and `headRef` are mandatory for every Changes Tour; `headRef` is the
+full 40-character SHA of the analysed HEAD commit, never an abbreviation.
+`includeUncommittedChanges` is `false` unless the local changes belong to the
+comparison, and `reviewMode` is `neutral` or `critical`. The module of your path
+shows the complete document of that path.
 
 Explore the workspace before proposing anything and verify each anchor against
 the applicable file version as described in the anchor reference.
 
-For a Changes Tour excluding uncommitted changes, ground every claim in the
-committed diff and files at `headRef`, not the current working tree: dirty or
-untracked files can contain newer behavior. From the workspace, read committed
-files with `git show <headRef>:./<workspace-relative-path>` and compare with the
-merge-base where needed. Never describe an excluded local change as committed,
-even if it appears in the current skill or project files.
+With `includeUncommittedChanges` left at `false`, the Tour compares committed
+state only: ground every claim in the committed diff and the files at `headRef`,
+not the current working tree — dirty or untracked files can contain newer
+behavior. From the workspace, read committed files with
+`git show <headRef>:./<workspace-relative-path>` and compare with the merge-base
+where needed. Never describe an excluded local change as committed, even if it
+appears in the current skill or project files.
 
 ## 4. Hand the proposal over
 
-```sh
+Resolve the refs before writing the document — `git rev-parse HEAD` for
+`headRef`, `git merge-base <base> HEAD` for a `baseRef` the user named as a
+branch:
+
+````sh
 codetour create-project-tour --workspace "<absolute workspace root>" <<'JSON'
 {"title": "…", "steps": [{"title": "…", "description": "…"}]}
 JSON
 
 codetour create-changes-tour --workspace "<absolute workspace root>" <<'JSON'
-{"title": "…", "reviewMode": "critical", "steps": [{"title": "…", "description": "…"}]}
+{
+  "title": "Changes on feature/payments",
+  "description": "What the branch changes, and what the review establishes.",
+  "baseRef": "9f1c2d3e4b5a60718293a4b5c6d7e8f9012345ab",
+  "headRef": "4a7d6f2c1b0e9d8c7b6a5f4e3d2c1b0a99887766",
+  "includeUncommittedChanges": false,
+  "reviewMode": "critical",
+  "steps": [{ "title": "…", "description": "…" }]
+}
 JSON
-```
+````
 
 `--proposal <file>` reads the proposal from a file instead of standard input;
 both carry the same document.

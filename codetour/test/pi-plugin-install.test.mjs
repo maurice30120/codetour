@@ -58,6 +58,9 @@ test("--install pi writes the package, the launcher and one declaration", () => 
       "skills/codetour-generate/SKILL.md",
       "skills/codetour-generate/references/mermaid.md",
       "skills/codetour-generate/references/anchors.md",
+      "skills/codetour-generate/references/project-tour.md",
+      "skills/codetour-generate/references/changes-tour-neutral.md",
+      "skills/codetour-generate/references/changes-tour-critical.md",
       "launcher.json",
     ]) {
       assert.ok(
@@ -93,6 +96,43 @@ test("--install pi writes the package, the launcher and one declaration", () => 
     assert.match(skill, /codetour-cli/);
     const extension = readFileSync(path.join(pluginDir(home), "extensions", "codetour.ts"), "utf8");
     assert.doesNotMatch(extension, /registerMcpServer/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the installed skill routes each generation path to its module", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "codetour-pi-install-"));
+  const home = agentDirWithSpaces(root);
+  try {
+    assert.equal(run(home, ["--install", "pi"]).status, 0);
+    const skillDirectory = path.join(pluginDir(home), "skills", "codetour-generate");
+    const skill = readFileSync(path.join(skillDirectory, "SKILL.md"), "utf8");
+    const reference = name => readFileSync(path.join(skillDirectory, "references", name), "utf8");
+
+    // The one public skill names the module of each path before exploring;
+    // each module carries that path down to the CLI invocation.
+    for (const [module, command] of [
+      ["project-tour.md", "create-project-tour --workspace"],
+      ["changes-tour-neutral.md", "create-changes-tour --workspace"],
+      ["changes-tour-critical.md", "create-changes-tour --workspace"]
+    ]) {
+      assert.match(skill, new RegExp(`references/${module}`), `${module} is routed`);
+      assert.match(reference(module), new RegExp(command), `${module} names its command`);
+    }
+
+    // Only the critical path loads the review pack.
+    assert.doesNotMatch(reference("project-tour.md"), /codetour-adaptation/);
+    assert.doesNotMatch(reference("changes-tour-neutral.md"), /codetour-adaptation/);
+    assert.match(reference("changes-tour-critical.md"), /references\/codetour-adaptation\.md/);
+
+    // A Changes Tour of either mode carries both mandatory refs.
+    for (const module of ["changes-tour-neutral.md", "changes-tour-critical.md"]) {
+      assert.match(reference(module), /baseRef/);
+      assert.match(reference(module), /headRef/);
+    }
+    assert.match(skill, /`baseRef` and `headRef` are mandatory for every Changes Tour/);
+    assert.match(skill, /full 40-character SHA/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

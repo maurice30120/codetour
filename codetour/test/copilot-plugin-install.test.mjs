@@ -134,12 +134,30 @@ test("the real Copilot CLI installs, inspects and uninstalls the Agent Plugins 1
       "skills/codetour-generate/SKILL.md",
       "skills/codetour-generate/references/mermaid.md",
       "skills/codetour-generate/references/anchors.md",
+      "skills/codetour-generate/references/project-tour.md",
+      "skills/codetour-generate/references/changes-tour-neutral.md",
+      "skills/codetour-generate/references/changes-tour-critical.md",
       "skills/codetour-generate/references/codetour-adaptation.md",
       "skills/codetour-generate/references/upstream-code-review.md",
       "skills/codetour-generate/references/upstream-LICENSE.txt"
     ]) {
       assert.ok(existsSync(path.join(cached.cache_path, ...relative.split("/"))), `${relative} was installed`);
     }
+    // One public skill, three reference modules: the installed skill names the
+    // module of each path before exploring.
+    const skillDirectory = path.join(cached.cache_path, "skills", "codetour-generate");
+    const installedSkill = readFileSync(path.join(skillDirectory, "SKILL.md"), "utf8");
+    for (const module of ["project-tour.md", "changes-tour-neutral.md", "changes-tour-critical.md"]) {
+      assert.match(installedSkill, new RegExp(`references/${module}`), `${module} is routed`);
+      assert.match(
+        readFileSync(path.join(skillDirectory, "references", module), "utf8"),
+        /create-(?:project|changes)-tour --workspace/,
+        `${module} names its creation command`
+      );
+    }
+    // A Changes Tour of either mode carries both mandatory refs, per the
+    // real Copilot example too.
+    assert.match(installedSkill, /`baseRef` and `headRef` are mandatory for every Changes Tour/);
     // The plugin declares no server: the retired declaration is not shipped and
     // nothing is registered for the session.
     assert.equal(existsSync(path.join(cached.cache_path, "mcp.json")), false);

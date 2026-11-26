@@ -22,7 +22,7 @@ The copies travel inside the plugin, and the plugin files are embedded in the st
 
 ## How the pack reaches the agent
 
-Each skill states that a `critical` Changes Tour follows the pack in `references/` beside it: `codetour-adaptation.md` for the method, `references/upstream-code-review.md` for the upstream skill the adaptation is based on, and `references/upstream-LICENSE.txt` for its MIT license. The agent must read them **before writing any step**: a mode that reached it only at the CLI call would be too late, because the CLI validates a finished proposal rather than reviewing it. A `neutral` Changes Tour and every Project Tour never open the pack.
+Each skill carries the pack in `references/` beside it, and its critical module (`references/changes-tour-critical.md`, spec #329) is the only place that names it: `codetour-adaptation.md` for the method, `references/upstream-code-review.md` for the upstream skill the adaptation is based on, and `references/upstream-LICENSE.txt` for its MIT license. The agent must read them **before writing any step**: a mode that reached it only at the CLI call would be too late, because the CLI validates a finished proposal rather than reviewing it. A `neutral` Changes Tour and every Project Tour never open the pack.
 
 This replaces the MCP resource `codetour://review/critical-instructions` of the previous release: no server serves the pack any more, and the skill carries it (ADR 0057).
 

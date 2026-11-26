@@ -82,11 +82,12 @@ started beside the CLI: no `prompts/get`, no run state, no fallback prompt. If
 `codetour` is missing, the skill stops and points at
 `codetour --install copilot`.
 
-The critical-review method is part of the plugin: a `critical` Changes Tour
-requires reading `references/codetour-adaptation.md`,
+The critical-review method is part of the plugin: the
+`references/changes-tour-critical.md` module the skill routes a `critical`
+Changes Tour to requires reading `references/codetour-adaptation.md`,
 `references/upstream-code-review.md` and `references/upstream-LICENSE.txt`, which
-ship byte for byte beside the skill. See
-[the critical review skill](critical-review-skill.md).
+ship byte for byte beside the skill; a Project Tour and a neutral Changes Tour
+never open that pack. See [the critical review skill](critical-review-skill.md).
 
 ## Read a Tour
 

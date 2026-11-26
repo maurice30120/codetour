@@ -34,6 +34,9 @@ for (const required of [
   "skills/codetour-generate/SKILL.md",
   "skills/codetour-generate/references/anchors.md",
   "skills/codetour-generate/references/mermaid.md",
+  "skills/codetour-generate/references/project-tour.md",
+  "skills/codetour-generate/references/changes-tour-neutral.md",
+  "skills/codetour-generate/references/changes-tour-critical.md",
   "skills/codetour-generate/references/codetour-adaptation.md",
   "skills/codetour-generate/references/upstream-code-review.md",
   "skills/codetour-generate/references/upstream-LICENSE.txt"
