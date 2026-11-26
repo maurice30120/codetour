@@ -42,9 +42,12 @@ for (const skill of skills) {
 
   test(`the ${skill.name} critical module requires reading the pack and keeps the license`, () => {
     const content = readFileSync(path.join(skill.directory, "references", "changes-tour-critical.md"), "utf8");
-    assert.match(content, /references\/codetour-adaptation\.md/);
-    assert.match(content, /references\/upstream-code-review\.md/);
-    assert.match(content, /references\/upstream-LICENSE\.txt/);
+    // The module lives in `references/` itself: it names its siblings bare, and
+    // the skill it defers to is one directory up.
+    assert.match(content, /`codetour-adaptation\.md`/);
+    assert.match(content, /`upstream-code-review\.md`/);
+    assert.match(content, /`upstream-LICENSE\.txt`/);
+    assert.doesNotMatch(content, /references\/references\//);
     assert.match(content, /before exploring/i);
     // The critical path keeps the two axes, the method, the attribution and
     // the licence; the pack remains its only source of method.
@@ -67,6 +70,13 @@ for (const skill of skills) {
         assert.doesNotMatch(content, new RegExp(resource.replace(/\./g, "\\.")), `${name} must not name ${resource}`);
       }
     }
+  });
+
+  test(`the ${skill.name} skill forbids opening the pack on the other paths`, () => {
+    // The routing loads exactly one module, so the isolation of the pack is a
+    // rule addressed to the agent, not a prediction about the path.
+    const content = readFileSync(path.join(skill.directory, "SKILL.md"), "utf8");
+    assert.match(content, /On\s+a Project Tour or a neutral Changes Tour, do not open that pack/);
   });
 
   test(`the ${skill.name} plugin embeds the pack, so it installs offline`, () => {

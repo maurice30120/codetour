@@ -7,6 +7,12 @@ v0.1.0 document the original microsoft/codetour releases the fork builds on.
 
 ### Added
 
+- Both generation skills are one public `codetour-generate` skill that routes a
+  Project Tour and a neutral or critical Changes Tour to its own reference
+  module, read before exploring, and the critical module alone carries the
+  critical-review pack. `baseRef` and the full 40-character `headRef` are
+  mandatory for every Changes Tour, in the skill and in every module example.
+  See spec #329.
 - `codetour --install` with no value is an interactive picker over the agents
   that generate Tours in this delivery (GitHub Copilot CLI and Pi): numbered
   selection, agent ids, and an empty answer that installs nothing. Without an

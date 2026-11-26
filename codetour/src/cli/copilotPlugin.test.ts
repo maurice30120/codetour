@@ -157,7 +157,12 @@ test("the plugin skill routes each generation path to one module", () => {
       `${module}.md is embedded, so it installs offline`
     );
   }
-  assert.match(skill, /before exploring/i);
+  // The routing sentence itself, not any other "before exploring": deleting
+  // the instruction that names the module to read must fail this test.
+  assert.match(
+    skill,
+    /state the module\s+path you selected, then read that module \*\*before exploring\*\*/
+  );
   // The module spells the CLI `<cli>`; the skill keeps it unambiguous here.
   assert.match(skill, /`<cli>` is `codetour`/);
 });

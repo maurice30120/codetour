@@ -18,11 +18,11 @@ No network access or upstream plugin installation is needed for the critical mod
 - `packages/copilot-plugin/skills/codetour-generate/references/`;
 - `packages/pi-plugin/skills/codetour-generate/references/`.
 
-The copies travel inside the plugin, and the plugin files are embedded in the standalone CLI bundle, so the pack is present offline in every distribution. A unit test (`src/cli/criticalReviewSkill.test.ts`) fails if a copy diverges from the source, if the license is missing, or if an embedded plugin copy drifts; both `SKILL.md` files name the references they require.
+The copies travel inside the plugin, and the plugin files are embedded in the standalone CLI bundle, so the pack is present offline in every distribution. A unit test (`src/cli/criticalReviewSkill.test.ts`) fails if a copy diverges from the source, if the license is missing, or if an embedded plugin copy drifts; the `SKILL.md` files route each path to its module (spec #329).
 
 ## How the pack reaches the agent
 
-Each skill carries the pack in `references/` beside it, and its critical module (`references/changes-tour-critical.md`, spec #329) is the only place that names it: `codetour-adaptation.md` for the method, `references/upstream-code-review.md` for the upstream skill the adaptation is based on, and `references/upstream-LICENSE.txt` for its MIT license. The agent must read them **before writing any step**: a mode that reached it only at the CLI call would be too late, because the CLI validates a finished proposal rather than reviewing it. A `neutral` Changes Tour and every Project Tour never open the pack.
+Each skill carries the pack in `references/` beside it, and its critical module (`references/changes-tour-critical.md`, spec #329) is the only place that names it: `codetour-adaptation.md` for the method, `upstream-code-review.md` for the upstream skill the adaptation is based on, and `upstream-LICENSE.txt` for its MIT license, all three beside the module. The agent must read them **before writing any step**: a mode that reached it only at the CLI call would be too late, because the CLI validates a finished proposal rather than reviewing it. The shared `SKILL.md` tells the agent not to open that pack on a neutral Changes Tour or a Project Tour.
 
 This replaces the MCP resource `codetour://review/critical-instructions` of the previous release: no server serves the pack any more, and the skill carries it (ADR 0057).
 

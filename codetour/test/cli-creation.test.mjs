@@ -129,6 +129,109 @@ test("both generation skills ground committed-only Changes Tours in the selected
   }
 });
 
+const hostSkill = host =>
+  readFileSync(path.resolve("packages", `${host}-plugin`, "skills/codetour-generate/SKILL.md"), "utf8");
+
+const sharedSection = skill => {
+  const match = skill.match(/^### The comparison and the refs\n([\s\S]*?)\n(?=## )/m);
+  assert.ok(match, "the comparison and the refs section is documented in the shared skill");
+  return match[1];
+};
+
+test("both generation skills state the routing, the pack isolation and the refs in one wording", () => {
+  // The Changes Tour refs and the PR/MR context used to live in the neutral
+  // module alone, so the critical path never saw them: they belong to the skill
+  // every path loads, and the two hosts share the wording.
+  assert.equal(sharedSection(hostSkill("pi")), sharedSection(hostSkill("copilot")));
+  const shared = sharedSection(hostSkill("pi"));
+  assert.match(shared, /`baseRef` and `headRef` are mandatory for every Changes Tour/);
+  assert.match(shared, /git rev-parse HEAD/);
+  assert.match(shared, /git merge-base <base> HEAD/);
+  assert.match(shared, /gh pr view --json title,body,baseRefName,url/);
+  assert.match(shared, /never\s+invent a title, a goal or a finding/);
+
+  for (const host of ["pi", "copilot"]) {
+    const skill = hostSkill(host);
+    // The routing is observable: the agent says which module it took.
+    assert.match(
+      skill,
+      /state the module\s+path you selected, then read that module \*\*before exploring\*\*/,
+      `${host} states the selected module before exploring`
+    );
+    // The pack isolation is a rule the agent can follow, not a prediction.
+    assert.match(
+      skill,
+      /On\s+a Project Tour or a neutral Changes Tour, do not open that pack/,
+      `${host} forbids the pack on the other paths`
+    );
+    assert.match(skill, /Whatever the path, read the entry points and the main modules/);
+  }
+});
+
+// Each reference module carries the example document of its path, and that
+// document is what an agent copies: a module whose example the CLI refuses
+// would send every user of that path into a refusal loop. Extract the example,
+// point its refs at a real fixture and create the Tour, one path per test.
+function exampleProposal(module) {
+  const reference = host =>
+    readFileSync(
+      path.resolve("packages", `${host}-plugin`, "skills/codetour-generate/references", `${module}.md`),
+      "utf8"
+    );
+  assert.equal(reference("pi"), reference("copilot"), `${module}.md diverges between the two hosts`);
+  const example = reference("pi").match(/^````json\n([\s\S]*?)\n````$/m);
+  assert.ok(example, `${module}.md carries the JSON example of its path`);
+  return JSON.parse(example[1]);
+}
+
+// The workspace the three examples describe: a Changes Tour needs both refs to
+// name a real comparison, and a committed-only Tour reads the anchors at
+// `headRef`, so the anchored files are committed in the analysed commit.
+function exampleWorkspace() {
+  const root = workspace({}, { git: true });
+  const baseRef = commit(root, "base.txt", "base\n", "add base");
+  commit(root, "src/server.ts", "export function createServer(port: number) {\n  return port;\n}\n", "add the server");
+  commit(root, "src/ledger.ts", "export async function record(entry: string) {\n  return entry;\n}\n", "add the ledger");
+  const headRef = commit(
+    root,
+    "src/payments/route.ts",
+    "export async function pay(request: string) {\n  return request;\n}\n",
+    "add the payment route"
+  );
+  return { root, baseRef, headRef };
+}
+
+for (const [module, command, kind] of [
+  ["project-tour", "create-project-tour", "project"],
+  ["changes-tour-neutral", "create-changes-tour", "changes"],
+  ["changes-tour-critical", "create-changes-tour", "changes"]
+]) {
+  test(`the ${module} module's example document creates its Tour through the CLI`, () => {
+    const proposal = exampleProposal(module);
+    const { root, baseRef, headRef } = exampleWorkspace();
+    if (kind === "changes") {
+      // The refs are placeholders the agent replaces: the CLI checks the shape
+      // of the real ones, so the example has to show a full SHA of each.
+      assert.match(proposal.baseRef, /^[0-9a-f]{40}$/, `${module}.md shows a full baseRef`);
+      assert.match(proposal.headRef, /^[0-9a-f]{40}$/, `${module}.md shows a full headRef`);
+      proposal.baseRef = baseRef;
+      proposal.headRef = headRef;
+    }
+
+    const result = runCli(root, [command, "--workspace", root, "--proposal", "-"], {
+      input: JSON.stringify(proposal)
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const created = JSON.parse(result.stdout);
+    assert.equal(created.ok, true);
+    assert.equal(created.kind, kind);
+    assert.equal(created.title, proposal.title);
+    assert.equal(created.stepCount, proposal.steps.length);
+    assert.equal(JSON.parse(readFileSync(created.tourPath, "utf8")).steps.length, proposal.steps.length);
+  });
+}
+
 test("create-project-tour creates a Project Tour from a file proposal", () => {
   const root = workspace({ "code.ts": "export function main() {}\n" });
   const proposal = proposalFile("proposal.json", {

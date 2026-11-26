@@ -84,10 +84,10 @@ started beside the CLI: no `prompts/get`, no run state, no fallback prompt. If
 
 The critical-review method is part of the plugin: the
 `references/changes-tour-critical.md` module the skill routes a `critical`
-Changes Tour to requires reading `references/codetour-adaptation.md`,
-`references/upstream-code-review.md` and `references/upstream-LICENSE.txt`, which
-ship byte for byte beside the skill; a Project Tour and a neutral Changes Tour
-never open that pack. See [the critical review skill](critical-review-skill.md).
+Changes Tour to requires reading `codetour-adaptation.md`,
+`upstream-code-review.md` and `upstream-LICENSE.txt`, which ship byte for byte
+beside it; on a Project Tour or a neutral Changes Tour the skill tells the agent
+not to open that pack. See [the critical review skill](critical-review-skill.md).
 
 ## Read a Tour
 

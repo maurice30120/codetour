@@ -158,6 +158,10 @@ test("the real Copilot CLI installs, inspects and uninstalls the Agent Plugins 1
     // A Changes Tour of either mode carries both mandatory refs, per the
     // real Copilot example too.
     assert.match(installedSkill, /`baseRef` and `headRef` are mandatory for every Changes Tour/);
+    assert.match(
+      installedSkill,
+      /state the module\s+path you selected, then read that module \*\*before exploring\*\*/
+    );
     // The plugin declares no server: the retired declaration is not shipped and
     // nothing is registered for the session.
     assert.equal(existsSync(path.join(cached.cache_path, "mcp.json")), false);

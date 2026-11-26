@@ -6,26 +6,22 @@ Read this module **and the review pack it names before exploring**, and keep
 both read while you write. A mode that reached you only at the CLI call would
 be too late: the CLI validates a finished proposal, it never reviews one.
 
-The comparison, the route and the proposal fields are those of a Changes Tour;
-this module adds the review on top, on exactly the comparison the Tour
-describes.
+The comparison, the refs and the envelope of this Tour are the shared ones of
+`../SKILL.md`; this module adds the review on top, on exactly the comparison the
+Tour describes.
 
 ## The review pack
 
-- `references/codetour-adaptation.md` — the method: the two axes, the step
-  integration and the honesty rules of a critical Tour. It is the authoritative
-  instruction set, and it is read in full.
-- `references/upstream-code-review.md` — the upstream skill the adaptation is
-  based on, kept verbatim.
-- `references/upstream-LICENSE.txt` — that skill's MIT license, kept verbatim
-  beside it.
+- `codetour-adaptation.md` — the method: the two axes, the step integration and
+  the honesty rules of a critical Tour. It is the authoritative instruction set,
+  and it is read in full.
+- `upstream-code-review.md` — the upstream skill the adaptation is based on,
+  kept verbatim.
+- `upstream-LICENSE.txt` — that skill's MIT license, kept verbatim beside it.
 
 Attribution: the critical mode adapts Matt Pocock's `code-review` skill, MIT
 licensed. The upstream text and its license travel with this module; neither is
 dropped, summarised in place of reading, or replaced.
-
-A Project Tour and a neutral Changes Tour never open this pack: nothing it says
-applies to them.
 
 ## The two axes
 
@@ -46,12 +42,11 @@ The method the pack defines, and the only labels a finding carries:
 
 ## Compare, review, integrate
 
-- Fix the comparison as a Changes Tour does — `baseRef` and the full
-  40-character `headRef` are mandatory, `includeUncommittedChanges` is stated —
-  and review exactly that range, from the merge-base of `baseRef` to `headRef`.
-- Read the changed source and its tests before judging anything. The CLI's Git
-  checks, validation, snapshots and anchor verification remain the authority:
-  when your analysis and the command disagree, the command wins.
+- Review exactly the comparison the shared rules fix, from the merge-base of
+  `baseRef` to the full 40-character `headRef`, and read the changed source and
+  its tests before judging anything. The CLI's Git checks, validation,
+  snapshots and anchor verification remain the authority: when your analysis
+  and the command disagree, the command wins.
 - Every step keeps its factual explanation of the change. Attach each finding
   inside the description of the step whose anchor locates the motivating code,
   labeled with its axis and quoting its rule or requirement. No extra step per
@@ -89,6 +84,6 @@ From the workspace root:
 <cli> create-changes-tour --workspace <dir> --proposal -
 ```
 
-`<cli>` is the CodeTour CLI `SKILL.md` defines. Read the result and hand the
-Tour over as `SKILL.md` states; a refusal on the refs is never a reason to drop
-the review or to relax the comparison.
+`<cli>` is the CodeTour CLI `../SKILL.md` defines. Read the result and hand the
+Tour over as `../SKILL.md` states; a refusal on the refs is never a reason to
+drop the review or to relax the comparison.

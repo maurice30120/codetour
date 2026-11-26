@@ -39,13 +39,14 @@ with `critical`, with no question to repeat.
 
 Project Tours have no review mode.
 
-## Read the module of the path
+## 1. Read the module of the path
 
 A Tour takes exactly one of three paths, and each has its own reference module
-beside this file. Once the type and the review mode are known, read the module
-of the selected path **before exploring**, and keep it read while you write: it
-carries that path's route, its proposal fields and its creation command, and it
-completes the shared rules below without repeating them.
+beside this file. Once the type and the review mode are known, state the module
+path you selected, then read that module **before exploring** and keep it read
+while you write: it carries that path's route, its proposal fields and its
+creation command, and it completes the shared rules below without repeating
+them.
 
 | Path | Module |
 | --- | --- |
@@ -53,8 +54,9 @@ completes the shared rules below without repeating them.
 | Changes Tour, neutral (`reviewMode=neutral`) | [references/changes-tour-neutral.md](references/changes-tour-neutral.md) |
 | Changes Tour, critical (`reviewMode=critical`) | [references/changes-tour-critical.md](references/changes-tour-critical.md) |
 
-Only the critical module carries the review pack of a critical Changes Tour. A
-Project Tour and a neutral Changes Tour never open it.
+Only the critical module carries the review pack of a critical Changes Tour. On
+a Project Tour or a neutral Changes Tour, do not open that pack: nothing it says
+applies to them.
 
 Whatever the path, read the entry points and the main modules, not just the file
 names, and base every statement on the code you read.
@@ -71,7 +73,7 @@ names, and base every statement on the code you read.
   creation takes an explicit `--workspace <dir>`, and nothing is written
   outside it.
 
-## Build the proposal
+## 2. Build the proposal
 
 ### Mermaid diagrams
 
@@ -83,11 +85,6 @@ When adding anchors, read and follow [the anchor reference](references/anchors.m
 
 One JSON document, the same envelope for both kinds: `title`, `description`,
 `fileName` and `steps`.
-`baseRef` and `headRef` are mandatory for every Changes Tour, and `headRef` is
-the full 40-character SHA of the analysed HEAD commit, never an abbreviation.
-`includeUncommittedChanges` is `false` unless the local changes belong to the
-comparison, and `reviewMode` is `neutral` or `critical`. The module of your path
-shows the complete document of that path.
 
 Step fields: `description` (required, Markdown), `title`, `questions` (at most
 four non-empty strings, in the user's language), `file`, `line`, `pattern`,
@@ -123,7 +120,22 @@ Optional `fileName` is a bare name (no path separator): the Tour is always
 written under `.tours/`, `.tours/project.tour` or `.tours/changes.tour` by
 default.
 
-## Create the Tour
+### The comparison and the refs
+
+A Changes Tour describes exactly one range, and it is fixed before exploring.
+`baseRef` and `headRef` are mandatory for every Changes Tour, and `headRef` is
+the full 40-character SHA of the analysed HEAD commit, never an abbreviation.
+Resolve them before writing the document: `git rev-parse HEAD` for `headRef`,
+`git merge-base <base> HEAD` for a `baseRef` the user gave as a branch.
+`includeUncommittedChanges` is `false` unless the local changes belong to the
+comparison, and `reviewMode` is `neutral` or `critical`; the module of the path
+shows the complete document of that path.
+
+When the user gave no context, `gh pr view --json title,body,baseRefName,url` or
+the `glab` equivalent describes the pull request; say what you used, and never
+invent a title, a goal or a finding.
+
+## 3. Create the Tour
 
 Run the command of your path through your shell tool, from the workspace root —
 the CLI records the Pi session only when the host exported it to that shell:
@@ -140,7 +152,7 @@ document is large. Standard output carries exactly one JSON document whenever a
 creation is attempted, and a usage answer (`--help`, exit `2`) leaves it empty;
 standard error carries diagnostics only.
 
-## Read the result
+## 4. Read the result
 
 - Exit `0` with `{"ok":true,"kind","tourPath","title","stepCount","warnings"}`:
   the Tour exists at `tourPath`. Report its title and path in one line and do
@@ -154,7 +166,7 @@ standard error carries diagnostics only.
   document.
 - `warnings` on a success are advisory: mention them in one line at most.
 
-## Hand over to a reader
+## 5. Hand over to a reader
 
 The extension reports the Tours it attributed to this response and offers
 **Terminal** or **VS Code**; do not duplicate that question when it did.

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import * as assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
+import { COPILOT_PLUGIN_FILES } from "./copilot-plugin.generated";
 import { PI_PLUGIN_FILES } from "./pi-plugin.generated";
 
 const root = path.resolve(__dirname, "../../..");
@@ -36,11 +37,13 @@ test("the embedded Pi package matches the versioned sources", () => {
 });
 
 test("both plugins ship the same reference files", () => {
-  const references = Object.keys(PI_PLUGIN_FILES).filter(name =>
-    name.startsWith("skills/codetour-generate/references/")
-  );
+  const referencesOf = (files: Record<string, string>) =>
+    Object.keys(files).filter(entry => entry.startsWith("skills/codetour-generate/references/"));
+  const shipped = referencesOf(PI_PLUGIN_FILES);
   // The shared rules live once: a reference module that drifts between the two
-  // hosts would teach two generations of the same Tour.
+  // hosts would teach two generations of the same Tour. The union of both
+  // bundles is compared in both directions, so a reference added to one host
+  // alone cannot go unnoticed.
   for (const module of [
     "anchors",
     "mermaid",
@@ -49,16 +52,23 @@ test("both plugins ship the same reference files", () => {
     "changes-tour-critical",
   ]) {
     assert.ok(
-      references.includes(`skills/codetour-generate/references/${module}.md`),
+      shipped.includes(`skills/codetour-generate/references/${module}.md`),
       `${module}.md is shipped beside the skill`
     );
   }
-  for (const reference of references) {
-    assert.equal(
-      source(reference),
-      readFileSync(path.join(root, "packages", "copilot-plugin", reference), "utf8"),
-      `${reference} diverges between the two plugins`
-    );
+  assert.deepEqual(
+    [...referencesOf(COPILOT_PLUGIN_FILES)].sort(),
+    [...shipped].sort(),
+    "both hosts ship exactly the same references"
+  );
+  for (const reference of shipped) {
+    const pi = source(reference);
+    const copilot = readFileSync(path.join(root, "packages", "copilot-plugin", reference), "utf8");
+    assert.equal(pi, copilot, `${reference} diverges between the two plugins`);
+    // A module lives in `references/`, so its own siblings are bare names and
+    // the skill is one directory up: `references/references/` resolves to
+    // nothing an agent can open.
+    assert.doesNotMatch(pi, /references\/references\//, `${reference} resolves a sibling from itself`);
   }
 });
 
@@ -193,7 +203,13 @@ test("the skill routes each generation path to one module, read before exploring
   for (const module of ["project-tour", "changes-tour-neutral", "changes-tour-critical"]) {
     assert.match(skill, new RegExp(`references/${module}\\.md`), `${module} is routed`);
   }
-  assert.match(skill, /before exploring/i);
+  // The routing instruction itself: "before exploring" occurs elsewhere in the
+  // skill, so the sentence that names the module to read before exploring is
+  // what has to stay.
+  assert.match(
+    skill,
+    /state the module\s+path you selected, then read that module \*\*before exploring\*\*/
+  );
   // The shared rules stay in the one skill the agent always loads.
   for (const shared of ["Orientation", "Language", "Workspace", "Mermaid", "Anchors"]) {
     assert.match(skill, new RegExp(shared), `${shared} stays in the public skill`);

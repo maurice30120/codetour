@@ -4,28 +4,19 @@ Path: `type=changes` with `reviewMode=neutral` — what the CLI applies when the
 field is omitted, and the mode to use when the user asked for no review.
 
 Read this module before exploring when the request is a neutral Changes Tour,
-and keep it read while you write. It adds the comparison, the route and the
-creation command of this path to the shared rules of `SKILL.md` and repeats none
-of them.
+and keep it read while you write. It adds the comparison and the route of this
+path to the shared rules of the parent `../SKILL.md`, which state the refs every
+Changes Tour carries.
 
 ## Fix the comparison first
 
 A Changes Tour describes exactly one comparison, and it is decided before
-exploring:
-
-- `baseRef` — what the change is read against. When the user names a branch or
-  a tag, resolve the merge-base first (`git merge-base <base> <headRef>`) and
-  pass the SHA you deliberately chose. The field is mandatory: never let it
-  default by omission.
-- `headRef` — the commit analysed, as its full 40-character SHA
-  (`git rev-parse HEAD` for the current checkout). An abbreviated SHA is
-  refused, and so is a missing one.
-- `includeUncommittedChanges` — `false` unless the local changes are part of
-  the comparison; state which one you chose when the request does not say.
-
-When the user gave no context, `gh pr view --json title,body,baseRefName,url`
-or the `glab` equivalent describes the pull request; say what you used, and
-never invent a title, a goal or a finding.
+exploring: `baseRef`, `headRef` and `includeUncommittedChanges`, as the shared
+rules state them. When the user names a branch or a tag as the base, resolve the
+merge-base first (`git merge-base <base> <headRef>`) and pass the SHA you
+deliberately chose: `baseRef` is never left to default by omission. When the
+request does not say whether the local changes belong to the comparison, choose
+and state the `includeUncommittedChanges` value.
 
 ## Explore the comparison
 
@@ -71,7 +62,7 @@ From the workspace root:
 <cli> create-changes-tour --workspace <dir> --proposal -
 ```
 
-`<cli>` is the CodeTour CLI `SKILL.md` defines. Its Git checks resolve the
+`<cli>` is the CodeTour CLI `../SKILL.md` defines. Its Git checks resolve the
 comparison and its validation refuses a proposal whose refs are missing or
 abbreviated; a refusal is the shared result handling, never a reason to relax
-the refs. Then read the result and hand the Tour over as `SKILL.md` states.
+the refs. Then read the result and hand the Tour over as `../SKILL.md` states.

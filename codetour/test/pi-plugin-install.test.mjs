@@ -120,11 +120,16 @@ test("the installed skill routes each generation path to its module", () => {
       assert.match(skill, new RegExp(`references/${module}`), `${module} is routed`);
       assert.match(reference(module), new RegExp(command), `${module} names its command`);
     }
+    assert.match(
+      skill,
+      /state the module\s+path you selected, then read that module \*\*before exploring\*\*/
+    );
 
     // Only the critical path loads the review pack.
     assert.doesNotMatch(reference("project-tour.md"), /codetour-adaptation/);
     assert.doesNotMatch(reference("changes-tour-neutral.md"), /codetour-adaptation/);
-    assert.match(reference("changes-tour-critical.md"), /references\/codetour-adaptation\.md/);
+    assert.match(reference("changes-tour-critical.md"), /codetour-adaptation\.md/);
+    assert.match(reference("changes-tour-critical.md"), /`upstream-LICENSE\.txt`/);
 
     // A Changes Tour of either mode carries both mandatory refs.
     for (const module of ["changes-tour-neutral.md", "changes-tour-critical.md"]) {

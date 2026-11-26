@@ -3,10 +3,10 @@
 Path: `type=project`. A Project Tour has no review mode.
 
 Read this module before exploring when the request is a Project Tour, and keep
-it read while you write. It adds the route, the proposal and the creation
-command of this path to the shared rules of `SKILL.md` — orientation, language,
-workspace, proposal envelope, anchors, Mermaid, CLI result — and repeats none
-of them.
+it read while you write. It carries the route and the example document of this
+path; the shared rules — orientation, language, workspace, proposal envelope,
+anchors, Mermaid, the CLI invocation and its result — are stated in the parent
+`../SKILL.md`.
 
 ## Explore
 
@@ -29,7 +29,7 @@ Project Tour explains: it never reviews, judges or reports defects.
 
 ## Proposal
 
-The document is the shared envelope of `SKILL.md` and nothing more: the
+The document is the shared envelope of `../SKILL.md` and nothing more: the
 comparison of a Changes Tour and the review mode belong to that path.
 
 Open with a locator-free orientation step — what the project is, how the route
@@ -57,6 +57,6 @@ From the workspace root:
 <cli> create-project-tour --workspace <dir> --proposal -
 ```
 
-`<cli>` is the CodeTour CLI `SKILL.md` defines. The document travels on
+`<cli>` is the CodeTour CLI `../SKILL.md` defines. The document travels on
 standard input, or in a file passed to `--proposal`. Read the result and hand
-the created Tour over exactly as `SKILL.md` states.
+the created Tour over exactly as `../SKILL.md` states.

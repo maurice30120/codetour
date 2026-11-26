@@ -123,8 +123,9 @@ omitted. Standard output carries exactly one JSON result: `0` for a created
 Tour, `1` for a refused proposal that wrote nothing, `2` for a usage or IO
 failure. The [creation rules](packages/tour-generation/README.md) list the
 fields, the validation and the Git reference policy; the
-[skill](packages/copilot-plugin/skills/codetour-generate/SKILL.md) shows the
-whole generation route.
+[skill](packages/copilot-plugin/skills/codetour-generate/SKILL.md) and its
+[path modules](packages/copilot-plugin/skills/codetour-generate/references/)
+show the whole generation route.
 
 No MCP server is shipped any more: an MCP client that used the `codetour` server
 loses it, and its replacement is this skill plus the CLI. See
