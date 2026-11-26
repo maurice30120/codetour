@@ -46,9 +46,11 @@ test("createTourWebviewHtml renders the step chat field under the description", 
   assert.ok(descriptionIndex > 0);
   assert.ok(chatIndex > descriptionIndex);
   assert.match(html, /<section class="step-chat" aria-label="Step discussion">/);
+  assert.match(html, /<h2>Ask about this step<\/h2>/);
   assert.match(html, /<form class="step-chat-form" id="step-chat-form">/);
   assert.match(html, /<input class="step-chat-input" id="step-chat-input" type="text"/);
   assert.match(html, /aria-label="Question about this step"/);
+  assert.match(html, /<details class="step-chat-settings" id="step-chat-settings">\s*<summary id="step-chat-settings-summary">Agent and model<\/summary>[\s\S]*?id="step-chat-agent-select"[\s\S]*?id="step-chat-model-select"[\s\S]*?<\/details>/);
   assert.match(html, /<button type="submit" class="step-chat-submit"/);
 });
 
@@ -665,9 +667,11 @@ test("the step chat message handler repaints the current agent and the answer ca
   const script = html.match(/<script nonce="agent-nonce">([\s\S]*?)<\/script>/)![1];
   let messageListener!: (event: unknown) => void;
   const agentElement = { textContent: "", hidden: true };
+  const settingsSummary = { textContent: "" };
   const chatLog = { innerHTML: "" };
   const elements: Record<string, unknown> = {
     "step-chat-agent": agentElement,
+    "step-chat-settings-summary": settingsSummary,
     "step-chat-log": chatLog
   };
   runInNewContext(script, {
@@ -702,6 +706,7 @@ test("the step chat message handler repaints the current agent and the answer ca
   });
   assert.equal(agentElement.hidden, false);
   assert.equal(agentElement.textContent, "Agent: Copilot · gpt-5 (effective)");
+  assert.equal(settingsSummary.textContent, "Copilot · gpt-5");
   assert.equal(
     chatLog.innerHTML,
     '<li class="step-chat-question">Qui répond ?</li>' +
@@ -717,6 +722,7 @@ test("the step chat message handler repaints the current agent and the answer ca
   // An update without an agent hides the line instead of naming a guess.
   messageListener({ data: { type: "stepChat", responding: false, exchanges: [] } });
   assert.equal(agentElement.hidden, true);
+  assert.equal(settingsSummary.textContent, "Agent and model");
 });
 
 test("the Agent control lists every Agent Profile with its state and disables the ones the reader cannot pick", () => {
@@ -1114,6 +1120,7 @@ test("opening the selector probes the unverified profiles once, and a manual ref
     focus: () => void;
   };
   let focused = 0;
+  const settings = { open: false };
   select = {
     innerHTML: "",
     value: "Copilot",
@@ -1123,12 +1130,14 @@ test("opening the selector probes the unverified profiles once, and a manual ref
       select.listeners[name] = listener;
     },
     focus: () => {
+      assert.equal(settings.open, true);
       focused++;
     }
   };
   const refresh = { disabled: false };
   const elements: Record<string, unknown> = {
     "step-chat-agent-select": select,
+    "step-chat-settings": settings,
     "step-chat-agents-refresh": refresh
   };
   runInNewContext(script, {

@@ -338,8 +338,14 @@ const READING_STYLES = `
     code { font-family: var(--vscode-editor-font-family); }
     blockquote { margin-left: 0; padding-left: 1rem; border-left: 3px solid var(--vscode-textBlockQuote-border); }
     header { border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 12px; }
-    .step-chat { margin-top: 2.25em; border-top: 1px solid var(--vscode-panel-border); padding-top: 1.25em; }
+    .step-chat { margin-top: 2em; padding: 1em; border: 1px solid var(--vscode-panel-border); border-radius: 8px; background: var(--vscode-sideBar-background, var(--vscode-editor-background)); }
+    .step-chat h2 { margin: 0 0 .75em; font-size: 1em; }
+    .step-chat-settings { min-width: 0; flex: 1 1 200px; }
+    .step-chat-settings summary { cursor: pointer; color: var(--vscode-descriptionForeground); font-size: 12px; }
+    .step-chat-settings summary:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
+    .step-chat-settings[open] summary { margin-bottom: .5em; }
     .step-chat-log { list-style: none; margin: 0 0 1.25em; padding: 0; display: flex; flex-direction: column; gap: .8em; }
+    .step-chat-log:empty { display: none; }
     .step-chat-question { margin: 0; padding: .45em .75em; border-radius: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground, inherit); overflow-wrap: anywhere; }
     .step-chat-answer { margin: 0; padding: 0 .75em; overflow-wrap: anywhere; }
     .step-chat-answer.step-chat-error { color: var(--vscode-errorForeground); border-left: 3px solid var(--vscode-errorForeground); }
@@ -384,8 +390,9 @@ const READING_STYLES = `
     .step-chat-suggestions button { max-width: 100%; white-space: normal; text-align: left; overflow-wrap: anywhere; }
     .step-chat-suggestions button:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
     .step-chat-input:disabled, .step-chat-suggestion:disabled, .step-chat-submit:disabled { opacity: .55; cursor: default; }
-    .step-chat-form { display: flex; gap: 6px; }
-    .step-chat-input { flex: 1 1 auto; min-width: 0; padding: 4px 6px; border: 1px solid var(--vscode-input-border, transparent); border-radius: 3px; font: inherit; color: var(--vscode-input-foreground); background: var(--vscode-input-background); }
+    .step-chat-form { display: grid; gap: 8px; }
+    .step-chat-actions { display: flex; flex-wrap: wrap; align-items: start; justify-content: end; gap: 8px; }
+    .step-chat-input { min-width: 0; padding: 8px; border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 4px; font: inherit; color: var(--vscode-input-foreground); background: var(--vscode-input-background); }
     .step-chat-input:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 1px; }
     .step-chat-submit { display: inline-flex; align-items: center; min-height: 26px; padding: 3px 10px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; font: inherit; font-size: 12px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); cursor: pointer; }
     .step-chat-submit:hover { background: var(--vscode-button-hoverBackground, var(--vscode-button-background)); }
@@ -456,16 +463,7 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     <h1>${escapeHtml(model.stepTitle)}</h1>${anchor}
     ${renderMarkdownToHtml(model.description)}
     <section class="step-chat" aria-label="Step discussion">
-      ${renderAgentControlsHtml(model.chatAgents, model.chatResponding === true)}
-      ${renderModelControlsHtml(
-        model.chatModels,
-        model.chatModel,
-        (model.chatAgents ?? []).length === 0,
-        model.chatResponding === true
-      )}
-      <p class="step-chat-agent" id="step-chat-agent"${
-        model.chatAgent ? "" : " hidden"
-      }>${model.chatAgent ? escapeHtml(agentLine(model.chatAgent)) : ""}</p>
+      <h2>Ask about this step</h2>
       ${renderUnavailableHtml(model.chatUnavailable)}
       <ol class="step-chat-log" id="step-chat-log">${renderStepChatLogHtml(
         model.chatExchanges,
@@ -479,14 +477,29 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
         <input class="step-chat-input" id="step-chat-input" type="text" autocomplete="off" placeholder="Ask a question about this step…" aria-label="Question about this step"${
           composerDisabled ? " disabled" : ""
         }>
-        <button type="submit" class="step-chat-submit" id="step-chat-submit"${
-          composerDisabled ? " disabled" : ""
-        }>Send</button>
-        <button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrupt the current answer"${
-          model.chatUnavailable ? " disabled" : ""
-        }${
-          model.chatResponding ? "" : " hidden"
-        }>Stop</button>
+        <div class="step-chat-actions">
+          <details class="step-chat-settings" id="step-chat-settings">
+            <summary id="step-chat-settings-summary">${model.chatAgent ? escapeHtml(agentCaption(model.chatAgent)) : "Agent and model"}</summary>
+            ${renderAgentControlsHtml(model.chatAgents, model.chatResponding === true)}
+            ${renderModelControlsHtml(
+              model.chatModels,
+              model.chatModel,
+              (model.chatAgents ?? []).length === 0,
+              model.chatResponding === true
+            )}
+            <p class="step-chat-agent" id="step-chat-agent"${
+              model.chatAgent ? "" : " hidden"
+            }>${model.chatAgent ? escapeHtml(agentLine(model.chatAgent)) : ""}</p>
+          </details>
+          <button type="submit" class="step-chat-submit" id="step-chat-submit"${
+            composerDisabled ? " disabled" : ""
+          }>Send</button>
+          <button type="button" class="step-chat-stop" id="step-chat-stop" data-action="stopQuestion" title="Interrupt the current answer"${
+            model.chatUnavailable ? " disabled" : ""
+          }${
+            model.chatResponding ? "" : " hidden"
+          }>Stop</button>
+        </div>
       </form>
     </section>
   </article>
@@ -500,6 +513,8 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
     const chatSubmit = document.getElementById("step-chat-submit");
     const chatStatus = document.getElementById("step-chat-status");
     const chatStop = document.getElementById("step-chat-stop");
+    const chatSettings = document.getElementById("step-chat-settings");
+    const chatSettingsSummary = document.getElementById("step-chat-settings-summary");
     const chatAgent = document.getElementById("step-chat-agent");
     const chatAgentControls = document.getElementById("step-chat-agent-controls");
     const chatAgentSelect = document.getElementById("step-chat-agent-select");
@@ -666,6 +681,9 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
         chatAgent.textContent = message.agent ? agentLine(message.agent) : "";
         chatAgent.hidden = !message.agent;
       }
+      if (chatSettingsSummary) {
+        chatSettingsSummary.textContent = message.agent ? agentCaption(message.agent) : "Agent and model";
+      }
       const log = document.getElementById("step-chat-log");
       if (log) {
         const locked = message.responding === true;
@@ -731,7 +749,10 @@ export function createTourWebviewHtml(model: TourWebviewModel, nonce: string): s
         // The other action of a failed exchange moves the reader to the
         // Agent control: the choice stays the reader's.
         if (button.dataset.action === "changeAgent") {
-          if (!button.disabled && chatAgentSelect) chatAgentSelect.focus();
+          if (!button.disabled && chatAgentSelect) {
+            if (chatSettings) chatSettings.open = true;
+            chatAgentSelect.focus();
+          }
           return;
         }
         // Signing in is the reader's own action for the profile the selector
