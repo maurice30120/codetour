@@ -33,6 +33,8 @@ export {
 export type { CommitAnchor, GitResult, UncommittedEntry } from "./git";
 export { validateCodetourTour } from "./codetour-schema";
 export { OutputPathError, writeTourAtomic } from "./persistence";
+export { revalidateTourText } from "./revalidation";
+export type { Revalidation } from "./revalidation";
 export { stageCommitAnchors, validateTourProposal } from "./proposal-validation";
 export type {
   CommitComparison,

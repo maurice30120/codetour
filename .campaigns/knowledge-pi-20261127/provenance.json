@@ -1,0 +1,29 @@
+{
+  "artifacts": [
+    {
+      "path": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/codetour/dist/cli.js",
+      "sha256": "45449ae27a32cae12c2ace4ed5cfe9465a67e76db8feb343214d1331d8f8d83b",
+      "bytes": 6935074
+    },
+    {
+      "path": "/Users/dhuyet/.nvm/versions/node/v24.18.0/lib/node_modules/codetour/dist/cli.js",
+      "sha256": "45449ae27a32cae12c2ace4ed5cfe9465a67e76db8feb343214d1331d8f8d83b",
+      "bytes": 6935074
+    },
+    {
+      "path": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/codetour/codetour-darwin-arm64-0.1.2.vsix",
+      "sha256": "73e03f4c42bea555128a037f98607fb673fb3c81bda2f56722e0095f9f4daa13",
+      "bytes": 10162897
+    },
+    {
+      "path": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/codetour/dist/extension-node.js",
+      "sha256": "a80ea2487ed6f3edff9b5941158e8af9acae8a23d784b781c435221f4a86e0c3",
+      "bytes": 6606598
+    }
+  ],
+  "launcher": {
+    "command": "codetour",
+    "args": []
+  },
+  "te_import": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/TokenEconomizer/tokeneconomizer/__init__.py"
+}

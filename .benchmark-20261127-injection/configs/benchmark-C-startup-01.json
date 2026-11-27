@@ -1,0 +1,112 @@
+{
+  "group": "C-startup",
+  "requested": {
+    "knowledge": "on",
+    "microskills": "off",
+    "knowledge_injection": "startup"
+  },
+  "effective": {
+    "knowledge": true,
+    "knowledge_injection": "startup",
+    "microskills": "off",
+    "toolprune": "auto",
+    "loopguard": "nudge",
+    "repomap": "off",
+    "enabled": true
+  },
+  "injection_probe": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "has_manual": false,
+    "has_knowledge": false,
+    "knowledge_cards": 0,
+    "text": ""
+  },
+  "config_show": {
+    "enabled": true,
+    "microskills": {
+      "state": "off",
+      "microskills": "off",
+      "microskills_max_facts": 4,
+      "microskills_max_tokens": 150,
+      "microskills_propose_every": 3
+    },
+    "toolprune": {
+      "state": "on",
+      "toolprune": "auto",
+      "toolprune_evidence": 10,
+      "toolprune_min_sessions": 2,
+      "toolprune_sessions": 5,
+      "toolprune_quiet_minutes": 60,
+      "toolprune_protect": []
+    },
+    "loopguard": {
+      "state": "on",
+      "loopguard": "nudge",
+      "loopguard_aggr": "default",
+      "loopguard_nudges": 1,
+      "thresholds": {
+        "min_turns": 20,
+        "edit_churn": 4,
+        "distinct_edit_files": 3,
+        "error_outputs": 6,
+        "stagnation": 0.2,
+        "envelope_margin": 1.25,
+        "envelope_pct": 90,
+        "envelope_min_samples": 5,
+        "judge_confidence": 0.7,
+        "backstop_mult": 2.5,
+        "gate_min_turns": 18,
+        "gate_error_outputs": 8
+      },
+      "pinned": []
+    },
+    "history": {
+      "state": "off",
+      "history_import": false,
+      "history_max_sessions": 200,
+      "history_days": 365,
+      "history_dirs": []
+    },
+    "droid": {
+      "state": "off",
+      "droid_sidecall": false
+    },
+    "other": {
+      "knowledge": true,
+      "knowledge_injection": "startup",
+      "knowledge_max_cards": 4,
+      "knowledge_max_tokens": 300,
+      "knowledge_startup_share": 0.5,
+      "mode": "auto",
+      "tool_roles": [],
+      "repomap": "off",
+      "repomap_tokens": 2048,
+      "repomap_python": "",
+      "repomap_timeout": 8,
+      "paid_model": "",
+      "claude_paid_model": "",
+      "codex_paid_model": "",
+      "copilot_paid_model": "",
+      "pi_paid_model": "",
+      "opencode_paid_model": "",
+      "cursor_paid_model": "",
+      "grok_paid_model": "",
+      "hermes_paid_model": "",
+      "droid_paid_model": "",
+      "claude_paid_effort": "",
+      "codex_paid_effort": "",
+      "local_model": "off",
+      "local_roles": [
+        "judge"
+      ],
+      "local_judge_confidence": 0.9,
+      "pi_extensions": [],
+      "pi_cli": "",
+      "hermes_cli": "",
+      "shadow": false,
+      "vocabulary": "auto"
+    },
+    "warnings": []
+  }
+}

@@ -18,6 +18,7 @@ import { resolveReadonlyStepContext } from "./stepContext";
 import { readTourImages } from "./stepImages";
 import { runTerminalTour } from "./terminal";
 import { runInternalOpenVsCode } from "./internalOpenVscode";
+import { runInternalValidateTour } from "./internalValidateTour";
 import { openTourInVsCode } from "./openInVscode";
 import { defaultTerminalSession, handOffTtyToTourReader, HANDOFF_FLAG } from "./ttyHandoff";
 import { resolveTourSelection } from "./tourResolution";
@@ -48,6 +49,7 @@ interface Options {
   internalResolveTour?: string | boolean;
   internalTourId?: string;
   internalTour?: string[];
+  internalValidateTour?: string[];
   internalOpenVscode?: string[];
   experimentalTtyHandoff?: string[]; }
 
@@ -74,6 +76,7 @@ function buildProgram(): Command {
     .option("--internal-resolve-tour [title]", "resolve a Tour by title or file name and print its identity as JSON")
     .option("--internal-tour-id <id>", "open the Tour with this discovered identity")
     .option("--internal-tour <args...>", "internal: run the terminal reader on a Tour file")
+    .option("--internal-validate-tour <args...>", "internal: validate a Tour against its workspace")
     .option("--internal-open-vscode <args...>", "internal: open a Tour file in VS Code at the active step")
     .option(
       HANDOFF_OPTION,
@@ -281,6 +284,25 @@ async function runWithOptions(options: Options, title: string | undefined): Prom
     return;
   }
 
+  if (options.internalValidateTour) {
+    if (options.internalValidateTour.length > 2) {
+      console.error("CodeTour: validation requires a Tour path and optional workspace root.");
+      process.exitCode = 2;
+      return;
+    }
+    const [tour, root] = options.internalValidateTour;
+    let workspace: string;
+    try {
+      workspace = root || repositoryRoot(path.dirname(path.resolve(tour)));
+    } catch (error) {
+      console.error(`CodeTour: ${(error as Error).message}`);
+      process.exitCode = 2;
+      return;
+    }
+    process.exitCode = await runInternalValidateTour(tour, workspace);
+    return;
+  }
+
   if (options.internalTour) {
     if (options.internalTour.length < 1 || options.internalTour.length > 2) {
       throw new Error("Internal terminal runner requires a Tour path and optional workspace root.");
@@ -374,6 +396,12 @@ async function main(): Promise<void> {
     // A command with subcommands but no action prints its help and raises
     // `commander.help`: that is an informational success, not a JSON result.
     if ((error as CommanderError).code === "commander.help") return;
+    if ((error as CommanderError).code === "commander.optionMissingArgument" &&
+        (error as Error).message.includes("--internal-validate-tour")) {
+      console.error("CodeTour: validation requires a Tour path and optional workspace root.");
+      process.exitCode = 2;
+      return;
+    }
     throw toCliError(error as CommanderError);
   }
 }

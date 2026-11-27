@@ -1,0 +1,38 @@
+{
+  "index": 11,
+  "slot": "slot-11",
+  "run_id": "benchmark-B-01",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127/runs/run-02",
+  "exit_code": 0,
+  "duration_s": 102.6,
+  "scores": {
+    "exactitude_technique": 8,
+    "exhaustivite": 8,
+    "absence_erreurs": 8,
+    "note_globale": 8.0,
+    "erreurs_constatees": [
+      "Étape « État observable et format du fichier » : « `ref`/`baseRef` contraints à un SHA de 40 caractères » est faux pour `ref` — dans codetour/src/store/tourSchema.ts, `ref: z.string().optional()` (aucune regex), et schema.json:15 déclare `ref` comme simple string sans `pattern` ; seul `baseRef` porte `^[0-9a-f]{40}$` (tourSchema.ts:15, schema.json:20-21).",
+      "Étape « État observable et format du fichier » : « un seul type de destination (file, directory, contents, uri, view) » est présenté comme une règle lisible dans le schéma, mais ni le zod (CodeTourStepSchema) ni schema.json n'imposent l'exclusivité : tous les champs sont optionnels et indépendants ; seule une phrase de commentaire exprime l'intention.",
+      "Étape « Le moteur de lecture côté VS Code » : « `codetour-description-renderer`, qui assainit le HTML » attribue l'assainissement HTML au paquet partagé, alors qu'il ne sanitarise que le SVG Mermaid généré (packages/description-renderer/src/sanitize.ts, export `sanitizeSvg`) ; l'assainissement HTML/Markdown vit dans codetour/src/player/markdown.ts via `sanitize-html`.",
+      "Étape « Démarrer un Tour » : le texte enchaîne « publie les clés … puis émet `onDidStartTour`. En mode édition, il bascule le store en enregistrement » ; or dans codetour/src/store/actions.ts:113-124, `_onDidStartTour.fire(...)` est dans la branche `else` et n'est donc jamais émis quand `startInEditMode` est vrai.",
+      "Étape « L'entrée de la CLI » : la liste des options internes omet `--internal-tour-id` (et l'option expérimentale de handoff TTY) présentes dans `buildProgram` (codetour/src/cli/index.ts:73-81) — omission, pas contresens."
+    ],
+    "affirmations_verifiees": 94,
+    "commentaire": "Tour très solide : les chemins, signatures et comportements vérifiés dans le code correspondent (main `./dist/extension-node.js` et `bin.codetour` → `./dist/cli.js`, activationEvents et contributes du manifeste, alias webpack sur les trois paquets, `discoverToursFromRoot`/`visibleTours` avec les trois répertoires et `main.tour`, store mobx et schémas zod, `startCodeTour`/`startCodeTourInternal` avec bornage d'index et clés de contexte, `registerPlayerModule` complet, options commander et sous-commandes de création, contrat 0/1/2 de `runCreateTourCommand`, chaîne `validateTourProposal` → `persistTour` → `writeTourAtomic` avec confinement realpath et `recordCreation`, règles Changes Tour STALE_HEAD/merge-base/NO_CHANGES/MISSING_CHANGED_FILE_ANCHOR, `runTerminalTour` et `composeTerminalReader`). Les références `line: 69` de proposal-validation.ts et toutes les ancres de pattern pointent exactement sur les bons symboles; aucun fichier ni chemin inventé. Les seuls défauts sont trois imprécisions ciblées (contrainte SHA sur `ref`, exclusivité des destinations, attribution de l'assainissement HTML) et une nuance sur l'émission conditionnelle de `onDidStartTour`. Couverture large de l'architecture et des deux chaînes d'exécution principales, mais les modules `recorder/`, `notebook/`, `liveShare/`, `git.ts` et `api.ts` ne sont qu'évoqués en une phrase, et le flux d'enregistrement/export n'est pas parcouru."
+  },
+  "raw_answer": "{\"exactitude_technique\": 8, \"exhaustivite\": 8, \"absence_erreurs\": 8, \"note_globale\": 8.0, \"erreurs_constatees\": [\"Étape « État observable et format du fichier » : « `ref`/`baseRef` contraints à un SHA de 40 caractères » est faux pour `ref` — dans codetour/src/store/tourSchema.ts, `ref: z.string().optional()` (aucune regex), et schema.json:15 déclare `ref` comme simple string sans `pattern` ; seul `baseRef` porte `^[0-9a-f]{40}$` (tourSchema.ts:15, schema.json:20-21).\", \"Étape « État observable et format du fichier » : « un seul type de destination (file, directory, contents, uri, view) » est présenté comme une règle lisible dans le schéma, mais ni le zod (CodeTourStepSchema) ni schema.json n'imposent l'exclusivité : tous les champs sont optionnels et indépendants ; seule une phrase de commentaire exprime l'intention.\", \"Étape « Le moteur de lecture côté VS Code » : « `codetour-description-renderer`, qui assainit le HTML » attribue l'assainissement HTML au paquet partagé, alors qu'il ne sanitarise que le SVG Mermaid généré (packages/description-renderer/src/sanitize.ts, export `sanitizeSvg`) ; l'assainissement HTML/Markdown vit dans codetour/src/player/markdown.ts via `sanitize-html`.\", \"Étape « Démarrer un Tour » : le texte enchaîne « publie les clés … puis émet `onDidStartTour`. En mode édition, il bascule le store en enregistrement » ; or dans codetour/src/store/actions.ts:113-124, `_onDidStartTour.fire(...)` est dans la branche `else` et n'est donc jamais émis quand `startInEditMode` est vrai.\", \"Étape « L'entrée de la CLI » : la liste des options internes omet `--internal-tour-id` (et l'option expérimentale de handoff TTY) présentes dans `buildProgram` (codetour/src/cli/index.ts:73-81) — omission, pas contresens.\"], \"affirmations_verifiees\": 94, \"commentaire\": \"Tour très solide : les chemins, signatures et comportements vérifiés dans le code correspondent (main `./dist/extension-node.js` et `bin.codetour` → `./dist/cli.js`, activationEvents et contributes du manifeste, alias webpack sur les trois paquets, `discoverToursFromRoot`/`visibleTours` avec les trois répertoires et `main.tour`, store mobx et schémas zod, `startCodeTour`/`startCodeTourInternal` avec bornage d'index et clés de contexte, `registerPlayerModule` complet, options commander et sous-commandes de création, contrat 0/1/2 de `runCreateTourCommand`, chaîne `validateTourProposal` → `persistTour` → `writeTourAtomic` avec confinement realpath et `recordCreation`, règles Changes Tour STALE_HEAD/merge-base/NO_CHANGES/MISSING_CHANGED_FILE_ANCHOR, `runTerminalTour` et `composeTerminalReader`). Les références `line: 69` de proposal-validation.ts et toutes les ancres de pattern pointent exactement sur les bons symboles; aucun fichier ni chemin inventé. Les seuls défauts sont trois imprécisions ciblées (contrainte SHA sur `ref`, exclusivité des destinations, attribution de l'assainissement HTML) et une nuance sur l'émission conditionnelle de `onDidStartTour`. Couverture large de l'architecture et des deux chaînes d'exécution principales, mais les modules `recorder/`, `notebook/`, `liveShare/`, `git.ts` et `api.ts` ne sont qu'évoqués en une phrase, et le flux d'enregistrement/export n'est pas parcouru.\"}\n",
+  "eval_metrics": {
+    "input_tokens": 40303,
+    "output_tokens": 13878,
+    "cache_read_tokens": 892288,
+    "cache_write_tokens": 0,
+    "total_tokens": 946469,
+    "cost_usd": 0.03499052,
+    "assistant_messages": 31,
+    "tool_calls": 50,
+    "session_started": "2026-11-27T14:32:44.704Z",
+    "session_ended": "2026-11-27T14:34:26.972Z",
+    "cli_result_excerpt": null
+  }
+}

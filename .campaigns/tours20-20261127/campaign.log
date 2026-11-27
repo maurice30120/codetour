@@ -1,0 +1,108 @@
+[14:24:34] t01 déjà fait
+[14:24:34] t02 déjà fait
+[14:24:34] t03 prepare
+[14:24:34] t03 session
+[done] t03 session illisible : [Errno 2] No such file or directory: 'runs/t03/session.json'
+[14:24:34] t04 prepare
+./go.sh: line 12: runs/t04/prepare.err: No such file or directory
+[14:24:34] t04 session
+./go.sh: line 14: runs/t04/session.log: No such file or directory
+./go.sh: line 15: runs/t04/archive.err: No such file or directory
+[done] t04 session illisible : [Errno 2] No such file or directory: 'runs/t04/session.json'
+[14:24:34] t05 prepare
+./go.sh: line 12: runs/t05/prepare.err: No such file or directory
+[14:24:34] t05 session
+./go.sh: line 14: runs/t05/session.log: No such file or directory
+./go.sh: line 15: runs/t05/archive.err: No such file or directory
+[done] t05 session illisible : [Errno 2] No such file or directory: 'runs/t05/session.json'
+[14:24:34] t06 prepare
+./go.sh: line 12: runs/t06/prepare.err: No such file or directory
+[14:24:34] t06 session
+./go.sh: line 14: runs/t06/session.log: No such file or directory
+./go.sh: line 15: runs/t06/archive.err: No such file or directory
+[done] t06 session illisible : [Errno 2] No such file or directory: 'runs/t06/session.json'
+[14:24:34] t07 prepare
+./go.sh: line 12: runs/t07/prepare.err: No such file or directory
+[14:24:34] t07 session
+./go.sh: line 14: runs/t07/session.log: No such file or directory
+./go.sh: line 15: runs/t07/archive.err: No such file or directory
+[done] t07 session illisible : [Errno 2] No such file or directory: 'runs/t07/session.json'
+[14:24:34] t08 prepare
+./go.sh: line 12: runs/t08/prepare.err: No such file or directory
+[14:24:34] t08 session
+./go.sh: line 14: runs/t08/session.log: No such file or directory
+./go.sh: line 15: runs/t08/archive.err: No such file or directory
+[done] t08 session illisible : [Errno 2] No such file or directory: 'runs/t08/session.json'
+[14:24:34] t09 prepare
+./go.sh: line 12: runs/t09/prepare.err: No such file or directory
+[14:24:34] t09 session
+./go.sh: line 14: runs/t09/session.log: No such file or directory
+./go.sh: line 15: runs/t09/archive.err: No such file or directory
+[done] t09 session illisible : [Errno 2] No such file or directory: 'runs/t09/session.json'
+[14:24:34] t10 prepare
+./go.sh: line 12: runs/t10/prepare.err: No such file or directory
+[14:24:34] t10 session
+./go.sh: line 14: runs/t10/session.log: No such file or directory
+./go.sh: line 15: runs/t10/archive.err: No such file or directory
+[done] t10 session illisible : [Errno 2] No such file or directory: 'runs/t10/session.json'
+[14:24:35] t11 prepare
+./go.sh: line 12: runs/t11/prepare.err: No such file or directory
+[14:24:35] t11 session
+./go.sh: line 14: runs/t11/session.log: No such file or directory
+./go.sh: line 15: runs/t11/archive.err: No such file or directory
+[done] t11 session illisible : [Errno 2] No such file or directory: 'runs/t11/session.json'
+[14:24:35] t12 prepare
+./go.sh: line 12: runs/t12/prepare.err: No such file or directory
+[14:24:35] t12 session
+./go.sh: line 14: runs/t12/session.log: No such file or directory
+./go.sh: line 15: runs/t12/archive.err: No such file or directory
+[done] t12 session illisible : [Errno 2] No such file or directory: 'runs/t12/session.json'
+[14:24:35] t13 prepare
+./go.sh: line 12: runs/t13/prepare.err: No such file or directory
+[14:24:35] t13 session
+./go.sh: line 14: runs/t13/session.log: No such file or directory
+./go.sh: line 15: runs/t13/archive.err: No such file or directory
+[done] t13 session illisible : [Errno 2] No such file or directory: 'runs/t13/session.json'
+[14:24:35] t14 prepare
+./go.sh: line 12: runs/t14/prepare.err: No such file or directory
+[14:24:35] t14 session
+./go.sh: line 14: runs/t14/session.log: No such file or directory
+./go.sh: line 15: runs/t14/archive.err: No such file or directory
+[done] t14 session illisible : [Errno 2] No such file or directory: 'runs/t14/session.json'
+[14:24:35] t15 prepare
+./go.sh: line 12: runs/t15/prepare.err: No such file or directory
+[14:24:35] t15 session
+./go.sh: line 14: runs/t15/session.log: No such file or directory
+./go.sh: line 15: runs/t15/archive.err: No such file or directory
+[done] t15 session illisible : [Errno 2] No such file or directory: 'runs/t15/session.json'
+[14:24:35] t16 prepare
+./go.sh: line 12: runs/t16/prepare.err: No such file or directory
+[14:24:35] t16 session
+./go.sh: line 14: runs/t16/session.log: No such file or directory
+./go.sh: line 15: runs/t16/archive.err: No such file or directory
+[done] t16 session illisible : [Errno 2] No such file or directory: 'runs/t16/session.json'
+[14:24:35] t17 prepare
+./go.sh: line 12: runs/t17/prepare.err: No such file or directory
+[14:24:35] t17 session
+./go.sh: line 14: runs/t17/session.log: No such file or directory
+./go.sh: line 15: runs/t17/archive.err: No such file or directory
+[done] t17 session illisible : [Errno 2] No such file or directory: 'runs/t17/session.json'
+[14:24:35] t18 prepare
+./go.sh: line 12: runs/t18/prepare.err: No such file or directory
+[14:24:35] t18 session
+./go.sh: line 14: runs/t18/session.log: No such file or directory
+./go.sh: line 15: runs/t18/archive.err: No such file or directory
+[done] t18 session illisible : [Errno 2] No such file or directory: 'runs/t18/session.json'
+[14:24:35] t19 prepare
+./go.sh: line 12: runs/t19/prepare.err: No such file or directory
+[14:24:35] t19 session
+./go.sh: line 14: runs/t19/session.log: No such file or directory
+./go.sh: line 15: runs/t19/archive.err: No such file or directory
+[done] t19 session illisible : [Errno 2] No such file or directory: 'runs/t19/session.json'
+[14:24:35] t20 prepare
+./go.sh: line 12: runs/t20/prepare.err: No such file or directory
+[14:24:35] t20 session
+./go.sh: line 14: runs/t20/session.log: No such file or directory
+./go.sh: line 15: runs/t20/archive.err: No such file or directory
+[done] t20 session illisible : [Errno 2] No such file or directory: 'runs/t20/session.json'
+[14:24:35] campagne terminée

@@ -1,0 +1,46 @@
+{
+ "ok": true,
+ "dialog": false,
+ "events": [
+  {
+   "at": 1795762924.619,
+   "seen": "startup banner",
+   "marker": "escape interrupt"
+  },
+  {
+   "at": 1795762924.619,
+   "sent": "prompt"
+  },
+  {
+   "at": 1795762927.624,
+   "sent": "submit"
+  },
+  {
+   "at": 1795762928.626,
+   "seen": "tour kind menu",
+   "marker": "Which tour should be generated?"
+  },
+  {
+   "at": 1795762928.626,
+   "sent": "select Project Tour"
+  },
+  {
+   "at": 1795762969.972,
+   "seen": "tour creation",
+   "marker": "Tour cr\u00e9\u00e9"
+  },
+  {
+   "at": 1795763060.935,
+   "timeout": "opening dialogue",
+   "marker": "now?"
+  },
+  {
+   "at": 1795763065.939,
+   "sent": "ctrl+d"
+  },
+  {
+   "at": 1795763066.126,
+   "interrupted": "ctrl+d did not exit"
+  }
+ ]
+}

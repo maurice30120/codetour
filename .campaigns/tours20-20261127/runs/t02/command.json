@@ -1,0 +1,15 @@
+[
+  "/Users/dhuyet/.pi/agent/bin/pi",
+  "--model",
+  "mistral/deepseek-v4-1-flash-1017",
+  "--thinking",
+  "off",
+  "--session-dir",
+  "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/tours20-20261127/sessions",
+  "--name",
+  "tours20-20261127-t02",
+  "--no-mcp",
+  "--no-prompt-templates",
+  "--append-system-prompt",
+  "Campagne de mesure : ne lis ni les fichiers .tour, ni les r\u00e9pertoires .tours/ et .campaigns/ ; ne r\u00e9utilise aucun Tour existant. Travaille depuis la racine du workspace et n'\u00e9cris que dans /tmp et le Tour demand\u00e9. Cr\u00e9e exactement un Tour, avec le nom de fichier demand\u00e9."
+]

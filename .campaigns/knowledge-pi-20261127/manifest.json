@@ -1,0 +1,10 @@
+{
+  "campaign": "knowledge-pi-20261127",
+  "root": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "started": "2026-11-27T06:43:25.324499+00:00",
+  "root_sha": "c248a4abdb4a234b635b5249ebe9c3ed9213bc8a",
+  "te_sha": "a75d57409ae800872a6138f02b842eb6c46210a0",
+  "submodule": "160000 commit a75d57409ae800872a6138f02b842eb6c46210a0\tTokenEconomizer\n",
+  "root_status_before": "## spec-341-integration\n?? .tours/.log/\n?? plan-creation-knowledge-spec341.md\n",
+  "te_status_before": "## spec-341-integration\n"
+}

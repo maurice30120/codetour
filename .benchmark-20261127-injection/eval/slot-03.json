@@ -1,0 +1,41 @@
+{
+  "index": 3,
+  "slot": "slot-03",
+  "run_id": "benchmark-C-startup-03",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-09",
+  "exit_code": 0,
+  "duration_s": 107.9,
+  "scores": {
+    "exactitude_technique": 8,
+    "exhaustivite": 7,
+    "absence_erreurs": 7,
+    "note_globale": 7.3,
+    "erreurs_constatees": [
+      "Étape « Les paquets internes » : « L'extension les consomme par des alias webpack, le CLI par les mêmes builds » est faux pour copilot-plugin et pi-plugin. Seuls description-renderer, tour-generation et workspace-identity ont un alias webpack (webpack.config.js) ; les deux plugins sont embarqués sous forme de modules TS générés (scripts/embed-copilot-plugin.js, scripts/embed-pi-plugin.js → src/cli/copilot-plugin.generated.ts, src/cli/pi-plugin.generated.ts) et ne sont consommés que par le CLI, jamais par l'extension (aucune référence hors src/cli).",
+      "Étape « Le lecteur » : « Les descriptions longues s'ouvrent dans un panneau webview à côté du code » — aucun critère de longueur n'existe ; le panneau s'ouvre sur demande via la commande codetourIA.showStepDescription (« Show Expanded Description », src/player/commands.ts), et non automatiquement pour les descriptions longues.",
+      "Étape « Le lecteur » : « chaque étape devient un fil de commentaire » — faux en mode lecture étendue : isWebviewPlayback() (store.isExpandedViewOpen && !store.isRecording) fait vivre la description uniquement dans la webview et n'appelle pas presentCurrentStepInThread (src/player/index.ts).",
+      "Étape « Le lecteur » : le mode aperçu/édition dépend de `store.isRecording && store.isEditing` (CommentMode.Editing), pas seulement du fait que l'utilisateur enregistre.",
+      "Étape « Rendu des descriptions » : « ce paquet les nettoie » — le paquet description-renderer ne fait que sanitiser le SVG (sanitize.ts) ; la sanitisation Markdown (sanitize-html) est dans src/player/markdown.ts (côté extension).",
+      "Étape « Rendu des descriptions » : « légende sur la ligne précédente » — findCaptionCandidateLine remonte jusqu'à la dernière ligne non vide en sautant les lignes blanches, donc pas strictement la ligne immédiatement précédente.",
+      "Étape « activate » : l'ordre décrit place la sélection d'agent après le gestionnaire d'URI, alors que le code appelle setStepChatAgentSelection juste après registerPlayerModule, avant registerRecorderModule et registerLiveShareModule (src/extension.ts).",
+      "Exhaustivité : le flux d'enregistrement (src/recorder, watcher, completionProvider, sauvegarde d'étape) n'est jamais décrit, alors qu'il est un chemin d'exécution principal ; l'arbre/vue fournisseur (src/store/provider.ts) et l'architecture du lecteur terminal (src/cli/reader, terminal.ts) sont à peine effleurés."
+    ],
+    "affirmations_verifiees": 45,
+    "commentaire": "Le tour est globalement fiable : presque tous les chemins, symboles et motifs cités existent et correspondent au code (package.json main/activationEvents/jsonValidation, activate, tourSchema/loadTour, tourDiscovery SUB_TOUR_DIRECTORIES et jexl, startCodeTour et resolveStepDraftBeforeExit, CONTROLLER_ID et renderCurrentStep, openAskSession et catalogue d'agents ACP, buildProgram et codes de sortie 0/1/2, createProjectTour/createChangesTour sans ref, writeTourAtomic et journal .tours/.log/creations, bundles webpack et ordre du build). Les écarts relevés sont surtout des imprécisions de formulation sur le partage des paquets (plugins embarqués et non aliasés), sur le panneau webview (ouvert à la demande, pas selon la longueur) et sur la sanitisation Markdown. La couverture architecturale est bonne (deux surfaces, format, découverte, lecture, création, persistance, build) mais omet le flux d'enregistrement et détaille peu la vue des Tours et le lecteur terminal du CLI."
+  },
+  "raw_answer": "{\"exactitude_technique\": 8, \"exhaustivite\": 7, \"absence_erreurs\": 7, \"note_globale\": 7.3, \"erreurs_constatees\": [\"Étape « Les paquets internes » : « L'extension les consomme par des alias webpack, le CLI par les mêmes builds » est faux pour copilot-plugin et pi-plugin. Seuls description-renderer, tour-generation et workspace-identity ont un alias webpack (webpack.config.js) ; les deux plugins sont embarqués sous forme de modules TS générés (scripts/embed-copilot-plugin.js, scripts/embed-pi-plugin.js → src/cli/copilot-plugin.generated.ts, src/cli/pi-plugin.generated.ts) et ne sont consommés que par le CLI, jamais par l'extension (aucune référence hors src/cli).\", \"Étape « Le lecteur » : « Les descriptions longues s'ouvrent dans un panneau webview à côté du code » — aucun critère de longueur n'existe ; le panneau s'ouvre sur demande via la commande codetourIA.showStepDescription (« Show Expanded Description », src/player/commands.ts), et non automatiquement pour les descriptions longues.\", \"Étape « Le lecteur » : « chaque étape devient un fil de commentaire » — faux en mode lecture étendue : isWebviewPlayback() (store.isExpandedViewOpen && !store.isRecording) fait vivre la description uniquement dans la webview et n'appelle pas presentCurrentStepInThread (src/player/index.ts).\", \"Étape « Le lecteur » : le mode aperçu/édition dépend de `store.isRecording && store.isEditing` (CommentMode.Editing), pas seulement du fait que l'utilisateur enregistre.\", \"Étape « Rendu des descriptions » : « ce paquet les nettoie » — le paquet description-renderer ne fait que sanitiser le SVG (sanitize.ts) ; la sanitisation Markdown (sanitize-html) est dans src/player/markdown.ts (côté extension).\", \"Étape « Rendu des descriptions » : « légende sur la ligne précédente » — findCaptionCandidateLine remonte jusqu'à la dernière ligne non vide en sautant les lignes blanches, donc pas strictement la ligne immédiatement précédente.\", \"Étape « activate » : l'ordre décrit place la sélection d'agent après le gestionnaire d'URI, alors que le code appelle setStepChatAgentSelection juste après registerPlayerModule, avant registerRecorderModule et registerLiveShareModule (src/extension.ts).\", \"Exhaustivité : le flux d'enregistrement (src/recorder, watcher, completionProvider, sauvegarde d'étape) n'est jamais décrit, alors qu'il est un chemin d'exécution principal ; l'arbre/vue fournisseur (src/store/provider.ts) et l'architecture du lecteur terminal (src/cli/reader, terminal.ts) sont à peine effleurés.\"], \"affirmations_verifiees\": 45, \"commentaire\": \"Le tour est globalement fiable : presque tous les chemins, symboles et motifs cités existent et correspondent au code (package.json main/activationEvents/jsonValidation, activate, tourSchema/loadTour, tourDiscovery SUB_TOUR_DIRECTORIES et jexl, startCodeTour et resolveStepDraftBeforeExit, CONTROLLER_ID et renderCurrentStep, openAskSession et catalogue d'agents ACP, buildProgram et codes de sortie 0/1/2, createProjectTour/createChangesTour sans ref, writeTourAtomic et journal .tours/.log/creations, bundles webpack et ordre du build). Les écarts relevés sont surtout des imprécisions de formulation sur le partage des paquets (plugins embarqués et non aliasés), sur le panneau webview (ouvert à la demande, pas selon la longueur) et sur la sanitisation Markdown. La couverture architecturale est bonne (deux surfaces, format, découverte, lecture, création, persistance, build) mais omet le flux d'enregistrement et détaille peu la vue des Tours et le lecteur terminal du CLI.\"}\n",
+  "eval_metrics": {
+    "input_tokens": 49975,
+    "output_tokens": 13412,
+    "cache_read_tokens": 1223168,
+    "cache_write_tokens": 0,
+    "total_tokens": 1286555,
+    "cost_usd": 0.03964908,
+    "assistant_messages": 33,
+    "tool_calls": 57,
+    "session_started": "2026-11-27T14:58:27.631Z",
+    "session_ended": "2026-11-27T15:00:15.182Z",
+    "cli_result_excerpt": null
+  }
+}

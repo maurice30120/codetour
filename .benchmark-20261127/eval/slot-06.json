@@ -1,0 +1,38 @@
+{
+  "index": 6,
+  "slot": "slot-06",
+  "run_id": "benchmark-C-01",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127/runs/run-03",
+  "exit_code": 0,
+  "duration_s": 78.7,
+  "scores": {
+    "exactitude_technique": 8,
+    "exhaustivite": 7,
+    "absence_erreurs": 8,
+    "note_globale": 7.7,
+    "erreurs_constatees": [
+      "Étape 1 : « les règles de découverte, de lecture et de génération sont écrites une fois et partagées par les deux surfaces » — faux pour la lecture : le lecteur terminal (src/cli/reader, ~5 800 lignes avec narration, conversation, statusLine) est une implémentation distincte du player VS Code (src/player/index.ts) ; seuls le schéma, la découverte et le rendu Markdown sont réellement partagés.",
+      "Étape 4 : « à chaque création, modification ou suppression d'un *.tour » — le watcher du provider ne couvre que `**/{.vscode/tours,.github/tours,.tours,[custom]}/**/*.tour` ; les fichiers racine (`main.tour`, `.tour`, `.vscode/main.tour`) ne déclenchent pas de redécouverte.",
+      "Étape 6 : « si le fichier est introuvable, un avertissement s'affiche et le contenu est servi depuis CONTENT_URI » — ce repli (markUnavailableFile) ne s'applique qu'aux étapes de diff et au mode webview ; en lecture normale, l'échec de showDocument est relancé, et getStepFileUri ne renvoie CONTENT_URI que pour une étape sans file/uri/contents.",
+      "Étape 7 : « en mode édition (enregistrement ou édition d'étape), le commentaire est éditable » — le code exige `store.isRecording && store.isEditing` (les deux à la fois), pas l'un ou l'autre.",
+      "Étape 3 : la réserve « sauf si un lien a déjà démarré une visite » s'applique à `promptForTour` (via didStartDefaultTour), pas à `discoverTours()`, qui est toujours appelé à l'activation (résultat mis en cache par la promesse mémorisée)."
+    ],
+    "affirmations_verifiees": 42,
+    "commentaire": "Tour solide et bien ancré : tous les fichiers cités existent (package.json, webpack.config.js, src/extension.ts, src/core/tourDiscovery.ts, src/store/tourSchema.ts, src/player/index.ts, src/cli/index.ts, src/cli/createTour.ts, packages/tour-generation/src/creation.ts) et tous les motifs d'ancrage correspondent au code. Les détails les plus vérifiables sont exacts : main/bin du manifeste, activationEvents, vue codetour.tours, jsonValidation *.tour -> schema.json, notebookProvider *.tour-notebook, ordre d'activation (notebook, player, agent, recorder, Live Share, URI handler, discoverTours, promptForTour, initializeGitApi, initializeApi), répertoires et fichiers de découverte avec ignorance de .memory, schémas zod en looseObject (questions max 4, destinations file/directory/contents/uri/view), renderCurrentStep (renderVersion, getStepDiff, getStepFileUri avec ref, line/selection.end/pattern), presentCurrentStepInThread (contrôleur « codetour », libellé « Step #n of N », Previous/Next/Finish Tour), contrat de sortie CLI 0/1/2, et règles de création (Project Overview, .tours/project.tour ou .tours/<fileName>, validation puis écriture atomique, journal non bloquant, merge-base/HEAD pour les Changes Tours). Les écarts relevés sont des généralisations abusives plutôt que des inventions. Exhaustivité bonne sur les chemins découverte/lecture/création, mais il manque des chemins d'exécution majeurs : le flux d'enregistrement (src/recorder), le lecteur terminal en détail (src/cli/reader), la résolution Git des refs (src/git.ts), le store mobx, et les paquets d'intégration d'agent (pi-plugin/copilot-plugin et la compétence codetour-generate) seulement mentionnés."
+  },
+  "raw_answer": "{\"exactitude_technique\": 8, \"exhaustivite\": 7, \"absence_erreurs\": 8, \"note_globale\": 7.7, \"erreurs_constatees\": [\"Étape 1 : « les règles de découverte, de lecture et de génération sont écrites une fois et partagées par les deux surfaces » — faux pour la lecture : le lecteur terminal (src/cli/reader, ~5 800 lignes avec narration, conversation, statusLine) est une implémentation distincte du player VS Code (src/player/index.ts) ; seuls le schéma, la découverte et le rendu Markdown sont réellement partagés.\", \"Étape 4 : « à chaque création, modification ou suppression d'un *.tour » — le watcher du provider ne couvre que `**/{.vscode/tours,.github/tours,.tours,[custom]}/**/*.tour` ; les fichiers racine (`main.tour`, `.tour`, `.vscode/main.tour`) ne déclenchent pas de redécouverte.\", \"Étape 6 : « si le fichier est introuvable, un avertissement s'affiche et le contenu est servi depuis CONTENT_URI » — ce repli (markUnavailableFile) ne s'applique qu'aux étapes de diff et au mode webview ; en lecture normale, l'échec de showDocument est relancé, et getStepFileUri ne renvoie CONTENT_URI que pour une étape sans file/uri/contents.\", \"Étape 7 : « en mode édition (enregistrement ou édition d'étape), le commentaire est éditable » — le code exige `store.isRecording && store.isEditing` (les deux à la fois), pas l'un ou l'autre.\", \"Étape 3 : la réserve « sauf si un lien a déjà démarré une visite » s'applique à `promptForTour` (via didStartDefaultTour), pas à `discoverTours()`, qui est toujours appelé à l'activation (résultat mis en cache par la promesse mémorisée).\"], \"affirmations_verifiees\": 42, \"commentaire\": \"Tour solide et bien ancré : tous les fichiers cités existent (package.json, webpack.config.js, src/extension.ts, src/core/tourDiscovery.ts, src/store/tourSchema.ts, src/player/index.ts, src/cli/index.ts, src/cli/createTour.ts, packages/tour-generation/src/creation.ts) et tous les motifs d'ancrage correspondent au code. Les détails les plus vérifiables sont exacts : main/bin du manifeste, activationEvents, vue codetour.tours, jsonValidation *.tour -> schema.json, notebookProvider *.tour-notebook, ordre d'activation (notebook, player, agent, recorder, Live Share, URI handler, discoverTours, promptForTour, initializeGitApi, initializeApi), répertoires et fichiers de découverte avec ignorance de .memory, schémas zod en looseObject (questions max 4, destinations file/directory/contents/uri/view), renderCurrentStep (renderVersion, getStepDiff, getStepFileUri avec ref, line/selection.end/pattern), presentCurrentStepInThread (contrôleur « codetour », libellé « Step #n of N », Previous/Next/Finish Tour), contrat de sortie CLI 0/1/2, et règles de création (Project Overview, .tours/project.tour ou .tours/<fileName>, validation puis écriture atomique, journal non bloquant, merge-base/HEAD pour les Changes Tours). Les écarts relevés sont des généralisations abusives plutôt que des inventions. Exhaustivité bonne sur les chemins découverte/lecture/création, mais il manque des chemins d'exécution majeurs : le flux d'enregistrement (src/recorder), le lecteur terminal en détail (src/cli/reader), la résolution Git des refs (src/git.ts), le store mobx, et les paquets d'intégration d'agent (pi-plugin/copilot-plugin et la compétence codetour-generate) seulement mentionnés.\"}\n",
+  "eval_metrics": {
+    "input_tokens": 33711,
+    "output_tokens": 12430,
+    "cache_read_tokens": 581376,
+    "cache_write_tokens": 0,
+    "total_tokens": 627517,
+    "cost_usd": 0.02909893,
+    "assistant_messages": 23,
+    "tool_calls": 33,
+    "session_started": "2026-11-27T14:26:15.050Z",
+    "session_ended": "2026-11-27T14:27:33.373Z",
+    "cli_result_excerpt": null
+  }
+}

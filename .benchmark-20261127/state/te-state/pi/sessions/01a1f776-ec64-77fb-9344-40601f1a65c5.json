@@ -1,0 +1,162 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/codetour",
+  "end_reason": "new",
+  "ended": 1795154484.626291,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a1f776-ec64-77fb-9344-40601f1a65c5",
+  "source": "startup",
+  "started": 1795153129.843371,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T05-38-48-549Z_01a1f776-ec64-77fb-9344-40601f1a65c5.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 26,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 1,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:2",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 1,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 3,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:3",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 9,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:4",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:5",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 1,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:6",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 5,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:7",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 1,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 1,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:8",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 9,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 21,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:9",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:10",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 1,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 3,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:11",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:12",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 4,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 9,
+      "turn_key": "01a1f776-ec64-77fb-9344-40601f1a65c5:13",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795154484.626292,
+  "writer_tokens": 0.0
+}

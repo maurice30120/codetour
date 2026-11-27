@@ -39,6 +39,27 @@ function run(cwd: string, args: string[], output?: string, input?: string) {
   });
 }
 
+test("the CLI revalidates an existing Tour using whole-file patterns", () => {
+  const { root } = fixture();
+  try {
+    writeFileSync(path.join(root, "source.ts"), "first line\nsecond line\n");
+    const tour = path.join(root, ".tours", "validate.tour");
+    writeFileSync(tour, JSON.stringify({ title: "Example", steps: [
+      { title: "Intro", description: "Welcome" },
+      { title: "Code", description: "Example", file: "source.ts", pattern: "first line\nsecond line" }
+    ] }));
+    const valid = run(root, ["--internal-validate-tour", tour]);
+    assert.equal(valid.status, 0, valid.stderr);
+    assert.equal(JSON.parse(valid.stdout).ok, true);
+    writeFileSync(path.join(root, "source.ts"), "changed\n");
+    const invalid = run(root, ["--internal-validate-tour", tour]);
+    assert.equal(invalid.status, 1, invalid.stderr);
+    assert.equal(JSON.parse(invalid.stdout).ok, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("the CLI opens an existing Project Tour from a nested Git worktree without mutation", () => {
   const { root, original } = fixture();
   try {

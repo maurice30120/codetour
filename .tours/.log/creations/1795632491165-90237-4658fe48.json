@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "workspace": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "tourPath": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.tours/changes.tour",
+  "tourTitle": "Ce que la branche spec-304-integration change depuis origin/main",
+  "kind": "changes",
+  "at": "2026-11-25T18:48:11.165Z",
+  "sessionId": "01a21407-40b6-7052-9fc2-f2ab8c939a52",
+  "responseId": null,
+  "host": "pi"
+}

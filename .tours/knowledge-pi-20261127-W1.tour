@@ -1,0 +1,41 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Chargement, validation et progression d'un Tour",
+  "description": "Comment CodeTour découvre un fichier .tour, le valide, lui donne une identité, l'active, puis enregistre et relit la progression du lecteur.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour lit les fichiers `.tour` d'un espace de travail, les valide avec zod, les transforme en objets `CodeTour` identifiés par une URI, les expose dans le store MobX, puis mémorise dans l'état global de l'extension les étapes déjà vues.\n\n**Diagram — Chemin de chargement**\n\n```mermaid\nflowchart LR\n  A[\"Découverte\"] --> B[\"Validation\"]\n  B --> C[\"Identité\"]\n  C --> D[\"Tour actif\"]\n  D --> E[\"Progression\"]\n```\n\nLes cinq étapes suivantes suivent ce chemin dans le code : découverte, validation, identité et store, activation, persistance de la progression."
+    },
+    {
+      "title": "Découverte des fichiers .tour",
+      "description": "`discoverToursFromRoot` est le point d'entrée indépendant de l'hôte : il balaie les répertoires de sous-Tours (`.vscode/tours`, `.github/tours`, `.tours`, plus un répertoire personnalisé) puis les fichiers principaux (`.tour`, `.vscode/main.tour`, `main.tour`).\n\nChaque fichier passe par `readTour`, qui appelle `loadTour(await fs.read(uri), fs.id(uri))`. Un fichier illisible ou qui n'est pas un Tour valide est ignoré silencieusement : la découverte continue avec les autres.",
+      "file": "codetour/src/core/tourDiscovery.ts",
+      "line": 25
+    },
+    {
+      "title": "Validation du format",
+      "description": "`parseTourFile` combine `JSON.parse` et `TourFileSchema.parse` : du JSON invalide comme un document hors schéma lèvent une erreur qui porte les chemins fautifs, ce qui permet aux surfaces d'affichage de pointer le vrai problème.\n\nLe schéma est déclaré en `looseObject`, donc les propriétés inconnues sont conservées telles quelles et survivent à un aller-retour disque. Il impose un `title`, un tableau `steps`, un `baseRef` au format SHA de 40 caractères, et donne une valeur par défaut à la description d'une étape.",
+      "file": "codetour/src/store/tourSchema.ts",
+      "line": 83
+    },
+    {
+      "title": "Identité et store",
+      "description": "`loadTour` ajoute au Tour validé l'identité attribuée par l'hôte : une URI pour l'extension, une URL de fichier pour le lecteur autonome. Le type `CodeTour` est donc `TourFile` plus `id`, et le store MobX observable conserve `tours`, `activeTour` et `progress`.\n\nLa progression y est typée comme une liste de couples `[id du Tour, numéros d'étapes vus]`, ce qui rattache l'avancement à l'identité du fichier plutôt qu'à son titre.",
+      "file": "codetour/src/store/index.ts",
+      "line": 58
+    },
+    {
+      "title": "Activation d'un Tour",
+      "description": "`startCodeTourByUri` lit le fichier, décode son contenu puis appelle `loadTour` : c'est la variante « ouvrir ce fichier précis » du chargement, par opposition à la découverte de tout l'espace de travail.\n\n`startCodeTour` borne ensuite le numéro d'étape demandé à l'intervalle valide, puis `startCodeTourInternal` installe `store.activeTour` avec le Tour, l'étape, la racine d'espace de travail et le fil de commentaires. Un Tour vide reçoit l'étape `-1`.",
+      "file": "codetour/src/store/actions.ts",
+      "line": 41
+    },
+    {
+      "title": "Enregistrement et relecture de la progression",
+      "description": "`initializeStorage` recharge la progression depuis `context.globalState` sous la clé `codetour:progress`, puis construit l'objet `progress`.\n\n`progress.update()` ajoute l'étape courante au couple correspondant à `store.activeTour.tour.id` — en créant le couple au besoin —, positionne le contexte `codetour:hasProgress` et réécrit la clé dans l'état global. `isComplete` relit cette liste via `getProgress` : il teste une étape précise quand un numéro est fourni, sinon il compare la longueur de la liste au nombre d'étapes du Tour. La clé est aussi déclarée synchronisable entre machines avec `setKeysForSync`.",
+      "file": "codetour/src/store/storage.ts",
+      "line": 25
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/worktrees/codetour/spec-183-d02",
+  "end_reason": "quit",
+  "ended": 1794824399.54532,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a1e3d2-242e-7603-8f63-ef6d0472b23b",
+  "source": "resume",
+  "started": 1794823562.377459,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/e3a5d6e7-befb-4fb2-a942-3c6fef3d4bad/run-0/session.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 2,
+      "turn_key": "01a1e3d2-242e-7603-8f63-ef6d0472b23b:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 5,
+      "turn_key": "01a1e3d2-242e-7603-8f63-ef6d0472b23b:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a1e3d2-242e-7603-8f63-ef6d0472b23b:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 2,
+      "turn_key": "01a1e3d2-242e-7603-8f63-ef6d0472b23b:1",
+      "verifications": 1,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 2,
+      "turn_key": "01a1e3d2-242e-7603-8f63-ef6d0472b23b:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 4,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 37,
+      "turn_key": "01a1e3d2-242e-7603-8f63-ef6d0472b23b:1",
+      "verifications": 8,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1794824399.545321,
+  "writer_tokens": 0.0
+}

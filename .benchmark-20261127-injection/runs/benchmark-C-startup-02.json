@@ -1,0 +1,56 @@
+{
+  "id": "benchmark-C-startup-02",
+  "run": "run-05",
+  "group": "C-startup",
+  "cycle": 2,
+  "position": 2,
+  "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-05",
+  "started_at": "2026-11-27T15:46:20+0100",
+  "status": "success",
+  "exit_code": 0,
+  "timed_out": false,
+  "duration_s": 108.0,
+  "session_file": "/Users/dhuyet/.pi/agent/sessions/--private-tmp-codetour-bench-20261127-injection-runs-run-05--/2026-11-27T14-46-20-274Z_01a21d78-b772-73cd-aebd-028b92be1a12.jsonl",
+  "session_id": "01a21d78-b772-73cd-aebd-028b92be1a12",
+  "fold_recorded": true,
+  "effective_config": {
+    "knowledge": true,
+    "knowledge_injection": "startup",
+    "microskills": "off",
+    "toolprune": "auto",
+    "loopguard": "nudge",
+    "repomap": "off",
+    "enabled": true
+  },
+  "injection_probe": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "has_manual": false,
+    "has_knowledge": false,
+    "knowledge_cards": 0,
+    "text": ""
+  },
+  "prompt_sha256": "48406cad753cd5fb05e739af5b74b771f013eba0b0883acdde63f86c04bf062a",
+  "tour": {
+    "title": "Architecture de CodeTour IA",
+    "description_chars": 138,
+    "step_count": 12,
+    "steps_with_locator": 11,
+    "steps_with_mermaid": 1
+  },
+  "metrics": {
+    "input_tokens": 48871,
+    "output_tokens": 21285,
+    "cache_read_tokens": 984448,
+    "cache_write_tokens": 0,
+    "total_tokens": 1054604,
+    "cost_usd": 0.04709444,
+    "assistant_messages": 26,
+    "tool_calls": 39,
+    "session_started": "2026-11-27T14:46:20.274Z",
+    "session_ended": "2026-11-27T14:48:07.825Z",
+    "cli_result_excerpt": "{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127-injection/runs/run-05/.tours/benchmark-C-startup-02.tour\",\"title\":\"Architecture de CodeTour IA\",\"stepCount\":12,\"warnings\":[]}\nEXIT=0"
+  },
+  "stdout_tail": "Visite créée : **Architecture de CodeTour IA** → `/private/tmp/codetour-bench-20261127-injection/runs/run-05/.tours/benchmark-C-startup-02.tour` (12 étapes, aucun avertissement).\n\nSortie JSON de la CLI :\n\n```json\n{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127-injection/runs/run-05/.tours/benchmark-C-startup-02.tour\",\"title\":\"Architecture de CodeTour IA\",\"stepCount\":12,\"warnings\":[]}\n```\n\nPour la lire depuis la racine du workspace : `codetour \"Architecture de CodeTour IA\"` (terminal) ou `codetour --internal-open-vscode \".tours/benchmark-C-startup-02.tour\"` (VS Code).\n",
+  "stderr_tail": ""
+}

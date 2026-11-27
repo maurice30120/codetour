@@ -1,0 +1,12 @@
+{
+  "defaultProvider": "mistral",
+  "defaultModel": "deepseek-v4-1-flash-1017",
+  "defaultThinkingLevel": "high",
+  "packages": [
+    "/Users/dhuyet/.pi/agent/packages/codetour-plugin",
+    "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/TokenEconomizer"
+  ],
+  "extensions": [],
+  "enableTelemetry": false,
+  "lastChangelogVersion": "1.6.1"
+}

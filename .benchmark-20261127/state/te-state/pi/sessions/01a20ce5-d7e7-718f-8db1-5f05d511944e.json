@@ -1,0 +1,129 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "end_reason": "quit",
+  "ended": 1795513441.031451,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a20ce5-d7e7-718f-8db1-5f05d511944e",
+  "source": "startup",
+  "started": 1795512720.625092,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-24T09-31-59-335Z_01a20ce5-d7e7-718f-8db1-5f05d511944e.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 54,
+      "turn_key": "01a20ce5-d7e7-718f-8db1-5f05d511944e:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 10,
+      "turn_key": "01a20ce5-d7e7-718f-8db1-5f05d511944e:2",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 1,
+      "turn_key": "01a20ce5-d7e7-718f-8db1-5f05d511944e:3",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a20ce5-d7e7-718f-8db1-5f05d511944e:4",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a20ce5-d7e7-718f-8db1-5f05d511944e:5",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 1,
+      "turn_key": "01a20ce5-d7e7-718f-8db1-5f05d511944e:6",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 2,
+      "turn_key": "01a20ce5-d7e7-718f-8db1-5f05d511944e:7",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a20ce5-d7e7-718f-8db1-5f05d511944e:8",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 1,
+      "turn_key": "01a20ce5-d7e7-718f-8db1-5f05d511944e:9",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a20ce5-d7e7-718f-8db1-5f05d511944e:10",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795513441.031452,
+  "writer_tokens": 0.0
+}

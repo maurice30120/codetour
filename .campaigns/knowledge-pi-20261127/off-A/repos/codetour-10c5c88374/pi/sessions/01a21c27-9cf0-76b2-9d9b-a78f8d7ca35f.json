@@ -1,0 +1,21 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "end_reason": "quit",
+  "ended": 1795768741.9366348,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a21c27-9cf0-76b2-9d9b-a78f8d7ca35f",
+  "source": "startup",
+  "start_event": [
+    "startup",
+    null
+  ],
+  "started": 1795768688.284609,
+  "transcript": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/knowledge-pi-20261127/sessions/2026-11-27T08-38-07-857Z_01a21c27-9cf0-76b2-9d9b-a78f8d7ca35f.jsonl",
+  "turns": [],
+  "updated": 1795768741.936637,
+  "writer_tokens": 0.0
+}

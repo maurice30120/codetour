@@ -1,0 +1,74 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/codetour",
+  "end_reason": "new",
+  "ended": 1794831111.610819,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a1e434-0c45-70d4-9c0e-d652c450fe30",
+  "source": "startup",
+  "started": 1794829979.836097,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T11-52-58-694Z_01a1e434-0c45-70d4-9c0e-d652c450fe30.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a1e434-0c45-70d4-9c0e-d652c450fe30:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 2,
+      "turn_key": "01a1e434-0c45-70d4-9c0e-d652c450fe30:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 2,
+      "turn_key": "01a1e434-0c45-70d4-9c0e-d652c450fe30:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 5,
+      "turn_key": "01a1e434-0c45-70d4-9c0e-d652c450fe30:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 4,
+      "turn_key": "01a1e434-0c45-70d4-9c0e-d652c450fe30:2",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1794831111.61082,
+  "writer_tokens": 0.0
+}

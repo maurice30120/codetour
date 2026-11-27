@@ -1,0 +1,37 @@
+{
+  "index": 6,
+  "slot": "slot-06",
+  "run_id": "benchmark-C-both-01",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-01",
+  "exit_code": 0,
+  "duration_s": 75.4,
+  "scores": {
+    "exactitude_technique": 8,
+    "exhaustivite": 7,
+    "absence_erreurs": 8,
+    "note_globale": 7.7,
+    "erreurs_constatees": [
+      "Étape « Règles de découverte » : la liste de MAIN_TOUR_FILES est incomplète — le code déclare [\".tour\", \".vscode/main.tour\", \"main.tour\"] (src/core/tourDiscovery.ts), le tour ne cite que `main.tour` et `.vscode/main.tour` et omet le `.tour` à la racine.",
+      "Étape « Rendre une étape » : renderCurrentStep n'appelle pas `showTourWebview`; en vue étendue il appelle `renderTourStep()` (src/player/tourWebview.ts), qui met à jour le panneau existant via `createTourWebviewHtml`. `showTourWebview` sert à ouvrir/focaliser le panneau (src/player/commands.ts, focusPlayer).",
+      "Étape « Rendre une étape » : l'affirmation « si le fichier est introuvable, la visite continue avec un avertissement » n'est vraie qu'en mode webview (et pour le repli des étapes `display: diff`) ; en lecture native, une étape non-diff dont le document ne s'ouvre pas relance l'erreur (pas de markUnavailableFile).",
+      "Étape « Règles de création » : les règles Git de Changes Tour (HEAD exact → STALE_HEAD, merge-base, NO_CHANGES, ancre modifiée obligatoire) sont appliquées dans `changesTour()`, pas dans `validateTourProposal()` comme le laisse entendre la phrase."
+    ],
+    "affirmations_verifiees": 55,
+    "commentaire": "Tour solide et bien ancré : manifeste (main/activationEvents/bin/contributes), webpack (nodeConfig/cliConfig, alias des trois paquets, shebang, ordre du script build), activation (ordre des modules, discoverTours, promptForTour, initializeGitApi, initializeApi, URIHandler), découvrabilité (provider + core/tourDiscovery, watcher, `.memory` sauté, tri + jexl), démarrage/rendu, CLI (commander, renderer terminal par défaut, sous-commandes create-*-tour réservées), contrat JSON de createTour.ts (stdin vs TTY, codes 0/1/2, document JSON même en erreur interne) et création (createContext, validateTourProposal, warnings 15 étapes/orientation, persistTour + validateCodetourTour, writeTourAtomic temp/sync/rename avec contrôle de confinement, journal .tours/.log/creations) : tout cela correspond au code, et les dix `pattern` d'ancrage existent réellement. Les écarts relevés sont des imprécisions/omissions ponctuelles, pas des chemins ou symboles inventés. Principale lacune de couverture : le chemin d'authoring (recorder, édition/brouillons, tree view, notebook provider, API publique, intégrations d'agents) n'est qu'effleuré ou absent, alors que le tour s'en tient aux deux chemins lecture/génération annoncés."
+  },
+  "raw_answer": "{\"exactitude_technique\": 8, \"exhaustivite\": 7, \"absence_erreurs\": 8, \"note_globale\": 7.7, \"erreurs_constatees\": [\"Étape « Règles de découverte » : la liste de MAIN_TOUR_FILES est incomplète — le code déclare [\\\".tour\\\", \\\".vscode/main.tour\\\", \\\"main.tour\\\"] (src/core/tourDiscovery.ts), le tour ne cite que `main.tour` et `.vscode/main.tour` et omet le `.tour` à la racine.\", \"Étape « Rendre une étape » : renderCurrentStep n'appelle pas `showTourWebview`; en vue étendue il appelle `renderTourStep()` (src/player/tourWebview.ts), qui met à jour le panneau existant via `createTourWebviewHtml`. `showTourWebview` sert à ouvrir/focaliser le panneau (src/player/commands.ts, focusPlayer).\", \"Étape « Rendre une étape » : l'affirmation « si le fichier est introuvable, la visite continue avec un avertissement » n'est vraie qu'en mode webview (et pour le repli des étapes `display: diff`) ; en lecture native, une étape non-diff dont le document ne s'ouvre pas relance l'erreur (pas de markUnavailableFile).\", \"Étape « Règles de création » : les règles Git de Changes Tour (HEAD exact → STALE_HEAD, merge-base, NO_CHANGES, ancre modifiée obligatoire) sont appliquées dans `changesTour()`, pas dans `validateTourProposal()` comme le laisse entendre la phrase.\"], \"affirmations_verifiees\": 55, \"commentaire\": \"Tour solide et bien ancré : manifeste (main/activationEvents/bin/contributes), webpack (nodeConfig/cliConfig, alias des trois paquets, shebang, ordre du script build), activation (ordre des modules, discoverTours, promptForTour, initializeGitApi, initializeApi, URIHandler), découvrabilité (provider + core/tourDiscovery, watcher, `.memory` sauté, tri + jexl), démarrage/rendu, CLI (commander, renderer terminal par défaut, sous-commandes create-*-tour réservées), contrat JSON de createTour.ts (stdin vs TTY, codes 0/1/2, document JSON même en erreur interne) et création (createContext, validateTourProposal, warnings 15 étapes/orientation, persistTour + validateCodetourTour, writeTourAtomic temp/sync/rename avec contrôle de confinement, journal .tours/.log/creations) : tout cela correspond au code, et les dix `pattern` d'ancrage existent réellement. Les écarts relevés sont des imprécisions/omissions ponctuelles, pas des chemins ou symboles inventés. Principale lacune de couverture : le chemin d'authoring (recorder, édition/brouillons, tree view, notebook provider, API publique, intégrations d'agents) n'est qu'effleuré ou absent, alors que le tour s'en tient aux deux chemins lecture/génération annoncés.\"}\n",
+  "eval_metrics": {
+    "input_tokens": 35880,
+    "output_tokens": 8208,
+    "cache_read_tokens": 505216,
+    "cache_write_tokens": 0,
+    "total_tokens": 549304,
+    "cost_usd": 0.02415011,
+    "assistant_messages": 20,
+    "tool_calls": 27,
+    "session_started": "2026-11-27T15:03:43.808Z",
+    "session_ended": "2026-11-27T15:04:52.715Z",
+    "cli_result_excerpt": null
+  }
+}

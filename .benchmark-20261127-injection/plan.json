@@ -1,0 +1,96 @@
+{
+  "seed": 20261127,
+  "generated_at": "2026-11-27T15:15:30+0100",
+  "rule": "3 cycles of 3; each cycle is one random permutation of C-startup, C-tools, C-both (group C sub-variants: knowledge=on, microskills=off, knowledge_injection varied)",
+  "groups": {
+    "C-startup": {
+      "knowledge": "on",
+      "microskills": "off",
+      "knowledge_injection": "startup"
+    },
+    "C-tools": {
+      "knowledge": "on",
+      "microskills": "off",
+      "knowledge_injection": "tools"
+    },
+    "C-both": {
+      "knowledge": "on",
+      "microskills": "off",
+      "knowledge_injection": "both"
+    }
+  },
+  "runs": [
+    {
+      "run": "run-01",
+      "id": "benchmark-C-both-01",
+      "cycle": 1,
+      "position": 1,
+      "group": "C-both",
+      "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-01"
+    },
+    {
+      "run": "run-02",
+      "id": "benchmark-C-tools-01",
+      "cycle": 1,
+      "position": 2,
+      "group": "C-tools",
+      "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-02"
+    },
+    {
+      "run": "run-03",
+      "id": "benchmark-C-startup-01",
+      "cycle": 1,
+      "position": 3,
+      "group": "C-startup",
+      "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-03"
+    },
+    {
+      "run": "run-04",
+      "id": "benchmark-C-both-02",
+      "cycle": 2,
+      "position": 1,
+      "group": "C-both",
+      "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-04"
+    },
+    {
+      "run": "run-05",
+      "id": "benchmark-C-startup-02",
+      "cycle": 2,
+      "position": 2,
+      "group": "C-startup",
+      "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-05"
+    },
+    {
+      "run": "run-06",
+      "id": "benchmark-C-tools-02",
+      "cycle": 2,
+      "position": 3,
+      "group": "C-tools",
+      "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-06"
+    },
+    {
+      "run": "run-07",
+      "id": "benchmark-C-both-03",
+      "cycle": 3,
+      "position": 1,
+      "group": "C-both",
+      "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-07"
+    },
+    {
+      "run": "run-08",
+      "id": "benchmark-C-tools-03",
+      "cycle": 3,
+      "position": 2,
+      "group": "C-tools",
+      "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-08"
+    },
+    {
+      "run": "run-09",
+      "id": "benchmark-C-startup-03",
+      "cycle": 3,
+      "position": 3,
+      "group": "C-startup",
+      "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-09"
+    }
+  ]
+}

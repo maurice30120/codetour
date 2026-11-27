@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "workspace": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "tourPath": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.tours/knowledge-pi-20261127-03.tour",
+  "tourTitle": "Enregistrer une création et la rattacher à la bonne réponse Pi",
+  "kind": "project",
+  "at": "2026-11-27T07:01:52.382Z",
+  "sessionId": "01a21bcf-22e5-7408-9cd2-0c68455787fa",
+  "responseId": null,
+  "host": "pi"
+}

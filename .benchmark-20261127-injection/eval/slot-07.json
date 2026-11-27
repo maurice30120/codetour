@@ -1,0 +1,37 @@
+{
+  "index": 7,
+  "slot": "slot-07",
+  "run_id": "benchmark-C-tools-02",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-06",
+  "exit_code": 0,
+  "duration_s": 91.7,
+  "scores": {
+    "exactitude_technique": 9,
+    "exhaustivite": 8,
+    "absence_erreurs": 9,
+    "note_globale": 8.7,
+    "erreurs_constatees": [
+      "Étape « La CLI » : « Les options `--internal-*` sont celles que l'extension appelle pour son lecteur » — l'extension VS Code n'appelle pas la CLI ; ce sont les plugins Pi (`packages/pi-plugin/extensions/codetour.ts`) et l'adaptateur Copilot qui utilisent `--internal-list-tours`, `--internal-resolve-tour`, `--internal-open-vscode`.",
+      "Étape « La CLI » : « deux familles de sous-commandes » est imprécis — le code n'enregistre que les deux sous-commandes `create-project-tour` et `create-changes-tour` (une boucle sur `kind`), le reste étant des options (`--install`, `--agents`, `--doctor`, `--renderer`, `--internal-*`).",
+      "Exhaustivité : le chemin d'enregistrement/édition d'une visite (`src/recorder/*`, mode recording, brouillons d'étape) n'a pas d'étape dédiée alors que c'est un chemin d'exécution majeur du produit ; le fournisseur de notebook n'est cité qu'en passant, et l'API Git, Live Share et l'intégration des agents (plugins Pi/Copilot, `description-renderer`) ne sont pas couverts.",
+      "Nuance mineure : étape « Découverte », `MAIN_TOUR_FILES` contient littéralement `.tour` (fichier racine), `.vscode/main.tour` et `main.tour` — le tour reste exact mais ne détaille pas ce point surprenant."
+    ],
+    "affirmations_verifiees": 46,
+    "commentaire": "Tour solide et globalement fidèle au code : les 9 ancres (file+pattern) résolvent toutes vers les bons symboles, et les affirmations sur `package.json` (main, bin, activationEvents, contributes : commandes codetourIA.*, vue codetour.tours, notebookProvider *.tour-notebook, langage/schema .tour), sur `activate` (notebook, registerPlayerModule, AgentSelection, recorder, Live Share, URIHandler avec vérification d'espace de travail, promptForTour, initializeGitApi, initializeApi), sur `discoverToursFromRoot`/`visibleTours`/`MAIN_TOUR_FILES`/`SUB_TOUR_DIRECTORIES`/`.memory`, sur `startCodeTour`/`startCodeTourInternal` (bornage d'étape, brouillon, `store.activeTour`, clés de contexte) et sur la reaction de `registerPlayerModule` sont exactes. La chaîne de création est correctement décrite : `createProjectTour` → `createTour` → `projectTour` → `validateTourProposal` (paramètres, Mermaid, images, structure, ancres workspace) avant toute écriture, titre par défaut `Project Overview`, avertissements `STEP_LIMIT_EXCEEDED`/`ORIENTATION_STEP_MISSING_OVERVIEW`, cible `.tours/project.tour` ou `.tours/<fileName>`, absence de Git/`ref` ; `writeTourAtomic` (realpathSync vs ctx.realRoot, `OutputPathError`, temporaire + fsync + rename) et le journal `.tours/.log/creations/` non bloquant sont conformes. Aucun fichier ni symbole inventé. Les seuls écarts sont l'attribution des options `--internal-*` à l'extension VS Code et la formulation « deux familles de sous-commandes » ; l'exhaustivité pâtit surtout de l'absence du chemin d'enregistrement/édition et des surfaces secondaires (notebook, Git, Live Share, plugins d'agents)."
+  },
+  "raw_answer": "{\"exactitude_technique\": 9, \"exhaustivite\": 8, \"absence_erreurs\": 9, \"note_globale\": 8.7, \"erreurs_constatees\": [\"Étape « La CLI » : « Les options `--internal-*` sont celles que l'extension appelle pour son lecteur » — l'extension VS Code n'appelle pas la CLI ; ce sont les plugins Pi (`packages/pi-plugin/extensions/codetour.ts`) et l'adaptateur Copilot qui utilisent `--internal-list-tours`, `--internal-resolve-tour`, `--internal-open-vscode`.\", \"Étape « La CLI » : « deux familles de sous-commandes » est imprécis — le code n'enregistre que les deux sous-commandes `create-project-tour` et `create-changes-tour` (une boucle sur `kind`), le reste étant des options (`--install`, `--agents`, `--doctor`, `--renderer`, `--internal-*`).\", \"Exhaustivité : le chemin d'enregistrement/édition d'une visite (`src/recorder/*`, mode recording, brouillons d'étape) n'a pas d'étape dédiée alors que c'est un chemin d'exécution majeur du produit ; le fournisseur de notebook n'est cité qu'en passant, et l'API Git, Live Share et l'intégration des agents (plugins Pi/Copilot, `description-renderer`) ne sont pas couverts.\", \"Nuance mineure : étape « Découverte », `MAIN_TOUR_FILES` contient littéralement `.tour` (fichier racine), `.vscode/main.tour` et `main.tour` — le tour reste exact mais ne détaille pas ce point surprenant.\"], \"affirmations_verifiees\": 46, \"commentaire\": \"Tour solide et globalement fidèle au code : les 9 ancres (file+pattern) résolvent toutes vers les bons symboles, et les affirmations sur `package.json` (main, bin, activationEvents, contributes : commandes codetourIA.*, vue codetour.tours, notebookProvider *.tour-notebook, langage/schema .tour), sur `activate` (notebook, registerPlayerModule, AgentSelection, recorder, Live Share, URIHandler avec vérification d'espace de travail, promptForTour, initializeGitApi, initializeApi), sur `discoverToursFromRoot`/`visibleTours`/`MAIN_TOUR_FILES`/`SUB_TOUR_DIRECTORIES`/`.memory`, sur `startCodeTour`/`startCodeTourInternal` (bornage d'étape, brouillon, `store.activeTour`, clés de contexte) et sur la reaction de `registerPlayerModule` sont exactes. La chaîne de création est correctement décrite : `createProjectTour` → `createTour` → `projectTour` → `validateTourProposal` (paramètres, Mermaid, images, structure, ancres workspace) avant toute écriture, titre par défaut `Project Overview`, avertissements `STEP_LIMIT_EXCEEDED`/`ORIENTATION_STEP_MISSING_OVERVIEW`, cible `.tours/project.tour` ou `.tours/<fileName>`, absence de Git/`ref` ; `writeTourAtomic` (realpathSync vs ctx.realRoot, `OutputPathError`, temporaire + fsync + rename) et le journal `.tours/.log/creations/` non bloquant sont conformes. Aucun fichier ni symbole inventé. Les seuls écarts sont l'attribution des options `--internal-*` à l'extension VS Code et la formulation « deux familles de sous-commandes » ; l'exhaustivité pâtit surtout de l'absence du chemin d'enregistrement/édition et des surfaces secondaires (notebook, Git, Live Share, plugins d'agents).\" }\n",
+  "eval_metrics": {
+    "input_tokens": 35351,
+    "output_tokens": 8156,
+    "cache_read_tokens": 693248,
+    "cache_write_tokens": 0,
+    "total_tokens": 736755,
+    "cost_usd": 0.02524524,
+    "assistant_messages": 30,
+    "tool_calls": 29,
+    "session_started": "2026-11-27T15:04:53.146Z",
+    "session_ended": "2026-11-27T15:06:24.471Z",
+    "cli_result_excerpt": null
+  }
+}

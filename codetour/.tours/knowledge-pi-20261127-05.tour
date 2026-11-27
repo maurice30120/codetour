@@ -1,0 +1,41 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Charger, valider et suivre un Tour",
+  "description": "Le parcours d'un fichier .tour dans CodeTour : découverte sur disque, validation du format, démarrage de la lecture, puis enregistrement de la progression de lecture.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour lit des fichiers `.tour` (JSON) posés dans le dépôt, les valide, puis les joue dans l'éditeur. La progression de lecture, elle, ne vit pas dans le fichier : elle est conservée dans l'état global de l'extension.\n\n**Diagram — Cycle de vie d'un Tour, du fichier à la progression**\n\n```mermaid\nflowchart LR\n  A[\"Fichier .tour sur disque\"] --> B[\"Découverte\\ncore/tourDiscovery\"]\n  B --> C[\"Validation du format\\nstore/tourSchema\"]\n  C --> D[\"Store observable\\nstore/index\"]\n  D --> E[\"Démarrage\\nstore/actions\"]\n  E --> F[\"Progression\\nstore/storage\"]\n```\n\nLe cœur du raisonnement est un découpage net : `core/` ne dépend d'aucun hôte (VS Code ou lecteur en terminal), `store/` tient l'état observable et la persistance, `player/` et `cli/` ne font que consommer cet état."
+    },
+    {
+      "title": "Où les Tours sont cherchés",
+      "description": "La découverte est volontairement indépendante de l'hôte. `TourFilesystem` est la seule frontière avec le disque : l'extension y branche `vscode.workspace.fs`, le lecteur en terminal y branche `node:fs`.\n\nLes emplacements sont fixés par deux constantes : un Tour « principal » (`.tour`, `.vscode/main.tour`, `main.tour`) et des répertoires de sous-Tours (`.vscode/tours`, `.github/tours`, `.tours`). `tourDirectories` accepte en plus un répertoire personnalisé issu du réglage `codetour.customTourDirectory`.\n\nC'est ici qu'un fichier devient une donnée du domaine.",
+      "file": "src/core/tourDiscovery.ts",
+      "line": 10
+    },
+    {
+      "title": "La validation du format",
+      "description": "Un fichier trouvé n'est pas encore un Tour : son JSON doit passer le schéma Zod, source unique de vérité du format (les types TypeScript en sont dérivés, ils ne peuvent donc pas diverger de `schema.json`).\n\nPoints à noter :\n\n- `looseObject` préserve les propriétés inconnues, ce qui permet d'autres champs lors d'un aller-retour disque → mémoire → disque.\n- `description` absente devient chaîne vide, car beaucoup de Tours écrits à la main l'omettent.\n- `questions` est plafonné à quatre entrées non vides.\n- `baseRef` n'accepte qu'un SHA complet de 40 caractères hexadécimaux.\n\nLes erreurs de `parse` portent le chemin fautif, ce qui permet à l'appelant de pointer le vrai problème plutôt que d'échouer sur un message générique.",
+      "file": "src/store/tourSchema.ts",
+      "line": 83
+    },
+    {
+      "title": "La découverte côté éditeur",
+      "description": "L'adaptateur VS Code assemble les briques : il fournit `join`, `read`, `list` et `id` au module hôte-indépendant, puis applique le filtre de visibilité (système d'exploitation et condition `when` évaluée avec jexl).\n\nLa mise à jour de l'état est soignée : si un Tour actif existe encore après redécouverte, il est rafraîchi en place avec `set` sur l'objet observable, **sans interrompre la session de lecture** ; la session n'est terminée que lorsque le Tour a réellement disparu.\n\nUn watcher sur les répertoires de Tours et l'événement `onDidChangeWorkspaceFolders` déclenchent cette même redécouverte.",
+      "file": "src/store/provider.ts",
+      "line": 33
+    },
+    {
+      "title": "Démarrer un Tour",
+      "description": "`startCodeTour` pose le contrat de lecture. L'indice d'étape est borné à `[0, steps.length - 1]`, et un Tour sans étape reçoit `-1`.\n\nAvant de changer de Tour ou d'étape, le garde-fou de brouillon (`hasUnsavedStepDraft` / `resolveStepDraftBeforeExit`) demande à l'auteur ce qu'il advient de son étape non enregistrée : le démarrage est *différé*, jamais silencieusement abandonné.\n\nUne fois accepté, `startCodeTourInternal` appelle `startPlayer()`, écrit `store.activeTour`, positionne les contextes `inTour` / `canEditTour`, puis émet `onDidStartTour`. C'est cet événement que la couche d'affichage écoute pour rendre l'étape.",
+      "file": "src/store/actions.ts",
+      "line": 49
+    },
+    {
+      "title": "Enregistrer la progression",
+      "description": "La progression est une liste de paires `[idDuTour, étapesVues[]]` gardée dans `store.progress` et persistée sous la clé `codetour:progress` dans `globalState`, avec synchronisation entre machines via `setKeysForSync`.\n\nL'API `progress` expose trois gestes : `update()` ajoute l'étape courante, `isComplete()` répond pour une étape ou pour le Tour entier, `reset()` efface une entrée ou tout l'historique. Chaque mutation met à jour le contexte `codetour:hasProgress`, si bien que l'interface et l'état persistant restent cohérents.\n\nLes appelants sont peu nombreux et explicites : `moveCurrentCodeTourForward` (actions.ts) et la commande `finishTour` (player/commands.ts) appellent `await progress.update()`. Le point notable est l'ordre : le brouillon est résolu avant, pour que la progression ne soit écrite que si la sortie d'étape a réellement lieu.",
+      "file": "src/store/storage.ts",
+      "line": 8
+    }
+  ]
+}

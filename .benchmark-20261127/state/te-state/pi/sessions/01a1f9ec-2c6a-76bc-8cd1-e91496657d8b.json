@@ -1,0 +1,14 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/codetour",
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a1f9ec-2c6a-76bc-8cd1-e91496657d8b",
+  "source": "startup",
+  "started": 1795194367.997771,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T17-06-07-082Z_01a1f9ec-2c6a-76bc-8cd1-e91496657d8b.jsonl",
+  "turns": [],
+  "updated": 1795194367.997879,
+  "writer_tokens": 0.0
+}

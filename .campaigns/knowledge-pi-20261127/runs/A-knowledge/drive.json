@@ -1,0 +1,46 @@
+{
+ "ok": false,
+ "dialog": false,
+ "events": [
+  {
+   "at": 1795768801.358,
+   "seen": "startup banner",
+   "marker": "escape interrupt"
+  },
+  {
+   "at": 1795768801.358,
+   "sent": "prompt"
+  },
+  {
+   "at": 1795768804.363,
+   "sent": "submit"
+  },
+  {
+   "at": 1795768805.367,
+   "seen": "tour kind menu",
+   "marker": "Which tour should be generated?"
+  },
+  {
+   "at": 1795768805.367,
+   "sent": "select Project Tour"
+  },
+  {
+   "at": 1795770306.187,
+   "timeout": "tour creation",
+   "marker": "Tour cr\u00e9\u00e9"
+  },
+  {
+   "at": 1795770311.195,
+   "sent": "ctrl+d"
+  },
+  {
+   "at": 1795770371.858,
+   "timeout": "pi exit banner",
+   "marker": "To resume this session"
+  },
+  {
+   "at": 1795770371.858,
+   "interrupted": "ctrl+d did not exit"
+  }
+ ]
+}

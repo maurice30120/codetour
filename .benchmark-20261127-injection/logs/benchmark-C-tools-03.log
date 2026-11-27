@@ -1,0 +1,14 @@
+# benchmark-C-tools-03 (run-08, group C-tools)
+## stdout
+Tour créé : **Architecture et chemins d'exécution de CodeTour IA** — `/private/tmp/codetour-bench-20261127-injection/runs/run-08/.tours/benchmark-C-tools-03.tour` (13 étapes, aucun avertissement).
+
+Sortie JSON de la commande CLI :
+
+```json
+{"ok":true,"kind":"project","tourPath":"/private/tmp/codetour-bench-20261127-injection/runs/run-08/.tours/benchmark-C-tools-03.tour","title":"Architecture et chemins d'exécution de CodeTour IA","stepCount":13,"warnings":[]}
+```
+
+Pour le lire, depuis la racine du workspace : `codetour "Architecture et chemins d'exécution de CodeTour IA"` (terminal) ou `codetour --internal-open-vscode .tours/benchmark-C-tools-03.tour` (VS Code).
+
+## stderr
+

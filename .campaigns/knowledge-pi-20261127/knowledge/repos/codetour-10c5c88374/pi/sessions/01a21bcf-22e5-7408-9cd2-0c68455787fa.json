@@ -1,0 +1,43 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "end_reason": "quit",
+  "ended": 1795762923.5574248,
+  "files_read": [
+    "codetour/packages/tour-generation/src/creation.ts",
+    "codetour/packages/pi-plugin/extensions/codetour.ts"
+  ],
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "knowledge_given": [
+    "00bde8ea638146c783531fecbcf135aa",
+    "88cb15513f924f29bba87f7c62d6e159"
+  ],
+  "knowledge_startup": {
+    "cards": [
+      [
+        "00bde8ea638146c783531fecbcf135aa",
+        1
+      ],
+      [
+        "88cb15513f924f29bba87f7c62d6e159",
+        1
+      ]
+    ],
+    "tokens": 127
+  },
+  "knowledge_tokens": 127,
+  "nudges": 0,
+  "session_id": "01a21bcf-22e5-7408-9cd2-0c68455787fa",
+  "source": "startup",
+  "start_event": [
+    "startup",
+    null
+  ],
+  "started": 1795762889.798528,
+  "transcript": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/knowledge-pi-20261127/sessions/2026-11-27T07-01-29-446Z_01a21bcf-22e5-7408-9cd2-0c68455787fa.jsonl",
+  "turns": [],
+  "updated": 1795762923.557426,
+  "writer_tokens": 0.0
+}

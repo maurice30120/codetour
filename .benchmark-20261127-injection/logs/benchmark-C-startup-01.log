@@ -1,0 +1,14 @@
+# benchmark-C-startup-01 (run-03, group C-startup)
+## stdout
+Visite créée : **Architecture de CodeTour IA et chemins d'exécution** — `/private/tmp/codetour-bench-20261127-injection/runs/run-03/.tours/benchmark-C-startup-01.tour` (13 étapes, aucun avertissement).
+
+Pour la lire, depuis la racine du workspace : `codetour "Architecture de CodeTour IA et chemins d'exécution"` (lecteur terminal) ou `codetour --internal-open-vscode ".tours/benchmark-C-startup-01.tour"` (VS Code).
+
+Sortie JSON de la commande CLI :
+
+```json
+{"ok":true,"kind":"project","tourPath":"/private/tmp/codetour-bench-20261127-injection/runs/run-03/.tours/benchmark-C-startup-01.tour","title":"Architecture de CodeTour IA et chemins d'exécution","stepCount":13,"warnings":[]}
+```
+
+## stderr
+

@@ -1,0 +1,65 @@
+{
+  "note": "evaluation order, independent of the run order; ids are masked from the evaluator",
+  "runs": [
+    {
+      "index": 1,
+      "slot": "slot-01",
+      "id": "benchmark-A-02"
+    },
+    {
+      "index": 2,
+      "slot": "slot-02",
+      "id": "benchmark-C-03"
+    },
+    {
+      "index": 3,
+      "slot": "slot-03",
+      "id": "benchmark-B-03"
+    },
+    {
+      "index": 4,
+      "slot": "slot-04",
+      "id": "benchmark-A-03"
+    },
+    {
+      "index": 5,
+      "slot": "slot-05",
+      "id": "benchmark-B-02"
+    },
+    {
+      "index": 6,
+      "slot": "slot-06",
+      "id": "benchmark-C-01"
+    },
+    {
+      "index": 7,
+      "slot": "slot-07",
+      "id": "benchmark-A-01"
+    },
+    {
+      "index": 8,
+      "slot": "slot-08",
+      "id": "benchmark-D-02"
+    },
+    {
+      "index": 9,
+      "slot": "slot-09",
+      "id": "benchmark-D-01"
+    },
+    {
+      "index": 10,
+      "slot": "slot-10",
+      "id": "benchmark-D-03"
+    },
+    {
+      "index": 11,
+      "slot": "slot-11",
+      "id": "benchmark-B-01"
+    },
+    {
+      "index": 12,
+      "slot": "slot-12",
+      "id": "benchmark-C-02"
+    }
+  ]
+}

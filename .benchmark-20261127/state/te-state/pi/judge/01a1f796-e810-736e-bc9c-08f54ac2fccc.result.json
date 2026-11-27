@@ -1,0 +1,10 @@
+{
+  "at": 1795155879.31955,
+  "id": "01a1f796-e810-736e-bc9c-08f54ac2fccc:1:0:3:1795155878.303",
+  "verdict": {
+    "_tokens": 2243.4,
+    "confidence": 0.72,
+    "reason": "Despite 2.2x typical length, recent turns are varied and converging: narrowed test scopes (reader/*, cli/*), merged branch, audited commits, added docs, last ve",
+    "stuck": false
+  }
+}

@@ -1,0 +1,415 @@
+{
+  "repo": "maurice30120/codetour--c22b210bd3d1a2a722f10bfa099773f6dcbd3b1e6b20032568aee3ae1ad8dd2f",
+  "now": 2,
+  "opt_tokens": 0.0,
+  "last_propose": 2,
+  "extractors": {
+    "git_show_head_path": {
+      "name": "git_show_head_path",
+      "kind": "cmd_regex",
+      "pattern": "git show HEAD:"
+    },
+    "codetour_subdir_usage": {
+      "name": "codetour_subdir_usage",
+      "kind": "cmd_regex",
+      "pattern": "\\bcodetour(/|\\b)"
+    },
+    "nested_path_error": {
+      "name": "nested_path_error",
+      "kind": "out_regex",
+      "pattern": "path 'codetour/"
+    }
+  },
+  "facts": {
+    "d19f3b825e6d46268ed358b47a5c3244": {
+      "spec": {
+        "id": "d19f3b825e6d46268ed358b47a5c3244",
+        "claim": "`codetour/packages/tour-generation/src` holds the transport-free Tour creation rules: `createProjectTour`/`createChangesTour` from `./creation` validate the proposal, apply the Git, image, Mermaid and workspace-confinement rules, write the Tour atomically and return the outcome as a `CreationResult` value, with the CLI as the only consumer.",
+        "injection": "Tour creation rules are transport-free and live in `codetour/packages/tour-generation/src`: `createProjectTour`/`createChangesTour` (from `./creation`) validate the proposal, apply Git/image/Mermaid/workspace-confinement rules, write the Tour atomically and return a `CreationResult` value; the CLI is the only consumer.",
+        "detector": {
+          "scope": "reads_tour_generation",
+          "confirm": "(?i)createChangesTour|createProjectTour|tour-generation/src(/creation|\\.ts)?"
+        },
+        "proof": [
+          {
+            "path": "codetour/packages/tour-generation/src/index.ts",
+            "sha256": "28efa83b55b6cf0ccf9114b3fca1670c480b4e30904ce9f58e90e6d3600b7027"
+          },
+          {
+            "path": "codetour/packages/tour-generation/src/types.ts",
+            "sha256": "28ed6a423b5c7344c27f1e6b2ece6d9f0ad6c7d5a34ef289593248a124ae2338"
+          }
+        ],
+        "provenance": {
+          "sources": [
+            {
+              "path": "codetour/packages/tour-generation/src/index.ts",
+              "session": "01a21d33-9289-7019-b036-d7fafef7a53a"
+            },
+            {
+              "path": "codetour/packages/tour-generation/src/types.ts",
+              "session": "01a21d33-9289-7019-b036-d7fafef7a53a"
+            }
+          ]
+        },
+        "rev": 1
+      },
+      "life": {
+        "key": "d19f3b825e6d46268ed358b47a5c3244",
+        "high": false,
+        "drift": true,
+        "state": "ACTIVE",
+        "confirms": [],
+        "contradicts": [],
+        "fire_num": 0,
+        "fire_den": 0,
+        "promoted_at": 2,
+        "retired_at": null
+      }
+    },
+    "effb3feb5c074cb89dbfc50013755c68": {
+      "spec": {
+        "id": "effb3feb5c074cb89dbfc50013755c68",
+        "claim": "Every created Tour appends one JSON record under `<workspace>/.tours/.log/creations/` named `<createdAtMs>-<pid>-<randomhex>.json`, written atomically after the Tour exists, and a journal that cannot be written returns undefined without failing the creation.",
+        "injection": "Created Tours are journalled one record per file under `<workspace>/.tours/.log/creations/`, named `<createdAtMs>-<pid>-<randomhex>.json` and written atomically after the Tour file exists; a journal write failure is a diagnostic and never fails the creation.",
+        "detector": {
+          "scope": "passes_proposal_flag",
+          "confirm": "(?i)\\.tours/\\.log/creations|recordCreation"
+        },
+        "proof": [
+          {
+            "path": "codetour/packages/tour-generation/src/journal.ts",
+            "sha256": "1808d537563b7104e95240011b8f55e01253ee8127a39ba410b369800283e75e"
+          },
+          {
+            "path": "codetour/packages/tour-generation/src/index.ts",
+            "sha256": "28efa83b55b6cf0ccf9114b3fca1670c480b4e30904ce9f58e90e6d3600b7027"
+          }
+        ],
+        "provenance": {
+          "sources": [
+            {
+              "path": "codetour/packages/tour-generation/src/journal.ts",
+              "session": "01a21d33-9289-7019-b036-d7fafef7a53a"
+            },
+            {
+              "path": "codetour/packages/tour-generation/src/index.ts",
+              "session": "01a21d33-9289-7019-b036-d7fafef7a53a"
+            }
+          ]
+        },
+        "rev": 1
+      },
+      "life": {
+        "key": "effb3feb5c074cb89dbfc50013755c68",
+        "high": false,
+        "drift": true,
+        "state": "ACTIVE",
+        "confirms": [],
+        "contradicts": [],
+        "fire_num": 0,
+        "fire_den": 0,
+        "promoted_at": 2,
+        "retired_at": null
+      }
+    },
+    "3238cb4a06f748ca88bb15418b663b7b": {
+      "spec": {
+        "id": "3238cb4a06f748ca88bb15418b663b7b",
+        "claim": "`creationIdentity()` in `codetour/packages/tour-generation/src/journal.ts` resolves the creating session from `CODETOUR_SESSION_ID`, else `PI_SESSION_ID` (host `pi`), else `COPILOT_AGENT_SESSION_ID` (host `copilot`), together with `CODETOUR_RESPONSE_ID` and `CODETOUR_HOST`, leaving values it cannot observe as null.",
+        "injection": "The creation journal's session identity comes from the environment of the creating process: `CODETOUR_SESSION_ID` first, else `PI_SESSION_ID` (host `pi`), else `COPILOT_AGENT_SESSION_ID` (host `copilot`), plus `CODETOUR_RESPONSE_ID` and `CODETOUR_HOST`; unobservable values stay null.",
+        "detector": {
+          "scope": "(?i)create-(project|changes)-tour|\\benv\\b",
+          "confirm": "(?i)CODETOUR_SESSION_ID|PI_SESSION_ID|COPILOT_AGENT_SESSION_ID"
+        },
+        "proof": [
+          {
+            "path": "codetour/packages/tour-generation/src/journal.ts",
+            "sha256": "1808d537563b7104e95240011b8f55e01253ee8127a39ba410b369800283e75e"
+          }
+        ],
+        "provenance": {
+          "sources": [
+            {
+              "path": "codetour/packages/tour-generation/src/journal.ts",
+              "session": "01a21d33-9289-7019-b036-d7fafef7a53a"
+            }
+          ]
+        },
+        "rev": 1
+      },
+      "life": {
+        "key": "3238cb4a06f748ca88bb15418b663b7b",
+        "high": false,
+        "drift": true,
+        "state": "ACTIVE",
+        "confirms": [],
+        "contradicts": [],
+        "fire_num": 0,
+        "fire_den": 0,
+        "promoted_at": 2,
+        "retired_at": null
+      }
+    },
+    "f169768c4b4a4ae8b73893f19192509b": {
+      "spec": {
+        "id": "f169768c4b4a4ae8b73893f19192509b",
+        "claim": "`codetour/src/store/tourSchema.ts` is the single source of truth for the on-disk `.tour` format: zod `looseObject` schemas preserve unknown properties, a missing step `description` defaults to the empty string, `baseRef` must be a full 40-hex commit SHA, `parseTourFile` throws with the offending paths and `loadTour` attaches the host-assigned `id`.",
+        "injection": "The on-disk `.tour` format is defined once in `codetour/src/store/tourSchema.ts` via zod `looseObject` schemas that preserve unknown properties, default a missing step `description` to `\"\"`, require `baseRef` to be a 40-hex commit SHA, throw with offending paths from `parseTourFile`, and attach the host `id` in `loadTour`.",
+        "detector": {
+          "scope": "(?i)tourSchema|store/tourSchema|\\.tour\\b",
+          "confirm": "(?i)TourFileSchema|parseTourFile|loadTour|tourSchema"
+        },
+        "proof": [
+          {
+            "path": "codetour/src/store/tourSchema.ts",
+            "sha256": "c830368efa0241d0dab8d19b897e5e6145b409594079f534839fe1c974ff6945"
+          },
+          {
+            "path": "codetour/packages/tour-generation/src/types.ts",
+            "sha256": "28ed6a423b5c7344c27f1e6b2ece6d9f0ad6c7d5a34ef289593248a124ae2338"
+          }
+        ],
+        "provenance": {
+          "sources": [
+            {
+              "path": "codetour/src/store/tourSchema.ts",
+              "session": "01a21d33-9289-7019-b036-d7fafef7a53a"
+            },
+            {
+              "path": "codetour/packages/tour-generation/src/types.ts",
+              "session": "01a21d33-9289-7019-b036-d7fafef7a53a"
+            }
+          ]
+        },
+        "rev": 1
+      },
+      "life": {
+        "key": "f169768c4b4a4ae8b73893f19192509b",
+        "high": false,
+        "drift": true,
+        "state": "ACTIVE",
+        "confirms": [],
+        "contradicts": [],
+        "fire_num": 0,
+        "fire_den": 0,
+        "promoted_at": 2,
+        "retired_at": null
+      }
+    },
+    "a7d6cd29333942b7b6f2c06cd9c47206": {
+      "spec": {
+        "id": "a7d6cd29333942b7b6f2c06cd9c47206",
+        "claim": "`codetour/src/api.ts` `initializeApi(context)` exposes the extension surface (endCurrentTour, exportTour, onDidStartTour, onDidEndTour, promptForTour, recordTour, startTour, startTourByUri, selectTour) by re-exporting the implementations from `./store/actions`, with `promptForTour` bound to `context.globalState`.",
+        "injection": "The extension's public API object is built by `initializeApi(context)` in `codetour/src/api.ts`, which re-exports `./store/actions` implementations (endCurrentTour, exportTour, onDidStartTour, onDidEndTour, promptForTour, recordTour, startTour, startTourByUri, selectTour) and binds `promptForTour` to `context.globalState`.",
+        "detector": {
+          "scope": "(?i)src/api\\.ts|initializeApi",
+          "confirm": "(?i)initializeApi|startTourByUri|store/actions"
+        },
+        "proof": [
+          {
+            "path": "codetour/src/api.ts",
+            "sha256": "e75899da859bc6a4a6c9090b1d77b2d37c9c3ab5696222f26473a3e55319dcc0"
+          }
+        ],
+        "provenance": {
+          "sources": [
+            {
+              "path": "codetour/src/api.ts",
+              "session": "01a21d33-9289-7019-b036-d7fafef7a53a"
+            }
+          ]
+        },
+        "rev": 1
+      },
+      "life": {
+        "key": "a7d6cd29333942b7b6f2c06cd9c47206",
+        "high": false,
+        "drift": true,
+        "state": "ACTIVE",
+        "confirms": [],
+        "contradicts": [],
+        "fire_num": 0,
+        "fire_den": 0,
+        "promoted_at": 2,
+        "retired_at": null
+      }
+    },
+    "71d56dad25994293aaf3b54276a6ad84": {
+      "spec": {
+        "id": "71d56dad25994293aaf3b54276a6ad84",
+        "claim": "`codetour/src/constants.ts` fixes the extension's namespaces: extension name `codetour`, command prefix `codetourIA`, file-system scheme `codetour` with content URI `codetour-content://current/CodeTour`, the `.vscode` directory constant, and the anchor icon resolved from `__dirname/../images/anchor.svg`.",
+        "injection": "CodeTour's constant namespaces are in `codetour/src/constants.ts`: extension name `codetour`, command prefix `codetourIA`, URI schemes `codetour` and `codetour-content://current/CodeTour`, the `.vscode` directory constant, and the anchor icon at `__dirname/../images/anchor.svg`.",
+        "detector": {
+          "scope": "(?i)constants\\.ts|COMMAND_PREFIX|FS_SCHEME",
+          "confirm": "(?i)codetourIA|codetour-content|COMMAND_PREFIX"
+        },
+        "proof": [
+          {
+            "path": "codetour/src/constants.ts",
+            "sha256": "f0ed13b65fa682616f7ba556320ab04bdaf0b8370f486206b0d2804e8c3381ff"
+          }
+        ],
+        "provenance": {
+          "sources": [
+            {
+              "path": "codetour/src/constants.ts",
+              "session": "01a21d33-9289-7019-b036-d7fafef7a53a"
+            }
+          ]
+        },
+        "rev": 1
+      },
+      "life": {
+        "key": "71d56dad25994293aaf3b54276a6ad84",
+        "high": false,
+        "drift": true,
+        "state": "ACTIVE",
+        "confirms": [],
+        "contradicts": [],
+        "fire_num": 0,
+        "fire_den": 0,
+        "promoted_at": 2,
+        "retired_at": null
+      }
+    }
+  },
+  "forgotten": {},
+  "window": [
+    {
+      "iid": "01a21d31-8a94-731c-bb0e-09f43f000377",
+      "resolved": null,
+      "edited_files": [],
+      "n_cmds": 1,
+      "cmd_templates": [
+        "ls && echo \"---\" && ls codetour | head -40"
+      ],
+      "check_commands": [],
+      "failed_commands": [],
+      "missing_command": false,
+      "missing_dependency": false,
+      "bad_usage": false,
+      "_ran_tests": false,
+      "_cmd_blob": "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40",
+      "_out_blob": "TokenEconomizer/\ncodetour/\nAGENTS.md\nPROTOCOLE-TEST.md\ninstall-local.sh\nlaunch-local.sh\nrapport-campagne-10-essais-pi-copilot.md\nrapport-campagne-313.md\nrapport-campagne-341.md\nrapport-campagne-pi-copilot-2026-11-25.md\nrapport-correctif-knowledge-spec341.md\nrapport-creation-knowledge-spec341.md\nrapport-knowledge-relevance-pi.md\nrapport-partiel-campagne-313.md\nrapport-reprise-campagne-313.md\nretro-bloc-injecte-perime-2026-11-25.md\nretro-knowledge-proposee-admise-2026-11-25.md\nretro-p4-generation-tour-2026-11-25.md\n---\nCHANGELOG.md\nCONTEXT.md\ndocs\nGLOSSARY-MAP.md\nGLOSSARY.md\nimages\nLICENSE.txt\nMIGRATION.md\noverview.drawio.svg\npackage-lock.json\npackage.json\npackages\npoc\nREADME.md\nROADMAP.md\nschema.json\nscripts\nsrc\ntest\ntsconfig.json\ntsconfig.test.json\nwebpack.config.js\n",
+      "features": {
+        "git_show_head_path": false,
+        "codetour_subdir_usage": true,
+        "nested_path_error": false
+      }
+    },
+    {
+      "iid": "01a21d33-9289-7019-b036-d7fafef7a53a",
+      "resolved": null,
+      "edited_files": [],
+      "n_cmds": 0,
+      "cmd_templates": [],
+      "check_commands": [],
+      "failed_commands": [],
+      "missing_command": false,
+      "missing_dependency": false,
+      "bad_usage": false,
+      "_ran_tests": false,
+      "_cmd_blob": "",
+      "_out_blob": "",
+      "features": {
+        "git_show_head_path": false,
+        "codetour_subdir_usage": false,
+        "nested_path_error": false
+      }
+    }
+  ],
+  "raw_cmds": [
+    [
+      "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40"
+    ],
+    []
+  ],
+  "digest": {
+    "sequences": [
+      {
+        "id": "01a21d31-8a94-731c-bb0e-09f43f000377/0",
+        "session": "01a21d31-8a94-731c-bb0e-09f43f000377",
+        "index": 0,
+        "emitted": 1795786116.358,
+        "message": "Explore this repository to understand its architecture. Read completely, one after another: CONTEXT.md, codetour/src/extension.ts, codetour/src/cli/index.ts, codetour/packages/tour-generation/src/index.ts, codetour/packages/tour-generation/src/creation.ts, codetour/packages/tour-generation/src/proposal-validation.ts, codetour/src/store/index.ts, codetour/src/player/index.ts. Then answer in 8 lines: what the project is, its main entry points, and how a Tour is produced and read. Do not modify anything.",
+        "units": []
+      },
+      {
+        "id": "01a21d33-9289-7019-b036-d7fafef7a53a/0",
+        "session": "01a21d33-9289-7019-b036-d7fafef7a53a",
+        "index": 0,
+        "emitted": 1795786249.313,
+        "message": "Onboarding exploration of this repository. Read exactly these files, in this order, and nothing else: codetour/packages/tour-generation/src/index.ts, codetour/packages/tour-generation/src/types.ts, codetour/packages/tour-generation/src/journal.ts, codetour/src/store/tourSchema.ts, codetour/src/api.ts, codetour/src/constants.ts, codetour/GLOSSARY.md. Then answer in 6 lines with the main mechanisms a newcomer must know. Do not modify anything and do not read any other file.",
+        "units": [
+          {
+            "proof": {
+              "path": "codetour/packages/tour-generation/src/index.ts",
+              "sha256": "28efa83b55b6cf0ccf9114b3fca1670c480b4e30904ce9f58e90e6d3600b7027"
+            },
+            "content": "// Transport-free CodeTour creation rules.\n//\n// A caller supplies the workspace to create in and the proposal it received;\n// the entry points validate, apply the Git, image, Mermaid and\n// workspace-confinement rules, write the Tour file atomically, and return the\n// outcome as a value. The command-line surface is the only consumer, so the\n// rules live here once instead of in each surface.\n\nexport { createChangesTour, createProjectTour } from \"./creation\";\nexport {\n  CREATIONS_DIRECTORY,\n  CREATION_RECORD_VERSION,\n  creationIdentity,\n  recordCreation,\n} from \"./journal\";\nexport type { CreationIdentity, CreationRecord, CreationRecordInput } from \"./journal\";\nexport { createContext, selectContext } from \"./context\";\nexport {\n  changedFiles,\n  committedDiffIsEmpty,\n  currentBranchName,\n  currentHeadSha,\n  git,\n  isGitRepository,\n  mergeBase,\n  normalizeSlashes,\n  readCommitAnchors,\n  renamedFiles,\n  resolveCommit,\n  uncommittedChanges,\n  workspacePrefix,\n} from \"./git\";\nexport type { CommitAnchor, GitResult, UncommittedEntry } from \"./git\";\nexport { validateCodetourTour } from \"./codetour-schema\";\nexport { OutputPathError, writeTourAtomic } from \"./persistence\";\nexport { stageCommitAnchors, validateTourProposal } from \"./proposal-validation\";\nexport type {\n  CommitComparison,\n  ProposalRejection,\n  ProposalValidation,\n  StagedCommitAnchors,\n  TourProposalKind,\n  ValidatedProposal,\n} from \"./proposal-validation\";\nexport { IMAGE_TOOL_GUIDANCE, tourImageDirectoryName, validateImageDescriptions } from \"./image-validation\";\nexport { MERMAID_TOOL_GUIDANCE, validateMermaidDescriptions } from \"./mermaid-validation\";\nexport {\n  MAX_PATTERN_LENGTH,\n  MAX_QUESTIONS,\n  MAX_RECOMMENDED_DIAGRAM_NODES,\n  MAX_RECOMMENDED_STEPS,\n  orientationStepWarnings,\n  STEP_FIELDS,\n  validateChangesParams,\n  validateProjectParams,\n  validateSteps,\n} from \"./validation\";\nexport type { AnchorSource } from \"./validation\";\nexport * from \"./types\";\n",
+            "path": "codetour/packages/tour-generation/src/index.ts",
+            "refs": [
+              "01a21d33-9289-7019-b036-d7fafef7a53a/0.0"
+            ]
+          },
+          {
+            "proof": {
+              "path": "codetour/packages/tour-generation/src/types.ts",
+              "sha256": "28ed6a423b5c7344c27f1e6b2ece6d9f0ad6c7d5a34ef289593248a124ae2338"
+            },
+            "content": "export interface Position {\n  line: number;\n  character: number;\n}\n\nexport interface Selection {\n  start: Position;\n  end: Position;\n}\n\nexport interface TourStep {\n  title?: string;\n  description: string;\n  questions?: string[];\n  file?: string;\n  baseFile?: string;\n  display?: \"diff\";\n  directory?: string;\n  line?: number;\n  pattern?: string;\n  selection?: Selection;\n}\n\nexport interface ProjectParams {\n  workspacePath?: string;\n  title?: string;\n  description?: string;\n  fileName?: string;\n  steps?: unknown[];\n}\n\nexport type ReviewMode = \"neutral\" | \"critical\";\n\nexport interface ChangesParams extends ProjectParams {\n  baseRef?: string;\n  headRef?: string;\n  includeUncommittedChanges?: boolean;\n  reviewMode?: ReviewMode;\n}\n\nexport interface TourFile {\n  $schema?: string;\n  title: string;\n  description?: string;\n  ref?: string;\n  baseRef?: string;\n  steps: TourStep[];\n}\n\nexport interface Issue {\n  path: string;\n  message: string;\n}\n\nexport interface Warning {\n  code: string;\n  message: string;\n}\n\nexport interface WorkspaceContext {\n  root: string;\n  realRoot: string;\n}\n\n/** The two Tour kinds the creation rules can produce. */\nexport type TourKind = \"project\" | \"changes\";\n\n/** A Tour that exists on disk, as the creation rules report it. */\nexport interface CreatedTour {\n  kind: TourKind;\n  /** Canonical workspace root the creation was requested for. */\n  workspaceRoot: string;\n  /** Absolute path of the written Tour file. */\n  tourPath: string;\n  title: string;\n  stepCount: number;\n  warnings: Warning[];\n}\n\n/** A refused creation: nothing was written and no existing Tour was touched. */\nexport interface CreationFailure {\n  ok: false;\n  code: string;\n  message: string;\n  issues?: Issue[];\n}\n\nexport type CreationResult = (CreatedTour & { ok: true }) | CreationFailure;\n\nexport interface CreateTourOptions {\n  /** Workspace the creation runs in; every anchor and output stays inside it. */\n  workspaceRoot: string;\n  /** The proposal, exactly as the caller received it: untrusted JSON. */\n  proposal: unknown;\n  /**\n   * Name of the entry point the report addresses, so a rejection names the\n   * command the caller actually ran. Without one, the entry point is named\n   * after the Tour kind: `create-project-tour` or `create-changes-tour`.\n   */\n  surface?: string;\n}\n",
+            "path": "codetour/packages/tour-generation/src/types.ts",
+            "refs": [
+              "01a21d33-9289-7019-b036-d7fafef7a53a/0.1"
+            ]
+          },
+          {
+            "proof": {
+              "path": "codetour/packages/tour-generation/src/journal.ts",
+              "sha256": "1808d537563b7104e95240011b8f55e01253ee8127a39ba410b369800283e75e"
+            },
+            "content": "import { randomBytes } from \"crypto\";\nimport { promises as fs } from \"fs\";\nimport * as path from \"path\";\nimport { TourKind } from \"./types\";\n\n// Creation journal: one record per created Tour, under\n// `<workspace>/.tours/.log/creations/`. The hook surfaces of the agents read\n// it to report the Tours a response actually created; the record therefore\n// carries the creation time and whatever session identity the creating\n// process could observe, and nothing else.\n//\n// It is observability only. A record is an independent file, written\n// atomically after the Tour exists, so concurrent creations never contend for\n// one document; a journal that cannot be written never fails the creation and\n// is never reported as one.\n\n/** Directory of the creation records, relative to the workspace root. */\nexport const CREATIONS_DIRECTORY = path.join(\".tours\", \".log\", \"creations\");\n\nexport const CREATION_RECORD_VERSION = 1;\n\nexport interface CreationRecord {\n  version: number;\n  /** Canonical workspace root the creation was requested for. */\n  workspace: string;\n  /** Absolute path of the written Tour file. */\n  tourPath: string;\n  tourTitle: string;\n  kind: TourKind;\n  /** ISO timestamp of the successful write. */\n  at: string;\n  sessionId: string | null;\n  responseId: string | null;\n  host: string | null;\n}\n\nexport interface CreationIdentity {\n  sessionId: string | null;\n  responseId: string | null;\n  host: string | null;\n}\n\nfunction nonEmpty(value: string | undefined): string | null {\n  if (typeof value !== \"string\") return null;\n  const trimmed = value.trim();\n  return trimmed === \"\" ? null : trimmed;\n}\n\n// The identity is read from the environment of the creating process only: a\n// value CodeTour cannot observe stays null instead of being guessed. The\n// explicit variables name the session, the response and the host; a host that\n// exports its own session variable is used when it identifies the host, which\n// is why its presence also states the host name. Both host variables were\n// verified on the installed CLIs: Pi exports PI_SESSION_ID to the bash tool,\n// and the Copilot CLI exports COPILOT_AGENT_SESSION_ID, whose value equals the\n// `sessionId` its agentStop hook receives.\nexport function creationIdentity(\n  env: Record<string, string | undefined> = process.env\n): CreationIdentity {\n  const explicitSession = nonEmpty(env.CODETOUR_SESSION_ID);\n  const piSession = nonEmpty(env.PI_SESSION_ID);\n  const copilotSession = nonEmpty(env.COPILOT_AGENT_SESSION_ID);\n  const [sessionId, observedHost]: [string | null, string | null] =\n    explicitSession !== null ? [explicitSession, null]\n      : piSession !== null ? [piSession, \"pi\"]\n        : copilotSession !== null ? [copilotSession, \"copilot\"]\n          : [null, null];\n  return {\n    sessionId,\n    responseId: nonEmpty(env.CODETOUR_RESPONSE_ID),\n    host: nonEmpty(env.CODETOUR_HOST) ?? observedHost,\n  };\n}\n\nexport interface CreationRecordInput {\n  workspaceRoot: string;\n  tourPath: string;\n  tourTitle: string;\n  kind: TourKind;\n}\n\n// Write one creation record. Returns the written file, or undefined when the\n// journal is unavailable; the caller treats that as a diagnostic, never as a\n// failure of the creation itself.\nexport async function recordCreation(\n  input: CreationRecordInput,\n  identity: CreationIdentity = creationIdentity()\n): Promise<string | undefined> {\n  const createdAt = new Date();\n  const record: CreationRecord = {\n    version: CREATION_RECORD_VERSION,\n    workspace: input.workspaceRoot,\n    tourPath: input.tourPath,\n    tourTitle: input.tourTitle,\n    kind: input.kind,\n    at: createdAt.toISOString(),\n    sessionId: identity.sessionId,\n    responseId: identity.responseId,\n    host: identity.host,\n  };\n  const directory = path.join(input.workspaceRoot, CREATIONS_DIRECTORY);\n  // `<createdAtMs>-<pid>-<random>`: sortable by time, unique under concurrent\n  // creations from the same process.\n  const fileName = `${createdAt.getTime()}-${process.pid}-${randomBytes(4).toString(\"hex\")}.json`;\n  const target = path.join(directory, fileName);\n  const temporary = path.join(directory, `.${fileName}.tmp`);\n  try {\n    await fs.mkdir(directory, { recursive: true });\n    await fs.writeFile(temporary, `${JSON.stringify(record, null, 2)}\\n`, \"utf8\");\n    await fs.rename(temporary, target);\n    return target;\n  } catch {\n    await fs.rm(temporary, { force: true }).catch(() => undefined);\n    return undefined;\n  }\n}\n",
+            "path": "codetour/packages/tour-generation/src/journal.ts",
+            "refs": [
+              "01a21d33-9289-7019-b036-d7fafef7a53a/0.2"
+            ]
+          },
+          {
+            "proof": {
+              "path": "codetour/src/store/tourSchema.ts",
+              "sha256": "c830368efa0241d0dab8d19b897e5e6145b409594079f534839fe1c974ff6945"
+            },
+            "content": "// Copyright (c) Microsoft Corporation.\n// Licensed under the MIT License.\n\n/**\n * The single source of truth for the on-disk `.tour` file format. The editor\n * keeps `schema.json` for authoring-time validation, but the runtime types\n * derive from these schemas so the two cannot silently diverge (the hand\n * written interfaces had already drifted from `schema.json`).\n *\n * Unknown properties are preserved (`looseObject`) exactly like the raw\n * `JSON.parse` the loader used, so fields this extension does not know about\n * survive a round trip through discovery and a later save.\n */\nimport { z } from \"zod\";\n\n/** Full commit SHA of a persisted Git snapshot (Changes Tour diffs). */\nconst COMMIT_SHA = /^[0-9a-f]{40}$/;\n\nexport const CodeTourStepPositionSchema = z.object({\n  line: z.number(),\n  character: z.number()\n});\n\nexport const CodeTourStepSchema = z.looseObject({\n  title: z.string().optional(),\n  // Recorded and hand-written tours omit the description on some steps; the\n  // reading surfaces already render the empty description, so missing becomes\n  // empty instead of invalid.\n  description: z.string().default(\"\"),\n  questions: z.array(z.string().min(1).regex(/\\S/)).max(4).optional(),\n  icon: z.string().optional(),\n\n  // A step guides the reader to a single type of destination: a file,\n  // a directory, virtual content, a resource, or a VS Code view.\n  file: z.string().optional(),\n  baseFile: z.string().min(1).optional(),\n  display: z.literal(\"diff\").optional(),\n  directory: z.string().optional(),\n  contents: z.string().optional(),\n  uri: z.string().optional(),\n  view: z.string().min(1).optional(),\n\n  // Line and selection narrow the region to show inside a file. Without a\n  // position, the step is presented as an explanation of the whole file.\n  line: z.number().optional(),\n  selection: z\n    .object({\n      start: CodeTourStepPositionSchema,\n      end: CodeTourStepPositionSchema\n    })\n    .optional(),\n\n  commands: z.array(z.string()).optional(),\n\n  pattern: z.string().optional(),\n  markerTitle: z.string().optional()\n});\n\nexport const TourFileSchema = z.looseObject({\n  title: z.string(),\n  description: z.string().optional(),\n  steps: z.array(CodeTourStepSchema),\n  ref: z.string().optional(),\n  baseRef: z.string().regex(COMMIT_SHA).optional(),\n  isPrimary: z.boolean().optional(),\n  nextTour: z.string().optional(),\n  stepMarker: z.string().optional(),\n  when: z.string().optional()\n});\n\nexport type CodeTourStepPosition = z.infer<typeof CodeTourStepPositionSchema>;\nexport type CodeTourStep = z.infer<typeof CodeTourStepSchema>;\n/** The contents of a `.tour` file, before the host assigns its identity. */\nexport type TourFile = z.infer<typeof TourFileSchema>;\n/** A loaded tour: the file plus the discovery-assigned id. */\nexport type CodeTour = TourFile & { id: string };\n\n/**\n * Parses and validates the contents of a `.tour` file. Throws on content that\n * is not valid JSON or does not match the format, with the offending paths in\n * the error, so callers that surface errors can point at the actual problem.\n */\nexport function parseTourFile(contents: string): TourFile {\n  return TourFileSchema.parse(JSON.parse(contents));\n}\n\n/**\n * A loaded tour: the file's contents with the identity the host assigns on\n * load (a URI for the extension, a file URL for the standalone reader).\n */\nexport function loadTour(contents: string, id: string): CodeTour {\n  return Object.assign(parseTourFile(contents), { id });\n}\n",
+            "path": "codetour/src/store/tourSchema.ts",
+            "refs": [
+              "01a21d33-9289-7019-b036-d7fafef7a53a/0.3"
+            ]
+          },
+          {
+            "proof": {
+              "path": "codetour/src/api.ts",
+              "sha256": "e75899da859bc6a4a6c9090b1d77b2d37c9c3ab5696222f26473a3e55319dcc0"
+            },
+            "content": "// Copyright (c) Microsoft Corporation.\n// Licensed under the MIT License.\n\nimport { ExtensionContext } from \"vscode\";\nimport {\n  endCurrentCodeTour,\n  exportTour,\n  onDidEndTour,\n  onDidStartTour,\n  promptForTour,\n  recordTour,\n  selectTour,\n  startCodeTour,\n  startCodeTourByUri\n} from \"./store/actions\";\n\nexport function initializeApi(context: ExtensionContext) {\n  return {\n    endCurrentTour: endCurrentCodeTour,\n    exportTour,\n    onDidStartTour,\n    onDidEndTour,\n    promptForTour: promptForTour.bind(null, context.globalState),\n    recordTour,\n    startTour: startCodeTour,\n    startTourByUri: startCodeTourByUri,\n    selectTour\n  };\n}\n",
+            "path": "codetour/src/api.ts",
+            "refs": [
+              "01a21d33-9289-7019-b036-d7fafef7a53a/0.4"
+            ]
+          },
+          {
+            "proof": {
+              "path": "codetour/src/constants.ts",
+              "sha256": "f0ed13b65fa682616f7ba556320ab04bdaf0b8370f486206b0d2804e8c3381ff"
+            },
+            "content": "// Copyright (c) Microsoft Corporation.\n// Licensed under the MIT License.\n\nimport { Uri } from \"vscode\";\nimport { join } from \"path\";\n\nexport const EXTENSION_NAME = \"codetour\";\nexport const COMMAND_PREFIX = \"codetourIA\";\n\nexport const FS_SCHEME = EXTENSION_NAME;\nexport const FS_SCHEME_CONTENT = `${FS_SCHEME}-content`;\nexport const CONTENT_URI = Uri.parse(`${FS_SCHEME_CONTENT}://current/CodeTour`);\n\nexport const ICON_URL =\n  \"https://cdn.jsdelivr.net/gh/vsls-contrib/code-tour/images/icon.png\";\nexport const SMALL_ICON_URL = Uri.file(join(__dirname, \"../images/anchor.svg\")).toString();\n\nexport const VSCODE_DIRECTORY = \".vscode\";\n",
+            "path": "codetour/src/constants.ts",
+            "refs": [
+              "01a21d33-9289-7019-b036-d7fafef7a53a/0.5"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

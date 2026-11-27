@@ -1,0 +1,30 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/codetour",
+  "end_reason": "quit",
+  "ended": 1795154317.870136,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a1f788-8753-7640-9572-b27c58194f07",
+  "source": "startup",
+  "started": 1795154282.4079978,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/8b556c81-8fa8-4ed1-96ac-a194d43a1c60/run-0/session.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 1,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 18,
+      "turn_key": "01a1f788-8753-7640-9572-b27c58194f07:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795154317.870137,
+  "writer_tokens": 0.0
+}

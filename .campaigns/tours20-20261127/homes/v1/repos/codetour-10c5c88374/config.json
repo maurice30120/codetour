@@ -1,0 +1,9 @@
+{
+  "history_import": false,
+  "knowledge": false,
+  "knowledge_injection": "both",
+  "loopguard": "off",
+  "microskills": "off",
+  "repomap": "off",
+  "toolprune": "off"
+}

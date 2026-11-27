@@ -1,0 +1,56 @@
+{
+  "id": "benchmark-C-02",
+  "run": "run-08",
+  "group": "C",
+  "cycle": 2,
+  "position": 4,
+  "workspace": "/private/tmp/codetour-bench-20261127/runs/run-08",
+  "started_at": "2026-11-27T14:49:38+0100",
+  "status": "success",
+  "exit_code": 0,
+  "timed_out": false,
+  "duration_s": 368.2,
+  "session_file": "/Users/dhuyet/.pi/agent/sessions/--private-tmp-codetour-bench-20261127-runs-run-08--/2026-11-27T13-49-38-445Z_01a21d44-cf0d-771e-a107-549378703324.jsonl",
+  "session_id": "01a21d44-cf0d-771e-a107-549378703324",
+  "fold_recorded": true,
+  "effective_config": {
+    "knowledge": true,
+    "knowledge_injection": "both",
+    "microskills": "off",
+    "toolprune": "auto",
+    "loopguard": "nudge",
+    "repomap": "off",
+    "enabled": true
+  },
+  "injection_probe": {
+    "bytes": 458,
+    "sha256": "ee00dadad07612aaa23895cb72c3c01f99c04e060163e124fe9595219d129f78",
+    "has_manual": false,
+    "has_knowledge": true,
+    "knowledge_cards": 1,
+    "text": "# Knowledge from earlier sessions\nUse Knowledge if it covers the point and sources match code. Read code for gaps or contradictions.\n- \"Tour creation rules are transport-free and live in `codetour/packages/tour-generation/src`: `createProjectTour`/`createChangesTour` (from `./creation`) validate the proposal, apply Git/image/Mermaid/workspace-confinement rules, write the Tour atomically and return a `CreationResult` value; the CLI is the only consumer.\"\n"
+  },
+  "prompt_sha256": "bfb579f59f7a116f763c95ac18a9ad23155d9b85baea212d21b3c30edbf70462",
+  "tour": {
+    "title": "Architecture de CodeTour IA : de la génération à la lecture",
+    "description_chars": 118,
+    "step_count": 13,
+    "steps_with_locator": 12,
+    "steps_with_mermaid": 2
+  },
+  "metrics": {
+    "input_tokens": 35491,
+    "output_tokens": 15864,
+    "cache_read_tokens": 777472,
+    "cache_write_tokens": 0,
+    "total_tokens": 828827,
+    "cost_usd": 0.0351264,
+    "assistant_messages": 30,
+    "tool_calls": 49,
+    "session_started": "2026-11-27T13:49:38.445Z",
+    "session_ended": "2026-11-27T13:55:46.282Z",
+    "cli_result_excerpt": "{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127/runs/run-08/.tours/benchmark-C-02.tour\",\"title\":\"Architecture de CodeTour IA : de la génération à la lecture\",\"stepCount\":13,\"warnings\":[]}\nEXIT=0"
+  },
+  "stdout_tail": "Visite créée : **« Architecture de CodeTour IA : de la génération à la lecture »** — `/.tours/benchmark-C-02.tour` (13 étapes, aucun avertissement).\n\nSortie JSON de la commande CLI :\n\n```json\n{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127/runs/run-08/.tours/benchmark-C-02.tour\",\"title\":\"Architecture de CodeTour IA : de la génération à la lecture\",\"stepCount\":13,\"warnings\":[]}\n```\n\nPour la lire, depuis la racine du workspace : `codetour \"Architecture de CodeTour IA : de la génération à la lecture\"`, ou `codetour --internal-open-vscode .tours/benchmark-C-02.tour` dans VS Code.\n",
+  "stderr_tail": ""
+}

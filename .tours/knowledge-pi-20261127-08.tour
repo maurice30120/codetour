@@ -1,0 +1,41 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Comment CodeTour enregistre une création et la rattache à la bonne réponse Pi",
+  "description": "Trajet complet d'une création de Tour : la commande du CLI, l'écriture atomique, le journal de créations, puis la lecture du journal par l'extension Pi qui rattache la création à la réponse qui l'a produite.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour n'a pas de serveur : l'agent lance lui-même une commande du CLI (`codetour create-project-tour` ou `create-changes-tour`) depuis la racine du workspace. Le CLI valide la proposition, écrit le fichier `.tour` de façon atomique, puis dépose une **trace de création** dans un journal. Plus tard, l'extension Pi relit ce journal au moment où la réponse se termine (`agent_settled`), décide quelles créations appartiennent à cette réponse, les affiche et propose de les ouvrir.\n\n**Diagram — Chaîne de création et d'attribution**\n\n```mermaid\nflowchart LR\n  Agent[\"Agent (shell)\"] -->|\"proposition JSON\"| CLI[\"CLI create-*-tour\"]\n  CLI -->|\"écrit\"| Tour[\"Fichier .tour\"]\n  CLI -->|\"trace\"| Journal[\"Journal .tours/.log/creations\"]\n  Journal -->|\"relu à agent_settled\"| Ext[\"Extension Pi\"]\n  Ext -->|\"notify + ouverture\"| Agent\n```\n\nDeux points sont décisifs : la trace n'est écrite qu'après l'existence du Tour, et une trace manquante ou illisible n'échoue jamais la création — le journal est de l'observabilité, pas une condition de succès."
+    },
+    {
+      "title": "Le point d'entrée du CLI",
+      "description": "Côté commande, `runCreateTourCommand` est l'adaptateur mince : il lit les arguments, résout le workspace, lit la proposition (stdin ou fichier), puis délègue tout le travail de création. Le workspace explicite est la frontière à laquelle toutes les règles se conforment.\n\nLa fonction `create` choisit ensuite l'un des deux points d'entrée du paquet `tour-generation`.",
+      "file": "codetour/src/cli/createTour.ts",
+      "pattern": "function create\\(kind: TourKind"
+    },
+    {
+      "title": "La création puis l'enregistrement",
+      "description": "`createTour` est le cœur de la création, indépendant de tout transport. Selon le type, il appelle `projectTour` (validation de la proposition et écriture atomique) ou `changesTour` (qui ajoute les règles Git : HEAD complet, merge-base, diff committé).\n\nLe point clé est l'ordre : `if (!outcome.ok) return outcome;` — un échec sort **avant** toute trace. Ce n'est qu'une fois le Tour réellement écrit que `recordCreation` est appelé. Un journal non écrit ne transforme jamais une création réussie en échec.",
+      "file": "codetour/packages/tour-generation/src/creation.ts",
+      "pattern": "if \\(!outcome\\.ok\\) return outcome;"
+    },
+    {
+      "title": "Identité, fichier de trace et écriture atomique",
+      "description": "`creationIdentity` décide **qui** a créé le Tour, en lisant uniquement l'environnement du processus créateur : `CODETOUR_SESSION_ID`, sinon `PI_SESSION_ID` (qui vaut `pi` comme hôte observé), sinon `COPILOT_AGENT_SESSION_ID`. Une valeur que CodeTour ne peut pas observer reste `null` plutôt que d'être devinée.\n\n`recordCreation` écrit un fichier JSON indépendant par création sous `.tours/.log/creations/`, nommé `<ms>-<pid>-<aléa>`, via `.tmp` puis `rename` : des créations concurrentes ne se disputent jamais le même document, et un échec laisse un diagnostic, jamais une exception propagée.",
+      "file": "codetour/packages/tour-generation/src/journal.ts",
+      "pattern": "export function creationIdentity\\("
+    },
+    {
+      "title": "La frontière de la réponse Pi",
+      "description": "L'extension ne dispose pas d'un identifiant de réponse : Pi n'expose pas de `PI_RESPONSE_ID`. Elle matérialise donc la frontière par le **temps**. `agent_start` ouvre la fenêtre une seule fois par réponse (un retry ou une relance ne l'écrase pas) ; `agent_settled` la referme.\n\nAu règlement, l'extension relit le journal du workspace courant, sélectionne les créations attribuables avec l'identifiant de session Pi, puis affiche et propose d'ouvrir chaque Tour attribué.",
+      "file": "codetour/packages/pi-plugin/extensions/codetour.ts",
+      "pattern": "const start = responseStart;"
+    },
+    {
+      "title": "Les trois conditions d'attribution",
+      "description": "`selectCreated` ne retient une trace que si **trois** conditions tiennent ensemble :\n\n- la trace porte un `sessionId` non vide **égal** à celui de la session Pi (une trace sans identité n'est jamais attribuée, et une trace d'un autre hôte est écartée) ;\n- le workspace canonique de la trace est le même que celui de la réponse (même résolution `realpath`, ADR 0056) ;\n- l'horodatage `at` de la trace tombe dans la fenêtre de la réponse (`at >= since` et `at <= now`), ce qui exclut les créations d'une réponse précédente.\n\nLes résultats sont triés du plus ancien au plus récent, et une trace de plus de 24 h est ignorée. C'est cette triple conjonction qui empêche de rattacher un Tour à la mauvaise réponse.",
+      "file": "codetour/packages/pi-plugin/lib/journal.mjs",
+      "pattern": "if \\(at < since \\|\\| at > now\\) continue;"
+    }
+  ]
+}

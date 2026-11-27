@@ -1,0 +1,45 @@
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/dhuyet/.pi/agent/git/github.com/microsoft/TokenEconomizer/plugin/lib/tokeneconomizer/plugin/cli.py", line 58, in <module>
+    from . import (accounting, denylist, fold, history, hosts, paths, repomap, repos, sidecall,
+                   toolcheck)
+  File "/Users/dhuyet/.pi/agent/git/github.com/microsoft/TokenEconomizer/plugin/lib/tokeneconomizer/plugin/cli.py", line 58, in <module>
+    from . import (accounting, denylist, fold, history, hosts, paths, repomap, repos, sidecall,
+                   toolcheck)
+  File "/Users/dhuyet/.pi/agent/git/github.com/microsoft/TokenEconomizer/plugin/lib/tokeneconomizer/plugin/cli.py", line 58, in <module>
+    from . import (accounting, denylist, fold, history, hosts, paths, repomap, repos, sidecall,
+                   toolcheck)
+  File "/Users/dhuyet/.pi/agent/git/github.com/microsoft/TokenEconomizer/plugin/lib/tokeneconomizer/plugin/toolcheck.py", line 19, in <module>
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+  File "/Users/dhuyet/.pi/agent/git/github.com/microsoft/TokenEconomizer/plugin/lib/tokeneconomizer/plugin/toolcheck.py", line 19, in <module>
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 96, in <module>
+    import http.client
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 77, in <module>
+    import socket
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 96, in <module>
+    import http.client
+  File "/Users/dhuyet/.pi/agent/git/github.com/microsoft/TokenEconomizer/plugin/lib/tokeneconomizer/plugin/toolcheck.py", line 19, in <module>
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socket.py", line 52, in <module>
+    import _socket
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 77, in <module>
+    import socket
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socket.py", line 52, in <module>
+    import _socket
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 96, in <module>
+    import http.client
+ImportError: dlopen(/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so, 0x0002): tried: '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (code signature invalid in <2C4ECEE6-A8B6-3183-962D-4F353DEA74C5> '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (errno=1) sliceOffset=0x00020000, codeBlobOffset=0x0001E210, codeBlobSize=0x00004900), '/System/Volumes/Preboot/Cryptexes/OS/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (no such file), '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (code signature invalid in <2C4ECEE6-A8B6-3183-962D-4F353DEA74C5> '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (errno=1) sliceOffset=0x00020000, codeBlobOffset=0x0001E210, codeBlobSize=0x00004900)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 77, in <module>
+    import socket
+ImportError: dlopen(/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so, 0x0002): tried: '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (code signature invalid in <2C4ECEE6-A8B6-3183-962D-4F353DEA74C5> '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (errno=1) sliceOffset=0x00020000, codeBlobOffset=0x0001E210, codeBlobSize=0x00004900), '/System/Volumes/Preboot/Cryptexes/OS/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (no such file), '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (code signature invalid in <2C4ECEE6-A8B6-3183-962D-4F353DEA74C5> '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (errno=1) sliceOffset=0x00020000, codeBlobOffset=0x0001E210, codeBlobSize=0x00004900)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socket.py", line 52, in <module>
+    import _socket
+ImportError: dlopen(/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so, 0x0002): tried: '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (code signature invalid in <2C4ECEE6-A8B6-3183-962D-4F353DEA74C5> '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (errno=1) sliceOffset=0x00020000, codeBlobOffset=0x0001E210, codeBlobSize=0x00004900), '/System/Volumes/Preboot/Cryptexes/OS/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (no such file), '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (code signature invalid in <2C4ECEE6-A8B6-3183-962D-4F353DEA74C5> '/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_socket.cpython-314-darwin.so' (errno=1) sliceOffset=0x00020000, codeBlobOffset=0x0001E210, codeBlobSize=0x00004900)

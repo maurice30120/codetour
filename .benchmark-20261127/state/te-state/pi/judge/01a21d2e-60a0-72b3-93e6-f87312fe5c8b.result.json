@@ -1,0 +1,10 @@
+{
+  "at": 1795786256.589,
+  "id": "01a21d2e-60a0-72b3-93e6-f87312fe5c8b:1:0:4:1795786254.722",
+  "verdict": {
+    "_tokens": 2930.0,
+    "confidence": 0.68,
+    "reason": "Actions vary across turns \u2014 session-log parsing with differing Python snippets, reading different file ranges, creating a worktree, and re-running pi in a seed ",
+    "stuck": false
+  }
+}

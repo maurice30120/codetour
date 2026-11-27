@@ -1,0 +1,56 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/codetour",
+  "end_reason": "quit",
+  "ended": 1795628149.773243,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a213c3-d37a-763f-8fca-0f547b0bfd20",
+  "source": "startup",
+  "start_event": [
+    "startup",
+    null
+  ],
+  "started": 1795627931.443692,
+  "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-32-10-491Z_01a213c3-d37a-763f-8fca-0f547b0bfd20.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 32,
+      "turn_key": "01a213c3-d37a-763f-8fca-0f547b0bfd20:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 10,
+      "turn_key": "01a213c3-d37a-763f-8fca-0f547b0bfd20:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 16,
+      "turn_key": "01a213c3-d37a-763f-8fca-0f547b0bfd20:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795628149.773244,
+  "writer_tokens": 0.0
+}

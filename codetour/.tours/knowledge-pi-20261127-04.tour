@@ -1,0 +1,62 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Comment CodeTour enregistre une création et la rattache à la bonne réponse Pi",
+  "description": "Le trajet d'une création de Tour, du sous-commande du CLI jusqu'au rapport de fin de réponse dans Pi : ce que le CLI écrit, ce qu'un enregistrement de journal contient, et sur quels critères le crochet Pi décide qu'il appartient à la réponse qu'il vient de clore.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble du trajet",
+      "description": "CodeTour est une extension d'éditeur (manifeste `package.json`, `displayName` « CodeTour IA ») qui enregistre et rejoue des visites guidées de code. Pour un agent Pi, la création passe par un sous-commande du CLI (`create-project-tour`, `create-changes-tour`) : l'agent fournit une proposition JSON, le CLI la valide et écrit le `.tour`, puis un second écrivain — le journal des créations — laisse une trace que le crochet de fin de réponse relit pour décider si la création appartient à la réponse.\n\n**Diagram — Enregistrement et rattachement**\n\n```mermaid\nflowchart LR\n  CLI[\"codetour create-project-tour\"] --> W[\"Ecriture atomique du Tour\"]\n  W --> J[\"recordCreation\"]\n  J --> LOG[\".tours/.log/creations\"]\n  LOG --> H[\"agent_settled\"]\n  H --> S[\"selectCreated\"]\n  S --> R[\"Rapport\"]\n```\n\nLes deux écritures sont indépendantes : l'échec du journal ne fait jamais échouer la création, et l'absence de création attribuée rend le rapport totalement silencieux.",
+      "questions": [
+        "Pourquoi séparer l'écriture du Tour de celle de son enregistrement de journal ?",
+        "Qu'est-ce qui, côté Pi, joue le rôle d'identifiant de réponse ?"
+      ]
+    },
+    {
+      "title": "Le sous-commande du CLI et sa délégation",
+      "description": "Le CLI construit une commande `create-<kind>-tour` par type de Tour, avec `passThroughOptions` et sans `helpOption` : elle possède son propre analyseur d'arguments, ses codes de sortie et ses diagnostics, sans toucher au contrat du lecteur de Tours. Derrière elle, `createTour.ts` reste un adaptateur mince : il analyse `--workspace` et `--proposal`, lit la proposition, puis remet la racine de l'espace de travail et l'objet JSON au paquet partagé `codetour-tour-generation`, où vivent réellement les règles.",
+      "questions": [
+        "Pourquoi la surface CLI ne contient-elle aucune règle de validation ?"
+      ],
+      "file": "src/cli/createTour.ts",
+      "pattern": "function create\\(kind: TourKind"
+    },
+    {
+      "title": "Le Tour est écrit de façon atomique et confinée",
+      "description": "Dans le paquet partagé, `writeTourAtomic` écrit le contenu dans un fichier temporaire du même dossier, le synchronise, puis le renomme sur la cible. Avant cela, le dossier de sortie réel est résolu et comparé à la racine réelle de l'espace de travail : toute cible qui s'échappe du workspace est refusée. Une erreur ne laisse jamais de fichier partiel et préserve la version précédente.",
+      "questions": [
+        "Quel avantage apporte le renommage par rapport à une écriture directe dans le fichier cible ?"
+      ],
+      "file": "packages/tour-generation/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic\\("
+    },
+    {
+      "title": "La journalisation vient après la création, jamais avant",
+      "description": "Une fois le Tour réellement écrit, `createTour` — et lui seul — appelle `recordCreation`. Le commentaire fixe la règle : le journal est de l'observabilité, écrit après que le Tour existe, et son échec est un diagnostic, jamais un échec de création. `recordCreation` compose ensuite l'enregistrement — version, workspace canonique, chemin absolu, titre, type, horodatage ISO et identité observée — puis écrit un fichier unique `<millis>-<pid>-<random>` par un temporaire renommé, et renvoie `undefined` si le journal est indisponible.",
+      "questions": [
+        "En quoi le journal relève-t-il de l'observabilité plutôt que du résultat de la création ?"
+      ],
+      "file": "packages/tour-generation/src/creation.ts",
+      "pattern": "await recordCreation\\(\\{"
+    },
+    {
+      "title": "L'identité vient de l'environnement, jamais d'une supposition",
+      "description": "`creationIdentity` lit l'identité dans l'environnement du processus qui crée le Tour, et rien d'autre : une valeur non observable reste `null`. Pi exporte `PI_SESSION_ID` au shell de l'agent — sa présence identifie donc aussi l'hôte `pi` — tandis que `CODETOUR_SESSION_ID` et `CODETOUR_HOST` permettent à un hôte de nommer explicitement la session. En revanche Pi n'expose aucun identifiant de réponse : `responseId` reste `null` et c'est l'horodatage qui portera la frontière de la réponse.",
+      "questions": [
+        "Que devient l'identité d'une création faite par un sous-agent ?",
+        "Pourquoi ne pas déduire un `responseId` faute d'en recevoir un ?"
+      ],
+      "file": "packages/tour-generation/src/journal.ts",
+      "pattern": "export function creationIdentity\\("
+    },
+    {
+      "title": "Le crochet exige workspace, session et fenêtre de temps",
+      "description": "Côté Pi, `agent_start` mémorise l'instant de départ de la réponse, `agent_end` accumule l'usage des messages assistant, puis `agent_settled` relit le journal et appelle `selectCreated` avec la racine canonique du workspace, l'identifiant de session de Pi et l'instant de départ. Une création n'est retenue que si les trois conditions concordent : même workspace canonique, session identique (`record.sessionId !== sessionId` rejette), et horodatage compris dans la fenêtre. Les enregistrements sans session, malformés ou plus vieux que l'âge maximal sont écartés, et un tableau vide laisse le rapport silencieux.",
+      "questions": [
+        "Que se passe-t-il si la fenêtre ne contient aucune création attribuable ?",
+        "Pourquoi le chemin du workspace est-il canonisé des deux côtés ?"
+      ],
+      "file": "packages/pi-plugin/lib/journal.mjs",
+      "pattern": "if \\(record\\.sessionId !== sessionId\\) continue;"
+    }
+  ]
+}

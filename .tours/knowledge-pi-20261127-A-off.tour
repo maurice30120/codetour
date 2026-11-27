@@ -1,0 +1,41 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Charger, valider et suivre un Tour",
+  "description": "Comment CodeTour découvre les fichiers `.tour` d'un espace de travail, les valide à la lecture, puis mémorise la progression du lecteur. Le parcours va de la découverte du dossier jusqu'à l'état global de l'extension.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble du parcours",
+      "description": "CodeTour est l'extension VS Code qui enregistre et rejoue des visites guidées de code (`.tour`). Le chargement suit trois temps : la découverte liste et lit les fichiers Tour des dossiers conventionnels, la validation transforme le texte JSON en objet `CodeTour` typé, puis la lecture d'un Tour alimente une progression enregistrée dans l'état global de l'extension.\n\n**Diagram — Parcours d'un Tour**\n\n```mermaid\nflowchart LR\n  A[\"Découverte\"] --> B[\"Lecture .tour\"]\n  B --> C[\"Validation\"]\n  C --> D[\"Store\"]\n  D --> E[\"Progression\"]\n```\n\nLes étapes suivantes suivent ce parcours dans le code."
+    },
+    {
+      "title": "La découverte et ses emplacements",
+      "description": "`discoverToursFromRoot` est la fonction indépendante de l'hôte qui porte toute la logique de découverte. Elle interroge des emplacements fixes : les sous-dossiers `.vscode/tours`, `.github/tours` et `.tours` (plus un éventuel dossier personnalisé) parcourus récursivement en sautant `.memory`, puis les fichiers principaux `.tour`, `.vscode/main.tour` et `main.tour` à la racine. Un fichier illisible ou invalide est ignoré plutôt que de faire échouer la découverte.\n\nL'ordre de retour n'est pas anodin : les sous-Tours découverts dans les dossiers passent avant les fichiers principaux, ce qui préserve l'ordre historique du provider. La liste produite est ensuite filtrée plus loin par `visibleTours`, qui trie par titre et applique l'expression `when` évaluée avec des indicateurs de plateforme.",
+      "file": "codetour/src/core/tourDiscovery.ts",
+      "pattern": "export async function discoverToursFromRoot<Uri>\\("
+    },
+    {
+      "title": "Le point d'entrée côté extension",
+      "description": "Côté VS Code, `discoverTours` du provider relie la découverte pure à l'hôte : chaque dossier d'espace de travail est exploré avec une implémentation `vscode.workspace.fs`, et l'identifiant d'un Tour est l'URI décodée de son fichier. Le résultat remplace `store.tours` par les Tours visibles.",
+      "file": "codetour/src/store/provider.ts",
+      "pattern": "store\\.tours = visibleTours\\(tours\\.flat\\(\\), TOUR_CONTEXT\\);"
+    },
+    {
+      "title": "La validation du format",
+      "description": "Chaque fichier lu passe par `loadTour`, qui délègue à `parseTourFile` : `JSON.parse` puis validation par le schéma zod `TourFileSchema`. Ce schéma est la source de vérité du format — titre obligatoire, `steps` en tableau, `baseRef` contraint à un SHA de commit de 40 caractères, description de step ramenée à une chaîne vide si elle manque. Les objets sont `looseObject`, donc les propriétés inconnues sont conservées. `loadTour` attache enfin l'identifiant attribué par l'hôte.",
+      "file": "codetour/src/store/tourSchema.ts",
+      "pattern": "export function loadTour\\(contents: string, id: string\\): CodeTour \\{"
+    },
+    {
+      "title": "L'initialisation de la progression",
+      "description": "La progression est initialisée par `initializeStorage`, appelée à la fin de `registerPlayerModule`. Elle relit la liste des pas déjà vus depuis `context.globalState` (clé `codetour:progress`, synchronisée entre machines), en expose trois opérations — `update`, `isComplete`, `reset` — et positionne le contexte `codetour:hasProgress`.",
+      "file": "codetour/src/store/storage.ts",
+      "pattern": "export function initializeStorage\\(context: ExtensionContext\\) \\{"
+    },
+    {
+      "title": "L'enregistrement d'un pas lu",
+      "description": "`progress.update()` cherche l'entrée de progression du Tour actif : elle ajoute le pas courant s'il n'y figure pas encore, sinon crée un couple `[id, [step]]`, puis persiste la liste via `globalState.update`. La même mise à jour est déclenchée à l'avancement dans un Tour et à la commande de fin de Tour, ce qui explique que `isComplete` compte simplement les pas enregistrés.",
+      "file": "codetour/src/store/storage.ts",
+      "pattern": "const CODETOUR_PROGRESS_KEY = "
+    }
+  ]
+}

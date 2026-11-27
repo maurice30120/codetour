@@ -1,0 +1,93 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Architecture et chemins d'exécution de CodeTour IA",
+  "description": "Visite guidée du dépôt pour un développeur qui le découvre : de quoi il s'agit, comment l'extension VS Code et la commande codetour s'exécutent, et où lire la découverte, la lecture et la création des visites.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "**CodeTour IA** est une extension VS Code, dérivée de Microsoft CodeTour, qui enregistre des visites guidées du code et les rejoue en ancrant chaque explication sur la ligne qu'elle décrit. Le dépôt s'organise autour de `codetour/` : l'extension et son interface en ligne de commande y vivent, avec les paquets partagés dans `codetour/packages/`. La racine ne porte que les scripts d'installation locale et les comptes rendus de campagne.\n\nDeux chemins d'exécution partent de la même découverte des fichiers `.tour` : l'extension, activée dans VS Code, les affiche dans l'éditeur ; la commande `codetour` les lit dans le terminal ou les fait générer par un agent.\n\n**Diagram — Vue d'ensemble**\n\n```mermaid\nflowchart LR\n  Dev[\"Développeur\"] --> Agent[\"Agent IA\"]\n  Agent --> CLI[\"CLI codetour\"]\n  CLI --> Gen[\"codetour-tour-generation\"]\n  Gen --> Tours[\".tours/*.tour\"]\n  Tours --> Ext[\"Extension VS Code\"]\n  Tours --> Term[\"Lecteur terminal\"]\n  Ext --> Chat[\"Conversations d'étape\"]\n  Term --> Chat\n```",
+      "questions": [
+        "Par où commencer si je veux seulement lire une visite existante ?",
+        "Quelle partie du dépôt produit la commande codetour ?"
+      ]
+    },
+    {
+      "title": "Le manifeste et ses deux points d'entrée",
+      "description": "`main` désigne le bundle de l'extension, `bin` la commande `codetour`. Les deux viennent de `webpack.config.js`, qui exporte deux configurations construites sur la même base : l'entrée `src/extension.ts` produit `dist/extension-node.js`, l'entrée `src/cli/index.ts` produit `dist/cli.js`. Les alias de résolution pointent vers les sorties compilées de `packages/`, si bien que l'extension et la CLI partagent le même code de rendu et de création.",
+      "file": "codetour/package.json",
+      "line": 42
+    },
+    {
+      "title": "L'activation de l'extension",
+      "description": "`activate` compose l'extension : elle enregistre le fournisseur de carnet, le lecteur, le mode enregistrement et Live Share, puis le gestionnaire d'URI qui ouvre une visite depuis un lien. Quand un dossier est ouvert, elle lance la découverte des visites, propose celle à suivre et initialise l'API Git dont dépendent les étapes de comparaison. Elle retourne enfin l'API publique construite par `initializeApi`.",
+      "questions": [
+        "Quels modules sont enregistrés avant la découverte des visites ?",
+        "Que se passe-t-il si aucun dossier n'est ouvert ?"
+      ],
+      "file": "codetour/src/extension.ts",
+      "line": 121
+    },
+    {
+      "title": "Le lecteur s'enregistre",
+      "description": "`registerPlayerModule` câble la surface de lecture : commandes de navigation, ancres actives, arbre des visites, fournisseurs de documents, barre d'état et décorations. Une `reaction` MobX observe l'étape courante, le mode panneau et l'édition, puis relance `renderCurrentStep` à chaque changement : l'explication affichée reste ainsi synchronisée avec le code.",
+      "file": "codetour/src/player/index.ts",
+      "line": 599
+    },
+    {
+      "title": "L'état observable partagé",
+      "description": "`store` est l'unique objet MobX observé : visites découvertes, visite active et index de l'étape, mode enregistrement, progression. Les surfaces de l'extension (éditeur, panneau, arbre) ne s'appellent pas directement : elles lisent et modifient cet état, et les réactions y réagissent. Le lecteur terminal vit dans un autre processus et n'utilise pas ce magasin.",
+      "file": "codetour/src/store/index.ts",
+      "line": 58
+    },
+    {
+      "title": "Trouver les visites d'un espace de travail",
+      "description": "`discoverToursFromRoot` ne dépend d'aucun hôte : il reçoit un système de fichiers abstrait et énumère les visites des dossiers conventionnels (`.vscode/tours`, `.github/tours`, `.tours`) avant les fichiers principaux. VS Code l'appelle depuis `store/provider.ts` avec son API de fichiers, la CLI l'appelle avec `fs` : les deux obtiennent la même liste. `visibleTours` filtre ensuite selon la plateforme avec les expressions `when` déclarées dans les visites.",
+      "file": "codetour/src/core/tourDiscovery.ts",
+      "line": 25
+    },
+    {
+      "title": "D'une étape à l'ancre affichée",
+      "description": "`renderCurrentStep` résout la cible de l'étape : une ligne, un motif recherché dans le document, une sélection, ou une comparaison Git quand l'étape demande un diff. Chaque rendu incrémente un compteur de version, si bien qu'une résolution tardive ne peut pas écraser l'étape suivante. L'ancre est ensuite ouverte dans l'éditeur ou dans le diff, et le panneau de description reçoit l'étape courante.\n\n**Diagram — Résolution d'une étape**\n\n```mermaid\nflowchart TD\n  Step[\"Étape active\"] --> Anchor{\"Ancre résolue ?\"}\n  Anchor -->|\"fichier et ligne\"| Doc[\"showDocument\"]\n  Anchor -->|\"display diff\"| Diff[\"showDiff\"]\n  Doc --> Panel[\"Panneau de description\"]\n  Diff --> Panel\n```",
+      "questions": [
+        "Pourquoi le rendu est-il versionné ?",
+        "Que se passe-t-il quand le fichier d'une étape est introuvable ?"
+      ],
+      "file": "codetour/src/player/index.ts",
+      "line": 223
+    },
+    {
+      "title": "La ligne de commande",
+      "description": "`buildProgram` déclare la commande `codetour` : un titre de visite facultatif, le choix du rendu (`terminal` par défaut, `html` ou `vscode`), l'installation des intégrations d'agent, et deux sous-commandes réservées à la génération. Les sous-commandes de création analysent leurs propres arguments et possèdent leurs codes de sortie, pour ne pas hériter du contrat d'erreur du lecteur.",
+      "file": "codetour/src/cli/index.ts",
+      "line": 54
+    },
+    {
+      "title": "La commande de création de visite",
+      "description": "`runCreateTourCommand` est l'adaptateur mince entre la ligne de commande et les règles : elle analyse `--workspace` et `--proposal`, lit la proposition JSON sur l'entrée standard ou dans un fichier, puis délègue à `createProjectTour` ou `createChangesTour`. Sa sortie suit un contrat strict : un seul document JSON sur la sortie standard, les diagnostics sur la sortie d'erreur, et un code 0, 1 ou 2 selon que la visite est créée, refusée, ou que l'appel est inutilisable.",
+      "file": "codetour/src/cli/createTour.ts",
+      "line": 186
+    },
+    {
+      "title": "Les règles de création partagées",
+      "description": "`createProjectTour` ne dépend d'aucun transport : la proposition est validée, les règles Git, images, Mermaid et de confinement à l'espace de travail sont appliquées, puis la visite est écrite de façon atomique dans `.tours/`. Une proposition refusée n'écrit rien et laisse une visite existante intacte ; un journal de création enregistre chaque visite produite.\n\n**Diagram — Chaîne de création**\n\n```mermaid\nflowchart LR\n  Proposal[\"Proposition JSON\"] --> Validate[\"validateTourProposal\"]\n  Validate --> Rules[\"Règles Git, images, Mermaid\"]\n  Rules --> Write[\"writeTourAtomic\"]\n  Write --> Output[\".tours/project.tour\"]\n```",
+      "questions": [
+        "Pourquoi une visite de projet n'a-t-elle pas de référence Git ?",
+        "Où sont vérifiés les diagrammes Mermaid ?"
+      ],
+      "file": "codetour/packages/tour-generation/src/creation.ts",
+      "line": 81
+    },
+    {
+      "title": "Le lecteur terminal",
+      "description": "`TourReader` porte l'état logique de lecture, sans DOM ni cellules de terminal : navigation entre étapes, défilement, conversation, narration. `src/cli/terminal.ts` est l'adaptateur qui peint ce modèle de vue avec TermDOM ; toute la logique de lecture reste dans `src/cli/reader/`. C'est ce lecteur que la commande `codetour` lance par défaut, dans le terminal de l'appelant.",
+      "file": "codetour/src/cli/reader/reader.ts",
+      "line": 38
+    },
+    {
+      "title": "Les conversations d'étape",
+      "description": "`StepConversations` est le magasin commun aux deux surfaces de lecture : une question est bloquée tant que la précédente répond, la réponse s'affiche en flux, seuls les échanges terminés alimentent l'historique, et une interruption ignore la réponse tardive. Les surfaces ne gardent que la manière de peindre les échanges ; l'agent est joint par le client ACP de `acpSession.ts`, qui n'annonce que la lecture et refuse les outils d'écriture ou d'exécution.",
+      "file": "codetour/src/agent/stepConversations.ts",
+      "line": 77
+    }
+  ]
+}

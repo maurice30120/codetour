@@ -1,0 +1,60 @@
+{
+  "providers": {
+    "ollama": {
+      "api": "openai-completions",
+      "apiKey": "ollama",
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "models": [
+        {
+          "_launch": true,
+          "id": "gemma4:latest",
+          "input": [
+            "text"
+          ],
+          "reasoning": true
+        },
+        {
+          "_launch": true,
+          "contextWindow": 262144,
+          "id": "SetneufPT/Qwen3.6-27B-MTP_Q3_32K_16GB-GPU:latest",
+          "input": [
+            "text"
+          ]
+        },
+        {
+          "_launch": true,
+          "contextWindow": 1048576,
+          "id": "glm-5.3-flash:cloud",
+          "input": [
+            "text"
+          ]
+        },
+        {
+          "_launch": true,
+          "contextWindow": 1048576,
+          "id": "deepseek-v4.1-flash:cloud",
+          "input": [
+            "text"
+          ]
+        },
+        {
+          "_launch": true,
+          "contextWindow": 500000,
+          "id": "north-mini-code-1.0:latest",
+          "input": [
+            "text"
+          ],
+          "reasoning": true
+        },
+        {
+          "_launch": true,
+          "contextWindow": 1048576,
+          "id": "gemma4:31b-cloud",
+          "input": [
+            "text"
+          ]
+        }
+      ]
+    }
+  }
+}

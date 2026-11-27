@@ -1,0 +1,40 @@
+{
+  "index": 4,
+  "slot": "slot-04",
+  "run_id": "benchmark-C-both-02",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-04",
+  "exit_code": 0,
+  "duration_s": 112.3,
+  "scores": {
+    "exactitude_technique": 8,
+    "exhaustivite": 8,
+    "absence_erreurs": 6,
+    "note_globale": 7.3,
+    "erreurs_constatees": [
+      "Étape 1 : « le paquet de règles qu'elle partage avec l'extension » est faux ; `codetour-tour-generation` n'est importé que dans `codetour/src/cli/createTour.ts`, et l'en-tête du paquet précise que la surface CLI en est le seul consommateur.",
+      "Étape 4 : les conditions `when` évaluées par jexl ne reçoivent pas de variable Live Share ; `TourVisibility` (src/core/tourDiscovery.ts) n'expose que isLinux, isMac, isWindows et isWeb (TOUR_CONTEXT dans src/store/provider.ts).",
+      "Étape 4 : l'ordre et la liste des emplacements sont inexacts : `MAIN_TOUR_FILES = [\".tour\", \".vscode/main.tour\", \"main.tour\"]` (le `.tour` racine est omis), et les sous-répertoires sont lus avant les fichiers principaux, pas après.",
+      "Étape 6 : le contrôleur de commentaires n'est pas créé « au chargement » ; `comments.createCommentController` est appelé dans `startPlayer()` (src/player/index.ts:133), donc au démarrage d'une visite.",
+      "Étape 3 : « Chaque module enregistré s'inscrit dans context.subscriptions » est faux pour `registerRecorderModule()` et `registerLiveShareModule()`, qui ne reçoivent pas de contexte et enregistrent commandes/écouteurs sans Disposable.",
+      "Étape 10 : `createTour` ne construit pas lui-même le document final ($schema, title, description, steps) ; ce sont `projectTour`/`changesTour` qui le font, `createTour` dispatchant puis journalisant. La cible annoncée omet aussi `.tours/changes.tour` pour un Changes Tour.",
+      "Étape 2/9 : la mention que les messages de `toCliError` seraient consommés « par l'adaptateur Copilot » est approximative ; l'adaptateur relaie le stderr de la CLI, il n'utilise pas `toCliError`."
+    ],
+    "affirmations_verifiees": 52,
+    "commentaire": "Tour solide : les ancrages de fichiers et de lignes sont justes (extension.ts:121, tourDiscovery.ts:25, provider.ts:33, player/index.ts:599, recorder/index.ts:4, cli/index.ts:54, createTour.ts:186, creation.ts:94, persistence.ts:13, journal.ts:18, terminal.ts:148), les flux d'activation, découverte, lecture, enregistrement, création, écriture atomique, journal et boucle Pi sont globalement fidèles. Plusieurs affirmations sont toutefois périmées ou inférées (Live Share dans les conditions `when`, règles de génération « partagées » avec l'extension, contrôleur de commentaires créé au chargement, ordre des emplacements de découverte, abonnements systématiques au contexte), ce qui empêche une note d'absence d'erreurs élevée. Aucun fichier ni chemin inventé n'a été relevé."
+  },
+  "raw_answer": "{\"exactitude_technique\": 8, \"exhaustivite\": 8, \"absence_erreurs\": 6, \"note_globale\": 7.3, \"erreurs_constatees\": [\"Étape 1 : « le paquet de règles qu'elle partage avec l'extension » est faux ; `codetour-tour-generation` n'est importé que dans `codetour/src/cli/createTour.ts`, et l'en-tête du paquet précise que la surface CLI en est le seul consommateur.\", \"Étape 4 : les conditions `when` évaluées par jexl ne reçoivent pas de variable Live Share ; `TourVisibility` (src/core/tourDiscovery.ts) n'expose que isLinux, isMac, isWindows et isWeb (TOUR_CONTEXT dans src/store/provider.ts).\", \"Étape 4 : l'ordre et la liste des emplacements sont inexacts : `MAIN_TOUR_FILES = [\\\".tour\\\", \\\".vscode/main.tour\\\", \\\"main.tour\\\"]` (le `.tour` racine est omis), et les sous-répertoires sont lus avant les fichiers principaux, pas après.\", \"Étape 6 : le contrôleur de commentaires n'est pas créé « au chargement » ; `comments.createCommentController` est appelé dans `startPlayer()` (src/player/index.ts:133), donc au démarrage d'une visite.\", \"Étape 3 : « Chaque module enregistré s'inscrit dans context.subscriptions » est faux pour `registerRecorderModule()` et `registerLiveShareModule()`, qui ne reçoivent pas de contexte et enregistrent commandes/écouteurs sans Disposable.\", \"Étape 10 : `createTour` ne construit pas lui-même le document final ($schema, title, description, steps) ; ce sont `projectTour`/`changesTour` qui le font, `createTour` dispatchant puis journalisant. La cible annoncée omet aussi `.tours/changes.tour` pour un Changes Tour.\", \"Étape 2/9 : la mention que les messages de `toCliError` seraient consommés « par l'adaptateur Copilot » est approximative ; l'adaptateur relaie le stderr de la CLI, il n'utilise pas `toCliError`.\"], \"affirmations_verifiees\": 52, \"commentaire\": \"Tour solide : les ancrages de fichiers et de lignes sont justes (extension.ts:121, tourDiscovery.ts:25, provider.ts:33, player/index.ts:599, recorder/index.ts:4, cli/index.ts:54, createTour.ts:186, creation.ts:94, persistence.ts:13, journal.ts:18, terminal.ts:148), les flux d'activation, découverte, lecture, enregistrement, création, écriture atomique, journal et boucle Pi sont globalement fidèles. Plusieurs affirmations sont toutefois périmées ou inférées (Live Share dans les conditions `when`, règles de génération « partagées » avec l'extension, contrôleur de commentaires créé au chargement, ordre des emplacements de découverte, abonnements systématiques au contexte), ce qui empêche une note d'absence d'erreurs élevée. Aucun fichier ni chemin inventé n'a été relevé.\"}\n",
+  "eval_metrics": {
+    "input_tokens": 63553,
+    "output_tokens": 18816,
+    "cache_read_tokens": 1188480,
+    "cache_write_tokens": 0,
+    "total_tokens": 1270849,
+    "cost_usd": 0.04996446,
+    "assistant_messages": 30,
+    "tool_calls": 54,
+    "session_started": "2026-11-27T15:22:13.448Z",
+    "session_ended": "2026-11-27T15:24:05.342Z",
+    "cli_result_excerpt": null
+  }
+}

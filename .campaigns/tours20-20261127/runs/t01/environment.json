@@ -1,0 +1,9 @@
+{
+  "PI_CODING_AGENT_DIR": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/tours20-20261127/pi",
+  "PI_OFFLINE": "1",
+  "PI_TELEMETRY": "0",
+  "TOKENECONOMIZER_HOME": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/tours20-20261127/homes/v1",
+  "TE_PYTHON": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.tokeneconomizer-venv/bin/python",
+  "TE_PI_PAID_MODEL": "mistral/deepseek-v4-1-flash-1017",
+  "TE_PI_CLI": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/tours20-20261127/pi-capture"
+}

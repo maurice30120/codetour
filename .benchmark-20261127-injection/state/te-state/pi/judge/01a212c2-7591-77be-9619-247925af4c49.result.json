@@ -1,0 +1,10 @@
+{
+  "at": 1795612217.3198268,
+  "id": "01a212c2-7591-77be-9619-247925af4c49:1:0:4:1795612215.323",
+  "verdict": {
+    "_tokens": 2588.0,
+    "confidence": 0.75,
+    "reason": "Work is heterogeneous and progressing: distinct edit files (tests, README, CHANGELOG, docs), a git merge, a build, and the last verification run passed. Only on",
+    "stuck": false
+  }
+}

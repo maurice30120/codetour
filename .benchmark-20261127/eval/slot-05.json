@@ -1,0 +1,37 @@
+{
+  "index": 5,
+  "slot": "slot-05",
+  "run_id": "benchmark-B-02",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127/runs/run-05",
+  "exit_code": 0,
+  "duration_s": 190.3,
+  "scores": {
+    "exactitude_technique": 7,
+    "exhaustivite": 7,
+    "absence_erreurs": 7,
+    "note_globale": 7.0,
+    "erreurs_constatees": [
+      "Étape 5 : « le fournisseur de système de fichiers (pour les étapes de comparaison Git) » — faux. `src/player/fileSystem/index.ts` (FS_SCHEME) sert les documents virtuels des étapes à `contents` (readFile renvoie `step.contents`) ; les comparaisons Git passent par l'API Git (`api.toGitUri` dans `src/player/diff.ts`).",
+      "Étape 11 : « [validateSteps] vérifie les images comme les diagrammes de chaque description » — faux. `validateSteps` (packages/tour-generation/src/validation.ts) ne contrôle ni Mermaid ni les images ; ces contrôles sont faits en amont par `validateMermaidDescriptions` (mermaid-validation.ts) et `validateImageDescriptions` (image-validation.ts) dans `validateTourProposal`.",
+      "Étape 6 : la légende doit être « sur la ligne juste au-dessus » — plus strict que le code : `findCaptionCandidateLine` (parse.ts) retient la dernière ligne non vide, donc des lignes vides entre la légende et le fence sont tolérées.",
+      "Étape 4 : « réagit aux créations et modifications de fichiers `.tour` » — le watcher de `src/store/provider.ts` ne surveille que les répertoires de sous-visites (`tourDirectories`), pas les visites principales (`.tour`, `.vscode/main.tour`, `main.tour`) : une modification de celles-ci ne déclenche pas `discoverTours`."
+    ],
+    "affirmations_verifiees": 59,
+    "commentaire": "Tour globalement fiable : tous les chemins cités existent (aucun fichier inventé), et l'essentiel est exact — manifeste (`main`, `activationEvents`, `contributes`, `bin`, `scripts.build`), ordre d'activation de `activate()`, découverte (MAIN_TOUR_FILES/SUB_TOUR_DIRECTORIES, zod, jexl, rechargement MobX sans interrompre la lecture), player (Comments API, `activeTour.step` index, réaction de rendu), renderer (types Mermaid autorisés, 3 diagrammes, 20 Ko, mermaid+resvg, sanitize, images en data URI), CLI (`buildProgram`, `--renderer`, options d'agents, sous-commandes réservées, exit 0/1/2, `--help` → 2 sans stdout), chaîne de création (`createContext`, ordre de `validateTourProposal`, `workspacePath` qui ne peut que restreindre, règles d'ancrage et questions ≤ 4, ancrage Git pour les Changes Tours, `writeTourAtomic` confiné/fsync/rename, journal d'observabilité) et intégrations Pi (`extensions/codetour.ts`, `lib/journal.mjs`, `lib/reader.mjs`, skill embarquée via `pi-plugin.generated.ts`, `--install pi`). Les erreurs relevées sont des attributions de responsabilité entre modules plus deux nuances de comportement, pas des inventions. Exhaustivité correcte pour un Project Tour, mais les internes du lecteur terminal (`src/cli/reader`, termaid), le recorder, Live Share, le provider notebook et le paquet `workspace-identity` ne sont qu'effleurés ou absents, et le pipeline du Changes Tour n'est décrit qu'en surface."
+  },
+  "raw_answer": "{\"exactitude_technique\": 7, \"exhaustivite\": 7, \"absence_erreurs\": 7, \"note_globale\": 7.0, \"erreurs_constatees\": [\"Étape 5 : « le fournisseur de système de fichiers (pour les étapes de comparaison Git) » — faux. `src/player/fileSystem/index.ts` (FS_SCHEME) sert les documents virtuels des étapes à `contents` (readFile renvoie `step.contents`) ; les comparaisons Git passent par l'API Git (`api.toGitUri` dans `src/player/diff.ts`).\", \"Étape 11 : « [validateSteps] vérifie les images comme les diagrammes de chaque description » — faux. `validateSteps` (packages/tour-generation/src/validation.ts) ne contrôle ni Mermaid ni les images ; ces contrôles sont faits en amont par `validateMermaidDescriptions` (mermaid-validation.ts) et `validateImageDescriptions` (image-validation.ts) dans `validateTourProposal`.\", \"Étape 6 : la légende doit être « sur la ligne juste au-dessus » — plus strict que le code : `findCaptionCandidateLine` (parse.ts) retient la dernière ligne non vide, donc des lignes vides entre la légende et le fence sont tolérées.\", \"Étape 4 : « réagit aux créations et modifications de fichiers `.tour` » — le watcher de `src/store/provider.ts` ne surveille que les répertoires de sous-visites (`tourDirectories`), pas les visites principales (`.tour`, `.vscode/main.tour`, `main.tour`) : une modification de celles-ci ne déclenche pas `discoverTours`.\"], \"affirmations_verifiees\": 59, \"commentaire\": \"Tour globalement fiable : tous les chemins cités existent (aucun fichier inventé), et l'essentiel est exact — manifeste (`main`, `activationEvents`, `contributes`, `bin`, `scripts.build`), ordre d'activation de `activate()`, découverte (MAIN_TOUR_FILES/SUB_TOUR_DIRECTORIES, zod, jexl, rechargement MobX sans interrompre la lecture), player (Comments API, `activeTour.step` index, réaction de rendu), renderer (types Mermaid autorisés, 3 diagrammes, 20 Ko, mermaid+resvg, sanitize, images en data URI), CLI (`buildProgram`, `--renderer`, options d'agents, sous-commandes réservées, exit 0/1/2, `--help` → 2 sans stdout), chaîne de création (`createContext`, ordre de `validateTourProposal`, `workspacePath` qui ne peut que restreindre, règles d'ancrage et questions ≤ 4, ancrage Git pour les Changes Tours, `writeTourAtomic` confiné/fsync/rename, journal d'observabilité) et intégrations Pi (`extensions/codetour.ts`, `lib/journal.mjs`, `lib/reader.mjs`, skill embarquée via `pi-plugin.generated.ts`, `--install pi`). Les erreurs relevées sont des attributions de responsabilité entre modules plus deux nuances de comportement, pas des inventions. Exhaustivité correcte pour un Project Tour, mais les internes du lecteur terminal (`src/cli/reader`, termaid), le recorder, Live Share, le provider notebook et le paquet `workspace-identity` ne sont qu'effleurés ou absents, et le pipeline du Changes Tour n'est décrit qu'en surface.\"}\n",
+  "eval_metrics": {
+    "input_tokens": 47178,
+    "output_tokens": 12236,
+    "cache_read_tokens": 858752,
+    "cache_write_tokens": 0,
+    "total_tokens": 918166,
+    "cost_usd": 0.03484786,
+    "assistant_messages": 31,
+    "tool_calls": 51,
+    "session_started": "2026-11-27T14:23:04.733Z",
+    "session_ended": "2026-11-27T14:26:14.652Z",
+    "cli_result_excerpt": null
+  }
+}

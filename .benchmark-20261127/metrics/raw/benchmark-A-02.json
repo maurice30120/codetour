@@ -1,0 +1,56 @@
+{
+  "id": "benchmark-A-02",
+  "run": "run-06",
+  "group": "A",
+  "cycle": 2,
+  "position": 2,
+  "workspace": "/private/tmp/codetour-bench-20261127/runs/run-06",
+  "started_at": "2026-11-27T14:43:13+0100",
+  "status": "success",
+  "exit_code": 0,
+  "timed_out": false,
+  "duration_s": 205.6,
+  "session_file": "/Users/dhuyet/.pi/agent/sessions/--private-tmp-codetour-bench-20261127-runs-run-06--/2026-11-27T13-43-13-847Z_01a21d3e-f0b7-74e5-b8dc-2d96b3247e16.jsonl",
+  "session_id": "01a21d3e-f0b7-74e5-b8dc-2d96b3247e16",
+  "fold_recorded": true,
+  "effective_config": {
+    "knowledge": false,
+    "knowledge_injection": "both",
+    "microskills": "off",
+    "toolprune": "auto",
+    "loopguard": "nudge",
+    "repomap": "off",
+    "enabled": true
+  },
+  "injection_probe": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "has_manual": false,
+    "has_knowledge": false,
+    "knowledge_cards": 0,
+    "text": ""
+  },
+  "prompt_sha256": "9c9c86b9baadb9ce1181ed9692562aaa33e86e326dc53e4711baa1b2434266e4",
+  "tour": {
+    "title": "Architecture et chemins d'exécution de CodeTour IA",
+    "description_chars": 136,
+    "step_count": 12,
+    "steps_with_locator": 11,
+    "steps_with_mermaid": 2
+  },
+  "metrics": {
+    "input_tokens": 44633,
+    "output_tokens": 21631,
+    "cache_read_tokens": 972544,
+    "cache_write_tokens": 0,
+    "total_tokens": 1038808,
+    "cost_usd": 0.04615491,
+    "assistant_messages": 30,
+    "tool_calls": 49,
+    "session_started": "2026-11-27T13:43:13.847Z",
+    "session_ended": "2026-11-27T13:46:39.066Z",
+    "cli_result_excerpt": "{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127/runs/run-06/.tours/benchmark-A-02.tour\",\"title\":\"Architecture et chemins d'exécution de CodeTour IA\",\"stepCount\":12,\"warnings\":[]}"
+  },
+  "stdout_tail": "Visite créée : « Architecture et chemins d'exécution de CodeTour IA » dans `/private/tmp/codetour-bench-20261127/runs/run-06/.tours/benchmark-A-02.tour` (12 étapes, aucun avertissement).\n\nPour la lire, depuis la racine du workspace :\n\n- `codetour \"Architecture et chemins d'exécution de CodeTour IA\"` (lecteur terminal)\n- `codetour --internal-open-vscode \".tours/benchmark-A-02.tour\"` (VS Code)\n\nSortie JSON de la commande CLI :\n\n```json\n{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127/runs/run-06/.tours/benchmark-A-02.tour\",\"title\":\"Architecture et chemins d'exécution de CodeTour IA\",\"stepCount\":12,\"warnings\":[]}\n```\n",
+  "stderr_tail": ""
+}

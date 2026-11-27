@@ -1,0 +1,115 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "CodeTour IA : architecture et chemins d'exécution",
+  "description": "Visite guidée du dépôt CodeTour IA pour un développeur qui le découvre : ce que fait le projet, comment l'extension VS Code s'active et lit une visite, et comment la CLI crée un fichier `.tour` via les règles partagées de `packages/tour-generation`.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble : deux chemins, un même format",
+      "description": "**CodeTour IA** est une extension VS Code qui enregistre et rejoue des visites guidées de code : une visite (fichier `.tour`, JSON) est une suite d'étapes, chacune ancrée à un fichier, un répertoire ou une sélection, et portant une explication Markdown. Ce fork ajoute la génération de visites par un agent IA, le rendu de diagrammes Mermaid et des conversations sur une étape.\n\nLe dépôt s'organise autour de deux chemins d'exécution complémentaires :\n\n- **l'hôte d'extension** charge `dist/extension-node.js`, découvre les fichiers `.tour` du workspace, puis un lecteur (`src/player`) affiche l'étape active dans l'éditeur ou dans le panneau de lecture ;\n- **la CLI `codetour`** expose la génération : un agent soumet une proposition JSON, les règles de `packages/tour-generation` la valident, puis écrivent le fichier `.tour`.\n\n**Diagram — Vue d'ensemble**\n\n```mermaid\nflowchart LR\n  Dev[\"Développeur\"] --> Ext[\"Extension VS Code\"]\n  Agent[\"Agent IA\"] --> CLI[\"CLI codetour\"]\n  CLI --> Regles[\"Règles de création\"]\n  Regles --> Fichiers[\"Fichiers .tour\"]\n  Fichiers --> Ext\n```\n\nLes étapes suivantes suivent ces deux chemins dans l'ordre de lecture : manifeste, activation, découverte, état partagé, lecture d'une étape, puis surface de création et écriture du fichier.",
+      "questions": [
+        "Quelles sont les deux surfaces qui manipulent les visites ?",
+        "Où sont stockés les fichiers de visite ?"
+      ]
+    },
+    {
+      "title": "Le manifeste fixe le point d'entrée de l'extension",
+      "description": "`codetour/package.json` est le manifeste VS Code. `main` désigne le bundle chargé par l'hôte d'extension, produit par `webpack.config.js` à partir de `src/extension.ts`. `activationEvents` déclenche ce chargement au démarrage (`onStartupFinished`) et à l'ouverture d'un notebook CodeTour.\n\nLe même manifeste déclare la contribution fonctionnelle : commandes, menus, vues, configuration `codetour.*` et validation JSON des fichiers `.tour`. C'est donc ici que commence le premier chemin d'exécution : le manifeste nomme l'entrée, puis l'hôte appelle `activate`.\n\n**Questions utiles** : le bundle est-il construit à partir d'un seul point d'entrée ? Quelles contributions dépendent de ce manifeste ?",
+      "questions": [
+        "Quel fichier l'hôte d'extension charge-t-il ?",
+        "Quand l'extension est-elle activée ?"
+      ],
+      "file": "codetour/package.json",
+      "pattern": "\"main\": \"\\./dist/extension-node\\.js\""
+    },
+    {
+      "title": "`activate` compose les modules de la session",
+      "description": "`activate` est le point d'entrée réel de l'extension. Il ne contient presque pas de logique : il assemble les modules et les branche au cycle de vie de VS Code.\n\n1. `registerNotebookProvider()` et `registerPlayerModule(context)` installent la lecture des visites.\n2. `setStepChatAgentSelection(...)` compose le catalogue d'agents utilisé par les conversations d'une étape.\n3. `registerRecorderModule()` et `registerLiveShareModule()` ajoutent l'enregistrement et le partage.\n4. Un `URIHandler` traite les liens CodeTour (`/openTour`), en vérifiant que le workspace ciblé est bien celui qui est ouvert.\n5. Si un workspace est ouvert : découverte des visites, proposition de la visite par défaut, initialisation de l'API Git.\n6. `initializeApi(context)` publie l'API retournée par l'extension.\n\n**Questions utiles** : que se passe-t-il dans une fenêtre sans dossier ouvert ? Où sont enregistrés les abonnements ?",
+      "questions": [
+        "Quels modules sont enregistrés à l'activation ?",
+        "Que fait l'`URIHandler` avant de démarrer une visite ?"
+      ],
+      "file": "codetour/src/extension.ts",
+      "pattern": "export async function activate\\(context: vscode\\.ExtensionContext\\)"
+    },
+    {
+      "title": "La découverte lit les fichiers `.tour` du workspace",
+      "description": "La découverte est volontairement indépendante de l'hôte : `discoverToursFromRoot` reçoit une racine et une abstraction de système de fichiers, et renvoie les visites trouvées.\n\n- Les sous-répertoires explorés sont `.vscode/tours`, `.github/tours` et `.tours` (plus un éventuel répertoire personnalisé).\n- Les fichiers principaux sont `.tour`, `.vscode/main.tour` et `main.tour`.\n- Chaque contenu passe par `loadTour` (schéma zod de `src/store/tourSchema.ts`) ; un fichier illisible est ignoré plutôt que fatal.\n- `visibleTours` trie par titre et applique le filtre `when` de chaque visite (évaluation `jexl`) selon la plateforme.\n\nLa même fonction sert le provider VS Code (`src/store/provider.ts`) et le lecteur de la CLI : les deux surfaces voient exactement le même ensemble de visites.",
+      "questions": [
+        "Où le lecteur cherche-t-il les fichiers `.tour` ?",
+        "Que devient un fichier de visite invalide ?"
+      ],
+      "file": "codetour/src/core/tourDiscovery.ts",
+      "pattern": "export const SUB_TOUR_DIRECTORIES = \\[\"\\.vscode/tours\", \"\\.github/tours\", \"\\.tours\"\\];"
+    },
+    {
+      "title": "L'état partagé porte la visite active",
+      "description": "Le store MobX (`store`) contient les visites découvertes, la visite active et son étape courante, l'état d'enregistrement et d'édition, et la progression. C'est le point de rendez-vous entre les commandes, le lecteur et les vues.\n\n`startCodeTour` prépare le démarrage : il borne le numéro d'étape demandé, et si un brouillon d'étape non enregistré existe, il résout ce brouillon avant de continuer au lieu de le perdre. `startCodeTourInternal` appelle ensuite `startPlayer()`, calcule la racine du workspace de la visite, publie `store.activeTour` et met à jour les clés de contexte VS Code (`inTour`, droit d'édition, enregistrement).\n\n**Questions utiles** : pourquoi le démarrage est-il asynchrone ? Qui observe `store.activeTour` ?",
+      "questions": [
+        "Quel état décrit la visite en cours de lecture ?",
+        "Que se passe-t-il si une étape est en cours d'édition ?"
+      ],
+      "file": "codetour/src/store/actions.ts",
+      "pattern": "function startCodeTourInternal\\("
+    },
+    {
+      "title": "Le lecteur rend l'étape active",
+      "description": "`registerPlayerModule` est le cœur du chemin de lecture. Il enregistre les commandes, l'arbre des visites, les fournisseurs de fichiers et de contenu, la barre d'état, les décorations, puis initialise le stockage.\n\nLe point clé est la `reaction` MobX : toute navigation, tout changement de mode d'affichage ou toute modification de la visite active déclenche `renderCurrentStep()`.\n\n`renderCurrentStep` résout l'ancre de l'étape (numéro de ligne, `pattern` recherché dans le document, ou sélection), ouvre un diff quand `display` vaut `diff`, puis présente l'explication :\n- en mode panneau latéral (`isExpandedViewOpen`), la description est rendue dans le webview et seul un marqueur reste dans l'éditeur ;\n- sinon, un fil de commentaires natif VS Code affiche la description avec les liens de navigation (étape précédente, suivante, visite suivante).\n\nLe code gère explicitement la concurrence : un rendu tardif est ignoré grâce à `renderVersion`, et un fichier introuvable laisse l'étape lisible.",
+      "questions": [
+        "Comment une ancre `pattern` devient-elle une ligne ?",
+        "Quelle différence entre la lecture en commentaire et en panneau ?"
+      ],
+      "file": "codetour/src/player/index.ts",
+      "pattern": "export function registerPlayerModule\\(context: ExtensionContext\\)"
+    },
+    {
+      "title": "La description Markdown est rendue hors ligne",
+      "description": "Avant affichage, le Markdown d'une étape traverse `renderPreviewDescription`. Celui-ci appelle `renderDescription` du paquet `codetour-description-renderer`, qui rend les diagrammes Mermaid localement (sans accès réseau), puis applique les ajustements de lisibilité (espacement des listes et des images) et ajoute les liens « insérer le code ».\n\nLe contexte passé (`tour`, `tours`, `workspaceRoot`) permet de résoudre les références à d'autres visites et à des fichiers, ainsi que les liens de commande. C'est la frontière où la description stockée devient du contenu natif affichable par VS Code.\n\n**Questions utiles** : pourquoi le rendu Mermaid est-il déporté dans un paquet séparé ? Quelles références sont résolues dans une description ?",
+      "questions": [
+        "Où les diagrammes Mermaid sont-ils rendus ?",
+        "Quelles références une description peut-elle contenir ?"
+      ],
+      "file": "codetour/src/player/description.ts",
+      "pattern": "export async function renderPreviewDescription\\("
+    },
+    {
+      "title": "La CLI expose la génération de visites",
+      "description": "Le second chemin d'exécution est la commande `codetour`, dont le point d'entrée est `dist/cli.js` (`bin` du manifeste). `src/cli/index.ts` construit l'interface `commander` : ouverture d'une visite (terminal, HTML ou VS Code), installation et diagnostic des intégrations d'agents, options internes de lecture.\n\nLa génération occupe une place à part. Pour chaque type, une commande `create-project-tour` ou `create-changes-tour` est déclarée avec `passThroughOptions()` et `allowUnknownOption()` : ses arguments sont transmis tels quels à `runCreateTourCommand`, qui possède son propre contrat de sortie. Ces noms sont réservés, une visite portant ce titre exact passe par le sélecteur ou `--internal-tour-id`.\n\n**Questions utiles** : pourquoi la CLI ne réutilise-t-elle pas les commandes VS Code ? Comment une visite existante est-elle ouverte depuis le terminal ?",
+      "questions": [
+        "Quelles commandes la CLI expose-t-elle en plus de la lecture ?",
+        "Pourquoi les commandes de création analysent-elles leurs arguments elles-mêmes ?"
+      ],
+      "file": "codetour/src/cli/index.ts",
+      "pattern": "\\.command\\(\"create-\" \\+ kind \\+ \"-tour"
+    },
+    {
+      "title": "La création : un seul document JSON en sortie",
+      "description": "`runCreateTourCommand` est l'adaptateur mince entre la ligne de commande et les règles métier :\n\n1. `parseArguments` lit `--workspace`, `--proposal` et `--help` ; une option manquante ou inconnue est une erreur d'usage.\n2. `resolveWorkspace` canonise la racine via `createContext` ; un répertoire inaccessible est une erreur d'usage, pas une proposition refusée.\n3. `readProposal` lit le fichier indiqué ou l'entrée standard, et signale un JSON invalide.\n4. `create(kind, ...)` délègue à `createProjectTour` ou `createChangesTour` du paquet `codetour-tour-generation`.\n5. Le résultat est un unique document JSON sur la sortie standard, avec le code de sortie correspondant : `0` visite créée, `1` proposition refusée, `2` usage ou entrée-sortie.\n\nLes diagnostics vont sur la sortie d'erreur uniquement ; aucun cas d'échec ne produit de document de succès.",
+      "questions": [
+        "Que signifient les codes de sortie 0, 1 et 2 ?",
+        "Où sont écrits les diagnostics ?"
+      ],
+      "file": "codetour/src/cli/createTour.ts",
+      "pattern": "export async function runCreateTourCommand\\("
+    },
+    {
+      "title": "Les règles de création valident avant d'écrire",
+      "description": "`createProjectTour` ne fait que nommer le type : tout passe par `createTour(\"project\", options)`, puis `projectTour`. Cette couche ne connaît ni flux standard ni ligne de commande ; elle reçoit un workspace et une proposition, et renvoie une valeur.\n\nLe déroulé est strict :\n\n1. `validateTourProposal(\"project\", ...)` valide la proposition et ses ancres contre l'état réel du workspace (existence des fichiers, bornes des lignes et sélections, unicité des `pattern`, confinement des liens symboliques).\n2. Une proposition refusée renvoie un échec et n'écrit rien.\n3. Le document `TourFile` est construit avec `$schema`, le titre (`Project Overview` par défaut), la description et les étapes validées.\n4. La destination est `.tours/project.tour`, ou `.tours/<fileName>` quand un nom est fourni ; un nom reste confiné au répertoire `.tours`.\n5. `persistTour` écrit le fichier, puis `recordCreation` ajoute une entrée de journal (observabilité : un journal en échec ne fait jamais échouer la création).\n\nUn Project Tour n'est jamais attaché à une référence Git : il reste lisible à mesure que le projet évolue.\n\n**Diagram — Flux de création**\n\n```mermaid\nsequenceDiagram\n  participant Agent\n  participant CLI\n  participant Regles as Regles de creation\n  participant Espace as Espace de travail\n  Agent->>CLI: proposition JSON\n  CLI->>Regles: createProjectTour\n  Regles->>Regles: valider la proposition\n  Regles->>Espace: ecrire .tours/fichier\n  Regles-->>CLI: resultat\n  CLI-->>Agent: document JSON et code de sortie\n```",
+      "questions": [
+        "Pourquoi valider avant d'écrire ?",
+        "Où aboutit un `fileName` personnalisé ?"
+      ],
+      "file": "codetour/packages/tour-generation/src/creation.ts",
+      "pattern": "export async function createProjectTour\\(options: CreateTourOptions\\)"
+    },
+    {
+      "title": "L'écriture atomique reste confinée au workspace",
+      "description": "Dernière frontière du chemin de création : `writeTourAtomic`. Aucun appelant n'écrit directement.\n\n1. Le répertoire cible est créé si besoin, puis résolu avec `realpathSync` pour neutraliser les liens symboliques.\n2. Le chemin réel est comparé à `ctx.realRoot` ; s'il en sort, `OutputPathError` est levée et rien n'est écrit.\n3. Le contenu part dans un fichier temporaire du même répertoire, est synchronisé (`fsync`), puis renommé sur la destination.\n4. En cas d'échec du renommage, le fichier temporaire est supprimé et l'ancienne visite reste intacte.\n\nC'est ce qui garantit qu'une création interrompue ne laisse ni fichier partiel ni visite existante corrompue, et qu'aucune écriture ne sort du workspace annoncé par `--workspace`.",
+      "questions": [
+        "Comment une écriture partielle est-elle évitée ?",
+        "Pourquoi résoudre le chemin réel avant d'écrire ?"
+      ],
+      "file": "codetour/packages/tour-generation/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic\\("
+    }
+  ]
+}

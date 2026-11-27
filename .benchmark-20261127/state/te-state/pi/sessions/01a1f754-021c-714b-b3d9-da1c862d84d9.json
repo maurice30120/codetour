@@ -1,0 +1,29 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/codetour",
+  "end_reason": "quit",
+  "ended": 1795150843.886736,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a1f754-021c-714b-b3d9-da1c862d84d9",
+  "source": "startup",
+  "started": 1795150840.775983,
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 1,
+      "turn_key": "01a1f754-021c-714b-b3d9-da1c862d84d9:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795150843.8867369,
+  "writer_tokens": 0.0
+}

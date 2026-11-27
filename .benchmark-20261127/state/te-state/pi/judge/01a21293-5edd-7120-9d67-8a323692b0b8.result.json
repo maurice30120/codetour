@@ -1,0 +1,10 @@
+{
+  "at": 1795608358.323102,
+  "id": "01a21293-5edd-7120-9d67-8a323692b0b8:1:0:4:1795608356.455",
+  "verdict": {
+    "_tokens": 2642.0,
+    "confidence": 0.75,
+    "reason": "Workflow is exploratory reconnaissance (git show, grep, sed, reading reviewer outputs) with no repeated failing edit/test cycle and no churn; the last verificat",
+    "stuck": false
+  }
+}

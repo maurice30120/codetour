@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "workspace": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "tourPath": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.tours/knowledge-pi-20261127-08.tour",
+  "tourTitle": "Comment CodeTour enregistre une création et la rattache à la bonne réponse Pi",
+  "kind": "project",
+  "at": "2026-11-27T07:10:16.176Z",
+  "sessionId": "01a21bd6-9bad-76d4-b183-202ec4f2e9fc",
+  "responseId": null,
+  "host": "pi"
+}

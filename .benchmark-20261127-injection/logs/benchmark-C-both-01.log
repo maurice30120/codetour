@@ -1,0 +1,12 @@
+# benchmark-C-both-01 (run-01, group C-both)
+## stdout
+Tour créé : **Architecture et chemins d'exécution** → `.tours/benchmark-C-both-01.tour` (11 étapes, aucun avertissement).
+
+```json
+{"ok":true,"kind":"project","tourPath":"/private/tmp/codetour-bench-20261127-injection/runs/run-01/.tours/benchmark-C-both-01.tour","title":"Architecture et chemins d'exécution","stepCount":11,"warnings":[]}
+```
+
+Pour le lire, depuis la racine du workspace : `codetour "Architecture et chemins d'exécution"` (terminal), ou `codetour --internal-open-vscode .tours/benchmark-C-both-01.tour` (VS Code).
+
+## stderr
+

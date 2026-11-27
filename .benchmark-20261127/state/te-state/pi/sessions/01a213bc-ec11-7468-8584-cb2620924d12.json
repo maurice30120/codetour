@@ -1,0 +1,34 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/codetour",
+  "end_reason": "quit",
+  "ended": 1795627651.8262389,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a213bc-ec11-7468-8584-cb2620924d12",
+  "source": "startup",
+  "start_event": [
+    "startup",
+    null
+  ],
+  "started": 1795627479.2119858,
+  "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-24-38-034Z_01a213bc-ec11-7468-8584-cb2620924d12.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 79,
+      "turn_key": "01a213bc-ec11-7468-8584-cb2620924d12:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795627651.8262389,
+  "writer_tokens": 0.0
+}

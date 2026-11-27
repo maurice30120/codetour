@@ -1,0 +1,58 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "end_reason": "quit",
+  "ended": 1795770372.130941,
+  "files_named": [
+    "codetour/src/store/tourSchema.ts",
+    "codetour/src/store/index.ts",
+    "codetour/src/core/tourDiscovery.ts",
+    "codetour/src/store/provider.ts",
+    "codetour/src/store/storage.ts",
+    "codetour/src/store/actions.ts"
+  ],
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "knowledge_given": [
+    "00bde8ea638146c783531fecbcf135aa",
+    "88cb15513f924f29bba87f7c62d6e159",
+    "760717b062ae4da093200fde7a606206",
+    "4e892c3fd6ba4a249756c57062f2be7d"
+  ],
+  "knowledge_read_blocks": {
+    "chatcmpl-tool-befa233b826a384b": {
+      "cards": [
+        "760717b062ae4da093200fde7a606206",
+        "4e892c3fd6ba4a249756c57062f2be7d"
+      ],
+      "tokens": 104
+    }
+  },
+  "knowledge_startup": {
+    "cards": [
+      [
+        "00bde8ea638146c783531fecbcf135aa",
+        1
+      ],
+      [
+        "88cb15513f924f29bba87f7c62d6e159",
+        1
+      ]
+    ],
+    "tokens": 127
+  },
+  "knowledge_tokens": 231,
+  "nudges": 0,
+  "session_id": "01a21c29-551b-76ab-9e60-cee4e9312f59",
+  "source": "startup",
+  "start_event": [
+    "startup",
+    null
+  ],
+  "started": 1795768800.8870468,
+  "transcript": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/knowledge-pi-20261127/sessions/2026-11-27T08-40-00-539Z_01a21c29-551b-76ab-9e60-cee4e9312f59.jsonl",
+  "turns": [],
+  "updated": 1795770372.1309419,
+  "writer_tokens": 0.0
+}

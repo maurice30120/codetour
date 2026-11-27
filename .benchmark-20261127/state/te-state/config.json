@@ -1,0 +1,5 @@
+{
+  "knowledge": true,
+  "knowledge_injection": "both",
+  "microskills": "envfacts+distiller"
+}

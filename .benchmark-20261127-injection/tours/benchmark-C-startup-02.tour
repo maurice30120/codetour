@@ -1,0 +1,82 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Architecture de CodeTour IA",
+  "description": "Comment ce dépôt est organisé, où l'exécution démarre, et comment une visite traverse l'extension VS Code, la CLI et les paquets partagés.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "**CodeTour IA** est une extension VS Code qui enregistre et rejoue des visites guidées de code : chaque étape ancre une explication Markdown à un fichier, un répertoire ou une sélection, et la visite se lit dans l'éditeur ou dans un terminal.\n\nL'application vit dans `codetour/` ; la racine du dépôt porte aussi le sous-module `TokenEconomizer/` et les scripts d'installation locale. Deux points d'entrée coexistent : l'extension, activée par VS Code, et la CLI `codetour`, qui partagent les paquets de `codetour/packages/` — découverte des visites, règles de création, rendu des descriptions.\n\nUn agent IA ne fabrique jamais lui-même le fichier `.tour` : il remet une proposition JSON à `codetour create-project-tour` ou `create-changes-tour`, et la CLI applique les règles puis écrit la visite dans `.tours/`.\n\n**Diagram — Vue d'ensemble**\n\n```mermaid\nflowchart LR\n  Dev[\"Développeur\"] --> Ext[\"Extension VS Code\"]\n  Agent[\"Agent IA\"] --> CLI[\"CLI codetour\"]\n  Ext --> Discovery[\"Découverte des visites\"]\n  Ext --> Player[\"Lecture dans l'éditeur\"]\n  CLI --> Creation[\"Règles de création\"]\n  Creation --> Files[\".tours/*.tour\"]\n  Discovery --> Files\n  CLI --> Reader[\"Lecteur terminal ou HTML\"]\n  Player --> Renderer[\"Rendu Markdown et Mermaid\"]\n  Reader --> Renderer\n```",
+      "questions": [
+        "Par où commencer pour lire ce dépôt ?",
+        "Quelles sont les deux façons de créer une visite ?",
+        "Où sont écrits les fichiers de visite ?"
+      ]
+    },
+    {
+      "title": "Un manifeste, deux livrables",
+      "description": "`codetour/package.json` déclare l'extension VS Code et la CLI dans un seul paquet npm. `main` pointe vers le bundle webpack `dist/extension-node.js`, construit depuis `src/extension.ts` (voir `webpack.config.js`) ; `bin.codetour` pointe vers `dist/cli.js`.\n\nLe script `build` compile d'abord les paquets de `packages/` (description-renderer, tour-generation), puis lance webpack et prépare le rasteriseur natif resvg. La section `contributes` décrit ce que VS Code charge : commandes `codetourIA.*`, vue `codetour.tours`, validation JSON des fichiers `*.tour` via `schema.json`, et fournisseur de notebook `codetour`. L'activation se fait sur `onStartupFinished`.",
+      "file": "codetour/package.json",
+      "pattern": "\"main\": \"\\./dist/extension-node\\.js\""
+    },
+    {
+      "title": "Activation de l'extension",
+      "description": "`activate()` est le point d'entrée du bundle d'extension. Il enregistre le fournisseur de notebook, le module de lecture (`registerPlayerModule`), la sélection d'agent des conversations d'étape (sonde ACP), le mode enregistrement et LiveShare, puis un `URIHandler` qui ouvre un lien `openTour` après avoir vérifié que l'espace de travail visé est bien celui qui est ouvert.\n\nEnsuite, si un dossier est ouvert, l'extension découvre les visites, propose la visite par défaut (`promptForTour`) et initialise l'API Git. Elle rend enfin `initializeApi(context)`, la surface publique consommée par les autres extensions : démarrer, exporter, sélectionner ou terminer une visite.",
+      "file": "codetour/src/extension.ts",
+      "pattern": "export async function activate\\(context: vscode\\.ExtensionContext\\)"
+    },
+    {
+      "title": "Découverte des visites, partagée entre hôtes",
+      "description": "`discoverToursFromRoot` est volontairement indépendant de VS Code : il reçoit une abstraction de système de fichiers (`join`, `read`, `list`, `id`) et applique les mêmes emplacements — `.tour`, `.vscode/main.tour`, `main.tour`, puis les répertoires `.vscode/tours`, `.github/tours` et `.tours`. L'extension l'appelle avec `vscode.workspace.fs` dans `src/store/provider.ts` ; la CLI l'appelle avec `fs` et `pathToFileURL`.\n\nChaque fichier passe par `loadTour`, la validation zod de `src/store/tourSchema.ts` ; un fichier illisible ou invalide est ignoré au lieu d'interrompre la découverte. `visibleTours` filtre ensuite selon la plateforme et le réglage `codetour.customTourDirectory`.",
+      "file": "codetour/src/core/tourDiscovery.ts",
+      "pattern": "export async function discoverToursFromRoot<Uri>\\("
+    },
+    {
+      "title": "Démarrer une visite",
+      "description": "Le store MobX (`src/store/index.ts`) garde la liste des visites, la visite active, l'étape courante et la progression. Toutes les surfaces convergent vers `startCodeTour` : commandes, liens d'URI et arbre des visites.\n\n`startCodeTour` borne l'index d'étape et résout d'abord un éventuel brouillon d'étape non enregistré ; `startCodeTourInternal` appelle ensuite `startPlayer()` et publie la visite active dans le store, avec `setContext` pour que les menus et raccourcis VS Code s'activent. L'événement `onDidStartTour` permet aux consommateurs de l'API de réagir au démarrage.",
+      "file": "codetour/src/store/actions.ts",
+      "pattern": "export function startCodeTour\\("
+    },
+    {
+      "title": "Les surfaces de lecture dans l'éditeur",
+      "description": "`startPlayer()` installe la lecture native : un contrôleur de commentaires `codetour` attache l'explication de l'étape à son ancre, et les décorations marquent les étapes dans la gouttière ainsi que la ligne active.\n\nLa même visite peut s'afficher dans le panneau « Expanded Description » (webview) : `isWebviewPlayback()` bascule dès que ce panneau est ouvert hors enregistrement. Une étape de type `diff`, produite par une visite de changements, affiche la comparaison Git au lieu du fichier courant. `renderCurrentStep` rafraîchit le commentaire et l'ancre quand l'étape ou la configuration change.",
+      "file": "codetour/src/player/index.ts",
+      "pattern": "export async function startPlayer\\(\\)"
+    },
+    {
+      "title": "Point d'entrée de la CLI",
+      "description": "`buildProgram` construit le programme `commander` : un argument positionnel (titre ou fichier de visite), `--renderer terminal|html|vscode`, l'installation d'intégrations d'agents (`--install`, `--uninstall`, `--agents`, `--doctor`) et des options internes réservées aux adaptateurs.\n\nDeux sous-commandes réservées, `create-project-tour` et `create-changes-tour`, délèguent à `runCreateTourCommand` et conservent leur propre contrat de sortie JSON. Le chemin de lecture part de la racine Git (`repositoryRoot`), découvre les visites avec le module partagé, résout la visite demandée, puis lance le lecteur terminal par défaut, la page HTML autonome ou VS Code.",
+      "file": "codetour/src/cli/index.ts",
+      "pattern": "function buildProgram\\(\\): Command \\{"
+    },
+    {
+      "title": "Une proposition JSON devient une visite",
+      "description": "`runCreateTourCommand` est l'adaptateur CLI de la création. Il analyse ses propres arguments (`--workspace` obligatoire, `--proposal` fichier ou `-` pour l'entrée standard), résout l'espace de travail avec `createContext`, puis délègue aux fonctions de `codetour-tour-generation`.\n\nLe contrat est strict : stdout ne porte qu'un document JSON (succès ou échec), stderr ne porte que des diagnostics, et le code de sortie distingue 0 (visite créée), 1 (proposition refusée ou création échouée) et 2 (usage ou E/S). Une proposition refusée n'écrit aucun fichier.",
+      "file": "codetour/src/cli/createTour.ts",
+      "pattern": "export async function runCreateTourCommand\\("
+    },
+    {
+      "title": "Les règles de création, sans transport",
+      "description": "`createProjectTour` ne connaît ni flux ni ligne de commande : il reçoit l'espace de travail et la proposition brute, puis renvoie une valeur de résultat. Le pipeline valide d'abord les paramètres, les fences Mermaid, les images et la structure des étapes (`validateTourProposal`), calcule les avertissements de lisibilité, puis écrit.\n\n`persistTour` valide la visite contre le schéma CodeTour et l'écrit atomiquement dans `.tours/<fileName>` (ou `.tours/project.tour`), sans jamais sortir de l'espace de travail. Une visite de projet ne porte pas de `ref` Git : elle reste lisible quand le code évolue. Après l'écriture, `recordCreation` ajoute un enregistrement d'observabilité sous `.tours/.log/creations/`, dont l'échec ne fait jamais échouer la création.",
+      "file": "codetour/packages/tour-generation/src/creation.ts",
+      "pattern": "export async function createProjectTour\\(options: CreateTourOptions\\)"
+    },
+    {
+      "title": "Lecture dans le terminal",
+      "description": "`composeTerminalReader` est la racine de composition du lecteur terminal : il relie la visite et la racine du dépôt à ses collaborateurs — conversation d'étape via ACP, narration vocale optionnelle, ouverture dans VS Code, lecture de fichiers Git — et rend un lecteur piloté par un modèle de vue.\n\n`runTerminalTour` exige un TTY, charge `@b9g/termdom` à la demande, prend l'écran alterné et repeint à chaque changement de modèle. C'est le rendu par défaut de `codetour \"<titre>\"`, celui qu'un agent peut proposer après avoir créé une visite.",
+      "file": "codetour/src/cli/terminal.ts",
+      "pattern": "export function composeTerminalReader\\("
+    },
+    {
+      "title": "Rendu Markdown et Mermaid",
+      "description": "`renderDescription` transforme le Markdown d'une étape en contenu affichable : il repère les fences Mermaid, applique les règles (types autorisés, légende obligatoire au-dessus, limites de taille et de nombre), rend le diagramme en image PNG ou SVG, puis remplace la fence par un data URI. Les images locales référencées sont intégrées via le résolveur fourni.\n\nSans diagramme ni image, la description est renvoyée telle quelle. Le module est partagé : l'extension l'utilise dans `src/player/description.ts`, la CLI dans le lecteur terminal et dans la page HTML autonome.",
+      "file": "codetour/packages/description-renderer/src/description.ts",
+      "pattern": "export async function renderDescription\\("
+    },
+    {
+      "title": "Installer l'intégration d'un agent",
+      "description": "La génération de visites par un agent suppose que l'agent connaisse la commande et la compétence. `installAgents` parcourt un registre d'`AgentIntegration` : chaque intégration implémente `detect`, `status`, `install` et `uninstall`, et `--doctor` agrège les diagnostics.\n\nLes fichiers des plugins Copilot et Pi sont embarqués dans le bundle au build (`scripts/embed-copilot-plugin.js`, `scripts/embed-pi-plugin.js`) et exposés par `*.generated.ts`. L'installation écrit ces fichiers, dont la compétence `codetour-generate` et un `launcher.json` pour Pi, puis compare l'existant pour signaler `installed`, `outdated`, `incomplete` ou `modified`.",
+      "file": "codetour/src/cli/agentIntegrations.ts",
+      "pattern": "export async function installAgents\\("
+    }
+  ]
+}

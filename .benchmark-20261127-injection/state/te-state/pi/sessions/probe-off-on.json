@@ -1,0 +1,24 @@
+{
+  "aborts": 0,
+  "cwd": "/tmp/codetour-bench-20261127/probe",
+  "host": "pi",
+  "injected_chars": 478,
+  "injected_ids": [
+    "dist-cli-entrypoint",
+    "nvm-node-24"
+  ],
+  "injected_text": "# repo operating manual (codetour) \u2014 learned from earlier sessions in this repository\n- The CodeTour CLI in this repo is run as `node dist/cli.js <subcommand>` (subcommands include `create-project-tour` and `create-changes-tour`); `dist/` is compiled TypeScript output, so it reflects the last build rather than the current sources.\n- This repo's Node toolchain comes from nvm: commands are run with the absolute binary `~/.nvm/versions/node/v24.18.0/bin/node` (Node v24.18.0).\n",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "probe-off-on",
+  "source": "startup",
+  "start_event": [
+    "startup",
+    null
+  ],
+  "started": 1795786300.4335308,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--private-tmp-codetour-bench-20261127-seed--/2026-11-27T13-28-35-732Z_01a21d31-8a94-731c-bb0e-09f43f000377.jsonl",
+  "turns": [],
+  "updated": 1795786300.4337752,
+  "writer_tokens": 0.0
+}

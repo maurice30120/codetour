@@ -1,0 +1,66 @@
+{
+ "run": "t01",
+ "ok": true,
+ "created": true,
+ "dialogue": true,
+ "events": [
+  {
+   "at": 1795785562.561,
+   "seen": "startup banner",
+   "marker": "escape interrupt"
+  },
+  {
+   "at": 1795785562.561,
+   "sent": "prompt"
+  },
+  {
+   "at": 1795785565.563,
+   "sent": "submit"
+  },
+  {
+   "at": 1795785566.568,
+   "seen": "tour creation (or kind menu)",
+   "marker": "Which tour should be generated?"
+  },
+  {
+   "at": 1795785566.568,
+   "sent": "select Project Tour"
+  },
+  {
+   "at": 1795785603.846,
+   "seen": "tour creation",
+   "marker": "tourPath"
+  },
+  {
+   "at": 1795785605.864,
+   "seen": "opening dialogue",
+   "marker": "now?"
+  },
+  {
+   "at": 1795785605.864,
+   "sent": "select Terminal"
+  },
+  {
+   "at": 1795785666.538,
+   "timeout": "terminal reader",
+   "markers": [
+    "space next"
+   ]
+  },
+  {
+   "at": 1795785671.543,
+   "sent": "ctrl+d"
+  },
+  {
+   "at": 1795785732.198,
+   "timeout": "pi exit banner",
+   "markers": [
+    "To resume this session"
+   ]
+  },
+  {
+   "at": 1795785732.198,
+   "interrupted": "ctrl+d did not exit"
+  }
+ ]
+}

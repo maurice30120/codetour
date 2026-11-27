@@ -1,0 +1,54 @@
+{
+ "ok": true,
+ "dialog": true,
+ "events": [
+  {
+   "at": 1795768688.458,
+   "seen": "startup banner",
+   "marker": "escape interrupt"
+  },
+  {
+   "at": 1795768688.458,
+   "sent": "prompt"
+  },
+  {
+   "at": 1795768691.462,
+   "sent": "submit"
+  },
+  {
+   "at": 1795768692.466,
+   "seen": "tour kind menu",
+   "marker": "Which tour should be generated?"
+  },
+  {
+   "at": 1795768692.466,
+   "sent": "select Project Tour"
+  },
+  {
+   "at": 1795768732.782,
+   "seen": "tour creation",
+   "marker": "Tour cr\u00e9\u00e9"
+  },
+  {
+   "at": 1795768732.784,
+   "seen": "opening dialogue",
+   "marker": "now?"
+  },
+  {
+   "at": 1795768732.784,
+   "sent": "down"
+  },
+  {
+   "at": 1795768733.787,
+   "sent": "select VS Code"
+  },
+  {
+   "at": 1795768741.792,
+   "sent": "ctrl+d"
+  },
+  {
+   "at": 1795768741.955,
+   "interrupted": "ctrl+d did not exit"
+  }
+ ]
+}

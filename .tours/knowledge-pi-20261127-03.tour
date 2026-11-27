@@ -1,0 +1,41 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Enregistrer une création et la rattacher à la bonne réponse Pi",
+  "description": "Le parcours d'une création de Tour : du CLI qui écrit le fichier et son enregistrement, a l'identité de session lue dans l'environnement, jusqu'a l'attribution a une réponse Pi par l'extension.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "Une création de Tour suit deux surfaces distinctes : la commande `codetour create-*-tour` écrit le fichier `.tour` puis un enregistrement de journal ; à la fin de la réponse, l'extension Pi relit ce journal et décide quelles créations appartiennent à la réponse qu'elle referme.\n\n**Diagram — Journal de création et attribution**\n\n```mermaid\nflowchart LR\n  CLI[\"createTour()\"] --> W[\"ecriture atomique du .tour\"]\n  W --> R[\"recordCreation()\"]\n  R --> J[\"(.tours/.log/creations/*.json)\"]\n  ENV[\"creationIdentity() / env\"] --> R\n  J --> SEL[\"readCreations() + selectCreated()\"]\n  AG[\"agent_start / agent_settled\"] --> SEL\n  SEL --> REP[\"resume + dialogue d'ouverture\"]\n```\n\nLe journal est de l'observabilité seule : il ne bloque jamais, n'échoue jamais une création et n'invente aucune identité."
+    },
+    {
+      "title": "Le point de rattachement : après l'écriture du Tour",
+      "description": "`createTour()` valide la proposition, écrit le Tour, puis appelle `recordCreation` une fois le résultat obtenu. C'est le seul endroit où le journal est alimenté, et il l'est *après* la persistance : un enregistrement ne peut donc désigner un Tour qui n'existe pas. Un journal indisponible reste un diagnostic, jamais un échec de la création.",
+      "file": "codetour/packages/tour-generation/src/creation.ts",
+      "line": 107
+    },
+    {
+      "title": "L'identité de session lue dans l'environnement",
+      "description": "`creationIdentity()` lit l'identité dans l'environnement du processus qui crée : `CODETOUR_SESSION_ID` d'abord, sinon `PI_SESSION_ID` (Pi l'exporte à l'outil shell), sinon `COPILOT_AGENT_SESSION_ID`. Le nom de l'hôte est déduit de la variable reconnue. Une valeur non observable reste `null` plutôt que d'être devinée — c'est ce `null` qui rendra la création non attribuable côté hook.",
+      "file": "codetour/packages/tour-generation/src/journal.ts",
+      "line": 57
+    },
+    {
+      "title": "L'écriture atomique de l'enregistrement",
+      "description": "Chaque création produit un fichier indépendant `<horodatage ms>-<pid>-<octets aléatoires>.json`, écrit en `.tmp` puis renommé. Le nom est triable par temps et unique sous créations concurrentes, et le renommage évite qu'un lecteur voie un enregistrement partiel. Le contenu est le `CreationRecord` versionné : workspace, chemin du Tour, titre, type, horodatage, session, réponse, hôte.",
+      "file": "codetour/packages/tour-generation/src/journal.ts",
+      "line": 110
+    },
+    {
+      "title": "La fenêtre de réponse côté hôte",
+      "description": "L'extension ouvre la fenêtre au premier `agent_start` (Pi n'expose pas d'identité de réponse) et la referme sur `agent_settled`. Elle lit alors le journal du workspace et ne rapporte qu'une fois par fenêtre. `agent_end` alimente la lecture de tokens ; `reportedResponses` empêche un second compte rendu si l'hôte ré-émet l'événement.",
+      "file": "codetour/packages/pi-plugin/extensions/codetour.ts",
+      "line": 369
+    },
+    {
+      "title": "Les trois conditions d'attribution",
+      "description": "`selectCreated()` n'attribue un enregistrement que si trois conditions tiennent : même workspace canonique, même identité de session que `ctx.sessionManager.getSessionId()`, et un `at` compris entre le début de la réponse et l'instant présent. Un enregistrement sans session n'est jamais attribué, et un enregistrement antérieur à la réponse appartient à une réponse précédente. Le résultat est trié du plus ancien au plus récent, puis résumé en une ligne par Tour.",
+      "file": "codetour/packages/pi-plugin/lib/journal.mjs",
+      "line": 137
+    }
+  ]
+}
