@@ -1,0 +1,162 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Ce que la branche spec-304-integration change depuis origin/main",
+  "description": "Lecture guidée des changements **commités** entre le merge-base avec `origin/main` et `HEAD` (`cdcab99`), sans tenir compte du répertoire de travail modifié. La branche accumule 308 commits, mais elle raconte une seule histoire : CodeTour passe d'un monde où la génération de Tours transitait par un serveur MCP et où la mémoire était interne, à un monde fait d'un **skill** plus une **CLI locale**, avec la mémoire déléguée au sous-module **TokenEconomizer** et le dépôt réorganisé autour d'un dossier `codetour/`.\n\nGenerated from the merge-base of `origin/main` (`a55138959ceed699aa3b9951983f350b906e73a4`) to `cdcab992df9304a4eaaf9495ff0a1bde685cf55c`.",
+  "ref": "cdcab992df9304a4eaaf9495ff0a1bde685cf55c",
+  "baseRef": "a55138959ceed699aa3b9951983f350b906e73a4",
+  "steps": [
+    {
+      "title": "Vue d'ensemble du changement",
+      "description": "Le diff committé couvre 502 fichiers, avec 38 761 insertions et 14 329 suppressions. Trois mouvements le résument, et c'est l'ordre dans lequel cette visite les parcourt.\n\n**Diagram — Les trois mouvements de la branche**\n\n```mermaid\nflowchart LR\n  A[\"origin/main\\nsurfaces MCP\"] --> B[\"Restructuration\\ndu dépôt\"]\n  B --> C[\"Generation =\\nskill + CLI\"]\n  C --> D[\"Memoire deleguee\\na TokenEconomizer\"]\n```\n\n1. **Restructuration** : l'application CodeTour quitte la racine et vit désormais sous `codetour/`, avec `TokenEconomizer` en sous-module et un protocole de test à la racine.\n2. **Génération sans MCP** : le serveur MCP est supprimé ; un skill embarqué dans les plugins Copilot et Pi remet une proposition JSON à `codetour create-project-tour` / `create-changes-tour`, qui valide et écrit le `.tour` de façon atomique.\n3. **Mémoire externalisée** : l'ancien moteur de mémoire de CodeTour disparaît ; la Knowledge devient la responsabilité de TokenEconomizer, et une campagne (#313) mesure son intérêt en tokens.\n\nLe `CHANGELOG.md` de `codetour/` porte la version lisible de ces changements, section par section `Added` / `Changed` / `Removed` / `Compatibility`.",
+      "questions": [
+        "Parmi ces trois mouvements, lequel change le plus votre façon d'utiliser CodeTour ?",
+        "Le retrait du serveur MCP vous concerne-t-il directement ?"
+      ]
+    },
+    {
+      "title": "Le dépôt change de forme",
+      "description": "Le premier mouvement est structurel : la quasi-totalité des fichiers de l'application est déplacée sous `codetour/` (Git détecte 175 renommages à 100 %, plus une longue série de renommages partiels). La racine ne garde que la documentation de workspace, le protocole de test, les scripts de lancement et les déclarations de sous-modules.\n\n`AGENTS.md` à la racine documente la nouvelle règle et prévient que les anciennes branches utilisent encore l'ancienne disposition — c'est précisément ce qui rend ce diff volumineux : un déplacement massif, pas une réécriture.",
+      "file": "AGENTS.md",
+      "pattern": "The root migration moves",
+      "display": "diff"
+    },
+    {
+      "title": "Deux sous-modules déclarés",
+      "description": "Le workspace devient un assemblage de dépôts : `.gitmodules` déclare `TokenEconomizer` (la mémoire Knowledge, sur sa propre branche d'intégration) et `postgres-benchmark` (la fixture PostgreSQL des campagnes de mesure).\n\nConséquence pratique : un commit du dépôt parent ne fige qu'un pointeur de sous-module, pas les fichiers de `TokenEconomizer`. Les changements de mémoire se publient donc en deux temps.",
+      "file": ".gitmodules",
+      "pattern": "path = TokenEconomizer",
+      "display": "diff"
+    },
+    {
+      "title": "La décision qui explique la suppression du MCP",
+      "description": "L'ADR 0057 est le cœur du deuxième mouvement. Il énonce la décision : « la génération est une invocation de commande, pas un transport de session ».\n\nSon argumentaire est celui de la suppression : chaque surface qui devait connaître le serveur était un mode de panne à elle seule (enregistrement valable seulement tant que le processus de l'extension est attaché, seconde copie des outils quand une entrée utilisateur duplique celle du plugin, launcher à vérifier avant toute écriture, bundle de 3,6 Mo, protocole d'état entre serveur, adaptateur et hook).\n\nIl justifie aussi le choix du **skill** plutôt que de prompts servis : la méthode doit atteindre l'agent *avant* qu'il n'écrive, alors qu'une lecture de ressource sur un transport peut être exigée mais jamais observée.",
+      "questions": [
+        "Cet argumentaire vous convainc-t-il, ou le serveur MCP vous rendait-il un service réel ?"
+      ],
+      "file": "codetour/docs/adr/0057-create-tours-with-a-skill-and-a-local-cli-and-ship-no-mcp-server.md",
+      "pattern": "Create Tours with a skill and a local CLI",
+      "display": "diff"
+    },
+    {
+      "title": "Deux commandes remplacent le serveur",
+      "description": "La surface de génération est désormais `codetour create-project-tour` et `codetour create-changes-tour`. Le `README` de `codetour/` les documente en une dizaine de lignes : la proposition est un document JSON, l'agent analyse le code, la commande locale valide et écrit — elle n'appelle aucun modèle et n'accède pas au réseau.\n\nLe contrat de sortie est explicite : une seule réponse JSON sur `stdout`, code `0` pour un Tour créé, `1` pour une proposition refusée (rien n'est écrit), `2` pour un usage ou une E/S inutilisable.",
+      "file": "codetour/README.md",
+      "pattern": "codetour create-project-tour --workspace \\. --proposal proposal\\.json",
+      "display": "diff"
+    },
+    {
+      "title": "La règle de création, une seule fois",
+      "description": "Les règles de création vivent dans le package `packages/tour-generation/`, sans aucun transport : `createProjectTour` et `createChangesTour` ne sont que deux points d'entrée d'un même `createTour`.\n\nPour un Changes Tour, la contrainte forte est que `headRef` doit correspondre exactement au `HEAD` courant, sinon la création échoue en `STALE_HEAD` : une explication périmée ne doit jamais être écrite.",
+      "file": "codetour/packages/tour-generation/src/creation.ts",
+      "pattern": "if \\(headRef !== currentHead\\) \\{",
+      "display": "diff"
+    },
+    {
+      "title": "Ancrer dans le diff réellement comparé",
+      "description": "Toujours dans `createTour` : la référence de base est résolue en SHA complet, le merge-base est calculé, puis les ancres des étapes sont vérifiées **contre le commit analysé** via `stageCommitAnchors`, avant l'écriture.\n\nC'est la garantie que le Tour décrit le diff committé — exactement la convention appliquée par cette visite, qui ignore les modifications locales.",
+      "file": "codetour/packages/tour-generation/src/creation.ts",
+      "pattern": "await stageCommitAnchors\\(result.proposal, \\{",
+      "display": "diff"
+    },
+    {
+      "title": "Écriture atomique et journal de création",
+      "description": "L'écriture passe par `writeTourAtomic` : fichier temporaire dans le même répertoire, `fsync`, puis `rename` sur la destination — jamais de fichier partiel, la version précédente survit à un échec.\n\nAprès succès seulement, `recordCreation` dépose une ligne dans le journal `.tours/.log/creations/`. Ce journal est de l'observabilité pure : il alimente le résumé de fin de réponse des plugins, et un journal qui ne peut pas s'écrire ne fait jamais échouer une création.",
+      "file": "codetour/packages/tour-generation/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic",
+      "display": "diff",
+      "baseFile": "packages/mcp-server/src/persistence.ts"
+    },
+    {
+      "title": "L'identité de session vient de l'environnement",
+      "description": "Le journal enregistre l'identité de la session qui a créé le Tour — mais uniquement ce que le processus peut réellement observer : `CODETOUR_SESSION_ID`, `PI_SESSION_ID` ou `COPILOT_AGENT_SESSION_ID`. Une valeur non observable reste `null` plutôt que d'être devinée.\n\nC'est ce qui permet aux plugins de n'attribuer à une réponse que les Tours qu'elle a vraiment créés.",
+      "file": "codetour/packages/tour-generation/src/journal.ts",
+      "pattern": "export function creationIdentity",
+      "display": "diff"
+    },
+    {
+      "title": "La CLI devient le seul appelant",
+      "description": "Côté CLI, `runCreateTourCommand` est une fine enveloppe : lecture du document proposé (fichier ou entrée standard), appel des règles partagées, puis un unique document JSON sur `stdout`. Les commandes de création analysent leurs propres arguments et possèdent leurs codes de sortie, laissant intact le contrat d'erreur du lecteur de Tours.\n\nC'est aussi ce qui rend inutile toute étape de *dry-run* séparée : une proposition refusée renvoie directement ses problèmes.",
+      "file": "codetour/src/cli/createTour.ts",
+      "pattern": "export async function runCreateTourCommand",
+      "display": "diff"
+    },
+    {
+      "title": "Les plugins ne font qu'appeler la CLI",
+      "description": "Le plugin Pi embarqué déclare désormais deux surfaces : le skill `codetour-generate` qui fait créer le Tour par l'agent via la CLI, et l'extension qui lit le journal de création quand une réponse se termine pour annoncer, une fois, les Tours créés et la consommation de tokens — sans jamais bloquer ni demander de relance.\n\nQuand `codetour --install pi` a été lancé, un `launcher.json` placé à côté de l'extension fournit le runtime et le script absolus : un `codetour` périmé sur le `PATH` ne peut plus servir une ancienne version.",
+      "file": "codetour/packages/pi-plugin/extensions/codetour.ts",
+      "pattern": "async function installedLauncher",
+      "display": "diff"
+    },
+    {
+      "title": "Le skill qui suit l'agent",
+      "description": "Le skill embarqué dans le plugin Pi (et son jumeau Copilot) est le document qui porte toute la méthode : exploration d'abord, proposition ensuite, puis remise à la CLI depuis la racine du workspace. Il précise aussi comment résoudre la commande — l'argument `codetour-cli` quand le host le fournit, `codetour` sinon.\n\nCette visite a suivi exactement ce chemin pour lire les fichiers committés.",
+      "file": "codetour/packages/pi-plugin/skills/codetour-generate/SKILL.md",
+      "pattern": "`<cli>` is the `codetour-cli` argument when given",
+      "display": "diff"
+    },
+    {
+      "title": "Choisir ses agents depuis la CLI",
+      "description": "Le troisième volet du mouvement MCP est l'ergonomie d'installation : `codetour --install` sans valeur ouvre un sélecteur numéroté restreint aux agents qui **génèrent** des Tours (Copilot CLI et Pi) ; l'extension VS Code reste installable par nom mais n'est jamais proposée, car elle est un lecteur.\n\n`generationAgents()` est le point unique qui définit ce sous-ensemble.",
+      "file": "codetour/src/cli/agentSelection.ts",
+      "pattern": "export function generationAgents\\(\\): AgentIntegration\\[\\]",
+      "display": "diff"
+    },
+    {
+      "title": "Diagnostiquer sans rien casser",
+      "description": "`--agents` et `--doctor` rapportent un état par agent — `absent`, `incompatible`, `not-installed`, `installed`, `outdated`, `incomplete` — avec une ligne disant ce qui ne va pas et quoi exécuter.\n\n`doctor()` combine la vérification de Git, l'état de chaque intégration et le balayage des surfaces retirées : la migration ne supprime que ce que la CLI peut prouver lui appartenir.",
+      "file": "codetour/src/cli/agentIntegrations.ts",
+      "pattern": "export async function doctor",
+      "display": "diff"
+    },
+    {
+      "title": "La migration nettoie les traces du MCP",
+      "description": "Les prédicats de propriété sont gelés sous forme de littéraux, justement parce que les écrivains d'origine n'existent plus : l'ancien adaptateur Copilot, l'entrée MCP dans `~/.copilot/mcp-config.json`, les launchers Pi périmés, les anciens états de run.\n\nLa réinstallation d'un agent suffit donc à migrer : aucune nouvelle commande n'est introduite pour ça.",
+      "file": "codetour/src/cli/agentMigration.ts",
+      "pattern": "export const LEGACY_COPILOT_PLUGIN_FILES",
+      "display": "diff"
+    },
+    {
+      "title": "La rupture, assumée et documentée",
+      "description": "Dans le `CHANGELOG`, la section `Removed` nomme ce qui disparaît : le serveur MCP (`codetour mcp`, `packages/mcp-server/`, les dépendances `@modelcontextprotocol/sdk` et `zod`, le bundle `mcp-server.js`, l'enregistrement VS Code), les commandes de configuration MCP pour Codex, et l'ancienne extension Copilot routée par MCP.\n\nLa section `Compatibility` va plus loin : les clients MCP ne sont plus supportés, et le paquet npm `codetour` est retiré. Un utilisateur qui avait configuré le serveur doit passer au skill et à la CLI.",
+      "questions": [
+        "Avez-vous un client MCP configuré sur CodeTour à faire migrer ?"
+      ],
+      "file": "codetour/CHANGELOG.md",
+      "pattern": "\\*\\*MCP clients are no longer supported\\.\\*\\*",
+      "display": "diff",
+      "baseFile": "CHANGELOG.md"
+    },
+    {
+      "title": "La mémoire quitte CodeTour",
+      "description": "Le troisième mouvement est un retrait, pas une réécriture : toute la mémoire interne — entrées Knowledge, catalogue, consolidation de fin de Tour, outils `knowledge_*` — sort de CodeTour. L'en-tête du `README` l'annonce sans détour et prévient que la connaissance existante n'est pas migrée.\n\nC'est le commit `6226658 Remove retired CodeTour memory engine and experiments` qui porte l'essentiel du retrait.",
+      "file": "codetour/README.md",
+      "pattern": "Memory interruption",
+      "display": "diff"
+    },
+    {
+      "title": "La Knowledge devient composable",
+      "description": "La spec #288 décrit ce qui remplace l'ancienne mémoire : une **Knowledge composée**, entrée Markdown autonome déclarant au moins deux Knowledge filles et mémorisant l'interaction entre elles — ni concaténation, ni répétition.\n\nElle se lit seule : son corps n'est servi que si tout son graphe est valide (preuves, révisions, contrats, dépendances récursives), et les corps des filles ne transitent jamais. Le moteur épingle lui-même la révision des filles à la publication.",
+      "file": "codetour/docs/specs/spec-288-knowledge-composees.md",
+      "pattern": "^## Problem Statement",
+      "display": "diff"
+    },
+    {
+      "title": "Mesurer avant de promettre une économie",
+      "description": "La spec #313 pose la bonne question — la mémoire Knowledge de TokenEconomizer économise-t-elle réellement des tokens ? — et rappelle honnêtement que la campagne d'origine (#299) ne peut plus être exécutée : elle mesurait la mémoire interne retirée par #304.\n\nSans mesure, la réponse ne peut être qu'une impression ; c'est exactement ce que la campagne cherche à supprimer.",
+      "file": "codetour/docs/specs/spec-313-campagne-memoire-tokens.md",
+      "pattern": "^# \\[Spec #313\\]",
+      "display": "diff"
+    },
+    {
+      "title": "Comment vérifier l'ensemble localement",
+      "description": "Le `PROTOCOLE-TEST.md` à la racine décrit la vérification de bout en bout du couple CodeTour + TokenEconomizer. Il rappelle deux contraintes importantes : les deux dépôts doivent rester à leur emplacement actuel (les plugins installés pointent dessus en dur), et l'état initial doit être contrôlé avant tout test — dont un piège connu, `pi list` pouvant afficher TokenEconomizer deux fois.\n\nCe document est le bon point de départ si vous voulez rejouer la branche plutôt que la lire.",
+      "questions": [
+        "Voulez-vous que nous déroulions ce protocole de test ensemble ?",
+        "Y a-t-il une étape du protocole qui ne correspond plus à votre environnement ?"
+      ],
+      "file": "PROTOCOLE-TEST.md",
+      "pattern": "^# Protocole de test",
+      "display": "diff"
+    }
+  ]
+}
