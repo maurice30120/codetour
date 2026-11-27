@@ -1,0 +1,147 @@
+{
+  "facts": {
+    "_extractors": [
+      "cd_into_codetour",
+      "codetour_subdir_usage",
+      "failed_with_invalid_proposal",
+      "git_show_head_path",
+      "invokes_dist_cli",
+      "nested_path_error",
+      "passes_proposal_flag",
+      "reads_tour_generation",
+      "uses_nvm_node",
+      "writes_proposal_json_file"
+    ],
+    "_profile": "envfacts+distiller",
+    "_task": {
+      "iid": "01a21d33-9289-7019-b036-d7fafef7a53a",
+      "injected": [],
+      "n_calls": 7,
+      "resolved": null,
+      "verdicts": {}
+    },
+    "_vocab": "generic",
+    "create-tour-arguments": {
+      "claim": "The tour-creation subcommands take `--workspace <dir>` plus ",
+      "fire": "9/9",
+      "inject": true,
+      "rate": 1.0,
+      "rev": 1,
+      "state": "ACTIVE"
+    },
+    "dist-cli-entrypoint": {
+      "claim": "The CodeTour CLI is invoked as `node dist/cli.js <subcommand",
+      "fire": "8/9",
+      "inject": true,
+      "rate": 0.89,
+      "rev": 1,
+      "state": "ACTIVE"
+    },
+    "docs-context-md": {
+      "claim": "The repository documents its architecture in `CONTEXT.md` at",
+      "fire": "5/5",
+      "inject": false,
+      "rate": 1.0,
+      "rev": 1,
+      "state": "CANDIDATE"
+    },
+    "invalid-proposal-refusal": {
+      "claim": "`create-*-tour` refuses proposals its validation rejects wit",
+      "fire": "8/9",
+      "inject": true,
+      "rate": 0.89,
+      "rev": 1,
+      "state": "ACTIVE"
+    },
+    "nested-codetour-directory": {
+      "claim": "The CodeTour project's own files (package.json, src/, packag",
+      "fire": "1/7",
+      "inject": false,
+      "rate": 0.14,
+      "rev": 1,
+      "state": "ACTIVE"
+    },
+    "no-install-or-build-step": {
+      "claim": "CLI work in this repo runs the already-present compiled dist",
+      "fire": "9/9",
+      "inject": false,
+      "rate": 1.0,
+      "rev": 1,
+      "state": "RETIRED"
+    },
+    "nvm-node-24": {
+      "claim": "Node for CLI runs is reached through the nvm-installed binar",
+      "fire": "9/9",
+      "inject": true,
+      "rate": 1.0,
+      "rev": 1,
+      "state": "ACTIVE"
+    },
+    "nvm-node-dist-cli": {
+      "claim": "The CodeTour CLI is invoked from the project root with the n",
+      "fire": "5/9",
+      "inject": false,
+      "rate": 0.56,
+      "rev": 1,
+      "state": "RETIRED"
+    },
+    "proposal-arg-errors-are-invalid-proposal": {
+      "claim": "Missing or malformed arguments to create-project-tour / crea",
+      "fire": "0/9",
+      "inject": false,
+      "rate": 0.0,
+      "rev": 1,
+      "state": "ACTIVE"
+    },
+    "proposal-passed-as-json-file": {
+      "claim": "Tour proposals are written to a JSON file (commonly under /t",
+      "fire": "9/9",
+      "inject": true,
+      "rate": 1.0,
+      "rev": 1,
+      "state": "ACTIVE"
+    },
+    "repo-layout-src-packages": {
+      "claim": "The CodeTour repo is a VS Code extension plus CLI under `src",
+      "fire": "9/9",
+      "inject": true,
+      "rate": 1.0,
+      "rev": 1,
+      "state": "ACTIVE"
+    },
+    "tour-generation-validation-package": {
+      "claim": "All Tour proposal validation (parameters, step anchor fields",
+      "fire": "9/9",
+      "inject": true,
+      "rate": 1.0,
+      "rev": 1,
+      "state": "ACTIVE"
+    },
+    "tour-output-paths-codetours": {
+      "claim": "Generated Tours are written to the fixed reserved destinatio",
+      "fire": "9/9",
+      "inject": true,
+      "rate": 1.0,
+      "rev": 1,
+      "state": "ACTIVE"
+    },
+    "webpack-tsconfig-root": {
+      "claim": "The VS Code extension build is configured by `webpack.config",
+      "fire": "5/5",
+      "inject": true,
+      "rate": 1.0,
+      "rev": 1,
+      "state": "ACTIVE"
+    }
+  },
+  "imported_sessions": 0,
+  "profile": "envfacts+distiller",
+  "reason": "envfacts+manual-distill",
+  "rendered": "# repo operating manual (codetour) \u2014 learned from earlier sessions in this repository\n- The CodeTour CLI in this repo is run as `node dist/cli.js <subcommand>` (subcommands include `create-project-tour` and `create-changes-tour`); `dist/` is compiled TypeScript output, so it reflects the last build rather than the current sources.\n- This repo's Node toolchain comes from nvm: commands are run with the absolute binary `~/.nvm/versions/node/v24.18.0/bin/node` (Node v24.18.0).\n",
+  "rendered_ids": [
+    "dist-cli-entrypoint",
+    "nvm-node-24"
+  ],
+  "sessions": 11,
+  "updated": 1795786276.8923562
+}

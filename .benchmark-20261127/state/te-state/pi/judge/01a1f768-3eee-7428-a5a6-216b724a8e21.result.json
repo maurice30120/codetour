@@ -1,0 +1,10 @@
+{
+  "at": 1795153736.792462,
+  "id": "01a1f768-3eee-7428-a5a6-216b724a8e21:1:1:5:1795153735.926",
+  "verdict": {
+    "_tokens": 1989.4,
+    "confidence": 0.9,
+    "reason": "Recent workflow shows active hypothesis testing and edits across source/test files, with non-identical failures and the last verification passing. At 30 of ~58 ",
+    "stuck": false
+  }
+}

@@ -1,0 +1,12 @@
+# benchmark-B-01 (run-02, group B)
+## stdout
+Tour créé : **Architecture de CodeTour IA** — `/private/tmp/codetour-bench-20261127/runs/run-02/.tours/benchmark-B-01.tour` (13 étapes, aucun avertissement).
+
+Sortie JSON de la commande CLI :
+
+```json
+{"ok":true,"kind":"project","tourPath":"/private/tmp/codetour-bench-20261127/runs/run-02/.tours/benchmark-B-01.tour","title":"Architecture de CodeTour IA","stepCount":13,"warnings":[]}
+```
+
+## stderr
+

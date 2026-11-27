@@ -1,0 +1,65 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Chargement, validation et progression d'un Tour",
+  "description": "Le trajet complet d'un fichier .tour dans CodeTour : découverte des emplacements conventionnels, validation par le schéma Zod, publication dans le store et enregistrement de la progression du lecteur.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble du trajet",
+      "description": "CodeTour est une extension VS Code (application dans `codetour/`) qui lit des Tours : des fichiers `.tour` au format JSON, chacun décrivant une suite d'étapes ancrées dans le code. Ce Tour suit ce qu'un fichier `.tour` traverse entre le disque et la progression du lecteur.\n\nTrois moments structurent ce trajet : la **découverte** parcourt les répertoires conventionnels du workspace et lit chaque fichier ; la **validation** confie le contenu à un schéma Zod unique qui produit le type `CodeTour` ; la **progression** est tenue par un petit objet `progress` adossé au stockage global (`globalState`) de l'extension. Le lecteur ne fait que demander la mise à jour à des moments précis : passage à l'étape suivante, fin de Tour.\n\n**Diagram — Vue d'ensemble**\n\n```mermaid\nflowchart LR\n  Disk[\"Fichiers .tour\"] --> Discovery[\"Découverte\"]\n  Discovery --> Loader[\"loadTour (Zod)\"]\n  Loader --> Store[\"store.tours\"]\n  Store --> Player[\"Lecteur\"]\n  Player --> Progress[\"progress.update()\"]\n  Progress --> GlobalState[\"globalState\"]\n```",
+      "questions": [
+        "Quels emplacements du workspace CodeTour inspecte-t-il pour trouver des Tours ?",
+        "À quel moment la progression d'un Tour est-elle réellement écrite ?"
+      ]
+    },
+    {
+      "title": "Découverte : où sont les Tours",
+      "description": "`discoverToursFromRoot` est volontairement indépendant de l'hôte : il ne connaît ni VS Code ni le lecteur terminal, seulement une petite interface de système de fichiers (`join`, `read`, `list`, `id`). Il parcourt les répertoires listés par `tourDirectories()` — `.vscode/tours`, `.github/tours`, `.tours` et, si l'utilisateur en configure un, un répertoire personnalisé — puis les fichiers principaux déclarés par `MAIN_TOUR_FILES` (`.tour`, `main.tour`, `.vscode/main.tour`).\n\nLa fonction récursive `readDirectory` descend dans chaque sous-répertoire, et ignore explicitement le sous-répertoire `.memory` ; un fichier illisible ou invalide est avalé par le `catch` de `readTour`, qui renvoie `undefined` plutôt que de propager l'erreur. L'ordre du résultat est significatif : les sous-Tours d'abord, les Tours principaux ensuite.",
+      "questions": [
+        "Pourquoi la découverte renvoie-t-elle les sous-Tours avant les Tours principaux ?",
+        "Que se passe-t-il si un fichier `.tour` du répertoire est corrompu ?"
+      ],
+      "file": "codetour/src/core/tourDiscovery.ts",
+      "line": 25
+    },
+    {
+      "title": "Validation : un schéma unique",
+      "description": "Chaque fichier lu passe par `loadTour`, qui appelle `parseTourFile` : `JSON.parse` puis `TourFileSchema.parse`. Le schéma Zod de `tourSchema.ts` est la source de vérité du format — les types TypeScript du store en dérivent, ce qui empêche le schéma d'auteur (`schema.json`) et le schéma d'exécution de diverger.\n\nDeux choix y sont lisibles. `z.looseObject` conserve les propriétés inconnues, comme le faisait le `JSON.parse` brut : un champ ajouté par une version future survit à un aller-retour. Les valeurs obligatoires sont normalisées plutôt que rejetées : `description` reçoit `\"\"` par défaut et `baseRef` doit respecter exactement 40 caractères hexadécimaux. `loadTour` ajoute enfin l'identité attribuée par l'hôte sous la forme d'un `id`, distinct du contenu.",
+      "questions": [
+        "Pourquoi `TourFileSchema` utilise-t-il `z.looseObject` au lieu d'un objet strict ?",
+        "Comment un fichier `.tour` sans description d'étape est-il interprété ?"
+      ],
+      "file": "codetour/src/store/tourSchema.ts",
+      "line": 91
+    },
+    {
+      "title": "Publication dans le store",
+      "description": "Côté VS Code, `discoverTours()` fait le pont : il fournit à `discoverToursFromRoot` la racine de chaque dossier du workspace et une implémentation du système de fichiers construite sur `vscode.workspace.fs`, avec `id` calculé à partir de l'URI décodée du fichier. Le résultat de tous les dossiers est aplati, trié et filtré par `visibleTours()`, puis affecté à `store.tours`.\n\nLa suite est défensive : si un Tour est déjà actif, `discoverTours()` le retrouve par identifiant dans la nouvelle liste et met à jour son contenu sans interrompre la lecture ; s'il a disparu, `endCurrentCodeTour()` termine la session. Un `FileSystemWatcher` sur les répertoires de Tours relance la découverte à chaque création, modification ou suppression de fichier.",
+      "questions": [
+        "Comment `visibleTours` filtre-t-il les Tours selon la plateforme et le type d'hôte ?",
+        "Pourquoi la découverte rafraîchit-elle le Tour actif au lieu de le relancer ?"
+      ],
+      "file": "codetour/src/store/provider.ts",
+      "line": 51
+    },
+    {
+      "title": "Progression : lire, compléter, persister",
+      "description": "`initializeStorage` installe le singleton `progress` une fois pour toutes, en relisant `globalState` sous la clé `codetour:progress`. La forme stockée est un tableau de paires `[idDuTour, numérosDEtapes]`.\n\n`progress.update()` cherche l'entrée correspondant au Tour actif, ajoute le numéro d'étape s'il n'y figure pas déjà, crée l'entrée sinon, positionne le contexte `codetour:hasProgress` pour l'interface, puis écrit `store.progress` dans `globalState`. `isComplete` en déduit l'état d'un Tour entier (autant de numéros enregistrés que d'étapes dans `tour.steps`) ou d'une étape seule. `reset` vide tout ou seulement le Tour visé. La clé est aussi déclarée via `setKeysForSync`, ce qui la fait suivre la synchronisation des réglages VS Code.",
+      "questions": [
+        "Que contient exactement la valeur stockée sous `codetour:progress` ?",
+        "Pourquoi `setKeysForSync` est-il appelé après l'installation du singleton ?"
+      ],
+      "file": "codetour/src/store/storage.ts",
+      "line": 25
+    },
+    {
+      "title": "Le moment de l'écriture",
+      "description": "`progress.update()` n'est pas appelée à chaque rendu : elle l'est à des transitions explicites. `moveCurrentCodeTourForward()` l'invoque juste après la validation de sortie d'étape et avant d'incrémenter `store.activeTour.step` : c'est donc l'étape en cours de lecture qui est enregistrée comme vue.\n\nLa commande `finishTour` suit le même ordre : elle résout d'abord un brouillon d'édition non sauvegardé, puis appelle `progress.update()`, et seulement ensuite démarre le Tour suivant éventuel ou termine la session. Un brouillon annulé par l'auteur laisse donc la progression intacte.",
+      "questions": [
+        "Pourquoi la mise à jour précède-t-elle l'incrément de `store.activeTour.step` ?",
+        "Que devient la progression si l'auteur refuse de quitter une étape en cours d'édition ?"
+      ],
+      "file": "codetour/src/store/actions.ts",
+      "line": 207
+    }
+  ]
+}

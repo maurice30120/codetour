@@ -1,0 +1,48 @@
+{
+ "run": "t02",
+ "ok": true,
+ "created": true,
+ "dialogue": true,
+ "events": [
+  {
+   "at": 1795785825.844,
+   "seen": "startup banner",
+   "marker": "escape interrupt"
+  },
+  {
+   "at": 1795785825.844,
+   "sent": "prompt"
+  },
+  {
+   "at": 1795785828.849,
+   "sent": "submit"
+  },
+  {
+   "at": 1795785829.854,
+   "seen": "tour creation (or kind menu)",
+   "marker": "Which tour should be generated?"
+  },
+  {
+   "at": 1795785829.854,
+   "sent": "select Project Tour"
+  },
+  {
+   "at": 1795785859.029,
+   "seen": "tour creation",
+   "marker": "\"tourPath\""
+  },
+  {
+   "at": 1795785860.042,
+   "seen": "opening dialogue",
+   "marker": "now?"
+  },
+  {
+   "at": 1795785860.042,
+   "sent": "cancel opening dialogue"
+  },
+  {
+   "at": 1795785864.049,
+   "sent": "exit (1)"
+  }
+ ]
+}

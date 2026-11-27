@@ -1,0 +1,96 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/codetour",
+  "end_reason": "quit",
+  "ended": 1795446486.635691,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a20871-9ae6-70d1-a224-1230531af351",
+  "source": "resume",
+  "started": 1795437994.023605,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T12-46-32-678Z_01a20871-9ae6-70d1-a224-1230531af351.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 20,
+      "turn_key": "01a20871-9ae6-70d1-a224-1230531af351:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 1,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 10,
+      "turn_key": "01a20871-9ae6-70d1-a224-1230531af351:2",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 1,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 1,
+      "turn_key": "01a20871-9ae6-70d1-a224-1230531af351:3",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a20871-9ae6-70d1-a224-1230531af351:4",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 6,
+      "turn_key": "01a20871-9ae6-70d1-a224-1230531af351:5",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 7,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 23,
+      "turn_key": "01a20871-9ae6-70d1-a224-1230531af351:6",
+      "verifications": 6,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 4,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 13,
+      "turn_key": "01a20871-9ae6-70d1-a224-1230531af351:7",
+      "verifications": 2,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795446486.6356921,
+  "writer_tokens": 0.0
+}

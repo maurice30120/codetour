@@ -1,0 +1,17 @@
+# Tour recherche CodeTour : configuration et mémoire
+
+Tour confirmé : `packages/exploration-poc/src/.tours/recherche_configuration_memoire.tour`. Périmètre : harnais de recherche sous `packages/exploration-poc/src/` ; le reste de l'extension CodeTour et l'exécution détaillée d'une procédure ne sont pas couverts. Skill `packages/exploration-poc/skills/codetour-research/SKILL.md`, SHA-256 `47f3d5634d9ff89f4b0f8caf29d170b6b33f37333a37bbb5cd0fbdfbf8ab78a5`.
+
+Découverte : le lecteur inspecte les répertoires de Tours à partir de la racine de workspace, et non tous les sous-répertoires du dépôt. Pour découvrir ce fichier avec ses chemins relatifs actuels, ouvrir `packages/exploration-poc/src/` comme racine VS Code ; ouvrir seulement la racine du dépôt ne le rend pas automatiquement visible. Ce choix reflète le confinement des recherches au périmètre autorisé.
+
+| Question | RunId | Modèle | Statut | Durée | Entrée / sortie | Observations |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| Chargement de configuration | `f40ed0e1-e310-42f6-9f44-6fa143e06c49` | `zai-glm-5-3-flash` | complet | 61 071 ms | 51 474 / 2 980 | `findSymbolOccurrences` essayé, sélectionné, rejoué avec trois citations valides et enregistré ; autre proposition refusée pour description trop longue. |
+| Lancement CLI après préflight | `b578dd37-5ed6-4fff-b3fd-169fd4ed2544` | `zai-glm-5-3-flash` | complet | 38 113 ms | 11 066 / 3 390 | Une exécution de `findSymbolOccurrences` et un essai de fonction ; aucune nouvelle fonction acceptée. |
+| Résolution d'une fonction mémorisée | `6a7b598d-bb6f-4097-bd25-a5bc85fff28a` | `zai-glm-5-3-flash` | complet | 67 016 ms | 13 397 / 2 880 | Une exécution de `findSymbolOccurrences` ; une réponse JSON incorrecte a été corrigée. Exécution détaillée hors périmètre. |
+
+Les compteurs de ces trois runs sont disponibles ; ils ne constituent pas une preuve d'économie de tokens. Les sorties complètes et progressions sont respectivement `/private/tmp/codetour-memory-function-run8.json`, `/private/tmp/codetour-cli-run13.json` et `/private/tmp/codetour-engine-run15.json`. Le journal structuré est `packages/exploration-poc/src/.tours/.log/research.log` ; filtrer par runId et vérifier le texte libre avant partage.
+
+La fonction persistée dans `packages/exploration-poc/src/.tours/.memory/functions/findSymbolOccurrences.ts` combine recherche textuelle et d'identifiants, dédoublonne par fichier et ligne, puis limite les correspondances syntaxiques. Le run `35fadf41-ba5e-4657-a5fb-995321c87e6c` l'a réutilisée pour localiser déclaration et appel de `parseConfig`, mais a expiré avant une réponse finale ; son total de tokens est incomplet. Les correspondances sont pertinentes pour localiser des occurrences, sans prouver leurs relations sémantiques.
+
+Les recherches substantielles présentées ont été déléguées au harnais ; les lectures directes ont servi à vérifier les lignes `config.ts:31-71`, `cli.ts:90-112` et `explore.ts:334-345` avant rédaction. Le volume total de lectures directes n'est pas mesurable. Les citations ont été validées structurellement ; la vérification sémantique ciblée a contrôlé les affirmations de ce parcours contre ces lignes. Les incertitudes des runs sur les parties non explorées ne sont pas converties en affirmations. La comparaison ponctuelle des modes figure dans `comparaison-tokens-memoire-20261117.md` et ne démontre aucun gain propre à la fonction.

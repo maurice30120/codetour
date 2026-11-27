@@ -1,0 +1,954 @@
+{
+  "01a1e3af-4713-77b0-9eba-6b4ae34bedce": {
+    "at": 1794821287.220119,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-27-57-460Z_01a1e3af-4713-77b0-9eba-6b4ae34bedce.jsonl"
+  },
+  "01a1e3af-b68a-74a0-b5d0-fd64d544a5d5": {
+    "at": 1794828643.174515,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5.jsonl"
+  },
+  "01a1e3b0-994f-725a-9610-11b982fab402": {
+    "at": 1794821557.861322,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/75bde82c-aa91-4df6-80fe-a1963c752ac3/run-0/session.jsonl"
+  },
+  "01a1e3b4-4299-72af-b49a-480b264c8e62": {
+    "at": 1794821886.327658,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/356a685b-70ca-4d17-863a-7088fc00e337/run-0/session.jsonl"
+  },
+  "01a1e3b4-4299-72dc-80a6-064cb5d233d5": {
+    "at": 1794821899.010656,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/28d694b2-5e0c-4c0f-bee7-8eb0bdf1f1d1/run-0/session.jsonl"
+  },
+  "01a1e3b4-4299-7361-adba-846bca51efaa": {
+    "at": 1794821896.254961,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/c91405dc-bc97-4922-b943-30f410cec3a0/run-0/session.jsonl"
+  },
+  "01a1e3d2-239e-7579-b11b-9c0428560380": {
+    "at": 1794823668.5472362,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/c3799c9c-98b5-42ea-abcc-0da3a1a8dbaa/run-0/session.jsonl"
+  },
+  "01a1e3d2-242e-7603-8f63-ef6d0472b23b": {
+    "at": 1794823654.5855622,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/e3a5d6e7-befb-4fb2-a942-3c6fef3d4bad/run-0/session.jsonl"
+  },
+  "01a1e3d2-24a6-77ed-b0ec-248371428635": {
+    "at": 1794823669.684556,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/f8cbee48-cf41-49e6-89d4-08435eed271b/run-0/session.jsonl"
+  },
+  "01a1e3e0-1d4c-751d-8478-596742878e2e": {
+    "at": 1794824623.262225,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/20a0cd67-f9eb-4ac9-947e-b8191df58188/run-0/session.jsonl"
+  },
+  "01a1e3e2-8864-7618-ad69-98e43bb653c3": {
+    "at": 1794825925.789002,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/c83116e6-7638-4efa-b732-cb1102e3e743/run-0/session.jsonl"
+  },
+  "01a1e3f6-78a2-70a8-8ed4-b5caec6f5b08": {
+    "at": 1794826006.335583,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/1e077de5-f289-4f98-9f94-40ae541aa8e7/run-0/session.jsonl"
+  },
+  "01a1e3f7-c02a-738f-be5d-61177bd3947a": {
+    "at": 1794826522.5684469,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/6f8e12fe-4040-409f-9a42-d348acd7f982/run-0/session.jsonl"
+  },
+  "01a1e3ff-76bd-70a6-9f1a-7e9c99eae638": {
+    "at": 1794826558.513404,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/715fa5c9-4905-4db5-8ce3-ada2735740f5/run-0/session.jsonl"
+  },
+  "01a1e400-154d-71d8-8ca3-ba2be6ca166d": {
+    "at": 1794826736.130713,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/db58780c-2692-4b1e-96ed-cbe6769e21ea/run-0/session.jsonl"
+  },
+  "01a1e400-154d-7485-ba4e-6b1128f1aaeb": {
+    "at": 1794826617.0492742,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/ef56ae08-128c-4499-8b04-c530d7e372d1/run-0/session.jsonl"
+  },
+  "01a1e401-921e-7208-8101-1850e22011b6": {
+    "at": 1794826823.9661188,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T10-57-50-623Z_01a1e401-921e-7208-8101-1850e22011b6.jsonl"
+  },
+  "01a1e402-e2ca-76d5-b4a2-03500ae0b984": {
+    "at": 1794827622.580437,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T09-28-25-994Z_01a1e3af-b68a-74a0-b5d0-fd64d544a5d5/747640f5-c428-4c33-bdd7-46607edc0c36/run-0/session.jsonl"
+  },
+  "01a1e403-ee0c-701a-a1da-7093fa8f41b3": {
+    "at": 1794828591.419036,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T11-00-25-229Z_01a1e403-ee0c-701a-a1da-7093fa8f41b3.jsonl"
+  },
+  "01a1e407-c8ef-757b-85ea-987e5f81a9fe": {
+    "at": 1794828673.4283168,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T11-04-37-871Z_01a1e407-c8ef-757b-85ea-987e5f81a9fe.jsonl"
+  },
+  "01a1e422-b109-7101-9f0f-1df8ad1bb138": {
+    "at": 1794831111.954964,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T11-34-01-226Z_01a1e422-b109-7101-9f0f-1df8ad1bb138.jsonl"
+  },
+  "01a1e431-4d13-7658-982a-89dadaa6f1d8": {
+    "at": 1794832579.890336,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T11-49-58-675Z_01a1e431-4d13-7658-982a-89dadaa6f1d8.jsonl"
+  },
+  "01a1e434-0c45-70d4-9c0e-d652c450fe30": {
+    "at": 1794831111.698793,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T11-52-58-694Z_01a1e434-0c45-70d4-9c0e-d652c450fe30.jsonl"
+  },
+  "01a1e445-5541-70d4-9c0e-d654cd4761fb": {
+    "at": 1794831368.3861172,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T12-11-51-490Z_01a1e445-5541-70d4-9c0e-d654cd4761fb.jsonl"
+  },
+  "01a1e45b-1b07-7746-80e3-7d6163ead750": {
+    "at": 1794834922.677619,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T12-35-38-376Z_01a1e45b-1b07-7746-80e3-7d6163ead750.jsonl"
+  },
+  "01a1e461-8097-7546-8e65-1ee7964e15ec": {
+    "at": 1794832966.9382458,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T12-35-38-376Z_01a1e45b-1b07-7746-80e3-7d6163ead750/411805f9-b7b1-49d4-b963-2c950400b55e/run-0/session.jsonl"
+  },
+  "01a1e461-cb7f-7784-b1f4-36d0bbbd6b45": {
+    "at": 1794833560.433177,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-16T12-35-38-376Z_01a1e45b-1b07-7746-80e3-7d6163ead750/d9aae41d-7b32-4f25-b10d-24210be71c59/run-0/session.jsonl"
+  },
+  "01a1f728-b7d8-71c9-8890-1cd6ca5907d4": {
+    "at": 1795151849.714308,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-13-23-288Z_01a1f728-b7d8-71c9-8890-1cd6ca5907d4.jsonl"
+  },
+  "01a1f749-2ffa-726a-9a59-0ff20ba5ae05": {
+    "at": 1795150605.1771772,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-48-51-194Z_01a1f749-2ffa-726a-9a59-0ff20ba5ae05.jsonl"
+  },
+  "01a1f750-69ed-726a-9a59-0ff402217f07": {
+    "at": 1795157482.002862,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07.jsonl"
+  },
+  "01a1f753-6a7a-7226-8a42-b3c4a7e33ca7": {
+    "at": 1795150977.817685,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/2df05dcf-309f-4db5-b818-744049efada8/run-0/session.jsonl"
+  },
+  "01a1f753-d3ee-75a1-8325-7c9e9c06a0db": {
+    "at": 1795150833.390232,
+    "transcript": null
+  },
+  "01a1f754-021c-714b-b3d9-da1c862d84d9": {
+    "at": 1795150843.956015,
+    "transcript": null
+  },
+  "01a1f755-9566-71d1-bb88-8561d7d18f22": {
+    "at": 1795153033.404171,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T05-02-23-590Z_01a1f755-9566-71d1-bb88-8561d7d18f22.jsonl"
+  },
+  "01a1f756-6f45-71de-95a8-2170275cce46": {
+    "at": 1795152075.596682,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/b60b6228-b5b2-4ef9-b192-88092014d202/run-0/session.jsonl"
+  },
+  "01a1f766-f2aa-74f3-a34e-db3bd560ef6a": {
+    "at": 1795152129.139775,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/33c34e3f-7944-45cc-8b10-86b9aa73d7bb/run-0/session.jsonl"
+  },
+  "01a1f768-3eee-7428-a5a6-216b724a8e21": {
+    "at": 1795153966.384393,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/b82f596f-e997-4e2d-a26d-3eea87b50489/run-0/session.jsonl"
+  },
+  "01a1f768-3f00-7060-bef1-5f4d638b38e6": {
+    "at": 1795152528.6447082,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/c48a86e6-e090-49af-b720-4cc3b935ea65/run-0/session.jsonl"
+  },
+  "01a1f768-3f11-7784-8321-38b35c9b2c9a": {
+    "at": 1795153029.639838,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/97b6f8c9-44d8-4c0f-bb3b-40f144464d4d/run-0/session.jsonl"
+  },
+  "01a1f76d-d573-71b8-a8ba-3ac566308388": {
+    "at": 1795152569.887994,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/9ddafb4d-d41d-472d-8482-242c18d71130/run-0/session.jsonl"
+  },
+  "01a1f775-781e-759b-ab44-1fd10bdd043e": {
+    "at": 1795153079.293761,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/1f687777-d329-4ccf-8993-64e5c5075e2f/run-0/session.jsonl"
+  },
+  "01a1f776-ec64-77fb-9344-40601f1a65c5": {
+    "at": 1795154484.708858,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T05-38-48-549Z_01a1f776-ec64-77fb-9344-40601f1a65c5.jsonl"
+  },
+  "01a1f77c-a663-73c8-92dd-2ba35322fe9f": {
+    "at": 1795153566.84171,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T05-38-48-549Z_01a1f776-ec64-77fb-9344-40601f1a65c5/03eb0f99-fe43-439c-8d22-2020bf848dc2/run-0/session.jsonl"
+  },
+  "01a1f788-8753-7640-9572-b27c58194f07": {
+    "at": 1795154317.9541252,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/8b556c81-8fa8-4ed1-96ac-a194d43a1c60/run-0/session.jsonl"
+  },
+  "01a1f788-8761-7703-99ac-000d6e32009f": {
+    "at": 1795155188.5490172,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/af1ebab8-1666-4c17-91f1-c0d627cdb20e/run-0/session.jsonl"
+  },
+  "01a1f78b-9d3f-77fb-9344-40635ff69c11": {
+    "at": 1795154500.513046,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-24-543Z_01a1f78b-9d3f-77fb-9344-40635ff69c11.jsonl"
+  },
+  "01a1f78b-dab0-77fb-9344-40643c620db6": {
+    "at": 1795161747.111203,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6.jsonl"
+  },
+  "01a1f78c-9df7-71bc-b060-9bc485f167c4": {
+    "at": 1795155604.232539,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-02-30-264Z_01a1f78c-9df7-71bc-b060-9bc485f167c4.jsonl"
+  },
+  "01a1f78e-8fe5-71b0-85ef-bd7b2b29cbed": {
+    "at": 1795154820.362675,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/3aacbb6e-3c0d-4940-9a30-007e69ccf2b0/run-0/session.jsonl"
+  },
+  "01a1f790-d1c5-7545-b3ed-8f45ab79b542": {
+    "at": 1795154851.8986828,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/23261fec-3326-439b-9cdd-83bc084a6b62/run-0/session.jsonl"
+  },
+  "01a1f791-6ea1-737b-ba31-003b1cde4940": {
+    "at": 1795155600.0683289,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/bf21d79a-b600-4136-8545-b3726b4b4053/run-0/session.jsonl"
+  },
+  "01a1f796-e810-736e-bc9c-08f54ac2fccc": {
+    "at": 1795155895.727766,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T04-56-44-782Z_01a1f750-69ed-726a-9a59-0ff402217f07/9851af76-91ec-4878-b75b-0b5c1d4ca501/run-0/session.jsonl"
+  },
+  "01a1f79c-b202-71bc-b060-9bc6c0a22071": {
+    "at": 1795155723.458323,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-20-03-970Z_01a1f79c-b202-71bc-b060-9bc6c0a22071.jsonl"
+  },
+  "01a1f79d-0fa4-7316-8872-4ab944842bb4": {
+    "at": 1795155693.0991518,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/5d000b20-4095-4156-8682-8a59fecb6de5/run-0/session.jsonl"
+  },
+  "01a1f79e-2214-7012-b65d-6f4bac177acc": {
+    "at": 1795165805.146662,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc.jsonl"
+  },
+  "01a1f79e-6862-7025-8fe4-5967e60cc339": {
+    "at": 1795156554.464437,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/1a650c36-f63f-4545-b798-030445dd61f5/run-0/session.jsonl"
+  },
+  "01a1f79e-7a7d-76f6-9b3e-91f098720fde": {
+    "at": 1795155721.972353,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-spec246-integration--/2026-11-20T06-22-00-829Z_01a1f79e-7a7d-76f6-9b3e-91f098720fde.jsonl"
+  },
+  "01a1f79e-9563-77d0-9011-a9c8b4c1494a": {
+    "at": 1795155728.289718,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-spec246-integration--/2026-11-20T06-22-07-715Z_01a1f79e-9563-77d0-9011-a9c8b4c1494a.jsonl"
+  },
+  "01a1f79e-a020-75f6-9c7a-425120d03cd6": {
+    "at": 1795155731.053369,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-spec246-integration--/2026-11-20T06-22-10-464Z_01a1f79e-a020-75f6-9c7a-425120d03cd6.jsonl"
+  },
+  "01a1f7a2-31f2-7451-82e1-30bc76596ac5": {
+    "at": 1795156094.953975,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/3843c15b-43cc-4ce9-ba53-018d19b65fe6/run-0/session.jsonl"
+  },
+  "01a1f7a2-31fe-775d-afa0-698191d77155": {
+    "at": 1795157619.134203,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/7a0f7872-1959-4eec-b23d-48fd6e8ddcc7/run-0/session.jsonl"
+  },
+  "01a1f7a4-5c85-719d-b007-fc715d5edf77": {
+    "at": 1795156140.279088,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/5ad62fcd-71c3-4fe4-a4b8-d7debff4b3d6/run-0/session.jsonl"
+  },
+  "01a1f7ab-462d-7269-8466-a43066a84c79": {
+    "at": 1795156648.538676,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/054128b6-c219-4312-8a83-b1ac2c416460/run-0/session.jsonl"
+  },
+  "01a1f7ac-f9e4-731b-9e03-0434d4c34e8a": {
+    "at": 1795157373.592771,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/e732d5ca-42bf-437f-88b5-6885ea206e28/run-0/session.jsonl"
+  },
+  "01a1f7b7-c8e4-74e0-bd7c-030e767d527c": {
+    "at": 1795157461.3660989,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/b10f657c-f3d9-4646-b4bf-15aac9d5ed43/run-0/session.jsonl"
+  },
+  "01a1f7b9-58f6-751a-b673-b3765bbfb43a": {
+    "at": 1795158317.575828,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/9db11b15-ea41-493e-ae14-aec7e85a6bf3/run-0/session.jsonl"
+  },
+  "01a1f7b9-5967-732e-b949-c3a05de10fc3": {
+    "at": 1795158038.0887082,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/eaa36f2b-d55b-4b72-98b1-5465ec5ff017/run-0/session.jsonl"
+  },
+  "01a1f7bb-9300-766d-a12a-e2a48286a9d6": {
+    "at": 1795157815.086098,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/1ea41193-09ca-41a9-bd32-46055a4a0649/run-0/session.jsonl"
+  },
+  "01a1f7bf-0083-7213-8a80-c71e9b7cf2e1": {
+    "at": 1795158925.298742,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/b7a9b6cc-34b9-4e7f-b144-947ce14b76ae/run-0/session.jsonl"
+  },
+  "01a1f7c1-e654-7132-aa57-bc8d6aa14e17": {
+    "at": 1795158286.856043,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/1f7ca770-0cc0-430b-b0d2-10d28a694b65/run-0/session.jsonl"
+  },
+  "01a1f7c6-2b8d-7309-94b2-4f30ecdad3ca": {
+    "at": 1795158540.6432462,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/1d9e8223-5c87-4a40-b908-77c2c141c37c/run-0/session.jsonl"
+  },
+  "01a1f7c9-b5c3-71e4-b26a-effd4a07e487": {
+    "at": 1795159172.373146,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/325be5b6-ce4b-4dbb-beff-328451f5fbd1/run-0/session.jsonl"
+  },
+  "01a1f7cf-808d-7777-90e1-336776b34b9f": {
+    "at": 1795159206.221869,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/382e88ee-395e-405c-bd69-df53c59af925/run-0/session.jsonl"
+  },
+  "01a1f7d3-3c14-71c3-a03b-20d2d75a7490": {
+    "at": 1795159383.258647,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/4de12550-3d20-4d83-a966-ba8f3ebe3275/run-0/session.jsonl"
+  },
+  "01a1f7d4-397d-71c1-a21d-0453400ea68c": {
+    "at": 1795160189.563582,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/ec02c57e-1f31-4126-8086-582b846a8b6c/run-0/session.jsonl"
+  },
+  "01a1f7d6-7aa2-75ef-ac36-cb79be8fb9a5": {
+    "at": 1795159488.75712,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/b6219a69-ae16-44cb-9605-0b5f197c5a5d/run-0/session.jsonl"
+  },
+  "01a1f7d6-7abb-74b5-aaf2-08506b2dd6aa": {
+    "at": 1795159457.135307,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/0ba74417-1b4e-4fd2-907a-ceee3b54bf80/run-0/session.jsonl"
+  },
+  "01a1f7d8-796c-738d-92e9-1590fe7b7e7b": {
+    "at": 1795160221.80579,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/6203e0a7-e1c4-4b3c-9e83-8676540261ea/run-0/session.jsonl"
+  },
+  "01a1f7e2-cf0a-73dc-8abb-be0de2c7a70a": {
+    "at": 1795160458.29105,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/78692a9b-6aac-47d5-8671-d7e6cadebaa1/run-0/session.jsonl"
+  },
+  "01a1f7e3-3b67-72b8-a30e-94defb9e3f77": {
+    "at": 1795160610.39601,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/e38225b6-f5a3-4fb9-b420-31b7e872ef99/run-0/session.jsonl"
+  },
+  "01a1f7e7-e83c-704d-8bac-b042ebdc095f": {
+    "at": 1795161307.170339,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/30a95371-e058-45b7-a25b-694a8e80e430/run-0/session.jsonl"
+  },
+  "01a1f7e7-e8c8-73e5-9575-a24e2227ae14": {
+    "at": 1795161734.283745,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/1464d8a4-a9d9-46a9-9b37-409e6605ab4b/run-0/session.jsonl"
+  },
+  "01a1f7ea-1d38-754d-85a8-882b30b231bb": {
+    "at": 1795160852.036242,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T06-01-40-272Z_01a1f78b-dab0-77fb-9344-40643c620db6/439c306a-b358-4dec-979e-9aac5b973e01/run-0/session.jsonl"
+  },
+  "01a1f7f3-db5c-746b-9d16-8d96b45c55cc": {
+    "at": 1795161464.877814,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/3c812716-4ee1-4cc5-aca5-6c0bbc52a1e0/run-0/session.jsonl"
+  },
+  "01a1f7fa-6df5-7022-8270-57f35fd11046": {
+    "at": 1795161917.074254,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/95e97285-1bba-44db-b327-629fc1f7ccd5/run-0/session.jsonl"
+  },
+  "01a1f7fe-4d64-72d8-a3d7-8e63466fb7cf": {
+    "at": 1795162067.827392,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/32b0e9d0-e4ae-46f6-98d8-4b843727c2b6/run-0/session.jsonl"
+  },
+  "01a1f7fe-4d6b-71c1-91e3-532bc3a0f7dc": {
+    "at": 1795162116.502791,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/c441a3d6-726d-4c49-bdbb-eee0dd30952e/run-0/session.jsonl"
+  },
+  "01a1f800-c6f6-763f-b2d4-e34cdca7b840": {
+    "at": 1795163133.490433,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/bfb0f474-20b9-4222-8c92-96c46f7029ba/run-0/session.jsonl"
+  },
+  "01a1f80f-c3a2-72c4-b8d7-199dbbdf2cc1": {
+    "at": 1795163756.7581818,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/3faea091-dfbb-408b-92df-dc0b8d2d0a21/run-0/session.jsonl"
+  },
+  "01a1f819-d4b1-72f1-9546-309a44e7a203": {
+    "at": 1795164087.9356291,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/212bef87-7719-4571-9e18-a0ce194fd78a/run-0/session.jsonl"
+  },
+  "01a1f81e-bef9-71e5-a07b-d6ef0add8e4a": {
+    "at": 1795164175.915536,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/82475010-5211-4756-b156-555fd1bda69a/run-0/session.jsonl"
+  },
+  "01a1f838-544b-768c-8fcd-47e9adbb787e": {
+    "at": 1795174669.8832471,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T09-10-03-595Z_01a1f838-544b-768c-8fcd-47e9adbb787e.jsonl"
+  },
+  "01a1f919-6f78-7219-a99f-3d5c0234a63e": {
+    "at": 1795180588.0010839,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T13-15-56-152Z_01a1f919-6f78-7219-a99f-3d5c0234a63e.jsonl"
+  },
+  "01a1f925-6225-70a1-85f9-ca9f471bacdd": {
+    "at": 1795181377.834396,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T13-28-59-173Z_01a1f925-6225-70a1-85f9-ca9f471bacdd.jsonl"
+  },
+  "01a1f95a-a5b7-7427-8f9a-43b6285907e9": {
+    "at": 1795185725.81257,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T14-27-09-879Z_01a1f95a-a5b7-7427-8f9a-43b6285907e9.jsonl"
+  },
+  "01a1f95b-c49d-77db-9e22-2c8e2d5e90ba": {
+    "at": 1795192725.575924,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-28-23-325Z_01a1f95b-c49d-77db-9e22-2c8e2d5e90ba.jsonl"
+  },
+  "01a1f95d-586a-73c6-8244-dc8838422c4a": {
+    "at": 1795185008.564024,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-30-06-698Z_01a1f95d-586a-73c6-8244-dc8838422c4a.jsonl"
+  },
+  "01a1f95e-dd8f-7766-a23c-d44027b3e60f": {
+    "at": 1795185650.94232,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-28-23-325Z_01a1f95b-c49d-77db-9e22-2c8e2d5e90ba/406bc0b0-ee56-4186-ba69-9c874a10b390/run-0/session.jsonl"
+  },
+  "01a1f968-5047-70cf-939a-86e033930ada": {
+    "at": 1795186089.778218,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-28-23-325Z_01a1f95b-c49d-77db-9e22-2c8e2d5e90ba/799c70f7-5bf8-4805-9628-41b2e858bfe4/run-0/session.jsonl"
+  },
+  "01a1f968-524b-71db-9646-39ec9e5d96b9": {
+    "at": 1795187355.11045,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-28-23-325Z_01a1f95b-c49d-77db-9e22-2c8e2d5e90ba/63b90528-d3a8-4014-a39f-38f522d4210d/run-0/session.jsonl"
+  },
+  "01a1f968-527f-75d2-80e9-ec9b29a76aed": {
+    "at": 1795186853.1644711,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-28-23-325Z_01a1f95b-c49d-77db-9e22-2c8e2d5e90ba/b6291227-49e6-450f-84cb-125ce68c98ef/run-0/session.jsonl"
+  },
+  "01a1f977-8dee-72f3-bd16-58cdbca1ec88": {
+    "at": 1795186879.496066,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-28-23-325Z_01a1f95b-c49d-77db-9e22-2c8e2d5e90ba/30c94d6c-fc42-4603-a9dd-596140b9c1e9/run-0/session.jsonl"
+  },
+  "01a1f97e-ffdf-7202-8742-4700d09ed606": {
+    "at": 1795196429.702522,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T15-06-52-256Z_01a1f97e-ffdf-7202-8742-4700d09ed606.jsonl"
+  },
+  "01a1f981-7939-735f-af82-9a15f66a9c92": {
+    "at": 1795187540.768637,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-28-23-325Z_01a1f95b-c49d-77db-9e22-2c8e2d5e90ba/d818f15e-aa9f-44fb-9901-7f07e9a92ea3/run-0/session.jsonl"
+  },
+  "01a1f981-7950-729a-9350-a50e05321c2b": {
+    "at": 1795187560.722324,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-28-23-325Z_01a1f95b-c49d-77db-9e22-2c8e2d5e90ba/cf6bf467-4828-4788-8f4e-fb2c025796b9/run-0/session.jsonl"
+  },
+  "01a1f982-2b4d-70b3-b9d6-9ad393ce311f": {
+    "at": 1795192725.582178,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T15-10-19-981Z_01a1f982-2b4d-70b3-b9d6-9ad393ce311f.jsonl"
+  },
+  "01a1f985-272e-73f5-8a3c-0512dda54792": {
+    "at": 1795188598.7996979,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-28-23-325Z_01a1f95b-c49d-77db-9e22-2c8e2d5e90ba/0e048afd-1e68-490a-b215-7272b765ba68/run-0/session.jsonl"
+  },
+  "01a1f9d3-1f0e-7635-ab29-4f776cda84c0": {
+    "at": 1795192800.7296069,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T15-06-52-256Z_01a1f97e-ffdf-7202-8742-4700d09ed606/16cf7006-4c0c-4064-b07c-abe0467f4fcc/run-0/session.jsonl"
+  },
+  "01a1f9d3-1f19-7138-af28-ef4e8ed69020": {
+    "at": 1795192780.988068,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T15-06-52-256Z_01a1f97e-ffdf-7202-8742-4700d09ed606/365d0cb4-a888-432a-a9dd-58c25bbb2434/run-0/session.jsonl"
+  },
+  "01a1f9d4-9e5d-7565-b7e7-f9a02434b8af": {
+    "at": 1795193031.237828,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T15-06-52-256Z_01a1f97e-ffdf-7202-8742-4700d09ed606/9589734f-bd73-4605-b536-7ad77f0afb8d/run-0/session.jsonl"
+  },
+  "01a1f9de-01d6-75d8-a52a-4e4801b21679": {
+    "at": 1795194080.1193411,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T16-50-38-679Z_01a1f9de-01d6-75d8-a52a-4e4801b21679.jsonl"
+  },
+  "01a1f9e8-bc48-700e-98ed-0b48a61c8609": {
+    "at": 1795194365.127497,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T17-02-21-768Z_01a1f9e8-bc48-700e-98ed-0b48a61c8609.jsonl"
+  },
+  "01a1fa08-7197-7393-baee-989b9fe04aed": {
+    "at": 1795197775.235403,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T17-36-59-799Z_01a1fa08-7197-7393-baee-989b9fe04aed.jsonl"
+  },
+  "01a1fa0b-a189-73b3-a9f9-5b189f4cd509": {
+    "at": 1795426493.718561,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T17-40-28-681Z_01a1fa0b-a189-73b3-a9f9-5b189f4cd509.jsonl"
+  },
+  "01a207c3-2aec-731f-9a6b-9400d4ac84cd": {
+    "at": 1795431287.267851,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T09-36-00-748Z_01a207c3-2aec-731f-9a6b-9400d4ac84cd.jsonl"
+  },
+  "01a207d0-4ece-70d2-b105-751b99b23100": {
+    "at": 1795427529.978082,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T09-50-21-902Z_01a207d0-4ece-70d2-b105-751b99b23100.jsonl"
+  },
+  "01a207d1-fd78-7514-a879-14a6f872f9af": {
+    "at": 1795431127.4925592,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T09-52-12-153Z_01a207d1-fd78-7514-a879-14a6f872f9af.jsonl"
+  },
+  "01a207d3-cf40-7299-b6ad-49a876855719": {
+    "at": 1795433994.977226,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T09-54-11-392Z_01a207d3-cf40-7299-b6ad-49a876855719.jsonl"
+  },
+  "01a2080b-448d-731f-9575-597f68ea2e0c": {
+    "at": 1795434090.106227,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T10-54-45-902Z_01a2080b-448d-731f-9575-597f68ea2e0c.jsonl"
+  },
+  "01a20834-9578-74e8-904f-66408778e35d": {
+    "at": 1795446121.7663732,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d.jsonl"
+  },
+  "01a20837-3042-722d-b919-806ede199c9f": {
+    "at": 1795434330.507626,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/3cd4c4eb-c6f5-4231-9747-0038435598e4/run-0/session.jsonl"
+  },
+  "01a2083b-30c7-70b6-bc96-cd2dcaa6d4a3": {
+    "at": 1795434699.990046,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/ed9b2e95-648c-4392-9bef-b7a0dc273293/run-0/session.jsonl"
+  },
+  "01a20840-2794-751b-a1ee-22a956233c8a": {
+    "at": 1795435043.950963,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/2fa454f1-c0a0-44d8-a72a-1ff4ef439779/run-0/session.jsonl"
+  },
+  "01a20840-2794-7787-b4e8-e75ae70d1b25": {
+    "at": 1795435216.00579,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/94d74039-e822-483a-82f2-0c424131da78/run-0/session.jsonl"
+  },
+  "01a20849-6a63-72af-9a80-fb5deec0292b": {
+    "at": 1795435822.910607,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/f3f96ddf-c7f1-4d84-b921-7a0be5a32956/run-0/session.jsonl"
+  },
+  "01a20849-6a64-7280-a24c-8cdac58335d8": {
+    "at": 1795435807.158039,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/47c6c6bb-2439-429e-8702-5b77a1b35f8e/run-0/session.jsonl"
+  },
+  "01a20852-415f-7576-b544-fb8e20e2b048": {
+    "at": 1795436026.251518,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/ef1d59c4-335c-49bd-a17a-a3d658c1bfb8/run-0/session.jsonl"
+  },
+  "01a20852-416b-70c9-9202-017ca3a68bc5": {
+    "at": 1795436017.082952,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/f63a69cb-6587-453f-9f15-e35347f5582a/run-0/session.jsonl"
+  },
+  "01a20855-a62e-73f9-b3b4-07a1171232a1": {
+    "at": 1795437078.406708,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/a76e32df-dba3-457b-ac86-b0dbdf26d000/run-0/session.jsonl"
+  },
+  "01a20871-9ae6-70d1-a224-1230531af351": {
+    "at": 1795445809.032158,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T12-46-32-678Z_01a20871-9ae6-70d1-a224-1230531af351.jsonl"
+  },
+  "01a20871-d83b-70f1-bcfc-474a7ef99bcb": {
+    "at": 1795438150.584846,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/748b4722-296f-4fe3-8125-e12cc6f735cf/run-0/session.jsonl"
+  },
+  "01a208eb-5a46-778e-be44-4f813d01de2d": {
+    "at": 1795446026.818225,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T11-39-53-592Z_01a20834-9578-74e8-904f-66408778e35d/ab7f0477-0adb-482a-86db-5a9494b47c51/run-0/session.jsonl"
+  },
+  "01a208ec-b1a3-757b-99e6-3cd9dcb1df26": {
+    "at": 1795446093.727204,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T15-00-59-428Z_01a208ec-b1a3-757b-99e6-3cd9dcb1df26.jsonl"
+  },
+  "01a208ed-b8cc-77c5-929e-08cc9d47067a": {
+    "at": 1795446159.645139,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T15-02-06-796Z_01a208ed-b8cc-77c5-929e-08cc9d47067a.jsonl"
+  },
+  "01a208ee-c6c4-70bb-b3af-c5b701c6f481": {
+    "at": 1795446211.854306,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T15-03-15-909Z_01a208ee-c6c4-70bb-b3af-c5b701c6f481.jsonl"
+  },
+  "01a208f0-6e80-720b-89f4-6b78e2387f4a": {
+    "at": 1795446475.337194,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T15-05-04-384Z_01a208f0-6e80-720b-89f4-6b78e2387f4a.jsonl"
+  },
+  "01a208f5-9d82-72a7-9a58-9c0a8d34a9dc": {
+    "at": 1795446680.756543,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-23T15-10-44-098Z_01a208f5-9d82-72a7-9a58-9c0a8d34a9dc.jsonl"
+  },
+  "01a20ce5-d7e7-718f-8db1-5f05d511944e": {
+    "at": 1795520864.1603782,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-24T09-31-59-335Z_01a20ce5-d7e7-718f-8db1-5f05d511944e.jsonl"
+  },
+  "01a20d62-19bd-77d3-90f0-66c1639d9246": {
+    "at": 1795522629.60063,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-24T11-47-42-654Z_01a20d62-19bd-77d3-90f0-66c1639d9246.jsonl"
+  },
+  "01a20d77-68b9-70dc-bcc4-14898781fb6e": {
+    "at": 1795522268.1623209,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T12-10-59-130Z_01a20d77-68b9-70dc-bcc4-14898781fb6e.jsonl"
+  },
+  "01a20d7c-bc01-743d-887d-4a4c142d5e45": {
+    "at": 1795522733.400801,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T12-16-48-130Z_01a20d7c-bc01-743d-887d-4a4c142d5e45.jsonl"
+  },
+  "01a20d7f-3818-73b7-b92e-85e2001edc81": {
+    "at": 1795522908.041562,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T12-19-30-969Z_01a20d7f-3818-73b7-b92e-85e2001edc81.jsonl"
+  },
+  "01a20d81-9940-770c-89bd-e13983c1649d": {
+    "at": 1795523122.7618618,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T12-22-06-913Z_01a20d81-9940-770c-89bd-e13983c1649d.jsonl"
+  },
+  "01a20d84-f0af-7553-9676-b6bd17449bf3": {
+    "at": 1795523284.731741,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T12-25-45-904Z_01a20d84-f0af-7553-9676-b6bd17449bf3.jsonl"
+  },
+  "01a20d87-5999-718e-9019-367bd8cbf8e2": {
+    "at": 1795523591.989511,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T12-28-23-834Z_01a20d87-5999-718e-9019-367bd8cbf8e2.jsonl"
+  },
+  "01a20d9a-c66e-77dd-86de-5968d773f03f": {
+    "at": 1795524769.783458,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-24T12-49-36-878Z_01a20d9a-c66e-77dd-86de-5968d773f03f.jsonl"
+  },
+  "01a20d9d-be82-71d9-afbb-7fe99a1a81b5": {
+    "at": 1795529482.466061,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-24T12-52-51-458Z_01a20d9d-be82-71d9-afbb-7fe99a1a81b5.jsonl"
+  },
+  "01a20dd2-dc97-7668-9cf9-54b044d16634": {
+    "at": 1795528336.525832,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T13-50-52-568Z_01a20dd2-dc97-7668-9cf9-54b044d16634.jsonl"
+  },
+  "01a20de5-9c13-756e-b86e-92d3988ea5c0": {
+    "at": 1795529579.245955,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T14-11-21-235Z_01a20de5-9c13-756e-b86e-92d3988ea5c0.jsonl"
+  },
+  "01a20de7-73da-7097-bab5-3205d9344ccf": {
+    "at": 1795529839.7662342,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T14-13-22-011Z_01a20de7-73da-7097-bab5-3205d9344ccf.jsonl"
+  },
+  "01a20deb-b58a-75ae-97b8-daa67bf9983c": {
+    "at": 1795530034.2301068,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T14-18-00-970Z_01a20deb-b58a-75ae-97b8-daa67bf9983c.jsonl"
+  },
+  "01a20def-b152-7743-9682-2424ff6f1215": {
+    "at": 1795530334.788333,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T14-22-22-034Z_01a20def-b152-7743-9682-2424ff6f1215.jsonl"
+  },
+  "01a20df3-d5aa-76f3-a309-f9f24bfe5f55": {
+    "at": 1795530606.197715,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T14-26-53-482Z_01a20df3-d5aa-76f3-a309-f9f24bfe5f55.jsonl"
+  },
+  "01a20df7-62ce-736d-9fe4-6587ba3063b1": {
+    "at": 1795530828.72286,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T14-30-46-222Z_01a20df7-62ce-736d-9fe4-6587ba3063b1.jsonl"
+  },
+  "01a20dfb-c75b-7318-b8bd-a922b307e471": {
+    "at": 1795531116.590283,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T14-35-34-107Z_01a20dfb-c75b-7318-b8bd-a922b307e471.jsonl"
+  },
+  "01a20e19-cb6f-73b2-84ef-7ad4404391c1": {
+    "at": 1795532947.7819781,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-24T15-08-21-231Z_01a20e19-cb6f-73b2-84ef-7ad4404391c1.jsonl"
+  },
+  "01a20e4a-3fd9-72f4-9d57-e69a19d4737b": {
+    "at": 1795536174.3621938,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-01-16-761Z_01a20e4a-3fd9-72f4-9d57-e69a19d4737b.jsonl"
+  },
+  "01a20e4c-3dc2-7123-acf0-ac9e72da981b": {
+    "at": 1795536249.418585,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-03-27-299Z_01a20e4c-3dc2-7123-acf0-ac9e72da981b.jsonl"
+  },
+  "01a20e4e-0773-7714-ac02-de29fa421a7a": {
+    "at": 1795536366.605602,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-05-24-467Z_01a20e4e-0773-7714-ac02-de29fa421a7a.jsonl"
+  },
+  "01a20e4f-d183-76af-b3ad-804307b18122": {
+    "at": 1795536483.987927,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-07-21-732Z_01a20e4f-d183-76af-b3ad-804307b18122.jsonl"
+  },
+  "01a20e51-9bac-7255-831f-a4a556dfcdde": {
+    "at": 1795536601.268545,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-09-19-020Z_01a20e51-9bac-7255-831f-a4a556dfcdde.jsonl"
+  },
+  "01a20e53-65d4-7245-9f91-d7dd54df532d": {
+    "at": 1795536728.5106728,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-11-16-308Z_01a20e53-65d4-7245-9f91-d7dd54df532d.jsonl"
+  },
+  "01a20e55-5717-75c2-9c65-9b64f8fc3ee1": {
+    "at": 1795536887.485874,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-13-23-608Z_01a20e55-5717-75c2-9c65-9b64f8fc3ee1.jsonl"
+  },
+  "01a20e57-20f3-75c2-b120-b2ec03294ae9": {
+    "at": 1795536963.046335,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-15-20-819Z_01a20e57-20f3-75c2-b120-b2ec03294ae9.jsonl"
+  },
+  "01a20e58-ebc7-730a-8a48-78fd1dd2e445": {
+    "at": 1795537080.3819451,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-17-18-279Z_01a20e58-ebc7-730a-8a48-78fd1dd2e445.jsonl"
+  },
+  "01a20e5a-b5e5-72a4-8c61-c76379ed68af": {
+    "at": 1795537197.664901,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-19-15-557Z_01a20e5a-b5e5-72a4-8c61-c76379ed68af.jsonl"
+  },
+  "01a20e5c-7fe8-751f-8453-3096885fb455": {
+    "at": 1795537325.036779,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-21-12-808Z_01a20e5c-7fe8-751f-8453-3096885fb455.jsonl"
+  },
+  "01a20e5e-7140-71a8-9aed-54e8cb66f32e": {
+    "at": 1795537442.312513,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-23-20-128Z_01a20e5e-7140-71a8-9aed-54e8cb66f32e.jsonl"
+  },
+  "01a20e60-3b82-7259-a8d2-d704773f9959": {
+    "at": 1795537559.540162,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-25-17-442Z_01a20e60-3b82-7259-a8d2-d704773f9959.jsonl"
+  },
+  "01a20e62-0561-776f-8b98-4b07772e66fc": {
+    "at": 1795537719.9617548,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-27-14-657Z_01a20e62-0561-776f-8b98-4b07772e66fc.jsonl"
+  },
+  "01a20e63-cf77-702d-8cf1-a0027baf17bc": {
+    "at": 1795537794.134096,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-29-11-928Z_01a20e63-cf77-702d-8cf1-a0027baf17bc.jsonl"
+  },
+  "01a20e65-999c-732d-bce8-9dab35c4a699": {
+    "at": 1795537911.406234,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-31-09-212Z_01a20e65-999c-732d-bce8-9dab35c4a699.jsonl"
+  },
+  "01a20e84-1847-75e6-8267-b79196d32590": {
+    "at": 1795539869.144159,
+    "transcript": "/private/tmp/codetour-pi-test/2026-11-24T17-04-27-719Z_01a20e84-1847-75e6-8267-b79196d32590.jsonl"
+  },
+  "01a20e84-7c3c-75b6-9515-e89f6ef8de77": {
+    "at": 1795540047.8116019,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-24T17-04-53-308Z_01a20e84-7c3c-75b6-9515-e89f6ef8de77.jsonl"
+  },
+  "01a21243-c620-775b-86b5-573fc62861d0": {
+    "at": 1795603495.151874,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T10-32-41-248Z_01a21243-c620-775b-86b5-573fc62861d0.jsonl"
+  },
+  "01a21293-5edd-7120-9d67-8a323692b0b8": {
+    "at": 1795610744.598031,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T11-59-37-694Z_01a21293-5edd-7120-9d67-8a323692b0b8.jsonl"
+  },
+  "01a21296-43a5-712e-b063-c7671b1433a3": {
+    "at": 1795608325.106452,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T11-59-37-694Z_01a21293-5edd-7120-9d67-8a323692b0b8/978fb50c-21b8-4f3e-a9bd-72221c56effe/run-0/session.jsonl"
+  },
+  "01a21296-43a5-7215-a68f-bb1738e86147": {
+    "at": 1795608303.496991,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T11-59-37-694Z_01a21293-5edd-7120-9d67-8a323692b0b8/2d724c1c-9caa-4875-881b-0875b8624250/run-0/session.jsonl"
+  },
+  "01a21299-2810-7690-9ede-eb5c20bc2b4d": {
+    "at": 1795609085.469325,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T11-59-37-694Z_01a21293-5edd-7120-9d67-8a323692b0b8/a881ef82-84b8-4629-b227-a7839674145e/run-0/session.jsonl"
+  },
+  "01a212bd-911e-7543-947e-c4bbad2d25af": {
+    "at": 1795626219.5750551,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af.jsonl"
+  },
+  "01a212c1-523a-746a-9282-11dbc765f51a": {
+    "at": 1795611522.8841631,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/284a7cc7-559f-492f-a32c-31971e82dc5b/run-0/session.jsonl"
+  },
+  "01a212c1-5248-7038-a49f-cb5bb46027e5": {
+    "at": 1795611172.622472,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/54c96866-d1dc-4ae8-8275-afe4fabd4623/run-0/session.jsonl"
+  },
+  "01a212c1-7eb9-773f-9dff-a22b282e5041": {
+    "at": 1795611312.169471,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/2cdf8367-a638-4495-a6b0-021ccc8c63cb/run-0/session.jsonl"
+  },
+  "01a212c1-7ec8-7265-8132-dc04484c74ac": {
+    "at": 1795611560.4870908,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/2a954483-2ee9-4efc-9c42-2ce23d90b5a8/run-0/session.jsonl"
+  },
+  "01a212c2-7590-74b2-a39b-41225e5effb7": {
+    "at": 1795612862.2847989,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/caf26495-1928-4c03-812a-936fff3e36fb/run-0/session.jsonl"
+  },
+  "01a212c2-7591-77be-9619-247925af4c49": {
+    "at": 1795612231.837424,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/6c516997-4f36-4755-84b0-83c6f4662ca6/run-0/session.jsonl"
+  },
+  "01a212d4-c4a2-721e-8755-5d776f1f1c99": {
+    "at": 1795612700.153528,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/469e3c07-d5f4-4043-b958-11ffd9f41693/run-0/session.jsonl"
+  },
+  "01a212e2-ec52-72c1-8e15-6b550a56e788": {
+    "at": 1795613559.686465,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/fa4acedf-e836-4c0e-bcbc-7b346497697b/run-0/session.jsonl"
+  },
+  "01a212e3-694c-7027-a732-012eb33c6a72": {
+    "at": 1795614502.0452569,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/c02e9c38-946f-48a7-82e5-d596bb1c3944/run-0/session.jsonl"
+  },
+  "01a212e3-694c-7044-bd59-f62e2ddad576": {
+    "at": 1795614872.1207428,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/6ccee24b-198f-49b3-a6b7-ffa729cf49d5/run-0/session.jsonl"
+  },
+  "01a212f7-6aca-701b-a5db-6c1183fa3279": {
+    "at": 1795614801.934923,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/f25572ce-62cb-4045-9d04-335b5a55878c/run-0/session.jsonl"
+  },
+  "01a212fc-b0fd-7080-a4ec-071fd3cdb8e5": {
+    "at": 1795615166.473781,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/44fb3361-7ec8-467e-bfa4-8fb52721706d/run-0/session.jsonl"
+  },
+  "01a21302-2fcb-7109-9565-0f96bfb14ca5": {
+    "at": 1795616791.732646,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/b03bf44f-8d6d-430a-b353-97b7c3ff70d3/run-0/session.jsonl"
+  },
+  "01a2132c-ef46-7047-92cf-4f882aec1dd8": {
+    "at": 1795618506.38902,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/6150f0a6-5c64-435d-b8d2-1d01b28877b6/run-0/session.jsonl"
+  },
+  "01a21334-9c72-72b5-9b8e-87b9e874bbc3": {
+    "at": 1795618766.724823,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/c3ef0e40-367f-42fa-86d1-2f0ec3566283/run-0/session.jsonl"
+  },
+  "01a21334-9c81-762c-8fc2-fd6343eec3c9": {
+    "at": 1795618681.119987,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/f61e99dc-5ced-44c5-b973-23e82f19bdbc/run-0/session.jsonl"
+  },
+  "01a21339-9ae8-7333-a725-e2bba626fbae": {
+    "at": 1795620349.6724439,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/39f9cbe9-5d28-4de4-9969-53dda8f1e3b3/run-0/session.jsonl"
+  },
+  "01a21351-2d65-7413-b74a-252324752b98": {
+    "at": 1795620755.8856351,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/f030973f-751f-4fc4-a6eb-05eb7f34849c/run-0/session.jsonl"
+  },
+  "01a213a9-b561-7597-9dd8-d17678798a22": {
+    "at": 1795626219.636193,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-03-38-850Z_01a213a9-b561-7597-9dd8-d17678798a22.jsonl"
+  },
+  "01a213aa-33a1-763d-af6e-24d65d0e55c6": {
+    "at": 1795626253.2023208,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-04-11-169Z_01a213aa-33a1-763d-af6e-24d65d0e55c6.jsonl"
+  },
+  "01a213aa-a761-71bc-8431-b167951a3aa4": {
+    "at": 1795626337.198045,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-04-40-802Z_01a213aa-a761-71bc-8431-b167951a3aa4.jsonl"
+  },
+  "01a213ad-fc0a-7716-adee-4a8d33617a48": {
+    "at": 1795626584.410272,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-08-19-083Z_01a213ad-fc0a-7716-adee-4a8d33617a48.jsonl"
+  },
+  "01a213af-c3d6-75bd-bf18-a1013c0cd8fc": {
+    "at": 1795626712.8704839,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-10-15-767Z_01a213af-c3d6-75bd-bf18-a1013c0cd8fc.jsonl"
+  },
+  "01a213b4-f520-7563-ae50-3c393d544545": {
+    "at": 1795627036.8207989,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-15-56-066Z_01a213b4-f520-7563-ae50-3c393d544545.jsonl"
+  },
+  "01a213b8-43e7-747b-ad97-6267a547ee35": {
+    "at": 1795627271.560401,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-19-32-841Z_01a213b8-43e7-747b-ad97-6267a547ee35.jsonl"
+  },
+  "01a213ba-45a6-7511-8bb0-77a2bc8a3faa": {
+    "at": 1795627438.799915,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-21-44-359Z_01a213ba-45a6-7511-8bb0-77a2bc8a3faa.jsonl"
+  },
+  "01a213bc-ec11-7468-8584-cb2620924d12": {
+    "at": 1795627651.9245079,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-24-38-034Z_01a213bc-ec11-7468-8584-cb2620924d12.jsonl"
+  },
+  "01a213c1-7007-7019-b81a-cea0d2103581": {
+    "at": 1795627889.629507,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-29-33-960Z_01a213c1-7007-7019-b81a-cea0d2103581.jsonl"
+  },
+  "01a213c3-d37a-763f-8fca-0f547b0bfd20": {
+    "at": 1795628163.1695502,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-32-10-491Z_01a213c3-d37a-763f-8fca-0f547b0bfd20.jsonl"
+  },
+  "01a213c9-a404-7630-a461-a5713e0560b3": {
+    "at": 1795628434.860928,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-38-31-557Z_01a213c9-a404-7630-a461-a5713e0560b3.jsonl"
+  },
+  "01a213cc-2757-7424-8096-6ba3b71888ec": {
+    "at": 1795628666.870389,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-41-16-248Z_01a213cc-2757-7424-8096-6ba3b71888ec.jsonl"
+  },
+  "01a213cd-8111-7081-bf6f-4e8bde790668": {
+    "at": 1795631537.691829,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T17-42-44-753Z_01a213cd-8111-7081-bf6f-4e8bde790668.jsonl"
+  },
+  "01a213d0-9211-77b4-b738-8b0162d09b6e": {
+    "at": 1795629050.038187,
+    "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-46-05-713Z_01a213d0-9211-77b4-b738-8b0162d09b6e.jsonl"
+  },
+  "01a213ee-241e-74a1-9b93-d807344a2327": {
+    "at": 1795684444.518375,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T18-18-23-646Z_01a213ee-241e-74a1-9b93-d807344a2327.jsonl"
+  },
+  "01a213f1-beb5-7441-aed3-7984f2852e6b": {
+    "at": 1795630941.54806,
+    "transcript": null
+  },
+  "01a213f2-8a05-7240-b7f8-9fa073ea9685": {
+    "at": 1795632040.7328289,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-25T18-23-11-877Z_01a213f2-8a05-7240-b7f8-9fa073ea9685.jsonl"
+  },
+  "01a213fa-d957-7540-b535-a9be90b70849": {
+    "at": 1795631616.8109891,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-25T18-32-16-471Z_01a213fa-d957-7540-b535-a9be90b70849.jsonl"
+  },
+  "01a21402-8695-7527-9c39-55637bfa7dc2": {
+    "at": 1795632102.510138,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-25T18-40-39-574Z_01a21402-8695-7527-9c39-55637bfa7dc2.jsonl"
+  },
+  "01a21404-5650-7559-8dea-f50f93144bd8": {
+    "at": 1795632262.539756,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-25T18-42-38-289Z_01a21404-5650-7559-8dea-f50f93144bd8.jsonl"
+  },
+  "01a21405-9f1b-7529-a42a-90bb1acfdc0a": {
+    "at": 1795632339.248034,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-25T18-44-02-459Z_01a21405-9f1b-7529-a42a-90bb1acfdc0a.jsonl"
+  },
+  "01a21407-40b6-7052-9fc2-f2ab8c939a52": {
+    "at": 1795632841.852052,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-25T18-45-49-366Z_01a21407-40b6-7052-9fc2-f2ab8c939a52.jsonl"
+  },
+  "01a2141e-864b-7007-9894-2ce264326a94": {
+    "at": 1795633968.152152,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T19-11-14-507Z_01a2141e-864b-7007-9894-2ce264326a94.jsonl"
+  },
+  "01a21722-2416-77b3-9a1e-643d4db47367": {
+    "at": 1795684572.3088372,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-26T09-14-03-158Z_01a21722-2416-77b3-9a1e-643d4db47367.jsonl"
+  },
+  "01a2173c-8dff-76a8-94e7-9029ad3dff5f": {
+    "at": 1795750307.8604429,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-26T09-42-54-208Z_01a2173c-8dff-76a8-94e7-9029ad3dff5f.jsonl"
+  },
+  "01a21748-89a2-7483-8d6d-ded0f9a1fd62": {
+    "at": 1795687293.886434,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-26T09-55-59-522Z_01a21748-89a2-7483-8d6d-ded0f9a1fd62.jsonl"
+  },
+  "01a21767-ff97-745b-b4df-579b98b12e9a": {
+    "at": 1795689546.851052,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-26T09-42-54-208Z_01a2173c-8dff-76a8-94e7-9029ad3dff5f/f2935365-068b-4ca1-bb0b-8c2826f1f8e1/run-0/session.jsonl"
+  },
+  "01a21792-cd6e-7511-9e45-7328b1f5295f": {
+    "at": 1795692013.847609,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-26T09-42-54-208Z_01a2173c-8dff-76a8-94e7-9029ad3dff5f/36b7f4d2-23a5-436c-8ebe-c7bf0185cda3/run-0/session.jsonl"
+  },
+  "01a21792-cd7d-7186-8b3e-84aee97ade07": {
+    "at": 1795691988.992453,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-26T09-42-54-208Z_01a2173c-8dff-76a8-94e7-9029ad3dff5f/95085a21-0f5f-4388-96da-914c6f66896a/run-0/session.jsonl"
+  },
+  "01a217a0-dec9-7329-8f8d-fe173d278804": {
+    "at": 1795693559.8244328,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-26T09-42-54-208Z_01a2173c-8dff-76a8-94e7-9029ad3dff5f/5260089b-b2dd-4bf0-a519-ab037723add2/run-0/session.jsonl"
+  },
+  "01a21b0f-226b-70ee-ac1e-3f339ec7b360": {
+    "at": 1795751616.4457548,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-27T03-31-46-411Z_01a21b0f-226b-70ee-ac1e-3f339ec7b360.jsonl"
+  },
+  "01a21b23-1a62-7144-9cb7-ec3590c1e72b": {
+    "at": 1795752444.2454772,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-27T03-53-35-074Z_01a21b23-1a62-7144-9cb7-ec3590c1e72b.jsonl"
+  },
+  "01a21b2f-bc3b-73ad-98bf-c22eb00327c7": {
+    "at": 1795766176.5960052,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-27T04-07-22-939Z_01a21b2f-bc3b-73ad-98bf-c22eb00327c7.jsonl"
+  },
+  "01a21b31-c438-7372-8bd2-f5916fd1045c": {
+    "at": 1795752702.0701098,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-27T04-07-22-939Z_01a21b2f-bc3b-73ad-98bf-c22eb00327c7/0e09d9d5-7406-42af-a6b0-7590d7e0dad5/run-0/session.jsonl"
+  },
+  "01a21c01-45a9-7654-a8e9-f79fce16d2bd": {
+    "at": 1795766563.194112,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-27T07-56-15-145Z_01a21c01-45a9-7654-a8e9-f79fce16d2bd.jsonl"
+  },
+  "01a21d20-185c-7107-9ab6-f7900bcf334c": {
+    "at": 1795785887.725909,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-27T13-09-32-380Z_01a21d20-185c-7107-9ab6-f7900bcf334c.jsonl"
+  },
+  "01a21d28-4ddd-760e-913d-998c7cc3ee14": {
+    "at": 1795785535.342241,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-27T13-18-30-365Z_01a21d28-4ddd-760e-913d-998c7cc3ee14.jsonl"
+  },
+  "01a21d31-8a94-731c-bb0e-09f43f000377": {
+    "at": 1795786128.310113,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--private-tmp-codetour-bench-20261127-seed--/2026-11-27T13-28-35-732Z_01a21d31-8a94-731c-bb0e-09f43f000377.jsonl"
+  },
+  "01a21d33-9289-7019-b036-d7fafef7a53a": {
+    "at": 1795786276.893404,
+    "transcript": "/Users/dhuyet/.pi/agent/sessions/--private-tmp-codetour-bench-20261127-seed--/2026-11-27T13-30-48-841Z_01a21d33-9289-7019-b036-d7fafef7a53a.jsonl"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "at": 1795149861.8298109,
+  "id": "01a1f728-b7d8-71c9-8890-1cd6ca5907d4:12:0:2:1795149860.043",
+  "verdict": {
+    "_tokens": 2836.0,
+    "confidence": 0.75,
+    "reason": "Activity is varied and exploratory: distinct files inspected/edited (23), multiple hypotheses tested (grep sweeps, targeted test runs, builds, config tweaks), o",
+    "stuck": false
+  }
+}

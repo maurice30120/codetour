@@ -1,0 +1,10 @@
+{
+  "at": 1795612532.535726,
+  "id": "01a212c2-7590-74b2-a39b-41225e5effb7:1:0:4:1795612530.584",
+  "verdict": {
+    "_tokens": 2771.0,
+    "confidence": 0.75,
+    "reason": "Workflow is varied and progressing: many distinct files touched, edits interspersed with grep/read/test/commit/diff steps, only one repeated identical failure, ",
+    "stuck": false
+  }
+}

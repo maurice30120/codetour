@@ -1,0 +1,17 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "codetour",
+  "version": "0.1.2",
+  "description": "CodeTour: guided Tours generated with the CodeTour CLI.",
+  "author": {
+    "name": "CodeTour"
+  },
+  "homepage": "https://github.com/maurice30120/codetour",
+  "repository": "https://github.com/maurice30120/codetour",
+  "license": "MIT",
+  "keywords": [
+    "codetour",
+    "tours",
+    "copilot"
+  ]
+}

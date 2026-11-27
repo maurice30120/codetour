@@ -1,0 +1,249 @@
+{
+  "repo": "maurice30120/codetour--868c5daf96e58ae416a59ed923e0475d85a354cdae552ee16fad60404461698f",
+  "now": 9,
+  "opt_tokens": 6304.4,
+  "last_propose": 8,
+  "extractors": {},
+  "facts": {},
+  "forgotten": {},
+  "window": [
+    {
+      "iid": "probe-off-on",
+      "resolved": null,
+      "edited_files": [],
+      "n_cmds": 1,
+      "cmd_templates": [
+        "ls && echo \"---\" && ls codetour | head -40"
+      ],
+      "check_commands": [],
+      "failed_commands": [],
+      "missing_command": false,
+      "missing_dependency": false,
+      "bad_usage": false,
+      "_ran_tests": false,
+      "_cmd_blob": "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40",
+      "_out_blob": "TokenEconomizer/\ncodetour/\nAGENTS.md\nPROTOCOLE-TEST.md\ninstall-local.sh\nlaunch-local.sh\nrapport-campagne-10-essais-pi-copilot.md\nrapport-campagne-313.md\nrapport-campagne-341.md\nrapport-campagne-pi-copilot-2026-11-25.md\nrapport-correctif-knowledge-spec341.md\nrapport-creation-knowledge-spec341.md\nrapport-knowledge-relevance-pi.md\nrapport-partiel-campagne-313.md\nrapport-reprise-campagne-313.md\nretro-bloc-injecte-perime-2026-11-25.md\nretro-knowledge-proposee-admise-2026-11-25.md\nretro-p4-generation-tour-2026-11-25.md\n---\nCHANGELOG.md\nCONTEXT.md\ndocs\nGLOSSARY-MAP.md\nGLOSSARY.md\nimages\nLICENSE.txt\nMIGRATION.md\noverview.drawio.svg\npackage-lock.json\npackage.json\npackages\npoc\nREADME.md\nROADMAP.md\nschema.json\nscripts\nsrc\ntest\ntsconfig.json\ntsconfig.test.json\nwebpack.config.js\n",
+      "features": {}
+    },
+    {
+      "iid": "probe-on-off",
+      "resolved": null,
+      "edited_files": [],
+      "n_cmds": 1,
+      "cmd_templates": [
+        "ls && echo \"---\" && ls codetour | head -40"
+      ],
+      "check_commands": [],
+      "failed_commands": [],
+      "missing_command": false,
+      "missing_dependency": false,
+      "bad_usage": false,
+      "_ran_tests": false,
+      "_cmd_blob": "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40",
+      "_out_blob": "TokenEconomizer/\ncodetour/\nAGENTS.md\nPROTOCOLE-TEST.md\ninstall-local.sh\nlaunch-local.sh\nrapport-campagne-10-essais-pi-copilot.md\nrapport-campagne-313.md\nrapport-campagne-341.md\nrapport-campagne-pi-copilot-2026-11-25.md\nrapport-correctif-knowledge-spec341.md\nrapport-creation-knowledge-spec341.md\nrapport-knowledge-relevance-pi.md\nrapport-partiel-campagne-313.md\nrapport-reprise-campagne-313.md\nretro-bloc-injecte-perime-2026-11-25.md\nretro-knowledge-proposee-admise-2026-11-25.md\nretro-p4-generation-tour-2026-11-25.md\n---\nCHANGELOG.md\nCONTEXT.md\ndocs\nGLOSSARY-MAP.md\nGLOSSARY.md\nimages\nLICENSE.txt\nMIGRATION.md\noverview.drawio.svg\npackage-lock.json\npackage.json\npackages\npoc\nREADME.md\nROADMAP.md\nschema.json\nscripts\nsrc\ntest\ntsconfig.json\ntsconfig.test.json\nwebpack.config.js\n",
+      "features": {}
+    },
+    {
+      "iid": "probe-on-on",
+      "resolved": null,
+      "edited_files": [],
+      "n_cmds": 1,
+      "cmd_templates": [
+        "ls && echo \"---\" && ls codetour | head -40"
+      ],
+      "check_commands": [],
+      "failed_commands": [],
+      "missing_command": false,
+      "missing_dependency": false,
+      "bad_usage": false,
+      "_ran_tests": false,
+      "_cmd_blob": "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40",
+      "_out_blob": "TokenEconomizer/\ncodetour/\nAGENTS.md\nPROTOCOLE-TEST.md\ninstall-local.sh\nlaunch-local.sh\nrapport-campagne-10-essais-pi-copilot.md\nrapport-campagne-313.md\nrapport-campagne-341.md\nrapport-campagne-pi-copilot-2026-11-25.md\nrapport-correctif-knowledge-spec341.md\nrapport-creation-knowledge-spec341.md\nrapport-knowledge-relevance-pi.md\nrapport-partiel-campagne-313.md\nrapport-reprise-campagne-313.md\nretro-bloc-injecte-perime-2026-11-25.md\nretro-knowledge-proposee-admise-2026-11-25.md\nretro-p4-generation-tour-2026-11-25.md\n---\nCHANGELOG.md\nCONTEXT.md\ndocs\nGLOSSARY-MAP.md\nGLOSSARY.md\nimages\nLICENSE.txt\nMIGRATION.md\noverview.drawio.svg\npackage-lock.json\npackage.json\npackages\npoc\nREADME.md\nROADMAP.md\nschema.json\nscripts\nsrc\ntest\ntsconfig.json\ntsconfig.test.json\nwebpack.config.js\n",
+      "features": {}
+    },
+    {
+      "iid": "probe-know",
+      "resolved": null,
+      "edited_files": [],
+      "n_cmds": 1,
+      "cmd_templates": [
+        "ls && echo \"---\" && ls codetour | head -40"
+      ],
+      "check_commands": [],
+      "failed_commands": [],
+      "missing_command": false,
+      "missing_dependency": false,
+      "bad_usage": false,
+      "_ran_tests": false,
+      "_cmd_blob": "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40",
+      "_out_blob": "TokenEconomizer/\ncodetour/\nAGENTS.md\nPROTOCOLE-TEST.md\ninstall-local.sh\nlaunch-local.sh\nrapport-campagne-10-essais-pi-copilot.md\nrapport-campagne-313.md\nrapport-campagne-341.md\nrapport-campagne-pi-copilot-2026-11-25.md\nrapport-correctif-knowledge-spec341.md\nrapport-creation-knowledge-spec341.md\nrapport-knowledge-relevance-pi.md\nrapport-partiel-campagne-313.md\nrapport-reprise-campagne-313.md\nretro-bloc-injecte-perime-2026-11-25.md\nretro-knowledge-proposee-admise-2026-11-25.md\nretro-p4-generation-tour-2026-11-25.md\n---\nCHANGELOG.md\nCONTEXT.md\ndocs\nGLOSSARY-MAP.md\nGLOSSARY.md\nimages\nLICENSE.txt\nMIGRATION.md\noverview.drawio.svg\npackage-lock.json\npackage.json\npackages\npoc\nREADME.md\nROADMAP.md\nschema.json\nscripts\nsrc\ntest\ntsconfig.json\ntsconfig.test.json\nwebpack.config.js\n",
+      "features": {}
+    },
+    {
+      "iid": "probe2-off-off",
+      "resolved": null,
+      "edited_files": [],
+      "n_cmds": 1,
+      "cmd_templates": [
+        "ls && echo \"---\" && ls codetour | head -40"
+      ],
+      "check_commands": [],
+      "failed_commands": [],
+      "missing_command": false,
+      "missing_dependency": false,
+      "bad_usage": false,
+      "_ran_tests": false,
+      "_cmd_blob": "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40",
+      "_out_blob": "TokenEconomizer/\ncodetour/\nAGENTS.md\nPROTOCOLE-TEST.md\ninstall-local.sh\nlaunch-local.sh\nrapport-campagne-10-essais-pi-copilot.md\nrapport-campagne-313.md\nrapport-campagne-341.md\nrapport-campagne-pi-copilot-2026-11-25.md\nrapport-correctif-knowledge-spec341.md\nrapport-creation-knowledge-spec341.md\nrapport-knowledge-relevance-pi.md\nrapport-partiel-campagne-313.md\nrapport-reprise-campagne-313.md\nretro-bloc-injecte-perime-2026-11-25.md\nretro-knowledge-proposee-admise-2026-11-25.md\nretro-p4-generation-tour-2026-11-25.md\n---\nCHANGELOG.md\nCONTEXT.md\ndocs\nGLOSSARY-MAP.md\nGLOSSARY.md\nimages\nLICENSE.txt\nMIGRATION.md\noverview.drawio.svg\npackage-lock.json\npackage.json\npackages\npoc\nREADME.md\nROADMAP.md\nschema.json\nscripts\nsrc\ntest\ntsconfig.json\ntsconfig.test.json\nwebpack.config.js\n",
+      "features": {}
+    },
+    {
+      "iid": "probe2-off-on",
+      "resolved": null,
+      "edited_files": [],
+      "n_cmds": 1,
+      "cmd_templates": [
+        "ls && echo \"---\" && ls codetour | head -40"
+      ],
+      "check_commands": [],
+      "failed_commands": [],
+      "missing_command": false,
+      "missing_dependency": false,
+      "bad_usage": false,
+      "_ran_tests": false,
+      "_cmd_blob": "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40",
+      "_out_blob": "TokenEconomizer/\ncodetour/\nAGENTS.md\nPROTOCOLE-TEST.md\ninstall-local.sh\nlaunch-local.sh\nrapport-campagne-10-essais-pi-copilot.md\nrapport-campagne-313.md\nrapport-campagne-341.md\nrapport-campagne-pi-copilot-2026-11-25.md\nrapport-correctif-knowledge-spec341.md\nrapport-creation-knowledge-spec341.md\nrapport-knowledge-relevance-pi.md\nrapport-partiel-campagne-313.md\nrapport-reprise-campagne-313.md\nretro-bloc-injecte-perime-2026-11-25.md\nretro-knowledge-proposee-admise-2026-11-25.md\nretro-p4-generation-tour-2026-11-25.md\n---\nCHANGELOG.md\nCONTEXT.md\ndocs\nGLOSSARY-MAP.md\nGLOSSARY.md\nimages\nLICENSE.txt\nMIGRATION.md\noverview.drawio.svg\npackage-lock.json\npackage.json\npackages\npoc\nREADME.md\nROADMAP.md\nschema.json\nscripts\nsrc\ntest\ntsconfig.json\ntsconfig.test.json\nwebpack.config.js\n",
+      "features": {}
+    },
+    {
+      "iid": "probe2-on-off",
+      "resolved": null,
+      "edited_files": [],
+      "n_cmds": 1,
+      "cmd_templates": [
+        "ls && echo \"---\" && ls codetour | head -40"
+      ],
+      "check_commands": [],
+      "failed_commands": [],
+      "missing_command": false,
+      "missing_dependency": false,
+      "bad_usage": false,
+      "_ran_tests": false,
+      "_cmd_blob": "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40",
+      "_out_blob": "TokenEconomizer/\ncodetour/\nAGENTS.md\nPROTOCOLE-TEST.md\ninstall-local.sh\nlaunch-local.sh\nrapport-campagne-10-essais-pi-copilot.md\nrapport-campagne-313.md\nrapport-campagne-341.md\nrapport-campagne-pi-copilot-2026-11-25.md\nrapport-correctif-knowledge-spec341.md\nrapport-creation-knowledge-spec341.md\nrapport-knowledge-relevance-pi.md\nrapport-partiel-campagne-313.md\nrapport-reprise-campagne-313.md\nretro-bloc-injecte-perime-2026-11-25.md\nretro-knowledge-proposee-admise-2026-11-25.md\nretro-p4-generation-tour-2026-11-25.md\n---\nCHANGELOG.md\nCONTEXT.md\ndocs\nGLOSSARY-MAP.md\nGLOSSARY.md\nimages\nLICENSE.txt\nMIGRATION.md\noverview.drawio.svg\npackage-lock.json\npackage.json\npackages\npoc\nREADME.md\nROADMAP.md\nschema.json\nscripts\nsrc\ntest\ntsconfig.json\ntsconfig.test.json\nwebpack.config.js\n",
+      "features": {}
+    },
+    {
+      "iid": "probe2-on-on",
+      "resolved": null,
+      "edited_files": [],
+      "n_cmds": 1,
+      "cmd_templates": [
+        "ls && echo \"---\" && ls codetour | head -40"
+      ],
+      "check_commands": [],
+      "failed_commands": [],
+      "missing_command": false,
+      "missing_dependency": false,
+      "bad_usage": false,
+      "_ran_tests": false,
+      "_cmd_blob": "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40",
+      "_out_blob": "TokenEconomizer/\ncodetour/\nAGENTS.md\nPROTOCOLE-TEST.md\ninstall-local.sh\nlaunch-local.sh\nrapport-campagne-10-essais-pi-copilot.md\nrapport-campagne-313.md\nrapport-campagne-341.md\nrapport-campagne-pi-copilot-2026-11-25.md\nrapport-correctif-knowledge-spec341.md\nrapport-creation-knowledge-spec341.md\nrapport-knowledge-relevance-pi.md\nrapport-partiel-campagne-313.md\nrapport-reprise-campagne-313.md\nretro-bloc-injecte-perime-2026-11-25.md\nretro-knowledge-proposee-admise-2026-11-25.md\nretro-p4-generation-tour-2026-11-25.md\n---\nCHANGELOG.md\nCONTEXT.md\ndocs\nGLOSSARY-MAP.md\nGLOSSARY.md\nimages\nLICENSE.txt\nMIGRATION.md\noverview.drawio.svg\npackage-lock.json\npackage.json\npackages\npoc\nREADME.md\nROADMAP.md\nschema.json\nscripts\nsrc\ntest\ntsconfig.json\ntsconfig.test.json\nwebpack.config.js\n",
+      "features": {}
+    }
+  ],
+  "raw_cmds": [
+    [
+      "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40"
+    ],
+    [
+      "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40"
+    ],
+    [
+      "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40"
+    ],
+    [
+      "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40"
+    ],
+    [
+      "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40"
+    ],
+    [
+      "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40"
+    ],
+    [
+      "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40"
+    ],
+    [
+      "cd /private/tmp/codetour-bench-20261127/seed && ls && echo \"---\" && ls codetour | head -40"
+    ]
+  ],
+  "digest": {
+    "sequences": [
+      {
+        "id": "probe-off-off/0",
+        "session": "probe-off-off",
+        "index": 0,
+        "emitted": 1795786116.358,
+        "message": "Explore this repository to understand its architecture. Read completely, one after another: CONTEXT.md, codetour/src/extension.ts, codetour/src/cli/index.ts, codetour/packages/tour-generation/src/index.ts, codetour/packages/tour-generation/src/creation.ts, codetour/packages/tour-generation/src/proposal-validation.ts, codetour/src/store/index.ts, codetour/src/player/index.ts. Then answer in 8 lines: what the project is, its main entry points, and how a Tour is produced and read. Do not modify anything.",
+        "units": []
+      },
+      {
+        "id": "probe-off-on/0",
+        "session": "probe-off-on",
+        "index": 0,
+        "emitted": 1795786116.358,
+        "message": "Explore this repository to understand its architecture. Read completely, one after another: CONTEXT.md, codetour/src/extension.ts, codetour/src/cli/index.ts, codetour/packages/tour-generation/src/index.ts, codetour/packages/tour-generation/src/creation.ts, codetour/packages/tour-generation/src/proposal-validation.ts, codetour/src/store/index.ts, codetour/src/player/index.ts. Then answer in 8 lines: what the project is, its main entry points, and how a Tour is produced and read. Do not modify anything.",
+        "units": []
+      },
+      {
+        "id": "probe-on-off/0",
+        "session": "probe-on-off",
+        "index": 0,
+        "emitted": 1795786116.358,
+        "message": "Explore this repository to understand its architecture. Read completely, one after another: CONTEXT.md, codetour/src/extension.ts, codetour/src/cli/index.ts, codetour/packages/tour-generation/src/index.ts, codetour/packages/tour-generation/src/creation.ts, codetour/packages/tour-generation/src/proposal-validation.ts, codetour/src/store/index.ts, codetour/src/player/index.ts. Then answer in 8 lines: what the project is, its main entry points, and how a Tour is produced and read. Do not modify anything.",
+        "units": []
+      },
+      {
+        "id": "probe-on-on/0",
+        "session": "probe-on-on",
+        "index": 0,
+        "emitted": 1795786116.358,
+        "message": "Explore this repository to understand its architecture. Read completely, one after another: CONTEXT.md, codetour/src/extension.ts, codetour/src/cli/index.ts, codetour/packages/tour-generation/src/index.ts, codetour/packages/tour-generation/src/creation.ts, codetour/packages/tour-generation/src/proposal-validation.ts, codetour/src/store/index.ts, codetour/src/player/index.ts. Then answer in 8 lines: what the project is, its main entry points, and how a Tour is produced and read. Do not modify anything.",
+        "units": []
+      },
+      {
+        "id": "probe2-off-off/0",
+        "session": "probe2-off-off",
+        "index": 0,
+        "emitted": 1795786116.358,
+        "message": "Explore this repository to understand its architecture. Read completely, one after another: CONTEXT.md, codetour/src/extension.ts, codetour/src/cli/index.ts, codetour/packages/tour-generation/src/index.ts, codetour/packages/tour-generation/src/creation.ts, codetour/packages/tour-generation/src/proposal-validation.ts, codetour/src/store/index.ts, codetour/src/player/index.ts. Then answer in 8 lines: what the project is, its main entry points, and how a Tour is produced and read. Do not modify anything.",
+        "units": []
+      },
+      {
+        "id": "probe2-off-on/0",
+        "session": "probe2-off-on",
+        "index": 0,
+        "emitted": 1795786116.358,
+        "message": "Explore this repository to understand its architecture. Read completely, one after another: CONTEXT.md, codetour/src/extension.ts, codetour/src/cli/index.ts, codetour/packages/tour-generation/src/index.ts, codetour/packages/tour-generation/src/creation.ts, codetour/packages/tour-generation/src/proposal-validation.ts, codetour/src/store/index.ts, codetour/src/player/index.ts. Then answer in 8 lines: what the project is, its main entry points, and how a Tour is produced and read. Do not modify anything.",
+        "units": []
+      },
+      {
+        "id": "probe2-on-off/0",
+        "session": "probe2-on-off",
+        "index": 0,
+        "emitted": 1795786116.358,
+        "message": "Explore this repository to understand its architecture. Read completely, one after another: CONTEXT.md, codetour/src/extension.ts, codetour/src/cli/index.ts, codetour/packages/tour-generation/src/index.ts, codetour/packages/tour-generation/src/creation.ts, codetour/packages/tour-generation/src/proposal-validation.ts, codetour/src/store/index.ts, codetour/src/player/index.ts. Then answer in 8 lines: what the project is, its main entry points, and how a Tour is produced and read. Do not modify anything.",
+        "units": []
+      },
+      {
+        "id": "probe2-on-on/0",
+        "session": "probe2-on-on",
+        "index": 0,
+        "emitted": 1795786116.358,
+        "message": "Explore this repository to understand its architecture. Read completely, one after another: CONTEXT.md, codetour/src/extension.ts, codetour/src/cli/index.ts, codetour/packages/tour-generation/src/index.ts, codetour/packages/tour-generation/src/creation.ts, codetour/packages/tour-generation/src/proposal-validation.ts, codetour/src/store/index.ts, codetour/src/player/index.ts. Then answer in 8 lines: what the project is, its main entry points, and how a Tour is produced and read. Do not modify anything.",
+        "units": []
+      }
+    ]
+  }
+}

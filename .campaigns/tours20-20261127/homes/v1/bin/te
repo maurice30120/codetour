@@ -1,0 +1,3 @@
+#!/bin/sh
+# Written by the TokenEconomizer plugin at session start: its `te` command line.
+exec /Users/dhuyet/Documents/POC/CodeTOUR+Economiser/TokenEconomizer/plugin/scripts/te "$@"

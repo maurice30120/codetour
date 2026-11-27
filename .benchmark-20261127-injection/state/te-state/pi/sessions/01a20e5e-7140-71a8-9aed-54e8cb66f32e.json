@@ -1,0 +1,37 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/codetour",
+  "end_reason": "quit",
+  "ended": 1795537442.237896,
+  "files_read": [
+    "codetour/src/core/tourDiscovery.ts",
+    "codetour/src/store/provider.ts"
+  ],
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "knowledge_given": [
+    "56fe20012fa04becb88ed2a88e1b7799"
+  ],
+  "nudges": 0,
+  "session_id": "01a20e5e-7140-71a8-9aed-54e8cb66f32e",
+  "source": "startup",
+  "started": 1795537401.341998,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser-codetour--/2026-11-24T16-23-20-128Z_01a20e5e-7140-71a8-9aed-54e8cb66f32e.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 5,
+      "turn_key": "01a20e5e-7140-71a8-9aed-54e8cb66f32e:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795537442.237896,
+  "writer_tokens": 0.0
+}

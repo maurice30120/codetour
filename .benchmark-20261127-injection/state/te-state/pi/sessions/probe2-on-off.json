@@ -1,0 +1,35 @@
+{
+  "aborts": 0,
+  "cwd": "/tmp/codetour-bench-20261127/probe",
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "knowledge_given": [
+    "d19f3b825e6d46268ed358b47a5c3244"
+  ],
+  "knowledge_injected_cards": [
+    "d19f3b825e6d46268ed358b47a5c3244"
+  ],
+  "knowledge_injected_tokens": 115,
+  "knowledge_startup": {
+    "cards": [
+      [
+        "d19f3b825e6d46268ed358b47a5c3244",
+        1
+      ]
+    ],
+    "tokens": 115
+  },
+  "knowledge_tokens": 115,
+  "nudges": 0,
+  "session_id": "probe2-on-off",
+  "source": "startup",
+  "start_event": [
+    "startup",
+    null
+  ],
+  "started": 1795786317.693017,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--private-tmp-codetour-bench-20261127-seed--/2026-11-27T13-28-35-732Z_01a21d31-8a94-731c-bb0e-09f43f000377.jsonl",
+  "turns": [],
+  "updated": 1795786317.6961439,
+  "writer_tokens": 0.0
+}

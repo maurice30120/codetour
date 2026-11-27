@@ -1,0 +1,21 @@
+{
+  "facts": {
+    "_extractors": [],
+    "_profile": "envfacts+distiller",
+    "_task": {
+      "iid": "01a21d2d-1ad6-75a0-bb59-83fecc839868",
+      "injected": [],
+      "n_calls": 14,
+      "resolved": null,
+      "verdicts": {}
+    },
+    "_vocab": "generic"
+  },
+  "imported_sessions": 0,
+  "profile": "envfacts+distiller",
+  "reason": "envfacts+manual-distill",
+  "rendered": "",
+  "rendered_ids": [],
+  "sessions": 1,
+  "updated": 1795785864.327531
+}

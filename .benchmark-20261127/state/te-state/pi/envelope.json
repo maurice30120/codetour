@@ -1,0 +1,5007 @@
+{
+  "level": "default",
+  "resolved_snaps": [
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 6,
+      "turns": 28
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 2,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.25,
+      "test_runs": 10,
+      "turns": 37
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 6,
+      "turns": 32
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 30
+    },
+    {
+      "distinct_edit_files": 8,
+      "edit_churn": 5,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.25,
+      "test_runs": 13,
+      "turns": 98
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 8
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 5,
+      "error_outputs": 5,
+      "repeated_fail_sigs": 2,
+      "stagnation": 0.4,
+      "test_runs": 17,
+      "turns": 63
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 13
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 18
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 21
+    },
+    {
+      "distinct_edit_files": 7,
+      "edit_churn": 6,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 13,
+      "turns": 87
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 56
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 2,
+      "stagnation": 0.667,
+      "test_runs": 0,
+      "turns": 8
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 1,
+      "error_outputs": 10,
+      "repeated_fail_sigs": 6,
+      "stagnation": 0.6,
+      "test_runs": 5,
+      "turns": 50
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 13
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 5,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 3,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 6,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 3,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 11,
+      "turns": 67
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 6,
+      "turns": 13
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 22
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 25,
+      "edit_churn": 5,
+      "error_outputs": 5,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.2,
+      "test_runs": 19,
+      "turns": 127
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 9,
+      "edit_churn": 3,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 8,
+      "turns": 34
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 11
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 21
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 16
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 6,
+      "turns": 45
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 3,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 2,
+      "stagnation": 0.5,
+      "test_runs": 0,
+      "turns": 36
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 15,
+      "error_outputs": 12,
+      "repeated_fail_sigs": 6,
+      "stagnation": 0.5,
+      "test_runs": 22,
+      "turns": 129
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 5,
+      "turns": 15
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 11
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 8,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 44
+    },
+    {
+      "distinct_edit_files": 9,
+      "edit_churn": 5,
+      "error_outputs": 5,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.2,
+      "test_runs": 10,
+      "turns": 77
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 11,
+      "edit_churn": 6,
+      "error_outputs": 21,
+      "repeated_fail_sigs": 4,
+      "stagnation": 0.19,
+      "test_runs": 48,
+      "turns": 142
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 15
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 26
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 53
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 7,
+      "edit_churn": 12,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 9,
+      "turns": 101
+    },
+    {
+      "distinct_edit_files": 9,
+      "edit_churn": 3,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 21
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 13
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 18
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 9,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 25
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 5,
+      "turns": 71
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 8
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 7,
+      "edit_churn": 4,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 4,
+      "turns": 56
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 8,
+      "edit_churn": 19,
+      "error_outputs": 8,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.125,
+      "test_runs": 14,
+      "turns": 79
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 2,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 4,
+      "turns": 27
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 7,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 15
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 20,
+      "edit_churn": 6,
+      "error_outputs": 5,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.2,
+      "test_runs": 20,
+      "turns": 150
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 33
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 10
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 15,
+      "edit_churn": 4,
+      "error_outputs": 7,
+      "repeated_fail_sigs": 2,
+      "stagnation": 0.286,
+      "test_runs": 23,
+      "turns": 124
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 2,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 4,
+      "turns": 60
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 3,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 54
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 27
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 19,
+      "edit_churn": 7,
+      "error_outputs": 9,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.111,
+      "test_runs": 36,
+      "turns": 151
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 39
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 3,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 4,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 8
+    },
+    {
+      "distinct_edit_files": 6,
+      "edit_churn": 3,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 5,
+      "turns": 20
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 9,
+      "edit_churn": 5,
+      "error_outputs": 11,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.091,
+      "test_runs": 22,
+      "turns": 125
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 34
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 11,
+      "edit_churn": 10,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 6,
+      "turns": 148
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 49
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 14,
+      "edit_churn": 5,
+      "error_outputs": 13,
+      "repeated_fail_sigs": 4,
+      "stagnation": 0.308,
+      "test_runs": 25,
+      "turns": 148
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 25,
+      "edit_churn": 6,
+      "error_outputs": 7,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 23,
+      "turns": 168
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 15,
+      "edit_churn": 11,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 6,
+      "turns": 123
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 12,
+      "edit_churn": 8,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 11,
+      "turns": 104
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 38
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 35
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 8
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 37
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 43
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 14,
+      "edit_churn": 6,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 5,
+      "turns": 108
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 14,
+      "edit_churn": 7,
+      "error_outputs": 6,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 13,
+      "turns": 117
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 47
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 6,
+      "edit_churn": 4,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 7,
+      "turns": 23
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 5,
+      "turns": 39
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 25
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 5,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 57
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 34
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 7,
+      "edit_churn": 3,
+      "error_outputs": 5,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 18,
+      "turns": 118
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 38
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 35
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 44
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 9,
+      "edit_churn": 7,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 5,
+      "turns": 127
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 9,
+      "turns": 71
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 36
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 3,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 5,
+      "turns": 92
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 17
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 9,
+      "edit_churn": 6,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 8
+    },
+    {
+      "distinct_edit_files": 12,
+      "edit_churn": 6,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 4,
+      "turns": 26
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 19
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 100
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 2,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 109
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 3,
+      "error_outputs": 6,
+      "repeated_fail_sigs": 4,
+      "stagnation": 0.667,
+      "test_runs": 9,
+      "turns": 75
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 18,
+      "edit_churn": 10,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 3,
+      "stagnation": 0.75,
+      "test_runs": 22,
+      "turns": 152
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 4,
+      "turns": 21
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 26
+    },
+    {
+      "distinct_edit_files": 6,
+      "edit_churn": 12,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 28,
+      "turns": 135
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 39
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 8
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 65
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 37
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 21
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 24
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 19,
+      "edit_churn": 7,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 7,
+      "turns": 139
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 20
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 8
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 11
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 33
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 34
+    },
+    {
+      "distinct_edit_files": 8,
+      "edit_churn": 2,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 5,
+      "turns": 102
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 4,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 46
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 9,
+      "turns": 72
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 11
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 13
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 58
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 13
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 19
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 19
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 2,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 11
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 27
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 7,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 13,
+      "edit_churn": 3,
+      "error_outputs": 6,
+      "repeated_fail_sigs": 2,
+      "stagnation": 0.333,
+      "test_runs": 17,
+      "turns": 221
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 16
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 7,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 17
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 11
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 53
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 2,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 37
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 7,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 69
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 2,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 54
+    },
+    {
+      "distinct_edit_files": 7,
+      "edit_churn": 4,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 84
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 8,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 70
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 8,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 72
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 16
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 54
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 46
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 9,
+      "edit_churn": 12,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 4,
+      "turns": 119
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 20
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 93
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.5,
+      "test_runs": 0,
+      "turns": 10
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 7,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 6,
+      "turns": 23
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 13
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 3,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 21
+    },
+    {
+      "distinct_edit_files": 28,
+      "edit_churn": 6,
+      "error_outputs": 12,
+      "repeated_fail_sigs": 7,
+      "stagnation": 0.583,
+      "test_runs": 41,
+      "turns": 275
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 3,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 37
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 13
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 22
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 8
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 4,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.5,
+      "test_runs": 12,
+      "turns": 84
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 6,
+      "turns": 24
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 18,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 48
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 8,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 22
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 6,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 18
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 31
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 39
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 5,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.2,
+      "test_runs": 0,
+      "turns": 40
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 36
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 5,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.2,
+      "test_runs": 3,
+      "turns": 83
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 38
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 23
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 41
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 20
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 8,
+      "turns": 36
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.5,
+      "test_runs": 5,
+      "turns": 10
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 41
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.25,
+      "test_runs": 0,
+      "turns": 36
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 36
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 27
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.25,
+      "test_runs": 2,
+      "turns": 42
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.25,
+      "test_runs": 3,
+      "turns": 50
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 13
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 24
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 29
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 52
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 66
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 2,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.25,
+      "test_runs": 11,
+      "turns": 86
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 1,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 62
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 3,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 58
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 96
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 4
+    },
+    {
+      "distinct_edit_files": 7,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 93
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 13,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 151
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 11
+    },
+    {
+      "distinct_edit_files": 11,
+      "edit_churn": 10,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.25,
+      "test_runs": 13,
+      "turns": 125
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 59
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 26,
+      "edit_churn": 7,
+      "error_outputs": 5,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.2,
+      "test_runs": 19,
+      "turns": 174
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 5,
+      "turns": 23
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 2,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 44
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 9,
+      "edit_churn": 6,
+      "error_outputs": 6,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.167,
+      "test_runs": 21,
+      "turns": 99
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 22
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 12,
+      "edit_churn": 7,
+      "error_outputs": 13,
+      "repeated_fail_sigs": 4,
+      "stagnation": 0.308,
+      "test_runs": 35,
+      "turns": 123
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 30,
+      "edit_churn": 11,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 145
+    },
+    {
+      "distinct_edit_files": 18,
+      "edit_churn": 7,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.5,
+      "test_runs": 13,
+      "turns": 99
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 59
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 48
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 72
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 13
+    },
+    {
+      "distinct_edit_files": 20,
+      "edit_churn": 2,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 24,
+      "turns": 139
+    },
+    {
+      "distinct_edit_files": 6,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 15
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 42
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 6
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 34
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 35
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 32
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 24
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 3,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 30
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 49
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 79
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 37
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 32
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 10
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 16
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 4,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 55
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 2,
+      "error_outputs": 3,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 33
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 33
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 5,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 17,
+      "turns": 117
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 11
+    },
+    {
+      "distinct_edit_files": 15,
+      "edit_churn": 6,
+      "error_outputs": 7,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.143,
+      "test_runs": 21,
+      "turns": 95
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 8
+    },
+    {
+      "distinct_edit_files": 3,
+      "edit_churn": 3,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 41
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 32
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 35
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 39
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 35
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 32
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.5,
+      "test_runs": 3,
+      "turns": 66
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 10,
+      "error_outputs": 1,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 8,
+      "turns": 92
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 15
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 1
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 2,
+      "turns": 15
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 19
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 14
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 10
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 3
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 4,
+      "edit_churn": 2,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 11,
+      "turns": 109
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 2
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 22
+    },
+    {
+      "distinct_edit_files": 14,
+      "edit_churn": 3,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 14,
+      "turns": 110
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 21
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 47
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 50
+    },
+    {
+      "distinct_edit_files": 14,
+      "edit_churn": 6,
+      "error_outputs": 4,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 13,
+      "turns": 84
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 5
+    },
+    {
+      "distinct_edit_files": 2,
+      "edit_churn": 2,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 67
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 16
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 84
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 5,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 14,
+      "turns": 177
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 1,
+      "turns": 12
+    },
+    {
+      "distinct_edit_files": 6,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 6,
+      "turns": 15
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 2,
+      "repeated_fail_sigs": 1,
+      "stagnation": 0.5,
+      "test_runs": 3,
+      "turns": 46
+    },
+    {
+      "distinct_edit_files": 1,
+      "edit_churn": 1,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 3,
+      "turns": 9
+    },
+    {
+      "distinct_edit_files": 5,
+      "edit_churn": 5,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 7,
+      "turns": 79
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 10
+    },
+    {
+      "distinct_edit_files": 0,
+      "edit_churn": 0,
+      "error_outputs": 0,
+      "repeated_fail_sigs": 0,
+      "stagnation": 0.0,
+      "test_runs": 0,
+      "turns": 7
+    }
+  ],
+  "resolved_turns": [
+    1,
+    2,
+    1,
+    1,
+    28,
+    37,
+    32,
+    30,
+    98,
+    8,
+    63,
+    7,
+    13,
+    4,
+    18,
+    21,
+    87,
+    56,
+    1,
+    1,
+    6,
+    1,
+    3,
+    8,
+    4,
+    1,
+    50,
+    4,
+    2,
+    13,
+    2,
+    2,
+    5,
+    4,
+    14,
+    1,
+    12,
+    14,
+    12,
+    3,
+    12,
+    12,
+    2,
+    2,
+    67,
+    13,
+    1,
+    2,
+    1,
+    1,
+    2,
+    7,
+    1,
+    22,
+    4,
+    1,
+    1,
+    3,
+    127,
+    1,
+    7,
+    4,
+    1,
+    34,
+    2,
+    11,
+    21,
+    4,
+    1,
+    16,
+    45,
+    2,
+    4,
+    4,
+    5,
+    2,
+    2,
+    4,
+    5,
+    36,
+    129,
+    4,
+    15,
+    11,
+    3,
+    44,
+    77,
+    2,
+    14,
+    2,
+    3,
+    1,
+    1,
+    142,
+    2,
+    15,
+    1,
+    26,
+    53,
+    1,
+    3,
+    9,
+    1,
+    2,
+    5,
+    3,
+    1,
+    1,
+    101,
+    21,
+    13,
+    18,
+    3,
+    9,
+    25,
+    6,
+    6,
+    12,
+    71,
+    1,
+    8,
+    3,
+    56,
+    2,
+    9,
+    5,
+    2,
+    2,
+    2,
+    2,
+    79,
+    27,
+    2,
+    6,
+    12,
+    1,
+    1,
+    6,
+    3,
+    15,
+    2,
+    150,
+    4,
+    2,
+    33,
+    10,
+    1,
+    124,
+    7,
+    60,
+    54,
+    3,
+    27,
+    1,
+    2,
+    151,
+    2,
+    3,
+    39,
+    3,
+    7,
+    2,
+    7,
+    3,
+    5,
+    8,
+    20,
+    3,
+    125,
+    2,
+    34,
+    4,
+    148,
+    3,
+    49,
+    2,
+    148,
+    1,
+    5,
+    3,
+    168,
+    1,
+    5,
+    123,
+    2,
+    104,
+    38,
+    9,
+    3,
+    1,
+    35,
+    8,
+    37,
+    1,
+    43,
+    4,
+    1,
+    108,
+    4,
+    117,
+    3,
+    47,
+    3,
+    23,
+    39,
+    25,
+    14,
+    57,
+    2,
+    34,
+    2,
+    118,
+    5,
+    38,
+    35,
+    44,
+    9,
+    127,
+    2,
+    71,
+    6,
+    36,
+    4,
+    14,
+    7,
+    92,
+    17,
+    14,
+    8,
+    26,
+    6,
+    1,
+    19,
+    12,
+    100,
+    109,
+    75,
+    9,
+    152,
+    21,
+    26,
+    135,
+    39,
+    8,
+    65,
+    37,
+    21,
+    24,
+    2,
+    4,
+    139,
+    9,
+    3,
+    20,
+    7,
+    8,
+    1,
+    11,
+    33,
+    34,
+    102,
+    46,
+    72,
+    1,
+    11,
+    13,
+    7,
+    58,
+    13,
+    19,
+    9,
+    4,
+    19,
+    11,
+    2,
+    4,
+    3,
+    7,
+    14,
+    27,
+    1,
+    3,
+    9,
+    221,
+    16,
+    2,
+    5,
+    1,
+    6,
+    17,
+    3,
+    12,
+    14,
+    5,
+    2,
+    11,
+    2,
+    2,
+    53,
+    37,
+    69,
+    7,
+    54,
+    84,
+    9,
+    70,
+    72,
+    16,
+    54,
+    46,
+    14,
+    119,
+    12,
+    6,
+    5,
+    20,
+    93,
+    2,
+    10,
+    1,
+    6,
+    23,
+    2,
+    13,
+    2,
+    1,
+    1,
+    1,
+    1,
+    21,
+    275,
+    1,
+    2,
+    37,
+    13,
+    4,
+    12,
+    22,
+    2,
+    8,
+    84,
+    24,
+    48,
+    22,
+    12,
+    18,
+    5,
+    31,
+    39,
+    40,
+    36,
+    83,
+    38,
+    3,
+    2,
+    23,
+    41,
+    20,
+    7,
+    2,
+    36,
+    1,
+    10,
+    3,
+    3,
+    12,
+    2,
+    2,
+    41,
+    36,
+    36,
+    27,
+    42,
+    50,
+    1,
+    1,
+    13,
+    6,
+    5,
+    7,
+    6,
+    4,
+    2,
+    1,
+    7,
+    5,
+    3,
+    9,
+    7,
+    4,
+    24,
+    6,
+    29,
+    9,
+    4,
+    4,
+    52,
+    66,
+    86,
+    62,
+    58,
+    6,
+    96,
+    4,
+    93,
+    7,
+    151,
+    11,
+    125,
+    2,
+    59,
+    2,
+    174,
+    23,
+    44,
+    1,
+    99,
+    1,
+    22,
+    2,
+    123,
+    1,
+    12,
+    7,
+    145,
+    99,
+    3,
+    59,
+    48,
+    72,
+    13,
+    139,
+    15,
+    42,
+    6,
+    34,
+    35,
+    32,
+    24,
+    30,
+    49,
+    79,
+    37,
+    32,
+    10,
+    16,
+    55,
+    33,
+    33,
+    117,
+    11,
+    95,
+    2,
+    8,
+    14,
+    7,
+    9,
+    41,
+    32,
+    35,
+    39,
+    35,
+    32,
+    66,
+    92,
+    15,
+    1,
+    7,
+    15,
+    2,
+    3,
+    7,
+    19,
+    14,
+    2,
+    10,
+    3,
+    3,
+    7,
+    5,
+    109,
+    2,
+    22,
+    110,
+    21,
+    47,
+    50,
+    84,
+    5,
+    67,
+    16,
+    84,
+    177,
+    12,
+    15,
+    46,
+    9,
+    79,
+    10,
+    7
+  ]
+}

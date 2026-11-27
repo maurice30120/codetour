@@ -1,0 +1,38 @@
+{
+  "index": 8,
+  "slot": "slot-08",
+  "run_id": "benchmark-D-02",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127/runs/run-07",
+  "exit_code": 0,
+  "duration_s": 65.3,
+  "scores": {
+    "exactitude_technique": 9,
+    "exhaustivite": 8,
+    "absence_erreurs": 9,
+    "note_globale": 8.7,
+    "erreurs_constatees": [
+      "Étape « Découverte des fichiers de visite » : l'énumération des emplacements est présentée comme exhaustive or `MAIN_TOUR_FILES = [\".tour\", \".vscode/main.tour\", \"main.tour\"]` inclut aussi `.vscode/main.tour`, et `tourDirectories()` accepte un répertoire personnalisé (`codetour.customTourDirectory`) non mentionné ; la lecture des répertoires est en outre récursive (sous-répertoires parcourus, `.memory` ignoré) — omission, pas invention.",
+      "Étape « Lecture dans VS Code : le player » : « crée un contrôleur de commentaires VS Code et le rattache au store » est imprécis — le contrôleur reste une variable de module (`controller`), c'est le fil de commentaire qui est stocké (`store.activeTour!.thread = thread`, src/player/index.ts:451-452).",
+      "Étape « Activation de l'extension » : `promptForTour` n'est pas systématiquement appelé, il est sauté si le gestionnaire d'URI a déjà démarré une visite (`if (!uriHandler.didStartDefaultTour)`), nuance non signalée.",
+      "Étape « Entrée du CLI » : l'action principale ne commence pas exactement par les intégrations d'agents — le handoff TTY expérimental (`--experimental-tty-handoff`) est traité avant (src/cli/index.ts:232), et `--internal-tour` lit une visite via `loadTour` sans passer par `repositoryRoot`/découverte.",
+      "Étape « Rendu des descriptions » : coquille « de régles » (sans incidence factuelle)."
+    ],
+    "affirmations_verifiees": 60,
+    "commentaire": "Toutes les références fichier/ligne/symbole du tour sont exactes (package.json main et bin, src/extension.ts:121=activate, src/core/tourDiscovery.ts:25=discoverToursFromRoot, src/player/index.ts:120=startPlayer, src/cli/index.ts:54 buildProgram, src/cli/createTour.ts:186=runCreateTourCommand, packages/tour-generation/src/creation.ts:94=createTour, proposal-validation.ts:69=validateTourProposal, persistence.ts:13=writeTourAtomic, src/cli/terminal.ts:148=runTerminalTour, packages/description-renderer/src/index.ts:1) ; les comportements décrits (ordre d'activation, aliases webpack des paquets codetour-*, agrégation des Issues, confinement realpath + OUTPUT_PATH_ESCAPES_WORKSPACE, écriture temporaire+sync+rename, journal non bloquant, refus non-TTY et chargement paresseux de @b9g/termdom, contrat de sortie 0/1/2 du CLI) sont confirmés dans le code. Aucun fichier, chemin ou symbole inventé. Les seuls écarts sont des omissions et deux imprécisions mineures (rattachement du contrôleur au store, `promptForTour` conditionnel) ; l'exhaustivité est bonne sur les deux chemins principaux (lecture VS Code/terminal, création CLI→validation→écriture) mais laisse de côté le sous-système d'intégrations d'agents détaillé, git.ts/stageCommitAnchors en profondeur, le provider/store MobX et Live Share."
+  },
+  "raw_answer": "{\"exactitude_technique\": 9, \"exhaustivite\": 8, \"absence_erreurs\": 9, \"note_globale\": 8.7, \"erreurs_constatees\": [\"Étape « Découverte des fichiers de visite » : l'énumération des emplacements est présentée comme exhaustive or `MAIN_TOUR_FILES = [\\\".tour\\\", \\\".vscode/main.tour\\\", \\\"main.tour\\\"]` inclut aussi `.vscode/main.tour`, et `tourDirectories()` accepte un répertoire personnalisé (`codetour.customTourDirectory`) non mentionné ; la lecture des répertoires est en outre récursive (sous-répertoires parcourus, `.memory` ignoré) — omission, pas invention.\", \"Étape « Lecture dans VS Code : le player » : « crée un contrôleur de commentaires VS Code et le rattache au store » est imprécis — le contrôleur reste une variable de module (`controller`), c'est le fil de commentaire qui est stocké (`store.activeTour!.thread = thread`, src/player/index.ts:451-452).\", \"Étape « Activation de l'extension » : `promptForTour` n'est pas systématiquement appelé, il est sauté si le gestionnaire d'URI a déjà démarré une visite (`if (!uriHandler.didStartDefaultTour)`), nuance non signalée.\", \"Étape « Entrée du CLI » : l'action principale ne commence pas exactement par les intégrations d'agents — le handoff TTY expérimental (`--experimental-tty-handoff`) est traité avant (src/cli/index.ts:232), et `--internal-tour` lit une visite via `loadTour` sans passer par `repositoryRoot`/découverte.\", \"Étape « Rendu des descriptions » : coquille « de régles » (sans incidence factuelle).\"], \"affirmations_verifiees\": 60, \"commentaire\": \"Toutes les références fichier/ligne/symbole du tour sont exactes (package.json main et bin, src/extension.ts:121=activate, src/core/tourDiscovery.ts:25=discoverToursFromRoot, src/player/index.ts:120=startPlayer, src/cli/index.ts:54 buildProgram, src/cli/createTour.ts:186=runCreateTourCommand, packages/tour-generation/src/creation.ts:94=createTour, proposal-validation.ts:69=validateTourProposal, persistence.ts:13=writeTourAtomic, src/cli/terminal.ts:148=runTerminalTour, packages/description-renderer/src/index.ts:1) ; les comportements décrits (ordre d'activation, aliases webpack des paquets codetour-*, agrégation des Issues, confinement realpath + OUTPUT_PATH_ESCAPES_WORKSPACE, écriture temporaire+sync+rename, journal non bloquant, refus non-TTY et chargement paresseux de @b9g/termdom, contrat de sortie 0/1/2 du CLI) sont confirmés dans le code. Aucun fichier, chemin ou symbole inventé. Les seuls écarts sont des omissions et deux imprécisions mineures (rattachement du contrôleur au store, `promptForTour` conditionnel) ; l'exhaustivité est bonne sur les deux chemins principaux (lecture VS Code/terminal, création CLI→validation→écriture) mais laisse de côté le sous-système d'intégrations d'agents détaillé, git.ts/stageCommitAnchors en profondeur, le provider/store MobX et Live Share.\"}\n",
+  "eval_metrics": {
+    "input_tokens": 40476,
+    "output_tokens": 8669,
+    "cache_read_tokens": 433536,
+    "cache_write_tokens": 0,
+    "total_tokens": 482681,
+    "cost_usd": 0.02558035,
+    "assistant_messages": 16,
+    "tool_calls": 29,
+    "session_started": "2026-11-27T14:29:39.405Z",
+    "session_ended": "2026-11-27T14:30:44.326Z",
+    "cli_result_excerpt": null
+  }
+}

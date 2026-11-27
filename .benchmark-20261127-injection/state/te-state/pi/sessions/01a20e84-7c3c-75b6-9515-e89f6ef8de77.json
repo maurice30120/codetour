@@ -1,0 +1,43 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "end_reason": "quit",
+  "ended": 1795540047.656914,
+  "files_read": [
+    "codetour/src/core/tourDiscovery.ts",
+    "codetour/src/store/tourSchema.ts",
+    "codetour/src/store/provider.ts",
+    "codetour/src/extension.ts",
+    "codetour/src/cli/index.ts"
+  ],
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "knowledge_given": [
+    "18de2197d9324a7e85e9f792afa18e2b",
+    "56fe20012fa04becb88ed2a88e1b7799",
+    "ddf2d37aa8d84e2680b817a2fb7e6d69",
+    "adfc643d2833410da407047bf91ceaeb"
+  ],
+  "nudges": 0,
+  "session_id": "01a20e84-7c3c-75b6-9515-e89f6ef8de77",
+  "source": "startup",
+  "started": 1795539894.189962,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-24T17-04-53-308Z_01a20e84-7c3c-75b6-9515-e89f6ef8de77.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 24,
+      "turn_key": "01a20e84-7c3c-75b6-9515-e89f6ef8de77:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795540047.656915,
+  "writer_tokens": 0.0
+}

@@ -1,0 +1,56 @@
+{
+  "id": "benchmark-C-startup-01",
+  "run": "run-03",
+  "group": "C-startup",
+  "cycle": 1,
+  "position": 3,
+  "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-03",
+  "started_at": "2026-11-27T15:41:36+0100",
+  "status": "success",
+  "exit_code": 0,
+  "timed_out": false,
+  "duration_s": 126.1,
+  "session_file": "/Users/dhuyet/.pi/agent/sessions/--private-tmp-codetour-bench-20261127-injection-runs-run-03--/2026-11-27T14-41-36-808Z_01a21d74-6427-7729-ae56-5bb4c85dbb4f.jsonl",
+  "session_id": "01a21d74-6427-7729-ae56-5bb4c85dbb4f",
+  "fold_recorded": true,
+  "effective_config": {
+    "knowledge": true,
+    "knowledge_injection": "startup",
+    "microskills": "off",
+    "toolprune": "auto",
+    "loopguard": "nudge",
+    "repomap": "off",
+    "enabled": true
+  },
+  "injection_probe": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "has_manual": false,
+    "has_knowledge": false,
+    "knowledge_cards": 0,
+    "text": ""
+  },
+  "prompt_sha256": "6697a8f8ba2e5af41a22de579825c3e8fc834fbae2320c140713cb4f5da780b1",
+  "tour": {
+    "title": "Architecture de CodeTour IA et chemins d'exécution",
+    "description_chars": 158,
+    "step_count": 13,
+    "steps_with_locator": 12,
+    "steps_with_mermaid": 2
+  },
+  "metrics": {
+    "input_tokens": 39539,
+    "output_tokens": 22203,
+    "cache_read_tokens": 875648,
+    "cache_write_tokens": 0,
+    "total_tokens": 937390,
+    "cost_usd": 0.04463484,
+    "assistant_messages": 29,
+    "tool_calls": 48,
+    "session_started": "2026-11-27T14:41:36.808Z",
+    "session_ended": "2026-11-27T14:43:42.488Z",
+    "cli_result_excerpt": "1 locator-free ok\n2 ok matches=1 codetour/package.json\n3 ok matches=1 codetour/src/extension.ts\n4 ok matches=1 codetour/src/core/tourDiscovery.ts\n5 ok matches=1 codetour/src/store/index.ts\n6 ok matches=1 codetour/src/store/actions.ts\n7 ok matches=1 codetour/src/player/index.ts\n8 ok matches=1 codetour/src/store/tourSchema.ts\n9 ok matches=1 codetour/src/cli/index.ts\n10 ok matches=1 codetour/src/cli/createTour.ts\n11 ok matches=1 codetour/packages/tour-generation/src/creation.ts\n12 ok matches=1 codetour/packages/tour-generation/src/persistence.ts\n13 ok matches=1 codetour/packages/tour-generation/src/journal.ts\nsteps=13 failures=0\n{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127-injection/runs/run-03/.tours/benchmark-C-startup-01.tour\",\"title\":\"Architecture de CodeTour IA et chemins d'exécution\",\"stepCount\":13,\"warnings\":[]}"
+  },
+  "stdout_tail": "Visite créée : **Architecture de CodeTour IA et chemins d'exécution** — `/private/tmp/codetour-bench-20261127-injection/runs/run-03/.tours/benchmark-C-startup-01.tour` (13 étapes, aucun avertissement).\n\nPour la lire, depuis la racine du workspace : `codetour \"Architecture de CodeTour IA et chemins d'exécution\"` (lecteur terminal) ou `codetour --internal-open-vscode \".tours/benchmark-C-startup-01.tour\"` (VS Code).\n\nSortie JSON de la commande CLI :\n\n```json\n{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127-injection/runs/run-03/.tours/benchmark-C-startup-01.tour\",\"title\":\"Architecture de CodeTour IA et chemins d'exécution\",\"stepCount\":13,\"warnings\":[]}\n```\n",
+  "stderr_tail": ""
+}

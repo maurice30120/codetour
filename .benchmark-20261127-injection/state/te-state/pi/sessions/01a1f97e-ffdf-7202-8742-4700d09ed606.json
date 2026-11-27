@@ -1,0 +1,127 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/codetour",
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a1f97e-ffdf-7202-8742-4700d09ed606",
+  "source": "startup",
+  "started": 1795187213.644533,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T15-06-52-256Z_01a1f97e-ffdf-7202-8742-4700d09ed606.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 39,
+      "turn_key": "01a1f97e-ffdf-7202-8742-4700d09ed606:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 4,
+      "turn_key": "01a1f97e-ffdf-7202-8742-4700d09ed606:2",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 9,
+      "turn_key": "01a1f97e-ffdf-7202-8742-4700d09ed606:3",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 3,
+      "turn_key": "01a1f97e-ffdf-7202-8742-4700d09ed606:4",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 7,
+      "turn_key": "01a1f97e-ffdf-7202-8742-4700d09ed606:5",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 11,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 102,
+      "turn_key": "01a1f97e-ffdf-7202-8742-4700d09ed606:6",
+      "verifications": 4,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 2,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 72,
+      "turn_key": "01a1f97e-ffdf-7202-8742-4700d09ed606:7",
+      "verifications": 9,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 1,
+      "turn_key": "01a1f97e-ffdf-7202-8742-4700d09ed606:8",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 1,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 11,
+      "turn_key": "01a1f97e-ffdf-7202-8742-4700d09ed606:9",
+      "verifications": 1,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 13,
+      "turn_key": "01a1f97e-ffdf-7202-8742-4700d09ed606:10",
+      "verifications": 1,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795195657.543473,
+  "writer_tokens": 0.0
+}

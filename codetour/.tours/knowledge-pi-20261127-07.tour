@@ -1,0 +1,41 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Comment CodeTour enregistre une création et la rattache à la bonne réponse Pi",
+  "description": "Le trajet complet d'un Tour créé depuis Pi : la commande de création, la validation puis l'écriture atomique du fichier `.tour`, le journal de création, et la relecture de ce journal par l'extension Pi au moment où la réponse se termine pour n'attribuer que les Tours de cette réponse.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "**Diagram — Trajet d'une création jusqu'à sa réponse**\n\n```mermaid\nflowchart LR\n  Skill[\"Skill codetour-generate\"] -->|\"shell tool : PI_SESSION_ID exporté\"| CLI[\"codetour create-*-tour\"]\n  CLI --> Gen[\"createTour : validation + écriture\"]\n  Gen --> Tour[\".tours/<nom>.tour\"]\n  Gen --> Journal[\".tours/.log/creations/*.json\"]\n  Journal --> Hook[\"Extension Pi : agent_settled\"]\n  Hook -->|\"workspace + sessionId + fenêtre\"| Report[\"Notification + ouverture\"]\n```\n\nLe fichier `.tour` et le journal sont deux artefacts distincts, écrits par le même processus : le Tour est le contenu, le journal est la preuve datée de la création. Le rattachement à une réponse Pi se fait uniquement à partir du journal, côté extension, quand la réponse est terminée."
+    },
+    {
+      "title": "La commande de création lit la proposition",
+      "description": "Point d'entrée côté ligne de commande : `runCreateTourCommand` analyse les arguments, exige `--workspace`, puis lit la proposition JSON (sur stdin ou depuis un fichier) avant de déléguer à la règle métier. Le contrat est strict : un document JSON sur stdout, des diagnostics sur stderr, et un code de sortie qui distingue création (0), refus (1) et usage (2).",
+      "file": "src/cli/createTour.ts",
+      "pattern": "const proposal = await readProposal\\(parsed\\.proposal\\);"
+    },
+    {
+      "title": "La règle partagée : valider avant d'écrire",
+      "description": "`createTour` est le cœur commun aux deux types de Tours. Il valide d'abord la proposition, calcule les avertissements, construit le document, puis appelle `persistTour`. C'est seulement une fois le Tour écrit qu'il enregistre la création dans le journal : ce commentaire du code pose explicitement que le journal est de l'observabilité et qu'un journal non écrivable ne transforme jamais une création en échec.",
+      "file": "packages/tour-generation/src/creation.ts",
+      "pattern": "await recordCreation\\(\\{"
+    },
+    {
+      "title": "L'écriture atomique du fichier .tour",
+      "description": "`persistTour` valide le Tour contre le schéma CodeTour, puis `writeTourAtomic` écrit dans un fichier temporaire du même répertoire, synchronise, et renomme sur la destination. Un échec ne laisse jamais de fichier partiel et préserve la version précédente ; le répertoire de sortie est vérifié pour rester confiné au workspace.",
+      "file": "packages/tour-generation/src/persistence.ts",
+      "pattern": "export async function writeTourAtomic"
+    },
+    {
+      "title": "Le journal : identité observée dans l'environnement",
+      "description": "`creationIdentity` lit l'identité de la création dans l'environnement du processus créateur seulement : `CODETOUR_SESSION_ID` en priorité, sinon `PI_SESSION_ID` (qui vaut aussi la session côté Pi et atteste l'hôte `pi`), sinon `COPILOT_AGENT_SESSION_ID`. Une valeur non observable reste `null` plutôt que devinée : c'est cette identité qui permettra — ou non — le rattachement.",
+      "file": "packages/tour-generation/src/journal.ts",
+      "pattern": "const piSession = nonEmpty\\(env\\.PI_SESSION_ID\\);"
+    },
+    {
+      "title": "Le rattachement à la réponse : trois conditions",
+      "description": "Côté Pi, l'extension lit le journal sur `agent_settled` et appelle `selectCreated`. Une création n'est attribuée que si les trois conditions tiennent : même identité de session, même workspace canonique, et un horodatage `at` dans la fenêtre de la réponse (après `agent_start`, avant l'instant courant). Un enregistrement sans session, d'une autre session ou antérieur à la réponse est ignoré, et un Tour n'est jamais ouvert deux fois.",
+      "file": "packages/pi-plugin/lib/journal.mjs",
+      "pattern": "if \\(record\\.sessionId !== sessionId\\) continue;"
+    }
+  ]
+}

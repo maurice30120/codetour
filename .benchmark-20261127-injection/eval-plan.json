@@ -1,0 +1,50 @@
+{
+  "note": "evaluation order, independent of the run order; ids are masked from the evaluator",
+  "runs": [
+    {
+      "index": 1,
+      "slot": "slot-01",
+      "id": "benchmark-C-startup-02"
+    },
+    {
+      "index": 2,
+      "slot": "slot-02",
+      "id": "benchmark-C-startup-01"
+    },
+    {
+      "index": 3,
+      "slot": "slot-03",
+      "id": "benchmark-C-startup-03"
+    },
+    {
+      "index": 4,
+      "slot": "slot-04",
+      "id": "benchmark-C-both-02"
+    },
+    {
+      "index": 5,
+      "slot": "slot-05",
+      "id": "benchmark-C-both-03"
+    },
+    {
+      "index": 6,
+      "slot": "slot-06",
+      "id": "benchmark-C-both-01"
+    },
+    {
+      "index": 7,
+      "slot": "slot-07",
+      "id": "benchmark-C-tools-02"
+    },
+    {
+      "index": 8,
+      "slot": "slot-08",
+      "id": "benchmark-C-tools-01"
+    },
+    {
+      "index": 9,
+      "slot": "slot-09",
+      "id": "benchmark-C-tools-03"
+    }
+  ]
+}

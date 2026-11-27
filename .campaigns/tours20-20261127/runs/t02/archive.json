@@ -1,0 +1,15 @@
+{
+ "run": "t02",
+ "tour": [
+  ".campaigns/tours20-20261127/tours/tours20-20261127-t02.tour"
+ ],
+ "journal": [
+  {
+   "record": "1795785858417-80724-a2dc5ef3.json",
+   "sessionId": "01a21d2d-1ad6-75a0-bb59-83fecc839868",
+   "host": "pi",
+   "workspace": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+   "tourPath": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.tours/tours20-20261127-t02.tour"
+  }
+ ]
+}

@@ -1,0 +1,39 @@
+{
+  "index": 1,
+  "slot": "slot-01",
+  "run_id": "benchmark-C-startup-02",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-05",
+  "exit_code": 0,
+  "duration_s": 102.7,
+  "scores": {
+    "exactitude_technique": 8,
+    "exhaustivite": 7,
+    "absence_erreurs": 8,
+    "note_globale": 7.7,
+    "erreurs_constatees": [
+      "Étape 1 : la « découverte des visites » est présentée comme un paquet partagé de `codetour/packages/`, alors qu'elle vit dans `src/core/tourDiscovery.ts` (les paquets partagés sont description-renderer, tour-generation, workspace-identity, copilot-plugin, pi-plugin).",
+      "Étape 2 : l'activation est réduite à `onStartupFinished`, alors que `package.json` déclare aussi `onNotebookEditor:codetour`.",
+      "Étape 4 : l'ordre des emplacements est inversé par rapport au code — `discoverToursFromRoot` retourne d'abord les répertoires (`.vscode/tours`, `.github/tours`, `.tours`), puis les fichiers principaux (`.tour`, `.vscode/main.tour`, `main.tour`).",
+      "Étape 4 : `visibleTours` ne filtre que par plateforme (`isLinux/isMac/isWindows/isWeb` via jexl) ; `codetour.customTourDirectory` est appliqué en amont, dans la découverte (`tourDirectories`).",
+      "Étape 6 : `startPlayer()` ne crée que le `CommentController` `codetour` ; les décorations (marqueurs de gouttière, ancre active) sont enregistrées par `registerPlayerModule` (`registerDecorators`, `registerActiveAnchorModule`), pas par `startPlayer`.",
+      "Étape 12 : `modified` est un état de fichier (`state: current|legacy|modified|missing`), pas un état d'installation ; les états d'installation sont `not-installed`, `installed`, `outdated`, `incomplete` (+ `absent`, `incompatible` côté détection)."
+    ],
+    "affirmations_verifiees": 52,
+    "commentaire": "Tous les chemins et fichiers cités existent et les motifs d'ancrage correspondent réellement : package.json (`main`, `bin`, `build`, contributes), src/extension.ts (`activate`, URIHandler `/openTour` avec vérification d'espace de travail), src/core/tourDiscovery.ts, src/store/actions.ts (`startCodeTour` → `startCodeTourInternal` → `startPlayer()`/`setContext`/`onDidStartTour`), src/player/index.ts (`isWebviewPlayback`, diff, `renderCurrentStep`), src/cli/index.ts (`buildProgram`, sous-commandes `create-*-tour`, `repositoryRoot`, renderer terminal par défaut), src/cli/createTour.ts (contrat 0/1/2, `--workspace` obligatoire, `-` sur stdin, `createContext`), packages/tour-generation (validateTourProposal, persistTour, writeTourAtomic confiné, `.tours/project.tour`, journal `.tours/.log/creations/` non bloquant), src/cli/terminal.ts (composeTerminalReader/runTerminalTour, TTY, @b9g/termdom paresseux), description-renderer (fences, caption, types, max 3, PNG/SVG, images inlinées), agentIntegrations (registre detect/status/install/uninstall, `--doctor`, scripts d'embed et `*.generated.ts`, `launcher.json` Pi). Les seules erreurs sont des imprécisions de formulation (ordre de découverte, attribution de `customTourDirectory`, portée de `startPlayer`, état `modified`, événements d'activation) : aucune hallucination de fichier, de chemin ou de symbole. Couverture d'architecture solide (extension, découverte, lecture, CLI, création, rendu, intégrations d'agents), mais les flux d'enregistrement (`src/recorder`, `store/storage`), le fournisseur de notebook, LiveShare, le module Git/diff (`src/git.ts`) et la page HTML autonome (`src/cli/html.ts`) ne sont pas parcourus en étapes."
+  },
+  "raw_answer": "{\"exactitude_technique\": 8, \"exhaustivite\": 7, \"absence_erreurs\": 8, \"note_globale\": 7.7, \"erreurs_constatees\": [\"Étape 1 : la « découverte des visites » est présentée comme un paquet partagé de `codetour/packages/`, alors qu'elle vit dans `src/core/tourDiscovery.ts` (les paquets partagés sont description-renderer, tour-generation, workspace-identity, copilot-plugin, pi-plugin).\", \"Étape 2 : l'activation est réduite à `onStartupFinished`, alors que `package.json` déclare aussi `onNotebookEditor:codetour`.\", \"Étape 4 : l'ordre des emplacements est inversé par rapport au code — `discoverToursFromRoot` retourne d'abord les répertoires (`.vscode/tours`, `.github/tours`, `.tours`), puis les fichiers principaux (`.tour`, `.vscode/main.tour`, `main.tour`).\", \"Étape 4 : `visibleTours` ne filtre que par plateforme (`isLinux/isMac/isWindows/isWeb` via jexl) ; `codetour.customTourDirectory` est appliqué en amont, dans la découverte (`tourDirectories`).\", \"Étape 6 : `startPlayer()` ne crée que le `CommentController` `codetour` ; les décorations (marqueurs de gouttière, ancre active) sont enregistrées par `registerPlayerModule` (`registerDecorators`, `registerActiveAnchorModule`), pas par `startPlayer`.\", \"Étape 12 : `modified` est un état de fichier (`state: current|legacy|modified|missing`), pas un état d'installation ; les états d'installation sont `not-installed`, `installed`, `outdated`, `incomplete` (+ `absent`, `incompatible` côté détection).\"], \"affirmations_verifiees\": 52, \"commentaire\": \"Tous les chemins et fichiers cités existent et les motifs d'ancrage correspondent réellement : package.json (`main`, `bin`, `build`, contributes), src/extension.ts (`activate`, URIHandler `/openTour` avec vérification d'espace de travail), src/core/tourDiscovery.ts, src/store/actions.ts (`startCodeTour` → `startCodeTourInternal` → `startPlayer()`/`setContext`/`onDidStartTour`), src/player/index.ts (`isWebviewPlayback`, diff, `renderCurrentStep`), src/cli/index.ts (`buildProgram`, sous-commandes `create-*-tour`, `repositoryRoot`, renderer terminal par défaut), src/cli/createTour.ts (contrat 0/1/2, `--workspace` obligatoire, `-` sur stdin, `createContext`), packages/tour-generation (validateTourProposal, persistTour, writeTourAtomic confiné, `.tours/project.tour`, journal `.tours/.log/creations/` non bloquant), src/cli/terminal.ts (composeTerminalReader/runTerminalTour, TTY, @b9g/termdom paresseux), description-renderer (fences, caption, types, max 3, PNG/SVG, images inlinées), agentIntegrations (registre detect/status/install/uninstall, `--doctor`, scripts d'embed et `*.generated.ts`, `launcher.json` Pi). Les seules erreurs sont des imprécisions de formulation (ordre de découverte, attribution de `customTourDirectory`, portée de `startPlayer`, état `modified`, événements d'activation) : aucune hallucination de fichier, de chemin ou de symbole. Couverture d'architecture solide (extension, découverte, lecture, CLI, création, rendu, intégrations d'agents), mais les flux d'enregistrement (`src/recorder`, `store/storage`), le fournisseur de notebook, LiveShare, le module Git/diff (`src/git.ts`) et la page HTML autonome (`src/cli/html.ts`) ne sont pas parcourus en étapes.\"}\n",
+  "eval_metrics": {
+    "input_tokens": 55921,
+    "output_tokens": 9325,
+    "cache_read_tokens": 866048,
+    "cache_write_tokens": 0,
+    "total_tokens": 931294,
+    "cost_usd": 0.03402864,
+    "assistant_messages": 25,
+    "tool_calls": 45,
+    "session_started": "2026-11-27T14:55:45.879Z",
+    "session_ended": "2026-11-27T14:57:28.256Z",
+    "cli_result_excerpt": null
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "at": 1795186655.676317,
+  "id": "01a1f968-527f-75d2-80e9-ec9b29a76aed:1:0:7:1795186652.878",
+  "verdict": {
+    "_tokens": 2361.4,
+    "confidence": 0.7,
+    "reason": "Trajectory is long but shows varied, converging work: merging an integration branch, editing source tests plus an ADR doc, and the latest verification run passe",
+    "stuck": false
+  }
+}

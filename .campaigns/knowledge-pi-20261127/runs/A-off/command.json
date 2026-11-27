@@ -1,0 +1,18 @@
+[
+  "rtk",
+  "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/launch-local.sh",
+  "pi",
+  "--memory=off",
+  "--model",
+  "mistral/deepseek-v4-1-flash-1017",
+  "--thinking",
+  "off",
+  "--session-dir",
+  "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/knowledge-pi-20261127/sessions",
+  "--name",
+  "knowledge-pi-20261127-A-off",
+  "--no-prompt-templates",
+  "--no-mcp",
+  "--append-system-prompt",
+  "Campagne de mesure : pr\u00e9serve les sources et les artefacts existants. Ne lis ni les donn\u00e9es priv\u00e9es .campaigns/ ni les Tours existants. Tu peux \u00e9crire une proposition dans /tmp puis cr\u00e9er exactement un Tour via le CLI."
+]

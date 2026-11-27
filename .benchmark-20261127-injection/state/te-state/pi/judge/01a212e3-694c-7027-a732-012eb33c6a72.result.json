@@ -1,0 +1,10 @@
+{
+  "at": 1795614205.715884,
+  "id": "01a212e3-694c-7027-a732-012eb33c6a72:1:0:3:1795614203.058",
+  "verdict": {
+    "_tokens": 2592.0,
+    "confidence": 0.7,
+    "reason": "Workflow is varied: edits span 9 distinct files, includes git diff/status/fetch/commit steps and multiple targeted test/build runs. Only 1 repeated identical fa",
+    "stuck": false
+  }
+}

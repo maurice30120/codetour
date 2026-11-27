@@ -1,0 +1,56 @@
+{
+  "id": "benchmark-D-01",
+  "run": "run-01",
+  "group": "D",
+  "cycle": 1,
+  "position": 1,
+  "workspace": "/private/tmp/codetour-bench-20261127/runs/run-01",
+  "started_at": "2026-11-27T14:33:11+0100",
+  "status": "success",
+  "exit_code": 0,
+  "timed_out": false,
+  "duration_s": 65.2,
+  "session_file": "/Users/dhuyet/.pi/agent/sessions/--private-tmp-codetour-bench-20261127-runs-run-01--/2026-11-27T13-33-11-397Z_01a21d35-bf65-7046-b586-086f7b16d35d.jsonl",
+  "session_id": "01a21d35-bf65-7046-b586-086f7b16d35d",
+  "fold_recorded": true,
+  "effective_config": {
+    "knowledge": true,
+    "knowledge_injection": "both",
+    "microskills": "envfacts+distiller",
+    "toolprune": "auto",
+    "loopguard": "nudge",
+    "repomap": "off",
+    "enabled": true
+  },
+  "injection_probe": {
+    "bytes": 940,
+    "sha256": "423f69fed54b2a753e6ee0b6cd076179ec4b185b21bd6caf33ddbdd63d629cd1",
+    "has_manual": true,
+    "has_knowledge": true,
+    "knowledge_cards": 1,
+    "text": "# repo operating manual (codetour) — learned from earlier sessions in this repository\n- The CodeTour CLI in this repo is run as `node dist/cli.js <subcommand>` (subcommands include `create-project-tour` and `create-changes-tour`); `dist/` is compiled TypeScript output, so it reflects the last build rather than the current sources.\n- This repo's Node toolchain comes from nvm: commands are run with the absolute binary `~/.nvm/versions/node/v24.18.0/bin/node` (Node v24.18.0).\n\n\n# Knowledge from earlier sessions\nUse Knowledge if it covers the point and sources match code. Read code for gaps or contradictions.\n- \"Tour creation rules are transport-free and live in `codetour/packages/tour-generation/src`: `createProjectTour`/`createChangesTour` (from `./creation`) validate the proposal, apply Git/image/Mermaid/workspace-confinement rules, write the Tour atomically and return a `CreationResult` value; the CLI is the only consumer.\"\n"
+  },
+  "prompt_sha256": "cfc474ef6d07ef383677b789a9c1ec419ba66339859a94b89e6e1998b4045815",
+  "tour": {
+    "title": "CodeTour IA — architecture et chemins d'exécution",
+    "description_chars": 156,
+    "step_count": 11,
+    "steps_with_locator": 10,
+    "steps_with_mermaid": 2
+  },
+  "metrics": {
+    "input_tokens": 36438,
+    "output_tokens": 12629,
+    "cache_read_tokens": 444544,
+    "cache_write_tokens": 0,
+    "total_tokens": 493611,
+    "cost_usd": 0.02919801,
+    "assistant_messages": 20,
+    "tool_calls": 36,
+    "session_started": "2026-11-27T13:33:11.397Z",
+    "session_ended": "2026-11-27T13:34:16.265Z",
+    "cli_result_excerpt": "{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127/runs/run-01/.tours/benchmark-D-01.tour\",\"title\":\"CodeTour IA — architecture et chemins d'exécution\",\"stepCount\":11,\"warnings\":[]}"
+  },
+  "stdout_tail": "Visite créée : **CodeTour IA — architecture et chemins d'exécution** → `/private/tmp/codetour-bench-20261127/runs/run-01/.tours/benchmark-D-01.tour` (11 étapes, aucun avertissement).\n\nPour la lire depuis la racine du workspace : `codetour \"CodeTour IA — architecture et chemins d'exécution\"` (terminal) ou `codetour --internal-open-vscode /private/tmp/codetour-bench-20261127/runs/run-01/.tours/benchmark-D-01.tour` (VS Code).\n\nSortie JSON de la commande CLI :\n\n```json\n{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127/runs/run-01/.tours/benchmark-D-01.tour\",\"title\":\"CodeTour IA — architecture et chemins d'exécution\",\"stepCount\":11,\"warnings\":[]}\n```\n",
+  "stderr_tail": ""
+}

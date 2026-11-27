@@ -1,0 +1,44 @@
+{
+  "name": "codetour-tour-generation",
+  "version": "0.1.1",
+  "description": "Transport-free CodeTour creation rules: validates a Tour proposal, applies the Git, image, Mermaid and workspace-confinement rules, and atomically writes the Tour file",
+  "license": "MIT",
+  "author": {
+    "name": "Microsoft Corporation"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/codetour",
+    "directory": "packages/tour-generation"
+  },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "files": [
+    "dist/src",
+    "dist/schema.json",
+    "schema.json",
+    "README.md",
+    "LICENSE.txt"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node ../../scripts/run-compiled-tests.js dist/test"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "ajv": "^6.12.6",
+    "codetour-description-renderer": "file:../description-renderer",
+    "codetour-workspace-identity": "file:../workspace-identity",
+    "jsdom": "26.1.0",
+    "mermaid": "11.12.2",
+    "safe-regex2": "^5.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}

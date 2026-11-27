@@ -1,0 +1,40 @@
+{
+  "index": 9,
+  "slot": "slot-09",
+  "run_id": "benchmark-D-01",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127/runs/run-01",
+  "exit_code": 0,
+  "duration_s": 57.8,
+  "scores": {
+    "exactitude_technique": 9,
+    "exhaustivite": 7,
+    "absence_erreurs": 9,
+    "note_globale": 8.3,
+    "erreurs_constatees": [
+      "Étape 8 (createTour.ts) : « publie exactement un document JSON sur stdout » est trop général — sur le code 2 (usage/help/E/S), stdout reste vide et le message part sur stderr (EXIT_CREATION/USAGE : io.err + return EXIT_USAGE).",
+      "Étape 6 (terminal.ts) : « C'est ce chemin qu'emprunte aussi l'agent qui vient de créer une visite » — le plugin Pi propose un choix (offerReader/openingOptions) entre lecteur terminal et ouverture VS Code ; le terminal n'est pas systématiquement le chemin de l'agent.",
+      "Étape 10 (persistence.ts) : « un échec ne laisse aucun fichier partiel » — si writeFile/sync échoue, le fichier temporaire `.project.tour.tmp-<pid>-<ts>` n'est pas supprimé (seul l'échec du rename fait un unlink) ; la destination, elle, est bien préservée.",
+      "Étape 4 (provider.ts) : le watcher n'observe que `**/{.vscode/tours,.github/tours,.tours}/**/*.tour` ; un `.tour` à la racine n'est pas surveillé, et le répertoire personnalisé `customTourDirectory` (supporté par discoverToursFromRoot/tourDirectories) n'est pas mentionné.",
+      "Étape 11 (pi-plugin) : « le dialogue de fin de réponse » — en fin de réponse c'est un rapport/notification (summaryLines, tokenLine) ; le dialogue est l'offre d'ouverture du lecteur par visite créée.",
+      "Étape 9 (creation.ts) : « avertissements de lisibilité » — les warnings réels sont stepLimitWarnings et orientationStepWarnings (limite d'étapes, étape d'orientation), pas des avertissements de lisibilité.",
+      "Étape 1 : « les règles de création n'existent qu'une fois, dans packages/tour-generation » — approximation : la validation de schéma au chargement (store/tourSchema, schema.json) et le parsing du lecteur CLI vivent aussi dans src/."
+    ],
+    "affirmations_verifiees": 48,
+    "commentaire": "Tour très fidèle au code : tous les fichiers cités existent, tous les patterns d'ancrage résolvent (extension.ts:121 activate, provider.ts:33 discoverTours, player/index.ts:599 registerPlayerModule, cli/terminal.ts:148 runTerminalTour, cli/index.ts:95 boucle create-*-tour, createTour.ts:186 runCreateTourCommand, creation.ts:81 createProjectTour, persistence.ts:13 writeTourAtomic, pi-plugin/README.md) et les descriptions (dist/extension-node.js, MAIN_TOUR_FILES/SUB_TOUR_DIRECTORIES, codes de sortie 0/1/2, .tours/project.tour sans ref, realpath+rename, --install pi) correspondent au code. Les écarts relevés sont des nuances de bord, aucune hallucination de fichier ou de symbole. Exhaustivité correcte pour l'axe extension→découverte→lecture et CLI→création→écriture→journal, mais les chemins d'exécution de l'enregistreur (recorder), du provider de notebooks, de LiveShare, du rendu HTML, du plugin Copilot et de la création d'un Changes Tour (Git merge-base, STALE_HEAD) ne sont pas couverts."
+  },
+  "raw_answer": "{\"exactitude_technique\": 9, \"exhaustivite\": 7, \"absence_erreurs\": 9, \"note_globale\": 8.3, \"erreurs_constatees\": [\"Étape 8 (createTour.ts) : « publie exactement un document JSON sur stdout » est trop général — sur le code 2 (usage/help/E/S), stdout reste vide et le message part sur stderr (EXIT_CREATION/USAGE : io.err + return EXIT_USAGE).\", \"Étape 6 (terminal.ts) : « C'est ce chemin qu'emprunte aussi l'agent qui vient de créer une visite » — le plugin Pi propose un choix (offerReader/openingOptions) entre lecteur terminal et ouverture VS Code ; le terminal n'est pas systématiquement le chemin de l'agent.\", \"Étape 10 (persistence.ts) : « un échec ne laisse aucun fichier partiel » — si writeFile/sync échoue, le fichier temporaire `.project.tour.tmp-<pid>-<ts>` n'est pas supprimé (seul l'échec du rename fait un unlink) ; la destination, elle, est bien préservée.\", \"Étape 4 (provider.ts) : le watcher n'observe que `**/{.vscode/tours,.github/tours,.tours}/**/*.tour` ; un `.tour` à la racine n'est pas surveillé, et le répertoire personnalisé `customTourDirectory` (supporté par discoverToursFromRoot/tourDirectories) n'est pas mentionné.\", \"Étape 11 (pi-plugin) : « le dialogue de fin de réponse » — en fin de réponse c'est un rapport/notification (summaryLines, tokenLine) ; le dialogue est l'offre d'ouverture du lecteur par visite créée.\", \"Étape 9 (creation.ts) : « avertissements de lisibilité » — les warnings réels sont stepLimitWarnings et orientationStepWarnings (limite d'étapes, étape d'orientation), pas des avertissements de lisibilité.\", \"Étape 1 : « les règles de création n'existent qu'une fois, dans packages/tour-generation » — approximation : la validation de schéma au chargement (store/tourSchema, schema.json) et le parsing du lecteur CLI vivent aussi dans src/.\"], \"affirmations_verifiees\": 48, \"commentaire\": \"Tour très fidèle au code : tous les fichiers cités existent, tous les patterns d'ancrage résolvent (extension.ts:121 activate, provider.ts:33 discoverTours, player/index.ts:599 registerPlayerModule, cli/terminal.ts:148 runTerminalTour, cli/index.ts:95 boucle create-*-tour, createTour.ts:186 runCreateTourCommand, creation.ts:81 createProjectTour, persistence.ts:13 writeTourAtomic, pi-plugin/README.md) et les descriptions (dist/extension-node.js, MAIN_TOUR_FILES/SUB_TOUR_DIRECTORIES, codes de sortie 0/1/2, .tours/project.tour sans ref, realpath+rename, --install pi) correspondent au code. Les écarts relevés sont des nuances de bord, aucune hallucination de fichier ou de symbole. Exhaustivité correcte pour l'axe extension→découverte→lecture et CLI→création→écriture→journal, mais les chemins d'exécution de l'enregistreur (recorder), du provider de notebooks, de LiveShare, du rendu HTML, du plugin Copilot et de la création d'un Changes Tour (Git merge-base, STALE_HEAD) ne sont pas couverts.\"}\n",
+  "eval_metrics": {
+    "input_tokens": 26968,
+    "output_tokens": 9376,
+    "cache_read_tokens": 290048,
+    "cache_write_tokens": 0,
+    "total_tokens": 326392,
+    "cost_usd": 0.02137194,
+    "assistant_messages": 16,
+    "tool_calls": 30,
+    "session_started": "2026-11-27T14:30:48.512Z",
+    "session_ended": "2026-11-27T14:31:45.933Z",
+    "cli_result_excerpt": null
+  }
+}

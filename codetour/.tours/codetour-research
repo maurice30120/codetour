@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+# The key comes from the environment, from the gitignored .env.local, or from the
+# macOS keychain; it is never read from a config file inside the checkout.
+if [ -z "${MISTRAL_API_KEY:-}" ] && [ -f "$root/.env.local" ]; then
+  MISTRAL_API_KEY=$(node -p 'const l=require("fs").readFileSync(process.argv[1],"utf8").split(/\r?\n/).find(l=>l.startsWith("MISTRAL_API_KEY="))||"";l.slice("MISTRAL_API_KEY=".length).trim()' "$root/.env.local")
+  export MISTRAL_API_KEY
+fi
+if [ -z "${MISTRAL_API_KEY:-}" ]; then
+  MISTRAL_API_KEY=$(security find-generic-password -a MISTRAL_API_KEY -w) || {
+    echo 'Unable to read the MISTRAL_API_KEY account from the macOS keychain.' >&2
+    exit 1
+  }
+  export MISTRAL_API_KEY
+fi
+
+if command -v codetour-research >/dev/null 2>&1; then
+  exec codetour-research --workspace "$root" --code --memory "$@"
+fi
+exec node "$root/packages/exploration-poc/src/cli.ts" --workspace "$root" --code --memory "$@"

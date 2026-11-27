@@ -1,0 +1,34 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/wt-320-324",
+  "end_reason": "quit",
+  "ended": 1795614501.9546208,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a212e3-694c-7027-a732-012eb33c6a72",
+  "source": "startup",
+  "start_event": [
+    "startup",
+    null
+  ],
+  "started": 1795613223.654743,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-CodeTOUR+Economiser--/2026-11-25T12-45-43-071Z_01a212bd-911e-7543-947e-c4bbad2d25af/c02e9c38-946f-48a7-82e5-d596bb1c3944/run-0/session.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 20,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 99,
+      "turn_key": "01a212e3-694c-7027-a732-012eb33c6a72:1",
+      "verifications": 21,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795614501.954622,
+  "writer_tokens": 0.0
+}

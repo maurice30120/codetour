@@ -1,0 +1,45 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Chargement, validation et progression d'un Tour",
+  "description": "Comment l'extension CodeTour découvre les fichiers .tour d'un espace de travail, les valide contre le schéma du format, les affiche dans la liste des Tours, puis enregistre la progression du lecteur.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour est une extension VS Code (manifeste `codetour/package.json`, point d'entrée `dist/extension-node.js`) qui enregistre et rejoue des visites guidées de code stockées dans des fichiers `.tour` en JSON. Au démarrage, l'activation lance la découverte des Tours, chaque fichier est lu puis validé par un schéma zod, les Tours visibles sont publiés dans le store MobX, et la progression du lecteur est restaurée depuis l'état global de l'extension. Ensuite, chaque avancée de step enregistre le numéro d'étape atteint.\n\n**Diagram — Vue de contexte**\n\n```mermaid\nflowchart LR\n  A[\"extension.ts : activate\"] --> B[\"provider : discoverTours\"]\n  B --> C[\"tourDiscovery : discoverToursFromRoot\"]\n  C --> D[\"tourSchema : loadTour\"]\n  B --> E[\"visibleTours\"]\n  E --> F[\"store MobX\"]\n  F --> G[\"actions : navigation\"]\n  G --> H[\"storage : progress\"]\n```",
+      "questions": [
+        "Où sont cherchés les fichiers .tour dans un espace de travail ?",
+        "Que devient un fichier .tour invalide pendant la découverte ?"
+      ]
+    },
+    {
+      "title": "Le point d'entrée : activation de l'extension",
+      "description": "`activate` enregistre les modules (notebook, player, recorder, LiveShare), puis, si un espace de travail est ouvert, lance `discoverTours()` — mémoïsé pour qu'une ouverture par lien CodeTour ne relise pas les fichiers — avant de proposer un Tour à l'utilisateur et de retourner l'API publique. Le provider s'abonne aussi au cycle de vie de l'extension via `context.subscriptions`.",
+      "file": "codetour/src/extension.ts",
+      "pattern": "if \\(!uriHandler\\.didStartDefaultTour\\)"
+    },
+    {
+      "title": "Le provider : de l'espace de travail au store",
+      "description": "`discoverTours` du provider fait le pont entre VS Code et la découverte indépendante de l'hôte : il fournit une implémentation `TourFilesystem` basée sur `vscode.workspace.fs`, appelle `discoverToursFromRoot` pour chaque dossier de l'espace de travail, filtre le résultat par plateforme avec `visibleTours`, puis publie la liste dans `store.tours` à l'intérieur d'un `runInAction`. Si le Tour actif a changé sur disque, son contenu est remplacé sans interrompre la session de lecture ; s'il a disparu, la visite en cours est terminée.",
+      "file": "codetour/src/store/provider.ts",
+      "pattern": "store\\.tours = visibleTours\\(tours\\.flat\\(\\), TOUR_CONTEXT\\);"
+    },
+    {
+      "title": "La découverte et la lecture des fichiers .tour",
+      "description": "La découverte est volontairement indépendante de l'hôte : elle parcourt récursivement `.vscode/tours`, `.github/tours`, `.tours` (plus un répertoire personnalisé) et lit les fichiers principaux `main.tour`/`.tour` à la racine. Chaque fichier passe par `loadTour` dans un `try/catch` : un fichier illisible ou non conforme est simplement ignoré, jamais propagé comme erreur. L'ordre historique « sous-Tours d'abord, puis Tour principal » est conservé.\n\n**Diagram — Séquence de découverte**\n\n```mermaid\nsequenceDiagram\n  participant P as Provider\n  participant D as Discovery\n  participant S as Schema\n  participant St as Store\n  P->>D: discoverToursFromRoot\n  D->>S: loadTour par fichier\n  S-->>D: Tour validé ou rejet\n  D-->>P: liste des Tours\n  P->>St: visibleTours puis store.tours\n```",
+      "file": "codetour/src/core/tourDiscovery.ts",
+      "pattern": "return tour;"
+    },
+    {
+      "title": "La validation : un seul schéma pour le format .tour",
+      "description": "`tourSchema.ts` est la source de vérité du format : les schémas zod décrivent l'étape (`CodeTourStepSchema`) et le fichier (`TourFileSchema`), avec `looseObject` pour préserver les propriétés inconnues lors d'un aller-retour disque. `parseTourFile` combine `JSON.parse` et `TourFileSchema.parse` : un JSON invalide ou non conforme lève une erreur portant les chemins fautifs. `loadTour` ajoute ensuite l'identité attribuée par l'hôte (URI ou URL de fichier). Les contraintes visibles : `questions` limitées à 4, `baseRef` en SHA de commit de 40 caractères.",
+      "file": "codetour/src/store/tourSchema.ts",
+      "pattern": "return TourFileSchema\\.parse\\(JSON\\.parse\\(contents\\)\\);"
+    },
+    {
+      "title": "La progression : enregistrer puis relire les étapes atteintes",
+      "description": "`initializeStorage` restaure `store.progress` depuis `globalState` (clé `codetour:progress`), expose l'objet `progress` puis déclare cette clé synchronisable entre machines.\n\n**Diagram — Cycle de la progression**\n\n```mermaid\nstateDiagram-v2\n  [*] --> Idle\n  Idle --> Reading: startCodeTour\n  Reading --> Reading: progression enregistrée\n  Reading --> Idle: fin de visite\n  Idle --> [*]: reset\n```\n\n`progress.update()` ajoute l'étape courante de la visite active puis persiste la liste `[idDuTour, numérosDÉtapes]` dans `globalState` ; `isComplete` répond pour une étape ou pour le Tour entier ; `reset` efface tout ou seulement le Tour demandé. L'écriture se produit à chaque avancée (`moveCurrentCodeTourForward`) et à la fin d'une visite.",
+      "file": "codetour/src/store/storage.ts",
+      "pattern": "tourProgress\\.length >= tour\\.steps\\.length"
+    }
+  ]
+}

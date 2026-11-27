@@ -1,0 +1,56 @@
+{
+  "id": "benchmark-C-both-01",
+  "run": "run-01",
+  "group": "C-both",
+  "cycle": 1,
+  "position": 1,
+  "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-01",
+  "started_at": "2026-11-27T16:20:13+0100",
+  "status": "success",
+  "exit_code": 0,
+  "timed_out": false,
+  "duration_s": 116.7,
+  "session_file": "/Users/dhuyet/.pi/agent/sessions/--private-tmp-codetour-bench-20261127-injection-runs-run-01--/2026-11-27T15-20-13-915Z_01a21d97-bf5b-755a-80a0-e20146cba1cc.jsonl",
+  "session_id": "01a21d97-bf5b-755a-80a0-e20146cba1cc",
+  "fold_recorded": true,
+  "effective_config": {
+    "knowledge": true,
+    "knowledge_injection": "both",
+    "microskills": "off",
+    "toolprune": "auto",
+    "loopguard": "nudge",
+    "repomap": "off",
+    "enabled": true
+  },
+  "injection_probe": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "has_manual": false,
+    "has_knowledge": false,
+    "knowledge_cards": 0,
+    "text": ""
+  },
+  "prompt_sha256": "2fae517715969bd96a6ef81d9586374d4c13e9e6fd3b9d968bf492cfa511b6cc",
+  "tour": {
+    "title": "Architecture et chemins d'exécution",
+    "description_chars": 153,
+    "step_count": 11,
+    "steps_with_locator": 10,
+    "steps_with_mermaid": 1
+  },
+  "metrics": {
+    "input_tokens": 50985,
+    "output_tokens": 22463,
+    "cache_read_tokens": 885120,
+    "cache_write_tokens": 0,
+    "total_tokens": 958568,
+    "cost_usd": 0.04844694,
+    "assistant_messages": 28,
+    "tool_calls": 46,
+    "session_started": "2026-11-27T15:20:13.915Z",
+    "session_ended": "2026-11-27T15:22:09.999Z",
+    "cli_result_excerpt": "{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127-injection/runs/run-01/.tours/benchmark-C-both-01.tour\",\"title\":\"Architecture et chemins d'exécution\",\"stepCount\":11,\"warnings\":[]}"
+  },
+  "stdout_tail": "Tour créé : **Architecture et chemins d'exécution** → `.tours/benchmark-C-both-01.tour` (11 étapes, aucun avertissement).\n\n```json\n{\"ok\":true,\"kind\":\"project\",\"tourPath\":\"/private/tmp/codetour-bench-20261127-injection/runs/run-01/.tours/benchmark-C-both-01.tour\",\"title\":\"Architecture et chemins d'exécution\",\"stepCount\":11,\"warnings\":[]}\n```\n\nPour le lire, depuis la racine du workspace : `codetour \"Architecture et chemins d'exécution\"` (terminal), ou `codetour --internal-open-vscode .tours/benchmark-C-both-01.tour` (VS Code).\n",
+  "stderr_tail": ""
+}

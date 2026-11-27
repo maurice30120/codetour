@@ -1,0 +1,10 @@
+{
+  "at": 1795630210.783372,
+  "id": "01a213cd-8111-7081-bf6f-4e8bde790668:5:0:2:1795630209.481",
+  "verdict": {
+    "_tokens": 2540.0,
+    "confidence": 0.82,
+    "reason": "Low churn (6), many distinct files touched, only 1 repeated failure, low stagnation (0.14), and the most recent verification run passed \u2014 indicating continued p",
+    "stuck": false
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "index": 2,
+  "slot": "slot-02",
+  "run_id": "benchmark-C-03",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127/runs/run-10",
+  "exit_code": 0,
+  "duration_s": 465.9,
+  "scores": {
+    "exactitude_technique": 9,
+    "exhaustivite": 7,
+    "absence_erreurs": 9,
+    "note_globale": 8.3,
+    "erreurs_constatees": [
+      "Étape 1 : « une visite … une suite d'étapes, chacune ancrée à un fichier, un répertoire ou une sélection » est trop général — les étapes purement explicatives sans ancre sont autorisées (validation.ts) et l'étape d'orientation du tour n'a elle-même aucun ancrage.",
+      "Étape 6 : « un fichier introuvable laisse l'étape lisible » n'est vrai qu'en mode webview (et pour le repli diff) ; en mode commentaires natif, l'échec de résolution d'un pattern ou de l'ouverture du document est relancé (src/player/index.ts, branches `if (!isWebviewPlayback()) throw error`).",
+      "Étape 8 : « une visite portant ce titre exact passe par le sélecteur » — le repli réel est une invite numérotée sur stdin (`pickTour`), pas un sélecteur VS Code ; formulation approximative.",
+      "Étape 11 : « Aucun appelant n'écrit directement » est trop large : le recorder de l'extension écrit des fichiers `.tour` via `vscode.workspace.fs.writeFile` (src/recorder/commands.ts) ; l'affirmation n'est exacte que dans le périmètre du paquet tour-generation.",
+      "Étape 4 : la liste « `.tour`, `.vscode/main.tour`, `main.tour` » reprend littéralement MAIN_TOUR_FILES, mais le premier élément désigne un fichier nommé `.tour` à la racine, pas un motif `*.tour` — libellé « fichiers principaux » trompeur même s'il est fidèle au code."
+    ],
+    "affirmations_verifiees": 56,
+    "commentaire": "Tous les fichiers, chemins et motifs d'ancrage cités existent et chaque `pattern` correspond à une occurrence unique dans le fichier visé (10/10 ancres vérifiées). Les affirmations structurantes sont exactes : manifeste (`main` = ./dist/extension-node.js, `onStartupFinished` + `onNotebookEditor:codetour`), composition d'`activate` (notebook, player, step chat, recorder, LiveShare, URIHandler, découverte, prompt, Git, API), découverte partagée (`discoverToursFromRoot`/`visibleTours`, zod, jexl) utilisée par le provider et la CLI, store MobX et `startCodeTourInternal`, `reaction` + `renderCurrentStep` + `renderVersion`, `renderPreviewDescription` (Mermaid local, lisibilité, liens d'insertion de code), CLI commander avec commandes `create-*-tour` en passthrough, contrat de sortie 0/1/2 de `runCreateTourCommand`, règles de `creation.ts` (validation avant écriture, `.tours/project.tour`, `Project Overview`, `fileName` confiné, journal non bloquant) et `writeTourAtomic` (mkdtemp/realpath/fsync/rename, OutputPathError). Le tour est donc fiable et bien ancré ; il pèche surtout par couverture : il ne suit pas le chemin de lecture principal de la CLI (terminal/HTML, `src/cli/terminal.ts`, handoff TTY), ni l'enregistrement en éditeur, le notebook, Live Share, les paquets plugins agent, le détail du flux Changes Tour/Git, ni `workspace-identity`."
+  },
+  "raw_answer": "{\"exactitude_technique\": 9, \"exhaustivite\": 7, \"absence_erreurs\": 9, \"note_globale\": 8.3, \"erreurs_constatees\": [\"Étape 1 : « une visite … une suite d'étapes, chacune ancrée à un fichier, un répertoire ou une sélection » est trop général — les étapes purement explicatives sans ancre sont autorisées (validation.ts) et l'étape d'orientation du tour n'a elle-même aucun ancrage.\", \"Étape 6 : « un fichier introuvable laisse l'étape lisible » n'est vrai qu'en mode webview (et pour le repli diff) ; en mode commentaires natif, l'échec de résolution d'un pattern ou de l'ouverture du document est relancé (src/player/index.ts, branches `if (!isWebviewPlayback()) throw error`).\", \"Étape 8 : « une visite portant ce titre exact passe par le sélecteur » — le repli réel est une invite numérotée sur stdin (`pickTour`), pas un sélecteur VS Code ; formulation approximative.\", \"Étape 11 : « Aucun appelant n'écrit directement » est trop large : le recorder de l'extension écrit des fichiers `.tour` via `vscode.workspace.fs.writeFile` (src/recorder/commands.ts) ; l'affirmation n'est exacte que dans le périmètre du paquet tour-generation.\", \"Étape 4 : la liste « `.tour`, `.vscode/main.tour`, `main.tour` » reprend littéralement MAIN_TOUR_FILES, mais le premier élément désigne un fichier nommé `.tour` à la racine, pas un motif `*.tour` — libellé « fichiers principaux » trompeur même s'il est fidèle au code.\"], \"affirmations_verifiees\": 56, \"commentaire\": \"Tous les fichiers, chemins et motifs d'ancrage cités existent et chaque `pattern` correspond à une occurrence unique dans le fichier visé (10/10 ancres vérifiées). Les affirmations structurantes sont exactes : manifeste (`main` = ./dist/extension-node.js, `onStartupFinished` + `onNotebookEditor:codetour`), composition d'`activate` (notebook, player, step chat, recorder, LiveShare, URIHandler, découverte, prompt, Git, API), découverte partagée (`discoverToursFromRoot`/`visibleTours`, zod, jexl) utilisée par le provider et la CLI, store MobX et `startCodeTourInternal`, `reaction` + `renderCurrentStep` + `renderVersion`, `renderPreviewDescription` (Mermaid local, lisibilité, liens d'insertion de code), CLI commander avec commandes `create-*-tour` en passthrough, contrat de sortie 0/1/2 de `runCreateTourCommand`, règles de `creation.ts` (validation avant écriture, `.tours/project.tour`, `Project Overview`, `fileName` confiné, journal non bloquant) et `writeTourAtomic` (mkdtemp/realpath/fsync/rename, OutputPathError). Le tour est donc fiable et bien ancré ; il pèche surtout par couverture : il ne suit pas le chemin de lecture principal de la CLI (terminal/HTML, `src/cli/terminal.ts`, handoff TTY), ni l'enregistrement en éditeur, le notebook, Live Share, les paquets plugins agent, le détail du flux Changes Tour/Git, ni `workspace-identity`.\"}",
+  "eval_metrics": {
+    "input_tokens": 54063,
+    "output_tokens": 14156,
+    "cache_read_tokens": 1404160,
+    "cache_write_tokens": 0,
+    "total_tokens": 1472379,
+    "cost_usd": 0.04303522,
+    "assistant_messages": 43,
+    "tool_calls": 41,
+    "session_started": "2026-11-27T14:11:21.548Z",
+    "session_ended": "2026-11-27T14:19:07.155Z",
+    "cli_result_excerpt": null
+  }
+}

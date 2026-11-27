@@ -1,0 +1,10 @@
+# benchmark-B-02 (run-05, group B)
+## stdout
+Visite créée : **Architecture de CodeTour IA : de la proposition JSON à la visite lue** — `run-05/.tours/benchmark-B-02.tour` (13 étapes, aucun avertissement).
+
+```json
+{"ok":true,"kind":"project","tourPath":"/private/tmp/codetour-bench-20261127/runs/run-05/.tours/benchmark-B-02.tour","title":"Architecture de CodeTour IA : de la proposition JSON à la visite lue","stepCount":13,"warnings":[]}
+```
+
+## stderr
+

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "CodeTour : charger, valider et mémoriser la progression",
+  "description": "Comment l'extension CodeTour découvre un fichier .tour, le valide avec son schéma, le charge dans le store, puis enregistre la progression de lecture du lecteur.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble du chemin",
+      "description": "CodeTour est une extension VS Code qui enregistre et rejoue des visites guidées de code. Le fichier `.tour` est un document JSON ; l'extension le découvre au démarrage et à chaque changement du système de fichiers, le valide contre un schéma zod unique, le place dans le store observable, puis persiste les numéros d'étapes déjà vues dans `globalState` sous la clé `codetour:progress`.\n\nLe parcours ci-dessous suit un seul Tour, de la découverte du fichier jusqu'à l'écriture de la progression.\n\n**Diagram — Chargement et progression**\n\n```mermaid\nflowchart TD\n  Watcher[\"Watcher de fichiers\"] --> Provider[\"provider.discoverTours\"]\n  Provider --> Disc[\"core.tourDiscovery\"]\n  Disc --> Schema[\"tourSchema.parseTourFile\"]\n  Schema --> Store[\"store.tours (observable)\"]\n  Store --> Reader[\"Lecture des étapes\"]\n  Reader --> Actions[\"actions.moveCurrentCodeTourForward\"]\n  Actions --> Storage[\"storage.progress.update\"]\n  Storage --> Global[\"globalState\"]\n```\n\nLes étapes suivantes s'arrêtent sur chacun de ces maillons.",
+      "questions": [
+        "À quel moment un fichier .tour est-il relu ?",
+        "Que se passe-t-il si un fichier .tour est invalide ?"
+      ]
+    },
+    {
+      "title": "Déclencheur : découverte des Tours",
+      "description": "Point d'entrée du chargement côté VS Code : `discoverTours` interroge chaque dossier de l'espace de travail, puis remplace `store.tours` par la liste filtrée par visibilité de plateforme. Un `FileSystemWatcher` sur les répertoires de Tours (`create`/`change`/`delete`) et l'événement `onDidChangeWorkspaceFolders` rappellent cette même fonction, ce qui garde le store synchronisé avec les fichiers.\n\nSi le Tour actif existe toujours, il est rechargé sans interrompre la session de lecture ; sinon la visite courante est terminée.",
+      "questions": [
+        "Pourquoi le rechargement conserve-t-il la session en cours ?"
+      ],
+      "file": "src/store/provider.ts",
+      "pattern": "export async function discoverTours"
+    },
+    {
+      "title": "Emplacements et parsing host-independent",
+      "description": "Le cœur est indépendant de l'hôte : VS Code et le lecteur autonome partagent les mêmes emplacements (`MAIN_TOUR_FILES`, `SUB_TOUR_DIRECTORIES`) et les mêmes règles de parsing. L'adaptateur ne fournit que quatre primitives — `join`, `read`, `list`, `id` — ce qui rend la découverte testable sans VS Code.\n\n`readTour` appelle `loadTour` et **ignore silencieusement** tout fichier illisible ou invalide : un `.tour` corrompu ne casse pas la découverte, il est simplement absent de la liste.\n\n**Diagram — Séparation hôte / cœur**\n\n```mermaid\nflowchart LR\n  VSCode[\"Adaptateur VS Code\"] --> Core[\"discoverToursFromRoot\"]\n  CLI[\"Lecteur autonome\"] --> Core\n  Core --> Files[\"Fichiers .tour\"]\n```",
+      "questions": [
+        "Pourquoi ignorer silencieusement un Tour invalide plutôt que lever une erreur ?"
+      ],
+      "file": "src/core/tourDiscovery.ts",
+      "pattern": "export async function discoverToursFromRoot"
+    },
+    {
+      "title": "Validation : le schéma comme source unique",
+      "description": "`TourFileSchema` est la source de vérité du format sur disque. Les objets sont `looseObject` : les propriétés inconnues sont **préservées**, comme le faisait le `JSON.parse` brut, si bien qu'un champ non géré survit à un aller-retour découverte/sauvegarde.\n\nLes types TypeScript sont dérivés des schémas (`z.infer`), ce qui empêche le schéma et les interfaces de diverger. Les contraintes de format vivent ici : `baseRef` doit être un SHA complet (`/^[0-9a-f]{40}$/`), une étape accepte au plus 4 `questions`, et une `description` absente devient une chaîne vide plutôt qu'une erreur.",
+      "questions": [
+        "Quel intérêt y a-t-il à conserver les propriétés inconnues ?",
+        "Pourquoi une description manquante n'invalide-t-elle pas l'étape ?"
+      ],
+      "file": "src/store/tourSchema.ts",
+      "pattern": "export const TourFileSchema"
+    },
+    {
+      "title": "Chargement et identité du Tour",
+      "description": "`parseTourFile` analyse le JSON puis le valide avec `TourFileSchema.parse` ; en cas d'échec, zod lève une erreur contenant les chemins fautifs, ce qui permet à l'appelant de pointer le vrai problème.\n\n`loadTour` ajoute l'identité attribuée par l'hôte via `Object.assign`. C'est cette `id` (une URI décodée pour l'extension, une URL de fichier pour le lecteur) qui sert ensuite de clé de progression : le Tour chargé est un `CodeTour`, c'est-à-dire le contenu du fichier plus son `id`.",
+      "questions": [
+        "Que porte l'id attribuée au chargement ?"
+      ],
+      "file": "src/store/tourSchema.ts",
+      "pattern": "export function loadTour"
+    },
+    {
+      "title": "Progression : mise à jour à l'avancement",
+      "description": "L'avancement est le point d'écriture : avant de passer à l'étape suivante, `moveCurrentCodeTourForward` résout d'abord un éventuel brouillon d'édition, puis appelle `progress.update()`. La commande `finishTour` fait de même. La progression n'est donc jamais enregistrée pour une étape que le lecteur n'a pas réellement quittée.\n\nUn retour en arrière (`moveCurrentCodeTourBackward`) ne met rien à jour : la progression est cumulative, pas un curseur.\n\n**Diagram — Séquence de mise à jour**\n\n```mermaid\nsequenceDiagram\n  participant Lecteur\n  participant Actions\n  participant Stockage\n  participant Global\n  Lecteur->>Actions: moveCurrentCodeTourForward\n  Actions->>Actions: resolveStepDraftBeforeExit\n  Actions->>Stockage: progress.update()\n  Stockage->>Global: update(codetour:progress)\n  Actions->>Lecteur: étape suivante\n```",
+      "questions": [
+        "Pourquoi la progression n'est-elle pas écrite au moment de l'affichage de l'étape ?"
+      ],
+      "file": "src/store/actions.ts",
+      "pattern": "export async function moveCurrentCodeTourForward"
+    },
+    {
+      "title": "Persistance : globalState et clé de synchronisation",
+      "description": "`initializeStorage` branche le store sur le stockage persistant de l'extension. La progression est un tableau de paires `[idDuTour, numérosDÉtapesVus]`, relu depuis `context.globalState` à l'activation et réécrit sous la clé `codetour:progress` à chaque mise à jour.\n\nLa même fonction enregistre la clé auprès de `setKeysForSync`, ce qui la fait suivre l'utilisateur entre machines, et maintient le contexte `codetour:hasProgress` pour que les menus et vues sachent s'il existe une progression. La mutation passe toujours par l'API `progress` (`update`, `isComplete`, `reset`) afin que l'état persistant, le store et ce contexte restent cohérents.",
+      "questions": [
+        "Comment `isComplete` décide-t-il qu'un Tour est terminé ?",
+        "Que fait `reset` sur un Tour précis ?"
+      ],
+      "file": "src/store/storage.ts",
+      "pattern": "export function initializeStorage"
+    }
+  ]
+}

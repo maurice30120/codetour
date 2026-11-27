@@ -1,0 +1,7 @@
+[submodule "TokenEconomizer"]
+	path = TokenEconomizer
+	url = https://github.com/maurice30120/TokenEconomizer.git
+	branch = spec-304-integration
+[submodule "postgres-benchmark"]
+	path = codetour/poc/benchmark/postgres
+	url = https://github.com/postgres/postgres.git

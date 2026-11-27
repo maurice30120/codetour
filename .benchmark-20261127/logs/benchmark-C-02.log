@@ -1,0 +1,14 @@
+# benchmark-C-02 (run-08, group C)
+## stdout
+Visite créée : **« Architecture de CodeTour IA : de la génération à la lecture »** — `/.tours/benchmark-C-02.tour` (13 étapes, aucun avertissement).
+
+Sortie JSON de la commande CLI :
+
+```json
+{"ok":true,"kind":"project","tourPath":"/private/tmp/codetour-bench-20261127/runs/run-08/.tours/benchmark-C-02.tour","title":"Architecture de CodeTour IA : de la génération à la lecture","stepCount":13,"warnings":[]}
+```
+
+Pour la lire, depuis la racine du workspace : `codetour "Architecture de CodeTour IA : de la génération à la lecture"`, ou `codetour --internal-open-vscode .tours/benchmark-C-02.tour` dans VS Code.
+
+## stderr
+

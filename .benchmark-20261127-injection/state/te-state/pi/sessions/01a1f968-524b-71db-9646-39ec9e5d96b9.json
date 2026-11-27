@@ -1,0 +1,30 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/codetour-wt/264-copilot-reader",
+  "end_reason": "quit",
+  "ended": 1795187355.021387,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a1f968-524b-71db-9646-39ec9e5d96b9",
+  "source": "startup",
+  "started": 1795185726.1334841,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour--/2026-11-20T14-28-23-325Z_01a1f95b-c49d-77db-9e22-2c8e2d5e90ba/63b90528-d3a8-4014-a39f-38f522d4210d/run-0/session.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 25,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 135,
+      "turn_key": "01a1f968-524b-71db-9646-39ec9e5d96b9:1",
+      "verifications": 26,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795187355.021388,
+  "writer_tokens": 0.0
+}

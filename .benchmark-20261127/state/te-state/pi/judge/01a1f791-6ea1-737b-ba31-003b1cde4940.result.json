@@ -1,0 +1,10 @@
+{
+  "at": 1795155526.960153,
+  "id": "01a1f791-6ea1-737b-ba31-003b1cde4940:1:0:3:1795155525.901",
+  "verdict": {
+    "_tokens": 1922.4,
+    "confidence": 0.7,
+    "reason": "Digest shows varied activity: distinct files edited, diffs inspected, targeted greps, stashing to isolate compile errors, and test runs whose outputs change (re",
+    "stuck": false
+  }
+}

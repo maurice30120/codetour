@@ -1,0 +1,58 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Charger, valider et suivre la progression d'un Tour",
+  "description": "Comment CodeTour découvre les fichiers `.tour` d'un espace de travail, valide leur contenu contre le schéma du format, puis enregistre la progression de lecture entre deux sessions.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour lit les Tours depuis le disque au démarrage de l'extension, transforme chaque fichier en objet `CodeTour` validé, puis conserve la progression de lecture dans l'état global de l'espace de travail.\n\n**Diagram — Vue de contexte**\n\n```mermaid\nflowchart LR\n  Disk[\"Fichiers .tour\"] --> Discovery\n  Discovery --> Schema[\"Validation (zod)\"]\n  Schema --> Store[\"store.tours\"]\n  Store --> Player[\"Lecteur / navigation\"]\n  Player --> Progress[\"Progression persistée\"]\n```\n\nLes étapes suivantes suivent ce trajet : découverte (`src/core/tourDiscovery.ts`), validation (`src/store/tourSchema.ts`), alimentation du store (`src/store/provider.ts`), mise à jour de la progression (`src/store/storage.ts`) et ses points d'appel lors de la navigation.",
+      "questions": [
+        "Où le store reçoit-il la liste des Tours visibles ?",
+        "Que se passe-t-il quand un fichier `.tour` est modifié sur le disque ?"
+      ]
+    },
+    {
+      "title": "Découverte des fichiers de Tours",
+      "description": "`discoverToursFromRoot` agrège trois sources : les sous-répertoires de Tours (`.vscode/tours`, `.github/tours`, `.tours`, plus le répertoire personnalisé éventuel), lus récursivement, puis les fichiers de Tour « principaux ». Chaque fichier est lu et confié à `loadTour` ; les fichiers illisibles ou qui ne sont pas des Tours sont ignorés avec `catch` plutôt que de faire échouer la découverte.",
+      "file": "codetour/src/core/tourDiscovery.ts",
+      "line": 25
+    },
+    {
+      "title": "Validation du format",
+      "description": "`parseTourFile` est le point de validation unique du format : `JSON.parse` transforme le texte en données, puis `TourFileSchema.parse` vérifie la forme (titre obligatoire, étapes, `baseRef` en SHA complet de 40 caractères…). Grâce à `looseObject`, les propriétés inconnues sont conservées au lieu d'être rejetées, ce qui permet un aller-retour sans perte. `loadTour` ajoute enfin l'identité du Tour (son URI ou URL de fichier).",
+      "questions": [
+        "Pourquoi le schéma runtime et `schema.json` doivent-ils rester alignés ?"
+      ],
+      "file": "codetour/src/store/tourSchema.ts",
+      "line": 83
+    },
+    {
+      "title": "Alimentation du store et rafraîchissement",
+      "description": "Le provider de l'hôte construit l'adaptateur de système de fichiers, appelle la découverte pour chaque dossier de l'espace de travail, filtre les Tours via `visibleTours` (tri par titre et conditions `when`) puis publie le résultat dans `store.tours`. Un watcher sur les répertoires de Tours relance la découverte à chaque création, modification ou suppression de fichier `.tour`.",
+      "questions": [
+        "Que devient le Tour actif si son fichier disparaît lors d'une redécouverte ?"
+      ],
+      "file": "codetour/src/store/provider.ts",
+      "line": 60
+    },
+    {
+      "title": "Enregistrement de la progression",
+      "description": "`initializeStorage` recharge la progression depuis `context.globalState` sous la clé `codetour:progress`, puis expose un objet `progress`. Son `update` ajoute l'étape courante à la liste du Tour actif et persiste l'ensemble ; `isComplete` répond pour une étape précise ou pour le Tour entier ; `reset` efface tout ou un seul Tour. La clé est aussi déclarée synchronisable entre machines via `setKeysForSync`.",
+      "questions": [
+        "Que contient exactement une entrée de `store.progress` ?",
+        "Pourquoi `setKeysForSync` est-il appelé sur cette clé ?"
+      ],
+      "file": "codetour/src/store/storage.ts",
+      "line": 21
+    },
+    {
+      "title": "Quand la progression est réellement écrite",
+      "description": "La progression n'est pas enregistrée à chaque affichage d'étape : `moveCurrentCodeTourForward` résout d'abord un éventuel brouillon d'édition, puis appelle `progress.update()` avant d'avancer d'une étape. La commande `finishTour` fait de même en fin de parcours, et `initializeStorage` est branché à l'enregistrement du module lecteur — la boucle découverte → validation → lecture → progression est ainsi complète.",
+      "questions": [
+        "Que se passe-t-il si l'auteur annule la résolution de son brouillon ?"
+      ],
+      "file": "codetour/src/store/actions.ts",
+      "line": 207
+    }
+  ]
+}

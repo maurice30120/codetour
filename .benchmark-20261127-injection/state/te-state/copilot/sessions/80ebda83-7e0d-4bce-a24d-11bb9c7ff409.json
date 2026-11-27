@@ -1,0 +1,17 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "end_reason": "user_exit",
+  "ended": 1795525775.539062,
+  "folded": true,
+  "host": "copilot",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "80ebda83-7e0d-4bce-a24d-11bb9c7ff409",
+  "source": "new",
+  "started": 1795525721.549655,
+  "transcript": "/Users/dhuyet/.copilot/session-state/80ebda83-7e0d-4bce-a24d-11bb9c7ff409/events.jsonl",
+  "turns": [],
+  "updated": 1795525775.539068,
+  "writer_tokens": 0.0
+}

@@ -1,0 +1,12 @@
+# benchmark-A-01 (run-04, group A)
+## stdout
+Visite créée : **Architecture de CodeTour IA : extension, CLI et génération de visites** — `/private/tmp/codetour-bench-20261127/runs/run-04/.tours/benchmark-A-01.tour` (14 étapes, aucun avertissement).
+
+```json
+{"ok":true,"kind":"project","tourPath":"/private/tmp/codetour-bench-20261127/runs/run-04/.tours/benchmark-A-01.tour","title":"Architecture de CodeTour IA : extension, CLI et génération de visites","stepCount":14,"warnings":[]}
+```
+
+Lecture possible depuis la racine du workspace : `codetour "Architecture de CodeTour IA : extension, CLI et génération de visites"` ou `codetour --internal-open-vscode .tours/benchmark-A-01.tour`.
+
+## stderr
+

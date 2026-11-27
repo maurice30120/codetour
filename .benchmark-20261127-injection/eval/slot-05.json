@@ -1,0 +1,39 @@
+{
+  "index": 5,
+  "slot": "slot-05",
+  "run_id": "benchmark-C-both-03",
+  "masked_tour": "tours/project.tour",
+  "workspace": "/private/tmp/codetour-bench-20261127-injection/runs/run-07",
+  "exit_code": 0,
+  "duration_s": 124.5,
+  "scores": {
+    "exactitude_technique": 8,
+    "exhaustivite": 8,
+    "absence_erreurs": 8,
+    "note_globale": 8.0,
+    "erreurs_constatees": [
+      "Étape « Le format .tour » : l'affirmation que schema.json et l'exécution « ne peuvent pas diverger silencieusement » est fausse. schema.json est maintenu à la main (aucun script de génération ni test de parité) et diverge déjà : il exige `description` sur chaque étape (required: [\"description\"]) alors que TourFileSchema la rend optionnelle via `.default(\"\")`.",
+      "Étape « Création : les règles partagées » : writeTourAtomic vérifie le confinement par realpath sur le répertoire AVANT d'écrire le fichier temporaire, pas après le sync ; l'ordre décrit (« synchronise, vérifie par realpath, puis renomme ») est inexact.",
+      "Étape « Création : les règles partagées » : « une erreur supprime le temporaire » n'est vrai que pour un échec du rename ; une erreur pendant writeFile/sync laisse le fichier `.…tmp-pid-date` sur disque (seul le handle est fermé en finally).",
+      "Étape « Le lecteur terminal » : la « politique de narration » est présentée comme un collaborateur injectable alors que NarrationPolicy est construite en interne par TerminalReader ; le seam injectable est le contrôleur de narration (`speech`).",
+      "Étape « Lecture dans l'éditeur » : le contrôleur de commentaires n'est pas créé par registerPlayerModule mais par startPlayer (`comments.createCommentController`) ; le module player en est propriétaire, mais l'affectation au moment de l'enregistrement est approximative.",
+      "Étape « Du source aux deux bundles » : l'alias `codetour-workspace-identity` pointe vers `packages/workspace-identity/index.js` (source JS du paquet), pas vers une sortie compilée `dist/…` comme les deux autres alias."
+    ],
+    "affirmations_verifiees": 62,
+    "commentaire": "Tour très fidèle au code : les chemins, symboles et patterns d'ancrage existent tous (package.json, src/extension.ts, src/store/provider.ts, src/core/tourDiscovery.ts, src/store/tourSchema.ts, src/player/index.ts, src/cli/index.ts, src/cli/createTour.ts, packages/tour-generation/src/creation.ts, src/cli/reader/reader.ts, webpack.config.js), et les flux décrits (activation, découverte partagée éditeur/CLI, lecture terminal, création avec validation puis écriture atomique et journal) correspondent au code, y compris des détails exacts comme les emplacements de Tours, le filtre `when` via jexl, le confinement du `fileName`, les codes de sortie 0/1/2, les options --agents/--doctor/--install traitées avant la résolution Git, ou le sous-module TokenEconomizer non initialisé. Les écarts relevés sont des imprécisions locales (ordre du contrôle realpath, nettoyage du temporaire en cas d'erreur, politique de narration dite injectable, contrôleur de commentaires, alias workspace-identity) et une surestimation sur la garantie anti-divergence entre schema.json et le schéma d'exécution. L'exhaustivité est bonne sur l'architecture et les deux routes principales (lecture et génération), mais laisse de côté le recorder, LiveShare, l'API publique, le provider notebook au-delà du manifeste et le rendu HTML/webview."
+  },
+  "raw_answer": "{\"exactitude_technique\": 8, \"exhaustivite\": 8, \"absence_erreurs\": 8, \"note_globale\": 8.0, \"erreurs_constatees\": [\"Étape « Le format .tour » : l'affirmation que schema.json et l'exécution « ne peuvent pas diverger silencieusement » est fausse. schema.json est maintenu à la main (aucun script de génération ni test de parité) et diverge déjà : il exige `description` sur chaque étape (required: [\\\"description\\\"]) alors que TourFileSchema la rend optionnelle via `.default(\\\"\\\")`.\", \"Étape « Création : les règles partagées » : writeTourAtomic vérifie le confinement par realpath sur le répertoire AVANT d'écrire le fichier temporaire, pas après le sync ; l'ordre décrit (« synchronise, vérifie par realpath, puis renomme ») est inexact.\", \"Étape « Création : les règles partagées » : « une erreur supprime le temporaire » n'est vrai que pour un échec du rename ; une erreur pendant writeFile/sync laisse le fichier `.…tmp-pid-date` sur disque (seul le handle est fermé en finally).\", \"Étape « Le lecteur terminal » : la « politique de narration » est présentée comme un collaborateur injectable alors que NarrationPolicy est construite en interne par TerminalReader ; le seam injectable est le contrôleur de narration (`speech`).\", \"Étape « Lecture dans l'éditeur » : le contrôleur de commentaires n'est pas créé par registerPlayerModule mais par startPlayer (`comments.createCommentController`) ; le module player en est propriétaire, mais l'affectation au moment de l'enregistrement est approximative.\", \"Étape « Du source aux deux bundles » : l'alias `codetour-workspace-identity` pointe vers `packages/workspace-identity/index.js` (source JS du paquet), pas vers une sortie compilée `dist/…` comme les deux autres alias.\"], \"affirmations_verifiees\": 62, \"commentaire\": \"Tour très fidèle au code : les chemins, symboles et patterns d'ancrage existent tous (package.json, src/extension.ts, src/store/provider.ts, src/core/tourDiscovery.ts, src/store/tourSchema.ts, src/player/index.ts, src/cli/index.ts, src/cli/createTour.ts, packages/tour-generation/src/creation.ts, src/cli/reader/reader.ts, webpack.config.js), et les flux décrits (activation, découverte partagée éditeur/CLI, lecture terminal, création avec validation puis écriture atomique et journal) correspondent au code, y compris des détails exacts comme les emplacements de Tours, le filtre `when` via jexl, le confinement du `fileName`, les codes de sortie 0/1/2, les options --agents/--doctor/--install traitées avant la résolution Git, ou le sous-module TokenEconomizer non initialisé. Les écarts relevés sont des imprécisions locales (ordre du contrôle realpath, nettoyage du temporaire en cas d'erreur, politique de narration dite injectable, contrôleur de commentaires, alias workspace-identity) et une surestimation sur la garantie anti-divergence entre schema.json et le schéma d'exécution. L'exhaustivité est bonne sur l'architecture et les deux routes principales (lecture et génération), mais laisse de côté le recorder, LiveShare, l'API publique, le provider notebook au-delà du manifeste et le rendu HTML/webview.\"}\n",
+  "eval_metrics": {
+    "input_tokens": 38882,
+    "output_tokens": 8675,
+    "cache_read_tokens": 1079936,
+    "cache_write_tokens": 0,
+    "total_tokens": 1127493,
+    "cost_usd": 0.02963415,
+    "assistant_messages": 42,
+    "tool_calls": 41,
+    "session_started": "2026-11-27T15:01:39.244Z",
+    "session_ended": "2026-11-27T15:03:43.339Z",
+    "cli_result_excerpt": null
+  }
+}

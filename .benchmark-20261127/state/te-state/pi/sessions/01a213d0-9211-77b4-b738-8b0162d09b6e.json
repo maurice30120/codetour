@@ -1,0 +1,56 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/codetour",
+  "end_reason": "quit",
+  "ended": 1795629029.918528,
+  "files_read": [
+    "codetour/src/cli/createTour.ts",
+    "codetour/packages/tour-generation/src/creation.ts",
+    "codetour/packages/tour-generation/src/context.ts",
+    "codetour/packages/tour-generation/src/proposal-validation.ts",
+    "codetour/packages/tour-generation/src/persistence.ts",
+    "codetour/packages/tour-generation/src/validation.ts"
+  ],
+  "folded": true,
+  "host": "pi",
+  "injected_chars": 764,
+  "injected_ids": [],
+  "injected_text": "# repo operating manual (codetour) \u2014 learned from earlier sessions in this repository\n- The CodeTour CLI in this repo is run as `node dist/cli.js <subcommand>` (subcommands include `create-project-tour` and `create-changes-tour`); `dist/` is compiled TypeScript output, so it reflects the last build rather than the current sources.\n- This repo's Node toolchain comes from nvm: commands are run with the absolute binary `~/.nvm/versions/node/v24.18.0/bin/node` (Node v24.18.0).\n- Tour creation via `node dist/cli.js create-project-tour|create-changes-tour --workspace <dir> --proposal <file|->` reports rejected proposals as `CodeTour: creation refused (INVALID_PROPOSAL)` with exit code 1 (exit 2 for usage/IO failures), and no Tour file is written in that case.\n",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a213d0-9211-77b4-b738-8b0162d09b6e",
+  "source": "startup",
+  "start_event": [
+    "startup",
+    null
+  ],
+  "started": 1795628766.853153,
+  "transcript": "/private/tmp/codetour-campagne-pi/2026-11-25T17-46-05-713Z_01a213d0-9211-77b4-b738-8b0162d09b6e.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 1,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 33,
+      "turn_key": "01a213d0-9211-77b4-b738-8b0162d09b6e:1",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    },
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "01a213d0-9211-77b4-b738-8b0162d09b6e:2",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795629029.918529,
+  "writer_tokens": 0.0
+}

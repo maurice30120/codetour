@@ -1,0 +1,67 @@
+{
+  "captures": [
+    {
+      "lines": 80,
+      "offset": 1,
+      "path": "codetour/src/store/tourSchema.ts",
+      "sha256": "c830368efa0241d0dab8d19b897e5e6145b409594079f534839fe1c974ff6945",
+      "tool_use_id": "chatcmpl-tool-b0617602b930c801"
+    },
+    {
+      "lines": 17,
+      "offset": 78,
+      "path": "codetour/src/store/tourSchema.ts",
+      "sha256": "c830368efa0241d0dab8d19b897e5e6145b409594079f534839fe1c974ff6945",
+      "tool_use_id": "chatcmpl-tool-abd5087688faef31"
+    },
+    {
+      "lines": 73,
+      "offset": 1,
+      "path": "codetour/src/store/storage.ts",
+      "sha256": "ea0ab1ab41babd8c0b2cef456eac62eb0e9697f70d84fa76c695606f0ba45f38",
+      "tool_use_id": "chatcmpl-tool-b21800e24a786c4b"
+    },
+    {
+      "lines": 71,
+      "offset": 1,
+      "path": "codetour/src/store/index.ts",
+      "sha256": "5e4363bced6fe2fd5358bf1c1448f324cbdd9c456ea280c8213809ac997ebc24",
+      "tool_use_id": "chatcmpl-tool-975cce2460784734"
+    },
+    {
+      "lines": 76,
+      "offset": 1,
+      "path": "codetour/src/core/tourDiscovery.ts",
+      "sha256": "38af746ea60d4f81b240e96bc9f4904293c16d104b47997bf0959af79a4c96b3",
+      "tool_use_id": "chatcmpl-tool-90353b8b9e662db9"
+    },
+    {
+      "lines": 56,
+      "offset": 95,
+      "path": "codetour/src/extension.ts",
+      "sha256": "4052e8c9746777ee7059e407decdc4e50e01737da725b93bd5955fbee3e93681",
+      "tool_use_id": "chatcmpl-tool-9e559f307690f798"
+    },
+    {
+      "lines": 130,
+      "offset": 41,
+      "path": "codetour/src/store/actions.ts",
+      "sha256": "8a00540b11561613e570ce174479d8f8708ab944b9c7923871bf28886eb2a352",
+      "tool_use_id": "chatcmpl-tool-8f9540f61afb162e"
+    },
+    {
+      "lines": 50,
+      "offset": 171,
+      "path": "codetour/src/store/actions.ts",
+      "sha256": "8a00540b11561613e570ce174479d8f8708ab944b9c7923871bf28886eb2a352",
+      "tool_use_id": "chatcmpl-tool-b17fcb99bcbdfd7d"
+    },
+    {
+      "lines": 20,
+      "offset": 620,
+      "path": "codetour/src/player/index.ts",
+      "sha256": "07ac007b49a3508ff0e489c0d0a55c790b14a6675540358bd8c74523cf444134",
+      "tool_use_id": "chatcmpl-tool-b24297a26981e136"
+    }
+  ]
+}

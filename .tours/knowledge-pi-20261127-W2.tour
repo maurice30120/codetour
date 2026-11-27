@@ -1,0 +1,59 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Journal des créations : de l'écriture du Tour à la réponse Pi",
+  "description": "Comment CodeTour enregistre une création de Tour et la rattache à la bonne réponse Pi : la CLI écrit un enregistrement indépendant après validation, et l'extension Pi relit ce journal au moment où la réponse se stabilise.",
+  "steps": [
+    {
+      "title": "Vue d'ensemble",
+      "description": "CodeTour sépare strictement deux moments : **la création** (la CLI valide une proposition JSON, écrit le `.tour` de façon atomique, puis dépose un enregistrement dans le journal) et **le rattachement** (l'extension Pi relit ce journal quand la réponse se termine et décide quelles créations appartiennent à cette réponse).\n\nLe journal est un répertoire de fichiers indépendants, `<workspace>/.tours/.log/creations/`, jamais un document partagé : deux créations concurrentes ne se disputent pas un même fichier, et une panne du journal ne fait jamais échouer une création.\n\n**Diagram — Flux d'une création attribuée**\n\n```mermaid\nflowchart LR\n  Skill[\"Skill codetour-generate\"] --> CLI[\"CLI create-project-tour\"]\n  CLI --> Core[\"creation.ts : validation et écriture\"]\n  Core --> Record[\"journal.ts : recordCreation\"]\n  Record --> Files[\"records .json\"]\n  Files --> Hook[\"Extension Pi : agent_settled\"]\n  Hook --> Select[\"selectCreated\"]\n  Select --> Report[\"Ligne de rapport + dialogue\"]\n```",
+      "questions": [
+        "Pourquoi le journal est-il un répertoire plutôt qu'un fichier unique ?",
+        "Que se passe-t-il si l'écriture du journal échoue ?"
+      ]
+    },
+    {
+      "title": "Le cœur sans transport",
+      "description": "`creation.ts` porte toutes les règles, indépendamment de la ligne de commande : validation de la proposition, règles Git, images, Mermaid, confinement au workspace, écriture atomique. Ce module ne lit ni flux ni arguments, ce qui permet à la CLI et au serveur MCP de partager exactement les mêmes règles.\n\n`createTour` est le point d'entrée unique des deux sortes de Tours ; il rend un résultat sous forme de valeur, jamais par exception.",
+      "file": "codetour/packages/tour-generation/src/creation.ts",
+      "pattern": "async function createTour\\(kind: TourKind, options: CreateTourOptions\\)"
+    },
+    {
+      "title": "Le journal n'est écrit qu'après le Tour",
+      "description": "Une fois le Tour réellement écrit, `createTour` compose l'objet `CreatedTour` puis appelle `recordCreation`. Deux propriétés en découlent :\n\n- un enregistrement ne peut jamais décrire un Tour inexistant ;\n- le journal reste de l'**observabilité** : un enregistrement impossible à écrire est un diagnostic, pas un échec de création.\n\nLe commentaire de ce bloc énonce explicitement ce contrat.",
+      "file": "codetour/packages/tour-generation/src/creation.ts",
+      "pattern": "await recordCreation\\("
+    },
+    {
+      "title": "La forme d'un enregistrement et l'identité observée",
+      "description": "`CreationRecord` fige la version, le workspace canonique, le chemin et le titre du Tour, la sorte, l'horodatage ISO et trois champs d'identité : `sessionId`, `responseId`, `host`.\n\n`creationIdentity` ne lit que l'environnement du processus créateur et préfère `PI_SESSION_ID` (le shell de Pi l'exporte) pour en déduire simultanément la session et l'hôte `pi`. Une valeur non observable reste `null`, jamais devinée : c'est ce qui empêche d'attribuer une création à la mauvaise session. Pi n'expose pas d'identité de réponse, donc `responseId` reste `null` et le bornage se fait par la fenêtre temporelle.",
+      "questions": [
+        "Pourquoi l'absence de `PI_SESSION_ID` conduit-elle à ne rien attribuer ?",
+        "Que devient `responseId` pour un hôte qui ne fournit pas d'identité de réponse ?"
+      ],
+      "file": "codetour/packages/tour-generation/src/journal.ts",
+      "pattern": "export function creationIdentity\\("
+    },
+    {
+      "title": "Écriture atomique et unicité sous concurrence",
+      "description": "Le nom du fichier combine millisecondes, PID et 4 octets aléatoires : trié par le temps, unique même pour des créations concurrentes d'un même processus. L'écriture passe par un fichier temporaire préfixé d'un point, puis un `rename` : un lecteur ne voit jamais un enregistrement partiel, et un `.tmp` résiduel est ignoré par la lecture.",
+      "file": "codetour/packages/tour-generation/src/journal.ts",
+      "pattern": "await fs\\.rename\\(temporary, target\\);"
+    },
+    {
+      "title": "Le hook Pi lit le journal",
+      "description": "L'extension Pi branché sur `agent_settled` — la frontière finale de Pi, émise aussi en mode impression, qui ne peut pas demander de continuation — relit le journal avec `readCreations`, puis attribue avec `selectCreated`. Elle rend ensuite une ligne par Tour via `summaryLines` et propose le lecteur.\n\nLe tout est enveloppé dans un `try` : une lecture en échec n'est jamais un échec de réponse ni un Tour à annoncer.",
+      "file": "codetour/packages/pi-plugin/extensions/codetour.ts",
+      "pattern": "pi\\.on\\(\"agent_settled\", async \\(event, ctx\\) => \\{"
+    },
+    {
+      "title": "Les trois conditions du rattachement",
+      "description": "`selectCreated` n'attribue une création que si les trois conditions tiennent ensemble :\n\n1. **même workspace** — comparaison par forme canonique (`sameWorkspace`, realpath natif, séparateur final retiré), pour que la CLI et le hook nomment le même répertoire ;\n2. **même identité de session** — un enregistrement sans `sessionId`, ou d'une autre session, n'est jamais attribué ; c'est ce qui protège des sous-agents ;\n3. **dans la fenêtre de réponse** — `at` compris entre l'instant `agent_start` et maintenant.\n\nUn enregistrement de version inconnue, tronqué ou expiré (au-delà de 24 h) est écarté silencieusement. Les résultats sont dédoublonnés par `tourPath|at` et rendus du plus ancien au plus récent, dans l'ordre où la réponse a créé les Tours.",
+      "questions": [
+        "Pourquoi la comparaison du workspace doit-elle être canonique ?",
+        "Comment la fenêtre temporelle remplace-t-elle l'identité de réponse absente ?"
+      ],
+      "file": "codetour/packages/pi-plugin/lib/journal.mjs",
+      "pattern": "export function selectCreated\\(records, \\{"
+    }
+  ]
+}

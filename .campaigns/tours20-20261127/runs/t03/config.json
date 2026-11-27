@@ -1,0 +1,43 @@
+{
+ "run": "t03",
+ "variant": "v3",
+ "variant_settings": {
+  "knowledge": "on",
+  "microskills": "off",
+  "knowledge_injection": "both",
+  "seed": true
+ },
+ "home": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/tours20-20261127/homes/v3",
+ "home_created": false,
+ "set": {
+  "argv": [
+   "te",
+   "--cwd",
+   "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+   "config",
+   "set",
+   "knowledge=on",
+   "microskills=off",
+   "knowledge_injection=both",
+   "toolprune=off",
+   "loopguard=off",
+   "repomap=off",
+   "history_import=off"
+  ],
+  "exit_code": 0,
+  "out": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/tours20-20261127/homes/v3/repos/codetour-10c5c88374/config.json: {\"history_import\": false, \"knowledge\": true, \"knowledge_injection\": \"both\", \"loopguard\": \"off\", \"microskills\": \"off\", \"repomap\": \"off\", \"toolprune\": \"off\"}\napplies from the next hook call; a new fact-size cap applies once the next session has been folded\n",
+  "err": ""
+ },
+ "show": {
+  "argv": [
+   "te",
+   "--cwd",
+   "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+   "config",
+   "show"
+  ],
+  "exit_code": 0,
+  "out": "{\n  \"enabled\": true,\n  \"microskills\": {\n    \"state\": \"off\",\n    \"microskills\": \"off\",\n    \"microskills_max_facts\": 4,\n    \"microskills_max_tokens\": 150,\n    \"microskills_propose_every\": 3\n  },\n  \"toolprune\": {\n    \"state\": \"off\",\n    \"toolprune\": \"off\",\n    \"toolprune_evidence\": 10,\n    \"toolprune_min_sessions\": 2,\n    \"toolprune_sessions\": 5,\n    \"toolprune_quiet_minutes\": 60,\n    \"toolprune_protect\": []\n  },\n  \"loopguard\": {\n    \"state\": \"off\",\n    \"loopguard\": \"off\",\n    \"loopguard_aggr\": \"default\",\n    \"loopguard_nudges\": 1,\n    \"thresholds\": {\n      \"min_turns\": 20,\n      \"edit_churn\": 4,\n      \"distinct_edit_files\": 3,\n      \"error_outputs\": 6,\n      \"stagnation\": 0.2,\n      \"envelope_margin\": 1.25,\n      \"envelope_pct\": 90,\n      \"envelope_min_samples\": 5,\n      \"judge_confidence\": 0.7,\n      \"backstop_mult\": 2.5,\n      \"gate_min_turns\": 18,\n      \"gate_error_outputs\": 8\n    },\n    \"pinned\": []\n  },\n  \"history\": {\n    \"state\": \"off\",\n    \"history_import\": false,\n    \"history_max_sessions\": 200,\n    \"history_days\": 365,\n    \"history_dirs\": []\n  },\n  \"droid\": {\n    \"state\": \"off\",\n    \"droid_sidecall\": false\n  },\n  \"other\": {\n    \"knowledge\": true,\n    \"knowledge_injection\": \"both\",\n    \"knowledge_max_cards\": 4,\n    \"knowledge_max_tokens\": 300,\n    \"knowledge_startup_share\": 0.5,\n    \"mode\": \"auto\",\n    \"tool_roles\": [],\n    \"repomap\": \"off\",\n    \"repomap_tokens\": 2048,\n    \"repomap_python\": \"\",\n    \"repomap_timeout\": 8,\n    \"paid_model\": \"\",\n    \"claude_paid_model\": \"\",\n    \"codex_paid_model\": \"\",\n    \"copilot_paid_model\": \"\",\n    \"pi_paid_model\": \"\",\n    \"opencode_paid_model\": \"\",\n    \"cursor_paid_model\": \"\",\n    \"grok_paid_model\": \"\",\n    \"hermes_paid_model\": \"\",\n    \"droid_paid_model\": \"\",\n    \"claude_paid_effort\": \"\",\n    \"codex_paid_effort\": \"\",\n    \"local_model\": \"off\",\n    \"local_roles\": [\n      \"judge\"\n    ],\n    \"local_judge_confidence\": 0.9,\n    \"pi_extensions\": [],\n    \"pi_cli\": \"\",\n    \"hermes_cli\": \"\",\n    \"shadow\": false,\n    \"vocabulary\": \"auto\"\n  },\n  \"warnings\": []\n}\n",
+  "err": ""
+ }
+}

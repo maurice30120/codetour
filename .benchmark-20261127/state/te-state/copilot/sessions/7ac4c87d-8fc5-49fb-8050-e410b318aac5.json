@@ -1,0 +1,27 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "folded": true,
+  "host": "copilot",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "7ac4c87d-8fc5-49fb-8050-e410b318aac5",
+  "started": 1795527617.6571982,
+  "transcript": "/Users/dhuyet/.copilot/session-state/cc654014-5efd-47f9-84fd-6f40bc6515fe/events.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 0,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": false,
+      "tool_calls": 0,
+      "turn_key": "",
+      "verifications": 0,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795527645.052633,
+  "writer_tokens": 0.0
+}

@@ -1,0 +1,1 @@
+/codetour generate Crée un seul Project Tour en français de 4 à 6 étapes avec des ancres vérifiables dans le code local. Sujet : explique comment CodeTour charge et valide un Tour, puis enregistre sa progression. Nom du fichier : knowledge-pi-20261127-A-knowledge.tour.

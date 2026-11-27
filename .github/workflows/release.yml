@@ -17,6 +17,9 @@ permissions:
 
 jobs:
   Release:
+    defaults:
+      run:
+        working-directory: codetour
     # Standard hosted runners are free only while the repository is public.
     if: github.event.repository.private == false
     timeout-minutes: 30
@@ -33,7 +36,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version-file: .nvmrc
+          node-version-file: codetour/.nvmrc
       - name: Install pinned npm
         run: npm install --global npm@12.0.1
         working-directory: ${{ runner.temp }}
@@ -41,6 +44,9 @@ jobs:
         run: node --version && npm --version
       - run: npm ci
       - run: npm ci --prefix packages/description-renderer
+      # The symbol fingerprinter vendors its tree-sitter runtime and grammars
+      # from these dev dependencies: without them the packaged extension ships
+      # a Knowledge contract that fails closed on every symbol proof.
       - run: npm ci --prefix packages/mcp-server
       - name: Package platform VSIX
         run: npm run package

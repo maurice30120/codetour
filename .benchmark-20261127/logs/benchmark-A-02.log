@@ -1,0 +1,17 @@
+# benchmark-A-02 (run-06, group A)
+## stdout
+Visite créée : « Architecture et chemins d'exécution de CodeTour IA » dans `/private/tmp/codetour-bench-20261127/runs/run-06/.tours/benchmark-A-02.tour` (12 étapes, aucun avertissement).
+
+Pour la lire, depuis la racine du workspace :
+
+- `codetour "Architecture et chemins d'exécution de CodeTour IA"` (lecteur terminal)
+- `codetour --internal-open-vscode ".tours/benchmark-A-02.tour"` (VS Code)
+
+Sortie JSON de la commande CLI :
+
+```json
+{"ok":true,"kind":"project","tourPath":"/private/tmp/codetour-bench-20261127/runs/run-06/.tours/benchmark-A-02.tour","title":"Architecture et chemins d'exécution de CodeTour IA","stepCount":12,"warnings":[]}
+```
+
+## stderr
+

@@ -1,0 +1,45 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "end_reason": "quit",
+  "ended": 1795762422.913419,
+  "files_read": [
+    "codetour/packages/tour-generation/src/journal.ts",
+    "codetour/packages/pi-plugin/lib/journal.mjs",
+    "codetour/packages/tour-generation/src/creation.ts",
+    "codetour/packages/pi-plugin/extensions/codetour.ts"
+  ],
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "knowledge_given": [
+    "00bde8ea638146c783531fecbcf135aa",
+    "88cb15513f924f29bba87f7c62d6e159"
+  ],
+  "knowledge_startup": {
+    "cards": [
+      [
+        "00bde8ea638146c783531fecbcf135aa",
+        1
+      ],
+      [
+        "88cb15513f924f29bba87f7c62d6e159",
+        1
+      ]
+    ],
+    "tokens": 127
+  },
+  "knowledge_tokens": 127,
+  "nudges": 0,
+  "session_id": "01a21bc7-42b1-7041-8b5f-f6ba299b9a13",
+  "source": "startup",
+  "start_event": [
+    "startup",
+    null
+  ],
+  "started": 1795762373.524815,
+  "transcript": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.campaigns/knowledge-pi-20261127/sessions/2026-11-27T06-52-53-298Z_01a21bc7-42b1-7041-8b5f-f6ba299b9a13.jsonl",
+  "turns": [],
+  "updated": 1795762422.91342,
+  "writer_tokens": 0.0
+}

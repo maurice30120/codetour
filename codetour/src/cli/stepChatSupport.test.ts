@@ -1,0 +1,252 @@
+import { test } from "node:test";
+import * as assert from "node:assert/strict";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { commandExists, type AcpAgentProfile } from "../agent/agentCatalogue";
+import { createAcpStepChatResponder } from "../agent/stepChatAgent";
+import {
+  buildStepChatContext,
+  NO_AGENT_INSTALLED_MESSAGE,
+  openTerminalChat
+} from "./stepChatSupport";
+
+const fakeAgent = path.join(__dirname, "../agent/fakeAcpAgent.js");
+
+function profile(name: string, command: string): AcpAgentProfile {
+  return { name, entry: { command, cwd: process.cwd() } };
+}
+
+test("only the installed Agent Profiles reach the session's responder", async () => {
+  const profiles = [profile("Vibe", "vibe-acp"), profile("Copilot", "copilot")];
+  let disposed = 0;
+  let received: AcpAgentProfile[] = [];
+  const session = openTerminalChat(process.cwd(), {
+    profiles,
+    exists: command => command === "copilot",
+    createResponder: candidates => {
+      received = candidates;
+      return {
+        answer: () => "answer",
+        dispose: async () => {
+          disposed += 1;
+        }
+      };
+    }
+  });
+  // The missing profile never becomes a candidate of the failover policy.
+  assert.deepEqual(received.map(candidate => candidate.name), ["Copilot"]);
+  assert.equal(session.profile?.name, "Copilot");
+  assert.equal(await session.responder?.answer({
+    question: "q", context: { available: false, description: "" }, history: [],
+    workspaceRoot: process.cwd()
+  }), "answer");
+  await session.dispose();
+  assert.equal(disposed, 1);
+
+  const none = openTerminalChat(process.cwd(), {
+    profiles, exists: () => false
+  });
+  assert.equal(none.responder, undefined);
+  await none.dispose();
+});
+
+test("the session's responder failovers between the installed Agent Profiles by default", async () => {
+  // The default responder is the terminal's ordered failover, over the
+  // installed candidates in the catalogue's rank order.
+  const session = openTerminalChat(process.cwd(), {
+    profiles: [profile("Vibe", "vibe-acp")],
+    exists: () => true,
+    createResponder: undefined
+  });
+  assert.ok(session.responder);
+  assert.equal(session.profile?.name, "Vibe");
+  await session.dispose();
+});
+
+test("an explicit ACP command overrides the installed Agent Profiles", () => {
+  let received: AcpAgentProfile[] = [];
+  const session = openTerminalChat(process.cwd(), {
+    env: { CODETOUR_ACP_COMMAND: "/opt/agent", CODETOUR_ACP_ARGS: "--stdio --flag" },
+    exists: () => true,
+    createResponder: profiles => {
+      received = profiles;
+      return { answer: () => "ok" };
+    }
+  });
+  assert.deepEqual(received.map(candidate => candidate.entry.command), ["/opt/agent"]);
+  assert.equal(session.profile?.name, "custom");
+  assert.equal(session.profile?.entry.command, "/opt/agent");
+  assert.deepEqual(session.profile?.entry.args, ["--stdio", "--flag"]);
+});
+
+test("a command is found only when it is an executable on PATH", {
+  skip: process.platform === "win32"
+}, () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "codetour-path-"));
+  try {
+    const executable = path.join(directory, "codetour-agent");
+    writeFileSync(executable, "#!/bin/sh\nexit 0\n");
+    chmodSync(executable, 0o755);
+    assert.equal(commandExists("codetour-agent", { PATH: directory }), true);
+    assert.equal(commandExists("codetour-agent", { PATH: "/nonexistent" }), false);
+    assert.equal(commandExists(executable, { PATH: "" }), true);
+    assert.equal(commandExists("codetour-missing-agent", { PATH: directory }), false);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a question is grounded in the code or the two diff snapshots on screen", () => {
+  const code = buildStepChatContext(
+    { id: "t", title: "T", steps: [] },
+    { title: "Step", description: "Explains", file: "src/a.ts" },
+    { kind: "code", label: "src/a.ts", text: "const a = 1;" }
+  );
+  assert.deepEqual(code, {
+    available: true, path: "src/a.ts", code: "const a = 1;", description: "Explains"
+  });
+
+  const diff = buildStepChatContext(
+    { id: "t", title: "T", baseRef: "a".repeat(40), ref: "b".repeat(40), steps: [] },
+    { title: "Step", description: "Explains", file: "src/a.ts", display: "diff" },
+    { kind: "diff", label: "src/a.ts", text: "@@ -1 +1 @@" },
+    (ref, file) => ref[0] + ":" + file
+  );
+  assert.deepEqual(diff, {
+    available: true,
+    path: "src/a.ts",
+    diff: {
+      original: { path: "src/a.ts", ref: "a".repeat(40), code: "a:src/a.ts" },
+      modified: { path: "src/a.ts", ref: "b".repeat(40), code: "b:src/a.ts" }
+    },
+    description: "Explains"
+  });
+
+  const unavailable = buildStepChatContext(
+    { id: "t", title: "T", steps: [] },
+    { title: "Step", description: "Explains", directory: "src" },
+    { kind: "directory", label: "src" }
+  );
+  assert.deepEqual(unavailable,
+    { available: false, path: undefined, description: "Explains" });
+});
+
+test("a restored path answers through the real ACP responder", { timeout: 60_000 }, async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "codetour-cli-acp-"));
+  try {
+    const responder = createAcpStepChatResponder({
+      name: "Copilot",
+      entry: {
+        command: process.execPath,
+        args: [fakeAgent, path.join(directory, "agent.log")],
+        cwd: directory
+      }
+    });
+    const answer = await responder.answer({
+      question: "Why?",
+      context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+      history: [],
+      workspaceRoot: directory
+    });
+    assert.match(answer, /Tour answer/);
+    await responder.dispose();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("the no-agent explanation spells the catalogue in its rank order", () => {
+  // The terminal names the whole catalogue from the versioned constant, so a
+  // new profile appears there without a second list to maintain.
+  assert.equal(
+    NO_AGENT_INSTALLED_MESSAGE,
+    "No ACP agent is installed (Copilot, Vibe, Pi, Codex or Claude Code)."
+  );
+});
+
+/** The model option the fake agent announces, as the reader's picker lists it (ADR 0048). */
+const announcedModelOptions = {
+  optionId: "model",
+  value: "smart",
+  values: [
+    { value: "fast", name: "Fast" },
+    { value: "balanced", name: "Balanced" },
+    { value: "smart", name: "Smart" }
+  ]
+};
+
+test("the terminal's responder announces the models its agent offers and applies the choice", {
+  timeout: 60_000
+}, async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "codetour-cli-model-"));
+  try {
+    const session = openTerminalChat(directory, {
+      profiles: [{
+        name: "Copilot",
+        entry: {
+          command: process.execPath,
+          args: [fakeAgent, path.join(directory, "agent.log"), "model-option"],
+          cwd: directory
+        }
+      }],
+      exists: () => true
+    });
+    const responder = session.responder;
+    assert.ok(responder);
+    // No session yet: the agent announced nothing, and the picker must not
+    // invent a list before the handshake.
+    assert.equal(responder.model?.(), undefined);
+    await responder.answer({
+      question: "Which model?",
+      context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+      history: [],
+      workspaceRoot: directory
+    });
+    // The open session announced its model option, groups flattened: exactly
+    // the values ticket #266 lists in the terminal.
+    assert.deepEqual(responder.model?.(), announcedModelOptions);
+    // The reader's choice reaches the agent, and its confirmation is what the
+    // responder reports back.
+    await responder.selectModel?.("fast");
+    assert.equal(responder.model?.()?.value, "fast");
+    assert.deepEqual(responder.identity?.(), { agent: "Copilot", model: "fast", effective: true });
+    await session.dispose();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a refused model keeps the agent's own value on the terminal's responder", {
+  timeout: 60_000
+}, async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "codetour-cli-model-refused-"));
+  try {
+    const session = openTerminalChat(directory, {
+      profiles: [{
+        name: "Copilot",
+        entry: {
+          command: process.execPath,
+          args: [fakeAgent, path.join(directory, "agent.log"), "model-refused"],
+          cwd: directory
+        }
+      }],
+      exists: () => true
+    });
+    const responder = session.responder;
+    assert.ok(responder);
+    await responder.answer({
+      question: "Which model?",
+      context: { available: true, path: "a.ts", code: "const a = 1;", description: "Step" },
+      history: [],
+      workspaceRoot: directory
+    });
+    await responder.selectModel?.("fast");
+    // The agent kept its own model: the reader's readback sees no adoption,
+    // which is what turns a refusal into its visible warning.
+    assert.equal(responder.model?.()?.value, "smart");
+    await session.dispose();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

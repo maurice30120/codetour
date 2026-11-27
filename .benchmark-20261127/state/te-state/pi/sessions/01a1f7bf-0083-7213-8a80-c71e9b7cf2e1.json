@@ -1,0 +1,30 @@
+{
+  "aborts": 0,
+  "cwd": "/Users/dhuyet/Documents/POC/codetour-wt/spec232/t255-replace",
+  "end_reason": "quit",
+  "ended": 1795158925.2050738,
+  "folded": true,
+  "host": "pi",
+  "judge_tokens": 0.0,
+  "nudges": 0,
+  "session_id": "01a1f7bf-0083-7213-8a80-c71e9b7cf2e1",
+  "source": "startup",
+  "started": 1795157852.435354,
+  "transcript": "/Users/dhuyet/.pi/agent/sessions/--Users-dhuyet-Documents-POC-codetour-wt-knowledge-update--/2026-11-20T06-21-38-196Z_01a1f79e-2214-7012-b65d-6f4bac177acc/b7a9b6cc-34b9-4e7f-b144-947ce14b76ae/run-0/session.jsonl",
+  "turn": null,
+  "turns": [
+    {
+      "aborted": false,
+      "edits": 36,
+      "judge_tokens": 0.0,
+      "nudges": 0,
+      "resolved_proxy": true,
+      "tool_calls": 123,
+      "turn_key": "01a1f7bf-0083-7213-8a80-c71e9b7cf2e1:1",
+      "verifications": 6,
+      "writer_tokens": 0.0
+    }
+  ],
+  "updated": 1795158925.205075,
+  "writer_tokens": 0.0
+}

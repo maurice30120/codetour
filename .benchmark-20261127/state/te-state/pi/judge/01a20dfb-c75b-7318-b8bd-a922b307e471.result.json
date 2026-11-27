@@ -1,0 +1,10 @@
+{
+  "at": 1795531089.736756,
+  "id": "01a20dfb-c75b-7318-b8bd-a922b307e471:1:0:1:1795531087.016",
+  "verdict": {
+    "_tokens": 3333.0,
+    "confidence": 0.65,
+    "reason": "Trajectory is at 0.6x typical resolved length; workflow consists of varied read/grep exploration across many distinct files (no edit churn), with changing focus",
+    "stuck": false
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "seed": 20261127,
+  "rule": "12 sujets distincts, ordre fixe, un nouveau Project Tour par session ; Knowledge et micro-skills restent activés.",
+  "configuration": {
+    "knowledge": "on",
+    "microskills": "on",
+    "knowledge_injection": "both"
+  },
+  "runs": [
+    {
+      "id": "reuse-01",
+      "topic": "Extension : activation et assemblage des contributions",
+      "scope": ["src/extension.ts", "src/api.ts", "src/player/index.ts"],
+      "tour_title": "Démarrage de l’extension CodeTour"
+    },
+    {
+      "id": "reuse-02",
+      "topic": "Découverte des Tours et adaptation aux workspaces",
+      "scope": ["src/core/tourDiscovery.ts", "src/core/workspacePath.ts", "src/store/provider.ts"],
+      "tour_title": "Découverte des Tours dans les workspaces"
+    },
+    {
+      "id": "reuse-03",
+      "topic": "État du lecteur et cycle de lecture",
+      "scope": ["src/store/actions.ts", "src/store/index.ts", "src/player/tourWebview.ts", "src/player/commands.ts"],
+      "tour_title": "Du Tour sélectionné à sa lecture"
+    },
+    {
+      "id": "reuse-04",
+      "topic": "Enregistrement d’un Tour depuis l’éditeur",
+      "scope": ["src/recorder/index.ts", "src/recorder/commands.ts", "src/recorder/watcher.ts"],
+      "tour_title": "Enregistrer un Tour depuis VS Code"
+    },
+    {
+      "id": "reuse-05",
+      "topic": "Commandes CLI et routage des sous-commandes",
+      "scope": ["src/cli/index.ts", "src/cli/createTour.ts", "src/cli/tourResolution.ts"],
+      "tour_title": "La CLI CodeTour et ses commandes"
+    },
+    {
+      "id": "reuse-06",
+      "topic": "Validation et revalidation des Tours",
+      "scope": ["packages/tour-generation/src/validation.ts", "packages/tour-generation/src/revalidation.ts", "src/cli/internalValidateTour.ts"],
+      "tour_title": "Valider et revalider un fichier Tour"
+    },
+    {
+      "id": "reuse-07",
+      "topic": "Création et persistance atomique",
+      "scope": ["packages/tour-generation/src/creation.ts", "packages/tour-generation/src/persistence.ts", "packages/tour-generation/src/context.ts"],
+      "tour_title": "De la proposition à l’écriture du Tour"
+    },
+    {
+      "id": "reuse-08",
+      "topic": "Journal de création et intégration à la génération",
+      "scope": ["packages/tour-generation/src/journal.ts", "packages/tour-generation/src/types.ts", "packages/tour-generation/src/index.ts"],
+      "tour_title": "Le contrat du paquet de génération"
+    },
+    {
+      "id": "reuse-09",
+      "topic": "Intégrations d’agents : détection et installation",
+      "scope": ["src/cli/agentIntegrations.ts", "src/cli/agentMigration.ts", "src/cli/agentSelection.ts"],
+      "tour_title": "Gérer les intégrations d’agents"
+    },
+    {
+      "id": "reuse-10",
+      "topic": "Agent ACP et conversations de step chat",
+      "scope": ["src/agent/acpAgentProcess.ts", "src/agent/acpSession.ts", "src/agent/stepChatAgent.ts", "src/cli/stepChatSupport.ts"],
+      "tour_title": "Le chemin d’exécution du step chat"
+    },
+    {
+      "id": "reuse-11",
+      "topic": "Rendu des descriptions et traitement des images",
+      "scope": ["packages/description-renderer/src/render.ts", "packages/description-renderer/src/images.ts", "packages/description-renderer/src/sanitize.ts", "packages/tour-generation/src/image-validation.ts"],
+      "tour_title": "Rendre les descriptions de Tour en sécurité"
+    },
+    {
+      "id": "reuse-12",
+      "topic": "Notebook et collaboration Live Share",
+      "scope": ["src/notebook/index.ts", "src/liveShare/index.ts", "src/liveShare/service.ts", "src/liveShare/hostService.ts", "src/liveShare/guestService.ts"],
+      "tour_title": "Notebook et partage collaboratif"
+    }
+  ],
+  "prompt_template": "Crée un Project Tour distinct en français sur le sujet « {{topic}} », centré sur {{scope}}. Explique les responsabilités et le chemin d’exécution de ce sujet pour un développeur qui découvre le dépôt. Vérifie chaque affirmation dans le code actuel, choisis des ancres valides et ne modifie aucun fichier source. N’utilise pas d’anciens Tours comme source. Enregistre le Tour sous le nom {{id}}.tour et termine en recopiant la sortie JSON de la CLI."
+}

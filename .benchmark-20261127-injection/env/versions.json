@@ -1,0 +1,21 @@
+{
+  "recorded_at": "2026-11-27T15:15:30+0100",
+  "workspace": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser",
+  "git_commit": "c248a4abdb4a234b635b5249ebe9c3ed9213bc8a",
+  "git_branch": "spec-341-integration",
+  "git_dirty_worktree": true,
+  "codetour_package_version": "0.1.2",
+  "codetour_cli_path": "/Users/dhuyet/.nvm/versions/node/v24.18.0/bin/codetour",
+  "tokeneconomizer_commit": "6c89c546efc31ddf13214f18ac941087f7c729bd",
+  "tokeneconomizer_version": "0.1.0",
+  "te_cli": "te (TokenEconomizer CLI)",
+  "pi_version": "1.6.1",
+  "node_version": "v24.18.0",
+  "model": "mistral/deepseek-v4-1-flash-1017:high",
+  "thinking": "high",
+  "agent": "pi -p (new session per run)",
+  "code_under_study": "git worktree of the recorded commit (detached HEAD)",
+  "base_benchmark": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.benchmark-20261127",
+  "experiment": "knowledge_injection point: startup vs tools vs both (sub-variants of group C: knowledge=on, microskills=off)",
+  "snapshot_source": "/Users/dhuyet/Documents/POC/CodeTOUR+Economiser/.benchmark-20261127/state/te-state"
+}
