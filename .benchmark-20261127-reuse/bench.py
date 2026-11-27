@@ -68,10 +68,10 @@ def command_env():
     return env
 
 
-def source_manifest():
+def file_manifest(root):
     entries = []
-    for path in sorted(SOURCE.rglob("*")):
-        relative = path.relative_to(SOURCE)
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root)
         if (
             any(part in IGNORED_SOURCE for part in relative.parts)
             or any(
@@ -89,6 +89,10 @@ def source_manifest():
             }
         )
     return entries
+
+
+def source_manifest():
+    return file_manifest(SOURCE)
 
 
 def learning_state_manifest():
@@ -152,6 +156,9 @@ def setup():
             "parent_status": git_value("status", "--short"),
             "tokeneconomizer_commit": git_value(
                 "rev-parse", "HEAD", cwd=ROOT / "TokenEconomizer"
+            ),
+            "tokeneconomizer_status": git_value(
+                "status", "--short", cwd=ROOT / "TokenEconomizer"
             ),
             "source": "copy of the current codetour/ working tree",
             "source_file_count": len(source_files),
@@ -300,15 +307,20 @@ def wait_for_fold(session_id, timeout=180):
 def make_prompt(task):
     skill = Path.home() / ".pi" / "agent" / "packages" / "codetour-plugin" / "skills" / "codetour-generate" / "SKILL.md"
     scope = ", ".join(f"`{path}`" for path in task["scope"])
+    prompt = read_json(TASKS_PATH)["prompt_template"]
+    prompt = (
+        prompt.replace("{{topic}}", task["topic"])
+        .replace("{{scope}}", scope)
+        .replace("{{id}}", task["id"])
+    )
     return f"""Lis entièrement la compétence `{skill}`, puis le module de référence qu'elle désigne pour la voie Project Tour, et applique-les exactement.
 
-Crée un Project Tour en français sur « {task['topic']} », pour un développeur qui découvre le dépôt. Concentre le Tour sur : {scope}. Explique les responsabilités et le chemin d'exécution ; vérifie les affirmations et les ancres dans le code.
+{prompt}
 
 Paramètres :
 - workspace : la racine du répertoire courant ;
 - `type=project` ;
 - le titre du Tour peut être « {task['tour_title']} » ;
-- dans la proposition JSON, `fileName` vaut `{task['id']}.tour` ;
 - ne modifie aucun fichier source, ne lance ni build, ni test, ni installation, et n'ouvre aucun ancien fichier `.tour` ;
 - crée le Tour avec la commande CLI de la compétence, depuis la racine du workspace.
 
@@ -345,6 +357,7 @@ def run_task(task_id):
     prior_runs(tasks, task_id)
 
     env = command_env()
+    before_manifest = file_manifest(WORKSPACE)
     configured = run_command(
         [
             TE,
@@ -424,7 +437,11 @@ def run_task(task_id):
 
     status = (
         "success"
-        if exit_code == 0 and not timed_out and created and fold_recorded
+        if exit_code == 0
+        and not timed_out
+        and created
+        and fold_recorded
+        and source_unchanged
         else "incomplete"
     )
     state_manifest = learning_state_manifest() if fold_recorded else []
@@ -448,6 +465,7 @@ def run_task(task_id):
         "session_file": str(archived_session) if archived_session else None,
         "session_id": session_id,
         "fold_recorded": fold_recorded,
+        "source_unchanged": source_unchanged,
         "learning_state_manifest_sha256": hashlib.sha256(
             json.dumps(state_manifest, sort_keys=True).encode("utf-8")
         ).hexdigest(),
@@ -467,6 +485,7 @@ def run_task(task_id):
     generated_tours = WORKSPACE / ".tours"
     if generated_tours.exists():
         shutil.rmtree(generated_tours)
+    source_unchanged = before_manifest == file_manifest(WORKSPACE)
 
     print(
         json.dumps(
@@ -478,6 +497,7 @@ def run_task(task_id):
                 "total_tokens": metrics.get("total_tokens"),
                 "cost_usd": metrics.get("cost_usd"),
                 "injection_count": len(injections),
+                "source_unchanged": source_unchanged,
             },
             ensure_ascii=False,
         )

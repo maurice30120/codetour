@@ -80,5 +80,5 @@
       "tour_title": "Notebook et partage collaboratif"
     }
   ],
-  "prompt_template": "Crée un Project Tour distinct en français sur le sujet « {{topic}} », centré sur {{scope}}. Explique les responsabilités et le chemin d’exécution de ce sujet pour un développeur qui découvre le dépôt. Vérifie chaque affirmation dans le code actuel, choisis des ancres valides et ne modifie aucun fichier source. N’utilise pas d’anciens Tours comme source. Enregistre le Tour sous le nom {{id}}.tour et termine en recopiant la sortie JSON de la CLI."
+  "prompt_template": "Crée un Project Tour distinct en français sur le sujet « {{topic}} », centré sur {{scope}}. Explique les responsabilités et le chemin d’exécution de ce sujet pour un développeur qui découvre le dépôt. Vérifie chaque affirmation dans le code actuel et choisis des ancres valides. N’utilise pas d’anciens Tours comme source. Dans la proposition JSON, `fileName` vaut `{{id}}.tour`."
 }

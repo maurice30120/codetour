@@ -141,6 +141,7 @@ transfert à un autre dépôt ou domaine.
 tasks.json              sujets et ordre figés
 env/versions.json       code, outils, modèle et configuration
 state/te-home/          home TokenEconomizer isolé et persistant
+state/checkpoints/      empreintes de l'état TE après chaque fold
 /private/tmp/.../       copie unique du code actuel
 runs/                   métriques et statut par tâche
 logs/                   stdout/stderr par tâche
